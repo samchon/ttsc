@@ -3,19 +3,19 @@ import { type Interface, createInterface } from "node:readline";
 
 import { E2ETrace } from "../../internal/E2ETrace";
 import type { ResidentReplyKind } from "./ResidentReplyKind";
-import { ResidentTransformRequests } from "./ResidentTransformRequests";
 import type { ResidentTransformProcessOptions } from "./ResidentTransformProcessOptions";
 import type { ResidentTransformRequestOptions } from "./ResidentTransformRequestOptions";
+import { ResidentTransformRequests } from "./ResidentTransformRequests";
 
 /**
  * Async client for the long-lived `utility-host serve` process.
  *
  * The serve host answers newline-delimited requests within one process; its
  * producer owns project loading, transformed text and update semantics. This
- * class speaks that protocol: each {@link request} writes one JSON line and the host
- * replies with one line, matched FIFO. A transform request (`{"file":...}`) is
- * answered with `{"typescript":...,"found":...}`, and an update request
- * (`{"update":...,"content":...}`) with `{"updated":...}`.
+ * class speaks that protocol: each {@link request} writes one JSON line and the
+ * host replies with one line, matched FIFO. A transform request
+ * (`{"file":...}`) is answered with `{"typescript":...,"found":...}`, and an
+ * update request (`{"update":...,"content":...}`) with `{"updated":...}`.
  *
  * One resident process answers every request from one service instead of
  * spawning a fresh `transform` subprocess per call. Client construction does
@@ -44,7 +44,12 @@ export class ResidentTransformProcess {
     // line protocol needs; spelling it out as a string[] would not narrow to
     // StdioOptions, so it is left implicit.
     const nativeArgs = [...options.args];
-    const trace = E2ETrace.begin(options.binary, nativeArgs, options, "resident-transform");
+    const trace = E2ETrace.begin(
+      options.binary,
+      nativeArgs,
+      options,
+      "resident-transform",
+    );
     this.child = spawn(options.binary, nativeArgs, {
       cwd: options.cwd,
       env: options.env,

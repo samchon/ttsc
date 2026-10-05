@@ -1,11 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
-
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
 import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
 import { recordCacheFileUse } from "../../../../../packages/ttsc/src/plugin/internal/source/recordCacheFileUse";
-
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the single-file cache parts of the cache root are collected by the

@@ -1,7 +1,10 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, TsPrinter } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
+import factory, {
+  type Expression,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { str } from "../../internal/helpers";
 import { printLegacy, structure } from "../../internal/oracle";
 

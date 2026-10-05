@@ -17,13 +17,13 @@ import { make } from "../internal/make";
  * hello world
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The textual content.
+ * @returns The created {@link JSDocText}.
  * @evidence contracts/common.md#principled-implementation The string is stored directly under the text kind so the printer can preserve literal comment content, without implying parsing or escaping.
  * @evidence contracts/common.md#clear-and-simple-design One payload assignment constructs the fragment; enclosing layout and inline references remain outside this text adapter.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Arbitrary content is preserved rather than replaced with expected prose or passed through a patched foreign comment processor.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains verbatim content, spacing and delimiter responsibility with an example; paragraph and tag separation follows the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The textual content.
- * @returns The created {@link JSDocText}.
  */
 export const createJSDocText = (text: string): JSDocText =>
   make("JSDocText", {

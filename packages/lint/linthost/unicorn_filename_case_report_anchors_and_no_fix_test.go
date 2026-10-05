@@ -1,9 +1,9 @@
 package linthost
 
 import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   "strings"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestUnicornFilenameCaseReportAnchorsAndNoFix verifies where the file-level

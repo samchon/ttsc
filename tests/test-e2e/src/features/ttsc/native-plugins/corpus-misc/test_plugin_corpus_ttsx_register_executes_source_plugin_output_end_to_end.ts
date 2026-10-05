@@ -36,40 +36,43 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Keeps original exit and exact uppercase-line output assertions, the outside-include input and real Mocha preload; these observations do not certify historical helper removal or every synthetic-file/rootDir detail. Any portable configuration meaning and actual boundary survival remain separate obligations before donor removal.
  */
 export function test_plugin_corpus_ttsx_register_executes_source_plugin_output_end_to_end(): void {
-    const root = copyProject("go-source-plugin");
-    fs.writeFileSync(path.join(root, "plugin.cjs"), `module.exports = () => ({ name: "go-source-plugin", capabilities: { emitProvenance: true }, source: ${JSON.stringify(nativePluginSource("runtime-source"))} });\n`);
-    linkTtscPackage(root);
-    const testDir = path.join(root, "test");
-    fs.mkdirSync(testDir);
-    fs.writeFileSync(
-      path.join(testDir, "main.ts"),
-      [
-        `export const value: string = goUpper("plugin");`,
-        `console.log(value);`,
-        "",
-      ].join("\n"),
-      "utf8",
-    );
-    const result = spawn(
-      process.execPath,
-      [
-        MOCHA_BIN,
-        "--require",
-        TTSX_REGISTER,
-        "--extension",
-        "ts",
-        "test/main.ts",
-      ],
-      {
-        cwd: root,
-        env: {
-          PATH: goPath(),
-          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-        },
+  const root = copyProject("go-source-plugin");
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    `module.exports = () => ({ name: "go-source-plugin", capabilities: { emitProvenance: true }, source: ${JSON.stringify(nativePluginSource("runtime-source"))} });\n`,
+  );
+  linkTtscPackage(root);
+  const testDir = path.join(root, "test");
+  fs.mkdirSync(testDir);
+  fs.writeFileSync(
+    path.join(testDir, "main.ts"),
+    [
+      `export const value: string = goUpper("plugin");`,
+      `console.log(value);`,
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  const result = spawn(
+    process.execPath,
+    [
+      MOCHA_BIN,
+      "--require",
+      TTSX_REGISTER,
+      "--extension",
+      "ts",
+      "test/main.ts",
+    ],
+    {
+      cwd: root,
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
-    );
-    assert.ifError(result.error);
-    assert.equal(result.signal, null);
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /^PLUGIN$/m);
+    },
+  );
+  assert.ifError(result.error);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^PLUGIN$/m);
 }

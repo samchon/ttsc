@@ -8,7 +8,6 @@
  * terminal output.
  *
  * @author Jeongho Nam - https://github.com/samchon
- *
  * @evidence contracts/common.md#principled-implementation Nullable file identity distinguishes global findings from located findings; numeric or plugin string codes and optional coordinates preserve producer information without inventing locations.
  * @evidence contracts/common.md#clear-and-simple-design A flat diagnostic record exposes severity, identity, location and text without coupling JavaScript consumers to the native compiler's internal message-chain objects.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Category names are the supported diagnostic vocabulary; plugin identifiers remain data rather than host-side special cases for known plugins.

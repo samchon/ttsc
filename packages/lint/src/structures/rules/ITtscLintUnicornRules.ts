@@ -78,8 +78,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/consistent-destructuring"?: TtscLintRuleSetting;
 
   /**
-   * Report ternary spreads inside array literals when exactly one branch is
-   * an array literal. The check does not infer either branch's array type.
+   * Report ternary spreads inside array literals when exactly one branch is an
+   * array literal. The check does not infer either branch's array type.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/consistent-empty-array-spread.md
    */
@@ -322,9 +322,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-immediate-mutation"?: TtscLintRuleSetting;
 
   /**
-   * Reject `instanceof` against recognized bare built-in names such as
-   * `Array`, `Error` and `Map`. The native name policy does not resolve a
-   * constructor's identity or certify cross-realm behavior.
+   * Reject `instanceof` against recognized bare built-in names such as `Array`,
+   * `Error` and `Map`. The native name policy does not resolve a constructor's
+   * identity or certify cross-realm behavior.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-instanceof-builtins.md
    */
@@ -371,7 +371,8 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Reject named import specifiers written `default as Name`; prefer a default
-   * import. Re-export declarations and upstream binding names are not resolved.
+   * import. Re-export declarations and upstream binding names are not
+   * resolved.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-named-default.md
    */
@@ -487,8 +488,8 @@ export interface ITtscLintUnicornRules {
    * Reject `.length` / `Infinity` as the deleteCount argument to `splice` /
    * `toSpliced`; omit it to delete to the end.
    *
-   * Only exactly two arguments are considered, and a length must belong to
-   * the same structural receiver. Calls with insertion arguments are retained.
+   * Only exactly two arguments are considered, and a length must belong to the
+   * same structural receiver. Calls with insertion arguments are retained.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-array-splice-count.md
    */
@@ -549,8 +550,8 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Reject a single null, undefined or empty array initializer argument on
-   * source-named Set/Map/WeakSet/WeakMap constructors. Zero-argument construction
-   * is already accepted.
+   * source-named Set/Map/WeakSet/WeakMap constructors. Zero-argument
+   * construction is already accepted.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-collection-argument.md
    */
@@ -558,17 +559,17 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Recommend omitting repeated this-target stack capture. A supplied filter
-   * must name the surrounding constructor or new.target; external frame
-   * filters are retained. The AST matcher does not prove inheritance.
+   * must name the surrounding constructor or new.target; external frame filters
+   * are retained. The AST matcher does not prove inheritance.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-error-capture-stack-trace.md
    */
   "unicorn/no-useless-error-capture-stack-trace"?: TtscLintRuleSetting;
 
   /**
-   * Reject `...(x ?? {})` and similar fallbacks in object spread, where
-   * `null` / `undefined` contributes no properties. Array and argument spread
-   * require iterables and retain their fallbacks.
+   * Reject `...(x ?? {})` and similar fallbacks in object spread, where `null`
+   * / `undefined` contributes no properties. Array and argument spread require
+   * iterables and retain their fallbacks.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-fallback-in-spread.md
    */
@@ -603,10 +604,10 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-useless-promise-resolve-reject"?: TtscLintRuleSetting;
 
   /**
-   * Reject a single spread of a literal inside another literal of the same
-   * kind (`[...[1, 2]]`, `{...{ a: 1 }}`). Spreads of variables such as
-   * `[...arr]` or `{...obj}` are not inspected; this AST-only rule offers no
-   * automatic edit.
+   * Reject a single spread of a literal inside another literal of the same kind
+   * (`[...[1, 2]]`, `{...{ a: 1 }}`). Spreads of variables such as `[...arr]`
+   * or `{...obj}` are not inspected; this AST-only rule offers no automatic
+   * edit.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-spread.md
    */
@@ -621,8 +622,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-useless-switch-case"?: TtscLintRuleSetting;
 
   /**
-   * Report explicit `return undefined` and `return void 0` statements.
-   * Default initializers and call arguments are not checked by this rule.
+   * Report explicit `return undefined` and `return void 0` statements. Default
+   * initializers and call arguments are not checked by this rule.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-undefined.md
    */
@@ -760,7 +761,8 @@ export interface ITtscLintUnicornRules {
   /**
    * Prefer default parameter syntax over `x = x ?? default` reassignments
    * inside the function body. The reported nullish assignment also handles
-   * null, while a parameter default handles only undefined. No edit is supplied.
+   * null, while a parameter default handles only undefined. No edit is
+   * supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-default-parameters.md
    */
@@ -797,8 +799,8 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Report `new EventEmitter(...)` by its bare source name and suggest
-   * considering EventTarget. The check does not determine deployment targets
-   * or prove that the two event APIs are interchangeable.
+   * considering EventTarget. The check does not determine deployment targets or
+   * prove that the two event APIs are interchangeable.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-event-target.md
    */
@@ -853,8 +855,8 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Suggest logical operators for `a ? a : b` shapes. This textual baseline
-   * does not prove stable reads: a logical operator evaluates a once, while
-   * the ternary can evaluate it twice. Authors choose truthiness or nullish
+   * does not prove stable reads: a logical operator evaluates a once, while the
+   * ternary can evaluate it twice. Authors choose truthiness or nullish
    * behavior; no edit is supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-logical-operator-over-ternary.md
@@ -912,9 +914,10 @@ export interface ITtscLintUnicornRules {
    * `arr.length - 1` / `arr.length - 2` arithmetic.
    *
    * The length must belong to the same structural receiver. Only first index
-   * arguments of slice/splice/toSpliced/at are considered, excluding lastIndexOf
-   * search values. For offsets larger than length, authors must check their
-   * intended bounds because the two spellings can select different positions.
+   * arguments of slice/splice/toSpliced/at are considered, excluding
+   * lastIndexOf search values. For offsets larger than length, authors must
+   * check their intended bounds because the two spellings can select different
+   * positions.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-negative-index.md
    */
@@ -936,10 +939,10 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-number-properties"?: TtscLintRuleOptionsSetting<ITtscLintUnicornPreferNumberPropertiesRuleOptions>;
 
   /**
-   * Suggest reviewing two-argument reduce calls with an empty object seed.
-   * The reducer and input pair shape are not inspected. Use Object.fromEntries
-   * only when key/value entry construction preserves the intended behavior.
-   * No edit is supplied.
+   * Suggest reviewing two-argument reduce calls with an empty object seed. The
+   * reducer and input pair shape are not inspected. Use Object.fromEntries only
+   * when key/value entry construction preserves the intended behavior. No edit
+   * is supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-object-from-entries.md
    */
@@ -1024,9 +1027,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-single-call"?: TtscLintRuleSetting;
 
   /**
-   * Suggest spread for single-argument Array.from calls. This AST baseline
-   * does not prove iterable input or builtin identity; non-iterable array-like
-   * input needs Array.from. Mapper calls are excluded and no edit is supplied.
+   * Suggest spread for single-argument Array.from calls. This AST baseline does
+   * not prove iterable input or builtin identity; non-iterable array-like input
+   * needs Array.from. Mapper calls are excluded and no edit is supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-spread.md
    */

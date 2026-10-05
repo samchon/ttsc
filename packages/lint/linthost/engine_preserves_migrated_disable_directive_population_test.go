@@ -25,8 +25,8 @@ func TestEnginePreservesMigratedDisableDirectivePopulation(t *testing.T) {
   source := "var before = 1;\n// eslint-disable-next-line no-var, typescript/no-explicit-any -- deliberate\nvar skipped: any = 2;\nvar sameLine = 3; debugger; // lint-disable-line no-var, no-debugger\n/* eslint-disable no-var */\nvar blockSkipped = 4;\n/* eslint-enable no-var */\nvar after = 5;\nconst text = \"// eslint-disable-next-line no-var\";\nvar stringNotDirective = 6;\n"
   file := parseTS(t, source)
   findings := NewEngine(RuleConfig{
-    "no-var": SeverityError,
-    "no-debugger": SeverityError,
+    "no-var":                     SeverityError,
+    "no-debugger":                SeverityError,
     "typescript/no-explicit-any": SeverityError,
   }).Run([]*shimast.SourceFile{file}, nil)
   actual := normalizeRuleFindings(file, findings)

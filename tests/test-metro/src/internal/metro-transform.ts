@@ -1,8 +1,7 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-
-import { TestProject } from "@ttsc/testing";
 
 import { createBareProject, prepareSnapshot } from "./metro-cache";
 import { TestMetroRuntime } from "./metro-runtime";

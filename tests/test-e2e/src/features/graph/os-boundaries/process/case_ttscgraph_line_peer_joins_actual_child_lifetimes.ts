@@ -1,11 +1,13 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams } from "node:child_process";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const { spawn, spawnSync } = E2eProcessTrace;
-import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
-import { TestProject } from "@ttsc/testing";
+import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+
+const { spawn, spawnSync } = E2eProcessTrace;
 
 type Peer = {
   alive(): boolean;
@@ -15,7 +17,11 @@ type Peer = {
 type Open = (
   binary: string,
   args: string[],
-  events: { line(line: string): void; error(error: Error): void; exit(code: number | null, signal: NodeJS.Signals | null): void },
+  events: {
+    line(line: string): void;
+    error(error: Error): void;
+    exit(code: number | null, signal: NodeJS.Signals | null): void;
+  },
   options: { stderr: "capture" | "drain" },
 ) => Peer;
 
@@ -41,15 +47,42 @@ type Open = (
 export async function case_ttscgraph_line_peer_joins_actual_child_lifetimes(
   supplied?: Open,
 ): Promise<void> {
-  const open: Open = supplied ?? (await import(new URL("../../../../../../../packages/graph/src/model/TtscGraphLinePeer.ts", import.meta.url).href)).TtscGraphLinePeer.open;
-  assert.equal(typeof open, "function", "the owning open operation must exist before allocation");
+  const open: Open =
+    supplied ??
+    (
+      await import(
+        new URL(
+          "../../../../../../../packages/graph/src/model/TtscGraphLinePeer.ts",
+          import.meta.url,
+        ).href
+      )
+    ).TtscGraphLinePeer.open;
+  assert.equal(
+    typeof open,
+    "function",
+    "the owning open operation must exist before allocation",
+  );
   const failures: Error[] = [];
   const root = TestProject.tmpdir("ttsc-graph-stdio-");
-  TestProject.copyDirectory(path.resolve(import.meta.dirname, "../../../../../fixtures/os/process-lifetime"), root);
+  TestProject.copyDirectory(
+    path.resolve(
+      import.meta.dirname,
+      "../../../../../fixtures/os/process-lifetime",
+    ),
+    root,
+  );
   E2eProcessTrace.fixturePaths(root, ["worker.cjs"]);
   let retained = false;
   const hold = path.join(root, "hold");
-  for (const scenario of ["eof", "nonzero", "forced", "already-exited", "inherited-stdio", "blocked-event-loop", "unread"] as const) {
+  for (const scenario of [
+    "eof",
+    "nonzero",
+    "forced",
+    "already-exited",
+    "inherited-stdio",
+    "blocked-event-loop",
+    "unread",
+  ] as const) {
     let peer: Peer | undefined;
     let descendantJoin: Promise<void> | undefined;
     let descendantJoined = false;
@@ -59,60 +92,113 @@ export async function case_ttscgraph_line_peer_joins_actual_child_lifetimes(
     try {
       let ready!: () => void;
       let exited!: () => void;
-      const started = new Promise<void>((resolve) => { ready = resolve; });
-      const exit = new Promise<void>((resolve) => { exited = resolve; });
+      const started = new Promise<void>((resolve) => {
+        ready = resolve;
+      });
+      const exit = new Promise<void>((resolve) => {
+        exited = resolve;
+      });
       let observed!: () => void;
-      const identity = new Promise<void>((resolve) => { observed = resolve; });
+      const identity = new Promise<void>((resolve) => {
+        observed = resolve;
+      });
       let descendantPid = 0;
       const inherited = scenario === "inherited-stdio";
       if (inherited && process.platform === "win32") {
         // Start the process-handle observer before creating the pipe holder.
         // PowerShell initialization is not part of the adapter's lifetime.
-        observer = spawn(path.join(process.env.SystemRoot!, "System32/WindowsPowerShell/v1.0/powershell.exe"), [
-          "-NoProfile", "-NonInteractive", "-Command",
-          "[Console]::WriteLine('ready'); $identity=[Console]::ReadLine(); if ($identity -eq $null) { exit 0 }; $p=Get-Process -Id ([int]$identity) -ErrorAction Stop; $handle=$p.Handle; [Console]::WriteLine('opened'); $p.WaitForExit(); [Console]::WriteLine('joined'); $p.Dispose()",
-        ], { stdio: "pipe", windowsHide: true });
+        observer = spawn(
+          path.join(
+            process.env.SystemRoot!,
+            "System32/WindowsPowerShell/v1.0/powershell.exe",
+          ),
+          [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "[Console]::WriteLine('ready'); $identity=[Console]::ReadLine(); if ($identity -eq $null) { exit 0 }; $p=Get-Process -Id ([int]$identity) -ErrorAction Stop; $handle=$p.Handle; [Console]::WriteLine('opened'); $p.WaitForExit(); [Console]::WriteLine('joined'); $p.Dispose()",
+          ],
+          { stdio: "pipe", windowsHide: true },
+        );
         let stderr = "";
         let initialized!: () => void;
         let opened!: () => void;
-        const initialization = new Promise<void>((resolve) => { initialized = resolve; });
-        acquired = new Promise<void>((resolve) => { opened = resolve; });
+        const initialization = new Promise<void>((resolve) => {
+          initialized = resolve;
+        });
+        acquired = new Promise<void>((resolve) => {
+          opened = resolve;
+        });
         observer.stdout.on("data", (chunk) => {
           observerOutput += String(chunk);
           if (observerOutput.includes("ready")) initialized();
           if (observerOutput.includes("opened")) opened();
         });
-        observer.stderr.on("data", (chunk) => { stderr += String(chunk); });
+        observer.stderr.on("data", (chunk) => {
+          stderr += String(chunk);
+        });
         descendantJoin = new Promise<void>((resolve, reject) => {
-          observer!.once("error", (error) => { initialized(); opened(); reject(error); });
+          observer!.once("error", (error) => {
+            initialized();
+            opened();
+            reject(error);
+          });
           observer!.once("close", (code, signal) => {
             initialized();
             opened();
-            if (code === 0 && signal === null && observerOutput.includes("joined")) resolve();
-            else reject(new Error(`descendant handle join failed: ${code}/${signal}: ${stderr}`));
+            if (
+              code === 0 &&
+              signal === null &&
+              observerOutput.includes("joined")
+            )
+              resolve();
+            else
+              reject(
+                new Error(
+                  `descendant handle join failed: ${code}/${signal}: ${stderr}`,
+                ),
+              );
           });
         });
         void descendantJoin.catch(() => undefined);
-        await bounded(initialization, "process observer initialization", 30_000);
-        assert.ok(observerOutput.includes("ready"), "process observer must initialize before the pipe holder");
+        await bounded(
+          initialization,
+          "process observer initialization",
+          30_000,
+        );
+        assert.ok(
+          observerOutput.includes("ready"),
+          "process observer must initialize before the pipe holder",
+        );
       }
       if (inherited) {
         fs.writeFileSync(hold, "owned");
       }
       const binary = process.execPath;
       const args = [path.join(root, "worker.cjs"), "graph", scenario, hold];
-      peer = open(binary, args, {
-        line: (line) => {
-          ready();
-          const prefix = `${process.execPath} `;
-          if (line.startsWith(prefix)) {
-            descendantPid = Number(line.slice(prefix.length));
-            observed();
-          }
-        }, error: () => ready(), exit: () => { exited(); ready(); },
-      }, { stderr: "capture" });
+      peer = open(
+        binary,
+        args,
+        {
+          line: (line) => {
+            ready();
+            const prefix = `${process.execPath} `;
+            if (line.startsWith(prefix)) {
+              descendantPid = Number(line.slice(prefix.length));
+              observed();
+            }
+          },
+          error: () => ready(),
+          exit: () => {
+            exited();
+            ready();
+          },
+        },
+        { stderr: "capture" },
+      );
       await bounded(started, "child readiness");
-      if (scenario === "already-exited" || scenario === "inherited-stdio") await bounded(exit, "parent exit");
+      if (scenario === "already-exited" || scenario === "inherited-stdio")
+        await bounded(exit, "parent exit");
       if (inherited) {
         await bounded(identity, "descendant identity");
         assert.ok(Number.isSafeInteger(descendantPid) && descendantPid > 0);
@@ -121,67 +207,133 @@ export async function case_ttscgraph_line_peer_joins_actual_child_lifetimes(
           // keeps this identity even if its numeric PID is later recycled.
           observer.stdin.end(String(descendantPid) + "\n");
           await bounded(acquired!, "descendant handle acquisition");
-          assert.ok(observerOutput.includes("opened"), "actual descendant handle acquired");
+          assert.ok(
+            observerOutput.includes("opened"),
+            "actual descendant handle acquired",
+          );
         }
       }
-      const pendingWrite = scenario === "unread" ? new Promise<void>((resolve, reject) => {
-        peer!.write(JSON.stringify({ changed: ["x".repeat(8 * 1024 * 1024)] }), (error) => error ? reject(error) : resolve());
-      }) : undefined;
+      const pendingWrite =
+        scenario === "unread"
+          ? new Promise<void>((resolve, reject) => {
+              peer!.write(
+                JSON.stringify({ changed: ["x".repeat(8 * 1024 * 1024)] }),
+                (error) => (error ? reject(error) : resolve()),
+              );
+            })
+          : undefined;
       void pendingWrite?.catch(() => undefined);
       const closing = peer.close(true);
-      assert.ok(closing instanceof Promise, "actual adapter must expose joined completion");
-      assert.equal(peer.close(true), closing, "repeated close owns one completion");
+      assert.ok(
+        closing instanceof Promise,
+        "actual adapter must expose joined completion",
+      );
+      assert.equal(
+        peer.close(true),
+        closing,
+        "repeated close owns one completion",
+      );
       if (scenario === "blocked-event-loop") {
-        const blocked = spawnSync(process.execPath, [path.join(root, "blocker.cjs")]);
+        const blocked = spawnSync(process.execPath, [
+          path.join(root, "blocker.cjs"),
+        ]);
         assert.equal(blocked.status, 0, "test-owned blocking child must join");
       }
       if (scenario === "inherited-stdio") {
         let settled = false;
-        void closing.then(() => { settled = true; }, () => { settled = true; });
+        void closing.then(
+          () => {
+            settled = true;
+          },
+          () => {
+            settled = true;
+          },
+        );
         await Promise.resolve();
-        assert.equal(settled, false, "parent exit does not join inherited stdio");
+        assert.equal(
+          settled,
+          false,
+          "parent exit does not join inherited stdio",
+        );
         fs.unlinkSync(hold);
       }
-      if (scenario === "unread") await assert.rejects(bounded(closing, "unread child retirement"), (error: unknown) => {
-        assert.ok(error instanceof Error);
-        // Node may publish the real pipe write error before joined close. The
-        // adapter preserves that native error instead of replacing its cause.
-        assert.ok(/shutdown failed/.test(error.message) || ["EOF", "EPIPE", "ERR_STREAM_DESTROYED"].includes((error as NodeJS.ErrnoException).code ?? ""), `Unexpected unread-input failure: ${String(error)}`);
-        return true;
-      });
-      else if (scenario === "nonzero" || scenario === "forced") await assert.rejects(bounded(closing, "failed child retirement"), /shutdown failed/);
+      if (scenario === "unread")
+        await assert.rejects(
+          bounded(closing, "unread child retirement"),
+          (error: unknown) => {
+            assert.ok(error instanceof Error);
+            // Node may publish the real pipe write error before joined close. The
+            // adapter preserves that native error instead of replacing its cause.
+            assert.ok(
+              /shutdown failed/.test(error.message) ||
+                ["EOF", "EPIPE", "ERR_STREAM_DESTROYED"].includes(
+                  (error as NodeJS.ErrnoException).code ?? "",
+                ),
+              `Unexpected unread-input failure: ${String(error)}`,
+            );
+            return true;
+          },
+        );
+      else if (scenario === "nonzero" || scenario === "forced")
+        await assert.rejects(
+          bounded(closing, "failed child retirement"),
+          /shutdown failed/,
+        );
       else await closing;
-      if (pendingWrite !== undefined) await assert.rejects(bounded(pendingWrite, "unread input completion"));
+      if (pendingWrite !== undefined)
+        await assert.rejects(bounded(pendingWrite, "unread input completion"));
       await bounded(exit, "parent exit");
       assert.equal(peer.alive(), false);
       if (descendantJoin !== undefined) {
         await bounded(descendantJoin, "descendant handle exit");
         descendantJoined = true;
-      }
-      else if (inherited) {
+      } else if (inherited) {
         let absent = false;
         for (let attempt = 0; attempt < 100 && !absent; attempt++) {
-          try { process.kill(descendantPid, 0); }
-          catch (error) { if ((error as NodeJS.ErrnoException).code === "ESRCH") absent = true; else throw error; }
+          try {
+            process.kill(descendantPid, 0);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ESRCH")
+              absent = true;
+            else throw error;
+          }
           if (!absent) await new Promise((resolve) => setTimeout(resolve, 10));
         }
         assert.equal(absent, true, "observed descendant has exited");
         descendantJoined = true;
       }
     } catch (error) {
-      failures.push(new Error(`${scenario}: ${String(error)}`, { cause: error }));
+      failures.push(
+        new Error(`${scenario}: ${String(error)}`, { cause: error }),
+      );
     } finally {
       observer?.stdin.end();
       if (fs.existsSync(hold)) fs.unlinkSync(hold);
-      if (peer !== undefined) await Promise.resolve(peer.close(true)).catch((error) => {
-        if (scenario !== "nonzero" && scenario !== "forced" && scenario !== "unread") failures.push(new Error(`${scenario} cleanup: ${String(error)}`));
-      });
-      if (descendantJoin !== undefined) await bounded(descendantJoin, "descendant cleanup").then(() => {
-        descendantJoined = true;
-      }, (error) => failures.push(new Error(`${scenario} descendant: ${String(error)}`)));
+      if (peer !== undefined)
+        await Promise.resolve(peer.close(true)).catch((error) => {
+          if (
+            scenario !== "nonzero" &&
+            scenario !== "forced" &&
+            scenario !== "unread"
+          )
+            failures.push(new Error(`${scenario} cleanup: ${String(error)}`));
+        });
+      if (descendantJoin !== undefined)
+        await bounded(descendantJoin, "descendant cleanup").then(
+          () => {
+            descendantJoined = true;
+          },
+          (error) =>
+            failures.push(
+              new Error(`${scenario} descendant: ${String(error)}`),
+            ),
+        );
       if (scenario === "inherited-stdio" && !descendantJoined) {
         retained = true;
-        TestProject.retainTemporaryDirectory(root, "The inherited output-pipe owner was not joined.");
+        TestProject.retainTemporaryDirectory(
+          root,
+          "The inherited output-pipe owner was not joined.",
+        );
       }
     }
   }
@@ -190,13 +342,31 @@ export async function case_ttscgraph_line_peer_joins_actual_child_lifetimes(
     await fs.promises.rm(root, { recursive: true });
     assert.equal(fs.existsSync(root), false);
   }
-  if (failures.length > 0) throw new AggregateError(failures, "line peer lifetime matrix failed");
+  if (failures.length > 0)
+    throw new AggregateError(failures, "line peer lifetime matrix failed");
 }
 
-/** Bound test-owned readiness and handle observations without changing adapter deadlines. */
-async function bounded<T>(pending: Promise<T>, name: string, milliseconds = 8_000): Promise<T> {
+/**
+ * Bound test-owned readiness and handle observations without changing adapter
+ * deadlines.
+ */
+async function bounded<T>(
+  pending: Promise<T>,
+  name: string,
+  milliseconds = 8_000,
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await Promise.race([pending, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} did not settle`)), milliseconds); })]);
-  } finally { if (timer !== undefined) clearTimeout(timer); }
+    return await Promise.race([
+      pending,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${name} did not settle`)),
+          milliseconds,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }

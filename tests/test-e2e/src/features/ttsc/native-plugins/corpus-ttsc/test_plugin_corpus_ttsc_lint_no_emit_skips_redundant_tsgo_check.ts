@@ -16,9 +16,9 @@ import {
  *
  * `@ttsc/lint` loads the project Program and reports normal TypeScript
  * diagnostics during its `check` subcommand. Running a second plain `tsgo
- * --noEmit` afterward would add an independent checker invocation, so ttsc
- * must honor the lint descriptor's diagnostics capability. This probe does
- * not measure real compiler construction or total runtime cost.
+ * --noEmit` afterward would add an independent checker invocation, so ttsc must
+ * honor the lint descriptor's diagnostics capability. This probe does not
+ * measure real compiler construction or total runtime cost.
  *
  * 1. Create a clean project with only `@ttsc/lint` as a check-stage plugin.
  * 2. Point `TTSC_TSGO_BINARY` at a fake tsgo that fails on build/check calls.
@@ -35,7 +35,9 @@ import {
  */
 export function test_plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check(): void {
   const root = commonJsProject(
-    FixtureFiles.read("ttsc/plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check/inputs-1"),
+    FixtureFiles.read(
+      "ttsc/plugin_corpus_ttsc_lint_no_emit_skips_redundant_tsgo_check/inputs-1",
+    ),
     {
       compilerOptions: {
         plugins: [

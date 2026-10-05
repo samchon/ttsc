@@ -50,8 +50,12 @@ func TestAstutilFindKeywordIsIdentifierAware(t *testing.T) {
     t.Fatalf("FindKeyword should skip the identifier prefix; got offset %d, source slice %q",
       pos, source[pos:pos+6])
   }
-  if astutil.FindKeyword(file, 0, 22, "import") != -1 || astutil.FindKeyword(file, 22, 27, "import") != -1 { t.Fatal("identifier prefix or incomplete keyword range was accepted") }
-  if astutil.FindKeyword(nil, 0, len(source), "import") != -1 || astutil.FindKeyword(file, 0, len(source), "") != -1 { t.Fatal("absent file/keyword should return no match") }
+  if astutil.FindKeyword(file, 0, 22, "import") != -1 || astutil.FindKeyword(file, 22, 27, "import") != -1 {
+    t.Fatal("identifier prefix or incomplete keyword range was accepted")
+  }
+  if astutil.FindKeyword(nil, 0, len(source), "import") != -1 || astutil.FindKeyword(file, 0, len(source), "") != -1 {
+    t.Fatal("absent file/keyword should return no match")
+  }
   cases := []struct {
     name   string
     prefix string

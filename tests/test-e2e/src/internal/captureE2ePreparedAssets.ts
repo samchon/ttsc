@@ -3,11 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Captures explicitly selected prepared assets without executing a tool.
- * The coordinator supplies actual resolved executable/module/fixture paths;
- * this helper does not guess PATH, shell normalization or loaded-image identity.
- * Native metadata brackets each full-byte hash. This is an observed stable
- * file interval, not an atomic freeze or proof that a process loaded these bytes.
+ * Captures explicitly selected prepared assets without executing a tool. The
+ * coordinator supplies actual resolved executable/module/fixture paths; this
+ * helper does not guess PATH, shell normalization or loaded-image identity.
+ * Native metadata brackets each full-byte hash. This is an observed stable file
+ * interval, not an atomic freeze or proof that a process loaded these bytes.
  *
  * @evidence contracts/common.md#principled-implementation Hashes actual selected physical file bytes and preserves requested/real paths with before/after native identity metadata. Changed observations fail preparation rather than being labelled a frozen producer.
  * @evidence contracts/common.md#clear-and-simple-design One explicit input list binds executable, instrumentation, module, fixture and configuration assets; process/runtime facts remain separate trace observations.
@@ -22,29 +22,53 @@ export function captureE2ePreparedAssets(
   assets: readonly PreparedAssetSelection[],
 ): PreparedAssetObservation[] {
   const labels = new Set<string>();
-  return assets.map(asset => {
-    if (labels.has(asset.label)) throw new Error("Duplicate prepared asset label: " + asset.label);
+  return assets.map((asset) => {
+    if (labels.has(asset.label))
+      throw new Error("Duplicate prepared asset label: " + asset.label);
     labels.add(asset.label);
     const requestedPath = path.resolve(asset.file);
     const realPath = fs.realpathSync.native(requestedPath);
     const before = fs.statSync(realPath, { bigint: true });
-    if (!before.isFile()) throw new Error("Prepared asset is not a regular file: " + requestedPath);
+    if (!before.isFile())
+      throw new Error("Prepared asset is not a regular file: " + requestedPath);
     const bytes = fs.readFileSync(realPath);
     const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
     const after = fs.statSync(realPath, { bigint: true });
     const identityBefore = {
-      dev: before.dev.toString(), ino: before.ino.toString(), size: before.size.toString(), mode: before.mode.toString(),
-      mtimeNs: before.mtimeNs.toString(), ctimeNs: before.ctimeNs.toString(),
+      dev: before.dev.toString(),
+      ino: before.ino.toString(),
+      size: before.size.toString(),
+      mode: before.mode.toString(),
+      mtimeNs: before.mtimeNs.toString(),
+      ctimeNs: before.ctimeNs.toString(),
     };
     const identityAfter = {
-      dev: after.dev.toString(), ino: after.ino.toString(), size: after.size.toString(), mode: after.mode.toString(),
-      mtimeNs: after.mtimeNs.toString(), ctimeNs: after.ctimeNs.toString(),
+      dev: after.dev.toString(),
+      ino: after.ino.toString(),
+      size: after.size.toString(),
+      mode: after.mode.toString(),
+      mtimeNs: after.mtimeNs.toString(),
+      ctimeNs: after.ctimeNs.toString(),
     };
-    if (!after.isFile() || JSON.stringify(identityBefore) !== JSON.stringify(identityAfter) ||
-      BigInt(bytes.length) !== after.size || fs.realpathSync.native(requestedPath) !== realPath)
-      throw new Error("Prepared asset changed during observation: " + requestedPath);
-    return { label: asset.label, role: asset.role, requestedPath, realPath,
-      observedBytes: bytes.length, sha256, identityBefore, identityAfter };
+    if (
+      !after.isFile() ||
+      JSON.stringify(identityBefore) !== JSON.stringify(identityAfter) ||
+      BigInt(bytes.length) !== after.size ||
+      fs.realpathSync.native(requestedPath) !== realPath
+    )
+      throw new Error(
+        "Prepared asset changed during observation: " + requestedPath,
+      );
+    return {
+      label: asset.label,
+      role: asset.role,
+      requestedPath,
+      realPath,
+      observedBytes: bytes.length,
+      sha256,
+      identityBefore,
+      identityAfter,
+    };
   });
 }
 
@@ -52,10 +76,18 @@ export function captureE2ePreparedAssets(
 export interface PreparedAssetSelection {
   label: string;
   file: string;
-  role: "executable" | "instrumentation-source" | "loaded-module" | "fixture" | "configuration";
+  role:
+    | "executable"
+    | "instrumentation-source"
+    | "loaded-module"
+    | "fixture"
+    | "configuration";
 }
 
-/** File observation only; actual loaded/process/runtime identities stay separate. */
+/**
+ * File observation only; actual loaded/process/runtime identities stay
+ * separate.
+ */
 export interface PreparedAssetObservation {
   label: string;
   role: PreparedAssetSelection["role"];

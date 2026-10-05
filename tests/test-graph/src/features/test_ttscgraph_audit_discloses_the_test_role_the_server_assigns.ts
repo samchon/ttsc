@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
 import { TtscGraphApplication } from "../../../../packages/graph/src/TtscGraphApplication";
-
 import { createSyntheticGraph } from "../internal/resolverGraph";
 
 /**
@@ -27,21 +26,50 @@ import { createSyntheticGraph } from "../internal/resolverGraph";
 export async function test_ttscgraph_audit_discloses_the_test_role_the_server_assigns(): Promise<void> {
   const graph = createSyntheticGraph(
     [
-      { id: "src/core.ts#run:function", kind: "function", name: "run", file: "src/core.ts", external: false },
-      { id: "src/core.spec.ts#check:function", kind: "function", name: "check", file: "src/core.spec.ts", external: false },
-      { id: "src/contest.ts#play:function", kind: "function", name: "play", file: "src/contest.ts", external: false, exported: true },
+      {
+        id: "src/core.ts#run:function",
+        kind: "function",
+        name: "run",
+        file: "src/core.ts",
+        external: false,
+      },
+      {
+        id: "src/core.spec.ts#check:function",
+        kind: "function",
+        name: "check",
+        file: "src/core.spec.ts",
+        external: false,
+      },
+      {
+        id: "src/contest.ts#play:function",
+        kind: "function",
+        name: "play",
+        file: "src/contest.ts",
+        external: false,
+        exported: true,
+      },
     ],
     [
-      { from: "src/core.spec.ts#check:function", to: "src/core.ts#run:function", kind: "calls" },
-      { from: "src/contest.ts#play:function", to: "src/core.ts#run:function", kind: "calls" },
+      {
+        from: "src/core.spec.ts#check:function",
+        to: "src/core.ts#run:function",
+        kind: "calls",
+      },
+      {
+        from: "src/contest.ts#play:function",
+        to: "src/core.ts#run:function",
+        kind: "calls",
+      },
     ],
   );
-  const output = await new TtscGraphApplication(graph).inspect_typescript_graph({
-    question: "What does changing run affect?",
-    draft: { reason: "Impact of one known function.", type: "trace" },
-    review: "Keep the explicit request.",
-    request: { type: "trace", from: "run", direction: "impact" },
-  });
+  const output = await new TtscGraphApplication(graph).inspect_typescript_graph(
+    {
+      question: "What does changing run affect?",
+      draft: { reason: "Impact of one known function.", type: "trace" },
+      review: "Keep the explicit request.",
+      request: { type: "trace", from: "run", direction: "impact" },
+    },
+  );
   assert.equal(output.result.type, "trace");
   if (output.result.type !== "trace") assert.fail("trace result required");
   const rolesOf = (name: string) =>

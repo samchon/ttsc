@@ -4,7 +4,8 @@ import type { ResidentReplyKind } from "../../../../../packages/ttsc/src/compile
 import { ResidentTransformRequests } from "../../../../../packages/ttsc/src/compiler/internal/ResidentTransformRequests";
 
 /**
- * Verifies resident reply slots preserve FIFO and terminal settlement ownership.
+ * Verifies resident reply slots preserve FIFO and terminal settlement
+ * ownership.
  *
  * Actual Promise callbacks and AbortSignals observe the production-used state
  * owner. Supplied framed lines are inputs, not a peer or native pipe receipt.
@@ -20,18 +21,43 @@ import { ResidentTransformRequests } from "../../../../../packages/ttsc/src/comp
  */
 export async function test_resident_transform_requests_preserves_fifo_and_terminal_slots(): Promise<void> {
   const failures: Error[] = [];
-  const check = async (name: string, operation: () => Promise<void>): Promise<void> => {
-    try { await operation(); } catch (cause) { failures.push(new Error(name, { cause })); }
+  const check = async (
+    name: string,
+    operation: () => Promise<void>,
+  ): Promise<void> => {
+    try {
+      await operation();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
-  const slot = (core: ResidentTransformRequests, kind: ResidentReplyKind, events: string[], name: string, signal?: AbortSignal) => {
+  const slot = (
+    core: ResidentTransformRequests,
+    kind: ResidentReplyKind,
+    events: string[],
+    name: string,
+    signal?: AbortSignal,
+  ) => {
     let calls = 0;
-    const pendingAndPromise: { pending?: ReturnType<ResidentTransformRequests["add"]> } = {};
+    const pendingAndPromise: {
+      pending?: ReturnType<ResidentTransformRequests["add"]>;
+    } = {};
     const promise = new Promise<Record<string, unknown>>((resolve, reject) => {
-      pendingAndPromise.pending = core.add(kind, (value) => {
-        ++calls; events.push(`resolve:${name}`); resolve(value);
-      }, (error) => {
-        ++calls; events.push(`reject:${name}`); reject(error);
-      }, signal, () => events.push(`abort:${name}`));
+      pendingAndPromise.pending = core.add(
+        kind,
+        (value) => {
+          ++calls;
+          events.push(`resolve:${name}`);
+          resolve(value);
+        },
+        (error) => {
+          ++calls;
+          events.push(`reject:${name}`);
+          reject(error);
+        },
+        signal,
+        () => events.push(`abort:${name}`),
+      );
     });
     const result = promise.then(
       (value) => ({ status: "fulfilled" as const, value }),
@@ -49,19 +75,32 @@ export async function test_resident_transform_requests_preserves_fifo_and_termin
     assert.equal(core.current(), first.pending);
     assert.equal(core.accept(" \t\r\n "), false);
     assert.equal(core.current(), first.pending);
-    assert.equal(core.accept(' {"found":true,"typescript":"","extra":7} '), false);
+    assert.equal(
+      core.accept(' {"found":true,"typescript":"","extra":7} '),
+      false,
+    );
     assert.equal(core.current(), second.pending);
     assert.equal(core.accept('{"found":false,"typescript":42}'), false);
     assert.equal(core.current(), third.pending);
     assert.equal(core.accept('{"updated":false}'), false);
     assert.equal(core.current(), undefined);
     assert.equal(core.failure, undefined);
-    assert.deepEqual(await Promise.all([first.result, second.result, third.result]), [
-      { status: "fulfilled", value: { found: true, typescript: "", extra: 7 } },
-      { status: "fulfilled", value: { found: false, typescript: 42 } },
-      { status: "fulfilled", value: { updated: false } },
+    assert.deepEqual(
+      await Promise.all([first.result, second.result, third.result]),
+      [
+        {
+          status: "fulfilled",
+          value: { found: true, typescript: "", extra: 7 },
+        },
+        { status: "fulfilled", value: { found: false, typescript: 42 } },
+        { status: "fulfilled", value: { updated: false } },
+      ],
+    );
+    assert.deepEqual(events, [
+      "resolve:first",
+      "resolve:second",
+      "resolve:third",
     ]);
-    assert.deepEqual(events, ["resolve:first", "resolve:second", "resolve:third"]);
   });
   await check("wrong shape consumes only its owner", async () => {
     const core = new ResidentTransformRequests();
@@ -73,12 +112,18 @@ export async function test_resident_transform_requests_preserves_fifo_and_termin
     assert.equal(rejected.status, "rejected");
     if (rejected.status === "rejected") {
       assert.ok(rejected.error instanceof Error);
-      assert.equal(rejected.error.message, 'ttsc: resident transform host sent an invalid transform reply: {"updated":true}');
+      assert.equal(
+        rejected.error.message,
+        'ttsc: resident transform host sent an invalid transform reply: {"updated":true}',
+      );
     }
     assert.equal(core.failure, undefined);
     assert.equal(core.current(), next.pending);
     assert.equal(core.accept('{"updated":true}'), false);
-    assert.deepEqual(await next.result, { status: "fulfilled", value: { updated: true } });
+    assert.deepEqual(await next.result, {
+      status: "fulfilled",
+      value: { updated: true },
+    });
     assert.deepEqual(events, ["reject:wrong", "resolve:next"]);
   });
   await check("malformed retires all outstanding slots", async () => {
@@ -89,7 +134,10 @@ export async function test_resident_transform_requests_preserves_fifo_and_termin
     assert.equal(core.accept("{not json"), true);
     const terminal = core.failure;
     assert.ok(terminal instanceof Error);
-    assert.equal(terminal.message, "ttsc: resident transform host sent a malformed reply: {not json");
+    assert.equal(
+      terminal.message,
+      "ttsc: resident transform host sent a malformed reply: {not json",
+    );
     for (const result of await Promise.all([first.result, second.result])) {
       assert.equal(result.status, "rejected");
       if (result.status === "rejected") assert.equal(result.error, terminal);
@@ -110,7 +158,10 @@ export async function test_resident_transform_requests_preserves_fifo_and_termin
     assert.equal(core.accept('{"found":false}'), true);
     const terminal = core.failure;
     assert.ok(terminal instanceof Error);
-    assert.equal(terminal.message, "ttsc: resident transform host sent an unsolicited reply");
+    assert.equal(
+      terminal.message,
+      "ttsc: resident transform host sent an unsolicited reply",
+    );
     assert.equal(core.accept('{"found":false}'), false);
     assert.equal(core.retire(new Error("replacement")), false);
     assert.equal(core.failure, terminal);
@@ -119,38 +170,66 @@ export async function test_resident_transform_requests_preserves_fifo_and_termin
     const core = new ResidentTransformRequests();
     const events: string[] = [];
     const controllers = Array.from({ length: 5 }, () => new AbortController());
-    const slots = controllers.map((controller, index) => slot(core, "update", events, String(index), controller.signal));
+    const slots = controllers.map((controller, index) =>
+      slot(core, "update", events, String(index), controller.signal),
+    );
     for (const [index, current] of slots.entries()) {
       assert.equal(core.current(), current.pending);
       const reply = { updated: true, index };
       core.settle(current.pending, reply);
       core.settle(current.pending, new Error("duplicate must not reject"));
-      assert.deepEqual(await current.result, { status: "fulfilled", value: reply });
+      assert.deepEqual(await current.result, {
+        status: "fulfilled",
+        value: reply,
+      });
       assert.equal(current.calls(), 1);
       assert.equal(current.pending.settled, true);
       controllers[index]!.abort();
     }
     assert.equal(core.current(), undefined);
-    assert.deepEqual(events, ["resolve:0", "resolve:1", "resolve:2", "resolve:3", "resolve:4"]);
+    assert.deepEqual(events, [
+      "resolve:0",
+      "resolve:1",
+      "resolve:2",
+      "resolve:3",
+      "resolve:4",
+    ]);
   });
-  await check("retirement state precedes callbacks and removes listeners", async () => {
-    const core = new ResidentTransformRequests();
-    const terminal = new Error("authored retirement");
-    const controllers = [new AbortController(), new AbortController()];
-    const observed: unknown[] = [];
-    const promises = controllers.map((controller, index) => new Promise<Record<string, unknown>>((resolve, reject) => {
-      core.add("update", resolve, (error) => {
-        observed.push([index, core.failure, core.current()]);
-        reject(error);
-      }, controller.signal, () => observed.push("unexpected abort"));
-    }).then((value) => value, (error: unknown) => error));
-    assert.equal(core.retire(terminal), true);
-    assert.equal(core.retire(new Error("later")), false);
-    assert.deepEqual(await Promise.all(promises), [terminal, terminal]);
-    for (const controller of controllers) controller.abort();
-    assert.deepEqual(observed, [[0, terminal, undefined], [1, terminal, undefined]]);
-    assert.equal(core.failure, terminal);
-  });
+  await check(
+    "retirement state precedes callbacks and removes listeners",
+    async () => {
+      const core = new ResidentTransformRequests();
+      const terminal = new Error("authored retirement");
+      const controllers = [new AbortController(), new AbortController()];
+      const observed: unknown[] = [];
+      const promises = controllers.map((controller, index) =>
+        new Promise<Record<string, unknown>>((resolve, reject) => {
+          core.add(
+            "update",
+            resolve,
+            (error) => {
+              observed.push([index, core.failure, core.current()]);
+              reject(error);
+            },
+            controller.signal,
+            () => observed.push("unexpected abort"),
+          );
+        }).then(
+          (value) => value,
+          (error: unknown) => error,
+        ),
+      );
+      assert.equal(core.retire(terminal), true);
+      assert.equal(core.retire(new Error("later")), false);
+      assert.deepEqual(await Promise.all(promises), [terminal, terminal]);
+      for (const controller of controllers) controller.abort();
+      assert.deepEqual(observed, [
+        [0, terminal, undefined],
+        [1, terminal, undefined],
+      ]);
+      assert.equal(core.failure, terminal);
+    },
+  );
   await check("live abort invokes only the supplied observation", async () => {
     const core = new ResidentTransformRequests();
     const events: string[] = [];
@@ -162,8 +241,12 @@ export async function test_resident_transform_requests_preserves_fifo_and_termin
     assert.equal(core.current(), current.pending);
     const failure = new Error("supplied settlement, not native AbortError");
     core.settle(current.pending, failure);
-    assert.deepEqual(await current.result, { status: "rejected", error: failure });
+    assert.deepEqual(await current.result, {
+      status: "rejected",
+      error: failure,
+    });
     assert.equal(current.calls(), 1);
   });
-  if (failures.length !== 0) throw new AggregateError(failures, "resident FIFO/terminal slot policy");
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "resident FIFO/terminal slot policy");
 }

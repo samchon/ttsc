@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server resolution prefers the nearest project config root.
@@ -42,13 +43,16 @@ export function test_vscode_server_resolution_prefers_nearest_project_config() {
 
   const observed = (() => {
     const candidate = mod.createResolutionCandidates({
-      activeFile: (path.join(source, "main.ts")),
-      activeWorkspaceRoot: (workspace),
-      workspaceRoots: [(workspace)],
+      activeFile: path.join(source, "main.ts"),
+      activeWorkspaceRoot: workspace,
+      workspaceRoots: [workspace],
     })[0]!;
-    const noEscape = mod.findProjectRoot((path.join(workspace, "unconfigured", "src")), (workspace)) ?? "";
+    const noEscape =
+      mod.findProjectRoot(
+        path.join(workspace, "unconfigured", "src"),
+        workspace,
+      ) ?? "";
     return { candidate, noEscape };
-  
   })();
   const parsed = observed as {
     candidate?: { cwd?: string; resolveFrom?: string };

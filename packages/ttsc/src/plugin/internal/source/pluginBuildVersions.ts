@@ -7,19 +7,19 @@ import path from "node:path";
  * persisted transform identities. These are metadata inputs, not a measurement
  * of the executable actually selected for an invocation.
  *
- * Transform reuse also depends on inputs, plugin sources, build environment
- * and the producer's declared proofs; these labels alone certify none of them. A consumer
- * that keeps a transform's output beyond the process that produced it, as a
- * persisted shared compile of `@ttsc/unplugin` is, names it
- * by these versions with the rule the build applies instead of a copy of it:
- * ttsc's own package version, and the version of the `typescript` package the
- * project resolves, or `"unknown"` when resolution/read/parse fails or its
- * version is absent. The host label falls back to `"0.0.0"` and is cached even
- * after an unsuccessful first read. The host installation is assumed stable
- * for the process lifetime; changing its manifest does not refresh that label.
+ * Transform reuse also depends on inputs, plugin sources, build environment and
+ * the producer's declared proofs; these labels alone certify none of them. A
+ * consumer that keeps a transform's output beyond the process that produced it,
+ * as a persisted shared compile of `@ttsc/unplugin` is, names it by these
+ * versions with the rule the build applies instead of a copy of it: ttsc's own
+ * package version, and the version of the `typescript` package the project
+ * resolves, or `"unknown"` when resolution/read/parse fails or its version is
+ * absent. The host label falls back to `"0.0.0"` and is cached even after an
+ * unsuccessful first read. The host installation is assumed stable for the
+ * process lifetime; changing its manifest does not refresh that label.
  *
- * @param projectRoot The project base used to resolve `typescript/package.json`.
- *
+ * @param projectRoot The project base used to resolve
+ *   `typescript/package.json`.
  * @evidence contracts/common.md#principled-implementation Package-version labels supply the same metadata tuple used by plugin keys; absent/unreadable metadata receives the documented unknown/default label rather than an executable identity certificate.
  * @evidence contracts/common.md#clear-and-simple-design Host-version and project-version readers are separate because one installation is stable within the process while project resolution varies per call.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Node package resolution determines the actual project dependency; no particular project or fixture version is embedded.

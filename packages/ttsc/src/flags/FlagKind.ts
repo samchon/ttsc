@@ -7,7 +7,8 @@
  * - `value` — `--flag value`. Launcher flags also accept `--flag=value`.
  * - `valueOptional` — reserved optional-value shape. No current schema row uses
  *   it, and the launcher consumption helper does not implement a standalone
- *   optional-value branch. This literal does not advertise an active CLI feature.
+ *   optional-value branch. This literal does not advertise an active CLI
+ *   feature.
  *
  * @evidence contracts/common.md#principled-implementation The active schema's boolean and value rows are parsed locally when launcher-owned, while compiler-owned spellings retain native parser semantics. valueOptional remains an unused vocabulary member without a launcher consumption branch.
  * @evidence contracts/common.md#clear-and-simple-design Arity belongs to each FlagSpec through one small vocabulary instead of being inferred independently by every forwarding layer.

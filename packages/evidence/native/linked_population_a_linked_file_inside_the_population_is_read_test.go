@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 /**
@@ -25,21 +25,21 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkedFileInsideThePopulationIsRead(t *testing.T) {
-	workspace := t.TempDir()
-	documents := filepath.Join(workspace, "documents", "requirements")
-	if err := os.MkdirAll(documents, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	outside := filepath.Join(workspace, "outside.md")
-	if err := os.WriteFile(outside, []byte("## Discounts {#discounts}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := linkFile(t, outside, filepath.Join(documents, "pricing.md")); err != nil {
-		t.Fatalf("this platform refused to link a file: %v", err)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/src/sale.ts": "export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  documents := filepath.Join(workspace, "documents", "requirements")
+  if err := os.MkdirAll(documents, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  outside := filepath.Join(workspace, "outside.md")
+  if err := os.WriteFile(outside, []byte("## Discounts {#discounts}\n"), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkFile(t, outside, filepath.Join(documents, "pricing.md")); err != nil {
+    t.Fatalf("this platform refused to link a file: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
@@ -50,9 +50,9 @@ func TestALinkedFileInsideThePopulationIsRead(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	assertProblemContains(
-		t,
-		messages,
-		"Missing acknowledgement for 'requirements/pricing.md#discounts'",
-	)
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'requirements/pricing.md#discounts'",
+  )
 }

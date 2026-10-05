@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -7,6 +6,7 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/
 import { resolveProjectSelection } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveProjectSelection";
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 import { selectionInputs } from "../../../../../packages/unplugin/src/core/transform/watch/selectionInputs";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies project selection reports the nearer `tsconfig.json` candidates it
@@ -24,6 +24,7 @@ import { selectionInputs } from "../../../../../packages/unplugin/src/core/trans
  * 3. Create the nearer config and select again: it is selected, only the one
  *    candidate still nearer is consulted, and the old evidence no longer
  *    holds.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual project selection reports absent nearer configs and selectionInputs marks their missing evidence; creating the nearer config reroutes selection and changes the old absence reading.
  * @evidence contracts/testing.md#independent-expectations Literal nearest/nearer/root config paths and [true,true] missing flags establish expected routing and evidence without copying the resolver answer.
  * @evidence contracts/testing.md#distinguishing-cases Two absent candidates are consulted and the selected root config is not, then creating the nearer config selects it, shortens the consulted list to the one remaining candidate, and flips the old recorded absence evidence of that path from missing to present.

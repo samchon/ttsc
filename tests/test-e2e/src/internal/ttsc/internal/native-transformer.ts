@@ -4,19 +4,21 @@
  * PATH helper that prepends a local Go SDK when present.
  */
 import { TestProject } from "@ttsc/testing";
-import { ProjectFixtures } from "./ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import { ProjectFixtures } from "./ProjectFixtures";
 
 const TTSC_BIN = TestProject.TTSC_BIN;
 const WORKSPACE_ROOT = TestProject.WORKSPACE_ROOT;
 
 /**
  * Returns the source directory of the workspace's go-transformer test binary
- * (`packages/ttsc/test/go-transformer/cmd/ttsc-go-transformer`). Used by tests that need a
- * real compiled Go transformer without building a fixture plugin from scratch.
+ * (`packages/ttsc/test/go-transformer/cmd/ttsc-go-transformer`). Used by tests
+ * that need a real compiled Go transformer without building a fixture plugin
+ * from scratch.
  */
 function goTransformerSource() {
   return path.join(

@@ -1,5 +1,6 @@
 import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
+
 type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 /**

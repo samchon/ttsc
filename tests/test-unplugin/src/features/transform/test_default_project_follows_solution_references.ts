@@ -1,11 +1,11 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { selectReferencedProject } from "../../../../../packages/unplugin/src/core/tsconfig/selectReferencedProject";
-import { findDeclaredCompilerOption } from "../../../../../packages/unplugin/src/core/tsconfig/findDeclaredCompilerOption";
 import { resolveProjectSelection } from "../../../../../packages/unplugin/src/core/transform/tsconfig/resolveProjectSelection";
+import { findDeclaredCompilerOption } from "../../../../../packages/unplugin/src/core/tsconfig/findDeclaredCompilerOption";
+import { selectReferencedProject } from "../../../../../packages/unplugin/src/core/tsconfig/selectReferencedProject";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a file's default project is selected through a solution config's
@@ -37,6 +37,7 @@ import { resolveProjectSelection } from "../../../../../packages/unplugin/src/co
  *    every searched config consulted.
  * 4. Select below a directory one reference includes and excludes, and assert the
  *    reference that includes it wins unless the first lists the file.
+ *
  * @evidence contracts/testing.md#behavioral-verification selectReferencedProject selects the admitting referenced config and returns every earlier routing candidate, including content changes whose size/mtime remain fixed. Actual resolveProjectSelection rejects a directory-shaped nearest tsconfig candidate, selects its ancestor, and contrasts default empty plugins with explicit absolute/relative alternate config selection. Actual findDeclaredCompilerOption reads each selected plugins declaration.
  * @evidence contracts/testing.md#independent-expectations Literal tsconfig references/include/files/exclude and expected consulted arrays independently define depth-first routing, rather than replaying resolver output. Native directory kind and independent realpath identify supported candidates. Literal empty versus SELECTED plugin lists and consulted arrays distinguish config routing without certifying plugin execution.
  * @evidence contracts/testing.md#distinguishing-cases Own-admission, nested solutions, a missing directory reference, a missing .json reference that appears and is then rewritten with unchanged size and modification time, a reference cycle, the nearest-config fallback for a file no project admits, and a files entry overriding exclude are each asserted with an expected selected config and consulted list. Additional default discovery skips an existing directory named src/tsconfig.json, while explicit absolute and cwd-relative alternate names keep empty consulted lists and select the alternate declaration over the empty baseline.
@@ -227,30 +228,69 @@ export async function test_default_project_follows_solution_references(): Promis
   TestProject.writeFiles(selectionRoot, {
     "src/main.ts": "export {};\n",
     "plugin.cjs": "module.exports = () => {};\n",
-    "tsconfig.json": JSON.stringify({ include: ["src"], compilerOptions: { plugins } }),
+    "tsconfig.json": JSON.stringify({
+      include: ["src"],
+      compilerOptions: { plugins },
+    }),
   });
   fs.mkdirSync(directoryCandidate);
   assert.equal(fs.statSync(directoryCandidate).isDirectory(), true);
   const ancestor = resolveProjectSelection(selectionFile);
-  assert.deepEqual(ancestor, { consulted: [directoryCandidate], tsconfig: selectionConfig });
-  assert.equal(fs.realpathSync.native(ancestor.tsconfig), fs.realpathSync.native(selectionConfig));
-  assert.deepEqual(findDeclaredCompilerOption(ancestor.tsconfig, "plugins"), { baseDir: selectionRoot, value: plugins });
+  assert.deepEqual(ancestor, {
+    consulted: [directoryCandidate],
+    tsconfig: selectionConfig,
+  });
+  assert.equal(
+    fs.realpathSync.native(ancestor.tsconfig),
+    fs.realpathSync.native(selectionConfig),
+  );
+  assert.deepEqual(findDeclaredCompilerOption(ancestor.tsconfig, "plugins"), {
+    baseDir: selectionRoot,
+    value: plugins,
+  });
 
-  fs.writeFileSync(selectionConfig, JSON.stringify({ include: ["src"], compilerOptions: { plugins: [] } }));
-  fs.writeFileSync(alternate, JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { plugins } }));
+  fs.writeFileSync(
+    selectionConfig,
+    JSON.stringify({ include: ["src"], compilerOptions: { plugins: [] } }),
+  );
+  fs.writeFileSync(
+    alternate,
+    JSON.stringify({
+      extends: "./tsconfig.json",
+      compilerOptions: { plugins },
+    }),
+  );
   const defaultSelection = resolveProjectSelection(selectionFile);
-  assert.deepEqual(defaultSelection, { consulted: [directoryCandidate], tsconfig: selectionConfig });
-  assert.deepEqual(findDeclaredCompilerOption(defaultSelection.tsconfig, "plugins"), { baseDir: selectionRoot, value: [] });
+  assert.deepEqual(defaultSelection, {
+    consulted: [directoryCandidate],
+    tsconfig: selectionConfig,
+  });
+  assert.deepEqual(
+    findDeclaredCompilerOption(defaultSelection.tsconfig, "plugins"),
+    { baseDir: selectionRoot, value: [] },
+  );
   const absoluteSelection = resolveProjectSelection(selectionFile, alternate);
   assert.deepEqual(absoluteSelection, { consulted: [], tsconfig: alternate });
-  assert.deepEqual(findDeclaredCompilerOption(absoluteSelection.tsconfig, "plugins"), { baseDir: selectionRoot, value: plugins });
+  assert.deepEqual(
+    findDeclaredCompilerOption(absoluteSelection.tsconfig, "plugins"),
+    { baseDir: selectionRoot, value: plugins },
+  );
   const priorCwd = process.cwd();
   try {
     process.chdir(selectionRoot);
-    const relativeSelection = resolveProjectSelection(selectionFile, "tsconfig.unplugin.json");
+    const relativeSelection = resolveProjectSelection(
+      selectionFile,
+      "tsconfig.unplugin.json",
+    );
     assert.deepEqual(relativeSelection, { consulted: [], tsconfig: alternate });
-    assert.equal(fs.realpathSync.native(relativeSelection.tsconfig), fs.realpathSync.native(alternate));
-    assert.deepEqual(findDeclaredCompilerOption(relativeSelection.tsconfig, "plugins"), { baseDir: selectionRoot, value: plugins });
+    assert.equal(
+      fs.realpathSync.native(relativeSelection.tsconfig),
+      fs.realpathSync.native(alternate),
+    );
+    assert.deepEqual(
+      findDeclaredCompilerOption(relativeSelection.tsconfig, "plugins"),
+      { baseDir: selectionRoot, value: plugins },
+    );
   } finally {
     process.chdir(priorCwd);
   }

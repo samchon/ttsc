@@ -5,11 +5,11 @@ import path from "node:path";
  *
  * A pattern without any wildcard names one file, so its directory is returned.
  * A wildcard in the first segment after the resolved volume root yields that
- * root; a relative pattern includes its working-directory prefix first.
- * Native resolution anchors relative patterns at the current working directory.
- * Every backslash in the resolved spelling is interpreted as a glob separator;
- * this is lexical glob syntax, not physical identity resolution or preservation
- * of a literal POSIX backslash filename. The topology owner decides whether the
+ * root; a relative pattern includes its working-directory prefix first. Native
+ * resolution anchors relative patterns at the current working directory. Every
+ * backslash in the resolved spelling is interpreted as a glob separator; this
+ * is lexical glob syntax, not physical identity resolution or preservation of a
+ * literal POSIX backslash filename. The topology owner decides whether the
  * selected directory exists and can be observed.
  *
  * @evidence contracts/common.md#principled-implementation The last separator before the first supported wildcard identifies the deepest literal directory that can contain every match.

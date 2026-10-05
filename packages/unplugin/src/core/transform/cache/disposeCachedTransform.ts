@@ -7,7 +7,8 @@ import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
  *
  * Each independent tracker is attempted after every field and the clock
  * association are detached. Repeated disposal then has no retained handle to
- * close. A failed native close/removal is tolerated, not certified as released.
+ * close. A failed native close/removal is tolerated, not certified as
+ * released.
  *
  * @evidence contracts/common.md#principled-implementation Removing handles from the generation before closing makes repeated disposal harmless; each independent tracker is attempted even if another close throws.
  * @evidence contracts/common.md#clear-and-simple-design The disposer owns the three tracker fields and clock reference only, leaving cache membership and lifecycle scheduling to their callers.

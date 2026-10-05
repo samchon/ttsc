@@ -93,8 +93,7 @@ async function main() {
 }
 
 function prepareCurrentTarballs() {
-  if (process.env.TTSC_INSTALL_SKIP_BUILD !== "1")
-    run("pnpm run build", root);
+  if (process.env.TTSC_INSTALL_SKIP_BUILD !== "1") run("pnpm run build", root);
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of ["ttsc", platformTarball, ...packageTarballs]) {

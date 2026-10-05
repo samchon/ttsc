@@ -41,8 +41,8 @@ func TestLSPProxyClearsCleanProjectPublication(t *testing.T) {
   var first struct {
     Method string `json:"method"`
     Params struct {
-      URI string `json:"uri"`
-      Version *int `json:"version,omitempty"`
+      URI         string `json:"uri"`
+      Version     *int   `json:"version,omitempty"`
       Diagnostics []struct {
         Message string `json:"message"`
       } `json:"diagnostics"`

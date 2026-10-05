@@ -9,10 +9,10 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * goes through the host's own file channel, the same one that watches the
  * module itself, requesting the host's watcher or persistent-cache dependency.
  * This handoff does not certify host receipt or a subsequent rebuild. A
- * watching session's bridge
- * observes the generation's inputs and moves the record when one changes
- * (`openHostWatchBridge`); a one-shot build has no bridge, and its next start
- * proves the record against the disk (`refreshProjectRecordFiles`).
+ * watching session's bridge observes the generation's inputs and moves the
+ * record when one changes (`openHostWatchBridge`); a one-shot build has no
+ * bridge, and its next start proves the record against the disk
+ * (`refreshProjectRecordFiles`).
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page

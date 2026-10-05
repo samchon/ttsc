@@ -11,6 +11,8 @@ import { make } from "../internal/make";
  * line. Synthetic comments can be attached explicitly; the printer then emits
  * just those comments, with no `;` of its own.
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link NotEmittedTypeElement}.
  * @evidence contracts/common.md#principled-implementation
  *   The NotEmittedTypeElement discriminant represents an empty member body;
  *   explicit synthetic comment metadata is distinct from nonexistent source positions.
@@ -26,9 +28,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states the lack of source positions and distinguishes empty
  *   syntax from explicitly attached comments, without promising inherited metadata. The rule that a placeholder without comments leaves no separator or blank line is stated.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link NotEmittedTypeElement}.
  */
 export const createNotEmittedTypeElement = (): NotEmittedTypeElement =>
   make("NotEmittedTypeElement", {});

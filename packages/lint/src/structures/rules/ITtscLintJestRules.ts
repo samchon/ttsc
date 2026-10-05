@@ -25,8 +25,8 @@ export interface ITtscLintJestRules {
   "jest/expect-expect"?: TtscLintRuleSetting;
 
   /**
-   * Report more than five recognized expect calls in a Jest test body using
-   * the native callback-body walker; this interface exposes no limit option.
+   * Report more than five recognized expect calls in a Jest test body using the
+   * native callback-body walker; this interface exposes no limit option.
    *
    * A test packed with assertions usually verifies several behaviors at once,
    * making failures ambiguous — splitting per scenario keeps each case
@@ -38,7 +38,8 @@ export interface ITtscLintJestRules {
 
   /**
    * Reject recognized expect calls under if, switch, or ternary syntax in
-   * recognized Jest test callbacks. Try/catch are not native conditional kinds.
+   * recognized Jest test callbacks. Try/catch are not native conditional
+   * kinds.
    *
    * A branch that never executes turns the assertion into a silent no-op, so
    * the test passes without verifying anything.
@@ -184,8 +185,8 @@ export interface ITtscLintJestRules {
   /**
    * Validate the shape of Jest `describe` callbacks.
    *
-   * The native check requires a function callback without an async modifier.
-   * It does not validate parameter count or infer returned Promise types.
+   * The native check requires a function callback without an async modifier. It
+   * does not validate parameter count or infer returned Promise types.
    *
    * @reference https://github.com/jest-community/eslint-plugin-jest/blob/main/docs/rules/valid-describe-callback.md
    */

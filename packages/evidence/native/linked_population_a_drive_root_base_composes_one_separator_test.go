@@ -1,7 +1,7 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 )
 
 /**
@@ -27,12 +27,12 @@ import (
  * @evidence contracts/testing.md#execution-ownership TestADriveRootBaseComposesOneSeparator calls populationBase.display twice with authored scalar values in one Go test process. It creates no filesystem fixture or symbolic link and starts no product host, compiler or installed consumer.
  */
 func TestADriveRootBaseComposesOneSeparator(t *testing.T) {
-	drive := populationBase{Absolute: `D:\`, Display: "D:/"}
-	if got := drive.display("requirements/pricing.md"); got != "D:/requirements/pricing.md" {
-		t.Fatalf("drive root display = %q", got)
-	}
-	ascending := populationBase{Absolute: `C:\docs`, Display: "../docs"}
-	if got := ascending.display("requirements/pricing.md"); got != "../docs/requirements/pricing.md" {
-		t.Fatalf("ascending display = %q", got)
-	}
+  drive := populationBase{Absolute: `D:\`, Display: "D:/"}
+  if got := drive.display("requirements/pricing.md"); got != "D:/requirements/pricing.md" {
+    t.Fatalf("drive root display = %q", got)
+  }
+  ascending := populationBase{Absolute: `C:\docs`, Display: "../docs"}
+  if got := ascending.display("requirements/pricing.md"); got != "../docs/requirements/pricing.md" {
+    t.Fatalf("ascending display = %q", got)
+  }
 }

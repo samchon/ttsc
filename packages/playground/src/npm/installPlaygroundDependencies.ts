@@ -35,8 +35,8 @@ const DEFAULT_MAX_UNPACKED_BYTES = 64 * 1024 * 1024;
  * walk is bounded by the nonnegative safe-integer `maxPackages` to keep a
  * single keystroke from exhausting the tab's network/memory budget. The cap
  * counts distinct names completed in this call, including mounted packages
- * revalidated and optional packages omitted. Unrequested mounted state does
- * not consume this call's budget; zero permits no queued package work.
+ * revalidated and optional packages omitted. Unrequested mounted state does not
+ * consume this call's budget; zero permits no queued package work.
  *
  * @evidence contracts/common.md#principled-implementation The queue unifies required ranges per exposed name and registry identity, pins reused exact versions and rejects incompatible required edges. Optional edges refine only compatible solves; verified tar bytes are confined before files enter consumer namespaces.
  * @evidence contracts/common.md#clear-and-simple-design Graph coordination stays here while registry transport, version selection, archive validation and file mapping have explicit helper boundaries.
@@ -77,7 +77,10 @@ export async function installPlaygroundDependencies(
       );
     }
     if (previous !== undefined) {
-      for (const entryToAppend of dependency.requests.map((request) => ({ ...request }))) previous.requests.push(entryToAppend);
+      for (const entryToAppend of dependency.requests.map((request) => ({
+        ...request,
+      })))
+        previous.requests.push(entryToAppend);
       continue;
     }
     installedDependencies.set(dependency.name, {

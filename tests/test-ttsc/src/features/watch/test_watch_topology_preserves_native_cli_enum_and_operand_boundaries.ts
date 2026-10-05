@@ -63,8 +63,8 @@ const PRESERVE_WITHOUT_MAP: ExpectedReports = [
  * 3. Retain configured preserve plus explicit-null and trimmed-empty clears.
  * 4. Edit declared output/non-output twins and collect every named failure.
  *
- * Native ordinary compile/build merge applies explicit null as SetZero, and
- * CLI trim-empty enum conversion produces nil without a diagnostic. Those rules
+ * Native ordinary compile/build merge applies explicit null as SetZero, and CLI
+ * trim-empty enum conversion produces nil without a diagnostic. Those rules
  * determine the effective source watch option decision; no native watcher raw
  * refresh or compiler execution is claimed. Plain TSX source excludes an
  * unrelated JSX-syntax diagnostic from these callback decisions.

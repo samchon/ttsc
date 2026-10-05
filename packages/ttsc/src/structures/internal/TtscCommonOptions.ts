@@ -25,7 +25,10 @@ export interface TtscCommonOptions {
   /** Working directory for config discovery and relative file paths. */
   cwd?: string;
 
-  /** Selected project root, resolved from `cwd` independently of config location. */
+  /**
+   * Selected project root, resolved from `cwd` independently of config
+   * location.
+   */
   projectRoot?: string;
 
   /**
@@ -56,8 +59,9 @@ export interface TtscCommonOptions {
   /**
    * Requested checker pool size, mirroring `tsgo --checkers`; `singleThreaded`
    * takes precedence. Check hosts receive this only when they declare support.
-   * The source-plugin driver clamps its serial transform Program to one checker;
-   * direct TypeScript-Go execution otherwise owns its default and pool policy.
+   * The source-plugin driver clamps its serial transform Program to one
+   * checker; direct TypeScript-Go execution otherwise owns its default and pool
+   * policy.
    */
   checkers?: number;
 

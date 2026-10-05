@@ -8,8 +8,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -33,6 +31,9 @@ import { resolvePluginCacheRoot } from "../../../../../../packages/ttsc/lib/plug
 import { resolveSourceBuildCachePaths } from "../../../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
 import { waitForPluginBinary } from "../../../../../../packages/ttsc/lib/plugin/internal/source/waitForPluginBinary.js";
 import { withGoBuildCacheLease } from "../../../../../../packages/ttsc/lib/plugin/internal/source/withGoBuildCacheLease.js";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Writes a fake `go` executable (Node.js script) into `root` and returns its
@@ -270,9 +271,9 @@ interface ISourcePluginWorkerResult {
 }
 
 /**
- * Spawn the actual worker and settle ordinary results/errors only on close.
- * A separate deadline one second beyond the original native timeout reports
- * an unjoined operation, not successful termination. Callers must retain owned
+ * Spawn the actual worker and settle ordinary results/errors only on close. A
+ * separate deadline one second beyond the original native timeout reports an
+ * unjoined operation, not successful termination. Callers must retain owned
  * inputs on that path; the original child timeout/primitive remain unchanged.
  */
 function spawnNodeWorker(opts: {
@@ -290,19 +291,26 @@ function spawnNodeWorker(opts: {
     let stdout = "";
     let stderr = "";
     let workerError: unknown;
-    const joinDeadline = setTimeout(() => {
-      reject(new AggregateError(
-        workerError === undefined ? [] : [workerError],
-        "Source-plugin worker close was not joined after its timeout",
-      ));
-    }, (opts.timeoutMs ?? 120_000) + 1_000);
+    const joinDeadline = setTimeout(
+      () => {
+        reject(
+          new AggregateError(
+            workerError === undefined ? [] : [workerError],
+            "Source-plugin worker close was not joined after its timeout",
+          ),
+        );
+      },
+      (opts.timeoutMs ?? 120_000) + 1_000,
+    );
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-    child.on("error", (error) => { workerError = error; });
+    child.on("error", (error) => {
+      workerError = error;
+    });
     child.on("close", (status, signal) => {
       clearTimeout(joinDeadline);
       if (workerError !== undefined) reject(workerError);

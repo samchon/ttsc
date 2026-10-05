@@ -5,19 +5,19 @@ import type { TtscProjectDirectorySnapshot } from "./TtscProjectDirectorySnapsho
 
 /**
  * Digest a project's root-file membership: the policy that decides it and every
- * directory whose subtree currently contains an admitted regular file, with
- * its membership signature.
+ * directory whose subtree currently contains an admitted regular file, with its
+ * membership signature.
  *
  * It is the same judgement `sameProjectDirectories` makes. Directories that
- * contain no admitted regular file are left out, so a bundler filling its output
- * directory leaves the digest alone, while a program input appearing anywhere
- * the walk enters changes a signature and with it the digest. The policy is
- * part of it, since the same directories under another rule are another
- * membership, and a re-walk must apply the rule the digest was taken under.
+ * contain no admitted regular file are left out, so a bundler filling its
+ * output directory leaves the digest alone, while a program input appearing
+ * anywhere the walk enters changes a signature and with it the digest. The
+ * policy is part of it, since the same directories under another rule are
+ * another membership, and a re-walk must apply the rule the digest was taken
+ * under.
  *
  * @param policy The rule the walk applied.
  * @param directories The walk's directory snapshots.
- *
  * @evidence contracts/common.md#principled-implementation Relevant directory address/signature pairs and the exact membership policy define the digest; sorting the pairs removes enumeration order without discarding policy arrays or admitted-input meaning.
  * @evidence contracts/common.md#clear-and-simple-design A projection, lexical sort and shared encoding/hash compose the identity without performing another filesystem walk.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Irrelevant emitted trees are excluded by the walk's computed relevance, not hardcoded output names; changed policy remains part of the identity.

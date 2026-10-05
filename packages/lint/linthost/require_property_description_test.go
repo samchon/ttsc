@@ -9,9 +9,9 @@ import "testing"
 // Property docs often sit in typedef blocks rather than on members, so the rule
 // reads only the comment text.
 //
-// 1. Run the rule over a block whose third line is `@property name` and
-//    expect one finding on line 3.
-// 2. Run the rule over a block with `@property name Human-readable option name.` and expect none.
+//  1. Run the rule over a block whose third line is `@property name` and
+//     expect one finding on line 3.
+//  2. Run the rule over a block with `@property name Human-readable option name.` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-property-description rule through NewEngine.Run over a parsed virtual TypeScript file. `@property name` yields exactly one finding, with that rule at error severity, on line 3; `@property name Human-readable option name.` yields none.
 // @evidence contracts/testing.md#independent-expectations A property name identifies the target and the description explains it, so a name alone is incomplete. The literal sources and expected line 3 follow from that policy; the message text is not asserted.

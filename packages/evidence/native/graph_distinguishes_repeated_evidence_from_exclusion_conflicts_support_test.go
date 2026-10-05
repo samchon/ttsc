@@ -13,10 +13,6 @@ const acknowledgementIntentConfig = `{"claims":[{
   "reference":{"type":"markdown","files":["docs/spec.md"],"symbol":["h2","h3"]}
 }]}`
 
-
-
-
-
 func assertSingleEvidenceDuplicate(t *testing.T, messages []string, target string) {
   t.Helper()
   if got := countProblemsContaining(messages, "Duplicate @evidence for '"+target+"'"); got != 1 {
@@ -31,16 +27,6 @@ func assertSingleEvidenceDuplicate(t *testing.T, messages []string, target strin
     t.Fatalf("the duplicate edge stopped covering its target:\n%s", strings.Join(messages, "\n"))
   }
 }
-
-
-
-
-
-
-
-
-
-
 
 func runPrismaAcknowledgementGraph(
   t *testing.T,

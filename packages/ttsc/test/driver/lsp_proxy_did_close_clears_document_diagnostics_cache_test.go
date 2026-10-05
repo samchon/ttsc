@@ -37,8 +37,8 @@ func TestLSPProxyDidCloseClearsDocumentDiagnosticsCache(t *testing.T) {
   var first struct {
     Method string `json:"method"`
     Params struct {
-      URI string `json:"uri"`
-      Version *int `json:"version"`
+      URI         string `json:"uri"`
+      Version     *int   `json:"version"`
       Diagnostics []struct {
         Message string `json:"message"`
       } `json:"diagnostics"`
@@ -61,10 +61,10 @@ func TestLSPProxyDidCloseClearsDocumentDiagnosticsCache(t *testing.T) {
   var publication struct {
     Method string `json:"method"`
     Params struct {
-      URI string `json:"uri"`
-      Version *int `json:"version"`
+      URI         string `json:"uri"`
+      Version     *int   `json:"version"`
       Diagnostics []struct {
-        Source string `json:"source"`
+        Source  string `json:"source"`
         Message string `json:"message"`
       } `json:"diagnostics"`
     } `json:"params"`

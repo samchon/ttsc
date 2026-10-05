@@ -19,6 +19,10 @@ import { make } from "../internal/make";
  * }mid${
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The text.
+ * @param rawText The source spelling before escape processing, if supplied.
+ * @returns The created node.
  * @evidence contracts/common.md#principled-implementation
  *   TemplateMiddle stores the span between substitutions, preserving cooked
  *   content and optional raw spelling as separate representation fields.
@@ -33,11 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains both delimiters, the multi-substitution condition and raw
  *   precedence in distinct paragraphs separated from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The text.
- * @param rawText The source spelling before escape processing, if supplied.
- * @returns The created node.
  */
 export const createTemplateMiddle = (
   text: string,

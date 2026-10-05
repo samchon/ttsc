@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +5,7 @@ import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 import { matchesProjectRootFile } from "../../../../../packages/unplugin/src/core/tsconfig/matchesProjectRootFile";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a membership policy no compile has reported for matches root specs
@@ -48,5 +48,9 @@ export function test_root_specs_follow_the_compiler_rule_before_any_report(): vo
     );
 
   assert.equal(member(), expected);
-  assert.equal(member(process.platform === "linux" ? "darwin" : "linux"), expected, "view grammar must not choose compiler case policy");
+  assert.equal(
+    member(process.platform === "linux" ? "darwin" : "linux"),
+    expected,
+    "view grammar must not choose compiler case policy",
+  );
 }

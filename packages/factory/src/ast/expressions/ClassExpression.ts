@@ -9,15 +9,14 @@ import type { TypeParameterDeclaration } from "../types/TypeParameterDeclaration
  *
  * Built by {@link factory.createClassExpression}.
  *
- * An absent name represents an anonymous class. Members remain in source
- * order; this outline does not validate modifier or heritage combinations.
+ * An absent name represents an anonymous class. Members remain in source order;
+ * this outline does not validate modifier or heritage combinations.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Optional naming distinguishes anonymous and named class expressions, while ordered members and heritage clauses preserve the supplied class outline; validity of combinations remains caller-owned.
  * @evidence contracts/common.md#clear-and-simple-design Header constituents and body members are separate direct fields, reusing class element types without declaration-only state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Anonymous classes remain unnamed instead of acquiring invented identifiers or consumer-selected base classes.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains anonymous naming, ordering and grammar limits; each optional field explains omission with separated member comments and tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ClassExpression {
   /** Discriminant tag; always `"ClassExpression"`. */

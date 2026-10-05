@@ -1,17 +1,20 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, mod, param, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of a rich {@link factory.createClassDeclaration|class declaration}.
+ * Verifies printing of a rich
+ * {@link factory.createClassDeclaration|class declaration}.
  *
  * Exercises both heritage clauses (`extends` + `implements`), a modified
  * property, a constructor, a getter, and a decorated method — decorators sit on
  * their own line above the member.
  *
- * 1. The exported class printer preserves heritage, modifiers, constructor, getter, decorated method and their nested layout.
- * 2. The complete Animal class literal independently specifies each supplied member and its public/readonly and decorator tokens.
+ * 1. The exported class printer preserves heritage, modifiers, constructor,
+ *    getter, decorated method and their nested layout.
+ * 2. The complete Animal class literal independently specifies each supplied
+ *    member and its public/readonly and decorator tokens.
  *
  * @evidence contracts/testing.md#behavioral-verification The exported class printer preserves heritage, modifiers, constructor, getter, decorated method and their nested layout.
  * @evidence contracts/testing.md#independent-expectations The complete Animal class literal independently specifies each supplied member and its public/readonly and decorator tokens.

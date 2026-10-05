@@ -1,9 +1,9 @@
 package linthost
 
 import (
-  "testing"
   "encoding/json"
   "strings"
+  "testing"
 )
 
 // TestNoRestrictedTypesLaterWhitespaceEquivalentKeyWins verifies the later of
@@ -34,5 +34,7 @@ func TestNoRestrictedTypesLaterWhitespaceEquivalentKeyWins(t *testing.T) {
     t.Fatalf("later enabled key did not win: %+v", findings)
   }
   start := strings.Index(source, "Banned")
-  if findings[0].Rule != noRestrictedTypesRuleName || findings[0].Severity != SeverityError || findings[0].Pos != start || findings[0].End != start+len("Banned") { t.Fatalf("normalized policy finding = %+v", findings[0]) }
+  if findings[0].Rule != noRestrictedTypesRuleName || findings[0].Severity != SeverityError || findings[0].Pos != start || findings[0].End != start+len("Banned") {
+    t.Fatalf("normalized policy finding = %+v", findings[0])
+  }
 }

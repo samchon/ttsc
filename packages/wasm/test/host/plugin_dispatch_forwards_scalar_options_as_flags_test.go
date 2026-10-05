@@ -17,12 +17,12 @@ import (
 // with the default verb spells 1234567 as "1.234567e+06", which no plugin flag
 // parser reads back as the integer the caller passed.
 //
-// 1. Dispatch to a plugin that echoes its command and arguments, passing strings,
-//    integers on both sides of the exponent threshold, a fraction, a negative,
-//    true, false and undefined.
-// 2. Dispatch to an unregistered name.
-// 3. Assert the command and the sorted flags equal the literals the contract
-//    specifies, name and command are not forwarded, and an unknown name is code 2.
+//  1. Dispatch to a plugin that echoes its command and arguments, passing strings,
+//     integers on both sides of the exponent threshold, a fraction, a negative,
+//     true, false and undefined.
+//  2. Dispatch to an unregistered name.
+//  3. Assert the command and the sorted flags equal the literals the contract
+//     specifies, name and command are not forwarded, and an unknown name is code 2.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls api.plugin on the exposed js/wasm API and compares the command, the exit code, stderr and the forwarded flag list with literals, so a wrong number format, a forwarded name or command key, or a lost flag fails.
 // @evidence contracts/testing.md#independent-expectations The expected flags are the documented translation (string and number as --key=value, true as --key, false and undefined omitted); 1234567 and 100000000 are written out in full because a plugin flag parser reads integers, not exponent notation.

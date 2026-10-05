@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, mod, param, print, ref } from "../../internal/helpers";
 
 /**
@@ -10,8 +10,10 @@ import { id, kw, mod, param, print, ref } from "../../internal/helpers";
  * property, a method signature, and an index signature — each member on its own
  * line.
  *
- * 1. The generic exported IBox printer preserves Base heritage and readonly/optional/method/index members.
- * 2. The complete literal interface body specifies each name, type, punctuation and indentation independently.
+ * 1. The generic exported IBox printer preserves Base heritage and
+ *    readonly/optional/method/index members.
+ * 2. The complete literal interface body specifies each name, type, punctuation
+ *    and indentation independently.
  *
  * @evidence contracts/testing.md#behavioral-verification The generic exported IBox printer preserves Base heritage and readonly/optional/method/index members.
  * @evidence contracts/testing.md#independent-expectations The complete literal interface body specifies each name, type, punctuation and indentation independently.

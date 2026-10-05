@@ -19,6 +19,7 @@ import (
 //  1. Pin both tool variables at paths that do not exist.
 //  2. Load a `.json` and a `.js` config through the dispatcher.
 //  3. Assert both return their statement list with no spawn failure.
+//
 // @evidence contracts/testing.md#behavioral-verification The strip loader reads JSON and evaluates script config successfully while compiler and ttsx variables name nonexistent files; returned values must match the authored exports.
 // @evidence contracts/testing.md#independent-expectations The literal config data is the expectation, and nonexistent pinned TS tools make erroneous routing through ttsx fail.
 // @evidence contracts/testing.md#distinguishing-cases JSON loads directly, whereas script uses actual Node import. The case tests TS-tool avoidance, not absence of Node or TypeScript source evaluation.

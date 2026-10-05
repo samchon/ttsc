@@ -1,6 +1,7 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx resolves an installed package root's `${configDir}` path
@@ -21,6 +22,7 @@ import assert from "node:assert/strict";
  * 2. Run a consumer entry that requires the package, so the consumer's own check
  *    never compiles the package's source under the consumer's config.
  * 3. Assert the program ran, which needs the re-export elided.
+ *
  * @evidence contracts/testing.md#behavioral-verification Loads an installed package root outside its include using ${configDir} paths for a type-only reexport and requires area-9.
  * @evidence contracts/testing.md#independent-expectations The authored package value and interface-only dependency determine output independently of the generated config path.
  * @evidence contracts/testing.md#distinguishing-cases The excluded package root must inherit config-relative resolution; emitted text and transient package writes are not inspected.
@@ -31,13 +33,17 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage The exact area-9 assertion remains here without claiming a byte-level emit or package-immutability oracle.
  */
 export function test_ttsx_resolves_config_dir_paths_for_an_installed_package_root() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_resolves_config_dir_paths_for_an_installed_package_root/inputs-1"));
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_resolves_config_dir_paths_for_an_installed_package_root/inputs-1",
+    ),
+  );
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      { cwd: root },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "area-9");
-  }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "area-9");
+}

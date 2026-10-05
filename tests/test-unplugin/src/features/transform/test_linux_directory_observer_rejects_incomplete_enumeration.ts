@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
@@ -9,6 +8,7 @@ import { LINUX_WATCH_HELPER } from "../../../../../packages/unplugin/src/core/tr
 import type { LinuxWatchHelper } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/LinuxWatchHelper";
 import { openLinuxDirectoryObserver } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/openLinuxDirectoryObserver";
 import { routeLinuxWatchHelperLine } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/routeLinuxWatchHelperLine";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Requires directory enumeration as well as acknowledged watches before an
@@ -85,7 +85,8 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
     const heard: [string, string | null][] = [];
     let errors = 0;
     let expanded = row !== "widened";
-    let unreadable = row === "root" ? root : row === "child" ? nested : undefined;
+    let unreadable =
+      row === "root" ? root : row === "child" ? nested : undefined;
     const failedReads: string[] = [];
     const failedLstats: string[] = [];
     let lstatError: "EIO" | "EACCES" | undefined;
@@ -97,7 +98,10 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
       Object.defineProperty(fs, "readdirSync", {
         ...descriptor,
         value: (...args: Parameters<typeof fs.readdirSync>) => {
-          if (typeof args[0] === "string" && path.resolve(args[0]) === unreadable) {
+          if (
+            typeof args[0] === "string" &&
+            path.resolve(args[0]) === unreadable
+          ) {
             failedReads.push(path.resolve(args[0]));
             throw Object.assign(new Error("authored enumeration failure"), {
               code: "EIO",
@@ -137,7 +141,11 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
       route({ id: 1, ready: true });
       await turn();
       if (row !== "root") {
-        assert.deepEqual(sent.splice(0), [{ id: 2, op: "add", path: nested }], row);
+        assert.deepEqual(
+          sent.splice(0),
+          [{ id: 2, op: "add", path: nested }],
+          row,
+        );
         route({ id: 2, ready: true });
         await turn();
       }
@@ -146,14 +154,22 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
         route({ id: 3, ready: true });
         await turn();
       }
-      assert.deepEqual(sent, [], "no file watches or duplicate directory opens");
+      assert.deepEqual(
+        sent,
+        [],
+        "no file watches or duplicate directory opens",
+      );
       assert.equal(
         await observer.ready,
         row !== "root" && row !== "child",
         row,
       );
       assert.equal(errors, row === "root" || row === "child" ? 1 : 0, row);
-      assert.deepEqual(heard, [], "initial enumeration does not invent mutations");
+      assert.deepEqual(
+        heard,
+        [],
+        "initial enumeration does not invent mutations",
+      );
       if (row === "healthy") {
         route({ id: 3, type: "change", name: "input.ts" });
         assert.deepEqual(heard.splice(0), [
@@ -161,7 +177,11 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
         ]);
         observer.track(root, true);
         await turn();
-        assert.deepEqual(sent, [], "revisiting live directories reuses their watches");
+        assert.deepEqual(
+          sent,
+          [],
+          "revisiting live directories reuses their watches",
+        );
         assert.equal(errors, 0);
         assert.deepEqual(failedReads, []);
       } else if (row === "widened") {
@@ -171,29 +191,53 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
         await turn();
         assert.equal(errors, 1, "failed widening withdraws recursive coverage");
         assert.deepEqual(failedReads, [nested]);
-        assert.deepEqual(sent, [], "unread descendants cannot acquire guessed watches");
-        assert.deepEqual(heard, [], "failed widening is not a successful opening batch");
+        assert.deepEqual(
+          sent,
+          [],
+          "unread descendants cannot acquire guessed watches",
+        );
+        assert.deepEqual(
+          heard,
+          [],
+          "failed widening is not a successful opening batch",
+        );
       } else if (row === "rename-eio" || row === "rename-eacces") {
         lstatError = row === "rename-eio" ? "EIO" : "EACCES";
         route({ id: 1, type: "rename", name: "nested" });
         assert.equal(errors, 1, "unresolved named topology withdraws coverage");
         assert.deepEqual(failedLstats, [nested]);
         assert.deepEqual(failedReads, []);
-        assert.deepEqual(sent, [], "unknown topology is not evidence of deletion");
+        assert.deepEqual(
+          sent,
+          [],
+          "unknown topology is not evidence of deletion",
+        );
       } else if (row === "backend-eio" || row === "backend-eacces") {
         lstatError = row === "backend-eio" ? "EIO" : "EACCES";
         inaccessible = true;
         route({ id: 2, gone: true });
-        assert.equal(errors, 1, "backend loss with unknown presence withdraws coverage");
+        assert.equal(
+          errors,
+          1,
+          "backend loss with unknown presence withdraws coverage",
+        );
         assert.deepEqual(failedLstats, [nested]);
-        assert.deepEqual(sent, [], "backend loss does not prove descendant deletion");
+        assert.deepEqual(
+          sent,
+          [],
+          "backend loss does not prove descendant deletion",
+        );
         assert.equal(LINUX_DIRECTORY_WATCHES.has(nested), false);
         assert.equal(LINUX_DIRECTORY_WATCHES.has(deep), true);
       } else if (row === "backend-deleted") {
         fs.rmSync(nested, { recursive: true, force: true });
         assert.equal(fs.existsSync(nested), false);
         route({ id: 2, gone: true });
-        assert.equal(errors, 0, "confirmed backend absence retires the subtree");
+        assert.equal(
+          errors,
+          0,
+          "confirmed backend absence retires the subtree",
+        );
         assert.deepEqual(failedLstats, []);
         assert.deepEqual(sent.splice(0), [{ id: 3, op: "remove" }]);
         assert.equal(LINUX_DIRECTORY_WATCHES.has(nested), false);
@@ -202,7 +246,11 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
         fs.rmSync(nested, { recursive: true, force: true });
         assert.equal(fs.existsSync(nested), false);
         route({ id: 1, type: "rename", name: "nested" });
-        assert.equal(errors, 0, "confirmed absence retires only the missing subtree");
+        assert.equal(
+          errors,
+          0,
+          "confirmed absence retires only the missing subtree",
+        );
         assert.deepEqual(failedLstats, []);
         assert.deepEqual(sent.splice(0), [
           { id: 2, op: "remove" },
@@ -219,14 +267,20 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
         row === "root" || row === "deleted" || row === "backend-deleted"
           ? [{ id: 1, op: "remove" }]
           : row === "backend-eio" || row === "backend-eacces"
-            ? [{ id: 1, op: "remove" }, { id: 3, op: "remove" }]
+            ? [
+                { id: 1, op: "remove" },
+                { id: 3, op: "remove" },
+              ]
             : fullTree
               ? [
                   { id: 1, op: "remove" },
                   { id: 2, op: "remove" },
                   { id: 3, op: "remove" },
                 ]
-              : [{ id: 1, op: "remove" }, { id: 2, op: "remove" }],
+              : [
+                  { id: 1, op: "remove" },
+                  { id: 2, op: "remove" },
+                ],
         row,
       );
       assert.deepEqual(
@@ -281,59 +335,115 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
   let consumed = 0;
   const acknowledge = async (): Promise<void> => {
     for (;;) {
-      const requests = sent.slice(consumed).filter((entry) => entry.op === "add" || entry.op === "sync");
+      const requests = sent
+        .slice(consumed)
+        .filter((entry) => entry.op === "add" || entry.op === "sync");
       consumed = sent.length;
       for (const entry of requests)
-        routeLinuxWatchHelperLine(helper, JSON.stringify(entry.op === "sync"
-          ? { id: entry.id, synced: true }
-          : { id: entry.id, ready: true }));
+        routeLinuxWatchHelperLine(
+          helper,
+          JSON.stringify(
+            entry.op === "sync"
+              ? { id: entry.id, synced: true }
+              : { id: entry.id, ready: true },
+          ),
+        );
       await new Promise<void>((resolve) => setImmediate(resolve));
       if (sent.length === consumed) break;
     }
   };
-  const names = (): string[] => [...LINUX_DIRECTORY_WATCHES.keys()]
-    .filter((directory) => directory === root || directory.startsWith(`${root}${path.sep}`))
-    .map((directory) => path.relative(root, directory).split(path.sep).join("/"))
-    .sort();
+  const names = (): string[] =>
+    [...LINUX_DIRECTORY_WATCHES.keys()]
+      .filter(
+        (directory) =>
+          directory === root || directory.startsWith(`${root}${path.sep}`),
+      )
+      .map((directory) =>
+        path.relative(root, directory).split(path.sep).join("/"),
+      )
+      .sort();
   const widened = path.join(root, "node_modules", "pkg-7");
   let expand = false;
   let errors = 0;
   const heard: string[] = [];
   const admit = (directory: string): boolean =>
     !directory.startsWith(path.join(root, "node_modules")) ||
-    (expand && (directory === widened || directory.startsWith(`${widened}${path.sep}`)));
+    (expand &&
+      (directory === widened || directory.startsWith(`${widened}${path.sep}`)));
   let first: ReturnType<typeof openLinuxDirectoryObserver> | undefined;
   let second: ReturnType<typeof openLinuxDirectoryObserver> | undefined;
   LINUX_WATCH_HELPER.current = helper;
   try {
-    first = openLinuxDirectoryObserver(root, admit,
-      (_type, filename) => { if (filename !== null) heard.push(filename); },
-      () => { errors += 1; });
-    second = openLinuxDirectoryObserver(root, admit, () => undefined,
-      () => { errors += 1; });
+    first = openLinuxDirectoryObserver(
+      root,
+      admit,
+      (_type, filename) => {
+        if (filename !== null) heard.push(filename);
+      },
+      () => {
+        errors += 1;
+      },
+    );
+    second = openLinuxDirectoryObserver(
+      root,
+      admit,
+      () => undefined,
+      () => {
+        errors += 1;
+      },
+    );
     await acknowledge();
-    assert.deepEqual(await Promise.all([first.ready, second.ready]), [true, true]);
+    assert.deepEqual(await Promise.all([first.ready, second.ready]), [
+      true,
+      true,
+    ]);
     assert.deepEqual(names(), ["", "src", "src/feature"]);
-    assert.equal(sent.filter((entry) => entry.op === "add").length, 3,
-      "two observers share one backend subscription for each admitted directory");
+    assert.equal(
+      sent.filter((entry) => entry.op === "add").length,
+      3,
+      "two observers share one backend subscription for each admitted directory",
+    );
     const rootId = sent.find((entry) => entry.path === root)!.id;
     fs.mkdirSync(path.join(root, "src", "later"));
     fs.mkdirSync(path.join(root, "node_modules", "pkg-new"));
-    const srcId = sent.find((entry) => entry.path === path.join(root, "src"))!.id;
-    routeLinuxWatchHelperLine(helper, JSON.stringify({ id: srcId, type: "rename", name: "later" }));
+    const srcId = sent.find(
+      (entry) => entry.path === path.join(root, "src"),
+    )!.id;
+    routeLinuxWatchHelperLine(
+      helper,
+      JSON.stringify({ id: srcId, type: "rename", name: "later" }),
+    );
     const packagesIdBefore = sent.filter((entry) => entry.op === "add").length;
-    routeLinuxWatchHelperLine(helper, JSON.stringify({ id: rootId, type: "rename", name: "node_modules" }));
+    routeLinuxWatchHelperLine(
+      helper,
+      JSON.stringify({ id: rootId, type: "rename", name: "node_modules" }),
+    );
     await acknowledge();
-    assert.equal(sent.filter((entry) => entry.op === "add").length, packagesIdBefore);
+    assert.equal(
+      sent.filter((entry) => entry.op === "add").length,
+      packagesIdBefore,
+    );
     assert.deepEqual(names(), ["", "src", "src/feature", "src/later"]);
     fs.writeFileSync(path.join(root, "src", "later", "new.ts"), "export {};\n");
-    const laterId = sent.find((entry) => entry.path === path.join(root, "src", "later"))!.id;
-    routeLinuxWatchHelperLine(helper, JSON.stringify({ id: laterId, type: "change", name: "new.ts" }));
+    const laterId = sent.find(
+      (entry) => entry.path === path.join(root, "src", "later"),
+    )!.id;
+    routeLinuxWatchHelperLine(
+      helper,
+      JSON.stringify({ id: laterId, type: "change", name: "new.ts" }),
+    );
     assert.ok(heard.includes(path.join("src", "later", "new.ts")));
     first.track(path.join(root, "node_modules", "pkg-3", "lib", "index.d.ts"));
     await acknowledge();
-    assert.deepEqual(names(), ["", "node_modules", "node_modules/pkg-3",
-      "node_modules/pkg-3/lib", "src", "src/feature", "src/later"]);
+    assert.deepEqual(names(), [
+      "",
+      "node_modules",
+      "node_modules/pkg-3",
+      "node_modules/pkg-3/lib",
+      "src",
+      "src/feature",
+      "src/later",
+    ]);
     first.track(path.join(root, "node_modules", "pkg-5"));
     await acknowledge();
     assert.ok(names().includes("node_modules/pkg-5"));
@@ -343,17 +453,32 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
     expand = true;
     first.track(widened);
     await acknowledge();
-    assert.equal(names().includes("node_modules/pkg-7/lib"), false,
-      "nonrecursive track does not rescan an already live directory");
+    assert.equal(
+      names().includes("node_modules/pkg-7/lib"),
+      false,
+      "nonrecursive track does not rescan an already live directory",
+    );
     first.track(widened, true);
     await acknowledge();
-    assert.deepEqual(names(), ["", "node_modules", "node_modules/pkg-3",
-      "node_modules/pkg-3/lib", "node_modules/pkg-5", "node_modules/pkg-7",
-      "node_modules/pkg-7/lib", "src", "src/feature", "src/later"]);
+    assert.deepEqual(names(), [
+      "",
+      "node_modules",
+      "node_modules/pkg-3",
+      "node_modules/pkg-3/lib",
+      "node_modules/pkg-5",
+      "node_modules/pkg-7",
+      "node_modules/pkg-7/lib",
+      "src",
+      "src/feature",
+      "src/later",
+    ]);
     assert.equal(errors, 0);
     first.close();
-    assert.deepEqual(names(), ["", "src", "src/feature", "src/later"],
-      "closing the wider owner retains the second observer's shared subscriptions");
+    assert.deepEqual(
+      names(),
+      ["", "src", "src/feature", "src/later"],
+      "closing the wider owner retains the second observer's shared subscriptions",
+    );
     second.close();
     assert.deepEqual(names(), []);
   } finally {

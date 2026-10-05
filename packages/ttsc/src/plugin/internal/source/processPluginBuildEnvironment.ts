@@ -16,14 +16,13 @@ import { PluginBuildEnvironmentReadings } from "./PluginBuildEnvironmentReadings
  * carries (`PluginBuildEnvironmentWitness`): the Go tool, the Go environment
  * file `go env -w` writes, the executables the C toolchain commands name, and
  * GOROOT. A kept read is reused only while each of them holds its metadata, so
- * a distinguishable metadata change triggers a new reading at use. This is
- * the witness's declared distinguishability premise, not detection of every
- * possible metadata-restored change. The
- * build itself never reads through here: it keys each binary on a fresh read.
+ * a distinguishable metadata change triggers a new reading at use. This is the
+ * witness's declared distinguishability premise, not detection of every
+ * possible metadata-restored change. The build itself never reads through here:
+ * it keys each binary on a fresh read.
  *
  * @param directory The directory a build runs `go` in.
  * @param refresh Whether to read the environment again rather than reuse it.
- *
  * @evidence contracts/common.md#principled-implementation Variable serialization is sorted and length-delimited; reuse additionally requires unchanged pre-read metadata for every external dependency, including all contributing GOROOT directories and files, under the witness's documented metadata-distinguishability premise.
  * @evidence contracts/common.md#clear-and-simple-design One process-local map owns environment memoization; fresh construction and witness validation remain separate operations shared with build verification.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh performs the real environment read rather than assuming that a stable compiler path or quiet source tree implies a stable toolchain.

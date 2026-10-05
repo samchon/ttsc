@@ -30,7 +30,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Distinguish CLI normalization from JSON data, Unicode folds and resets.
  * 3. Preserve scalar operands, ordered assignments and caller-owned inputs.
  * 4. Inspect one actual response frame and reject unsafe trailing extensions.
- * 5. Distinguish effective map flags from explicit null's provisional config fallback.
+ * 5. Distinguish effective map flags from explicit null's provisional config
+ *    fallback.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual effective reader, runtime arguments/profile, module classifier and positional output resolver preserve native frames and enum origins. Scalar @data remains an operand; CompilerArgumentsInspection tokenizes an authored response file into a literal vector and records one observation. Unsafe trailing response extensions return null with unchanged argv and no available native compiler; actual native expansion is unobserved.
  * @evidence contracts/testing.md#independent-expectations Literal native whitespace code points, authored commonjs/ESNext/JSX settings, native simple İ-to-i folding and ordinary CLI null/empty reset semantics define expected formats, suffixes and runtime overrides independently of generated metadata or product outputs. Literal map-policy booleans distinguish missing/off maps, configured/forwarded maps, false/null resets and config-only fallback independently of the profile result.
@@ -418,7 +419,10 @@ export function test_effective_compiler_values_preserve_native_frames_and_enum_o
     observe(`runtime map input ${policy.name}`, () => {
       fs.writeFileSync(
         mapConfig,
-        JSON.stringify({ compilerOptions: policy.options, files: ["view.tsx"] }),
+        JSON.stringify({
+          compilerOptions: policy.options,
+          files: ["view.tsx"],
+        }),
       );
       parsed = readProjectConfig({ cwd: root, tsconfig: mapConfig });
     });

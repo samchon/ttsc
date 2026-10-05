@@ -4,8 +4,6 @@ import {
   TestUnpluginRuntime,
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const { spawn } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
@@ -13,6 +11,9 @@ import { hostToolDirectory } from "../../../../../../../packages/unplugin/lib/co
 import { projectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
 import { readProjectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
 import { writeProjectRecordFile } from "../../../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+
+const { spawn } = E2eProcessTrace;
 
 /**
  * Verifies a one-shot Turbopack worker proves the records below the root
@@ -119,7 +120,10 @@ export async function test_turbopack_loader_proves_its_own_records_under_a_sessi
     "a project that still has a tsconfig keeps its record",
   );
   const proven = readProjectRecordFile(record);
-  assert.ok(proven !== undefined, "the sibling record remains a readable record");
+  assert.ok(
+    proven !== undefined,
+    "the sibling record remains a readable record",
+  );
   assert.equal(proven.tsconfig, siblingTsconfig);
   assert.equal(proven.root, sibling);
   assert.notEqual(

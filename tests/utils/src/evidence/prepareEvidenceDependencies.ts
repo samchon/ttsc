@@ -7,13 +7,13 @@ import { resolveDependency } from "./resolveDependency";
 import { suiteRoot } from "./suiteRoot";
 
 /**
- * Materializes one real Evidence dependency tree for compatible consumers.
- * The caller owns the fresh modules directory and retains it until every
- * borrowing project has released its readers. Published entrypoints, declared
- * runtime dependencies and the selected lint producer are unchanged from the
- * original project preparation; only their allocation is shared. An installed
- * compiler consumer can retain its already installed ttsc/TypeScript owners
- * instead of replacing them with workspace dependency links.
+ * Materializes one real Evidence dependency tree for compatible consumers. The
+ * caller owns the fresh modules directory and retains it until every borrowing
+ * project has released its readers. Published entrypoints, declared runtime
+ * dependencies and the selected lint producer are unchanged from the original
+ * project preparation; only their allocation is shared. An installed compiler
+ * consumer can retain its already installed ttsc/TypeScript owners instead of
+ * replacing them with workspace dependency links.
  *
  * @evidence contracts/common.md#principled-implementation The actual published manifest and lib/native links plus declared dependency links reproduce the existing preparation without substituting loader results or native replies.
  * @evidence contracts/common.md#clear-and-simple-design One dependency owner is separate from each authored project and ancestor workspace; callers choose live versus immutable snapshot producer explicitly.
@@ -31,30 +31,57 @@ export function prepareEvidenceDependencies(
 ): void {
   fs.mkdirSync(path.join(modules, "@ttsc"), { recursive: true });
   const source = path.resolve(suiteRoot, "..", "..", "packages", "evidence");
-  const manifest = JSON.parse(fs.readFileSync(path.join(source, "package.json"), "utf8")) as Record<string, unknown>;
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(source, "package.json"), "utf8"),
+  ) as Record<string, unknown>;
   const publishConfig = manifest.publishConfig;
-  if (typeof publishConfig !== "object" || publishConfig === null || Array.isArray(publishConfig))
-    throw new Error("@ttsc/evidence must declare publishConfig before its consumer fixture can reproduce the published entry points.");
+  if (
+    typeof publishConfig !== "object" ||
+    publishConfig === null ||
+    Array.isArray(publishConfig)
+  )
+    throw new Error(
+      "@ttsc/evidence must declare publishConfig before its consumer fixture can reproduce the published entry points.",
+    );
   const destination = path.join(modules, "@ttsc", "evidence");
   fs.mkdirSync(destination, { recursive: true });
-  fs.writeFileSync(path.join(destination, "package.json"), JSON.stringify({ ...manifest, ...publishConfig }, null, 2), "utf8");
+  fs.writeFileSync(
+    path.join(destination, "package.json"),
+    JSON.stringify({ ...manifest, ...publishConfig }, null, 2),
+    "utf8",
+  );
   for (const directory of ["lib", "native"]) {
     const target = path.join(source, directory);
     if (!fs.existsSync(target))
-      throw new Error(`@ttsc/evidence ${directory} is missing; run the workspace build before the feature suite.`);
+      throw new Error(
+        `@ttsc/evidence ${directory} is missing; run the workspace build before the feature suite.`,
+      );
     linkDirectory(target, path.join(destination, directory));
   }
-  const dependencies = manifest.dependencies as Record<string, string> | undefined;
+  const dependencies = manifest.dependencies as
+    | Record<string, string>
+    | undefined;
   for (const name of Object.keys(dependencies ?? {})) {
     if (name.startsWith("@"))
-      fs.mkdirSync(path.join(modules, name.slice(0, name.indexOf("/"))), { recursive: true });
-    linkDirectory(resolveDependency(name), path.join(modules, ...name.split("/")));
+      fs.mkdirSync(path.join(modules, name.slice(0, name.indexOf("/"))), {
+        recursive: true,
+      });
+    linkDirectory(
+      resolveDependency(name),
+      path.join(modules, ...name.split("/")),
+    );
   }
-  linkDirectory(nativeProducer === "snapshot" ? getNativeLintProducer().packageRoot : resolveDependency("@ttsc/lint"), path.join(modules, "@ttsc", "lint"));
+  linkDirectory(
+    nativeProducer === "snapshot"
+      ? getNativeLintProducer().packageRoot
+      : resolveDependency("@ttsc/lint"),
+    path.join(modules, "@ttsc", "lint"),
+  );
   if (compilerDependencies === "workspace") {
-    linkDirectory(resolveDependency("typescript"), path.join(modules, "typescript"));
+    linkDirectory(
+      resolveDependency("typescript"),
+      path.join(modules, "typescript"),
+    );
     linkDirectory(resolveDependency("ttsc"), path.join(modules, "ttsc"));
   }
 }
-
-

@@ -1,15 +1,18 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags } from "../../../../../packages/factory/src/index";
 
+import factory, { NodeFlags } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
- * Verifies an array-destructuring variable declaration, e.g. `const [a, b] = pair;`.
+ * Verifies an array-destructuring variable declaration, e.g. `const [a, b] =
+ * pair;`.
  *
  * `createVariableDeclaration` accepts a binding pattern as its name.
  *
- * 1. A const array binding declaration retains a/b binding order and pair initializer.
- * 2. Literal const [a, b] = pair; independently fixes mode, pattern and assignment syntax.
+ * 1. A const array binding declaration retains a/b binding order and pair
+ *    initializer.
+ * 2. Literal const [a, b] = pair; independently fixes mode, pattern and assignment
+ *    syntax.
  *
  * @evidence contracts/testing.md#behavioral-verification A const array binding declaration retains a/b binding order and pair initializer.
  * @evidence contracts/testing.md#independent-expectations Literal const [a, b] = pair; independently fixes mode, pattern and assignment syntax.

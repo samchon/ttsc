@@ -39,7 +39,8 @@ export interface IMemFSHost {
   writeFile(path: string, data: string | Uint8Array): void;
 
   /**
-   * Read an owned copy of file bytes; return null for an absent path or directory.
+   * Read an owned copy of file bytes; return null for an absent path or
+   * directory.
    *
    * @evidence contracts/common.md#principled-implementation Nullable copied bytes distinguish an absent file from an empty file.
    * @evidence contracts/common.md#clear-and-simple-design Byte readback has one nullable result and leaves text conversion to the separate text operation.

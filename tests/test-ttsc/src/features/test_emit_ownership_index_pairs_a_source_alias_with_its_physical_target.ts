@@ -1,9 +1,9 @@
-import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/internal/EmitOwnershipIndex";
+import { TestProject } from "../../../utils/src/TestProject";
 
 /**
  * Verifies source aliases receive the output owned by their physical target.
@@ -25,7 +25,9 @@ import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/inter
  * @evidence contracts/testing.md#execution-ownership The named source unit calls the actual index over a private TestProject.tmpdir. Windows creates a directory junction without file-symlink privilege; POSIX creates the original file-symlink input. No installation, compiler or product host runs, and alias creation failure fails the case.
  */
 export function test_emit_ownership_index_pairs_a_source_alias_with_its_physical_target(): void {
-  const base = fs.realpathSync.native(TestProject.tmpdir("ttsc-ownership-link-"));
+  const base = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-ownership-link-"),
+  );
   const root = path.join(base, "root");
   const emit = path.join(base, "emit");
   const write = (file: string): void => {

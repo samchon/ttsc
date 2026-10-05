@@ -3,8 +3,8 @@
  *
  * The host is spawned once and then answers transform requests over its line
  * protocol. This record fixes startup executable, argv and spawn authority;
- * later operation data belongs to the request lane. It does not freeze files
- * or certify how a custom host responds to configuration changes.
+ * later operation data belongs to the request lane. It does not freeze files or
+ * certify how a custom host responds to configuration changes.
  *
  * @evidence contracts/common.md#principled-implementation A fixed executable and argv identify the resident producer; optional cwd and environment retain Node's explicitly documented spawn defaults.
  * @evidence contracts/common.md#clear-and-simple-design This startup record contains only spawn inputs, keeping later operation and cancellation data outside the fixed project configuration.

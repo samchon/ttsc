@@ -1,7 +1,7 @@
+import { SidecarEnvironment } from "./SidecarEnvironment";
 import { clearInheritedSemanticConfigPath } from "./clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./clearInheritedTsgoArgs";
 import { publishLinkedTransformPlugins } from "./publishLinkedTransformPlugins";
-import { SidecarEnvironment } from "./SidecarEnvironment";
 
 /**
  * Merge inherited and caller environments with native variable-name identity,
@@ -14,9 +14,9 @@ import { SidecarEnvironment } from "./SidecarEnvironment";
  * beats four sites each reasoning about whether the variable could be present.
  *
  * `tsgoBinary` is the caller's explicit TypeScript-Go executable. It wins over
- * an inherited or caller `TTSC_TSGO_BINARY`, as it does in `resolveTsgo`.
- * This transports a selected executable hint to consumers of that channel;
- * it neither validates its bytes nor certifies the compiler embedded in an
+ * an inherited or caller `TTSC_TSGO_BINARY`, as it does in `resolveTsgo`. This
+ * transports a selected executable hint to consumers of that channel; it
+ * neither validates its bytes nor certifies the compiler embedded in an
  * arbitrary native host or every descendant's eventual selection.
  *
  * @evidence contracts/common.md#principled-implementation Native-aware layer merging gives caller values precedence over inherited values and places the explicit compiler hint in the final channel layer; unrelated invocation channels are then cleared or restored from the caller's own declarations.

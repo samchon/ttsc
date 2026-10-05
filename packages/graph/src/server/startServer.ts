@@ -47,7 +47,9 @@ export async function startServer(options: {
     if (closed) return;
     closed = true;
     void session?.close().catch((error: unknown) => {
-      process.stderr.write(`@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.stderr.write(
+        `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
       process.exitCode = 1;
     });
   };

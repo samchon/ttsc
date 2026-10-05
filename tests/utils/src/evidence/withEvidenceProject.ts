@@ -2,12 +2,13 @@
  * Runs a synchronous fixture operation and releases its owned project.
  *
  * Cleanup runs even when the operation throws. A single failure is rethrown
- * unchanged, including undefined; both operation and release failures
- * remain individually observable in their original order.
+ * unchanged, including undefined; both operation and release failures remain
+ * individually observable in their original order.
  *
  * Both callbacks must finish synchronously. Their inferred return types reject
  * promises and unions containing a promise; erased types or explicit casts
- * cannot establish completion, and this owner does not await asynchronous work.
+ * cannot establish completion, and this owner does not await asynchronous
+ * work.
  *
  * @evidence contracts/common.md#principled-implementation The failure array records whether each operation threw independently of its thrown value; finally always invokes the explicit cleanup owner, and the result is returned only when neither operation failed. Inferred callback return types reject PromiseLike constituents so typed asynchronous work cannot release the fixture before completion; erased or cast return types remain outside that premise.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous operation owns result propagation and release ordering for ordinary Evidence consumers; callers supply their existing project and unchanged assertion callback.
@@ -38,6 +39,9 @@ export function withEvidenceProject<Result, Release>(
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Evidence operation and cleanup failed.");
+    throw new AggregateError(
+      failures,
+      "Evidence operation and cleanup failed.",
+    );
   return result;
 }

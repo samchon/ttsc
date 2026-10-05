@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx runs the entry as Node's own main module, with the process
@@ -32,7 +33,9 @@ import path from "node:path";
  * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
 export function test_ttsx_runs_the_entry_as_the_main_module() {
-  const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_runs_the_entry_as_the_main_module/inputs-1"));
+  const root = TestProject.createProject(
+    FixtureFiles.read("ttsc/ttsx_runs_the_entry_as_the_main_module/inputs-1"),
+  );
   const run = (entry: string) =>
     TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, entry], {
       cwd: root,
@@ -104,5 +107,4 @@ export function test_ttsx_runs_the_entry_as_the_main_module() {
   }
   if (failures.length)
     throw new AggregateError(failures, "native main-module entry failures");
-
 }

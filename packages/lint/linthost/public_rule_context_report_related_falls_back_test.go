@@ -37,7 +37,9 @@ func TestPublicRuleContextReportRelatedFallsBack(t *testing.T) {
   if legacy.ranges != 1 {
     t.Fatalf("range path should fall back to ReportRange once, got %d", legacy.ranges)
   }
-  if legacy.lastNode != node || legacy.lastPos != 0 || legacy.lastEnd != 1 || legacy.lastMessage != "msg" || legacy.fixCalls != 0 || legacy.rangeFixCall != 0 { t.Fatalf("legacy diagnostic payload or route lost: %+v", legacy) }
+  if legacy.lastNode != node || legacy.lastPos != 0 || legacy.lastEnd != 1 || legacy.lastMessage != "msg" || legacy.fixCalls != 0 || legacy.rangeFixCall != 0 {
+    t.Fatalf("legacy diagnostic payload or route lost: %+v", legacy)
+  }
 
   // Case 2: RelatedReporter present, but no related locations supplied.
   rich := &captureRelatedReporter{}
@@ -50,5 +52,7 @@ func TestPublicRuleContextReportRelatedFallsBack(t *testing.T) {
   if rich.reports != 1 || rich.ranges != 1 {
     t.Fatalf("empty related must use the plain path: reports=%d ranges=%d", rich.reports, rich.ranges)
   }
-  if rich.lastNode != node || rich.lastPos != 0 || rich.lastEnd != 1 || rich.lastMessage != "msg" { t.Fatalf("empty related diagnostic payload lost: %+v", rich) }
+  if rich.lastNode != node || rich.lastPos != 0 || rich.lastEnd != 1 || rich.lastMessage != "msg" {
+    t.Fatalf("empty related diagnostic payload lost: %+v", rich)
+  }
 }

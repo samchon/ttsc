@@ -1,4 +1,3 @@
-import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +11,7 @@ import { hostInputStateHash } from "../../../../packages/unplugin/src/core/trans
 import { walkProjectInputs } from "../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
 import { MISSING_INPUT_STATE } from "../../../../packages/unplugin/src/core/transform/validation/MISSING_INPUT_STATE";
 import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../utils/src/TestProject";
 
 /**
  * Verifies a project's record, the one file a build host depends on for every

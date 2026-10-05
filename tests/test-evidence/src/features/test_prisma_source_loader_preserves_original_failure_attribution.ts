@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { TestProject } from "../../../utils/src/TestProject";
 
 /**
- * Verifies original Prisma rejected and unreadable inputs retain distinct attribution.
+ * Verifies original Prisma rejected and unreadable inputs retain distinct
+ * attribution.
  *
  * Readable parser failures have byte identity; an unreadable set has none.
  * Location and terminal-clean text must survive the parser error conversion.
@@ -24,10 +25,18 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership Matching src/features export invokes maintained TypeScript source, real file reads and WASM in the same unit process, without native producer, installed consumer or product child. Three independently prepared rows retain load/assertion labels and continue after failure. Exact invocation-root removal/absence errors are collected. Actual execution, selection and native inventory behavior remain separate verification.
  */
 export async function test_prisma_source_loader_preserves_original_failure_attribution(): Promise<void> {
-  const { loadPrismaModels } = createRequire(import.meta.url)(fileURLToPath(new URL(
-    "../../../../packages/evidence/src/internal/loadPrismaModels.ts", import.meta.url,
-  ))) as {
-    loadPrismaModels(request: { root: string; sets: Array<{ id: string; files: string[] }> }): Promise<{
+  const { loadPrismaModels } = createRequire(import.meta.url)(
+    fileURLToPath(
+      new URL(
+        "../../../../packages/evidence/src/internal/loadPrismaModels.ts",
+        import.meta.url,
+      ),
+    ),
+  ) as {
+    loadPrismaModels(request: {
+      root: string;
+      sets: Array<{ id: string; files: string[] }>;
+    }): Promise<{
       documents: unknown[];
       problems: Array<{ message: string; digest: string }>;
     }>;
@@ -35,7 +44,11 @@ export async function test_prisma_source_loader_preserves_original_failure_attri
   const root = TestProject.tmpdir("prisma-original-failure-attribution-");
   const failures: Error[] = [];
   const check = (label: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(label, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(label, { cause }));
+    }
   };
   const invalid = `datasource db {
   provider = "postgresql"
@@ -69,34 +82,59 @@ model Seller {
     for (const [label, schema, source] of [
       ["invalid-location", invalid, "prisma/schema.prisma"],
       ["missing-file", unrelated, "prisma/absent.prisma"],
-      ["unclosed-model", "model Sale {\n  id String @id\n", "prisma/schema.prisma"],
+      [
+        "unclosed-model",
+        "model Sale {\n  id String @id\n",
+        "prisma/schema.prisma",
+      ],
     ] as const) {
       try {
         const caseRoot = path.join(root, label);
         TestProject.writeFiles(caseRoot, { "prisma/schema.prisma": schema });
-        const result = await loadPrismaModels({ root: caseRoot, sets: [{ id: label, files: [source] }] });
-        check(label + ":no documents", () => assert.equal(result.documents.length, 0));
-        check(label + ":one problem", () => assert.equal(result.problems.length, 1));
+        const result = await loadPrismaModels({
+          root: caseRoot,
+          sets: [{ id: label, files: [source] }],
+        });
+        check(label + ":no documents", () =>
+          assert.equal(result.documents.length, 0),
+        );
+        check(label + ":one problem", () =>
+          assert.equal(result.problems.length, 1),
+        );
         const problem = result.problems[0];
         if (label === "invalid-location") {
-          check(label + ":line", () => assert.ok(problem?.message.includes("prisma/schema.prisma:7")));
+          check(label + ":line", () =>
+            assert.ok(problem?.message.includes("prisma/schema.prisma:7")),
+          );
           check(label + ":no ESC", () => {
             assert.ok(problem);
             assert.equal(problem.message.includes("\u001b"), false);
             assert.equal(problem.message.includes("[1;91m"), false);
           });
           const rawHash = createHash("sha256").update(invalid).digest("hex");
-          const expected = createHash("sha256").update("prisma/schema.prisma\u0000" + rawHash + "\n").digest("hex");
-          check(label + ":byte digest", () => assert.equal(problem?.digest, expected));
+          const expected = createHash("sha256")
+            .update("prisma/schema.prisma\u0000" + rawHash + "\n")
+            .digest("hex");
+          check(label + ":byte digest", () =>
+            assert.equal(problem?.digest, expected),
+          );
         } else if (label === "missing-file")
-          check(label + ":empty digest", () => assert.equal(problem?.digest, ""));
+          check(label + ":empty digest", () =>
+            assert.equal(problem?.digest, ""),
+          );
       } catch (cause) {
         failures.push(new Error(label + ":source load", { cause }));
       }
     }
   } finally {
-    check("cleanup:remove", () => fs.rmSync(root, { recursive: true, force: true }));
+    check("cleanup:remove", () =>
+      fs.rmSync(root, { recursive: true, force: true }),
+    );
     check("cleanup:absence", () => assert.equal(fs.existsSync(root), false));
   }
-  if (failures.length) throw new AggregateError(failures, "Original Prisma failure attribution failed.");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Original Prisma failure attribution failed.",
+    );
 }

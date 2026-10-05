@@ -12,8 +12,8 @@ import { id, print } from "../../internal/helpers";
  *
  * Each builder has a documented, observable result: a bundle prints its source
  * files in order separated by a blank line, the loop variable is always `_i`, a
- * copied string literal is double quoted, JSX name nodes print with their
- * colon and spread braces, placeholder nodes print nothing, and a modifier mask
+ * copied string literal is double quoted, JSX name nodes print with their colon
+ * and spread braces, placeholder nodes print nothing, and a modifier mask
  * expands to keyword tokens in a fixed order or to nothing for zero.
  *
  * 1. Print a two-file bundle and the loop variable.

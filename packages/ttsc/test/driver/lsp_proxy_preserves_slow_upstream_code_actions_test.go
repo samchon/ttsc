@@ -17,12 +17,12 @@ import (
 // action set. This case supplies the upstream reply after forwarding the request;
 // it does not initialize capabilities, inject a delay or assert earlier silence.
 //
-// 1. Configure one plugin action.
-// 2. Send a normal codeAction request and drain it upstream; the proxy holds the
-//    request open until upstream replies (no wall-clock delay is injected).
-// 3. Reply from upstream with a TypeScript action.
-// 4. Assert the observed editor response holds both the upstream and plugin
-//    actions (two entries).
+//  1. Configure one plugin action.
+//  2. Send a normal codeAction request and drain it upstream; the proxy holds the
+//     request open until upstream replies (no wall-clock delay is injected).
+//  3. Reply from upstream with a TypeScript action.
+//  4. Assert the observed editor response holds both the upstream and plugin
+//     actions (two entries).
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run returns a two-element action array containing both Add missing import and ttsc fix after the upstream response arrives.
 // @evidence contracts/testing.md#independent-expectations One response must preserve both independently authored action contributions rather than discard the upstream fix.

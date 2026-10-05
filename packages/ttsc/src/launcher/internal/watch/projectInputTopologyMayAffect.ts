@@ -10,9 +10,9 @@ import { literalGlobRoot } from "./literalGlobRoot";
  * Decide whether an event that named no declared input can still have moved
  * one.
  *
- * The admitted set narrows which named events lead a watch session to re-read and
- * re-hash its declared corpus, and both directions cost: too narrow drops an
- * atomic replacement, too wide re-fingerprints on every entry an install
+ * The admitted set narrows which named events lead a watch session to re-read
+ * and re-hash its declared corpus, and both directions cost: too narrow drops
+ * an atomic replacement, too wide re-fingerprints on every entry an install
  * creates. Exported so that boundary is pinned directly instead of being
  * inferred from a rebuild that a silent rescan and a skipped rescan produce
  * identically.

@@ -47,9 +47,9 @@ export interface ITtscProjectPluginConfig {
    * Plugin module specifier, relative path, or absolute path to load.
    *
    * For tsconfig/jsconfig entries, relative paths resolve from the config file
-   * that declared the entry, while package specifiers resolve from the consuming
-   * project root. A caller-supplied replacement list uses that project root for
-   * both forms.
+   * that declared the entry, while package specifiers resolve from the
+   * consuming project root. A caller-supplied replacement list uses that
+   * project root for both forms.
    *
    * For automatically discovered package markers, relative paths resolve from
    * the publishing package. Package specifiers resolve from the consuming
@@ -62,11 +62,13 @@ export interface ITtscProjectPluginConfig {
   transform?: string;
 
   /**
-   * Plugin-specific configuration carried in the native manifest's JSON payload.
+   * Plugin-specific configuration carried in the native manifest's JSON
+   * payload.
    *
-   * Plugin packages should document and validate their options in the factory or
-   * Go source. Ttsc requires serializable programmatic input and observes the
-   * conventional `configFile` input, but does not validate plugin-owned meaning.
+   * Plugin packages should document and validate their options in the factory
+   * or Go source. Ttsc requires serializable programmatic input and observes
+   * the conventional `configFile` input, but does not validate plugin-owned
+   * meaning.
    */
   [key: string]: unknown;
 }

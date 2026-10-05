@@ -2,7 +2,6 @@
 // Source of truth: pinned native OptionsDeclarations and OptionsForWatch.
 // Regenerate with: pnpm format
 // Verify in CI with: node packages/ttsc/scripts/check-flags.cjs
-
 import { COMPILER_OPTIONS } from "./COMPILER_OPTIONS";
 
 /** Compatibility projection for callers that only need nominal kind. */

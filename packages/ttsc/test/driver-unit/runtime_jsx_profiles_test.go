@@ -23,19 +23,40 @@ import (
 // @evidence contracts/testing.md#execution-ownership One named Go unit in the physical driver-unit package writes one temporary workspace and loads four distinct compiler programs in the existing unit test process through driver.LoadProgram. It builds or launches no product binary, consumer installation or host and runs no Node process; each Program is closed by its subtest and the temporary directory is owned by t.TempDir.
 func TestRuntimeJsxProfiles(t *testing.T) {
   bytes, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "tests", "test-ttsc", "src", "internal", "runtime-jsx-fixture.json"))
-  if err != nil { t.Fatal(err) }
-  var fixture struct { Files map[string]string `json:"files"`; Source string `json:"source"` }
-  if err := json.Unmarshal(bytes, &fixture); err != nil { t.Fatal(err) }
-  if len(fixture.Files) == 0 || fixture.Source == "" { t.Fatal("empty authored JSX fixture") }
+  if err != nil {
+    t.Fatal(err)
+  }
+  var fixture struct {
+    Files  map[string]string `json:"files"`
+    Source string            `json:"source"`
+  }
+  if err := json.Unmarshal(bytes, &fixture); err != nil {
+    t.Fatal(err)
+  }
+  if len(fixture.Files) == 0 || fixture.Source == "" {
+    t.Fatal("empty authored JSX fixture")
+  }
   root := t.TempDir()
   write := func(name, text string) {
     t.Helper()
     file := filepath.Join(root, filepath.FromSlash(name))
-    if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { t.Fatal(err) }
-    if err := os.WriteFile(file, []byte(text), 0o644); err != nil { t.Fatal(err) }
+    if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.WriteFile(file, []byte(text), 0o644); err != nil {
+      t.Fatal(err)
+    }
   }
-  for name, text := range fixture.Files { write(name, text) }
-  for _, profile := range []struct { name string; options map[string]any; prefix string; global bool; want, absent []string }{
+  for name, text := range fixture.Files {
+    write(name, text)
+  }
+  for _, profile := range []struct {
+    name         string
+    options      map[string]any
+    prefix       string
+    global       bool
+    want, absent []string
+  }{
     {"classic", map[string]any{"jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Fragment"}, "import { Fragment, h } from \"myjsx\";\nvoid h; void Fragment;\n", true,
       []string{"myjsx_1.h)(", "myjsx_1.Fragment", `"div"`, `"b"`}, []string{"jsx-runtime", "jsxDEV", "createElement"}},
     {"development", map[string]any{"jsx": "react-jsxdev", "jsxImportSource": "myjsx"}, "", false,
@@ -47,38 +68,62 @@ func TestRuntimeJsxProfiles(t *testing.T) {
   } {
     t.Run(profile.name, func(t *testing.T) {
       options := map[string]any{"target": "ES2022", "module": "commonjs", "strict": true, "types": []string{}, "outDir": "dist"}
-      for name, value := range profile.options { options[name] = value }
+      for name, value := range profile.options {
+        options[name] = value
+      }
       files := []string{"view.tsx"}
       directory := "profiles/" + profile.name + "/"
-      write(directory + "view.tsx", profile.prefix + fixture.Source)
+      write(directory+"view.tsx", profile.prefix+fixture.Source)
       if profile.global {
-        write(directory + "jsx.d.ts", "declare namespace JSX { type Element = string; interface IntrinsicElements { [name: string]: { children?: unknown } } }\n")
+        write(directory+"jsx.d.ts", "declare namespace JSX { type Element = string; interface IntrinsicElements { [name: string]: { children?: unknown } } }\n")
         files = append(files, "jsx.d.ts")
       }
       config, err := json.Marshal(map[string]any{"compilerOptions": options, "files": files})
-      if err != nil { t.Fatal(err) }
-      write(directory + "tsconfig.json", string(config))
-      program, diagnostics, err := driver.LoadProgram(root, directory + "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true, TsgoArgs: []string{}})
-      if err != nil { t.Fatal(err) }
-      if len(diagnostics) != 0 { t.Fatalf("configuration diagnostics: %#v", diagnostics) }
+      if err != nil {
+        t.Fatal(err)
+      }
+      write(directory+"tsconfig.json", string(config))
+      program, diagnostics, err := driver.LoadProgram(root, directory+"tsconfig.json", driver.LoadProgramOptions{ForceEmit: true, TsgoArgs: []string{}})
+      if err != nil {
+        t.Fatal(err)
+      }
+      if len(diagnostics) != 0 {
+        t.Fatalf("configuration diagnostics: %#v", diagnostics)
+      }
       defer program.Close()
-      if diagnostics := program.Diagnostics(); len(diagnostics) != 0 { t.Fatalf("program diagnostics: %#v", diagnostics) }
+      if diagnostics := program.Diagnostics(); len(diagnostics) != 0 {
+        t.Fatalf("program diagnostics: %#v", diagnostics)
+      }
       var output string
       _, diagnostics, err = program.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
-        if filepath.Base(name) == "view.js" { output = text }
+        if filepath.Base(name) == "view.js" {
+          output = text
+        }
         return nil
       })
-      if err != nil { t.Fatal(err) }
-      if len(diagnostics) != 0 { t.Fatalf("emit diagnostics: %#v", diagnostics) }
-      if output == "" { t.Fatal("view.js was not emitted") }
+      if err != nil {
+        t.Fatal(err)
+      }
+      if len(diagnostics) != 0 {
+        t.Fatalf("emit diagnostics: %#v", diagnostics)
+      }
+      if output == "" {
+        t.Fatal("view.js was not emitted")
+      }
       for _, token := range profile.want {
-        if !strings.Contains(output, token) { t.Fatalf("%s output lacks %q:\n%s", profile.name, token, output) }
+        if !strings.Contains(output, token) {
+          t.Fatalf("%s output lacks %q:\n%s", profile.name, token, output)
+        }
       }
       for _, token := range profile.absent {
-        if strings.Contains(output, token) { t.Fatalf("%s output contains %q that belongs to another jsx mode:\n%s", profile.name, token, output) }
+        if strings.Contains(output, token) {
+          t.Fatalf("%s output contains %q that belongs to another jsx mode:\n%s", profile.name, token, output)
+        }
       }
       record, err := json.Marshal(map[string]string{"name": profile.name, "javascript": output})
-      if err != nil { t.Fatal(err) }
+      if err != nil {
+        t.Fatal(err)
+      }
       fmt.Printf("TTSC_JSX_EMIT_V1:%s\n", record)
     })
   }

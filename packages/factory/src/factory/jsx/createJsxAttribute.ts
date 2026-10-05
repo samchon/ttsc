@@ -20,9 +20,13 @@ import { make } from "../internal/make";
  * emits:
  *
  * ```tsx
- * bar="x"
+ * bar = "x";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param name The name.
+ * @param initializer The initializer, if any.
+ * @returns The created {@link JsxAttribute}.
  * @evidence contracts/common.md#principled-implementation
  *   The structured name and optional value retain attribute roles; undefined
  *   means a bare attribute rather than an invented boolean literal assignment.
@@ -38,11 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains namespaced names, value forms and bare attributes; the
  *   corrected example matches JSX attribute punctuation without a semicolon.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param name The name.
- * @param initializer The initializer, if any.
- * @returns The created {@link JsxAttribute}.
  */
 export const createJsxAttribute = (
   name: JsxAttributeName,

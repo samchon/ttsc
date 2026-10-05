@@ -28,4 +28,3 @@ func TestUnicornSingleCallExcludesEventListenerRegistration(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/prefer-single-call", source) })
   }
 }
-

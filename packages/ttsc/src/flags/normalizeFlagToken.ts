@@ -6,10 +6,10 @@ import { COMPILER_OPTION_ASCII_FOLDS } from "./COMPILER_OPTION_ASCII_FOLDS";
  *
  * The native compiler strips a `--` or `-` prefix and uses Unicode simple
  * lowercase mappings. Generated folds into its ASCII option-name domain
- * preserve mappings that JavaScript lowercase expands differently. Thus `--noEmit`,
- * `--noemit`, `--NOEMIT`, and `-noEmit` all name the same option to the tool
- * ttsc forwards to. Keying the index on the exact spelling would let a case
- * variant of a ttsc-owned flag fall through the unknown-flag escape hatch:
+ * preserve mappings that JavaScript lowercase expands differently. Thus
+ * `--noEmit`, `--noemit`, `--NOEMIT`, and `-noEmit` all name the same option to
+ * the tool ttsc forwards to. Keying the index on the exact spelling would let a
+ * case variant of a ttsc-owned flag fall through the unknown-flag escape hatch:
  * tsgo would honour it while every ttsc-side consumer of the same flag never
  * fired, with no diagnostic.
  *
@@ -30,8 +30,9 @@ import { COMPILER_OPTION_ASCII_FOLDS } from "./COMPILER_OPTION_ASCII_FOLDS";
 export function normalizeFlagToken(token: string): string {
   return token
     .replace(/^--?/, "")
-    .replace(/[^\x00-\x7f]/gu, (character) =>
-      COMPILER_OPTION_ASCII_FOLDS.get(character) ?? character,
+    .replace(
+      /[^\x00-\x7f]/gu,
+      (character) => COMPILER_OPTION_ASCII_FOLDS.get(character) ?? character,
     )
     .toLowerCase();
 }

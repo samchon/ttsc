@@ -31,8 +31,20 @@ export async function test_ttscgraph_details_cuts_a_long_signature_at_four_lines
     external: false,
     ...(signature === undefined ? {} : { signature }),
   });
-  const six = ["function six(", "  a: string,", "  b: string,", "  c: string,", "  d: string,", "): void"].join("\n");
-  const four = ["function four(", "  a: string,", "  b: string,", "): void"].join("\n");
+  const six = [
+    "function six(",
+    "  a: string,",
+    "  b: string,",
+    "  c: string,",
+    "  d: string,",
+    "): void",
+  ].join("\n");
+  const four = [
+    "function four(",
+    "  a: string,",
+    "  b: string,",
+    "): void",
+  ].join("\n");
   const graph = createSyntheticGraph([
     fn("six", six),
     fn("four", four),
@@ -49,11 +61,17 @@ export async function test_ttscgraph_details_cuts_a_long_signature_at_four_lines
       request: { type: "details", handles: [name] },
     });
     assert.equal(output.result.type, "details");
-    if (output.result.type !== "details") assert.fail("details result required");
+    if (output.result.type !== "details")
+      assert.fail("details result required");
     assert.equal(output.result.nodes.length, 1, name);
     return output.result.nodes[0]!.signature;
   };
-  assert.strictEqual(await signatureOf("six"), ["function six(", "  a: string,", "  b: string,", "  c: string,"].join("\n"));
+  assert.strictEqual(
+    await signatureOf("six"),
+    ["function six(", "  a: string,", "  b: string,", "  c: string,"].join(
+      "\n",
+    ),
+  );
   assert.strictEqual(await signatureOf("four"), four);
   assert.strictEqual(await signatureOf("one"), "function one(): void");
   assert.strictEqual(await signatureOf("blank"), undefined);

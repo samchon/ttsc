@@ -38,7 +38,10 @@ export namespace BuildTiming {
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export type BuildTiming = {
-    /** A parsed enabled diagnostics assignment in the forwarded argv frame enables collection and final rendering. */
+    /**
+     * A parsed enabled diagnostics assignment in the forwarded argv frame
+     * enables collection and final rendering.
+     */
     enabled: boolean;
 
     /** Finished phase lines, in completion order, e.g. `plugin load: 0.12s`. */

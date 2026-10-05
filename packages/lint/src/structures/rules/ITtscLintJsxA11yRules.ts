@@ -72,9 +72,8 @@ export interface ITtscLintJsxA11yRules {
 
   /**
    * Validate the native subset of boolean, tristate, and integer ARIA values —
-   * e.g. `aria-checked` must be one of `true`,
-   * `false`, `"mixed"`, and `aria-hidden="yes"` is rejected because the type is
-   * boolean.
+   * e.g. `aria-checked` must be one of `true`, `false`, `"mixed"`, and
+   * `aria-hidden="yes"` is rejected because the type is boolean.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/aria-proptypes.md
    */
@@ -284,8 +283,8 @@ export interface ITtscLintJsxA11yRules {
 
   /**
    * Require a role attribute on recognized static elements with interaction
-   * handlers. This check accepts attribute presence without validating that
-   * the supplied role is interactive.
+   * handlers. This check accepts attribute presence without validating that the
+   * supplied role is interactive.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/no-static-element-interactions.md
    */

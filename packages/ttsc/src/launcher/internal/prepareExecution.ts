@@ -341,7 +341,10 @@ function createProjectContext(
   // Clean can never observe a newly selected but still unowned index.
   const processDir = claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
   const virtualRoot = path.join(processDir, "fs");
-  const emitDir = virtualPath(virtualRoot, project.compilerOptions.outDir || runtimeRootDir);
+  const emitDir = virtualPath(
+    virtualRoot,
+    project.compilerOptions.outDir || runtimeRootDir,
+  );
   return {
     project,
     tsconfig,
@@ -389,9 +392,9 @@ function createProjectContext(
  * The nearest config is where discovery starts, not where it has to stop. A
  * solution-style config (`"files": []` plus `references`) owns nothing itself,
  * and compiling an entry through it applies its empty options to code whose
- * real project sets `experimentalDecorators`, `jsx`, or `paths`.
- * When the nearest config does not contain the file, the
- * referenced project that does is used; an explicit `-P` skips all of this.
+ * real project sets `experimentalDecorators`, `jsx`, or `paths`. When the
+ * nearest config does not contain the file, the referenced project that does is
+ * used; an explicit `-P` skips all of this.
  */
 function discoverOwningProject(
   cwd: string,
@@ -538,9 +541,10 @@ function buildProject(
     context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
     // An empty solution may not run an emitting producer. Its observed empty
     // inventory selects the entry-only build, which must prove its own writes.
-    context.emittedSources = context.outputs.length === 0
-      ? undefined
-      : requireEmitProvenance(result.emittedSources, context.tsconfig);
+    context.emittedSources =
+      context.outputs.length === 0
+        ? undefined
+        : requireEmitProvenance(result.emittedSources, context.tsconfig);
     context.emittedSourceProofFailures = result.emittedSourceProofFailures;
     linkVirtualProjectLayout(context);
     context.built = true;

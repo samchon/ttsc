@@ -8,19 +8,18 @@ import { pathIsWithin } from "../../filesystem/pathIsWithin";
  * (samchon/ttsc#1453, samchon/ttsc#1454).
  *
  * The caller resolves each location when possible, while the project root can
- * retain a linked workspace or temporary-directory spelling. Resolving the
- * root as well permits containment comparison in the same native name domain.
- * A failed root realpath falls back to native absolute spelling and does not
+ * retain a linked workspace or temporary-directory spelling. Resolving the root
+ * as well permits containment comparison in the same native name domain. A
+ * failed root realpath falls back to native absolute spelling and does not
  * establish physical containment. The returned address retains the root's
- * spelling for the child's relative translation; preparing a namespace does
- * not prove that the backend delivered its probe.
+ * spelling for the child's relative translation; preparing a namespace does not
+ * prove that the backend delivered its probe.
  *
  * @param directory The caller's resolved location, with its lexical fallback.
  * @param probeRoot The project root as the adapter names it, or `undefined`
  *   when the tracker has no root to probe below.
  * @param probeDirectory The probe directory below `probeRoot`.
  * @param filesystem The filesystem the canonical root is read through.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Root/location containment determines probe-address eligibility, not usable
  *   backend authority. Canonical observations use the supplied native view;

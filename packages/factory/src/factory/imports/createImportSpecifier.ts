@@ -14,9 +14,14 @@ import { make } from "../internal/make";
  * Given source name `x` aliased to `y`, this prints:
  *
  * ```ts
- * x as y
+ * x as y;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param isTypeOnly Whether this is a type-only import/export.
+ * @param propertyName The original (source) name, when aliased.
+ * @param name The name.
+ * @returns The created {@link ImportSpecifier}.
  * @evidence contracts/common.md#principled-implementation
  *   propertyName retains the imported name when aliased and asName converts the
  *   local string name to Identifier. isTypeOnly marks this individual binding.
@@ -31,12 +36,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes original/local names and per-specifier type-only syntax,
  *   with an alias example separated from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param isTypeOnly Whether this is a type-only import/export.
- * @param propertyName The original (source) name, when aliased.
- * @param name The name.
- * @returns The created {@link ImportSpecifier}.
  */
 export const createImportSpecifier = (
   isTypeOnly: boolean,

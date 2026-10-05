@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 /**
@@ -23,11 +23,11 @@ import (
  * @evidence contracts/testing.md#execution-ownership TestFirstSelectedPrismaModelActivatesCoverage is a Go unit entry of package evidence, run by go test in the package process. It calls the loader functions it names and, through them, the Node parser or normalizer child that the built lib/internal loader provides; it starts no ttsc check, lint sidecar or installed consumer.
  */
 func TestFirstSelectedPrismaModelActivatesCoverage(t *testing.T) {
-	root := prismaBridgeRoot(t, map[string]string{
-		"prisma/schema/model.prisma": "model target {\n  id String @id\n}\n",
-	})
-	requireColdPrismaSchemaFixture(t, root, "prisma/schema/model.prisma", "model target {\n  id String @id\n}\n")
-	config := decodeInventoryConfig(t, root, `{"claims":[{
+  root := prismaBridgeRoot(t, map[string]string{
+    "prisma/schema/model.prisma": "model target {\n  id String @id\n}\n",
+  })
+  requireColdPrismaSchemaFixture(t, root, "prisma/schema/model.prisma", "model target {\n  id String @id\n}\n")
+  config := decodeInventoryConfig(t, root, `{"claims":[{
     "type":"prisma",
     "files":["prisma/schema/**/*.prisma"],
     "symbol":"model",
@@ -37,29 +37,29 @@ func TestFirstSelectedPrismaModelActivatesCoverage(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	inventories, problems := loadPrismaInventories(root, config)
-	if len(problems) != 0 {
-		t.Fatalf("the Prisma model must load cleanly: %v", problems)
-	}
-	active := activeGraphConfig(
-		config,
-		map[string]*artifactInventory{},
-		inventories,
-		map[string]*artifactInventory{},
-	)
-	if len(active.Claims) != 1 {
-		t.Fatal("the first selected Prisma model must activate its claim")
-	}
-	result := runIndexRuleAtSeverity(t, root, map[string]string{
-		"prisma/schema/model.prisma": "model target {\n  id String @id\n}\n",
-	}, `{"claims":[{
+  inventories, problems := loadPrismaInventories(root, config)
+  if len(problems) != 0 {
+    t.Fatalf("the Prisma model must load cleanly: %v", problems)
+  }
+  active := activeGraphConfig(
+    config,
+    map[string]*artifactInventory{},
+    inventories,
+    map[string]*artifactInventory{},
+  )
+  if len(active.Claims) != 1 {
+    t.Fatal("the first selected Prisma model must activate its claim")
+  }
+  result := runIndexRuleAtSeverity(t, root, map[string]string{
+    "prisma/schema/model.prisma": "model target {\n  id String @id\n}\n",
+  }, `{"claims":[{
     "type":"prisma",
     "files":["prisma/schema/model.prisma"],
     "symbol":"model",
     "reference":{"type":"markdown","root":"missing-prisma-docs","files":["**/*.md"],"symbol":"h2"}
   }]}`, rule.SeverityError)
-	if !result.failed {
-		t.Errorf("the selected model's missing reference must fail: %v", result.messages)
-	}
-	assertProblemContains(t, result.messages, "missing-prisma-docs")
+  if !result.failed {
+    t.Errorf("the selected model's missing reference must fail: %v", result.messages)
+  }
+  assertProblemContains(t, result.messages, "missing-prisma-docs")
 }

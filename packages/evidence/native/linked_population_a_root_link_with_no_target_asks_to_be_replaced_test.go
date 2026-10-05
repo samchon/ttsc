@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 /**
@@ -24,20 +24,20 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestARootLinkWithNoTargetAsksToBeReplaced(t *testing.T) {
-	workspace := t.TempDir()
-	target := filepath.Join(workspace, "target")
-	if err := os.MkdirAll(target, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := linkDirectory(t, target, filepath.Join(workspace, "documents")); err != nil {
-		t.Fatalf("this platform refused to create a link: %v", err)
-	}
-	if err := os.Remove(target); err != nil {
-		t.Fatal(err)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/src/sale.ts": "export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  target := filepath.Join(workspace, "target")
+  if err := os.MkdirAll(target, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(t, target, filepath.Join(workspace, "documents")); err != nil {
+    t.Fatalf("this platform refused to create a link: %v", err)
+  }
+  if err := os.Remove(target); err != nil {
+    t.Fatal(err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
@@ -48,10 +48,10 @@ func TestARootLinkWithNoTargetAsksToBeReplaced(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	assertProblemContains(t, messages, "because that path is not a directory")
-	assertProblemContains(
-		t,
-		messages,
-		"replace that path with a directory and the markdown sources it should hold",
-	)
+  assertProblemContains(t, messages, "because that path is not a directory")
+  assertProblemContains(
+    t,
+    messages,
+    "replace that path with a directory and the markdown sources it should hold",
+  )
 }

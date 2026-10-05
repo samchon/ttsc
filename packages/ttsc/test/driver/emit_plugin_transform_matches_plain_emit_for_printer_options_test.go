@@ -67,6 +67,7 @@ export class Widget {
 //  2. Assert the plugin lane carries the option's observable witness, with a
 //     negative twin one property away where it must not.
 //  3. Assert both lanes emitted the same artifact set with byte-identical text.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs real raw and plugin-lane emits for nineteen authored option rows, checking literal required/forbidden tokens, prefixes and artifacts plus complete byte/set parity.
 // @evidence contracts/testing.md#independent-expectations Literal witnesses independently specify comments, helpers, numeric separator threshold, line endings, BOM and map options; the raw native emitter separately owns compatibility of remaining bytes.
 // @evidence contracts/testing.md#distinguishing-cases Positive/negative option twins and exact ES2020/ES2021 separator threshold distinguish forwarding errors; inline/external maps and BOM placement cover shared-artifact boundaries.

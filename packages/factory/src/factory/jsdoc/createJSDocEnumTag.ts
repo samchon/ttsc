@@ -21,15 +21,15 @@ import { createIdentifier } from "../names/createIdentifier";
  * @enum {number}
  * ```
  *
- * @evidence contracts/common.md#principled-implementation The required braced type is retained with an explicit identifier or enum default, recording a member-type annotation rather than constructing or checking enum values.
- * @evidence contracts/common.md#clear-and-simple-design A reused type-expression child keeps brace syntax separate from tag spelling and description, with no duplicate value-set representation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The enum default denotes annotation grammar; actual member types are supplied and no expected enum values substitute for them.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains the member-type role and default name with a braced-type example; separate paragraphs and native tags follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `enum`.
  * @param typeExpression The type expression.
  * @param comment The trailing comment, if any.
  * @returns The created {@link JSDocEnumTag}.
+ * @evidence contracts/common.md#principled-implementation The required braced type is retained with an explicit identifier or enum default, recording a member-type annotation rather than constructing or checking enum values.
+ * @evidence contracts/common.md#clear-and-simple-design A reused type-expression child keeps brace syntax separate from tag spelling and description, with no duplicate value-set representation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The enum default denotes annotation grammar; actual member types are supplied and no expected enum values substitute for them.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains the member-type role and default name with a braced-type example; separate paragraphs and native tags follow the documentation guidance.
  */
 export const createJSDocEnumTag = (
   tagName: Identifier | undefined,

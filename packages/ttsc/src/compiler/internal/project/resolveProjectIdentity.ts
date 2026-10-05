@@ -6,10 +6,10 @@ import type { ITtscProjectLocatorOptions } from "../../../structures/internal/IT
 
 /**
  * Resolve the selected config while retaining its lexical spelling separately
- * from the best-effort physical paths supplied to the TypeScript Program.
- * A successful realpath resolves aliases; any realpath failure retains the
- * selected spelling, so the returned physical fields do not prove that a
- * native lookup succeeded or that the filesystem remains unchanged.
+ * from the best-effort physical paths supplied to the TypeScript Program. A
+ * successful realpath resolves aliases; any realpath failure retains the
+ * selected spelling, so the returned physical fields do not prove that a native
+ * lookup succeeded or that the filesystem remains unchanged.
  *
  * The optional observer receives lexical selection candidates before their
  * existence checks, including missing nearer configs. This lets a reuse owner
@@ -20,12 +20,9 @@ import type { ITtscProjectLocatorOptions } from "../../../structures/internal/IT
  *   from which to search ancestors.
  * @param onInput Observer called before each selection candidate's existence
  *   check; errors thrown by this callback propagate.
- *
  * @returns Selected lexical paths and best-effort physical config/root paths.
- *
  * @throws When no config is selected or an observer fails. Directory probes
  *   suppress stat failures, and physical lookup suppresses realpath failures.
- *
  * @evidence contracts/common.md#principled-implementation Explicit file/directory selection and nearest ancestor search preserve the actual lexical config path separately from physical Program identity; observations precede candidate checks so absence remains a selection premise.
  * @evidence contracts/common.md#clear-and-simple-design One selection operation returns both identities and forwards observations through a single callback without introducing its own caching or project policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Config names and precedence express the supported CLI contract; no consumer-specific paths or guessed physical-root equivalence replace actual filesystem selection.

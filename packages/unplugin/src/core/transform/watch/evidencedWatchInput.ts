@@ -11,14 +11,14 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
 
 /**
  * One input as a watch input, carrying identity from the generation's qualified
- * native context and the state it recorded for the path: the
- * compiler's predicate observation where it made one, the graph's hash and
- * realpath for a realized input, the host bytes' hash for a walk or
- * dependency-only input, or the state of a plugin source directory.
+ * native context and the state it recorded for the path: the compiler's
+ * predicate observation where it made one, the graph's hash and realpath for a
+ * realized input, the host bytes' hash for a walk or dependency-only input, or
+ * the state of a plugin source directory.
  *
  * State payloads are retained generation observations; identity queries share
- * the generation context but a first spelling can still require native reads.
- * A plugin source state takes precedence over other recorded codecs. An input
+ * the generation context but a first spelling can still require native reads. A
+ * plugin source state takes precedence over other recorded codecs. An input
  * with no recorded state returns `state` absent, leaving its caller to decide
  * whether another observation is appropriate. No current byte read here
  * manufactures evaluation-time state.
@@ -26,7 +26,6 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  * @param spell The registration spelling callback. Predicate lookup uses the
  *   native absolute lexical input; hash dictionaries use physical identity or
  *   project keys without discarding the predicate's original spelling.
- *
  * @evidence contracts/common.md#principled-implementation Recorded plugin tree state takes precedence, then exact lexical predicates, external graph/host state and project host bytes. Own-entry hash guards preserve absent baselines; unknown state stays absent, with physical target/availability separate from registration spelling.
  * @evidence contracts/common.md#clear-and-simple-design One derivation maps retained generation facts into the documented watch carrier while the caller supplies its spelling policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown codec state stays absent; the missing marker is a supported observation value rather than a guessed content hash.

@@ -9,16 +9,15 @@ import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
  * creating the record directory and writing a file there, which is what a
  * delivery will do (samchon/ttsc#1480).
  *
- * A host that must choose record-dependent caching before any delivery,
- * Farm choosing its persistent cache at configuration time, asks this. Only a
- * write proves a directory writable: a permission check can pass where an
- * access control list, a read-only mount, or a file standing where a directory
- * would be still refuses the write. A successful probe does not promise later
+ * A host that must choose record-dependent caching before any delivery, Farm
+ * choosing its persistent cache at configuration time, asks this. Only a write
+ * proves a directory writable: a permission check can pass where an access
+ * control list, a read-only mount, or a file standing where a directory would
+ * be still refuses the write. A successful probe does not promise later
  * delivery writes after permissions, mounts or directory topology change.
  *
  * @param toolDirectory A host's tool directory (`hostToolDirectory`) or its
  *   fallback (`fallbackToolDirectory`).
- *
  * @evidence contracts/common.md#principled-implementation
  *   Creating the same record directory and writing a unique probe demonstrates
  *   the needed write capability more directly than permission-bit prediction.

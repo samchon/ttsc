@@ -31,14 +31,17 @@ import { FixtureFiles } from "../../../../internal/FixtureFiles";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An explicit fixture-owned cache and untouched dist sentinel isolate cache-versus-deployment effects. The supplied root is admitted only after the prior Runtime graph is held and its native lifetimes are acknowledged; the real observed spawn rejects uncertain completion before another stage. A fresh project owns disjoint consumer module paths and scenario-owned side-effect names; each central package has one manifest and one immutable source identity, and the formerly different pub-dep packages have distinct pub-dep and paint-dep names so package-ID deduplication cannot alias unrelated bytes; imports occur once and launcher cleanup owns outputs, with no warm-cache transition claimed.
  * @evidence contracts/e2e.md#preserved-coverage The batch retains all original outputs for scanner and suffix preservation, enum forward/reverse values under both absent and explicit rootDir/outDir profiles, runtime namespaces, type-only elision, no-rootDir dependencies, ESM/package/MTS classification, source-package directory resolution and original cache-only-run typed module output, dist sentinel bytes, absent dist/main.js and dist/package.json, existing empty per-run cache index after the explicit cache-dir invocation, and original import-meta-preserved asset lookup plus source-only marker and an exact native physical source-file URL (native realpath permits OS aliases such as Windows 8.3 spellings without accepting a cache file); assets alone could remain readable through mirrored cache links; The additional allow-ts-extension-ok, cts-commonjs and mts-runner-ok literals run in the same host; The standalone extension-import and CTS entries are removed because their original ES2022/bundler options and literal runtime values execute here; the original NodeNext MTS and CommonJS suppression entries remain until their distinct emitter profiles have verified shared owners. Labeled caught imports and aggregated assertions report unrelated failures together.
  */
-export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host(
-  prepared?: { root: string; spawn: typeof TestProject.spawn },
-) {
-  const root = prepared?.root ?? TestProject.createProject(
-    FixtureFiles.read(
-      "ttsc/ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host/inputs-1",
-    ),
-  );
+export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host(prepared?: {
+  root: string;
+  spawn: typeof TestProject.spawn;
+}) {
+  const root =
+    prepared?.root ??
+    TestProject.createProject(
+      FixtureFiles.read(
+        "ttsc/ttsx_esm_resolution_preserves_specifiers_and_non_import_text_in_one_host/inputs-1",
+      ),
+    );
   const cacheDir = path.join(root, ".ttsx-cache");
   const result = (prepared?.spawn ?? TestProject.spawn)(
     TestProject.TTSX_BIN,

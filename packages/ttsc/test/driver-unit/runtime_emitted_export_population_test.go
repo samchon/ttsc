@@ -32,25 +32,43 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
   root := t.TempDir()
   sourceBytes := make(map[string]string)
   write := func(name string, data []byte) {
-    if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil { t.Fatal(err) }
-    if err := os.WriteFile(name, data, 0o644); err != nil { t.Fatal(err) }
+    if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.WriteFile(name, data, 0o644); err != nil {
+      t.Fatal(err)
+    }
   }
   copyTree := func(source, destination string) {
     resolved, err := filepath.EvalSymlinks(source)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     source = resolved
     err = filepath.WalkDir(source, func(name string, entry fs.DirEntry, walkErr error) error {
-      if walkErr != nil { return walkErr }
-      if entry.IsDir() { return nil }
+      if walkErr != nil {
+        return walkErr
+      }
+      if entry.IsDir() {
+        return nil
+      }
       relative, err := filepath.Rel(source, name)
-      if err != nil { return err }
+      if err != nil {
+        return err
+      }
       data, err := os.ReadFile(name)
-      if err != nil { return err }
+      if err != nil {
+        return err
+      }
       write(filepath.Join(destination, relative), data)
-      if destination == root { sourceBytes[filepath.Join(destination, relative)] = string(data) }
+      if destination == root {
+        sourceBytes[filepath.Join(destination, relative)] = string(data)
+      }
       return nil
     })
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
   }
   copyTree(filepath.Join("..", "fixtures", "unit", "runtime-emitted-export-population"), root)
   provider := filepath.Join("..", "..", "..", "..", "tests", "test-e2e", "node_modules", "tslib")
@@ -64,15 +82,21 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
     // Its adjacent declaration intentionally describes this CommonJS input.
     // A literal root keeps that runtime source in the emitting population:
     // wildcard expansion gives dynamic.d.cts priority over dynamic.cjs.
-    "files": []string{"export-population/dynamic/dynamic.cjs"},
+    "files":   []string{"export-population/dynamic/dynamic.cjs"},
     "include": []string{"export-population/**/*", "node-compatible/**/*", "standard.mts", "standard.cts", "member.mts", "member.cts"},
   }
   encoded, err := json.Marshal(config)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   write(filepath.Join(root, "tsconfig.json"), encoded)
   prog, diagnostics, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true, TsgoArgs: []string{}})
-  if err != nil { t.Fatal(err) }
-  if prog == nil || len(diagnostics) != 0 { t.Fatalf("Program/configuration: %v, %#v", prog, diagnostics) }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if prog == nil || len(diagnostics) != 0 {
+    t.Fatalf("Program/configuration: %v, %#v", prog, diagnostics)
+  }
   defer prog.Close()
   emitted := make(map[string]bool)
   _, diagnostics, err = prog.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
@@ -80,7 +104,9 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
     emitted[filepath.Clean(name)] = true
     return nil
   })
-  if err != nil || len(diagnostics) != 0 { t.Fatalf("emit: %v, %#v", err, diagnostics) }
+  if err != nil || len(diagnostics) != 0 {
+    t.Fatalf("emit: %v, %#v", err, diagnostics)
+  }
   dist := filepath.Join(root, "dist")
   for _, name := range []string{
     "export-population/inert/index.js", "export-population/dynamic/index.js",
@@ -89,13 +115,19 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
     "node-compatible/cycle/index.js", "node-compatible/scanner/directory.js",
     "node-compatible/scanner/side-effect.js", "standard.mjs", "standard.cjs", "member.mjs", "member.cjs",
   } {
-    if !emitted[filepath.Join(dist, filepath.FromSlash(name))] { t.Errorf("required output absent: %s", name) }
+    if !emitted[filepath.Join(dist, filepath.FromSlash(name))] {
+      t.Errorf("required output absent: %s", name)
+    }
   }
-  if t.Failed() { return }
+  if t.Failed() {
+    return
+  }
   write(filepath.Join(dist, "package.json"), []byte(`{"type":"commonjs"}`))
   for _, name := range []string{"inert", "dynamic", "collision", "lowering"} {
     data, err := os.ReadFile(filepath.Join(root, "export-population", name, "package.json"))
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     write(filepath.Join(dist, "export-population", name, "package.json"), data)
   }
   const oracle = `const path=require("node:path");
@@ -135,58 +167,84 @@ const load=(name)=>require(path.join(root,name));
   output, err := cmd.Output()
   observation.Result(err)
   if err != nil {
-    if exit, ok := err.(*exec.ExitError); ok { t.Fatalf("output oracle: %v\n%s", err, exit.Stderr) }
+    if exit, ok := err.(*exec.ExitError); ok {
+      t.Fatalf("output oracle: %v\n%s", err, exit.Stderr)
+    }
     t.Fatal(err)
   }
   const transcript = "Hello Class Foo\nHello Function getBar\nabc"
   const memberTranscript = "11 method\nstatic:run,class:Foo,field:#value,accessor:count"
   expected := map[string]any{
-    "inert": []any{transcript, 42, 17, 42, 43, true, false, false, true, true},
-    "dynamic": []any{transcript, 42, 17, 42},
+    "inert":     []any{transcript, 42, 17, 42, 43, true, false, false, true, true},
+    "dynamic":   []any{transcript, 42, 17, 42},
     "collision": "package", "lowering": []any{42, "OK", 7},
-    "star": []any{"foo-ok", "bar-ok", "renamed-ok", "leaf-ok", false},
-    "cycle": []any{"A", "B", "AB", true},
+    "star":      []any{"foo-ok", "bar-ok", "renamed-ok", "leaf-ok", false},
+    "cycle":     []any{"A", "B", "AB", true},
     "directory": "directory-index-ok", "sideEffect": "side-effect-import-ok",
     "standard": []any{transcript, 42, transcript, 42},
-    "member": []any{memberTranscript, memberTranscript},
+    "member":   []any{memberTranscript, memberTranscript},
   }
   var actual map[string]json.RawMessage
-  if err := json.Unmarshal(output, &actual); err != nil { t.Fatalf("oracle JSON: %v\n%s", err, output) }
-  if len(actual) != len(expected) { t.Errorf("oracle fields = %d, want %d", len(actual), len(expected)) }
+  if err := json.Unmarshal(output, &actual); err != nil {
+    t.Fatalf("oracle JSON: %v\n%s", err, output)
+  }
+  if len(actual) != len(expected) {
+    t.Errorf("oracle fields = %d, want %d", len(actual), len(expected))
+  }
   for name, value := range expected {
     want, err := json.Marshal(value)
-    if err != nil { t.Fatal(err) }
-    if strings.TrimSpace(string(actual[name])) != string(want) { t.Errorf("%s = %s, want %s", name, actual[name], want) }
+    if err != nil {
+      t.Fatal(err)
+    }
+    if strings.TrimSpace(string(actual[name])) != string(want) {
+      t.Errorf("%s = %s, want %s", name, actual[name], want)
+    }
   }
   compilerOptions := config["compilerOptions"].(map[string]any)
   compilerOptions["target"] = "ESNext"
   compilerOptions["outDir"] = "dist-esnext"
   encoded, err = json.Marshal(config)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   write(filepath.Join(root, "tsconfig.json"), encoded)
   ordinary, diagnostics, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true, TsgoArgs: []string{}})
-  if err != nil { t.Fatal(err) }
-  if ordinary == nil || len(diagnostics) != 0 { t.Fatalf("ordinary ESNext Program/configuration: %v, %#v", ordinary, diagnostics) }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if ordinary == nil || len(diagnostics) != 0 {
+    t.Fatalf("ordinary ESNext Program/configuration: %v, %#v", ordinary, diagnostics)
+  }
   defer ordinary.Close()
   ordinaryOutput := make(map[string]string)
   _, diagnostics, err = ordinary.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
     ordinaryOutput[filepath.Clean(name)] = text
     return nil
   })
-  if err != nil || len(diagnostics) != 0 { t.Fatalf("ordinary ESNext emit: %v, %#v", err, diagnostics) }
+  if err != nil || len(diagnostics) != 0 {
+    t.Fatalf("ordinary ESNext emit: %v, %#v", err, diagnostics)
+  }
   for _, extension := range []string{"mjs", "cjs"} {
     standard := ordinaryOutput[filepath.Join(root, "dist-esnext", "standard."+extension)]
     for _, spelling := range []string{"@sayHelloClass", "@sayHelloMethod"} {
-      if !strings.Contains(standard, spelling) { t.Errorf("standard.%s lost ordinary ESNext syntax %q", extension, spelling) }
+      if !strings.Contains(standard, spelling) {
+        t.Errorf("standard.%s lost ordinary ESNext syntax %q", extension, spelling)
+      }
     }
     member := ordinaryOutput[filepath.Join(root, "dist-esnext", "member."+extension)]
     for _, spelling := range []string{"@tagged", "@field", "@accessor", "@method"} {
-      if !strings.Contains(member, spelling) { t.Errorf("member.%s lost ordinary ESNext syntax %q", extension, spelling) }
+      if !strings.Contains(member, spelling) {
+        t.Errorf("member.%s lost ordinary ESNext syntax %q", extension, spelling)
+      }
     }
   }
   for name, before := range sourceBytes {
     after, err := os.ReadFile(name)
-    if err != nil { t.Fatal(err) }
-    if string(after) != before { t.Errorf("compiler emission changed source input: %s", name) }
+    if err != nil {
+      t.Fatal(err)
+    }
+    if string(after) != before {
+      t.Errorf("compiler emission changed source input: %s", name)
+    }
   }
 }

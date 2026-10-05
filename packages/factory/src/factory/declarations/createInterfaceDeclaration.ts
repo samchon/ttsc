@@ -28,6 +28,13 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The name.
+ * @param typeParameters The generic type parameters, if any.
+ * @param heritageClauses The `extends` / `implements` clauses, if any.
+ * @param members The members.
+ * @returns The created {@link InterfaceDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   InterfaceDeclaration retains its normalized name, generics, heritage and
  *   ordered TypeElement members; callers choose interface-valid heritage clauses.
@@ -42,14 +49,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains generics, extends and empty member blocks with a concrete
  *   interface example separated from tags under documentation guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The name.
- * @param typeParameters The generic type parameters, if any.
- * @param heritageClauses The `extends` / `implements` clauses, if any.
- * @param members The members.
- * @returns The created {@link InterfaceDeclaration}.
  */
 export const createInterfaceDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

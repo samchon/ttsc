@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,6 +14,7 @@ import { pathIdentityKey } from "../../../../../packages/unplugin/src/core/trans
 import { hostInputStateHash } from "../../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
 import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a watching session's bridge takes every project record below the
@@ -37,6 +37,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * 3. Add a root file to the current project and hand the records over again, and
  *    assert its record moves, since the bridge proves the record's membership
  *    by walking the project under the recorded policy.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored openHostWatchBridge and refreshProjectRecordFiles consume two actual fixture records; assertions distinguish stale versus unchanged records, repeated signals, a newly answered delivery and later membership changes.
  * @evidence contracts/testing.md#independent-expectations

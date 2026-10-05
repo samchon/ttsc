@@ -1,6 +1,8 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  type Expression,
+} from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 const arrow = (body: string): Expression =>

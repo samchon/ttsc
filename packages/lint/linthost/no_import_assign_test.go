@@ -42,5 +42,7 @@ func TestRuleCorpusNoImportAssign(t *testing.T) {
   }
   recordFindingBehavioralWitnesses(t, findings, behavioralWitnessChecker)
   clean := runNoImportAssignProject(t, "import { value as x } from \"./dep\"; let local = x; local = 5;\n")
-  if len(clean) != 0 { t.Fatalf("import read and local write: %+v", clean) }
+  if len(clean) != 0 {
+    t.Fatalf("import read and local write: %+v", clean)
+  }
 }

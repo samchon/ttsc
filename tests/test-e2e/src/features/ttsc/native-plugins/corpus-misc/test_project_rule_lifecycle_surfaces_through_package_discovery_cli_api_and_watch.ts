@@ -18,7 +18,6 @@ import {
   initializeTtscserverClient,
   runTtscserverSession,
 } from "../../../../internal/ttsc/internal/ttscserver";
-
 import { WatchSession } from "../../../../internal/ttsc/internal/watch";
 
 type PublishDiagnosticsParams = {
@@ -381,7 +380,7 @@ module.exports = {
           lspProjectDiagnostic?.message?.includes("explicit= origin= sources="),
           true,
         );
-  
+
         fs.writeFileSync(guardState, "clean\n");
         const cleanPublication =
           client.waitForNotification<PublishDiagnosticsParams>(
@@ -404,9 +403,29 @@ module.exports = {
     } catch (error) {
       // This helper may report failed shutdown; conservatively retain both inputs.
       const failures: unknown[] = [error];
-      try { TestProject.retainTemporaryDirectory(physicalRoot, "project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
-      try { TestProject.retainTemporaryDirectory(logicalParent, "project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
-      try { TestProject.retainSharedPluginCache("project-rule LSP body or shutdown failed"); } catch (retentionError) { failures.push(retentionError); }
+      try {
+        TestProject.retainTemporaryDirectory(
+          physicalRoot,
+          "project-rule LSP body or shutdown failed",
+        );
+      } catch (retentionError) {
+        failures.push(retentionError);
+      }
+      try {
+        TestProject.retainTemporaryDirectory(
+          logicalParent,
+          "project-rule LSP body or shutdown failed",
+        );
+      } catch (retentionError) {
+        failures.push(retentionError);
+      }
+      try {
+        TestProject.retainSharedPluginCache(
+          "project-rule LSP body or shutdown failed",
+        );
+      } catch (retentionError) {
+        failures.push(retentionError);
+      }
       throw new AggregateError(failures, "project-rule LSP body or shutdown");
     }
 
@@ -422,22 +441,39 @@ module.exports = {
     const failures: unknown[] = [];
     let completedOriginalCycles = false;
     try {
-      assert.ok(Date.now() < deadline, "project-rule watch timed out before initial cycle");
+      assert.ok(
+        Date.now() < deadline,
+        "project-rule watch timed out before initial cycle",
+      );
       await watch.waitForBuilds(1, Math.max(1, deadline - Date.now()));
       fs.writeFileSync(guardState, "clean\n");
-      assert.ok(Date.now() < deadline, "project-rule watch timed out before clean cycle");
+      assert.ok(
+        Date.now() < deadline,
+        "project-rule watch timed out before clean cycle",
+      );
       await watch.waitForBuilds(2, Math.max(1, deadline - Date.now()));
       fs.writeFileSync(guardState, "blocked\n");
-      assert.ok(Date.now() < deadline, "project-rule watch timed out before blocked cycle");
+      assert.ok(
+        Date.now() < deadline,
+        "project-rule watch timed out before blocked cycle",
+      );
       await watch.waitForBuilds(3, Math.max(1, deadline - Date.now()));
       completedOriginalCycles = true;
     } catch (error) {
       failures.push(error);
     } finally {
-      try { await watch.close(); } catch (closeError) { failures.push(closeError); }
+      try {
+        await watch.close();
+      } catch (closeError) {
+        failures.push(closeError);
+      }
     }
     const output = watch.transcript();
-    if (failures.length) throw new AggregateError(failures, `project-rule watch observation or close\n${output}`);
+    if (failures.length)
+      throw new AggregateError(
+        failures,
+        `project-rule watch observation or close\n${output}`,
+      );
     assert.equal(completedOriginalCycles, true, output);
     assert.equal(
       output.match(/\[guard\/project\]/g)?.length,

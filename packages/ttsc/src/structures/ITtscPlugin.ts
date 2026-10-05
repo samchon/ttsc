@@ -177,7 +177,8 @@ export interface ITtscPlugin {
    *
    * - Contributors ship Go source as a package (no `go.mod`); the host plugin's
    *   module supplies the dependency graph used to build their imports. The
-   *   contributor cannot supply an independent module graph or replace directives.
+   *   contributor cannot supply an independent module graph or replace
+   *   directives.
    * - Contributor source paths must be absolute (the host plugin's JS factory
    *   typically resolves them through `require.resolve`).
    * - Contributor names are used as the sub-package import suffix and must be

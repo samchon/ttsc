@@ -14,14 +14,14 @@ import (
 // must be a boolean, so a string is rejected. An unknown jsDoc key such as
 // "minify" reaches the default error arm.
 //
-// 1. Call expandFormatBlock with `jsDoc: { tagSynonyms: true }` and assert the
-//    error names `format.jsDoc.tagSynonyms`.
-// 2. Call it with `jsDoc: { tagSynonyms: { foo: 42 } }` and assert the error
-//    names `format.jsDoc.tagSynonyms["foo"]`.
-// 3. Call it with `jsDoc: { sortTags: "yes" }` and assert the error names
-//    `format.jsDoc.sortTags`.
-// 4. Call it with `jsDoc: { minify: true }` and assert the error mentions
-//    `minify`.
+//  1. Call expandFormatBlock with `jsDoc: { tagSynonyms: true }` and assert the
+//     error names `format.jsDoc.tagSynonyms`.
+//  2. Call it with `jsDoc: { tagSynonyms: { foo: 42 } }` and assert the error
+//     names `format.jsDoc.tagSynonyms["foo"]`.
+//  3. Call it with `jsDoc: { sortTags: "yes" }` and assert the error names
+//     `format.jsDoc.sortTags`.
+//  4. Call it with `jsDoc: { minify: true }` and assert the error mentions
+//     `minify`.
 //
 // @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects non-object tagSynonyms, a numeric synonym value, non-Boolean sortTags, and unknown minify key with the matching field context.
 // @evidence contracts/testing.md#independent-expectations The public JSDoc object admits string-valued synonyms and Boolean sortTags only; the four independently authored malformed values establish their exact rejection contexts.

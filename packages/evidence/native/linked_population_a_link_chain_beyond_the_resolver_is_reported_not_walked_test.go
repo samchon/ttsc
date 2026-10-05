@@ -1,10 +1,10 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 /**
@@ -32,39 +32,39 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
-	workspace := t.TempDir()
-	target := filepath.Join(workspace, "target")
-	if err := os.MkdirAll(filepath.Join(target, "requirements"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(target, "requirements", "pricing.md"),
-		[]byte("## Discounts {#discounts}\n"),
-		0o644,
-	); err != nil {
-		t.Fatal(err)
-	}
-	previous := target
-	for hop := range 34 {
-		link := filepath.Join(workspace, "hop"+decimal(hop))
-		if err := linkDirectory(t, previous, link); err != nil {
-			t.Fatalf("this platform refused to create a link: %v", err)
-		}
-		previous = link
-	}
-	documents := filepath.Join(workspace, "documents")
-	if err := linkDirectory(t, previous, documents); err != nil {
-		t.Fatalf("this platform refused to create a link: %v", err)
-	}
-	if _, err := os.Stat(documents); err != nil {
-		t.Fatalf(
-			"this platform did not follow the chain to a directory either (%v), so the root gate answers before the walk root can",
-			err,
-		)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/src/sale.ts": "export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  target := filepath.Join(workspace, "target")
+  if err := os.MkdirAll(filepath.Join(target, "requirements"), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(target, "requirements", "pricing.md"),
+    []byte("## Discounts {#discounts}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  previous := target
+  for hop := range 34 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(t, previous, link); err != nil {
+      t.Fatalf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  documents := filepath.Join(workspace, "documents")
+  if err := linkDirectory(t, previous, documents); err != nil {
+    t.Fatalf("this platform refused to create a link: %v", err)
+  }
+  if _, err := os.Stat(documents); err != nil {
+    t.Fatalf(
+      "this platform did not follow the chain to a directory either (%v), so the root gate answers before the walk root can",
+      err,
+    )
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
@@ -75,16 +75,16 @@ func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	assertProblemContains(
-		t,
-		messages,
-		"found no directory at the end of the markdown root '../documents'",
-	)
-	assertProblemContains(t, messages, "a chain of links longer than this rule follows")
-	if countProblemsContaining(messages, "matched no markdown files") != 0 {
-		t.Fatalf(
-			"a root the walk never reached is a failed population, not an empty one:\n%s",
-			strings.Join(messages, "\n"),
-		)
-	}
+  assertProblemContains(
+    t,
+    messages,
+    "found no directory at the end of the markdown root '../documents'",
+  )
+  assertProblemContains(t, messages, "a chain of links longer than this rule follows")
+  if countProblemsContaining(messages, "matched no markdown files") != 0 {
+    t.Fatalf(
+      "a root the walk never reached is a failed population, not an empty one:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
 }

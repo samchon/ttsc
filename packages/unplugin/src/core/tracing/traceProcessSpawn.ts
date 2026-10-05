@@ -88,7 +88,10 @@ export function traceProcessSpawn(
       pid: child.pid ?? null,
       started,
       exitObserved,
-      data: { error: error.message, code: (error as NodeJS.ErrnoException).code },
+      data: {
+        error: error.message,
+        code: (error as NodeJS.ErrnoException).code,
+      },
     }),
   );
   child.once("exit", (status, signal) => {

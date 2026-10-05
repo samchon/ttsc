@@ -4,11 +4,12 @@ import type { RuntimeManifest } from "./RuntimeManifest";
  * Synchronously prepare and type-check a TypeScript root discovered by a host.
  *
  * The input is the resolved native filename supplied by the runtime hook. The
- * returned manifest records the checked emit used for that root and its imports;
- * artifact cleanup remains with the preparation owner. Preparation errors
- * propagate to the requesting import, and the registry copies successful
+ * returned manifest records the checked emit used for that root and its
+ * imports; artifact cleanup remains with the preparation owner. Preparation
+ * errors propagate to the requesting import, and the registry copies successful
  * supported metadata without eviction while its module instance remains alive.
- * The structural callback type itself does not authenticate checked preparation.
+ * The structural callback type itself does not authenticate checked
+ * preparation.
  *
  * @evidence contracts/common.md#principled-implementation This callback contract requests synchronous checked preparation; the hook admits its returned metadata and requires an owning entry emit before serving. The signature is not a completion certificate, and thrown preparation errors remain import failures.
  * @evidence contracts/common.md#clear-and-simple-design One named callback separates the preparation contract from optional hook configuration without adding a wrapper or changing the callback's parameter variance.

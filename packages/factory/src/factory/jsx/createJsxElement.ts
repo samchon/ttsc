@@ -22,6 +22,11 @@ import { make } from "../internal/make";
  * <Foo bar="x">Hello</Foo>
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param openingElement The opening element.
+ * @param children The children.
+ * @param closingElement The closing element.
+ * @returns The created {@link JsxElement}.
  * @evidence contracts/common.md#principled-implementation
  *   Opening, ordered children and closing remain separate boundaries; children
  *   are not collapsed into text, preserving expressions and raw JSX content.
@@ -37,12 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish the three pieces and supported child forms;
  *   the example demonstrates assembly while each argument retains its own description.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param openingElement The opening element.
- * @param children The children.
- * @param closingElement The closing element.
- * @returns The created {@link JsxElement}.
  */
 export const createJsxElement = (
   openingElement: JsxOpeningElement,

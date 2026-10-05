@@ -16,9 +16,12 @@ import { createIdentifier } from "./createIdentifier";
  * With no arguments, this prints:
  *
  * ```ts
- * _i
+ * _i;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param _reservedInNestedScopes Ignored; kept for signature parity.
+ * @returns The created {@link Identifier}.
  * @evidence contracts/common.md#principled-implementation
  *   The documented stateless outline returns Identifier(_i), not the legacy
  *   compiler's scope-aware generated-name object. No freshness or nested-scope
@@ -35,10 +38,6 @@ import { createIdentifier } from "./createIdentifier";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs state the fixed name, ignored flag and nested-loop
  *   collision risk, separately from the example and acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param _reservedInNestedScopes Ignored; kept for signature parity.
- * @returns The created {@link Identifier}.
  */
 export const createLoopVariable = (
   _reservedInNestedScopes?: boolean,

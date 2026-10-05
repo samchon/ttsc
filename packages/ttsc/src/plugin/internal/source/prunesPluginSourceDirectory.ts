@@ -10,7 +10,6 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * repository's object store.
  *
  * @param name The directory's own name, not its path.
- *
  * @evidence contracts/common.md#principled-implementation Delegating to GoSourceInputs makes observers exclude exactly the directory names excluded by source copying and cache keying.
  * @evidence contracts/common.md#clear-and-simple-design The public predicate exposes shared source membership without exporting its Set representation to consumers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Pruned names are the declared source contract, not directories chosen after observing a particular consumer's build output.

@@ -12,8 +12,8 @@ import path from "node:path";
  * Membership is ttsc's declared snapshot naming policy, not Go dependency
  * discovery. Excluded entries are neither copied nor hashed, even when Go could
  * embed them in the original package. File-backed plugin data must use names
- * and directories included by this policy. Generated workspace files belong
- * to the scratch build; the caller's excluded workspace bytes are not preserved.
+ * and directories included by this policy. Generated workspace files belong to
+ * the scratch build; the caller's excluded workspace bytes are not preserved.
  *
  * @evidence contracts/common.md#principled-implementation One policy defines the selected source snapshot and fixed artifact flags so hashing, copying and observers agree on its population; name exclusions do not establish which files a raw Go package could consume.
  * @evidence contracts/common.md#clear-and-simple-design Source-name predicates and invocation-environment construction are centralized for consumers instead of copying their policies across loaders and watchers.
@@ -29,9 +29,9 @@ export namespace GoSourceInputs {
   /**
    * Artifact flags shared by native compilation and its environment identity.
    *
-   * Go's trimpath removes disposable materialization paths from object keys
-   * and debug information. Runtime source locations identify module files;
-   * source diagnostics and embedded file contents still come from the snapshot.
+   * Go's trimpath removes disposable materialization paths from object keys and
+   * debug information. Runtime source locations identify module files; source
+   * diagnostics and embedded file contents still come from the snapshot.
    */
   export const BUILD_FLAGS: readonly string[] = Object.freeze(["-trimpath"]);
 
@@ -53,9 +53,10 @@ export namespace GoSourceInputs {
 
   /**
    * The environment of a `go` invocation: `GOWORK=auto`, ttsc's own `GOCACHE`
-   * when a cache root is given, and `GOROOT` inferred from the binary's location
-   * when the copied environment's value is absent or empty. Build callers
-   * supply the managed cache; metadata callers retain their ambient GOCACHE.
+   * when a cache root is given, and `GOROOT` inferred from the binary's
+   * location when the copied environment's value is absent or empty. Build
+   * callers supply the managed cache; metadata callers retain their ambient
+   * GOCACHE.
    *
    * @evidence contracts/common.md#principled-implementation A copied environment receives explicit workspace/cache settings and an inferred SDK root only when its existing GOROOT value is absent or empty; nonempty caller values remain unchanged.
    * @evidence contracts/common.md#clear-and-simple-design One constructor serves build and metadata invocations; omitting the cache root intentionally keeps read-only probes separate from owned-cache writes.
@@ -90,8 +91,8 @@ export namespace GoSourceInputs {
 
   /**
    * Infer an SDK root for an absolute binary path inside `<root>/bin` when
-   * `<root>/src/runtime` exists. The binary basename and runtime entry kind
-   * are not validated here; `null` means this layout check did not match.
+   * `<root>/src/runtime` exists. The binary basename and runtime entry kind are
+   * not validated here; `null` means this layout check did not match.
    *
    * @evidence contracts/common.md#principled-implementation An absolute binary path under bin and an existing src/runtime path establish this layout inference; the selected compiler's actual identity belongs to its resolution/probing owner, and other layouts leave the caller's environment unchanged.
    * @evidence contracts/common.md#clear-and-simple-design Small early returns expose each required layout condition without a speculative toolchain-discovery abstraction.
@@ -135,9 +136,9 @@ export namespace GoSourceInputs {
    * Names of files excluded from the snapshot: workspace files and names
    * commonly used for operating-system sidecars. Excluding them avoids key
    * changes on unrelated workspace or file-browser writes, but also excludes
-   * caller-authored data with those names. An
-   * observer that runs outside this package, such as `ttscserver`'s native
-   * host, is handed this list rather than a copy of it.
+   * caller-authored data with those names. An observer that runs outside this
+   * package, such as `ttscserver`'s native host, is handed this list rather
+   * than a copy of it.
    */
   export const OMITTED_SOURCE_FILE_NAMES: readonly string[] = [
     ...GENERATED_WORKSPACE_FILES,

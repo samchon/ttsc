@@ -176,7 +176,10 @@ export const test_npm_registry_validates_package_count_budget = async () => {
   }));
   fetches = 0;
   await assert.rejects(
-    installPlaygroundDependencies(names, { installedDependencies: many, fetch }),
+    installPlaygroundDependencies(names, {
+      installedDependencies: many,
+      fetch,
+    }),
     /stopped after 48 packages/,
   );
   assert.equal(fetches, 48);

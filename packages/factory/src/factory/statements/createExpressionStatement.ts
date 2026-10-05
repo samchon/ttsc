@@ -14,6 +14,9 @@ import { make } from "../internal/make";
  * doThing(a);
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @returns The created {@link ExpressionStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Wrapping an Expression in ExpressionStatement marks statement context so
  *   the printer can supply termination and any grammar-required parentheses.
@@ -27,10 +30,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains effect-oriented statement use and semicolon ownership,
  *   with a call example separate from acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @returns The created {@link ExpressionStatement}.
  */
 export const createExpressionStatement = (
   expression: Expression,

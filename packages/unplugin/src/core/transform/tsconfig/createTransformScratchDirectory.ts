@@ -12,8 +12,9 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
  * Candidate parents are checked lexically and physically before creation. The
  * created child's postflight physical address is checked again and returned,
  * avoiding reuse of the candidate's known lexical parent alias. These path
- * observations do not pin directory handles or rule out later native replacement.
- * Failed candidates are skipped only after their owned empty child is removed.
+ * observations do not pin directory handles or rule out later native
+ * replacement. Failed candidates are skipped only after their owned empty child
+ * is removed.
  *
  * @evidence contracts/common.md#principled-implementation Preflight and postflight containment reject observed scratch addresses inside the project; returning the checked child spelling avoids knowingly reusing an unresolved parent alias, without certifying later topology cannot change.
  * @evidence contracts/common.md#clear-and-simple-design One bounded candidate loop owns creation and immediate rejection cleanup, while the capturing generation owns the lifetime of an accepted directory.

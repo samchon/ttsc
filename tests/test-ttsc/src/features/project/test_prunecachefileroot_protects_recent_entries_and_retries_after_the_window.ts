@@ -1,14 +1,14 @@
-import { TestProject } from "../../../../utils/src/TestProject";
-
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
 import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a single-file cache part keeps entries used inside the protection
- * window and under the ceiling, and schedules its retry for when the window
- * has passed.
+ * window and under the ceiling, and schedules its retry for when the window has
+ * passed.
  *
  * A running launch may still be reading a recently used entry, so eviction
  * never removes one even when the part is over its ceiling. The collection then
@@ -16,10 +16,10 @@ import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/inte
  * window collects again instead of waiting a full interval. A part under its
  * ceiling loses nothing to size eviction and records an ordinary interval.
  *
- * 1. Collect a part under its ceiling and assert every entry remains, then run
- *    an unforced pass an hour later and assert the ordinary marker skips it.
- * 2. Collect a part over its ceiling whose entries were all used inside the
- *    window and assert every entry remains.
+ * 1. Collect a part under its ceiling and assert every entry remains, then run an
+ *    unforced pass an hour later and assert the ordinary marker skips it.
+ * 2. Collect a part over its ceiling whose entries were all used inside the window
+ *    and assert every entry remains.
  * 3. Collect again just before the window closes and assert the marker still
  *    suppresses the pass.
  * 4. Collect again just after the window closes and assert the retry evicts the
@@ -59,7 +59,11 @@ export const test_prunecachefileroot_protects_recent_entries_and_retries_after_t
       targetBytes: 10,
     });
     for (const file of underEntries)
-      assert.equal(fs.existsSync(file), true, "an entry under the ceiling went");
+      assert.equal(
+        fs.existsSync(file),
+        true,
+        "an entry under the ceiling went",
+      );
     const third = seed(under, "c.json", 90 * minute);
     pruneCacheFileRoot(under, {
       maxBytes: 5,
@@ -104,7 +108,19 @@ export const test_prunecachefileroot_protects_recent_entries_and_retries_after_t
       );
 
     pruneCacheFileRoot(over, { ...options, now: now + 30 * minute + 1 });
-    assert.equal(fs.existsSync(oldest), false, "the oldest entry survived the retry");
-    assert.equal(fs.existsSync(older), false, "the second oldest entry survived the retry");
-    assert.equal(fs.existsSync(recent), true, "the newest entry was evicted past the target");
+    assert.equal(
+      fs.existsSync(oldest),
+      false,
+      "the oldest entry survived the retry",
+    );
+    assert.equal(
+      fs.existsSync(older),
+      false,
+      "the second oldest entry survived the retry",
+    );
+    assert.equal(
+      fs.existsSync(recent),
+      true,
+      "the newest entry was evicted past the target",
+    );
   };

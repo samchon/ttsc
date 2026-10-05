@@ -38,7 +38,6 @@ import { selectionInputs } from "./selectionInputs";
  *   spelling every input is handed under (`hostSpelling`).
  * @param selection The configs that routed the file to its project, handed
  *   beside the failed generation's inputs.
- *
  * @evidence contracts/common.md#principled-implementation Failed deliveries retain walked/external inputs, named diagnostic paths and the known selected config alongside consulted routing configs, even when optional envelope lists omit it. Ordinary recovery paths omit generation evidence that a replayed failure did not revalidate; separately captured membership can still accompany them, while project-record delivery maps available retained facts under its own contract.
  * @evidence contracts/common.md#clear-and-simple-design One append boundary owns scratch exclusion and lexical deduplication; module recovery and project-record delivery share the same routing observations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic extraction accepts only supported TypeScript forms, and recovery absence is explicit rather than fabricated successful state or fixture-specific paths.
@@ -113,7 +112,11 @@ export function notifyFailedGenerationInputs(
     selection.filesystem,
     (input) => input,
   );
-  for (const entryToAppend of routedInputs.map((input) => ({ ...input, file: spell(input.file) }))) inputs.push(entryToAppend);
+  for (const entryToAppend of routedInputs.map((input) => ({
+    ...input,
+    file: spell(input.file),
+  })))
+    inputs.push(entryToAppend);
   // A build host takes the record, written to what the failed compile
   // consulted, so the repair moves it wherever it lands; a module handed over
   // without it depends on its own bytes alone, and no persistent cache may

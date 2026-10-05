@@ -81,5 +81,7 @@ func TestProjectRuleStateAndReporterAreIsolatedBetweenCycles(t *testing.T) {
   if !firstOK || !secondOK || first == second || first.sequence != 1 || second.sequence != 2 {
     t.Fatalf("cycles should expose distinct state objects: first=%#v second=%#v", observed[0].State, observed[1].State)
   }
-  if checks != 2 || observed[0].Status != publicrule.ProjectRulePassed || observed[1].Status != publicrule.ProjectRulePassed || len(observed[1].Findings) != 0 { t.Fatalf("closed-cycle reporter mutated new state or result: checks=%d observed=%#v", checks, observed) }
+  if checks != 2 || observed[0].Status != publicrule.ProjectRulePassed || observed[1].Status != publicrule.ProjectRulePassed || len(observed[1].Findings) != 0 {
+    t.Fatalf("closed-cycle reporter mutated new state or result: checks=%d observed=%#v", checks, observed)
+  }
 }

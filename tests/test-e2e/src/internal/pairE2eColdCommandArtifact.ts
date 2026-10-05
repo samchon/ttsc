@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import path from "node:path";
+
 import type { TracePhaseObservation } from "./captureE2eTracePhase";
 import { pairE2eTraceWriterManifest } from "./pairE2eTraceWriterManifest";
 import { readE2eTracePayload } from "./readE2eTracePayload";
@@ -33,85 +34,194 @@ export function pairE2eColdCommandArtifact(
     minimumUses: number;
     producerAssets: readonly string[];
   },
-): { artifacts: { path: string; sha256?: string; uses: string[]; problems: string[] }[]; problems: string[]; completenessCertified: false } {
+): {
+  artifacts: {
+    path: string;
+    sha256?: string;
+    uses: string[];
+    problems: string[];
+  }[];
+  problems: string[];
+  completenessCertified: false;
+} {
   if (!Number.isSafeInteger(input.minimumUses) || input.minimumUses < 1)
-    throw new Error("Cold artifact requires an explicit positive use requirement");
+    throw new Error(
+      "Cold artifact requires an explicit positive use requirement",
+    );
   if (!/^[a-z0-9-]+$/i.test(input.rawLabel))
-    throw new Error("Cold artifact requires its actual owner-selected payload label");
-  if (input.useArguments !== undefined &&
-      (!Array.isArray(input.useArguments) || input.useArguments.some(value => typeof value !== "string")))
-    throw new Error("Cold artifact use arguments must be independently selected literal strings");
-  const preparation = pairE2eTraceWriterManifest(phase, [{
-    boundary: input.buildOwner, writerPid: input.writerPid, event: "process-attempt",
-    data: { owner: input.buildOwner }, producerAssets: input.producerAssets,
-  }]);
-  const problems = preparation.boundaries.flatMap(boundary => boundary.problems);
-  if (phase.observationErrors.length || phase.traces?.integrityProblems.length ||
-      phase.traces?.incompleteProcessInvocations.length || !phase.traces)
+    throw new Error(
+      "Cold artifact requires its actual owner-selected payload label",
+    );
+  if (
+    input.useArguments !== undefined &&
+    (!Array.isArray(input.useArguments) ||
+      input.useArguments.some((value) => typeof value !== "string"))
+  )
+    throw new Error(
+      "Cold artifact use arguments must be independently selected literal strings",
+    );
+  const preparation = pairE2eTraceWriterManifest(phase, [
+    {
+      boundary: input.buildOwner,
+      writerPid: input.writerPid,
+      event: "process-attempt",
+      data: { owner: input.buildOwner },
+      producerAssets: input.producerAssets,
+    },
+  ]);
+  const problems = preparation.boundaries.flatMap(
+    (boundary) => boundary.problems,
+  );
+  if (
+    phase.observationErrors.length ||
+    phase.traces?.integrityProblems.length ||
+    phase.traces?.incompleteProcessInvocations.length ||
+    !phase.traces
+  )
     problems.push("Phase contains incomplete or failed observations");
-  const rows = (phase.traces?.writerObservations ?? [])
-    .filter(row => row.observation.writerPid === input.writerPid);
-  const artifacts = rows.filter(row => row.observation.event === "native-artifact" &&
-    row.observation.data?.owner === input.buildOwner).map(row => {
-    const event = row.observation;
-    const data = event.data ?? {};
-    const local: string[] = [];
-    const requested = typeof data.requestedPath === "string" ? data.requestedPath : "";
-    const sameWriter = rows.filter(candidate => candidate.writerFile === row.writerFile &&
-      candidate.observation.instance === event.instance);
-    const build = sameWriter.filter(candidate => candidate.observation.invocation === event.invocation);
-    const attempt = build.find(candidate => candidate.observation.event === "process-attempt" &&
-      candidate.observation.data?.owner === input.buildOwner);
-    const result = build.find(candidate => candidate.observation.event === "process-result" &&
-      candidate.observation.data?.owner === input.buildOwner);
-    const argv = attempt?.observation.data?.argv;
-    const outputIndex = Array.isArray(argv) ? argv.indexOf("-o") : -1;
-    if (!Array.isArray(argv) || outputIndex < 0 || argv[outputIndex + 1] !== requested ||
-      JSON.stringify(argv.slice(1, outputIndex)) !== JSON.stringify(input.buildPrefix) ||
-      JSON.stringify(argv.slice(outputIndex + 2)) !== JSON.stringify(input.buildSuffix))
-      local.push("Actual build argv does not bind the selected cold output");
-    if (!attempt || !result || attempt.observation.sequence >= result.observation.sequence ||
-      result.observation.sequence >= event.sequence || result.observation.data?.success !== true ||
-      result.observation.data?.exitObserved !== true || result.observation.data?.exitCode !== 0 ||
-      result.observation.data?.started !== true || !(Number(result.observation.pid) > 0))
-      local.push("Missing successful joined build before artifact observation");
-    if (!path.isAbsolute(requested) || data.outcome !== "complete" ||
-      data.sameHandleIdentity !== true || data.samePathIdentity !== true || data.metadataUnchanged !== true ||
-      typeof data.realPath !== "string" || data.realPath !== data.realPathAfter ||
-      !data.identityBefore || typeof data.identityBefore !== "object" ||
-      !data.identityAfter || typeof data.identityAfter !== "object" ||
-      JSON.stringify(data.identityBefore) !== JSON.stringify(data.identityAfter) ||
-      typeof data.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(data.sha256))
-      local.push("Incomplete native artifact file identity or hash observation");
-    try {
-      const payload = readE2eTracePayload(phase.traceRoot, event, data.raw);
-      if (!path.basename(payload.file).endsWith("-" + input.rawLabel + ".bin") ||
-        payload.bytes.length !== data.observedBytes ||
-        crypto.createHash("sha256").update(payload.bytes).digest("hex") !== data.sha256)
-        local.push("Retained artifact bytes differ from the same invocation file observation");
-    } catch (error) { local.push("Artifact payload unavailable: " + String(error)); }
-    const uses: string[] = [];
-    for (const candidate of sameWriter) {
-      const use = candidate.observation;
-      const useArgv = use.data?.argv;
-      if (use.event !== "process-attempt" || use.data?.owner !== input.useOwner ||
-        use.data?.selectedPath !== requested || !Array.isArray(useArgv) ||
-        JSON.stringify(useArgv.slice(1, input.usePrefix.length + 1)) !== JSON.stringify(input.usePrefix) ||
-        (input.useArguments !== undefined &&
-          JSON.stringify(useArgv.slice(1)) !== JSON.stringify(input.useArguments))) continue;
-      const ended = sameWriter.find(other => other.observation.invocation === use.invocation &&
-        other.observation.event === "process-result" && other.observation.data?.owner === input.useOwner);
-      if (use.sequence <= event.sequence || !ended || ended.observation.sequence <= use.sequence ||
-        ended.observation.data?.selectedPath !== requested || ended.observation.data?.success !== true ||
-        ended.observation.data?.exitObserved !== true || ended.observation.data?.exitCode !== 0 ||
-        ended.observation.data?.started !== true || !(Number(ended.observation.pid) > 0))
-        local.push("Actual artifact use lacks its later successful direct command result");
-      else uses.push(use.invocation);
-    }
-    if (new Set(uses).size < input.minimumUses)
-      local.push("Missing independently required artifact-use connections");
-    return { path: requested, sha256: typeof data.sha256 === "string" ? data.sha256 : undefined, uses, problems: local };
-  });
-  if (artifacts.length === 0) problems.push("Missing cold-built native artifact observation");
+  const rows = (phase.traces?.writerObservations ?? []).filter(
+    (row) => row.observation.writerPid === input.writerPid,
+  );
+  const artifacts = rows
+    .filter(
+      (row) =>
+        row.observation.event === "native-artifact" &&
+        row.observation.data?.owner === input.buildOwner,
+    )
+    .map((row) => {
+      const event = row.observation;
+      const data = event.data ?? {};
+      const local: string[] = [];
+      const requested =
+        typeof data.requestedPath === "string" ? data.requestedPath : "";
+      const sameWriter = rows.filter(
+        (candidate) =>
+          candidate.writerFile === row.writerFile &&
+          candidate.observation.instance === event.instance,
+      );
+      const build = sameWriter.filter(
+        (candidate) => candidate.observation.invocation === event.invocation,
+      );
+      const attempt = build.find(
+        (candidate) =>
+          candidate.observation.event === "process-attempt" &&
+          candidate.observation.data?.owner === input.buildOwner,
+      );
+      const result = build.find(
+        (candidate) =>
+          candidate.observation.event === "process-result" &&
+          candidate.observation.data?.owner === input.buildOwner,
+      );
+      const argv = attempt?.observation.data?.argv;
+      const outputIndex = Array.isArray(argv) ? argv.indexOf("-o") : -1;
+      if (
+        !Array.isArray(argv) ||
+        outputIndex < 0 ||
+        argv[outputIndex + 1] !== requested ||
+        JSON.stringify(argv.slice(1, outputIndex)) !==
+          JSON.stringify(input.buildPrefix) ||
+        JSON.stringify(argv.slice(outputIndex + 2)) !==
+          JSON.stringify(input.buildSuffix)
+      )
+        local.push("Actual build argv does not bind the selected cold output");
+      if (
+        !attempt ||
+        !result ||
+        attempt.observation.sequence >= result.observation.sequence ||
+        result.observation.sequence >= event.sequence ||
+        result.observation.data?.success !== true ||
+        result.observation.data?.exitObserved !== true ||
+        result.observation.data?.exitCode !== 0 ||
+        result.observation.data?.started !== true ||
+        !(Number(result.observation.pid) > 0)
+      )
+        local.push(
+          "Missing successful joined build before artifact observation",
+        );
+      if (
+        !path.isAbsolute(requested) ||
+        data.outcome !== "complete" ||
+        data.sameHandleIdentity !== true ||
+        data.samePathIdentity !== true ||
+        data.metadataUnchanged !== true ||
+        typeof data.realPath !== "string" ||
+        data.realPath !== data.realPathAfter ||
+        !data.identityBefore ||
+        typeof data.identityBefore !== "object" ||
+        !data.identityAfter ||
+        typeof data.identityAfter !== "object" ||
+        JSON.stringify(data.identityBefore) !==
+          JSON.stringify(data.identityAfter) ||
+        typeof data.sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/.test(data.sha256)
+      )
+        local.push(
+          "Incomplete native artifact file identity or hash observation",
+        );
+      try {
+        const payload = readE2eTracePayload(phase.traceRoot, event, data.raw);
+        if (
+          !path
+            .basename(payload.file)
+            .endsWith("-" + input.rawLabel + ".bin") ||
+          payload.bytes.length !== data.observedBytes ||
+          crypto.createHash("sha256").update(payload.bytes).digest("hex") !==
+            data.sha256
+        )
+          local.push(
+            "Retained artifact bytes differ from the same invocation file observation",
+          );
+      } catch (error) {
+        local.push("Artifact payload unavailable: " + String(error));
+      }
+      const uses: string[] = [];
+      for (const candidate of sameWriter) {
+        const use = candidate.observation;
+        const useArgv = use.data?.argv;
+        if (
+          use.event !== "process-attempt" ||
+          use.data?.owner !== input.useOwner ||
+          use.data?.selectedPath !== requested ||
+          !Array.isArray(useArgv) ||
+          JSON.stringify(useArgv.slice(1, input.usePrefix.length + 1)) !==
+            JSON.stringify(input.usePrefix) ||
+          (input.useArguments !== undefined &&
+            JSON.stringify(useArgv.slice(1)) !==
+              JSON.stringify(input.useArguments))
+        )
+          continue;
+        const ended = sameWriter.find(
+          (other) =>
+            other.observation.invocation === use.invocation &&
+            other.observation.event === "process-result" &&
+            other.observation.data?.owner === input.useOwner,
+        );
+        if (
+          use.sequence <= event.sequence ||
+          !ended ||
+          ended.observation.sequence <= use.sequence ||
+          ended.observation.data?.selectedPath !== requested ||
+          ended.observation.data?.success !== true ||
+          ended.observation.data?.exitObserved !== true ||
+          ended.observation.data?.exitCode !== 0 ||
+          ended.observation.data?.started !== true ||
+          !(Number(ended.observation.pid) > 0)
+        )
+          local.push(
+            "Actual artifact use lacks its later successful direct command result",
+          );
+        else uses.push(use.invocation);
+      }
+      if (new Set(uses).size < input.minimumUses)
+        local.push("Missing independently required artifact-use connections");
+      return {
+        path: requested,
+        sha256: typeof data.sha256 === "string" ? data.sha256 : undefined,
+        uses,
+        problems: local,
+      };
+    });
+  if (artifacts.length === 0)
+    problems.push("Missing cold-built native artifact observation");
   return { artifacts, problems, completenessCertified: false };
 }

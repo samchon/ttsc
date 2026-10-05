@@ -9,12 +9,12 @@ import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
  * Farm computes every watch file's path relative to its root and fails on one
  * it cannot relate, such as a file on another Windows drive, and its watcher
  * refuses an extra file below any `node_modules` (`hostToolDirectory`). The
- * fallback below this user's validated state directory (`fallbackToolDirectory`)
- * qualifies where it shares the root's drive and lies below no `node_modules`,
- * and Farm's records live below the root alone otherwise.
+ * fallback below this user's validated state directory
+ * (`fallbackToolDirectory`) qualifies where it shares the root's drive and lies
+ * below no `node_modules`, and Farm's records live below the root alone
+ * otherwise.
  *
  * @param root Farm's configured root.
- *
  * @evidence contracts/common.md#principled-implementation A fallback is usable only when native relative-path semantics relate it to the Farm root and none of its path components is node_modules, matching the host's watch-file restrictions.
  * @evidence contracts/common.md#clear-and-simple-design The adapter filters the shared user-state fallback provider with two host restrictions instead of creating another record location policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No drive letter or user directory is hardcoded; rejection follows the host's actual path and watcher capabilities.

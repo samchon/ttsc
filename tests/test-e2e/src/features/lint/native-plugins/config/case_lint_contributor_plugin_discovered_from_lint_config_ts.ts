@@ -19,24 +19,74 @@ export function test_lint_contributor_plugin_discovered_from_lint_config_ts(): v
   const result = contributorBoundaryResult();
   assert.notEqual(result.status, 0, result.stderr);
   assert.deepEqual(
-    result.diagnostics.filter((diagnostic) => path.basename(diagnostic.file) === "main.ts" && diagnostic.rule === "demo/no-todo-comment").map(({ rule, severity, message }) => ({ rule, severity, message })),
+    result.diagnostics
+      .filter(
+        (diagnostic) =>
+          path.basename(diagnostic.file) === "main.ts" &&
+          diagnostic.rule === "demo/no-todo-comment",
+      )
+      .map(({ rule, severity, message }) => ({ rule, severity, message })),
     [
-  {
-    "rule": "demo/no-todo-comment",
-    "severity": "error",
-    "message": "FIXME comment is not allowed."
-  }
-],
+      {
+        rule: "demo/no-todo-comment",
+        severity: "error",
+        message: "FIXME comment is not allowed.",
+      },
+    ],
     result.stderr,
   );
   assert.deepEqual(
-    result.diagnostics.map(({file, line, rule, severity, message}) => ({file: path.basename(file), line, rule, severity, message})).sort((a,b) => a.file.localeCompare(b.file) || a.line - b.line || a.rule.localeCompare(b.rule)),
+    result.diagnostics
+      .map(({ file, line, rule, severity, message }) => ({
+        file: path.basename(file),
+        line,
+        rule,
+        severity,
+        message,
+      }))
+      .sort(
+        (a, b) =>
+          a.file.localeCompare(b.file) ||
+          a.line - b.line ||
+          a.rule.localeCompare(b.rule),
+      ),
     [
-      { file: "diagnostic-stream.ts", line: 1, rule: "demo/no-todo-comment", severity: "error", message: "TODO comment is not allowed." },
-      { file: "diagnostic-stream.ts", line: 3, rule: "demo/no-todo-comment", severity: "error", message: "FIXME comment is not allowed." },
-      { file: "main.ts", line: 1, rule: "demo/no-todo-comment", severity: "error", message: "FIXME comment is not allowed." },
-      { file: "options.ts", line: 1, rule: "demo/no-marker-comment", severity: "error", message: "XXX marker is not allowed." },
-      { file: "options.ts", line: 3, rule: "demo/no-todo-comment", severity: "error", message: "TODO comment is not allowed." },
-    ], result.stderr,
+      {
+        file: "diagnostic-stream.ts",
+        line: 1,
+        rule: "demo/no-todo-comment",
+        severity: "error",
+        message: "TODO comment is not allowed.",
+      },
+      {
+        file: "diagnostic-stream.ts",
+        line: 3,
+        rule: "demo/no-todo-comment",
+        severity: "error",
+        message: "FIXME comment is not allowed.",
+      },
+      {
+        file: "main.ts",
+        line: 1,
+        rule: "demo/no-todo-comment",
+        severity: "error",
+        message: "FIXME comment is not allowed.",
+      },
+      {
+        file: "options.ts",
+        line: 1,
+        rule: "demo/no-marker-comment",
+        severity: "error",
+        message: "XXX marker is not allowed.",
+      },
+      {
+        file: "options.ts",
+        line: 3,
+        rule: "demo/no-todo-comment",
+        severity: "error",
+        message: "TODO comment is not allowed.",
+      },
+    ],
+    result.stderr,
   );
 }

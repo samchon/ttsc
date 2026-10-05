@@ -50,9 +50,13 @@ func TestPublicRuleContextReportSuggestionForwardsToSuggestionReporter(t *testin
     reporter.lastSuggestions[1].Title != "Rename to `framework`" {
     t.Fatalf("suggestion titles or order not preserved: %+v", reporter.lastSuggestions)
   }
-  if reporter.ranges != 0 || reporter.rangeSuggest != 0 || reporter.lastNode != node || reporter.lastMessage != "avoid the abbreviation `frm`" || !reflect.DeepEqual(reporter.lastSuggestions, suggestions) { t.Fatalf("node suggestion payload or route lost: %+v", reporter) }
+  if reporter.ranges != 0 || reporter.rangeSuggest != 0 || reporter.lastNode != node || reporter.lastMessage != "avoid the abbreviation `frm`" || !reflect.DeepEqual(reporter.lastSuggestions, suggestions) {
+    t.Fatalf("node suggestion payload or route lost: %+v", reporter)
+  }
   ctx.ReportRangeSuggestion(2, 9, "range suggestion", suggestions...)
-  if reporter.reports != 0 || reporter.ranges != 0 || reporter.suggestCalls != 1 || reporter.rangeSuggest != 1 || reporter.lastPos != 2 || reporter.lastEnd != 9 || reporter.lastMessage != "range suggestion" || !reflect.DeepEqual(reporter.lastSuggestions, suggestions) { t.Fatalf("range suggestion payload or route lost: %+v", reporter) }
+  if reporter.reports != 0 || reporter.ranges != 0 || reporter.suggestCalls != 1 || reporter.rangeSuggest != 1 || reporter.lastPos != 2 || reporter.lastEnd != 9 || reporter.lastMessage != "range suggestion" || !reflect.DeepEqual(reporter.lastSuggestions, suggestions) {
+    t.Fatalf("range suggestion payload or route lost: %+v", reporter)
+  }
 }
 
 // captureSuggestReporter implements the legacy `rule.Reporter` plus the public
@@ -65,14 +69,20 @@ type captureSuggestReporter struct {
   suggestCalls    int
   rangeSuggest    int
   lastSuggestions []rule.Suggestion
-  lastNode *shimast.Node
-  lastPos int
-  lastEnd int
-  lastMessage string
+  lastNode        *shimast.Node
+  lastPos         int
+  lastEnd         int
+  lastMessage     string
 }
 
-func (r *captureSuggestReporter) Report(node *shimast.Node, message string) { r.reports++; r.lastNode, r.lastMessage = node, message }
-func (r *captureSuggestReporter) ReportRange(pos, end int, message string) { r.ranges++; r.lastPos, r.lastEnd, r.lastMessage = pos, end, message }
+func (r *captureSuggestReporter) Report(node *shimast.Node, message string) {
+  r.reports++
+  r.lastNode, r.lastMessage = node, message
+}
+func (r *captureSuggestReporter) ReportRange(pos, end int, message string) {
+  r.ranges++
+  r.lastPos, r.lastEnd, r.lastMessage = pos, end, message
+}
 
 func (r *captureSuggestReporter) ReportSuggestion(node *shimast.Node, message string, suggestions ...rule.Suggestion) {
   r.suggestCalls++

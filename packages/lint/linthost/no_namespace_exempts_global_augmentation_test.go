@@ -35,7 +35,9 @@ func TestNoNamespaceExemptsGlobalAugmentation(t *testing.T) {
 
   start := strings.Index(source, "namespace Ns")
   end := strings.Index(source, "\nexport {}")
-  if findings[0].Rule != "typescript/no-namespace" || findings[0].Severity != SeverityError || findings[0].Pos != start || findings[0].End != end { t.Fatalf("namespace finding = %+v, want exact %d..%d", findings[0], start, end) }
+  if findings[0].Rule != "typescript/no-namespace" || findings[0].Severity != SeverityError || findings[0].Pos != start || findings[0].End != end {
+    t.Fatalf("namespace finding = %+v, want exact %d..%d", findings[0], start, end)
+  }
 
   assertRuleSkipsSource(
     t,

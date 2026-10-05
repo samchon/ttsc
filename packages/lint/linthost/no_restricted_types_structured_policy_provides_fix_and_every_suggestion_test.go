@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   "encoding/json"
+  "testing"
 )
 
 // TestNoRestrictedTypesStructuredPolicyProvidesFixAndEverySuggestion verifies a
@@ -35,7 +35,9 @@ func TestNoRestrictedTypesStructuredPolicyProvidesFixAndEverySuggestion(t *testi
     t.Fatalf("findings = %d, want 1: %+v", len(findings), findings)
   }
   finding := findings[0]
-  if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError { t.Fatalf("restriction identity = %+v", finding) }
+  if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError {
+    t.Fatalf("restriction identity = %+v", finding)
+  }
   span := noRestrictedTypesMarkedSpan(t, source, "/*target*/", "Legacy")
   if finding.Pos != span[0] || finding.End != span[1] ||
     finding.Message != "Don't use `Legacy` as a type. Use an explicit safe type." {
@@ -118,8 +120,12 @@ func TestNoRestrictedTypesStructuredPolicyProvidesFixAndEverySuggestion(t *testi
       }
       finding := findings[0]
       start := len("type Value = ")
-      if finding.Pos != start || finding.End != start+len(test.typeName) { t.Fatalf("optional policy range = %+v, want %d..%d", finding, start, start+len(test.typeName)) }
-  if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError { t.Fatalf("restriction identity = %+v", finding) }
+      if finding.Pos != start || finding.End != start+len(test.typeName) {
+        t.Fatalf("optional policy range = %+v, want %d..%d", finding, start, start+len(test.typeName))
+      }
+      if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError {
+        t.Fatalf("restriction identity = %+v", finding)
+      }
       if finding.Message != "Don't use `"+test.typeName+"` as a type." {
         t.Fatalf("default message mismatch: %+v", finding)
       }

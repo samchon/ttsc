@@ -18,8 +18,8 @@ const ENVELOPE_DERIVATIONS = new WeakMap<
 /**
  * Return the derivation state of `props.result`, building it on first use.
  *
- * A result object belongs to one immutable generation and one project root.
- * The same object must not be repurposed for a different root or mutated input
+ * A result object belongs to one immutable generation and one project root. The
+ * same object must not be repurposed for a different root or mutated input
  * metadata, because object identity is the state reuse key.
  *
  * @evidence contracts/common.md#principled-implementation Result object identity denotes one compiler generation; resolving its root once establishes physical and lexical spellings for every index using the same filesystem context.

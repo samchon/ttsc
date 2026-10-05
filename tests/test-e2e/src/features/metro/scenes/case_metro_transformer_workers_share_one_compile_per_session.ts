@@ -1,12 +1,13 @@
 import { TestProject, TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { execFileSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+
+const { execFileSync } = E2eProcessTrace;
 
 /**
  * Verifies Metro's transform workers compile a project once between them
@@ -38,67 +39,67 @@ import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime
 export async function case_metro_transformer_workers_share_one_compile_per_session(
   workspace: MetroWorkspace.IWorkspace,
 ): Promise<void> {
-    const root = MetroWorkspace.enterProject(workspace);
-    const runLog = path.join(root, "compiles.bin");
-    const tsconfig = path.join(root, "tsconfig.json");
-    const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
-    config.compilerOptions.plugins = [
-      { transform: "./plugin.cjs", name: "fixture", operation: "go-uppercase" },
+  const root = MetroWorkspace.enterProject(workspace);
+  const runLog = path.join(root, "compiles.bin");
+  const tsconfig = path.join(root, "tsconfig.json");
+  const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
+  config.compilerOptions.plugins = [
+    { transform: "./plugin.cjs", name: "fixture", operation: "go-uppercase" },
+    {
+      transform: "./plugin.cjs",
+      name: "runs",
+      operation: "count-runs",
+      runLog,
+    },
+  ];
+  fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2), "utf8");
+
+  const worker = [
+    `const transformer = await import(${JSON.stringify(TestMetroRuntime.libUrl("transformer"))});`,
+    "const [src, projectRoot] = JSON.parse(process.argv[1]);",
+    'const result = await transformer.transform({ src, filename: "src/main.ts", options: { projectRoot } });',
+    "process.stdout.write(result.ast.src);",
+  ].join("\n");
+  const metro = [
+    `const { withTtsc } = await import(${JSON.stringify(TestMetroRuntime.libUrl("index"))});`,
+    `const { execFile } = (await import("node:module")).createRequire(import.meta.url)(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
+    "const [worker, src, projectRoot, upstream] = JSON.parse(process.argv[1]);",
+    "withTtsc({ projectRoot }, { upstreamTransformer: upstream });",
+    'const run = () => new Promise((resolve, reject) => execFile(process.execPath, ["--input-type=module", "-e", worker, JSON.stringify([src, projectRoot])], (error, stdout, stderr) => (error ? reject(new Error(stderr, { cause: error })) : resolve(stdout))));',
+    "const settled = await Promise.allSettled([run(), run()]);",
+    "const outputs = [], failures = [];",
+    'for (const result of settled) { if (result.status === "fulfilled") outputs.push(result.value); else failures.push(result.reason); }',
+    'if (failures.length !== 0) throw new AggregateError(failures, "Metro worker callbacks failed after both settled");',
+    "process.stdout.write(JSON.stringify(outputs));",
+  ].join("\n");
+  const outputs = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        metro,
+        JSON.stringify([
+          worker,
+          TestUnpluginProject.mainSource(root),
+          root,
+          TestMetroRuntime.fakeUpstreamPathOnDisk(),
+        ]),
+      ],
       {
-        transform: "./plugin.cjs",
-        name: "runs",
-        operation: "count-runs",
-        runLog,
+        cwd: root,
+        env: { ...process.env, ...isolatedTemporaryDirectory() },
+        windowsHide: true,
       },
-    ];
-    fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2), "utf8");
+    ).toString(),
+  ) as string[];
 
-    const worker = [
-      `const transformer = await import(${JSON.stringify(TestMetroRuntime.libUrl("transformer"))});`,
-      "const [src, projectRoot] = JSON.parse(process.argv[1]);",
-      'const result = await transformer.transform({ src, filename: "src/main.ts", options: { projectRoot } });',
-      "process.stdout.write(result.ast.src);",
-    ].join("\n");
-    const metro = [
-      `const { withTtsc } = await import(${JSON.stringify(TestMetroRuntime.libUrl("index"))});`,
-      `const { execFile } = (await import("node:module")).createRequire(import.meta.url)(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
-      "const [worker, src, projectRoot, upstream] = JSON.parse(process.argv[1]);",
-      "withTtsc({ projectRoot }, { upstreamTransformer: upstream });",
-      'const run = () => new Promise((resolve, reject) => execFile(process.execPath, ["--input-type=module", "-e", worker, JSON.stringify([src, projectRoot])], (error, stdout, stderr) => (error ? reject(new Error(stderr, { cause: error })) : resolve(stdout))));',
-      "const settled = await Promise.allSettled([run(), run()]);",
-      "const outputs = [], failures = [];",
-      'for (const result of settled) { if (result.status === "fulfilled") outputs.push(result.value); else failures.push(result.reason); }',
-      'if (failures.length !== 0) throw new AggregateError(failures, "Metro worker callbacks failed after both settled");',
-      "process.stdout.write(JSON.stringify(outputs));",
-    ].join("\n");
-    const outputs = JSON.parse(
-      execFileSync(
-        process.execPath,
-        [
-          "--input-type=module",
-          "-e",
-          metro,
-          JSON.stringify([
-            worker,
-            TestUnpluginProject.mainSource(root),
-            root,
-            TestMetroRuntime.fakeUpstreamPathOnDisk(),
-          ]),
-        ],
-        {
-          cwd: root,
-          env: { ...process.env, ...isolatedTemporaryDirectory() },
-          windowsHide: true,
-        },
-      ).toString(),
-    ) as string[];
-
-    assert.equal(outputs.length, 2);
-    for (const output of outputs) {
-      TestUnpluginProject.assertTransformedToPlugin(output);
-    }
-    assert.equal(fs.statSync(runLog).size, 1, "the workers compiled once");
-  };
+  assert.equal(outputs.length, 2);
+  for (const output of outputs) {
+    TestUnpluginProject.assertTransformedToPlugin(output);
+  }
+  assert.equal(fs.statSync(runLog).size, 1, "the workers compiled once");
+}
 
 /**
  * `TEMP`, `TMP`, and `TMPDIR`, the variables `os.tmpdir()` reads on every
@@ -111,6 +112,5 @@ function isolatedTemporaryDirectory(): NodeJS.ProcessEnv {
     TMP: directory,
     TMPDIR: directory,
     TTSC_UNPLUGIN_TRANSFORM_SESSION: "",
-  }
-
+  };
 }

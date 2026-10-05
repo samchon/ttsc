@@ -2,10 +2,10 @@ package evidence
 
 import (
   "encoding/json"
+  "github.com/samchon/ttsc/packages/lint/rule"
   "os"
   "path/filepath"
   "testing"
-  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 /**

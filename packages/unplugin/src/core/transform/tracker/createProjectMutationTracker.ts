@@ -30,13 +30,13 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  *
  * Directory ancestry uses the observing view's path grammar. Disjoint volumes
  * or unknown root case policy withdraw notification authority and leave the
- * recorded-state validator responsible for proof.
- * A named event rejected by lexical membership policy can still be a native
- * alias of a program path. It withdraws notification authority without asserting
- * a structural change; recorded-state validation supplies the actual verdict.
- * Named events also compare current native identity and case policy with the
- * retained identity transaction. Retargeting withdraws notification authority
- * without changing the meaning of earlier recorded event spellings.
+ * recorded-state validator responsible for proof. A named event rejected by
+ * lexical membership policy can still be a native alias of a program path. It
+ * withdraws notification authority without asserting a structural change;
+ * recorded-state validation supplies the actual verdict. Named events also
+ * compare current native identity and case policy with the retained identity
+ * transaction. Retargeting withdraws notification authority without changing
+ * the meaning of earlier recorded event spellings.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The project walk and membership policy own structural relevance; content
@@ -149,7 +149,7 @@ export async function createProjectMutationTracker(
       // event selecting another target cannot reuse that transaction's proof.
       tracker.unverified = true;
     }
-    const membership = (
+    const membership =
       knownDirectories.has(paths.resolve(changed)) ||
       reportsProgramMembership(
         root,
@@ -157,8 +157,7 @@ export async function createProjectMutationTracker(
         paths.basename(filename),
         policy,
         filesystem,
-      )
-    );
+      );
     // Current realpath cannot identify a deleted alias. Policy checks only
     // lexical spellings, so rejection cannot establish unchanged program state.
     if (!membership) tracker.unverified = true;

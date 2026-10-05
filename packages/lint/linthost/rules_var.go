@@ -87,11 +87,13 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     redeclaration arm (var-vs-var, var-vs-param, var-vs-function, mixed
 //     destructure siblings, for-header var, …). It over-declines harmless
 //     cross-scope same-name bindings, which never corrupts.
+//
 //  2. No use-before-declaration / TDZ. The declared name is not referenced as
 //     a VALUE before the list's Pos(). A non-reference occurrence of the
 //     same text — a member name (`o.x`), an object-literal key (`{x:1}`), a
 //     statement label (`x:`), or a type reference (`: x`) — binds no value and
 //     must not force a decline; isValueReferenceIdentifier classifies these.
+//
 //  3. No block-scope escape. `var` is function/global-scoped while `let` is
 //     block-scoped, so a `var` declared inside a block and read after the
 //     block (`if (c) { var x = 1; } log(x);`) would stop compiling under
@@ -113,6 +115,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     references, which under `let` would flip from `undefined` reads to
 //     runtime TDZ throws — declining is the safe side. Mirrors ESLint
 //     no-var's isUsedFromOutsideOf.
+//
 //  4. No loop-closure capture. When the declaration sits inside a loop — a
 //     statement in a loop body OR the loop's own header — and the name is
 //     referenced from a function or arrow nested within that loop
@@ -121,6 +124,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     shares ONE `var` binding but would capture a FRESH per-iteration `let`
 //     binding — the rewrite silently changes runtime results. Mirrors ESLint
 //     no-var's isReferencedInClosure loop check.
+//
 //  5. Not declared under a `with` statement. `var` hoists PAST the with body
 //     to the function scope, so references inside the body resolve through
 //     the with object first (`o.x` shadows the var when present); `let`

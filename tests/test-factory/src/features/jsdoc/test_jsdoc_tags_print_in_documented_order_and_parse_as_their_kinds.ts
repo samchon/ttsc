@@ -14,7 +14,8 @@ import { id, kw, print } from "../../internal/helpers";
  * prints plausibly but parses as another kind fails.
  *
  * 1. Build a block with param (typed, bracketed), returns, template, author,
- *    deprecated, a custom tag, and the flag tags public, readonly and override.
+ *    deprecated, a custom tag, and the flag tags public, readonly and
+ *    override.
  * 2. Compare the printed block with the authored literal.
  * 3. Parse the block above a function and compare the tag kinds and names.
  *

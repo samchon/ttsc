@@ -32,5 +32,7 @@ func TestTransformMissingStringConfigIsEmpty(t *testing.T) {
   }
 
   want := "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.message = void 0;\nconst message = \"hello\";\nexports.message = message;\n"
-  if result.Code != want { t.Fatalf("fallback output = %q, want %q", result.Code, want) }
+  if result.Code != want {
+    t.Fatalf("fallback output = %q, want %q", result.Code, want)
+  }
 }

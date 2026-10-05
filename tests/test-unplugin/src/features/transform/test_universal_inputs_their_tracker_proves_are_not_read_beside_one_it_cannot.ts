@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,10 +11,12 @@ import { pluginSourceState } from "../../../../../packages/unplugin/src/core/tra
 import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
 import type { TtscHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/TtscHostInputValidation";
 import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputs";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies one unproven universal source does not force neighboring proven
- * files through filesystem operations, and a named change rechecks only itself.
+ * files through filesystem operations, and a named change rechecks only
+ * itself.
  *
  * The supplied tracker qualifies inputs individually. Six counted native
  * operations record only package.json and plugin.cjs touches, so this case
@@ -80,10 +81,19 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
   const entry = (file: string) => {
     const signature = inputMetadataSignature(file);
     assert.ok(signature, "native entry metadata must be readable");
-    return { path: file, readable: true, realpath: file, signature, strict: true as const };
+    return {
+      path: file,
+      readable: true,
+      realpath: file,
+      signature,
+      strict: true as const,
+    };
   };
   const sourceState = pluginSourceState(source);
-  assert.ok(sourceState, "native source and build environment must be readable");
+  assert.ok(
+    sourceState,
+    "native source and build environment must be readable",
+  );
   const validation: TtscHostInputValidation = {
     covered: new Set([manifest, descriptor, source]),
     entries: new Map([

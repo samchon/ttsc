@@ -70,7 +70,12 @@ export const test_parseflags_preserves_unknown_spaced_flag_value_order_for_ttsc 
       isPositional: isTsInput,
       subcommand: "build",
     });
-    assert.deepEqual(unknownPairs.passthrough, ["--futureAlpha", "left", "--futureBeta", "right"]);
+    assert.deepEqual(unknownPairs.passthrough, [
+      "--futureAlpha",
+      "left",
+      "--futureBeta",
+      "right",
+    ]);
     assert.deepEqual(unknownPairs.positional, ["entry.ts"]);
 
     // Inline `--flag=value` stays a single token; an unknown boolean is not

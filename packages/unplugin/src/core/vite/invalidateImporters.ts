@@ -4,12 +4,12 @@ import { selectModulesByFile } from "./selectModulesByFile";
 
 /**
  * Attempt invalidation of selected module-graph nodes so a capable host can
- * retransform them on a later request. Importers keep their original spelling so
- * the module graph's exact-key lookup can hit; graph lookups still go through
- * {@link selectModulesByFile} because module-graph file keys are
- * slash-normalized and native aliases or filesystem case policy may differ
- * from the compiler's spelling byte for byte. Missing or throwing invalidation
- * APIs cannot guarantee that Vite's cached transform was discarded.
+ * retransform them on a later request. Importers keep their original spelling
+ * so the module graph's exact-key lookup can hit; graph lookups still go
+ * through {@link selectModulesByFile} because module-graph file keys are
+ * slash-normalized and native aliases or filesystem case policy may differ from
+ * the compiler's spelling byte for byte. Missing or throwing invalidation APIs
+ * cannot guarantee that Vite's cached transform was discarded.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Every selected graph receives the importer nodes resolved through its own

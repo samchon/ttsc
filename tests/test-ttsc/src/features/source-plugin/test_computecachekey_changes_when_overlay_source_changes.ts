@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   computeCacheKey,
@@ -29,15 +28,38 @@ export function test_computecachekey_changes_when_overlay_source_changes() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
   const overlay = path.join(root, "overlay");
-  const fixture = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "computecachekey_changes_when_overlay_source_changes");
+  const fixture = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "test",
+    "fixtures",
+    "unit",
+    "computecachekey_changes_when_overlay_source_changes",
+  );
   TestProject.copyDirectory(path.join(fixture, "inputs-1"), root);
   fs.renameSync(path.join(plugin, "main.go.txt"), path.join(plugin, "main.go"));
-  fs.renameSync(path.join(overlay, "host.go.txt"), path.join(overlay, "host.go"));
-  assert.equal(fs.readFileSync(path.join(plugin, "go.mod"), "utf8"), "module example.com/plugin\n\ngo 1.26\n");
-  assert.equal(fs.readFileSync(path.join(plugin, "main.go"), "utf8"), "package main\n");
-  assert.equal(fs.readFileSync(path.join(overlay, "go.mod"), "utf8"), "module example.com/overlay\n\ngo 1.26\n");
+  fs.renameSync(
+    path.join(overlay, "host.go.txt"),
+    path.join(overlay, "host.go"),
+  );
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "go.mod"), "utf8"),
+    "module example.com/plugin\n\ngo 1.26\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "main.go"), "utf8"),
+    "package main\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(overlay, "go.mod"), "utf8"),
+    "module example.com/overlay\n\ngo 1.26\n",
+  );
   const overlayFile = path.join(overlay, "host.go");
-  assert.equal(fs.readFileSync(overlayFile, "utf8"), "package overlay\nconst Value = 1\n");
+  assert.equal(
+    fs.readFileSync(overlayFile, "utf8"),
+    "package overlay\nconst Value = 1\n",
+  );
 
   const first = computeCacheKey({
     dir: plugin,
@@ -47,8 +69,14 @@ export function test_computecachekey_changes_when_overlay_source_changes() {
     ttscVersion: "1.0.0",
     tsgoVersion: "7.0.0-dev",
   });
-  fs.copyFileSync(path.join(fixture, "inputs-2", "overlay", "host.go.txt"), overlayFile);
-  assert.equal(fs.readFileSync(overlayFile, "utf8"), "package overlay\nconst Value = 2\n");
+  fs.copyFileSync(
+    path.join(fixture, "inputs-2", "overlay", "host.go.txt"),
+    overlayFile,
+  );
+  assert.equal(
+    fs.readFileSync(overlayFile, "utf8"),
+    "package overlay\nconst Value = 2\n",
+  );
   const second = computeCacheKey({
     dir: plugin,
     entry: ".",

@@ -1,8 +1,9 @@
-import { E2eProcessTrace } from "./E2eProcessTrace";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+
+import { E2eProcessTrace } from "./E2eProcessTrace";
 
 // Every temp dir handed out by this module is tracked here for process-exit
 // cleanup unless its owner explicitly retains unresolved process inputs.
@@ -107,8 +108,12 @@ export namespace TestProject {
     let location = fs.realpathSync.native(dir);
     while (true) {
       const stat = fs.lstatSync(location);
-      identities.push({ location, dev: stat.dev, ino: stat.ino,
-        birthtimeMs: stat.birthtimeMs });
+      identities.push({
+        location,
+        dev: stat.dev,
+        ino: stat.ino,
+        birthtimeMs: stat.birthtimeMs,
+      });
       const next = path.dirname(location);
       if (next === location) break;
       location = next;
@@ -124,11 +129,12 @@ export namespace TestProject {
    * ancestor identities can transfer out of exit cleanup. Retention is sticky:
    * the caller reports the unresolved descendant and owns later reclamation
    * after joining it. This operation never allocates or follows a foreign root.
-   * Tracked ancestors are withheld too, so their recursive cleanup cannot
-   * erase retained inputs. Failed identity validation also withdraws cleanup
+   * Tracked ancestors are withheld too, so their recursive cleanup cannot erase
+   * retained inputs. Failed identity validation also withdraws cleanup
    * authority over the obsolete spelling without accepting retention identity.
-   * Existing one-argument fixture owners use an explicit pending-closure reason;
-   * neither that default nor a supplied reason certifies a live process or join.
+   * Existing one-argument fixture owners use an explicit pending-closure
+   * reason; neither that default nor a supplied reason certifies a live process
+   * or join.
    *
    * @evidence contracts/common.md#principled-implementation Allocation records the physical directory and ancestor identities; retention checks the same native objects before withholding that exact owned root from exit cleanup.
    * @evidence contracts/common.md#clear-and-simple-design One explicit transfer changes only an existing tracked allocation; ordinary allocations retain their exit cleanup behavior.
@@ -145,18 +151,31 @@ export namespace TestProject {
   ): void {
     const identities = TEMP_IDENTITIES.get(root);
     if (!TRACKED_TEMP_DIRS.has(root) || !identities || !reason.trim())
-      throw new Error("Temporary retention requires an owned allocation and reason: " + root);
+      throw new Error(
+        "Temporary retention requires an owned allocation and reason: " + root,
+      );
     try {
       const rootStat = fs.lstatSync(root);
-      if (rootStat.isSymbolicLink() || fs.realpathSync.native(root) !== identities[0]!.location)
-        throw new Error("Temporary retention refuses an aliased or linked root: " + root);
+      if (
+        rootStat.isSymbolicLink() ||
+        fs.realpathSync.native(root) !== identities[0]!.location
+      )
+        throw new Error(
+          "Temporary retention refuses an aliased or linked root: " + root,
+        );
       for (const identity of identities) {
         const stat = fs.lstatSync(identity.location);
-        if (!stat.isDirectory() || stat.isSymbolicLink() ||
-            fs.realpathSync.native(identity.location) !== identity.location ||
-            stat.dev !== identity.dev || stat.ino !== identity.ino ||
-            stat.birthtimeMs !== identity.birthtimeMs)
-          throw new Error("Temporary retention identity changed: " + identity.location);
+        if (
+          !stat.isDirectory() ||
+          stat.isSymbolicLink() ||
+          fs.realpathSync.native(identity.location) !== identity.location ||
+          stat.dev !== identity.dev ||
+          stat.ino !== identity.ino ||
+          stat.birthtimeMs !== identity.birthtimeMs
+        )
+          throw new Error(
+            "Temporary retention identity changed: " + identity.location,
+          );
       }
     } catch (error) {
       // An obsolete allocation spelling cannot authorize later removal of the
@@ -164,15 +183,25 @@ export namespace TestProject {
       withholdTemporaryCleanup(identities, reason, "Cleanup authority refused");
       throw error;
     }
-    withholdTemporaryCleanup(identities, reason, "Retained owned temporary directory");
+    withholdTemporaryCleanup(
+      identities,
+      reason,
+      "Retained owned temporary directory",
+    );
   }
 
   function withholdTemporaryCleanup(
-    identities: readonly ITemporaryIdentity[], reason: string, description: string,
+    identities: readonly ITemporaryIdentity[],
+    reason: string,
+    description: string,
   ): void {
     const ancestors = new Set(identities.map((identity) => identity.location));
     for (const [allocation, recorded] of TEMP_IDENTITIES) {
-      if (!ancestors.has(recorded[0]!.location) || RETAINED_TEMP_DIRS.has(allocation)) continue;
+      if (
+        !ancestors.has(recorded[0]!.location) ||
+        RETAINED_TEMP_DIRS.has(allocation)
+      )
+        continue;
       RETAINED_TEMP_DIRS.add(allocation);
       console.error(description + ": " + allocation + "\nReason: " + reason);
     }
@@ -216,13 +245,18 @@ export namespace TestProject {
    * directories in one process. Keeping this owner here prevents each helper
    * module from allocating a different "shared" cache and paying the same Go
    * plugin build again. Tests that observe cold builds or cache lifecycle still
-   * pass their own explicit `tmpdir`.
-   * A retained internally owned cache has unresolved readers and cannot serve
-   * a new consumer in this process.
+   * pass their own explicit `tmpdir`. A retained internally owned cache has
+   * unresolved readers and cannot serve a new consumer in this process.
    */
   export function sharedPluginCache(): string {
-    if (sharedPluginCacheDir !== undefined && RETAINED_TEMP_DIRS.has(sharedPluginCacheDir))
-      throw new Error("Shared plugin cache has an unresolved process owner: " + sharedPluginCacheDir);
+    if (
+      sharedPluginCacheDir !== undefined &&
+      RETAINED_TEMP_DIRS.has(sharedPluginCacheDir)
+    )
+      throw new Error(
+        "Shared plugin cache has an unresolved process owner: " +
+          sharedPluginCacheDir,
+      );
     return (
       process.env.TTSC_TEST_CACHE_DIR ??
       (sharedPluginCacheDir ??= tmpdir("ttsc-shared-plugin-cache-"))

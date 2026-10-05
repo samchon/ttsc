@@ -20,26 +20,6 @@ const mergedIdentityReferenceConfig = `{"claims":[{
   "reference":{"type":"typescript","files":["src/subject.ts"],"symbol":"type"}
 }]}`
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // assertMergeFoundedAtLineTwo pins one class-and-namespace merge whose namespace
 // half comes first.
 //

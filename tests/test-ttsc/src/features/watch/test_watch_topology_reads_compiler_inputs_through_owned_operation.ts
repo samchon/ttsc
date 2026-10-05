@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import type { WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
-import { deliverWatchEvent, recordWatchers, settleWatchEvents } from "../../../../utils/src/RecordedWatchers";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+  settleWatchEvents,
+} from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -29,13 +33,23 @@ import { TestProject } from "../../../../utils/src/TestProject";
 export async function test_watch_topology_reads_compiler_inputs_through_owned_operation(): Promise<void> {
   const failures: unknown[] = [];
   for (const scenario of [verifyProjectMembership, verifyPositionalSelection]) {
-    try { await scenario(); } catch (error) { failures.push(error); }
+    try {
+      await scenario();
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "owned compiler reader scenarios failed");
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "owned compiler reader scenarios failed",
+    );
 }
 
 async function verifyProjectMembership(): Promise<void> {
-  const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-owned-compiler-membership-"));
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-owned-compiler-membership-"),
+  );
   const child = path.join(root, "child");
   const source = path.join(root, "src", "seed.ts");
   const replacement = path.join(root, "src", "replacement.ts");
@@ -47,13 +61,30 @@ async function verifyProjectMembership(): Promise<void> {
   const baseConfig = path.join(root, "base.json");
   const rootConfig = path.join(root, "tsconfig.json");
   const childConfig = path.join(child, "tsconfig.json");
-  fs.writeFileSync(baseConfig, JSON.stringify({ compilerOptions: { noEmit: true, strict: true } }));
-  fs.writeFileSync(rootConfig, JSON.stringify({ extends: "./base.json", files: ["src/seed.ts"], references: [{ path: "./child/tsconfig.json" }] }));
-  fs.writeFileSync(childConfig, JSON.stringify({ compilerOptions: { noEmit: true }, files: ["src/child.ts"] }));
+  fs.writeFileSync(
+    baseConfig,
+    JSON.stringify({ compilerOptions: { noEmit: true, strict: true } }),
+  );
+  fs.writeFileSync(
+    rootConfig,
+    JSON.stringify({
+      extends: "./base.json",
+      files: ["src/seed.ts"],
+      references: [{ path: "./child/tsconfig.json" }],
+    }),
+  );
+  fs.writeFileSync(
+    childConfig,
+    JSON.stringify({
+      compilerOptions: { noEmit: true },
+      files: ["src/child.ts"],
+    }),
+  );
   const initialMembers = [source];
   const replacementMembers = [replacement];
   const childMembers = [childSource];
-  for (const members of [initialMembers, replacementMembers, childMembers]) Object.freeze(members);
+  for (const members of [initialMembers, replacementMembers, childMembers])
+    Object.freeze(members);
   let rootMembers = initialMembers;
   let reject = false;
   const failure = new Error("authored compiler-reader failure");
@@ -61,25 +92,42 @@ async function verifyProjectMembership(): Promise<void> {
   let topologyChanges = 0;
   const changes: WatchInputChange[] = [];
   const recorder = recordWatchers(watchDirectoryThroughFsWatch);
-  const options = { cwd: root, files: [], tsconfig: rootConfig, env: { TTSC_READER_OWNER: "unit" }, passthrough: ["--skipLibCheck"] };
-  const topology = new WatchTopology(options, {
-    onError: (_location, error) => { throw error; },
-    onInputChange: (change) => changes.push(change),
-    onTopologyChange: () => { topologyChanges += 1; },
-  }, recorder.openDirectoryWatch, recorder.openFileWatch, fs.readdirSync, (project, receivedOptions) => {
-    calls.push(project.path);
-    assert.equal(receivedOptions, options);
-    assert.equal(project.root, project.path === rootConfig ? root : child);
-    if (project.path === rootConfig) {
-      assert.equal(project.compilerOptions.strict, true);
-      assert.equal(project.compilerOptions.noEmit, true);
-      assert.ok(project.configPaths.includes(baseConfig));
-      if (reject) throw failure;
-      return rootMembers;
-    }
-    assert.equal(project.path, childConfig);
-    return childMembers;
-  });
+  const options = {
+    cwd: root,
+    files: [],
+    tsconfig: rootConfig,
+    env: { TTSC_READER_OWNER: "unit" },
+    passthrough: ["--skipLibCheck"],
+  };
+  const topology = new WatchTopology(
+    options,
+    {
+      onError: (_location, error) => {
+        throw error;
+      },
+      onInputChange: (change) => changes.push(change),
+      onTopologyChange: () => {
+        topologyChanges += 1;
+      },
+    },
+    recorder.openDirectoryWatch,
+    recorder.openFileWatch,
+    fs.readdirSync,
+    (project, receivedOptions) => {
+      calls.push(project.path);
+      assert.equal(receivedOptions, options);
+      assert.equal(project.root, project.path === rootConfig ? root : child);
+      if (project.path === rootConfig) {
+        assert.equal(project.compilerOptions.strict, true);
+        assert.equal(project.compilerOptions.noEmit, true);
+        assert.ok(project.configPaths.includes(baseConfig));
+        if (reject) throw failure;
+        return rootMembers;
+      }
+      assert.equal(project.path, childConfig);
+      return childMembers;
+    },
+  );
   let revision = 1;
   const edit = async (entry: string): Promise<void> => {
     fs.writeFileSync(entry, `export const value = ${++revision};\n`);
@@ -110,8 +158,14 @@ async function verifyProjectMembership(): Promise<void> {
     changes.length = 0;
     const beforeFailure = recorder.watchers.filter((watcher) => watcher.active);
     reject = true;
-    assert.throws(() => topology.refresh(true), (error) => error === failure);
-    assert.deepEqual(recorder.watchers.filter((watcher) => watcher.active), beforeFailure);
+    assert.throws(
+      () => topology.refresh(true),
+      (error) => error === failure,
+    );
+    assert.deepEqual(
+      recorder.watchers.filter((watcher) => watcher.active),
+      beforeFailure,
+    );
     assert.equal(topologyChanges, 1);
     reject = false;
     topology.refresh(true);
@@ -120,22 +174,42 @@ async function verifyProjectMembership(): Promise<void> {
     assert.deepEqual(initialMembers, [source]);
     assert.deepEqual(replacementMembers, [replacement]);
     assert.deepEqual(childMembers, [childSource]);
-  } finally { topology.close(); }
+  } finally {
+    topology.close();
+  }
   assert.ok(recorder.watchers.every((watcher) => !watcher.active));
 }
 
 async function verifyPositionalSelection(): Promise<void> {
-  const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-owned-compiler-positional-"));
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-owned-compiler-positional-"),
+  );
   const source = path.join(root, "entry.ts");
   fs.writeFileSync(source, "export const value = 1;\n");
-  fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { noEmit: true }, files: ["entry.ts"] }));
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({ compilerOptions: { noEmit: true }, files: ["entry.ts"] }),
+  );
   const recorder = recordWatchers(watchDirectoryThroughFsWatch);
   const changes: WatchInputChange[] = [];
-  const topology = new WatchTopology({ cwd: root, files: [source], tsconfig: path.join(root, "tsconfig.json") }, {
-    onError: (_location, error) => { throw error; },
-    onInputChange: (change) => changes.push(change),
-    onTopologyChange: () => { throw new Error("unchanged positional topology notified"); },
-  }, recorder.openDirectoryWatch, recorder.openFileWatch, fs.readdirSync, () => { throw new Error("positional inputs requested project membership"); });
+  const topology = new WatchTopology(
+    { cwd: root, files: [source], tsconfig: path.join(root, "tsconfig.json") },
+    {
+      onError: (_location, error) => {
+        throw error;
+      },
+      onInputChange: (change) => changes.push(change),
+      onTopologyChange: () => {
+        throw new Error("unchanged positional topology notified");
+      },
+    },
+    recorder.openDirectoryWatch,
+    recorder.openFileWatch,
+    fs.readdirSync,
+    () => {
+      throw new Error("positional inputs requested project membership");
+    },
+  );
   try {
     topology.refresh(false);
     await settleWatchEvents();
@@ -144,6 +218,8 @@ async function verifyPositionalSelection(): Promise<void> {
     deliverWatchEvent(recorder.watchers, source, "change");
     await settleWatchEvents();
     assert.deepEqual(changes, [{ kind: "compiler", path: source }]);
-  } finally { topology.close(); }
+  } finally {
+    topology.close();
+  }
   assert.ok(recorder.watchers.every((watcher) => !watcher.active));
 }

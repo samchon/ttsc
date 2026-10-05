@@ -18,7 +18,8 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
 export interface ITtscLintNextjsRules {
   /**
    * Reject missing, `auto`, `block`, and `fallback` display query values on
-   * static https://fonts.googleapis.com/css links. Prefer `optional` or `swap`.
+   * static https://fonts.googleapis.com/css links. Prefer `optional` or
+   * `swap`.
    *
    * @reference https://nextjs.org/docs/messages/google-font-display
    */
@@ -36,9 +37,9 @@ export interface ITtscLintNextjsRules {
    * Require an `id` attribute on inline `<Script>` components from
    * `next/script`.
    *
-   * The native check recognizes default imports from `next/script` and
-   * reports JSX elements containing inline content or dangerouslySetInnerHTML
-   * when the `id` attribute is absent.
+   * The native check recognizes default imports from `next/script` and reports
+   * JSX elements containing inline content or dangerouslySetInnerHTML when the
+   * `id` attribute is absent.
    *
    * @reference https://nextjs.org/docs/messages/inline-script-id
    */
@@ -98,8 +99,8 @@ export interface ITtscLintNextjsRules {
    * Reject more than one `<Head>` element from `next/document` in
    * `pages/_document.tsx`.
    *
-   * The native check counts JSX uses of the imported next/document Head name
-   * in recognized document paths; it does not inspect generated HTML.
+   * The native check counts JSX uses of the imported next/document Head name in
+   * recognized document paths; it does not inspect generated HTML.
    *
    * @reference https://nextjs.org/docs/messages/no-duplicate-head
    */

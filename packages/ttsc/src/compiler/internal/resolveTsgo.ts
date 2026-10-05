@@ -9,9 +9,9 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  *
  * Resolution order:
  *
- * 1. Select `opts.binary`, or consult `TTSC_TSGO_BINARY` only when it is absent.
- *    A nonempty override must be an existing absolute path; returns
- *    `{ binary, packageJson: "", packageRoot, version: "custom" }`.
+ * 1. Select `opts.binary`, or consult `TTSC_TSGO_BINARY` only when it is absent. A
+ *    nonempty override must be an existing absolute path; returns `{ binary,
+ *    packageJson: "", packageRoot, version: "custom" }`.
  * 2. `typescript` resolved from the project `cwd`.
  * 3. `typescript` resolved from `opts.resolveFrom` (for test harnesses and
  *    embedders that anchor to a different directory).
@@ -19,10 +19,10 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * Throws a descriptive error when the package or platform path is missing.
  * Manifest read/parse failures can propagate directly. Existence does not
  * certify a regular executable, native ABI or compiler version compatibility;
- * this operation selects paths and metadata without executing them.
- * Platform package resolution is anchored at the chosen TypeScript manifest
- * and can follow Node's ancestor search, rather than proving both packages
- * occupy one physical installation or declare matching versions.
+ * this operation selects paths and metadata without executing them. Platform
+ * package resolution is anchored at the chosen TypeScript manifest and can
+ * follow Node's ancestor search, rather than proving both packages occupy one
+ * physical installation or declare matching versions.
  *
  * @evidence contracts/common.md#principled-implementation Selected nonempty binary authority precedes project-relative TypeScript lookup; the chosen manifest anchors Node resolution of the platform package. Returned metadata describes the selected TypeScript manifest, without certifying native executable compatibility or matching platform-package versions.
  * @evidence contracts/common.md#clear-and-simple-design Resolution returns one existing selected path with provenance metadata; package lookup and JSON reading are private helpers rather than independent policy copies in launcher consumers.

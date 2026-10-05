@@ -1,7 +1,10 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
-import { TTSX_REGISTER, linkTtscPackage } from "../../../../internal/ttsc/internal/ttsx-register";
+import {
+  TTSX_REGISTER,
+  linkTtscPackage,
+} from "../../../../internal/ttsc/internal/ttsx-register";
 
 /**
  * Verifies ttsx register runs checked CommonJS and ESM Node entries.
@@ -24,12 +27,12 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../../../internal/ttsc/intern
  * @evidence contracts/e2e.md#preserved-coverage The original two enum results and prefix-only CJS, ordinary crypto and ESM SQLite assertions survive as exact labeled result properties; custom hook remaps remain in their dedicated boundary.
  */
 export function test_ttsx_register_runs_checked_commonjs_and_esm_node_entries() {
-    const failures: unknown[] = [];
-    for (const fixture of [
-      { module: "commonjs", name: "commonjs", packageType: "commonjs" },
-      { module: "nodenext", name: "esm", packageType: "module" },
-    ]) {
-      try {
+  const failures: unknown[] = [];
+  for (const fixture of [
+    { module: "commonjs", name: "commonjs", packageType: "commonjs" },
+    { module: "nodenext", name: "esm", packageType: "module" },
+  ]) {
+    try {
       const root = TestProject.createProject({
         "package.json": JSON.stringify({
           name: `ttsx-register-${fixture.name}`,
@@ -46,19 +49,24 @@ export function test_ttsx_register_runs_checked_commonjs_and_esm_node_entries() 
           },
           include: ["src"],
         }),
-        "src/node-sqlite.d.ts": fixture.name === "esm" ? `declare module "node:sqlite" { export class DatabaseSync { constructor(location: string); close(): void; } }` : "",
+        "src/node-sqlite.d.ts":
+          fixture.name === "esm"
+            ? `declare module "node:sqlite" { export class DatabaseSync { constructor(location: string); close(): void; } }`
+            : "",
         "src/main.ts": [
           `enum RuntimeKind { Value = ${JSON.stringify(fixture.name)} }`,
           `const value: string = RuntimeKind.Value;`,
-          ...(fixture.name === "commonjs" ? [
-            `declare function require(specifier: string): any;`,
-            `const prefix = ["node:sqlite", "node:test", "node:test/reporters", "node:sea"].map((specifier) => require(specifier));`,
-            `console.log(JSON.stringify({ kind: value, prefix: prefix.every((item) => item !== null && item !== undefined), cryptoLength: require("node:crypto").randomUUID().length }));`,
-          ] : [
-            `import { DatabaseSync } from "node:sqlite";`,
-            `const database = new DatabaseSync(":memory:"); database.close();`,
-            `console.log(JSON.stringify({ kind: value, sqlite: "esm-sqlite-ok" }));`,
-          ]),
+          ...(fixture.name === "commonjs"
+            ? [
+                `declare function require(specifier: string): any;`,
+                `const prefix = ["node:sqlite", "node:test", "node:test/reporters", "node:sea"].map((specifier) => require(specifier));`,
+                `console.log(JSON.stringify({ kind: value, prefix: prefix.every((item) => item !== null && item !== undefined), cryptoLength: require("node:crypto").randomUUID().length }));`,
+              ]
+            : [
+                `import { DatabaseSync } from "node:sqlite";`,
+                `const database = new DatabaseSync(":memory:"); database.close();`,
+                `console.log(JSON.stringify({ kind: value, sqlite: "esm-sqlite-ok" }));`,
+              ]),
           "",
         ].join("\n"),
       });
@@ -70,10 +78,16 @@ export function test_ttsx_register_runs_checked_commonjs_and_esm_node_entries() 
         { cwd: root },
       );
       assert.equal(result.status, 0, result.stderr);
-      assert.deepEqual(JSON.parse(result.stdout.trim()), fixture.name === "commonjs"
-        ? { kind: "commonjs", prefix: true, cryptoLength: 36 }
-        : { kind: "esm", sqlite: "esm-sqlite-ok" });
-      } catch (error) { failures.push(error); }
+      assert.deepEqual(
+        JSON.parse(result.stdout.trim()),
+        fixture.name === "commonjs"
+          ? { kind: "commonjs", prefix: true, cryptoLength: 36 }
+          : { kind: "esm", sqlite: "esm-sqlite-ok" },
+      );
+    } catch (error) {
+      failures.push(error);
     }
-    if (failures.length) throw new AggregateError(failures, "Node main-module runtime batch failed");
+  }
+  if (failures.length)
+    throw new AggregateError(failures, "Node main-module runtime batch failed");
 }

@@ -14,9 +14,9 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
  * tombstone `<lockDir>/retired/<generation>`, so a late or duplicate retire of
  * an old generation finds the tombstone occupied and fails instead of moving a
  * successor under a stable cooperative namespace, noncolliding generation
- * identities and retained tombstones for outstanding fences. The protocol
- * does not authenticate a supplied identifier or pin the namespace with a
- * filesystem handle. This mirrors the source-plugin lock protocol.
+ * identities and retained tombstones for outstanding fences. The protocol does
+ * not authenticate a supplied identifier or pin the namespace with a filesystem
+ * handle. This mirrors the source-plugin lock protocol.
  *
  * @evidence contracts/common.md#principled-implementation Deterministic per-generation tombstones reject duplicate or stale retirement under the cooperative namespace, noncollision and retained-history premises; the identifier is not independently authenticated.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns lock layout, timing constants and retirement, leaving acquisition and observation to their distinct operations.
@@ -45,7 +45,10 @@ export namespace DependencyBuildLockProtocol {
    */
   export const DEP_BUILD_LOCK_POLL_MS = 50;
 
-  /** Elapsed-time policy threshold checked between runtime acquisition attempts; not a native IO or retirement deadline. */
+  /**
+   * Elapsed-time policy threshold checked between runtime acquisition attempts;
+   * not a native IO or retirement deadline.
+   */
   export const DEP_BUILD_LOCK_WAIT_MS = 600_000;
 
   /** File inside a generation directory recording the holder's pid and host. */

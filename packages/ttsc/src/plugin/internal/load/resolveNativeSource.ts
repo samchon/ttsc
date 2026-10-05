@@ -10,8 +10,8 @@ import { requirePluginSource } from "./requirePluginSource";
 /**
  * Resolve the Go module and executable or linked ownership of a source.
  *
- * Classification uses the first scanned regular non-test .go file yielding
- * a package-clause prefix. It does not validate full package syntax, build
+ * Classification uses the first scanned regular non-test .go file yielding a
+ * package-clause prefix. It does not validate full package syntax, build
  * constraints, ignored filename prefixes or platform suffixes; Go compilation
  * remains authoritative for actual buildability.
  *

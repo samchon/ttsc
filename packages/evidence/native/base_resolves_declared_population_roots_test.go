@@ -2,15 +2,15 @@ package evidence
 
 import (
   "encoding/json"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
   "github.com/samchon/ttsc/packages/lint/rule"
   "os"
   "path/filepath"
   "sort"
   "strings"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-  shimcore "github.com/microsoft/typescript-go/shim/core"
-  shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
 // runRootedGraph drives the graph rule inside a workspace whose project sits one

@@ -1,27 +1,33 @@
-import { assertGraphEncodedCorpus, writeGraphEncodedInputs } from "../batch/graphEncodedCorpus";
-import { assertGraphRefreshCorpus } from "../batch/graphRefreshCorpus";
-import { assertGraphTourInputCorpus } from "../batch/graphTourInputCorpus";
-import { assertGraphMcpCorpus } from "../batch/graphMcpCorpus";
-import { assertGraphNativeShapeCorpus } from "../batch/graphNativeShapeCorpus";
-import assert from "node:assert/strict";
 import { FileSystemIterator } from "@ttsc/testing";
-import { assertGraphReverseCorpus } from "../batch/graphReverseCorpus";
-import { BatchWorkspace } from "../batch/BatchWorkspace";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { assertGraphReadonlyCorpus } from "../batch/graphReadonlyCorpus";
+
+import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { assertGraphDispatchCorpus } from "../batch/graphDispatchCorpus";
+import {
+  assertGraphEncodedCorpus,
+  writeGraphEncodedInputs,
+} from "../batch/graphEncodedCorpus";
+import { assertGraphMcpCorpus } from "../batch/graphMcpCorpus";
+import { assertGraphNativeShapeCorpus } from "../batch/graphNativeShapeCorpus";
+import { assertGraphReadonlyCorpus } from "../batch/graphReadonlyCorpus";
+import { assertGraphRefreshCorpus } from "../batch/graphRefreshCorpus";
+import { assertGraphReverseCorpus } from "../batch/graphReverseCorpus";
+import { assertGraphTourInputCorpus } from "../batch/graphTourInputCorpus";
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
 
 type NodeDetails = {
   name: string;
   signature?: string;
   literals?: string[];
-  members?: { name: string; signature?: string }[]; dependedOnBy?: unknown[];
+  members?: { name: string; signature?: string }[];
+  dependedOnBy?: unknown[];
 };
 
 /**
- * Observes multiple independent native declarations through one resident MCP host.
+ * Observes multiple independent native declarations through one resident MCP
+ * host.
  *
  * @evidence contracts/testing.md#behavioral-verification One real graph session delivers original enum member names, signatures, literal sets, implicit values, duplicate values and the neighboring class outline through an actual details response.
  * @evidence contracts/testing.md#independent-expectations Authored enum declarations prescribe literal names and values before native extraction. The class provides an independent non-enum control.
@@ -34,50 +40,82 @@ type NodeDetails = {
  */
 export async function test_e2e_graph_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
-  await FileSystemIterator.write(workspace.root, await FileSystemIterator.read(path.join(workspace.root, "graph-stage")));
+  await FileSystemIterator.write(
+    workspace.root,
+    await FileSystemIterator.read(path.join(workspace.root, "graph-stage")),
+  );
   writeGraphEncodedInputs(workspace.root);
-  const client = TtsgraphClient.start(workspace.root, path.join(workspace.root, "graph-native-starts.jsonl"));
+  const client = TtsgraphClient.start(
+    workspace.root,
+    path.join(workspace.root, "graph-native-starts.jsonl"),
+  );
   try {
     const initialization = await client.request("initialize", {
-      protocolVersion: "2025-06-18", capabilities: {},
+      protocolVersion: "2025-06-18",
+      capabilities: {},
       clientInfo: { name: "shared-e2e", version: "1" },
     });
     client.notify("notifications/initialized", {});
     const configFile = path.join(workspace.root, "tsconfig.json");
     const originalConfig = fs.readFileSync(configFile);
-    assert.equal(client.nativeSpawnCount(), 0, "the escape control must precede the native producer");
+    assert.equal(
+      client.nativeSpawnCount(),
+      0,
+      "the escape control must precede the native producer",
+    );
     try {
       client.assertInputMutationAllowed();
       fs.writeFileSync(configFile, "{ invalid compiler configuration");
-      const escaped = await client.request("tools/call", {
+      const escaped = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: {
           question: "This request needs no TypeScript graph.",
           draft: { reason: "Use evidence outside the graph.", type: "escape" },
           review: "Keep the graph-free escape.",
-          request: { type: "escape", reason: "No graph is needed.", nextStep: "Use non-graph evidence." },
+          request: {
+            type: "escape",
+            reason: "No graph is needed.",
+            nextStep: "Use non-graph evidence.",
+          },
         },
-      }) as { isError?: boolean; structuredContent?: { result?: { type?: string; skipped?: boolean } } };
+      })) as {
+        isError?: boolean;
+        structuredContent?: { result?: { type?: string; skipped?: boolean } };
+      };
       assert.equal(escaped.isError, undefined);
       assert.equal(escaped.structuredContent?.result?.type, "escape");
       assert.equal(escaped.structuredContent?.result?.skipped, true);
-      assert.equal(client.nativeSpawnCount(), 0, "escape must not start the selected native graph producer");
+      assert.equal(
+        client.nativeSpawnCount(),
+        0,
+        "escape must not start the selected native graph producer",
+      );
     } finally {
       client.assertInputMutationAllowed();
       fs.writeFileSync(configFile, originalConfig);
     }
-    const recovered = await client.request("tools/call", {
+    const recovered = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
         question: "Find Recoverable in the restored project.",
-        draft: { reason: "Read actual native facts after escape.", type: "lookup" },
+        draft: {
+          reason: "Read actual native facts after escape.",
+          type: "lookup",
+        },
         review: "Keep the restored project's lookup.",
         request: { type: "lookup", query: "Recoverable" },
       },
-    }) as { isError?: boolean; structuredContent?: unknown };
+    })) as { isError?: boolean; structuredContent?: unknown };
     assert.equal(recovered.isError, undefined);
-    assert.match(JSON.stringify(recovered.structuredContent ?? {}), /Recoverable/);
-    assert.equal(client.nativeSpawnCount(), 1, "the restored lookup starts the same resident producer once");
+    assert.match(
+      JSON.stringify(recovered.structuredContent ?? {}),
+      /Recoverable/,
+    );
+    assert.equal(
+      client.nativeSpawnCount(),
+      1,
+      "the restored lookup starts the same resident producer once",
+    );
     await assertGraphReadonlyCorpus(client);
     await assertGraphDispatchCorpus(client);
     await assertGraphReverseCorpus(client);
@@ -86,27 +124,64 @@ export async function test_e2e_graph_batch(): Promise<void> {
     await assertGraphNativeShapeCorpus(client, workspace.root);
     await assertGraphRefreshCorpus(client, workspace.root);
     await assertGraphEncodedCorpus(client, workspace.root);
-    const response = await client.request("tools/call", {
+    const response = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
-        question: "What names and resolved values do these declarations contain?",
-        draft: { reason: "One native declaration population answers all details.", type: "details" },
+        question:
+          "What names and resolved values do these declarations contain?",
+        draft: {
+          reason: "One native declaration population answers all details.",
+          type: "details",
+        },
         review: "Keep the requested independent names and member facts.",
-        request: { type: "details", handles: ["Colors", "Implicit", "Duplicate", "Service", "oneLiner", "withTypeLiteral", "Wrapped", "Flat", "LiteralColors", "Indirect", "Widened", "Wide", "Values"], neighbors: true },
+        request: {
+          type: "details",
+          handles: [
+            "Colors",
+            "Implicit",
+            "Duplicate",
+            "Service",
+            "oneLiner",
+            "withTypeLiteral",
+            "Wrapped",
+            "Flat",
+            "LiteralColors",
+            "Indirect",
+            "Widened",
+            "Wide",
+            "Values",
+          ],
+          neighbors: true,
+        },
       },
-    }) as { structuredContent?: { result?: { type?: string; nodes?: NodeDetails[] } } };
+    })) as {
+      structuredContent?: { result?: { type?: string; nodes?: NodeDetails[] } };
+    };
     const details = response.structuredContent?.result;
     assert.equal(details?.type, "details");
     assert.ok(details);
     assert.ok(Array.isArray(details.nodes));
-    const node = (name: string): NodeDetails | undefined => details.nodes!.find((value) => value.name === name);
-    assert.deepEqual(node("Colors")?.members?.map((member) => member.name), ["Colors.Red", "Colors.Green", "Colors.Blue"]);
+    const node = (name: string): NodeDetails | undefined =>
+      details.nodes!.find((value) => value.name === name);
+    assert.deepEqual(
+      node("Colors")?.members?.map((member) => member.name),
+      ["Colors.Red", "Colors.Green", "Colors.Blue"],
+    );
     assert.equal(node("Colors")?.members?.[0]?.signature, 'Red = "red"');
     assert.deepEqual(node("Colors")?.literals, ['"red"', '"green"', '"blue"']);
-    assert.deepEqual(node("Implicit")?.members?.map((member) => member.signature), ["First = 0", "Second = 1"]);
-    assert.deepEqual(node("Duplicate")?.members?.map((member) => member.name), ["Duplicate.A", "Duplicate.B"]);
+    assert.deepEqual(
+      node("Implicit")?.members?.map((member) => member.signature),
+      ["First = 0", "Second = 1"],
+    );
+    assert.deepEqual(
+      node("Duplicate")?.members?.map((member) => member.name),
+      ["Duplicate.A", "Duplicate.B"],
+    );
     assert.deepEqual(node("Duplicate")?.literals, ['"x"']);
-    assert.deepEqual(node("Service")?.members?.map((member) => member.name), ["Service.run"]);
+    assert.deepEqual(
+      node("Service")?.members?.map((member) => member.name),
+      ["Service.run"],
+    );
     const simple = node("oneLiner")?.signature;
     const nested = node("withTypeLiteral")?.signature;
     assert.equal(typeof simple, "string");
@@ -119,140 +194,286 @@ export async function test_e2e_graph_batch(): Promise<void> {
     const seven = ['"a"', '"b"', '"c"', '"d"', '"e"', '"f"', '"g"'];
     assert.deepEqual(node("Wrapped")?.literals, seven);
     assert.deepEqual(node("Flat")?.literals, seven);
-    assert.deepEqual(node("LiteralColors")?.literals, ['"red"', '"green"', '"blue"']);
+    assert.deepEqual(node("LiteralColors")?.literals, [
+      '"red"',
+      '"green"',
+      '"blue"',
+    ]);
     assert.deepEqual(node("Indirect")?.literals, [...seven, '"h"']);
     assert.equal(node("Widened")?.literals, undefined);
     assert.equal(node("Wide")?.members?.length, 20);
     assert.equal(node("Values")?.literals?.length, 20);
     const inbound = node("Wide")?.dependedOnBy?.length ?? 0;
     assert.ok(inbound > 0 && inbound < 20);
-    const dispatch = await client.request("tools/call", {
+    const dispatch = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
         question: "What does this abstract run actually reach?",
-        draft: { reason: "One resident snapshot supplies checker dispatch edges.", type: "trace" },
+        draft: {
+          reason: "One resident snapshot supplies checker dispatch edges.",
+          type: "trace",
+        },
         review: "Keep both authored implementation and terminal-name controls.",
-        request: { type: "trace", from: "AbstractRunner.run", direction: "forward", focus: "execution", maxDepth: 6, maxNodes: 16 },
+        request: {
+          type: "trace",
+          from: "AbstractRunner.run",
+          direction: "forward",
+          focus: "execution",
+          maxDepth: 6,
+          maxNodes: 16,
+        },
       },
-    }) as { structuredContent?: { result?: { type?: string; reached: { id: string; name: string }[]; hops: { to: string; kind: string }[] } } };
+    })) as {
+      structuredContent?: {
+        result?: {
+          type?: string;
+          reached: { id: string; name: string }[];
+          hops: { to: string; kind: string }[];
+        };
+      };
+    };
     const trace = dispatch.structuredContent?.result;
     assert.equal(trace?.type, "trace");
     assert.ok(trace);
     const reached = trace.reached.map((value) => value.name);
-    const dispatched = trace.hops.filter((hop) => hop.kind === "dispatches").map((hop) => trace.reached.find((value) => value.id === hop.to)?.name);
+    const dispatched = trace.hops
+      .filter((hop) => hop.kind === "dispatches")
+      .map((hop) => trace.reached.find((value) => value.id === hop.to)?.name);
     assert.ok(reached.includes("AbstractPipeline.start"));
     assert.ok(dispatched.includes("TransformAbstractPipeline.execute"));
     assert.ok(dispatched.includes("PersistAbstractPipeline.execute"));
     assert.ok(reached.includes("transform"));
     assert.ok(reached.includes("persistAbstract"));
-    const inheritedResponse = await client.request("tools/call", {
+    const inheritedResponse = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: {
         question: "What does the inherited abstract member execute?",
-        draft: { reason: "The same native population contains an inherited implementation.", type: "trace" },
+        draft: {
+          reason:
+            "The same native population contains an inherited implementation.",
+          type: "trace",
+        },
         review: "Keep the original inherited dispatch and terminal controls.",
-        request: { type: "trace", from: "InheritedRunner.run", direction: "forward", focus: "execution", maxDepth: 6, maxNodes: 16 },
+        request: {
+          type: "trace",
+          from: "InheritedRunner.run",
+          direction: "forward",
+          focus: "execution",
+          maxDepth: 6,
+          maxNodes: 16,
+        },
       },
-    }) as { structuredContent?: { result?: { type?: string; reached: { id: string; name: string }[]; hops: { to: string; kind: string }[] } } };
+    })) as {
+      structuredContent?: {
+        result?: {
+          type?: string;
+          reached: { id: string; name: string }[];
+          hops: { to: string; kind: string }[];
+        };
+      };
+    };
     const inherited = inheritedResponse.structuredContent?.result;
     assert.equal(inherited?.type, "trace");
     assert.ok(inherited);
-    const inheritedDispatch = inherited.hops.filter((hop) => hop.kind === "dispatches").map((hop) => inherited.reached.find((value) => value.id === hop.to)?.name);
+    const inheritedDispatch = inherited.hops
+      .filter((hop) => hop.kind === "dispatches")
+      .map(
+        (hop) => inherited.reached.find((value) => value.id === hop.to)?.name,
+      );
     assert.ok(inheritedDispatch.includes("ConcreteWorker.process"));
-    assert.ok(inherited.reached.some((value) => value.name === "persistInherited"));
+    assert.ok(
+      inherited.reached.some((value) => value.name === "persistInherited"),
+    );
     // These are requests on the existing resident host, not new experiments.
-    const call = async (request: Record<string, unknown>): Promise<Record<string, unknown>> => {
-      const response = await client.request("tools/call", {
+    const call = async (
+      request: Record<string, unknown>,
+    ): Promise<Record<string, unknown>> => {
+      const response = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
-        arguments: { question: "Which authored declarations own these facts?", draft: { reason: "Reuse the same native declaration population.", type: request.type }, review: "Keep the independently authored citation controls.", request },
-      }) as { structuredContent?: { result?: Record<string, unknown> } };
+        arguments: {
+          question: "Which authored declarations own these facts?",
+          draft: {
+            reason: "Reuse the same native declaration population.",
+            type: request.type,
+          },
+          review: "Keep the independently authored citation controls.",
+          request,
+        },
+      })) as { structuredContent?: { result?: Record<string, unknown> } };
       assert.ok(response.structuredContent?.result);
       return response.structuredContent.result;
     };
-    type CitationHit = { name: string; docTags?: { name: string; text?: string }[] };
-    const markdown = await call({ type: "lookup", query: "인용명세/할인정책#쿠폰중첩" }) as { hits: CitationHit[] };
-    assert.deepEqual(markdown.hits.map((hit) => hit.name).sort(), ["applyCoupons", "renderNotice"]);
+    type CitationHit = {
+      name: string;
+      docTags?: { name: string; text?: string }[];
+    };
+    const markdown = (await call({
+      type: "lookup",
+      query: "인용명세/할인정책#쿠폰중첩",
+    })) as { hits: CitationHit[] };
+    assert.deepEqual(markdown.hits.map((hit) => hit.name).sort(), [
+      "applyCoupons",
+      "renderNotice",
+    ]);
     for (const hit of markdown.hits)
-      assert.deepEqual(hit.docTags, [
-        { name: "evidence", text: "인용명세/할인정책#쿠폰중첩 Identifies the isolated shared lookup population." },
-      ], "lookup explains the matched citation; details separately preserves every authored tag");
-    const operation = await call({ type: "lookup", query: "POST:/orders/{orderId}/coupons" }) as { hits: CitationHit[] };
+      assert.deepEqual(
+        hit.docTags,
+        [
+          {
+            name: "evidence",
+            text: "인용명세/할인정책#쿠폰중첩 Identifies the isolated shared lookup population.",
+          },
+        ],
+        "lookup explains the matched citation; details separately preserves every authored tag",
+      );
+    const operation = (await call({
+      type: "lookup",
+      query: "POST:/orders/{orderId}/coupons",
+    })) as { hits: CitationHit[] };
     assert.equal(operation.hits[0]?.name, "renderNotice");
-    assert.deepEqual(operation.hits.filter((hit) => hit.docTags !== undefined).map((hit) => hit.name), ["renderNotice"]);
-    const citationDetails = await call({ type: "details", handles: ["renderNotice", "applyCoupons", "untagged", "bootstrap", "nonAscii"] }) as { nodes: (CitationHit & { doc?: string })[] };
-    assert.deepEqual(citationDetails.nodes.find((value) => value.name === "nonAscii")?.docTags, [
-      { name: "evidence", text: "문서/가격.md#할인 A non-Latin address with a Markdown suffix." },
-      { name: "evidence", text: "문서/가격#할인 An address with no ASCII searchable terms." },
-    ], "details preserves the original Unicode Markdown address independently of the isolated lookup target");
-    const notice = citationDetails.nodes.find((value) => value.name === "renderNotice");
+    assert.deepEqual(
+      operation.hits
+        .filter((hit) => hit.docTags !== undefined)
+        .map((hit) => hit.name),
+      ["renderNotice"],
+    );
+    const citationDetails = (await call({
+      type: "details",
+      handles: [
+        "renderNotice",
+        "applyCoupons",
+        "untagged",
+        "bootstrap",
+        "nonAscii",
+      ],
+    })) as { nodes: (CitationHit & { doc?: string })[] };
+    assert.deepEqual(
+      citationDetails.nodes.find((value) => value.name === "nonAscii")?.docTags,
+      [
+        {
+          name: "evidence",
+          text: "문서/가격.md#할인 A non-Latin address with a Markdown suffix.",
+        },
+        {
+          name: "evidence",
+          text: "문서/가격#할인 An address with no ASCII searchable terms.",
+        },
+      ],
+      "details preserves the original Unicode Markdown address independently of the isolated lookup target",
+    );
+    const notice = citationDetails.nodes.find(
+      (value) => value.name === "renderNotice",
+    );
     assert.deepEqual(notice?.docTags, [
-      { name: "evidence", text: "docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines." },
-      { name: "evidence", text: "인용명세/할인정책#쿠폰중첩 Identifies the isolated shared lookup population." },
-      { name: "evidence", text: "POST:/orders/{orderId}/coupons Explains the rejection." },
+      {
+        name: "evidence",
+        text: "docs/discount.md#coupon-stacking States the per-issuer stacking limit this section defines.",
+      },
+      {
+        name: "evidence",
+        text: "인용명세/할인정책#쿠폰중첩 Identifies the isolated shared lookup population.",
+      },
+      {
+        name: "evidence",
+        text: "POST:/orders/{orderId}/coupons Explains the rejection.",
+      },
     ]);
     assert.equal(notice?.doc, "Renders the stacking notice.");
-    assert.deepEqual(citationDetails.nodes.find((value) => value.name === "applyCoupons")?.docTags, [
-      { name: "evidence", text: "docs/discount.md#coupon-stacking Enforces the same limit." },
-      { name: "evidence", text: "인용명세/할인정책#쿠폰중첩 Identifies the isolated shared lookup population." },
-    ]);
-    assert.deepEqual(operation.hits[0]?.docTags, [
-      { name: "evidence", text: "POST:/orders/{orderId}/coupons Explains the rejection." },
-    ], "the operation lookup projects its own matched citation, not unrelated tags");
-    assert.equal(citationDetails.nodes.find((value) => value.name === "untagged")?.docTags, undefined);
-    const bootLookup = await call({ type: "lookup", query: "docs/boot.md#start" }) as { hits: Record<string, unknown>[] };
+    assert.deepEqual(
+      citationDetails.nodes.find((value) => value.name === "applyCoupons")
+        ?.docTags,
+      [
+        {
+          name: "evidence",
+          text: "docs/discount.md#coupon-stacking Enforces the same limit.",
+        },
+        {
+          name: "evidence",
+          text: "인용명세/할인정책#쿠폰중첩 Identifies the isolated shared lookup population.",
+        },
+      ],
+    );
+    assert.deepEqual(
+      operation.hits[0]?.docTags,
+      [
+        {
+          name: "evidence",
+          text: "POST:/orders/{orderId}/coupons Explains the rejection.",
+        },
+      ],
+      "the operation lookup projects its own matched citation, not unrelated tags",
+    );
+    assert.equal(
+      citationDetails.nodes.find((value) => value.name === "untagged")?.docTags,
+      undefined,
+    );
+    const bootLookup = (await call({
+      type: "lookup",
+      query: "docs/boot.md#start",
+    })) as { hits: Record<string, unknown>[] };
     assert.ok(bootLookup.hits.some((hit) => "docTags" in hit));
-    const entrypoints = await call({ type: "entrypoints", query: "docs/boot.md#start" }) as { hits: Record<string, unknown>[] };
+    const entrypoints = (await call({
+      type: "entrypoints",
+      query: "docs/boot.md#start",
+    })) as { hits: Record<string, unknown>[] };
     assert.ok(entrypoints.hits.length > 0);
-    assert.deepEqual(entrypoints.hits.filter((hit) => "docTags" in hit), []);
-    assert.ok(citationDetails.nodes.some((value) => value.name === "bootstrap" && "docTags" in value));
+    assert.deepEqual(
+      entrypoints.hits.filter((hit) => "docTags" in hit),
+      [],
+    );
+    assert.ok(
+      citationDetails.nodes.some(
+        (value) => value.name === "bootstrap" && "docTags" in value,
+      ),
+    );
 
-    { // Original case_ttscgraph_documentation_links_are_traversable_only_in_full_focus assertions; one existing resident client.
-interface ToolResult {
-  content: { type: string; text: string }[];
-  structuredContent?: unknown;
-}
+    {
+      // Original case_ttscgraph_documentation_links_are_traversable_only_in_full_focus assertions; one existing resident client.
+      interface ToolResult {
+        content: { type: string; text: string }[];
+        structuredContent?: unknown;
+      }
 
-interface TraceResult {
-  type: "trace";
-  hops: { from: string; to: string; kind: string }[];
-  reached: { name: string }[];
-}
+      interface TraceResult {
+        type: "trace";
+        hops: { from: string; to: string; kind: string }[];
+        reached: { name: string }[];
+      }
 
-interface DetailsResult {
-  type: "details";
-  nodes: {
-    name: string;
-    calls?: { name: string; relation: string }[];
-    types?: { name: string; relation: string }[];
-    dependsOn?: { name: string; relation: string }[];
-    dependedOnBy?: { name: string; relation: string }[];
-  }[];
-}
+      interface DetailsResult {
+        type: "details";
+        nodes: {
+          name: string;
+          calls?: { name: string; relation: string }[];
+          types?: { name: string; relation: string }[];
+          dependsOn?: { name: string; relation: string }[];
+          dependedOnBy?: { name: string; relation: string }[];
+        }[];
+      }
 
-const graphArguments = (props: {
-  thinking: string;
-  request: Record<string, unknown>;
-}) => ({
-  question: props.thinking,
-  draft: {
-    reason: "The smallest useful sacred graph step.",
-    type: props.request.type,
-  },
-  review:
-    "Confirmed: keep this final request; do not replace graph facts with file reads.",
-  request: props.request,
-});
+      const graphArguments = (props: {
+        thinking: string;
+        request: Record<string, unknown>;
+      }) => ({
+        question: props.thinking,
+        draft: {
+          reason: "The smallest useful sacred graph step.",
+          type: props.request.type,
+        },
+        review:
+          "Confirmed: keep this final request; do not replace graph facts with file reads.",
+        request: props.request,
+      });
 
-const resultOf = <T extends { type: string }>(
-  result: ToolResult,
-  type: string,
-): T => {
-  const value = (result.structuredContent ?? {}) as { result?: T };
-  if (value.result?.type !== type)
-    throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
-  return value.result;
-};
-
+      const resultOf = <T extends { type: string }>(
+        result: ToolResult,
+        type: string,
+      ): T => {
+        const value = (result.structuredContent ?? {}) as { result?: T };
+        if (value.result?.type !== type)
+          throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
+        return value.result;
+      };
 
       const trace = async (focus: string): Promise<TraceResult> =>
         resultOf<TraceResult>(
@@ -385,23 +606,22 @@ const resultOf = <T extends { type: string }>(
           `${request.type} must carry no documentation tag: ${payload.slice(0, 200)}`,
         );
       }
-
     }
 
-    { // Original case_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degree assertions; one existing resident client.
-interface ToolResult {
-  structuredContent?: {
-    result?: TraceResult;
-  };
-}
+    {
+      // Original case_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degree assertions; one existing resident client.
+      interface ToolResult {
+        structuredContent?: {
+          result?: TraceResult;
+        };
+      }
 
-interface TraceResult {
-  type: "trace";
-  hops: { from: string; to: string; kind: string }[];
-  reached: { id: string; name: string }[];
-  path?: { id: string; name: string }[];
-}
-
+      interface TraceResult {
+        type: "trace";
+        hops: { from: string; to: string; kind: string }[];
+        reached: { id: string; name: string }[];
+        path?: { id: string; name: string }[];
+      }
 
       const call = async (
         request: Record<string, unknown>,
@@ -519,7 +739,9 @@ interface TraceResult {
         "the same shape answers the same way when the base body calls a helper",
       );
       assert.ok(
-        concreteCallingBase.reached.some((node) => node.name === "bodyAccepted"),
+        concreteCallingBase.reached.some(
+          (node) => node.name === "bodyAccepted",
+        ),
         "the concrete base's own work is still reached",
       );
 
@@ -559,41 +781,42 @@ interface TraceResult {
         ["callBodyPipeline", "BodyPipeline.execute", "Empty.execute"],
         `path mode agrees with the open trace: ${JSON.stringify(asPath.path)}`,
       );
-
     }
 
-    { // Original case_ttscgraph_lookup_indexes_addresses_and_not_prose: settled requests on the same native population.
-interface ToolResult {
-  content: { type: string; text: string }[];
-  structuredContent?: unknown;
-}
+    {
+      // Original case_ttscgraph_lookup_indexes_addresses_and_not_prose: settled requests on the same native population.
+      interface ToolResult {
+        content: { type: string; text: string }[];
+        structuredContent?: unknown;
+      }
 
-interface LookupResult {
-  type: "lookup";
-  hits: { name: string; docTags?: { name: string; text?: string }[] }[];
-}
+      interface LookupResult {
+        type: "lookup";
+        hits: { name: string; docTags?: { name: string; text?: string }[] }[];
+      }
 
-const graphArguments = (props: {
-  thinking: string;
-  request: Record<string, unknown>;
-}) => ({
-  question: props.thinking,
-  draft: {
-    reason: "The smallest useful sacred graph step.",
-    type: props.request.type,
-  },
-  review:
-    "Confirmed: keep this final request; do not replace graph facts with file reads.",
-  request: props.request,
-});
+      const graphArguments = (props: {
+        thinking: string;
+        request: Record<string, unknown>;
+      }) => ({
+        question: props.thinking,
+        draft: {
+          reason: "The smallest useful sacred graph step.",
+          type: props.request.type,
+        },
+        review:
+          "Confirmed: keep this final request; do not replace graph facts with file reads.",
+        request: props.request,
+      });
 
-const lookupOf = (result: ToolResult): LookupResult => {
-  const value = (result.structuredContent ?? {}) as { result?: LookupResult };
-  if (value.result?.type !== "lookup")
-    throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
-  return value.result;
-};
-
+      const lookupOf = (result: ToolResult): LookupResult => {
+        const value = (result.structuredContent ?? {}) as {
+          result?: LookupResult;
+        };
+        if (value.result?.type !== "lookup")
+          throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
+        return value.result;
+      };
 
       const lookup = async (query: string): Promise<LookupResult> =>
         lookupOf(
@@ -647,9 +870,16 @@ const lookupOf = (result: ToolResult): LookupResult => {
         ["nonAscii"],
         "an address outside the tokenizer's alphabet must still be answered",
       );
-      assert.deepStrictEqual(korean.hits[0]?.docTags, [
-        { name: "evidence", text: "문서/가격#할인 An address with no ASCII searchable terms." },
-      ], "lookup projects only the independently authored matching citation");
+      assert.deepStrictEqual(
+        korean.hits[0]?.docTags,
+        [
+          {
+            name: "evidence",
+            text: "문서/가격#할인 An address with no ASCII searchable terms.",
+          },
+        ],
+        "lookup projects only the independently authored matching citation",
+      );
 
       // A tag with no text names nothing, so it indexes nothing — and it is
       // still carried on the declaration, which `details` shows.
@@ -668,42 +898,43 @@ const lookupOf = (result: ToolResult): LookupResult => {
         "referenced",
         `a URL reference must answer through the index: ${JSON.stringify(url.hits.map((h) => h.name))}`,
       );
-
     }
 
-    { // Original case_ttscgraph_lookup_returns_every_citing_declaration_of_one_file: settled requests on the same native population.
-interface ToolResult {
-  content: { type: string; text: string }[];
-  structuredContent?: unknown;
-}
+    {
+      // Original case_ttscgraph_lookup_returns_every_citing_declaration_of_one_file: settled requests on the same native population.
+      interface ToolResult {
+        content: { type: string; text: string }[];
+        structuredContent?: unknown;
+      }
 
-interface LookupResult {
-  type: "lookup";
-  hits: { name: string; docTags?: { name: string; text?: string }[] }[];
-  truncated?: boolean;
-}
+      interface LookupResult {
+        type: "lookup";
+        hits: { name: string; docTags?: { name: string; text?: string }[] }[];
+        truncated?: boolean;
+      }
 
-const graphArguments = (props: {
-  thinking: string;
-  request: Record<string, unknown>;
-}) => ({
-  question: props.thinking,
-  draft: {
-    reason: "The smallest useful sacred graph step.",
-    type: props.request.type,
-  },
-  review:
-    "Confirmed: keep this final request; do not replace graph facts with file reads.",
-  request: props.request,
-});
+      const graphArguments = (props: {
+        thinking: string;
+        request: Record<string, unknown>;
+      }) => ({
+        question: props.thinking,
+        draft: {
+          reason: "The smallest useful sacred graph step.",
+          type: props.request.type,
+        },
+        review:
+          "Confirmed: keep this final request; do not replace graph facts with file reads.",
+        request: props.request,
+      });
 
-const lookupOf = (result: ToolResult): LookupResult => {
-  const value = (result.structuredContent ?? {}) as { result?: LookupResult };
-  if (value.result?.type !== "lookup")
-    throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
-  return value.result;
-};
-
+      const lookupOf = (result: ToolResult): LookupResult => {
+        const value = (result.structuredContent ?? {}) as {
+          result?: LookupResult;
+        };
+        if (value.result?.type !== "lookup")
+          throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
+        return value.result;
+      };
 
       const lookup = async (
         query: string,
@@ -728,7 +959,13 @@ const lookupOf = (result: ToolResult): LookupResult => {
       const all = await lookup("인용명세/수행명단#이행");
       assert.deepStrictEqual(
         all.hits.map((hit) => hit.name).sort(),
-        ["rosterCarrier1", "rosterCarrier2", "rosterCarrier3", "rosterCarrier4", "rosterCarrier5"],
+        [
+          "rosterCarrier1",
+          "rosterCarrier2",
+          "rosterCarrier3",
+          "rosterCarrier4",
+          "rosterCarrier5",
+        ],
         "every declaration citing the address must be returned, though they share a file",
       );
       assert.strictEqual(
@@ -737,7 +974,12 @@ const lookupOf = (result: ToolResult): LookupResult => {
         "nothing was left out, so nothing may claim it was",
       );
       for (const hit of all.hits)
-        assert.deepStrictEqual(hit.docTags, [{ name: "evidence", text: `인용명세/수행명단#이행 Implements part ${hit.name.slice(-1)}.` }]);
+        assert.deepStrictEqual(hit.docTags, [
+          {
+            name: "evidence",
+            text: `인용명세/수행명단#이행 Implements part ${hit.name.slice(-1)}.`,
+          },
+        ]);
 
       // The negative twin: the per-file cap still governs a name query, which is
       // what it exists for. `rosterCarrier` matches all five by subword.
@@ -752,36 +994,46 @@ const lookupOf = (result: ToolResult): LookupResult => {
       const capped = await lookup("docs/roster.md#fulfillment", 3);
       assert.strictEqual(capped.hits.length, 3);
       for (const hit of capped.hits) {
-        assert.ok(["rosterCarrier1", "rosterCarrier2", "rosterCarrier3", "rosterCarrier4", "rosterCarrier5"].includes(hit.name));
-        assert.deepStrictEqual(hit.docTags, [{ name: "evidence", text: `docs/roster.md#fulfillment Implements part ${hit.name.slice(-1)}.` }]);
+        assert.ok(
+          [
+            "rosterCarrier1",
+            "rosterCarrier2",
+            "rosterCarrier3",
+            "rosterCarrier4",
+            "rosterCarrier5",
+          ].includes(hit.name),
+        );
+        assert.deepStrictEqual(hit.docTags, [
+          {
+            name: "evidence",
+            text: `docs/roster.md#fulfillment Implements part ${hit.name.slice(-1)}.`,
+          },
+        ]);
       }
       assert.strictEqual(
         capped.truncated,
         true,
         "a limit that cut the carriers must be reported",
       );
-
     }
 
-    { // Original case_ttscgraph_path_reports_its_depth_bound_instead_of_a_disconnection: one existing resident producer.
-interface ToolResult {
-  structuredContent?: {
-    next?: { action?: string; request?: string; reason?: string };
-    result?: TraceResult;
-  };
-}
+    {
+      // Original case_ttscgraph_path_reports_its_depth_bound_instead_of_a_disconnection: one existing resident producer.
+      interface ToolResult {
+        structuredContent?: {
+          next?: { action?: string; request?: string; reason?: string };
+          result?: TraceResult;
+        };
+      }
 
-interface TraceResult {
-  type: "trace";
-  hops: { from: string; to: string; kind: string }[];
-  path?: { id: string; name: string }[];
-  junctions?: unknown[];
-}
+      interface TraceResult {
+        type: "trace";
+        hops: { from: string; to: string; kind: string }[];
+        path?: { id: string; name: string }[];
+        junctions?: unknown[];
+      }
 
-
-const OVER_CEILING_HOPS = 13;
-
-
+      const OVER_CEILING_HOPS = 13;
 
       const call = async (
         request: Record<string, unknown>,
@@ -1010,275 +1262,278 @@ const OVER_CEILING_HOPS = 13;
         "dispatches",
         `the found path crosses the dispatch: ${JSON.stringify(foundDispatch.result!.hops)}`,
       );
-
     }
 
-    { // Original case_ttscgraph_trace_reports_only_actual_omissions: one existing resident producer.
-interface ToolResult {
-  structuredContent?: {
-    next?: { action?: string };
-    result?: TraceResult;
-  };
-}
+    {
+      // Original case_ttscgraph_trace_reports_only_actual_omissions: one existing resident producer.
+      interface ToolResult {
+        structuredContent?: {
+          next?: { action?: string };
+          result?: TraceResult;
+        };
+      }
 
-interface TraceResult {
-  type: "trace";
-  hops: { from: string; to: string; kind: string }[];
-  reached: { id: string; name: string }[];
-  truncated: boolean;
-  path?: { id: string; name: string }[];
-  steps?: string[];
-  junctions?: unknown[];
-  candidates?: { id: string; name: string }[];
-}
+      interface TraceResult {
+        type: "trace";
+        hops: { from: string; to: string; kind: string }[];
+        reached: { id: string; name: string }[];
+        truncated: boolean;
+        path?: { id: string; name: string }[];
+        steps?: string[];
+        junctions?: unknown[];
+        candidates?: { id: string; name: string }[];
+      }
 
-const graphArguments = (request: Record<string, unknown>) => ({
-  question: "Which represented flow does this trace prove?",
-  draft: {
-    reason: "Trace is the smallest graph operation for this flow boundary.",
-    type: "trace",
-  },
-  review: "Confirmed: keep the trace and answer from its graph facts.",
-  request,
-});
+      const graphArguments = (request: Record<string, unknown>) => ({
+        question: "Which represented flow does this trace prove?",
+        draft: {
+          reason:
+            "Trace is the smallest graph operation for this flow boundary.",
+          type: "trace",
+        },
+        review: "Confirmed: keep the trace and answer from its graph facts.",
+        request,
+      });
 
+      const call = async (
+        request: Record<string, unknown>,
+      ): Promise<NonNullable<ToolResult["structuredContent"]>> => {
+        const response = (await client.request("tools/call", {
+          name: "inspect_typescript_graph",
+          arguments: graphArguments({ type: "trace", ...request }),
+        })) as ToolResult;
+        assert.equal(
+          response.structuredContent?.result?.type,
+          "trace",
+          `expected a trace result: ${JSON.stringify(response)}`,
+        );
+        return response.structuredContent!;
+      };
 
-
-    const call = async (
-      request: Record<string, unknown>,
-    ): Promise<NonNullable<ToolResult["structuredContent"]>> => {
-      const response = (await client.request("tools/call", {
-        name: "inspect_typescript_graph",
-        arguments: graphArguments({ type: "trace", ...request }),
-      })) as ToolResult;
-      assert.equal(
-        response.structuredContent?.result?.type,
-        "trace",
-        `expected a trace result: ${JSON.stringify(response)}`,
+      const identityHandle = "src/trace-policy.ts#identity:function";
+      const identity = await call({ from: identityHandle, to: identityHandle });
+      assert.deepEqual(
+        identity.result!.path?.map((node) => node.name),
+        ["identity"],
+        "a self trace returns its one-node identity path",
       );
-      return response.structuredContent!;
-    };
+      assert.deepEqual(
+        identity.result!.path?.map((node) => node.id),
+        [identityHandle],
+        "both ends name the authored trace-policy declaration rather than another shared identity",
+      );
+      assert.deepEqual(identity.result!.hops, [], "a self path has zero hops");
+      assert.deepEqual(
+        identity.result!.steps,
+        [],
+        "a self path has zero steps",
+      );
+      assert.equal(
+        identity.result!.junctions,
+        undefined,
+        "a found self path does not search for junctions",
+      );
+      assert.equal(
+        identity.next?.action,
+        "answer",
+        "zero-hop path existence, not hop count, selects the next action",
+      );
 
-    const identityHandle = "src/trace-policy.ts#identity:function";
-    const identity = await call({ from: identityHandle, to: identityHandle });
-    assert.deepEqual(
-      identity.result!.path?.map((node) => node.name),
-      ["identity"],
-      "a self trace returns its one-node identity path",
-    );
-    assert.deepEqual(identity.result!.path?.map((node) => node.id), [identityHandle], "both ends name the authored trace-policy declaration rather than another shared identity");
-    assert.deepEqual(identity.result!.hops, [], "a self path has zero hops");
-    assert.deepEqual(identity.result!.steps, [], "a self path has zero steps");
-    assert.equal(
-      identity.result!.junctions,
-      undefined,
-      "a found self path does not search for junctions",
-    );
-    assert.equal(
-      identity.next?.action,
-      "answer",
-      "zero-hop path existence, not hop count, selects the next action",
-    );
+      const disconnected = await call({
+        from: identityHandle,
+        to: "disconnected",
+        focus: "execution",
+      });
+      assert.equal(
+        disconnected.next?.action,
+        "outside",
+        "distinct disconnected nodes preserve the no-path result",
+      );
 
-    const disconnected = await call({
-      from: identityHandle,
-      to: "disconnected",
-      focus: "execution",
-    });
-    assert.equal(
-      disconnected.next?.action,
-      "outside",
-      "distinct disconnected nodes preserve the no-path result",
-    );
+      const ambiguousStart = await call({ from: "duplicate", to: "duplicate" });
+      assert.ok(
+        (ambiguousStart.result!.candidates?.length ?? 0) >= 2,
+        "an ambiguous start still returns candidates",
+      );
+      assert.equal(ambiguousStart.next?.action, "clarify");
+      const ambiguousTarget = await call({
+        from: identityHandle,
+        to: "duplicate",
+      });
+      assert.ok(
+        (ambiguousTarget.result!.candidates?.length ?? 0) >= 2,
+        "an ambiguous target still returns candidates",
+      );
+      assert.equal(ambiguousTarget.next?.action, "inspect");
 
-    const ambiguousStart = await call({ from: "duplicate", to: "duplicate" });
-    assert.ok(
-      (ambiguousStart.result!.candidates?.length ?? 0) >= 2,
-      "an ambiguous start still returns candidates",
-    );
-    assert.equal(ambiguousStart.next?.action, "clarify");
-    const ambiguousTarget = await call({ from: identityHandle, to: "duplicate" });
-    assert.ok(
-      (ambiguousTarget.result!.candidates?.length ?? 0) >= 2,
-      "an ambiguous target still returns candidates",
-    );
-    assert.equal(ambiguousTarget.next?.action, "inspect");
+      for (const request of [
+        { from: "leafStart", direction: "forward" },
+        { from: "leaf", direction: "reverse" },
+        { from: "leaf", direction: "impact" },
+      ]) {
+        const complete = await call({
+          ...request,
+          focus: "execution",
+          maxDepth: 1,
+          maxNodes: 8,
+        });
+        assert.equal(
+          complete.result!.truncated,
+          false,
+          `${request.direction} leaf at maxDepth is complete`,
+        );
+      }
 
-    for (const request of [
-      { from: "leafStart", direction: "forward" },
-      { from: "leaf", direction: "reverse" },
-      { from: "leaf", direction: "impact" },
-    ]) {
-      const complete = await call({
-        ...request,
+      for (const request of [
+        { from: "chainStart", direction: "forward" },
+        { from: "reverseLeaf", direction: "reverse" },
+        { from: "reverseLeaf", direction: "impact" },
+      ]) {
+        const omitted = await call({
+          ...request,
+          focus: "execution",
+          maxDepth: 1,
+          maxNodes: 8,
+        });
+        assert.equal(
+          omitted.result!.truncated,
+          true,
+          `${request.direction} eligible continuation beyond maxDepth is omitted`,
+        );
+      }
+
+      const focusFiltered = await call({
+        from: "typeStart",
+        direction: "forward",
         focus: "execution",
         maxDepth: 1,
         maxNodes: 8,
       });
       assert.equal(
-        complete.result!.truncated,
+        focusFiltered.result!.truncated,
         false,
-        `${request.direction} leaf at maxDepth is complete`,
+        "a type-only boundary edge filtered from execution focus is not omitted",
       );
-    }
+      const focusEligible = await call({
+        from: "typeStart",
+        direction: "forward",
+        focus: "all",
+        maxDepth: 1,
+        maxNodes: 8,
+      });
+      assert.equal(
+        focusEligible.result!.truncated,
+        true,
+        "the same boundary edge truncates when the selected focus includes it",
+      );
 
-    for (const request of [
-      { from: "chainStart", direction: "forward" },
-      { from: "reverseLeaf", direction: "reverse" },
-      { from: "reverseLeaf", direction: "impact" },
-    ]) {
-      const omitted = await call({
-        ...request,
+      const externalFiltered = await call({
+        from: "externalStart",
+        direction: "forward",
+        focus: "execution",
+        includeExternal: false,
+        maxDepth: 1,
+        maxNodes: 8,
+      });
+      assert.equal(
+        externalFiltered.result!.truncated,
+        false,
+        "an excluded external boundary is intentional filtering",
+      );
+      const externalEligible = await call({
+        from: "externalStart",
+        direction: "forward",
+        focus: "execution",
+        includeExternal: true,
+        maxDepth: 1,
+        maxNodes: 8,
+      });
+      assert.equal(
+        externalEligible.result!.truncated,
+        true,
+        "the same external boundary truncates when externals are eligible",
+      );
+
+      const cycleOmitted = await call({
+        from: "cycleA",
         focus: "execution",
         maxDepth: 1,
         maxNodes: 8,
       });
       assert.equal(
-        omitted.result!.truncated,
+        cycleOmitted.result!.truncated,
         true,
-        `${request.direction} eligible continuation beyond maxDepth is omitted`,
+        "an omitted back-edge hop is content even when its node is represented",
       );
-    }
+      const cycleRepresented = await call({
+        from: "cycleA",
+        focus: "execution",
+        maxDepth: 2,
+        maxNodes: 8,
+      });
+      assert.equal(cycleRepresented.result!.hops.length, 2);
+      assert.equal(
+        cycleRepresented.result!.truncated,
+        false,
+        "a represented cycle has no omitted continuation",
+      );
 
-    const focusFiltered = await call({
-      from: "typeStart",
-      direction: "forward",
-      focus: "execution",
-      maxDepth: 1,
-      maxNodes: 8,
-    });
-    assert.equal(
-      focusFiltered.result!.truncated,
-      false,
-      "a type-only boundary edge filtered from execution focus is not omitted",
-    );
-    const focusEligible = await call({
-      from: "typeStart",
-      direction: "forward",
-      focus: "all",
-      maxDepth: 1,
-      maxNodes: 8,
-    });
-    assert.equal(
-      focusEligible.result!.truncated,
-      true,
-      "the same boundary edge truncates when the selected focus includes it",
-    );
+      const crossOmitted = await call({
+        from: "crossStart",
+        focus: "execution",
+        maxDepth: 1,
+        maxNodes: 8,
+      });
+      assert.equal(
+        crossOmitted.result!.truncated,
+        true,
+        "an omitted cross-edge hop is content even when both nodes are represented",
+      );
+      const crossRepresented = await call({
+        from: "crossStart",
+        focus: "execution",
+        maxDepth: 2,
+        maxNodes: 8,
+      });
+      assert.equal(crossRepresented.result!.hops.length, 3);
+      assert.equal(crossRepresented.result!.truncated, false);
 
-    const externalFiltered = await call({
-      from: "externalStart",
-      direction: "forward",
-      focus: "execution",
-      includeExternal: false,
-      maxDepth: 1,
-      maxNodes: 8,
-    });
-    assert.equal(
-      externalFiltered.result!.truncated,
-      false,
-      "an excluded external boundary is intentional filtering",
-    );
-    const externalEligible = await call({
-      from: "externalStart",
-      direction: "forward",
-      focus: "execution",
-      includeExternal: true,
-      maxDepth: 1,
-      maxNodes: 8,
-    });
-    assert.equal(
-      externalEligible.result!.truncated,
-      true,
-      "the same external boundary truncates when externals are eligible",
-    );
+      const exactNodes = await call({
+        from: "exactNodeStart",
+        focus: "execution",
+        maxDepth: 3,
+        maxNodes: 1,
+      });
+      assert.equal(exactNodes.result!.reached.length, 1);
+      assert.equal(exactNodes.result!.truncated, false);
+      const omittedNode = await call({
+        from: "overflowNodeStart",
+        focus: "execution",
+        maxDepth: 3,
+        maxNodes: 1,
+      });
+      assert.equal(omittedNode.result!.reached.length, 1);
+      assert.equal(omittedNode.result!.truncated, true);
 
-    const cycleOmitted = await call({
-      from: "cycleA",
-      focus: "execution",
-      maxDepth: 1,
-      maxNodes: 8,
-    });
-    assert.equal(
-      cycleOmitted.result!.truncated,
-      true,
-      "an omitted back-edge hop is content even when its node is represented",
-    );
-    const cycleRepresented = await call({
-      from: "cycleA",
-      focus: "execution",
-      maxDepth: 2,
-      maxNodes: 8,
-    });
-    assert.equal(cycleRepresented.result!.hops.length, 2);
-    assert.equal(
-      cycleRepresented.result!.truncated,
-      false,
-      "a represented cycle has no omitted continuation",
-    );
-
-    const crossOmitted = await call({
-      from: "crossStart",
-      focus: "execution",
-      maxDepth: 1,
-      maxNodes: 8,
-    });
-    assert.equal(
-      crossOmitted.result!.truncated,
-      true,
-      "an omitted cross-edge hop is content even when both nodes are represented",
-    );
-    const crossRepresented = await call({
-      from: "crossStart",
-      focus: "execution",
-      maxDepth: 2,
-      maxNodes: 8,
-    });
-    assert.equal(crossRepresented.result!.hops.length, 3);
-    assert.equal(crossRepresented.result!.truncated, false);
-
-    const exactNodes = await call({
-      from: "exactNodeStart",
-      focus: "execution",
-      maxDepth: 3,
-      maxNodes: 1,
-    });
-    assert.equal(exactNodes.result!.reached.length, 1);
-    assert.equal(exactNodes.result!.truncated, false);
-    const omittedNode = await call({
-      from: "overflowNodeStart",
-      focus: "execution",
-      maxDepth: 3,
-      maxNodes: 1,
-    });
-    assert.equal(omittedNode.result!.reached.length, 1);
-    assert.equal(omittedNode.result!.truncated, true);
-
-    const exactHops = await call({
-      from: "exactHopStart",
-      focus: "execution",
-      maxDepth: 3,
-      maxNodes: 2,
-    });
-    assert.equal(exactHops.result!.hops.length, 4);
-    assert.equal(exactHops.result!.truncated, false);
-    const omittedHop = await call({
-      from: "overflowHopStart",
-      focus: "execution",
-      maxDepth: 3,
-      maxNodes: 2,
-    });
-    assert.equal(omittedHop.result!.hops.length, 4);
-    assert.equal(omittedHop.result!.truncated, true);
+      const exactHops = await call({
+        from: "exactHopStart",
+        focus: "execution",
+        maxDepth: 3,
+        maxNodes: 2,
+      });
+      assert.equal(exactHops.result!.hops.length, 4);
+      assert.equal(exactHops.result!.truncated, false);
+      const omittedHop = await call({
+        from: "overflowHopStart",
+        focus: "execution",
+        maxDepth: 3,
+        maxNodes: 2,
+      });
+      assert.equal(omittedHop.result!.hops.length, 4);
+      assert.equal(omittedHop.result!.truncated, true);
     }
   } finally {
     client.endStdin();
     assert.equal(await client.waitForExit(), 0, client.stderrText());
   }
 }
-
-
-
-
-
-
-

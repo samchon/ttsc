@@ -43,7 +43,11 @@ import {
  */
 export const test_plugin_corpus_package_relative_auto_plugins_do_not_collide_by_raw_transform =
   () => {
-    const root = commonJsProject(FixtureFiles.read("ttsc/plugin_corpus_package_relative_auto_plugins_do_not_collide_by_raw_transform/inputs-1"));
+    const root = commonJsProject(
+      FixtureFiles.read(
+        "ttsc/plugin_corpus_package_relative_auto_plugins_do_not_collide_by_raw_transform/inputs-1",
+      ),
+    );
     fs.writeFileSync(
       path.join(root, "package.json"),
       JSON.stringify({

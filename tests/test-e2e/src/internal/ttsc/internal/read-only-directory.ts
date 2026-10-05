@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Refuse new entries in `directory` until the returned function runs: the mode

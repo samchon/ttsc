@@ -45,7 +45,9 @@ func TestProjectRuleReportsPerFindingSeverity(t *testing.T) {
       seen[finding.Message] = true
     }
     finalized := cycle.finalize()
-    if len(finalized) != 3 { t.Fatalf("finalization lost or duplicated findings: %+v", finalized) }
+    if len(finalized) != 3 {
+      t.Fatalf("finalization lost or duplicated findings: %+v", finalized)
+    }
     seen = map[string]bool{}
     for _, finding := range finalized {
       severity, ok := expected[finding.Message]
@@ -66,5 +68,7 @@ func TestProjectRuleReportsPerFindingSeverity(t *testing.T) {
   if result.Status != publicrule.ProjectRuleFailed || len(result.Findings) != 1 || result.Findings[0].Severity != publicrule.SeverityWarn {
     t.Fatalf("warning-only result must remain incomplete: %#v", result)
   }
-  if result.Findings[0].Message != "warning only" { t.Fatalf("warning-only message changed: %#v", result.Findings) }
+  if result.Findings[0].Message != "warning only" {
+    t.Fatalf("warning-only message changed: %#v", result.Findings)
+  }
 }

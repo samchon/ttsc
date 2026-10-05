@@ -11,10 +11,10 @@ import { readPaths } from "../alias/readPaths";
  * Reanchor recognized compiler and plugin path fields against `tsconfigDir`.
  *
  * The generated tsconfig lives in a temporary directory outside the project, so
- * a supported relative path (e.g. `"outDir": "../dist"`) that was meaningful relative
- * to the original tsconfig must be converted to an absolute path before writing
- * the generated file. Otherwise TypeScript-Go resolves it against the temp
- * dir.
+ * a supported relative path (e.g. `"outDir": "../dist"`) that was meaningful
+ * relative to the original tsconfig must be converted to an absolute path
+ * before writing the generated file. Otherwise TypeScript-Go resolves it
+ * against the temp dir.
  *
  * `paths` targets are absolutized for the same reason, with the extra twist
  * that TypeScript-Go rejects bare non-relative targets outright (TS5090) and
@@ -23,8 +23,8 @@ import { readPaths } from "../alias/readPaths";
  *
  * @param spell Translation of recognized absolute path fields to the selected
  *   compiler spelling, which can be best-effort lexical fallback. Arbitrary
- *   payload fields are not translated. Identity by default (samchon/ttsc#1456).
- *
+ *   payload fields are not translated. Identity by default
+ *   (samchon/ttsc#1456).
  * @evidence contracts/common.md#principled-implementation Known compiler path options, paths targets and plugin descriptor/config-file addresses are anchored to the original config directory before the compiler reads a scratch wrapper; unrecognized payload fields are preserved.
  * @evidence contracts/common.md#clear-and-simple-design A shallow overlay copy separates scalar, list, alias and plugin path boundaries, with existing template and path-specifier helpers owning their grammars.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No unsupported baseUrl or arbitrary plugin-field rewriting compensates for a moved wrapper; only documented path-typed keys are reanchored.

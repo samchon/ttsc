@@ -1,11 +1,11 @@
-import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import { notifyFailedGenerationInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyFailedGenerationInputs";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 
+import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { notifyFailedGenerationInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyFailedGenerationInputs";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 import { cachedGeneration } from "../../internal/transform-terminal-verdict/cachedGeneration";
@@ -64,7 +64,10 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
       undefined,
       cache,
     );
-  const stderrDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
+  const stderrDescriptor = Object.getOwnPropertyDescriptor(
+    process.stderr,
+    "write",
+  );
   const stderrWrite = process.stderr.write;
   const chunks: string[] = [];
   const batches: string[][] = [];
@@ -72,10 +75,18 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
     chunks.push(String(chunk));
     return true;
   }) as typeof process.stderr.write;
-  const outsideDelivery = () => api.transformTtsc(
-    outside, fs.readFileSync(outside, "utf8"), options, undefined, cache,
-    { addWatchFiles: (inputs) => batches.push(inputs.map((input) => input.file)) },
-  );
+  const outsideDelivery = () =>
+    api.transformTtsc(
+      outside,
+      fs.readFileSync(outside, "utf8"),
+      options,
+      undefined,
+      cache,
+      {
+        addWatchFiles: (inputs) =>
+          batches.push(inputs.map((input) => input.file)),
+      },
+    );
   try {
     assert.ok(await deliver(modules[0]!));
     const generation = cachedGeneration(cache);
@@ -92,12 +103,19 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
     );
 
     assert.equal(await outsideDelivery(), undefined);
-    assert.equal(chunks.length, 1, "one missing-output warning per file and pass");
+    assert.equal(
+      chunks.length,
+      1,
+      "one missing-output warning per file and pass",
+    );
     const line = `ttsc: ${outside} is not part of the program described by ${path.join(root, "tsconfig.json")}, so it was left untransformed. Add it to that project's "include" if ttsc plugins should apply to it.\n`;
     assert.deepEqual(chunks, [line]);
     assert.equal(batches.length, 2);
     for (const inputs of batches)
-      assert.ok(inputs.includes(path.join(root, "tsconfig.json")), "pass-through must retain its routing config");
+      assert.ok(
+        inputs.includes(path.join(root, "tsconfig.json")),
+        "pass-through must retain its routing config",
+      );
     beginTtscTransformBuild(cache);
     assert.equal(await outsideDelivery(), undefined);
     assert.deepEqual(chunks, [line, line], "a new pass reports again");
@@ -112,32 +130,44 @@ export async function test_transformttsc_an_out_of_program_module_does_not_fail_
     // A failed optional envelope also retains the config selection itself.
     const selectedConfig = path.join(root, "tsconfig.json");
     let recoveries = 0;
-    notifyFailedGenerationInputs({
-      addWatchFiles: (inputs, failed) => {
-        ++recoveries;
-        assert.equal(failed, true);
-        assert.deepEqual(inputs.map((input) => input.file), [selectedConfig]);
-        assert.equal(inputs[0]?.evidence?.missing, false);
-        assert.deepEqual(inputs[0]?.evidence?.state, {
-          codec: "host",
-          hash: createHash("sha256").update(fs.readFileSync(selectedConfig)).digest("hex"),
-        });
+    notifyFailedGenerationInputs(
+      {
+        addWatchFiles: (inputs, failed) => {
+          ++recoveries;
+          assert.equal(failed, true);
+          assert.deepEqual(
+            inputs.map((input) => input.file),
+            [selectedConfig],
+          );
+          assert.equal(inputs[0]?.evidence?.missing, false);
+          assert.deepEqual(inputs[0]?.evidence?.state, {
+            codec: "host",
+            hash: createHash("sha256")
+              .update(fs.readFileSync(selectedConfig))
+              .digest("hex"),
+          });
+        },
       },
-    }, {
-      inputHashes: {},
-      membershipPolicy: observed.membershipPolicy,
-      projectRoot: root,
-      result: { type: "failure", typescript: {}, diagnostics: [] },
-      tsconfig: selectedConfig,
-    }, outside, {
-      consulted: [],
-      filesystem: DEFAULT_FILESYSTEM_OPERATIONS,
-      tsconfig: selectedConfig,
-    });
+      {
+        inputHashes: {},
+        membershipPolicy: observed.membershipPolicy,
+        projectRoot: root,
+        result: { type: "failure", typescript: {}, diagnostics: [] },
+        tsconfig: selectedConfig,
+      },
+      outside,
+      {
+        consulted: [],
+        filesystem: DEFAULT_FILESYSTEM_OPERATIONS,
+        tsconfig: selectedConfig,
+      },
+    );
     assert.equal(recoveries, 1);
   } finally {
-    if (stderrDescriptor) Object.defineProperty(process.stderr, "write", stderrDescriptor);
-    else delete (process.stderr as { write?: typeof process.stderr.write }).write;
+    if (stderrDescriptor)
+      Object.defineProperty(process.stderr, "write", stderrDescriptor);
+    else
+      delete (process.stderr as { write?: typeof process.stderr.write }).write;
     assert.equal(process.stderr.write, stderrWrite);
     fixture.dispose();
   }

@@ -31,4 +31,3 @@ func TestUnicornAwaitLiteralDoesNotAssumeAnObjectHasNoThen(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/no-unnecessary-await", source) })
   }
 }
-

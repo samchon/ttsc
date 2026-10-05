@@ -4,15 +4,16 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../filesystem/DEFAULT_FILESYSTEM_
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 
 /**
- * Choose an ancestor candidate for a path already observed as missing.
- * The nearest existing directory supplies a child name to check. An existing
+ * Choose an ancestor candidate for a path already observed as missing. The
+ * nearest existing directory supplies a child name to check. An existing
  * nondirectory ancestor is returned as a blocker; metadata must also prove that
  * blocker unchanged. The caller must obtain native existence evidence for the
  * returned child; a directory listing alone cannot exclude every native alias.
  *
  * Root exhaustion returns a candidate even when root stat failed, so this
  * selection alone never proves absence. Path parsing follows an explicit
- * filesystem.platform override, or the running Node host when none is supplied.
+ * filesystem.platform override, or the running Node host when none is
+ * supplied.
  *
  * @evidence contracts/common.md#principled-implementation Ancestor traversal stops at a directory, a nondirectory blocker or root; the returned candidate and optional blocker let consumers obtain the separate observations required for an absence proof.
  * @evidence contracts/common.md#clear-and-simple-design One upward walk selects the observation boundary without acquiring watchers or asserting that selection itself certifies a missing path.
@@ -30,14 +31,19 @@ export function missingPathProbe(
   /** Existing nondirectory ancestor whose metadata must remain unchanged. */
   blocker?: string;
 
-  /** Directory containing the candidate; exhaustion does not prove accessibility. */
+  /**
+   * Directory containing the candidate; exhaustion does not prove
+   * accessibility.
+   */
   directory: string;
 
   /** Original child spelling whose native absence the caller must establish. */
   name: string;
 } {
   const pathApi =
-    (filesystem.platform ?? process.platform) === "win32" ? path.win32 : path.posix;
+    (filesystem.platform ?? process.platform) === "win32"
+      ? path.win32
+      : path.posix;
   let child = pathApi.resolve(file);
   for (;;) {
     const directory = pathApi.dirname(child);

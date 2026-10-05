@@ -26,13 +26,21 @@ import (
 func TestDumpPathMapperCanonicalizesWindowsShortRoot(t *testing.T) {
   owned := t.TempDir()
   long, err := syscall.UTF16PtrFromString(owned)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   required, err := syscall.GetShortPathName(long, nil, 0)
-  if err != nil || required == 0 { t.Skipf("Windows short-path capability unavailable: %v", err) }
+  if err != nil || required == 0 {
+    t.Skipf("Windows short-path capability unavailable: %v", err)
+  }
   buffer := make([]uint16, required)
   length, err := syscall.GetShortPathName(long, &buffer[0], uint32(len(buffer)))
-  if err != nil { t.Skipf("Windows short-path capability unavailable: %v", err) }
-  if length >= uint32(len(buffer)) { t.Fatal("Windows short-path result exceeded its observed buffer size") }
+  if err != nil {
+    t.Skipf("Windows short-path capability unavailable: %v", err)
+  }
+  if length >= uint32(len(buffer)) {
+    t.Fatal("Windows short-path result exceeded its observed buffer size")
+  }
   project := syscall.UTF16ToString(buffer[:length])
   physical, err := filepath.EvalSymlinks(project)
   if err != nil {
@@ -42,10 +50,16 @@ func TestDumpPathMapperCanonicalizesWindowsShortRoot(t *testing.T) {
     t.Skip("owned temporary directory has no distinct Windows 8.3 spelling")
   }
   suppliedInfo, err := os.Stat(project)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   ownedInfo, err := os.Stat(owned)
-  if err != nil { t.Fatal(err) }
-  if !os.SameFile(suppliedInfo, ownedInfo) { t.Fatal("Windows short spelling does not name the owned native directory") }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if !os.SameFile(suppliedInfo, ownedInfo) {
+    t.Fatal("Windows short spelling does not name the owned native directory")
+  }
 
   mapper := newDumpPathMapper(project)
   source := filepath.Join(physical, "src", "main.ts")

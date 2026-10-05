@@ -14,7 +14,8 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * dropped the field would silently keep every adopting plugin on the coarse
  * baseline, with no error to point at.
  *
- * 1. Decode the valid fixture envelope, which reports src/main.ts consulting src/consulted.d.ts and declares src/main.ts dependency-complete.
+ * 1. Decode the valid fixture envelope, which reports src/main.ts consulting
+ *    src/consulted.d.ts and declares src/main.ts dependency-complete.
  * 2. Assert dependencies equals { "src/main.ts": ["src/consulted.d.ts"] }.
  * 3. Assert dependenciesComplete equals ["src/main.ts"].
  *

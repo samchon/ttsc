@@ -1,14 +1,16 @@
 import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
 
 /**
- * Return the selected zero-or-one recursive root for a project-input declaration.
+ * Return the selected zero-or-one recursive root for a project-input
+ * declaration.
  *
  * The shared selector uses the project's nearest existing ancestry for internal
  * inputs. External inputs prefer the declared parent's existing ancestry, then
  * the target's own, excluding strict ancestors of the project but admitting
  * equal physical identity. An unavailable selected root becomes an empty list.
  * This adapter neither installs a watch nor proves delivery after replacement;
- * the topology caller owns observation and reporting of uncovered declarations.
+ * the topology caller owns observation and reporting of uncovered
+ * declarations.
  *
  * @evidence contracts/common.md#principled-implementation The shared selector preserves the internal-root and external strict-ancestor selection policy; an unavailable owner remains an empty result rather than proof of watch coverage.
  * @evidence contracts/common.md#clear-and-simple-design One delegation converts the optional owner into the caller's zero-or-one root list.

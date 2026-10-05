@@ -19,7 +19,7 @@ func TestFixEqeqeqRequiresBothOperandsToShareAPrimitiveKind(t *testing.T) {
   for _, operand := range []string{"x", "0", "true", "null", "undefined", "1n"} {
     for _, operator := range []string{"==", "!="} {
       for _, expression := range []string{"typeof value " + operator + " " + operand, operand + " " + operator + " typeof value"} {
-        t.Run(expression, func(t *testing.T) { assertNoFixSnapshot(t, "eqeqeq", "const result = " + expression + ";") })
+        t.Run(expression, func(t *testing.T) { assertNoFixSnapshot(t, "eqeqeq", "const result = "+expression+";") })
       }
     }
   }

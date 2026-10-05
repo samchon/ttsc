@@ -5,7 +5,8 @@ import factory from "../../../../../packages/factory/src/index";
 import { print } from "../../internal/helpers";
 
 /**
- * Verifies numeric literal construction accepts numbers and preserves lexical inputs.
+ * Verifies numeric literal construction accepts numbers and preserves lexical
+ * inputs.
  *
  * The existing decimal case converts its number to a string before calling the
  * factory, leaving the public number input untested. Literal text must preserve

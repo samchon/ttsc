@@ -20,20 +20,6 @@ export interface ISale {
 }
 `
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 func contains(values []string, expected string) bool {
   return indexOf(values, expected) >= 0
 }

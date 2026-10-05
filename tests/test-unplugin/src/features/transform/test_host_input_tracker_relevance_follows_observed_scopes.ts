@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +5,7 @@ import path from "node:path";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTrackedInputScope } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscTrackedInputScope";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the host-input tracker records exactly the events that can change

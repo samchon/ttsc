@@ -10,8 +10,8 @@ import { projectModuleOptions } from "./projectModuleOptions";
  * The marker selects one generation, then a separate native walk checks for
  * JavaScript presence. With cooperative publication, noncolliding ids and
  * retained immutable generations, replacement builds leave the previous
- * marker's directory available until marker replacement. These sequential
- * reads do not pin an artifact snapshot or authenticate its current bytes.
+ * marker's directory available until marker replacement. These sequential reads
+ * do not pin an artifact snapshot or authenticate its current bytes.
  *
  * Unreadable, malformed or incomplete markers are cache misses and leave
  * rebuilding to the dependency-build owner.

@@ -27,7 +27,10 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution creates two original modules; a supplied project follows prior child closes and preserves the same two-module inputs. Counts are measured from its observed log baseline. Awaited closeWatcher in finally closes the captured owner on success or failure; this is not a live Rollup watcher or descendant join certificate.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: watching buildEnd preserves one compile, closeWatcher forces two, and one-shot buildEnd forces three. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_rollup_disposes_at_the_right_boundary(prepared?: { root: string; runLog: string }): Promise<void> {
+export async function test_rollup_disposes_at_the_right_boundary(prepared?: {
+  root: string;
+  runLog: string;
+}): Promise<void> {
   const unpluginRollup =
     await TestUnpluginRuntime.loadUnpluginAdapter("rollup");
   const plugin: any = [unpluginRollup()]
@@ -36,8 +39,14 @@ export async function test_rollup_disposes_at_the_right_boundary(prepared?: { ro
   assert.ok(plugin, "the rollup adapter must expose the ttsc plugin object");
   const project = prepared ?? createCacheProject({ fileCount: 2 });
   const modules = projectModules(project.root);
-  assert.equal(modules.length, 2, "Rollup teardown keeps the original two-module input");
-  const baseline = fs.existsSync(project.runLog) ? fs.readFileSync(project.runLog, "utf8").length : 0;
+  assert.equal(
+    modules.length,
+    2,
+    "Rollup teardown keeps the original two-module input",
+  );
+  const baseline = fs.existsSync(project.runLog)
+    ? fs.readFileSync(project.runLog, "utf8").length
+    : 0;
   const compiles = () =>
     (fs.existsSync(project.runLog)
       ? fs.readFileSync(project.runLog, "utf8").length
@@ -55,36 +64,36 @@ export async function test_rollup_disposes_at_the_right_boundary(prepared?: { ro
     );
 
   try {
-  await invoke(plugin.buildStart, {});
-  assert.ok(await deliver(modules[0]!));
-  assert.equal(compiles(), 1);
+    await invoke(plugin.buildStart, {});
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(compiles(), 1);
 
-  // A watching session must not dispose at the end of a build phase.
-  await invoke(plugin.buildEnd, { meta: { watchMode: true } });
-  await invoke(plugin.buildStart, {});
-  assert.ok(await deliver(modules[0]!));
-  assert.equal(
-    compiles(),
-    1,
-    "a watching Rollup rebuild must reuse the generation",
-  );
+    // A watching session must not dispose at the end of a build phase.
+    await invoke(plugin.buildEnd, { meta: { watchMode: true } });
+    await invoke(plugin.buildStart, {});
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(
+      compiles(),
+      1,
+      "a watching Rollup rebuild must reuse the generation",
+    );
 
-  // Its teardown must.
-  await invoke(plugin.closeWatcher, {});
-  await invoke(plugin.buildStart, {});
-  assert.ok(await deliver(modules[0]!));
-  assert.equal(compiles(), 2, "closeWatcher must dispose the generation");
+    // Its teardown must.
+    await invoke(plugin.closeWatcher, {});
+    await invoke(plugin.buildStart, {});
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(compiles(), 2, "closeWatcher must dispose the generation");
 
-  // A one-shot build has no closeWatcher, so its build phase ending is the
-  // boundary instead.
-  await invoke(plugin.buildEnd, { meta: { watchMode: false } });
-  await invoke(plugin.buildStart, {});
-  assert.ok(await deliver(modules[0]!));
-  assert.equal(
-    compiles(),
-    3,
-    "a one-shot Rollup build must dispose at buildEnd",
-  );
+    // A one-shot build has no closeWatcher, so its build phase ending is the
+    // boundary instead.
+    await invoke(plugin.buildEnd, { meta: { watchMode: false } });
+    await invoke(plugin.buildStart, {});
+    assert.ok(await deliver(modules[0]!));
+    assert.equal(
+      compiles(),
+      3,
+      "a one-shot Rollup build must dispose at buildEnd",
+    );
   } finally {
     await invoke(plugin.closeWatcher, {});
   }

@@ -17,6 +17,10 @@ import { make } from "../internal/make";
  * implements IAnimal, ISerializable
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param token The `extends` or `implements` keyword.
+ * @param types The constituent types.
+ * @returns The created {@link HeritageClause}.
  * @evidence contracts/common.md#principled-implementation
  *   HeritageClause retains the keyword kind and ordered type expressions.
  *   The broad SyntaxKind input relies on callers choosing extends/implements.
@@ -31,11 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc identifies both keywords and comma-separated supertypes, with an
  *   implements example and separated explanatory/tag paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param token The `extends` or `implements` keyword.
- * @param types The constituent types.
- * @returns The created {@link HeritageClause}.
  */
 export const createHeritageClause = (
   token: SyntaxKind,

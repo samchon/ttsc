@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { TestProject } from "../../../utils/src/TestProject";
 
 /**
- * Verifies an enum produces no model payload and leaves neighboring fields intact.
+ * Verifies an enum produces no model payload and leaves neighboring fields
+ * intact.
  *
  * An enum between two models must not become a model or attach its values to
  * the preceding model. Its use as a field type still represents a column.
@@ -21,21 +22,40 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership This matching src/features export calls maintained TypeScript source and the parser in the unit runner's Node process over one temporary schema. No installation, native build or product child is started. Admission blocks only dependent payload checks; exact temporary-root removal and absence failures are collected separately. Runtime and Evidence census remain separate verification steps.
  */
 export async function test_prisma_source_loader_excludes_enums_and_preserves_neighbor_models(): Promise<void> {
-  const { loadPrismaModels } = createRequire(import.meta.url)(fileURLToPath(new URL(
-    "../../../../packages/evidence/src/internal/loadPrismaModels.ts", import.meta.url,
-  ))) as {
-    loadPrismaModels(request: { root: string; sets: Array<{ id: string; files: string[] }> }): Promise<{
-      documents: Array<{ id: string; models: Array<{ name: string; fields: Array<{ name: string; symbol: string }> }> }>;
+  const { loadPrismaModels } = createRequire(import.meta.url)(
+    fileURLToPath(
+      new URL(
+        "../../../../packages/evidence/src/internal/loadPrismaModels.ts",
+        import.meta.url,
+      ),
+    ),
+  ) as {
+    loadPrismaModels(request: {
+      root: string;
+      sets: Array<{ id: string; files: string[] }>;
+    }): Promise<{
+      documents: Array<{
+        id: string;
+        models: Array<{
+          name: string;
+          fields: Array<{ name: string; symbol: string }>;
+        }>;
+      }>;
       problems: unknown[];
     }>;
   };
   const root = TestProject.tmpdir("prisma-enum-source-");
   const failures: Error[] = [];
   const check = (label: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(label, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(label, { cause }));
+    }
   };
   try {
-    TestProject.writeFiles(root, { "schema.prisma": `datasource db {
+    TestProject.writeFiles(root, {
+      "schema.prisma": `datasource db {
   provider = "postgresql"
 }
 
@@ -53,20 +73,44 @@ enum SaleStatus {
 model Seller {
   id String @id @db.Uuid
 }
-` });
-    const result = await loadPrismaModels({ root, sets: [{ id: "enum", files: ["schema.prisma"] }] });
+`,
+    });
+    const result = await loadPrismaModels({
+      root,
+      sets: [{ id: "enum", files: ["schema.prisma"] }],
+    });
     assert.deepEqual(result.problems, []);
     assert.equal(result.documents.length, 1);
     check("set identity", () => assert.equal(result.documents[0]!.id, "enum"));
-    check("models and own fields", () => assert.deepEqual(
-      result.documents[0]!.models.map(model => [model.name, model.fields.map(field => [field.name, field.symbol])]),
-      [["Sale", [["id", "column"], ["status", "column"]]], ["Seller", [["id", "column"]]]],
-    ));
+    check("models and own fields", () =>
+      assert.deepEqual(
+        result.documents[0]!.models.map((model) => [
+          model.name,
+          model.fields.map((field) => [field.name, field.symbol]),
+        ]),
+        [
+          [
+            "Sale",
+            [
+              ["id", "column"],
+              ["status", "column"],
+            ],
+          ],
+          ["Seller", [["id", "column"]]],
+        ],
+      ),
+    );
   } catch (cause) {
     failures.push(new Error("enum source load", { cause }));
   } finally {
-    check("cleanup:remove", () => fs.rmSync(root, { recursive: true, force: true }));
+    check("cleanup:remove", () =>
+      fs.rmSync(root, { recursive: true, force: true }),
+    );
     check("cleanup:absence", () => assert.equal(fs.existsSync(root), false));
   }
-  if (failures.length) throw new AggregateError(failures, "Prisma enum payload distinctions failed.");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Prisma enum payload distinctions failed.",
+    );
 }

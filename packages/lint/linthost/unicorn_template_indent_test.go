@@ -18,5 +18,3 @@ func unicornTemplateIndentSkipTestName(index int) string {
   }
   return names[index]
 }
-
-

@@ -1,4 +1,3 @@
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -10,6 +9,7 @@ import { createHostInputMutationTracker } from "../../../../../../../packages/un
 import { createProjectMutationTracker } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/createProjectMutationTracker.mjs";
 import { LINUX_DIRECTORY_WATCHES } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES.mjs";
 import { readProjectMembershipPolicy } from "../../../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
 
 /**
@@ -56,7 +56,10 @@ export async function test_linux_trackers_watch_no_package_tree(): Promise<void>
       fs.writeFileSync(path.join(lib, "index.js"), "export {};\n");
     }
   };
-  TestProject.writeFiles(root, FixtureFiles.read("unplugin/linux_trackers_watch_no_package_tree/inputs-1"));
+  TestProject.writeFiles(
+    root,
+    FixtureFiles.read("unplugin/linux_trackers_watch_no_package_tree/inputs-1"),
+  );
   const policy = readProjectMembershipPolicy(at("tsconfig.json"));
   const watched = (): string[] =>
     [...LINUX_DIRECTORY_WATCHES.keys()]

@@ -13,8 +13,8 @@ import { resolveNativeRootPath } from "./resolveNativeRootPath";
  * unchanged. Failed realpath resolution can retain a lexical spelling.
  *
  * The stamp includes exact source content, the freshly resolved extends graph
- * and observed identity spelling. Metadata cannot detect same-stamp edits, and old
- * source paths alone cannot detect a package preset being installed or
+ * and observed identity spelling. Metadata cannot detect same-stamp edits, and
+ * old source paths alone cannot detect a package preset being installed or
  * redirected.
  *
  * A stamp taken only after the read could describe content written during the

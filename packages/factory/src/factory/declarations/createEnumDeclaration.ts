@@ -25,6 +25,11 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The name.
+ * @param members The members.
+ * @returns The created {@link EnumDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Identifier normalization names the enum while ordered members preserve the
  *   implicit-value sequence; const/export choices remain supplied modifiers.
@@ -39,12 +44,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose describes name normalization, const/export modifiers and member
  *   order, with a separate declaration example before acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The name.
- * @param members The members.
- * @returns The created {@link EnumDeclaration}.
  */
 export const createEnumDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

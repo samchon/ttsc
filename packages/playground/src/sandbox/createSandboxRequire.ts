@@ -50,7 +50,8 @@ class InvalidPackageConfigError extends Error {}
  * legacy packages retain file-and-directory resolution.
  *
  * The pack must remain unchanged while this resolver is used. Evaluation uses
- * new Function in the current realm; this is not a security isolation boundary.
+ * new Function in the current realm; this is not a security isolation
+ * boundary.
  *
  * @evidence contracts/common.md#principled-implementation Target selection precedes loading, conditional exports preserve manifest order, validated targets stay under the package mount, and provisional module caching exposes partial exports for cycles. Evaluation assumes CommonJS source in an unchanged pack.
  * @evidence contracts/common.md#clear-and-simple-design Manifest interpretation, specifier resolution and evaluation have local boundaries; the caller owns code isolation and transport.

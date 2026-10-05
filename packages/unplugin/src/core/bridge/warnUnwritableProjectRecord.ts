@@ -4,10 +4,10 @@ import path from "node:path";
 const WARNED = new Set<string>();
 
 /**
- * Attempt a process warning once per record spelling that a module went to its host
- * without the project's record, because the record could be written neither
- * below the host's root nor anywhere else the host accepts it, and does not
- * exist (samchon/ttsc#1480).
+ * Attempt a process warning once per record spelling that a module went to its
+ * host without the project's record, because the record could be written
+ * neither below the host's root nor anywhere else the host accepts it, and does
+ * not exist (samchon/ttsc#1480).
  *
  * A build host watches a module and its record and nothing else, so a module
  * handed over without the record depends on its own bytes alone. The adapter
@@ -18,7 +18,6 @@ const WARNED = new Set<string>();
  *
  * @param record The record that could not be written below the host's root.
  * @param error What the write failed with.
- *
  * @evidence contracts/common.md#principled-implementation
  *   An exact supplied record path keys one warning attempt; errno or the supplied
  *   error description explains the write failure reported by the caller. The

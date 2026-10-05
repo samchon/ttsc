@@ -8,9 +8,9 @@ import "testing"
 // Role validation does not depend on the JSX tag, so the rule reads the role
 // attribute and validates its token list directly.
 //
-// 1. Run only `jsx-a11y/aria-role` over `<div role="banana" />` and expect one
-//    finding whose message contains "valid ARIA role".
-// 2. Run it over `<div role="button" />` and expect none.
+//  1. Run only `jsx-a11y/aria-role` over `<div role="banana" />` and expect one
+//     finding whose message contains "valid ARIA role".
+//  2. Run it over `<div role="button" />` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-role enabled. role="banana" yields exactly one ordinary SeverityError finding from that rule whose message contains "valid ARIA role"; assertJsxA11yRuleSkips requires zero findings for role="button".
 // @evidence contracts/testing.md#independent-expectations button is a defined ARIA role and banana is not. The two literal sources and the "valid ARIA role" fragment are authored from the ARIA role vocabulary.

@@ -1,7 +1,8 @@
 /**
  * Payload inside `ITtscResult.result` for `snapshot`.
  *
- * The caller owns the returned snapshot and must release it when queries finish.
+ * The caller owns the returned snapshot and must release it when queries
+ * finish.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Returning an opaque handle keeps retained Go program objects behind the

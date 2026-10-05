@@ -34,9 +34,9 @@ import { spawnNative } from "./spawnNative";
 /**
  * Transform a project and capture TypeScript source output in memory.
  *
- * When no plugins are configured the native path spawns the native ttsc compiler
- * host (`cmd/ttsc api-transform`) which returns a JSON map of transformed
- * TypeScript sources. When plugins are present:
+ * When no plugins are configured the native path spawns the native ttsc
+ * compiler host (`cmd/ttsc api-transform`) which returns a JSON map of
+ * transformed TypeScript sources. When plugins are present:
  *
  * 1. Check-stage plugins run first and stop on a nonzero accumulated status.
  * 2. If there are no transform-stage plugins the host is used as the transformer.
@@ -55,7 +55,6 @@ import { spawnNative } from "./spawnNative";
  * @returns A `{ result, typescript }` pair where `typescript` maps output paths
  *   to their transformed TypeScript source text, and `pluginSources` the state
  *   of every Go source directory the plugins supplied to their binaries.
- *
  * @evidence contracts/common.md#principled-implementation Discovery and check/transform stages use their owning native binaries; evaluation-time witnesses are revalidated, explicit observation limits survive every lane, and changed or conflicting proven inputs lose their unavailable exemption rather than gaining admission.
  * @evidence contracts/common.md#clear-and-simple-design One router composes built-in and plugin-backed transforms; envelope parsers, environment construction, proof merging and negative-only observation limits have separate shared helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing input proof cannot be repaired by a postcompile baseline; conventional deferred config reads accept only the actual native consumer's proof, while malformed required TypeScript output is a protocol error.

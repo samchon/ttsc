@@ -74,7 +74,10 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
       )?.[1],
     );
     assert.ok(Number.isInteger(pid), healthy);
-    assert.ok(Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid, healthy);
+    assert.ok(
+      Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid,
+      healthy,
+    );
 
     process.kill(pid);
     fs.appendFileSync(source, "// edited after the resident host died\n");
@@ -103,7 +106,10 @@ export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_co
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Resident check watch and shutdown failed");
+    throw new AggregateError(
+      failures,
+      "Resident check watch and shutdown failed",
+    );
 }
 
 function countTs7006(transcript: string): number {

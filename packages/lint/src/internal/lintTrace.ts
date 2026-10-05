@@ -17,11 +17,11 @@ let writer:
  * Begins a private observation identity for an actual owned native call.
  *
  * An unset marker disables IO. The absolute scratch root and process nonce are
- * fixed across calls. Events retain actual results and honest call bounds;
- * sink failures never change product bytes/errors or write protocol streams.
- * The coordinator detects missing/corrupt evidence and owns file retention.
- * Each append closes its own descriptor and output is capped at 256 MiB for
- * this writer. This helper does not count delegate calls as process starts.
+ * fixed across calls. Events retain actual results and honest call bounds; sink
+ * failures never change product bytes/errors or write protocol streams. The
+ * coordinator detects missing/corrupt evidence and owns file retention. Each
+ * append closes its own descriptor and output is capped at 256 MiB for this
+ * writer. This helper does not count delegate calls as process starts.
  *
  * @evidence contracts/common.md#principled-implementation A process nonce, per-call ordinal and event sequence correlate actual owner observations in the shared private schema without modifying product requests.
  * @evidence contracts/common.md#clear-and-simple-design One private writer owns event encoding, the retained byte budget and closed appends; callers provide actual primitive results.

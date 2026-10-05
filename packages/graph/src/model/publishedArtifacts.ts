@@ -1,8 +1,3 @@
-import type { IArtifactDirectory } from "./IArtifactDirectory";
-import type { IArtifactInputs } from "./IArtifactInputs";
-import type { IPublishedArtifacts } from "./IPublishedArtifacts";
-
-import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -13,6 +8,10 @@ import {
   resolveCapabilityPluginResolution,
 } from "ttsc";
 
+import { GraphProcessTrace } from "../internal/GraphProcessTrace";
+import type { IArtifactDirectory } from "./IArtifactDirectory";
+import type { IArtifactInputs } from "./IArtifactInputs";
+import type { IPublishedArtifacts } from "./IPublishedArtifacts";
 import { TtscLintDaemon } from "./TtscLintDaemon";
 
 /**
@@ -86,7 +85,9 @@ export function publishArtifacts(options: {
  */
 export async function publishArtifactsResident(
   options: { cwd: string; tsconfig: string; signal?: AbortSignal },
-  daemon: (plugin: ITtscCapabilityPlugin) => TtscLintDaemon | undefined | Promise<TtscLintDaemon | undefined>,
+  daemon: (
+    plugin: ITtscCapabilityPlugin,
+  ) => TtscLintDaemon | undefined | Promise<TtscLintDaemon | undefined>,
 ): Promise<IPublishedArtifacts> {
   const discovery = resolveCapabilityPluginResolution({
     capability: "graphNodes",
@@ -192,7 +193,8 @@ function assemble(
     if (output === null) continue;
     try {
       const parsed: unknown = JSON.parse(output);
-      if (Array.isArray(parsed)) for (const entryToAppend of parsed) published.push(entryToAppend);
+      if (Array.isArray(parsed))
+        for (const entryToAppend of parsed) published.push(entryToAppend);
     } catch {
       continue;
     }
@@ -455,7 +457,12 @@ export function fingerprintInputs(inputs: IArtifactInputs): string {
   const states = new Map<string, string>();
   for (const file of inputs.files) parts.push(stateOf(file, states));
   for (const directory of inputs.directories)
-    for (const entryToAppend of walkState(directory.path, directory.recursive, states)) parts.push(entryToAppend);
+    for (const entryToAppend of walkState(
+      directory.path,
+      directory.recursive,
+      states,
+    ))
+      parts.push(entryToAppend);
   parts.sort();
   return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
@@ -518,7 +525,10 @@ function globRoot(pattern: string, cwd: string): string {
   const magic = pattern.search(GLOB_MAGIC);
   const head = magic < 0 ? pattern : pattern.slice(0, magic);
   const slash = Math.max(head.lastIndexOf("/"), head.lastIndexOf("\\"));
-  const root = slash < 0 ? "" : head.slice(0, Math.max(slash, path.parse(head).root.length));
+  const root =
+    slash < 0
+      ? ""
+      : head.slice(0, Math.max(slash, path.parse(head).root.length));
   return root === "" ? cwd : absolute(root, cwd);
 }
 
@@ -566,7 +576,13 @@ function walkState(
         states.push(stateOf(child, inputStates));
         continue;
       }
-      for (const entryToAppend of walkState(child, recursive, inputStates, nextAncestors)) states.push(entryToAppend);
+      for (const entryToAppend of walkState(
+        child,
+        recursive,
+        inputStates,
+        nextAncestors,
+      ))
+        states.push(entryToAppend);
       continue;
     }
     states.push(stateOf(child, inputStates));

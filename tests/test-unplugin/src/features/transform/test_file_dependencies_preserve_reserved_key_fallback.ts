@@ -7,13 +7,14 @@ import { selectFileDependencies } from "../../../../../packages/unplugin/src/cor
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies exact own dependency entries and alternate producer spelling fallback
- * remain distinct when file keys resemble Object prototype members.
+ * Verifies exact own dependency entries and alternate producer spelling
+ * fallback remain distinct when file keys resemble Object prototype members.
  *
  * This owns the direct file-addressed selector boundary. Extensionless files do
- * not claim a transformable TypeScript delivery or actual native bundler occurrence.
+ * not claim a transformable TypeScript delivery or actual native bundler
+ * occurrence.
  *
- * 1. Create constructor, __proto__ and ordinary files before identity derivation.
+ * 1. Create constructor, **proto** and ordinary files before identity derivation.
  * 2. Report only absolute file keys and require their literal config dependency.
  * 3. Add own relative entries in a separate envelope and require their different
  *    config to take precedence; contrast an actually absent unreported file.
@@ -24,7 +25,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit directly calls the selector over real native temporary files and authored dependency maps. No compiler, watcher, process, installed artifact, native symlink, platform replacement or private generation authority is involved. Native producer/bundler connection remains outside this portable selector oracle.
  */
 export function test_file_dependencies_preserve_reserved_key_fallback(): void {
-  const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-unplugin-dependency-keys-"));
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-unplugin-dependency-keys-"),
+  );
   TestProject.writeFiles(root, {
     constructor: "constructor input\n",
     ["__proto__"]: "prototype input\n",
@@ -35,7 +38,9 @@ export function test_file_dependencies_preserve_reserved_key_fallback(): void {
   const fallback = path.join(root, "configs", "fallback.json");
   const exact = path.join(root, "configs", "exact.json");
   const names = ["constructor", "__proto__", "ordinary"];
-  const absolute = Object.fromEntries(names.map((name) => [path.join(root, name), [fallback]]));
+  const absolute = Object.fromEntries(
+    names.map((name) => [path.join(root, name), [fallback]]),
+  );
   const fallbackResult: ITtscCompilerTransformation.ISuccess = {
     type: "success",
     typescript: {},
@@ -51,14 +56,41 @@ export function test_file_dependencies_preserve_reserved_key_fallback(): void {
   };
   for (const name of names) {
     const file = path.join(root, name);
-    assert.equal(fs.lstatSync(file).isFile(), true, "an actual ordinary extensionless input");
+    assert.equal(
+      fs.lstatSync(file).isFile(),
+      true,
+      "an actual ordinary extensionless input",
+    );
     assert.equal(Object.prototype.hasOwnProperty.call(absolute, name), false);
-    assert.deepEqual(selectFileDependencies({ file, projectRoot: root, result: fallbackResult }), [fallback], `${name}: absent own key permits alternate producer spelling`);
-    assert.equal(Object.prototype.hasOwnProperty.call(exactResult.dependencies, name), true);
-    assert.deepEqual(selectFileDependencies({ file, projectRoot: root, result: exactResult }), [exact], `${name}: own relative entry takes precedence over the earlier absolute entry`);
+    assert.deepEqual(
+      selectFileDependencies({
+        file,
+        projectRoot: root,
+        result: fallbackResult,
+      }),
+      [fallback],
+      `${name}: absent own key permits alternate producer spelling`,
+    );
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(exactResult.dependencies, name),
+      true,
+    );
+    assert.deepEqual(
+      selectFileDependencies({ file, projectRoot: root, result: exactResult }),
+      [exact],
+      `${name}: own relative entry takes precedence over the earlier absolute entry`,
+    );
   }
   const missing = path.join(root, "missing");
   assert.equal(fs.existsSync(missing), false);
   assert.equal(Object.prototype.hasOwnProperty.call(absolute, missing), false);
-  assert.deepEqual(selectFileDependencies({ file: missing, projectRoot: root, result: fallbackResult }), [], "an unreported missing input has no dependency list");
+  assert.deepEqual(
+    selectFileDependencies({
+      file: missing,
+      projectRoot: root,
+      result: fallbackResult,
+    }),
+    [],
+    "an unreported missing input has no dependency list",
+  );
 }

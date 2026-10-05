@@ -1,8 +1,8 @@
 package vfs
 
 import (
-	_ "github.com/microsoft/typescript-go/internal/vfs/osvfs"
-	_ "unsafe"
+  _ "github.com/microsoft/typescript-go/internal/vfs/osvfs"
+  _ "unsafe"
 )
 
 // DecodeBytes applies the pinned compiler filesystem's BOM and UTF-16 decoding

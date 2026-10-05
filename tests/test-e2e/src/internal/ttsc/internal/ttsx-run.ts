@@ -1,12 +1,13 @@
 import { TestProject } from "@ttsc/testing";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { isolatedCacheEnvironment } from "./isolated-cache-environment";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /** A ttsx run whose program is up and waiting. */
 export interface IWaitingRun {
@@ -23,8 +24,8 @@ export interface IWaitingRun {
 }
 
 /**
- * A program that prints `ready:<token>:<pid>` and waits until terminated,
- * for `startWaitingRun`.
+ * A program that prints `ready:<token>:<pid>` and waits until terminated, for
+ * `startWaitingRun`.
  */
 export const WAITING_PROGRAM = [
   `declare const process: { pid: number; env: Record<string, string | undefined>; exit(code: number): never };`,
@@ -62,8 +63,8 @@ export function runDirectory(runs: string, pid: number): string {
 /**
  * Start ttsx on `entry`, a program such as `WAITING_PROGRAM`, and resolve once
  * its complete stdout line carries this spawn's random token and a valid PID.
- * Stderr remains diagnostic output. Failed startup closes the owned POSIX
- * group or Windows taskkill tree before rejecting.
+ * Stderr remains diagnostic output. Failed startup closes the owned POSIX group
+ * or Windows taskkill tree before rejecting.
  */
 export function startWaitingRun(
   root: string,
@@ -91,7 +92,9 @@ export function startWaitingRun(
         windowsHide: true,
       },
     );
-    const closed = new Promise<void>((done) => launcher.once("close", () => done()));
+    const closed = new Promise<void>((done) =>
+      launcher.once("close", () => done()),
+    );
     let output = "";
     let stdout = "";
     let settled = false;
@@ -105,7 +108,12 @@ export function startWaitingRun(
         await closed;
         reject(error);
       } catch (cleanupError) {
-        reject(new AggregateError([error, cleanupError], "waiting run failed and cleanup failed"));
+        reject(
+          new AggregateError(
+            [error, cleanupError],
+            "waiting run failed and cleanup failed",
+          ),
+        );
       }
     };
     const timer = setTimeout(() => {
@@ -132,7 +140,13 @@ export function startWaitingRun(
         program = pid;
         settled = true;
         clearTimeout(timer);
-        resolve({ launcher, closed, release: () => fs.writeFileSync(control, token, "utf8"), output: () => output, program });
+        resolve({
+          launcher,
+          closed,
+          release: () => fs.writeFileSync(control, token, "utf8"),
+          output: () => output,
+          program,
+        });
       }
     });
     launcher.stderr!.on("data", (chunk: Buffer) => {
@@ -140,17 +154,20 @@ export function startWaitingRun(
     });
     launcher.once("error", (error) => void fail(error));
     launcher.once("close", () => {
-      if (!settled) void fail(new Error(`ttsx ${entry} ended before it started:\n${output}`));
+      if (!settled)
+        void fail(
+          new Error(`ttsx ${entry} ended before it started:\n${output}`),
+        );
     });
   });
 }
 
 /**
  * End the test-owned launcher tree and authenticated waiting program.
- * Intentional launcher-only termination remains a separate test operation;
- * this helper closes the authenticated program through its nonce channel even
- * after the launcher exited. It never kills a formerly observed program PID,
- * which may already have been recycled after an intentional force kill.
+ * Intentional launcher-only termination remains a separate test operation; this
+ * helper closes the authenticated program through its nonce channel even after
+ * the launcher exited. It never kills a formerly observed program PID, which
+ * may already have been recycled after an intentional force kill.
  */
 export async function stopWaitingRun(run: IWaitingRun): Promise<void> {
   run.release();
@@ -159,7 +176,15 @@ export async function stopWaitingRun(run: IWaitingRun): Promise<void> {
     await Promise.race([
       run.closed,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("waiting program did not close after its authenticated release")), 60_000);
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                "waiting program did not close after its authenticated release",
+              ),
+            ),
+          60_000,
+        );
       }),
     ]);
   } finally {
@@ -178,25 +203,38 @@ async function stopWaitingProcessTree(
       try {
         process.kill(-launcher.pid, "SIGKILL");
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ESRCH") failures.push(error);
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH")
+          failures.push(error);
       }
     } else if (launcher.exitCode === null && launcher.signalCode === null) {
       const result = child_process.spawnSync(
-        "taskkill", ["/PID", String(launcher.pid), "/T", "/F"],
+        "taskkill",
+        ["/PID", String(launcher.pid), "/T", "/F"],
         { windowsHide: true, encoding: "utf8" },
       );
-      if (result.error !== undefined || (result.status !== 0 && isRunning(launcher.pid))) {
-        failures.push(result.error ?? new Error(result.stderr || result.stdout));
+      if (
+        result.error !== undefined ||
+        (result.status !== 0 && isRunning(launcher.pid))
+      ) {
+        failures.push(
+          result.error ?? new Error(result.stderr || result.stdout),
+        );
       }
     }
   }
   const pids = [
-    launcher.exitCode === null && launcher.signalCode === null ? launcher.pid : undefined,
+    launcher.exitCode === null && launcher.signalCode === null
+      ? launcher.pid
+      : undefined,
     program,
   ].filter((pid): pid is number => pid !== undefined);
-  const results = await Promise.allSettled(pids.map((pid) => forceTerminate(pid)));
-  for (const result of results) if (result.status === "rejected") failures.push(result.reason);
-  if (failures.length !== 0) throw new AggregateError(failures, "waiting run cleanup failed");
+  const results = await Promise.allSettled(
+    pids.map((pid) => forceTerminate(pid)),
+  );
+  for (const result of results)
+    if (result.status === "rejected") failures.push(result.reason);
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "waiting run cleanup failed");
 }
 
 /** Whether a process with `pid` is running. */

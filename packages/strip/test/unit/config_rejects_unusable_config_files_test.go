@@ -15,10 +15,10 @@ import (
 // author never listed, so each shape must fail loudly, and a JSON file saved
 // with a UTF-8 byte order mark by a Windows editor must still load.
 //
-// 1. Pass a blank and a non-string configFile.
-// 2. Point configFile at an unsupported extension, a missing file, malformed
-//    JSON and JSON values that are not objects.
-// 3. Load a JSON config that begins with a byte order mark.
+//  1. Pass a blank and a non-string configFile.
+//  2. Point configFile at an unsupported extension, a missing file, malformed
+//     JSON and JSON values that are not objects.
+//  3. Load a JSON config that begins with a byte order mark.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the real loader with blank and non-string configFile, an unsupported extension, a missing file, malformed JSON and array and string JSON, asserting each error text; a BOM-prefixed JSON object loads with its literal calls.
 // @evidence contracts/testing.md#independent-expectations The expectations are the documented failure phrases of the config contract and the literal calls list of the authored BOM fixture; nothing is derived from the loader's own output.

@@ -21,10 +21,8 @@ import path from "node:path";
  *
  * @param tsconfig The declaring config, as the reader named it.
  * @param specifier The `extends` value as written.
- *
  * @returns Ordered native candidates, or undefined when this reader delegates
  *   the normalized specifier to module resolution.
- *
  * @evidence contracts/common.md#principled-implementation Backslash normalization followed by host-absolute/dot-relative classification uses the compiler's exact-then-json candidate order for those paths; bare dot spellings retain the existing reader extension, and native root classification is not universal compiler DOS-root parity.
  * @evidence contracts/common.md#clear-and-simple-design This helper constructs candidates without reading them or resolving packages, so both readers share the spelling rule while retaining their own observation and selection responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The dot-relative prefixes and json suffix express config grammar rather than named consumers or fixtures; no directory-to-tsconfig guess is inserted.

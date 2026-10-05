@@ -18,6 +18,10 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param statements The statements.
+ * @param multiLine Force a multiline body when true; defaults to true.
+ * @returns The created {@link Block}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered statements populate Block and the nullish default makes multiline
  *   layout explicit. The printer applies the flag without changing statement order.
@@ -32,11 +36,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc records the flag's layout effect and empty/nonempty behavior
  *   in a paragraph separate from the example and acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param statements The statements.
- * @param multiLine Force a multiline body when true; defaults to true.
- * @returns The created {@link Block}.
  */
 export const createBlock = (
   statements: readonly Statement[],

@@ -8,23 +8,23 @@ import {
   createFilesystemPathIdentityContext,
 } from "ttsc/path-identity";
 
+import type { RelativePatternConstructor } from "./RelativePatternConstructor";
 import type { ResolutionCandidate } from "./ResolutionCandidate";
 import type { ResolutionCandidateInput } from "./ResolutionCandidateInput";
-import type { ServerProcessOptions } from "./ServerProcessOptions";
-import type { ServerLaunchCommand } from "./ServerLaunchCommand";
 import type { ServerExecutable } from "./ServerExecutable";
-import type { RelativePatternConstructor } from "./RelativePatternConstructor";
+import type { ServerLaunchCommand } from "./ServerLaunchCommand";
+import type { ServerProcessOptions } from "./ServerProcessOptions";
 import {
   filterCandidatesByPhysicalRoots,
   planRootsByPhysicalIdentity,
 } from "./clientRootPlanning.ts";
 
 /**
- * Create the shared filesystem identity context used for language-client
- * root routing.
+ * Create the shared filesystem identity context used for language-client root
+ * routing.
  *
- * Unresolvable realpaths default to conservative lexical identity; callers
- * can inject explicit identity operations without changing global filesystem
+ * Unresolvable realpaths default to conservative lexical identity; callers can
+ * inject explicit identity operations without changing global filesystem
  * methods.
  *
  * @evidence contracts/common.md#principled-implementation
@@ -54,17 +54,17 @@ import {
  *   identity operations, including why globals are not replaced. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It only constructs the context; resolution cost belongs to the
-  *   path-identity API.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Memoization lives in the context it returns; this wrapper adds no cache.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   The caller owns the returned context and its lifetime; this wrapper
-  *   retains nothing.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It only constructs the context; resolution cost belongs to the
+ *   path-identity API.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Memoization lives in the context it returns; this wrapper adds no cache.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The caller owns the returned context and its lifetime; this wrapper
+ *   retains nothing.
  */
 export function createServerRootPathIdentityContext(
   platform: NodeJS.Platform = process.platform,
@@ -113,17 +113,17 @@ const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
  *   legacy-path conditions and undefined resolution/read failure. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It does a fixed number of module resolutions and file reads.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   This adapter coordinates no cross-request cache. Each call rereads the
-  *   resolved manifest and checks the launcher; Node owns package-resolution
-  *   policy and any resolution caching.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   Its synchronous reads release their handles before returning.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It does a fixed number of module resolutions and file reads.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This adapter coordinates no cross-request cache. Each call rereads the
+ *   resolved manifest and checks the launcher; Node owns package-resolution
+ *   policy and any resolution caching.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its synchronous reads release their handles before returning.
  */
 export function resolveTtscServerLauncher(
   resolveFrom: string,
@@ -152,8 +152,8 @@ export function resolveTtscServerLauncher(
  * Return the directory of the project-config candidate selected by
  * findProjectConfig, or undefined.
  *
- * This wrapper delegates discovery instead of maintaining a second policy;
- * the finder limits discovery to the physical workspace boundary when given.
+ * This wrapper delegates discovery instead of maintaining a second policy; the
+ * finder limits discovery to the physical workspace boundary when given.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node dirname projects the owning finder result to a root, retaining
@@ -177,15 +177,15 @@ export function resolveTtscServerLauncher(
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill;
  *   member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It projects one findProjectConfig result and owns no computation.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It delegates all sharing decisions to findProjectConfig.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It projects one findProjectConfig result and owns no computation.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It delegates all sharing decisions to findProjectConfig.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing.
  */
 export function findProjectRoot(
   start: string,
@@ -199,11 +199,11 @@ export function findProjectRoot(
  * Walk upward for the nearest regular tsconfig/jsconfig file within the
  * optional physical workspace boundary.
  *
- * Canonical tsconfig.json wins over tsconfig variants, then jsconfig.json
- * and variants. Unreadable directories, stat-failing entries and non-files yield
- * no candidate. Readability and config syntax remain the launcher's responsibility.
- * A start outside the boundary returns undefined; case aliases and
- * physical links use the same filesystem identity as client routing.
+ * Canonical tsconfig.json wins over tsconfig variants, then jsconfig.json and
+ * variants. Unreadable directories, stat-failing entries and non-files yield no
+ * candidate. Readability and config syntax remain the launcher's
+ * responsibility. A start outside the boundary returns undefined; case aliases
+ * and physical links use the same filesystem identity as client routing.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The nearest directory is inspected first, so the first usable candidate
@@ -230,19 +230,19 @@ export function findProjectRoot(
  *   and starts outside the physical boundary. Purpose, conditions and
  *   reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   The walk visits at most D ancestor directories; each costs one readdir of
-  *   E entries, filtered and sorted in O(E log E), plus stat calls only for
-  *   matching names.
-  *
-  * @evidence contracts/performance.md#reuse-equivalent-work
-  *   One identity context serves the whole walk, so boundary and directory
-  *   identities are resolved once; nothing is cached across calls, so later
-  *   disk changes are seen.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing after the synchronous walk.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The walk visits at most D ancestor directories; each costs one readdir of
+ *   E entries, filtered and sorted in O(E log E), plus stat calls only for
+ *   matching names.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One identity context serves the whole walk, so boundary and directory
+ *   identities are resolved once; nothing is cached across calls, so later
+ *   disk changes are seen.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing after the synchronous walk.
  */
 export function findProjectConfig(
   start: string,
@@ -250,7 +250,9 @@ export function findProjectConfig(
 ): string | undefined {
   let dir = path.resolve(start);
   const boundary = stopAt ? path.resolve(stopAt) : undefined;
-  const identities = boundary ? createServerRootPathIdentityContext() : undefined;
+  const identities = boundary
+    ? createServerRootPathIdentityContext()
+    : undefined;
   for (;;) {
     if (boundary && !identities!.isWithin(boundary, dir)) {
       return undefined;
@@ -278,8 +280,8 @@ export function findProjectConfig(
  * afterward, deduplicating equal base/cwd pairs.
  *
  * The active file resolves modules from its directory but launches from its
- * nearest project or workspace root. Config discovery uses the same
- * workspace boundary policy as other callers.
+ * nearest project or workspace root. Config discovery uses the same workspace
+ * boundary policy as other callers.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node dirname and the owning project finder supply cwd/tsconfig decisions.
@@ -306,20 +308,20 @@ export function findProjectConfig(
  *   ordered deduplication and identifies the discovery policy it inherits.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   W workspace entries plus the optional active file require O(W) local
-  *   iteration and candidate/Set storage, with one delegated config walk per
-  *   entry. Set membership preserves first-seen base/cwd order without
-  *   rescanning the accumulated candidates.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   This function keeps no result across calls. The extension owns
-  *   reconciliation-local directory memoization; config discovery here
-  *   remains scoped to constructing one candidate list.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains only the returned candidate array.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   W workspace entries plus the optional active file require O(W) local
+ *   iteration and candidate/Set storage, with one delegated config walk per
+ *   entry. Set membership preserves first-seen base/cwd order without
+ *   rescanning the accumulated candidates.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This function keeps no result across calls. The extension owns
+ *   reconciliation-local directory memoization; config discovery here
+ *   remains scoped to constructing one candidate list.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains only the returned candidate array.
  */
 export function createResolutionCandidates(
   input: ResolutionCandidateInput,
@@ -356,16 +358,16 @@ export function createResolutionCandidates(
 }
 
 /**
- * Prepare the server stdio argument vector for a JavaScript, native or
- * Windows command-shim launcher.
+ * Prepare the server stdio argument vector for a JavaScript, native or Windows
+ * command-shim launcher.
  *
  * JavaScript uses process.execPath. Inside the VS Code extension host that is
  * the editor binary, which runs a script as Node only while the environment it
  * inherits carries ELECTRON_RUN_AS_NODE; serverProcessOptions copies the
- * extension host environment unchanged and this module never sets the
- * variable. Windows .cmd/.bat uses an explicitly quoted cmd payload and private
- * argument environment. Other executables retain ordinary argument vectors.
- * The operation prepares data without spawning.
+ * extension host environment unchanged and this module never sets the variable.
+ * Windows .cmd/.bat uses an explicitly quoted cmd payload and private argument
+ * environment. Other executables retain ordinary argument vectors. The
+ * operation prepares data without spawning.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node executable arguments and the documented server CLI carry cwd,
@@ -393,20 +395,20 @@ export function createResolutionCandidates(
  *   preparation does not spawn.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   The argument count is fixed, but launcher and project path lengths drive
-  *   output size and Windows quoting work. Command-shim preparation processes
-  *   each argument and creates one private environment entry per argument;
-  *   root identity and hashing belong to executeCommandIDPrefix.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   This preparation coordinates no cross-request producer. The extension
-  *   builds launch options when starting a client and shares that client,
-  *   rather than caching a command independently of its launch inputs.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the returned command.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The argument count is fixed, but launcher and project path lengths drive
+ *   output size and Windows quoting work. Command-shim preparation processes
+ *   each argument and creates one private environment entry per argument;
+ *   root identity and hashing belong to executeCommandIDPrefix.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This preparation coordinates no cross-request producer. The extension
+ *   builds launch options when starting a client and shares that client,
+ *   rather than caching a command independently of its launch inputs.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the returned command.
  */
 export function createServerLaunchCommand(
   launcher: string,
@@ -440,8 +442,8 @@ export function createServerLaunchCommand(
  * Combine a prepared launch command with its project cwd and toolchain
  * environment for vscode-languageclient.
  *
- * Command-shim environment and verbatim escaping are added only to the
- * Windows command boundary; ordinary launches retain Node argument escaping.
+ * Command-shim environment and verbatim escaping are added only to the Windows
+ * command boundary; ordinary launches retain Node argument escaping.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The supported LanguageClient Executable shape carries
@@ -465,20 +467,20 @@ export function createServerLaunchCommand(
  *   escaping to the Windows command boundary. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   Ordinary launches reuse the prepared options record. Windows shims copy
-  *   P inherited environment properties plus the fixed argument placeholders,
-  *   using O(P) local time and storage; command preparation and toolchain
-  *   resolution retain their owning helpers' costs.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It coordinates no cross-request result cache. The extension calls it
-  *   when starting a client; the environment resolver and Node module
-  *   resolution own their observations, not this composition adapter.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the returned executable.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Ordinary launches reuse the prepared options record. Windows shims copy
+ *   P inherited environment properties plus the fixed argument placeholders,
+ *   using O(P) local time and storage; command preparation and toolchain
+ *   resolution retain their owning helpers' costs.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It coordinates no cross-request result cache. The extension calls it
+ *   when starting a client; the environment resolver and Node module
+ *   resolution own their observations, not this composition adapter.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the returned executable.
  */
 export function createServerExecutable(
   launcher: string,
@@ -505,8 +507,8 @@ export function createServerExecutable(
 /**
  * Construct a RelativePattern for all documents beneath a literal root.
  *
- * Using the constructor keeps glob metacharacters in the workspace path
- * literal rather than concatenating them into a glob.
+ * Using the constructor keeps glob metacharacters in the workspace path literal
+ * rather than concatenating them into a glob.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The supported VS Code RelativePattern boundary receives the root as base
@@ -530,15 +532,15 @@ export function createServerExecutable(
  *   why string concatenation would misinterpret root metacharacters. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It makes one constructor call.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It computes a cheap value and caches nothing.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the pattern.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It makes one constructor call.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It computes a cheap value and caches nothing.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the pattern.
  */
 export function createDocumentSelectorPattern<T>(
   ctor: RelativePatternConstructor<T>,
@@ -548,11 +550,11 @@ export function createDocumentSelectorPattern<T>(
 }
 
 /**
- * Return this root's command namespace using the first 16 hex characters of
- * its identity hash.
+ * Return this root's command namespace using the first 16 hex characters of its
+ * identity hash.
  *
- * Both server arguments and middleware use the same prefix, so one client
- * does not apply another client's command replies.
+ * Both server arguments and middleware use the same prefix, so one client does
+ * not apply another client's command replies.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node sha256 hashes the shared rootKey identity, so observed aliases of one
@@ -579,17 +581,17 @@ export function createDocumentSelectorPattern<T>(
  *   agreement between server arguments and middleware. Purpose, conditions
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   One SHA-256 update processes B bytes of the resolved identity key in
-  *   O(B) hashing work and produces a fixed-size digest. Native root identity
-  *   observation remains with rootKey; the adapter keeps no lookup table.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It is recomputed where used and keeps no cache.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One SHA-256 update processes B bytes of the resolved identity key in
+ *   O(B) hashing work and produces a fixed-size digest. Native root identity
+ *   observation remains with rootKey; the adapter keeps no lookup table.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It is recomputed where used and keeps no cache.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing.
  */
 export function executeCommandIDPrefix(root: string): string {
   const key = createHash("sha256")
@@ -632,16 +634,16 @@ export function executeCommandIDPrefix(root: string): string {
  *   survivor resolution order. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   The cost belongs to filterCandidatesByPhysicalRoots.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It creates one identity context per call and passes it down; nothing is
-  *   shared across calls.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   The context it creates is released when the call returns.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   The cost belongs to filterCandidatesByPhysicalRoots.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It creates one identity context per call and passes it down; nothing is
+ *   shared across calls.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The context it creates is released when the call returns.
  */
 export function filterNonOverlappingCandidates(
   candidates: readonly ResolutionCandidate[],
@@ -655,8 +657,8 @@ export function filterNonOverlappingCandidates(
 }
 
 /**
- * Plan unique nonoverlapping roots, preferring a supplied root before depth
- * and identity ordering.
+ * Plan unique nonoverlapping roots, preferring a supplied root before depth and
+ * identity ordering.
  *
  * Physical aliases collapse. A preferred ancestor may suppress descendants;
  * without that preference deeper roots win. The returned list performs no
@@ -687,17 +689,17 @@ export function filterNonOverlappingCandidates(
  *   ordering, alias collapse and the absence of client lifecycle effects.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   The cost belongs to planRootsByPhysicalIdentity.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Observation reuse belongs to the supplied identity context, not an
-  *   independent plan cache. The caller controls the validity and lifetime of
-  *   an explicitly shared context; the default creates a fresh one.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the plan.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   The cost belongs to planRootsByPhysicalIdentity.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Observation reuse belongs to the supplied identity context, not an
+ *   independent plan cache. The caller controls the validity and lifetime of
+ *   an explicitly shared context; the default creates a fresh one.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the plan.
  */
 export function planNonOverlappingClientRoots(
   roots: readonly string[],
@@ -707,7 +709,12 @@ export function planNonOverlappingClientRoots(
     platform,
   ),
 ): string[] {
-  return planRootsByPhysicalIdentity(roots, preferredRoot, identities, platform);
+  return planRootsByPhysicalIdentity(
+    roots,
+    preferredRoot,
+    identities,
+    platform,
+  );
 }
 
 /**
@@ -741,18 +748,18 @@ export function planNonOverlappingClientRoots(
  *   explaining why sibling string prefixes are insufficient. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   One scan over n roots does one containment check and at most one
-  *   key-length comparison each, O(n) checks.
-  *
-  * @evidence contracts/performance.md#reuse-equivalent-work
-  *   The default identity context is created once per call and shared by every
-  *   containment check and key comparison in the scan; no result is cached
-  *   across calls.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing after returning one root.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One scan over n roots does one containment check and at most one
+ *   key-length comparison each, O(n) checks.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The default identity context is created once per call and shared by every
+ *   containment check and key comparison in the scan; no result is cached
+ *   across calls.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing after returning one root.
  */
 export function selectDeepestRootForPath(
   file: string,
@@ -782,8 +789,8 @@ export function selectDeepestRootForPath(
  * Return whether the file lies within the root under the supplied filesystem
  * identity context.
  *
- * Containment includes the root itself and handles physical aliases; a
- * shared context keeps one routing decision internally consistent.
+ * Containment includes the root itself and handles physical aliases; a shared
+ * context keeps one routing decision internally consistent.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The maintained identity.isWithin API owns this relation. Explicit context
@@ -810,15 +817,15 @@ export function selectDeepestRootForPath(
  *   aliases, explaining the consistent context boundary. Purpose, conditions
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It performs one delegated containment check.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It uses the supplied context, which owns any memoization.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It performs one delegated containment check.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It uses the supplied context, which owns any memoization.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing.
  */
 export function isPathInsideRoot(
   file: string,
@@ -861,15 +868,15 @@ export function isPathInsideRoot(
  *   similarly spelled sibling prefixes. Purpose, conditions and reasons use
  *   separate native paragraphs under the documentation skill; member comments
  *   remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It performs at most two delegated containment checks.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It uses the supplied context, which owns any memoization.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It performs at most two delegated containment checks.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It uses the supplied context, which owns any memoization.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing.
  */
 export function rootsOverlap(
   left: string,
@@ -916,16 +923,16 @@ export function rootsOverlap(
  *   before target startup; this helper computes the set only. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   One filter pass over n client roots does one overlap check each, O(n)
-  *   checks.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It uses one context per call and caches nothing across calls.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the returned roots.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One filter pass over n client roots does one overlap check each, O(n)
+ *   checks.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It uses one context per call and caches nothing across calls.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the returned roots.
  */
 export function rootsToStopForTarget(
   roots: readonly string[],
@@ -941,8 +948,8 @@ export function rootsToStopForTarget(
 }
 
 /**
- * Select existing roots whose filesystem identity is absent from the
- * complete planned-root set.
+ * Select existing roots whose filesystem identity is absent from the complete
+ * planned-root set.
  *
  * An empty plan selects every existing root for teardown. Identity aliases
  * already present in the plan remain active.
@@ -971,16 +978,16 @@ export function rootsToStopForTarget(
  *   retention of equivalent planned aliases. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   It builds a Set of the p planned keys and does one key lookup per existing
-  *   root, O(n + p) keys.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It uses one context per call and caches nothing across calls.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   The Set is local and released on return.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   It builds a Set of the p planned keys and does one key lookup per existing
+ *   root, O(n + p) keys.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It uses one context per call and caches nothing across calls.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The Set is local and released on return.
  */
 export function rootsToStopForPlan(
   roots: readonly string[],
@@ -1028,16 +1035,16 @@ export function rootsToStopForPlan(
  *   of sibling workspace clients. Purpose, conditions and reasons use
  *   separate native paragraphs under the documentation skill; member comments
  *   remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   One filter pass over n client roots does one containment check each, O(n)
-  *   checks.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It uses one context per call and caches nothing across calls.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the returned roots.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One filter pass over n client roots does one containment check each, O(n)
+ *   checks.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It uses one context per call and caches nothing across calls.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the returned roots.
  */
 export function rootsInsideRemovedWorkspace(
   roots: readonly string[],
@@ -1055,8 +1062,8 @@ export function rootsInsideRemovedWorkspace(
 /**
  * Return the shared filesystem identity key for a client root.
  *
- * Routing, command namespaces and deduplication use one identity model
- * rather than platform-wide lowercasing.
+ * Routing, command namespaces and deduplication use one identity model rather
+ * than platform-wide lowercasing.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The maintained identity.resolve API supplies the key, including configured
@@ -1083,15 +1090,15 @@ export function rootsInsideRemovedWorkspace(
  *   namespaces and deduplication instead of platform-wide lowercasing.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It delegates one identity resolution to the path-identity API.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It uses the supplied context, which owns any memoization.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It delegates one identity resolution to the path-identity API.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It uses the supplied context, which owns any memoization.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing.
  */
 export function rootKey(
   root: string,
@@ -1167,8 +1174,8 @@ function quoteWindowsArg(arg: string): string {
 }
 
 /**
- * Resolve the project TypeScript installation's platform package and return
- * its existing native tsc binary, or undefined.
+ * Resolve the project TypeScript installation's platform package and return its
+ * existing native tsc binary, or undefined.
  *
  * The language server needs the project-owned TypeScript-Go build, and the
  * server has no PATH fallback: it refuses to start without an absolute binary.
@@ -1199,17 +1206,17 @@ function quoteWindowsArg(arg: string): string {
  *   selection. Purpose, conditions and reasons use separate native paragraphs
  *   under the documentation skill; member comments remain beside their
  *   fields.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It does a fixed number of module resolutions and one existence check.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   This adapter retains no override result across requests. Node owns
-  *   package-resolution policy and caching; the adapter checks existence of
-  *   the binary returned through that resolution on each call.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   Its synchronous reads release their handles before returning.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It does a fixed number of module resolutions and one existence check.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This adapter retains no override result across requests. Node owns
+ *   package-resolution policy and caching; the adapter checks existence of
+ *   the binary returned through that resolution on each call.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its synchronous reads release their handles before returning.
  */
 export function resolveTsgoBinary(base: string): string | undefined {
   try {
@@ -1237,15 +1244,14 @@ export function resolveTsgoBinary(base: string): string | undefined {
 }
 
 /**
- * Prepare project cwd and inherited environment, adding TTSC_TSGO_BINARY
- * when project binary resolution succeeds.
+ * Prepare project cwd and inherited environment, adding TTSC_TSGO_BINARY when
+ * project binary resolution succeeds.
  *
  * An absent or empty cwd returns undefined. A resolved binary replaces any
  * TTSC_TSGO_BINARY inherited from the editor environment, because one inherited
- * value would pin every project of a multi-root workspace to a single
- * compiler. No resolved binary leaves inherited environment unchanged so the
- * launcher owns its normal fallback; the global environment is never assigned
- * here.
+ * value would pin every project of a multi-root workspace to a single compiler.
+ * No resolved binary leaves inherited environment unchanged so the launcher
+ * owns its normal fallback; the global environment is never assigned here.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The owning resolveTsgoBinary operation supplies a toolchain override and
@@ -1273,19 +1279,19 @@ export function resolveTsgoBinary(base: string): string | undefined {
  *   fallback.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   One delegated binary resolution precedes an O(P) copy of P environment
-  *   properties when an override exists. Without an override, the existing
-  *   process environment record is passed through without a copy.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It retains no cross-request options result. Binary resolution belongs
-  *   to resolveTsgoBinary and Node's resolver; the extension owns sharing the
-  *   client started with these options.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the returned options.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One delegated binary resolution precedes an O(P) copy of P environment
+ *   properties when an override exists. Without an override, the existing
+ *   process environment record is passed through without a copy.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It retains no cross-request options result. Binary resolution belongs
+ *   to resolveTsgoBinary and Node's resolver; the extension owns sharing the
+ *   client started with these options.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the returned options.
  */
 export function serverProcessOptions(
   cwd?: string,

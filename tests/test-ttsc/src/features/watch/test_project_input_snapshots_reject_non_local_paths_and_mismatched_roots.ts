@@ -2,11 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestProject } from "../../../../utils/src/TestProject";
-
 import { isAbsoluteLocalProjectInputPath } from "../../../../../packages/ttsc/src/compiler/internal/build/isAbsoluteLocalProjectInputPath";
 import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/src/compiler/internal/build/mergeProjectInputSnapshots";
 import { parseProjectInputSnapshot } from "../../../../../packages/ttsc/src/compiler/internal/build/parseProjectInputSnapshot";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the launcher accepts only absolute local dependency snapshots and
@@ -18,7 +17,8 @@ import { parseProjectInputSnapshot } from "../../../../../packages/ttsc/src/comp
  *
  * 1. Reject relative/remote/NUL reload files and resolution directories.
  * 2. Reject two otherwise-valid snapshots that publish different roots.
- * 3. Accept an old snapshot without reload metadata and merge identical duplicate declarations.
+ * 3. Accept an old snapshot without reload metadata and merge identical duplicate
+ *    declarations.
  *
  * @evidence contracts/testing.md#behavioral-verification Invokes parseProjectInputSnapshot, mergeProjectInputSnapshots and isAbsoluteLocalProjectInputPath to reject malformed/foreign views and retain exact validated reload/file/glob populations.
  * @evidence contracts/testing.md#independent-expectations Absolute-local namespace and same-selected-root protocol requirements define rejection. Independent literal normalized lists establish duplicate collapse and omitted optional reload fields; explicit Windows/POSIX syntax inputs do not derive answers from the parser.

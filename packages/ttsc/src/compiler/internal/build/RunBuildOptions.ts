@@ -22,17 +22,17 @@ export type RunBuildOptions = TtscBuildOptions & {
    * `--noEmitOnError` guard. Configured plugin checks and native hosts still
    * apply their own diagnostic policy. It does not erase returned status or
    * make failed plugin checks successful. The ttsx dependency lane may judge
-   * usable emitted output under its own policy and sets it because the
-   * entry project's check is the type gate and a source-shipping dependency's
-   * own config must not fail the run.
+   * usable emitted output under its own policy and sets it because the entry
+   * project's check is the type gate and a source-shipping dependency's own
+   * config must not fail the run.
    */
   skipDiagnosticsCheck?: boolean;
 
   /**
    * Request `--listEmittedFiles` when the user did not ask for paths. Later
    * forwarded assignments can still override this internal default, and actual
-   * producer output determines what is returned. Callers locating one emitted file
-   * (ttsx, single-file emit) set it.
+   * producer output determines what is returned. Callers locating one emitted
+   * file (ttsx, single-file emit) set it.
    */
   forceListEmittedFiles?: boolean;
 
@@ -49,8 +49,8 @@ export type RunBuildOptions = TtscBuildOptions & {
   forceEmitProvenance?: boolean;
 
   /**
-   * Apply final compiler destination overrides for this private directory.
-   * This does not sandbox arbitrary plugin, cache or external process writes.
+   * Apply final compiler destination overrides for this private directory. This
+   * does not sandbox arbitrary plugin, cache or external process writes.
    */
   isolateOutputsTo?: string;
 
@@ -67,8 +67,8 @@ export type RunBuildOptions = TtscBuildOptions & {
    * Without a declared rootDir, ordinary runtime output uses the native volume
    * root instead of adding the compiler's config-directory containment to a
    * check-only project. Composite projects retain their config root. This is
-   * private output layout, not inference of source membership or physical
-   * alias equivalence; emitted-source provenance remains authoritative.
+   * private output layout, not inference of source membership or physical alias
+   * equivalence; emitted-source provenance remains authoritative.
    *
    * Without a runtime-selected privateEmitRootDir, ignored when the project
    * declares rootDir. A supplied runtime root already represents effective
@@ -98,7 +98,8 @@ export type RunBuildOptions = TtscBuildOptions & {
   /**
    * Receives the reconciled project-rule filesystem dependency snapshot. Called
    * when this internal callback is supplied, normally by watch launchers;
-   * ordinary calls without the callback do not probe the optional sidecar command.
+   * ordinary calls without the callback do not probe the optional sidecar
+   * command.
    */
   onProjectInputs?: (inputs: ITtscProjectInputSnapshot) => void;
 
@@ -106,9 +107,9 @@ export type RunBuildOptions = TtscBuildOptions & {
    * Request an external source map in an emitting direct tsgo lane even when
    * the project configures none. Later forwarded sourceMap assignments can
    * override this default. Ttsx runtime builds use it to request a map for
-   * inlining under the source URL. Applied only to
-   * the plain tsgo emit — never forwarded to a native plugin host, whose own
-   * emit honours the project's `sourceMap` setting.
+   * inlining under the source URL. Applied only to the plain tsgo emit — never
+   * forwarded to a native plugin host, whose own emit honours the project's
+   * `sourceMap` setting.
    */
   forceRuntimeSourceMap?: boolean;
 

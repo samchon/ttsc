@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code open-document root planning is order independent.
@@ -23,18 +24,20 @@ import path from "node:path";
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual planner with the default identity context over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
 export function test_vscode_server_resolution_plans_open_document_roots_deterministically() {
-  const root = path.join(TestProject.tmpdir("vscode-plan-missing-roots-"), "repo");
+  const root = path.join(
+    TestProject.tmpdir("vscode-plan-missing-roots-"),
+    "repo",
+  );
   const nested = path.join(root, "packages", "demo");
   assert.equal(fs.existsSync(root), false);
   assert.equal(fs.existsSync(nested), false);
   const observed = (() => {
     return {
-      unpreferredA: mod.planNonOverlappingClientRoots([(root), (nested)]),
-      unpreferredB: mod.planNonOverlappingClientRoots([(nested), (root)]),
-      preferredA: mod.planNonOverlappingClientRoots([(root), (nested)], (root)),
-      preferredB: mod.planNonOverlappingClientRoots([(nested), (root)], (root)),
+      unpreferredA: mod.planNonOverlappingClientRoots([root, nested]),
+      unpreferredB: mod.planNonOverlappingClientRoots([nested, root]),
+      preferredA: mod.planNonOverlappingClientRoots([root, nested], root),
+      preferredB: mod.planNonOverlappingClientRoots([nested, root], root),
     };
-  
   })();
   const actual = observed as {
     preferredA: string[];

@@ -7,10 +7,10 @@ export namespace FileSystemIterator {
    * Write relative file names below location, creating missing directories.
    *
    * Existing files are overwritten; unrelated files remain. Absolute names,
-   * names resolving outside location and names resolving to location itself
-   * are rejected. Use slash-separated keys for portable fixtures. Native path
-   * case and existing symlinks are left to the filesystem, so callers must own
-   * the destination tree; this is not a symlink containment boundary.
+   * names resolving outside location and names resolving to location itself are
+   * rejected. Use slash-separated keys for portable fixtures. Native path case
+   * and existing symlinks are left to the filesystem, so callers must own the
+   * destination tree; this is not a symlink containment boundary.
    *
    * Writes are sequential and not transactional. Filesystem errors propagate,
    * and files written before an error remain. Do not mutate the same tree
@@ -59,8 +59,8 @@ export namespace FileSystemIterator {
    * symlinks encountered inside it and nonregular entries are skipped. Empty
    * directories are not represented. Errors propagate without a partial map.
    * The tree must remain stable during traversal; this is not an atomic
-   * snapshot. The returned dictionary has no prototype so every file name is
-   * an ordinary key, including `__proto__`.
+   * snapshot. The returned dictionary has no prototype so every file name is an
+   * ordinary key, including `__proto__`.
    *
    * @evidence contracts/common.md#principled-implementation Directory entries distinguish regular files from directories and symlinks; recursively enumerating only directories reads each encountered regular file into its root-relative key with UTF-8 decoding.
    * @evidence contracts/common.md#clear-and-simple-design A local traversal carries the native directory and relative key together, and returns one dictionary without exposing traversal state or adding fixture policy.
@@ -71,10 +71,17 @@ export namespace FileSystemIterator {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation coordinates no shared computation between requests; each call reads current filesystem state without a cross-call cache or in-flight sharing policy.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Sequential awaits leave no outstanding task when traversal settles; Node owns filesystem handle closure. The caller receives the content map on success, while temporary traversal state is released on success or failure; input size bounds memory, with no fixed byte limit.
    */
-  export async function read(location: String): Promise<Record<string, string>> {
+  export async function read(
+    location: String,
+  ): Promise<Record<string, string>> {
     const files: Record<string, string> = Object.create(null);
-    const visit = async (directory: string, relative: string): Promise<void> => {
-      for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const visit = async (
+      directory: string,
+      relative: string,
+    ): Promise<void> => {
+      for (const entry of await fs.readdir(directory, {
+        withFileTypes: true,
+      })) {
         const file = path.join(directory, entry.name);
         const key = relative === "" ? entry.name : relative + "/" + entry.name;
         if (entry.isDirectory()) await visit(file, key);

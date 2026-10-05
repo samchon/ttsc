@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 /**
@@ -24,15 +24,15 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkedPrismaRootCollectsItsSchemas(t *testing.T) {
-	workspace := t.TempDir()
-	root := filepath.Join(workspace, "project")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeLinkedDocuments(t, workspace, map[string]string{
-		"models/user.prisma": "model User {\n  id Int @id\n}\n",
-	})
-	config := decodeInventoryConfig(t, root, `{"claims":[{
+  workspace := t.TempDir()
+  root := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(root, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  writeLinkedDocuments(t, workspace, map[string]string{
+    "models/user.prisma": "model User {\n  id Int @id\n}\n",
+  })
+  config := decodeInventoryConfig(t, root, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
@@ -43,15 +43,15 @@ func TestALinkedPrismaRootCollectsItsSchemas(t *testing.T) {
       "symbol":"model"
     }
   }]}`)
-	addresses, failed, problems := configuredPrismaAddressesWithHealth(config)
-	assertNoProblems(t, problems)
-	if len(failed) != 0 {
-		t.Fatalf("a linked root that resolves is healthy, got %d failed", len(failed))
-	}
-	if len(addresses) != 1 {
-		t.Fatalf("the schema behind the link is selected, got %d", len(addresses))
-	}
-	if addresses[0].Display != "../documents/models/user.prisma" {
-		t.Fatalf("address = %q, want it spelled through the declared root", addresses[0].Display)
-	}
+  addresses, failed, problems := configuredPrismaAddressesWithHealth(config)
+  assertNoProblems(t, problems)
+  if len(failed) != 0 {
+    t.Fatalf("a linked root that resolves is healthy, got %d failed", len(failed))
+  }
+  if len(addresses) != 1 {
+    t.Fatalf("the schema behind the link is selected, got %d", len(addresses))
+  }
+  if addresses[0].Display != "../documents/models/user.prisma" {
+    t.Fatalf("address = %q, want it spelled through the declared root", addresses[0].Display)
+  }
 }

@@ -627,18 +627,30 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
       t.Fatalf("api-compile output missing emitted JavaScript: %#v", compiled.Output)
     }
     sources := []string{"index", "src/decorated/main", "src/decorated/types", "src/helpers", "src/isolated", "src/main", "src/nested/model"}
-    if len(compiled.Output) != len(sources)*4 { t.Errorf("compile output count = %d, want %d", len(compiled.Output), len(sources)*4) }
+    if len(compiled.Output) != len(sources)*4 {
+      t.Errorf("compile output count = %d, want %d", len(compiled.Output), len(sources)*4)
+    }
     for _, source := range sources {
       for _, suffix := range []string{".js", ".d.ts", ".js.map", ".d.ts.map"} {
-        name := "bin/"+source+suffix
+        name := "bin/" + source + suffix
         text, present := compiled.Output[name]
-        if !present || text == "" { t.Errorf("compile memory output absent: %s", name) }
-        if strings.HasSuffix(suffix, ".map") && !json.Valid([]byte(text)) { t.Errorf("compile map invalid: %s", name) }
+        if !present || text == "" {
+          t.Errorf("compile memory output absent: %s", name)
+        }
+        if strings.HasSuffix(suffix, ".map") && !json.Valid([]byte(text)) {
+          t.Errorf("compile map invalid: %s", name)
+        }
       }
     }
-    if !strings.Contains(compiled.Output["bin/src/main.js"], "api-ok") || !strings.Contains(compiled.Output["bin/src/main.d.ts"], "upper: string") { t.Error("baseline compile values/declarations absent") }
-    if !regexp.MustCompile(`console\.log\(\s*message\s*\)`).MatchString(compiled.Output["bin/src/main.js"]) { t.Error("baseline compiled console.log(message) call absent") }
-    if !strings.Contains(compiled.Output["bin/src/decorated/main.js"], "design:type") { t.Error("configured decorator metadata positive control absent from compiled JavaScript") }
+    if !strings.Contains(compiled.Output["bin/src/main.js"], "api-ok") || !strings.Contains(compiled.Output["bin/src/main.d.ts"], "upper: string") {
+      t.Error("baseline compile values/declarations absent")
+    }
+    if !regexp.MustCompile(`console\.log\(\s*message\s*\)`).MatchString(compiled.Output["bin/src/main.js"]) {
+      t.Error("baseline compiled console.log(message) call absent")
+    }
+    if !strings.Contains(compiled.Output["bin/src/decorated/main.js"], "design:type") {
+      t.Error("configured decorator metadata positive control absent from compiled JavaScript")
+    }
     if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
       t.Fatalf("api-compile wrote JavaScript to disk: %v", err)
     }
@@ -660,40 +672,73 @@ func observeTestCLIAPICompileAndTransform(t *testing.T, root string, invoke func
     }
     expectedSources := []string{"index.ts", "src/decorated/main.ts", "src/decorated/types.ts", "src/helpers.ts", "src/isolated.ts", "src/main.ts", "src/nested/model.ts"}
     actualSources := make([]string, 0, len(transformed.TypeScript))
-    for name := range transformed.TypeScript { actualSources = append(actualSources, name) }
+    for name := range transformed.TypeScript {
+      actualSources = append(actualSources, name)
+    }
     slices.Sort(actualSources)
-    if !slices.Equal(actualSources, expectedSources) { t.Errorf("transform source keys = %v, want %v", actualSources, expectedSources) }
-    if !strings.Contains(transformed.TypeScript["src/main.ts"], "api-ok") || !strings.Contains(transformed.TypeScript["src/helpers.ts"], "value.toUpperCase()") || !strings.Contains(transformed.TypeScript["src/nested/model.ts"], "interface Model") || !strings.Contains(transformed.TypeScript["src/isolated.ts"], "isolated: number = 2") { t.Error("baseline transform source literals absent") }
-    if !regexp.MustCompile(`console\.log\(\s*message\s*\)`).MatchString(transformed.TypeScript["src/main.ts"]) { t.Error("baseline source console.log(message) call absent") }
-    if !strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "@log()") || !strings.Contains(transformed.TypeScript["src/decorated/types.ts"], "class Payload") || strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "design:type") { t.Error("decorated transform source/metadata separation differs") }
+    if !slices.Equal(actualSources, expectedSources) {
+      t.Errorf("transform source keys = %v, want %v", actualSources, expectedSources)
+    }
+    if !strings.Contains(transformed.TypeScript["src/main.ts"], "api-ok") || !strings.Contains(transformed.TypeScript["src/helpers.ts"], "value.toUpperCase()") || !strings.Contains(transformed.TypeScript["src/nested/model.ts"], "interface Model") || !strings.Contains(transformed.TypeScript["src/isolated.ts"], "isolated: number = 2") {
+      t.Error("baseline transform source literals absent")
+    }
+    if !regexp.MustCompile(`console\.log\(\s*message\s*\)`).MatchString(transformed.TypeScript["src/main.ts"]) {
+      t.Error("baseline source console.log(message) call absent")
+    }
+    if !strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "@log()") || !strings.Contains(transformed.TypeScript["src/decorated/types.ts"], "class Payload") || strings.Contains(transformed.TypeScript["src/decorated/main.ts"], "design:type") {
+      t.Error("decorated transform source/metadata separation differs")
+    }
     var wire map[string]json.RawMessage
-    if err := json.Unmarshal([]byte(out), &wire); err != nil { t.Fatal(err) }
+    if err := json.Unmarshal([]byte(out), &wire); err != nil {
+      t.Fatal(err)
+    }
     var complete []string
-    if err := json.Unmarshal(wire["dependenciesComplete"], &complete); err != nil { t.Fatalf("actual completeness JSON: %v", err) }
+    if err := json.Unmarshal(wire["dependenciesComplete"], &complete); err != nil {
+      t.Fatalf("actual completeness JSON: %v", err)
+    }
     slices.Sort(complete)
-    if !slices.Equal(complete, expectedSources) { t.Errorf("native source completeness = %v, want %v", complete, expectedSources) }
-    if raw, present := wire["dependencies"]; present && string(raw) != "null" { t.Errorf("plugin-free dependencies should be omitted/null, got %s", raw) }
+    if !slices.Equal(complete, expectedSources) {
+      t.Errorf("native source completeness = %v, want %v", complete, expectedSources)
+    }
+    if raw, present := wire["dependencies"]; present && string(raw) != "null" {
+      t.Errorf("plugin-free dependencies should be omitted/null, got %s", raw)
+    }
     var graph driver.TransformGraph
-    if err := json.Unmarshal(wire["graph"], &graph); err != nil { t.Fatalf("actual graph JSON: %v", err) }
-    edges := append([]string{}, graph.Edges["src/main.ts"]...); slices.Sort(edges)
-    if !slices.Equal(edges, []string{"src/helpers.ts", "src/nested/model.ts"}) { t.Errorf("baseline graph edges = %v", edges) }
-    if !slices.Equal(graph.Edges["src/decorated/main.ts"], []string{"src/decorated/types.ts"}) { t.Errorf("decorated type dependency edge = %v", graph.Edges["src/decorated/main.ts"]) }
+    if err := json.Unmarshal(wire["graph"], &graph); err != nil {
+      t.Fatalf("actual graph JSON: %v", err)
+    }
+    edges := append([]string{}, graph.Edges["src/main.ts"]...)
+    slices.Sort(edges)
+    if !slices.Equal(edges, []string{"src/helpers.ts", "src/nested/model.ts"}) {
+      t.Errorf("baseline graph edges = %v", edges)
+    }
+    if !slices.Equal(graph.Edges["src/decorated/main.ts"], []string{"src/decorated/types.ts"}) {
+      t.Errorf("decorated type dependency edge = %v", graph.Edges["src/decorated/main.ts"])
+    }
     for _, name := range []string{"index.ts", "src/decorated/types.ts", "src/helpers.ts", "src/isolated.ts", "src/nested/model.ts"} {
       leaf, present := graph.Edges[name]
-      if !present || len(leaf) != 0 { t.Errorf("explicit graph leaf %s = %v, present %t", name, leaf, present) }
+      if !present || len(leaf) != 0 {
+        t.Errorf("explicit graph leaf %s = %v, present %t", name, leaf, present)
+      }
     }
     var graphFields map[string]json.RawMessage
-    if err := json.Unmarshal(wire["graph"], &graphFields); err != nil { t.Fatal(err) }
+    if err := json.Unmarshal(wire["graph"], &graphFields); err != nil {
+      t.Fatal(err)
+    }
     var casePolicy bool
     rawPolicy, present := graphFields["useCaseSensitiveFileNames"]
-    if !present || json.Unmarshal(rawPolicy, &casePolicy) != nil { t.Error("native graph case-policy JSON boolean absent") }
+    if !present || json.Unmarshal(rawPolicy, &casePolicy) != nil {
+      t.Error("native graph case-policy JSON boolean absent")
+    }
     if len(transformed.Diagnostics) != 0 {
       t.Fatalf("api-transform should not report diagnostics: %#v", transformed.Diagnostics)
     }
     if _, err := os.Stat(filepath.Join(root, "bin", "index.js")); !os.IsNotExist(err) {
       t.Fatalf("api-transform wrote JavaScript to disk: %v", err)
     }
-    if _, err := os.Lstat(filepath.Join(root, "bin")); !os.IsNotExist(err) { t.Errorf("memory API wrote bin directory: %v", err) }
+    if _, err := os.Lstat(filepath.Join(root, "bin")); !os.IsNotExist(err) {
+      t.Errorf("memory API wrote bin directory: %v", err)
+    }
   })
 }
 
@@ -962,7 +1007,9 @@ func observeTestCLICommandRunsProjectFromCurrentDirectory(t *testing.T, root str
   if strings.Contains(out, "Usage:") {
     t.Fatalf("bare command should not print help usage: %q", out)
   }
-  if out != "" || errOut != "" { t.Fatalf("bare quiet command streams: stdout=%q stderr=%q", out, errOut) }
+  if out != "" || errOut != "" {
+    t.Fatalf("bare quiet command streams: stdout=%q stderr=%q", out, errOut)
+  }
 }
 
 // observeTestCLICommandVersionAliases verifies version metadata text for all literal aliases.
@@ -1170,7 +1217,9 @@ func observeTestCLIProjectBuildEmitsManifest(t *testing.T, root string, invoke f
     t.Fatalf("expected emitted JavaScript: %v", err)
   }
   javascript, err := os.ReadFile(filepath.Join(root, "bin", "index.js"))
-  if err != nil || !strings.Contains(string(javascript), "exports.marker") || !strings.Contains(string(javascript), "42") { t.Fatalf("compiled marker literal = %q, %v", javascript, err) }
+  if err != nil || !strings.Contains(string(javascript), "exports.marker") || !strings.Contains(string(javascript), "42") {
+    t.Fatalf("compiled marker literal = %q, %v", javascript, err)
+  }
 
   raw, err := os.ReadFile(manifest)
   if err != nil {

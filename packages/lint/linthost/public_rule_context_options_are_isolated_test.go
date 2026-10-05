@@ -2,9 +2,9 @@ package linthost
 
 import (
   "encoding/json"
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 // TestPublicRuleContextOptionsAreIsolated verifies both public constructors

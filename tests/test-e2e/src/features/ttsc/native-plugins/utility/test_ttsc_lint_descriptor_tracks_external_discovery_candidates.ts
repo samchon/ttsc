@@ -7,9 +7,9 @@ import path from "node:path";
  * Verifies the lint descriptor retains every higher-priority discovery probe.
  *
  * Executable config evaluation must retain missing extension and package
- * candidates, and equal config bytes at a new physical directory must not
- * reuse a prior __dirname or contributor source. Plain JSON discovery is
- * exercised directly by its authored source unit.
+ * candidates, and equal config bytes at a new physical directory must not reuse
+ * a prior __dirname or contributor source. Plain JSON discovery is exercised
+ * directly by its authored source unit.
  *
  * 1. Evaluate a TypeScript config with local and hoisted package imports.
  * 2. Check missing higher-priority inputs and their null fingerprints.

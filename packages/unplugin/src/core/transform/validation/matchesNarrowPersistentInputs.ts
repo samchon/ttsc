@@ -42,7 +42,10 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
  *   proof, and memoized dependency lists do not themselves prove fresh content.
  */
 export function matchesNarrowPersistentInputs(
-  /** Generation whose baseline, trackers and input witnesses the caller qualified. */
+  /**
+   * Generation whose baseline, trackers and input witnesses the caller
+   * qualified.
+   */
   cached: TtscCachedProjectTransform,
   /** Delivered file spelling selecting this envelope's dependency closure. */
   file: string,

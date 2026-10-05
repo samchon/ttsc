@@ -6,9 +6,9 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
  * Verifies stale inline lint options on the tsconfig plugin entry are rejected.
  *
  * The descriptor factory rejects any plugin-entry key other than the framework
- * keys and configFile, so a legacy rules, format, extends, config or plugins key
- * cannot be silently ignored. This case does not observe whether the rejection
- * precedes configuration-file discovery.
+ * keys and configFile, so a legacy rules, format, extends, config or plugins
+ * key cannot be silently ignored. This case does not observe whether the
+ * rejection precedes configuration-file discovery.
  *
  * 1. Call the factory with each stale key in a plugin entry and require an
  *    unsupported-key error naming that key.
@@ -30,7 +30,24 @@ export function test_lint_config_rejects_unknown_tsconfig_plugin_entry_key(): vo
     ["plugins", {}],
     ["futureOption", true],
   ] as const) {
-    assert.throws(() => factory(TestLintPlugin.factoryContext({ transform: "@ttsc/lint", [key]: value })), new RegExp('unsupported key "' + key + '"'));
+    assert.throws(
+      () =>
+        factory(
+          TestLintPlugin.factoryContext({
+            transform: "@ttsc/lint",
+            [key]: value,
+          }),
+        ),
+      new RegExp('unsupported key "' + key + '"'),
+    );
   }
-  assert.doesNotThrow(() => factory(TestLintPlugin.factoryContext({ transform: "@ttsc/lint", enabled: false, configFile: "./missing.config.json" })));
+  assert.doesNotThrow(() =>
+    factory(
+      TestLintPlugin.factoryContext({
+        transform: "@ttsc/lint",
+        enabled: false,
+        configFile: "./missing.config.json",
+      }),
+    ),
+  );
 }

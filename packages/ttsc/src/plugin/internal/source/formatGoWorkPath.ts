@@ -20,9 +20,9 @@ import { autoQuoteGoModToken } from "./autoQuoteGoModToken";
  * overlay module simply disappears from the workspace.
  *
  * On POSIX, a backslash can be part of a filename. Preserve it there so the
- * workspace token continues to name the directory the caller supplied.
- * The explicit platform argument permits callers to format a declared path
- * grammar; ordinary workspace callers retain the current host by default.
+ * workspace token continues to name the directory the caller supplied. The
+ * explicit platform argument permits callers to format a declared path grammar;
+ * ordinary workspace callers retain the current host by default.
  *
  * @evidence contracts/common.md#principled-implementation Windows separator normalization precedes Go's token formatter so UNC and extended-length spellings containing a comment opener are quoted rather than dropped from the workspace; POSIX backslashes retain their filename meaning.
  * @evidence contracts/common.md#clear-and-simple-design Path protocol spelling and token quoting are two explicit steps, sharing the same Go-style token formatter and its documented Unicode limits as other modfile values.
@@ -38,7 +38,5 @@ export function formatGoWorkPath(
   p: string,
   platform: NodeJS.Platform = process.platform,
 ): string {
-  return autoQuoteGoModToken(
-    platform === "win32" ? p.replace(/\\/g, "/") : p,
-  );
+  return autoQuoteGoModToken(platform === "win32" ? p.replace(/\\/g, "/") : p);
 }

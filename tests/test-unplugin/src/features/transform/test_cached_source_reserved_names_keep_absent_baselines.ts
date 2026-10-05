@@ -5,19 +5,20 @@ import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
 
 import { matchesCachedSource } from "../../../../../packages/unplugin/src/core/transform/validation/matchesCachedSource";
-import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 import { TestProject } from "../../../../utils/src/TestProject";
+import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
  * Verifies a file excluded from the literal program can use complete snapshot
  * proof even when its root-relative name resembles an Object prototype member.
  *
- * This directly exercises the file-addressed validation operation. Extensionless
- * inputs are not represented as transformable TypeScript or native symlink cases.
+ * This directly exercises the file-addressed validation operation.
+ * Extensionless inputs are not represented as transformable TypeScript or
+ * native symlink cases.
  *
- * 1. Create constructor, __proto__ and ordinary files before real input capture.
- * 2. Observe a literal src/main.ts-only generation and require absent own baselines
- *    and outputs for those unrelated files.
+ * 1. Create constructor, **proto** and ordinary files before real input capture.
+ * 2. Observe a literal src/main.ts-only generation and require absent own
+ *    baselines and outputs for those unrelated files.
  * 3. Permit unchanged program proof and unrelated edits, reject recorded source
  *    and config edits, and permit restored recorded bytes again.
  *
@@ -27,7 +28,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership One discoverable unit uses actual native temporary files, existing snapshot observation and direct cached-source validation. Hashes establish observed capture data, not expected admission results. No compiler, watcher, installed consumer, native artifact, platform replacement or private tracker authority mutation runs.
  */
 export function test_cached_source_reserved_names_keep_absent_baselines(): void {
-  const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-unplugin-reserved-baseline-"));
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-unplugin-reserved-baseline-"),
+  );
   const source = "export const value = 1;\n";
   const config = '{"files":["src/main.ts"]}';
   TestProject.writeFiles(root, {
@@ -42,26 +45,107 @@ export function test_cached_source_reserved_names_keep_absent_baselines(): void 
     type: "success",
     typescript: { "src/main.ts": source },
     hostInputs: [tsconfig],
-    hostInputHashes: { [tsconfig]: createHash("sha256").update(config).digest("hex") },
+    hostInputHashes: {
+      [tsconfig]: createHash("sha256").update(config).digest("hex"),
+    },
   };
   const cached = observeValidationUnitGeneration(root, result);
   assert.deepEqual(Object.keys(cached.inputHashes), ["src/main.ts"]);
   assert.deepEqual(Object.keys(result.typescript), ["src/main.ts"]);
-  const files = ["constructor", "__proto__", "ordinary"].map((name) => path.join(root, name));
+  const files = ["constructor", "__proto__", "ordinary"].map((name) =>
+    path.join(root, name),
+  );
   for (const file of files) {
-    assert.equal(fs.lstatSync(file).isFile(), true, "the actual input is an ordinary extensionless file");
-    assert.equal(Object.prototype.hasOwnProperty.call(cached.inputHashes, path.basename(file)), false);
-    assert.equal(Object.prototype.hasOwnProperty.call(result.typescript, path.basename(file)), false);
-    assert.equal(matchesCachedSource(cached, file, fs.readFileSync(file, "utf8"), undefined), true, "an unchanged program admits an unrelated file without a baseline");
+    assert.equal(
+      fs.lstatSync(file).isFile(),
+      true,
+      "the actual input is an ordinary extensionless file",
+    );
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        cached.inputHashes,
+        path.basename(file),
+      ),
+      false,
+    );
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        result.typescript,
+        path.basename(file),
+      ),
+      false,
+    );
+    assert.equal(
+      matchesCachedSource(
+        cached,
+        file,
+        fs.readFileSync(file, "utf8"),
+        undefined,
+      ),
+      true,
+      "an unchanged program admits an unrelated file without a baseline",
+    );
     fs.appendFileSync(file, "unrelated edit\n");
-    assert.equal(matchesCachedSource(cached, file, fs.readFileSync(file, "utf8"), undefined), true, "excluded bytes do not become a program dependency");
+    assert.equal(
+      matchesCachedSource(
+        cached,
+        file,
+        fs.readFileSync(file, "utf8"),
+        undefined,
+      ),
+      true,
+      "excluded bytes do not become a program dependency",
+    );
   }
-  fs.writeFileSync(path.join(root, "src", "main.ts"), "export const value = 2;\n");
-  for (const file of files) assert.equal(matchesCachedSource(cached, file, fs.readFileSync(file, "utf8"), undefined), false, "recorded source changed");
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    "export const value = 2;\n",
+  );
+  for (const file of files)
+    assert.equal(
+      matchesCachedSource(
+        cached,
+        file,
+        fs.readFileSync(file, "utf8"),
+        undefined,
+      ),
+      false,
+      "recorded source changed",
+    );
   fs.writeFileSync(path.join(root, "src", "main.ts"), source);
-  for (const file of files) assert.equal(matchesCachedSource(cached, file, fs.readFileSync(file, "utf8"), undefined), true, "recorded source recovered");
+  for (const file of files)
+    assert.equal(
+      matchesCachedSource(
+        cached,
+        file,
+        fs.readFileSync(file, "utf8"),
+        undefined,
+      ),
+      true,
+      "recorded source recovered",
+    );
   fs.writeFileSync(tsconfig, '{"files":["src/main.ts","constructor"]}');
-  for (const file of files) assert.equal(matchesCachedSource(cached, file, fs.readFileSync(file, "utf8"), undefined), false, "recorded config changed");
+  for (const file of files)
+    assert.equal(
+      matchesCachedSource(
+        cached,
+        file,
+        fs.readFileSync(file, "utf8"),
+        undefined,
+      ),
+      false,
+      "recorded config changed",
+    );
   fs.writeFileSync(tsconfig, config);
-  for (const file of files) assert.equal(matchesCachedSource(cached, file, fs.readFileSync(file, "utf8"), undefined), true, "recorded config recovered");
+  for (const file of files)
+    assert.equal(
+      matchesCachedSource(
+        cached,
+        file,
+        fs.readFileSync(file, "utf8"),
+        undefined,
+      ),
+      true,
+      "recorded config recovered",
+    );
 }

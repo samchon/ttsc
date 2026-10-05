@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type JsxChild, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  type JsxChild,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { str } from "../../internal/helpers";
 import { jsxChildren, jsxEmit } from "../../internal/oracle";
 
@@ -118,45 +121,43 @@ export const test_jsx_whitespace_boundaries = (): void => {
     ],
   ];
   const independent = new Map<string, string>([
-  [
-    "whitespace-only element",
-    "<div> </div>"
-  ],
-  [
-    "text with no edge whitespace, which may break",
-    "<div>HelloHelloHelloHelloHelloHelloHello</div>"
-  ],
-  [
-    "text carrying its own newlines",
-    "<div>firstLineOfTheText\nsecondLineOfTheText</div>"
-  ],
-  [
-    "two text children side by side",
-    "<div>firstTextChildValuesecondTextChild</div>"
-  ],
-  [
-    "nested fragments",
-    "<><>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</></>"
-  ],
-  [
-    "self-closing child",
-    "<div>Hello there, <Avatar />!</div>"
-  ],
-  [
-    "opening tag alone exceeds the width",
-    "<section className=\"someRatherLongAttributeValueHere\">Hello there, {visitorName}</section>"
-  ],
-  [
-    "outer breaks while the inner fits",
-    "<section>{headerContentValue}<span>Hi {visitorName}</span>{footerContentValue}</section>"
-  ]
-]);
+    ["whitespace-only element", "<div> </div>"],
+    [
+      "text with no edge whitespace, which may break",
+      "<div>HelloHelloHelloHelloHelloHelloHello</div>",
+    ],
+    [
+      "text carrying its own newlines",
+      "<div>firstLineOfTheText\nsecondLineOfTheText</div>",
+    ],
+    [
+      "two text children side by side",
+      "<div>firstTextChildValuesecondTextChild</div>",
+    ],
+    [
+      "nested fragments",
+      "<><>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</></>",
+    ],
+    ["self-closing child", "<div>Hello there, <Avatar />!</div>"],
+    [
+      "opening tag alone exceeds the width",
+      '<section className="someRatherLongAttributeValueHere">Hello there, {visitorName}</section>',
+    ],
+    [
+      "outer breaks while the inner fits",
+      "<section>{headerContentValue}<span>Hi {visitorName}</span>{footerContentValue}</section>",
+    ],
+  ]);
   for (const [title, node] of cases) {
     const rendered: string[] = [200, 80, 40, 10].map((printWidth) =>
       jsxChildren(new TsPrinter({ printWidth }).print(node)),
     );
     for (const value of rendered)
-      TestValidator.equals(`${title} preserves independent JSX children`, value, jsxChildren(independent.get(title)!));
+      TestValidator.equals(
+        `${title} preserves independent JSX children`,
+        value,
+        jsxChildren(independent.get(title)!),
+      );
     TestValidator.equals(
       `${title} renders the same at every width`,
       new Set(rendered).size,
@@ -177,8 +178,11 @@ export const test_jsx_whitespace_boundaries = (): void => {
   );
 
   for (const printWidth of [200, 5])
-    TestValidator.equals("childless element matches independent JSX",
-      jsxEmit(new TsPrinter({ printWidth }).print(element("div", []))), jsxEmit("<div></div>"));
+    TestValidator.equals(
+      "childless element matches independent JSX",
+      jsxEmit(new TsPrinter({ printWidth }).print(element("div", []))),
+      jsxEmit("<div></div>"),
+    );
 
   // the positive twin: with nothing to lose at its edges, the text child breaks
   TestValidator.equals(

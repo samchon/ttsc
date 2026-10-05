@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 const qd = () => factory.createToken(SyntaxKind.QuestionDotToken);
@@ -11,8 +11,10 @@ const qd = () => factory.createToken(SyntaxKind.QuestionDotToken);
  * Optional property access `a?.b`, element access `a?.[k]`, call `fn?.()`, and
  * a non-null assertion `a!` within a chain.
  *
- * 1. Optional property, element, call and nonnull chain constructors retain ?. at the intended links.
- * 2. Literal chain spellings independently specify which links are optional without consulting node flags from the implementation.
+ * 1. Optional property, element, call and nonnull chain constructors retain ?. at
+ *    the intended links.
+ * 2. Literal chain spellings independently specify which links are optional
+ *    without consulting node flags from the implementation.
  *
  * @evidence contracts/testing.md#behavioral-verification Optional property, element, call and nonnull chain constructors retain ?. at the intended links.
  * @evidence contracts/testing.md#independent-expectations Literal chain spellings independently specify which links are optional without consulting node flags from the implementation.
@@ -22,7 +24,11 @@ const qd = () => factory.createToken(SyntaxKind.QuestionDotToken);
 export const test_optional_chaining = (): void => {
   TestValidator.equals(
     "non-null continuation of optional access",
-    print(factory.createNonNullChain(factory.createPropertyAccessChain(id("a"), qd(), "b"))),
+    print(
+      factory.createNonNullChain(
+        factory.createPropertyAccessChain(id("a"), qd(), "b"),
+      ),
+    ),
     "a?.b!",
   );
   TestValidator.equals(

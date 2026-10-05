@@ -107,8 +107,16 @@ export async function test_source_maps_reach_the_host_only_for_the_text_they_des
       ) => {
         callbacks += 1;
         assert.equal(_error, null);
-        assert.equal(forwardedContent, content, "loader must preserve every content byte");
-        assert.equal(forwardedMetadata, metadata, "loader must retain metadata identity");
+        assert.equal(
+          forwardedContent,
+          content,
+          "loader must preserve every content byte",
+        );
+        assert.equal(
+          forwardedMetadata,
+          metadata,
+          "loader must retain metadata identity",
+        );
         handed = forwarded;
       },
       ...(sourceMap === undefined ? {} : { sourceMap }),

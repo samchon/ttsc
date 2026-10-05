@@ -5,8 +5,8 @@ import { pathToFileURL } from "node:url";
 
 /**
  * Rewrite a recognized trailing source-map line comment to inline metadata,
- * anchoring native source paths to file URLs while preserving qualified URLs.
- * A supplied single-source anchor overrides its map entry; this is lexical
+ * anchoring native source paths to file URLs while preserving qualified URLs. A
+ * supplied single-source anchor overrides its map entry; this is lexical
  * attribution rather than a check that the referenced source exists.
  *
  * Ttsx runs tsgo-built JavaScript under the ORIGINAL `.ts` source URL. When the
@@ -28,7 +28,6 @@ import { pathToFileURL } from "node:url";
  * @param source - The emitted JavaScript text served under the source URL.
  * @param emittedFile - On-disk path of the emitted `.js`, beside its `.map`.
  * @param sourceFile - Real path of the `.ts` source the emit was built from.
- *
  * @evidence contracts/common.md#principled-implementation Acorn comment boundaries distinguish a real trailing directive from literal contents. Metadata uses supplied lexical anchors; parse failures, non-object maps, invalid index sections and unsupported lexical input retain the source. This is not complete source-map schema validation.
  * @evidence contracts/common.md#clear-and-simple-design The serve boundary coordinates input-equivalent reuse, while helpers separate URL decoding, file reading and source anchoring; external map validity is checked before returning cached JavaScript.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Canonical sibling-map fallback follows compiler emit layout and missing-map removal addresses a dangling reference; no cached filename alone substitutes for current source or map contents.
@@ -219,7 +218,10 @@ function inlineComment(
   return `//# sourceMappingURL=data:application/json;charset=utf-8;base64,${encoded}`;
 }
 
-/** Normalize each embedded map without inventing root-level sources for an index. */
+/**
+ * Normalize each embedded map without inventing root-level sources for an
+ * index.
+ */
 function absolutizeMap(
   map: { sources?: unknown; sourceRoot?: unknown; [key: string]: unknown },
   mapDir: string,

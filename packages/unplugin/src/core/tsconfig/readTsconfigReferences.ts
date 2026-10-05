@@ -12,11 +12,11 @@ import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSepa
  * list is read. A reference is resolved by its spelling alone, as
  * TypeScript-Go's `ResolveConfigFileNameOfProjectReference` resolves it: a path
  * ending in `.json` names that file, and any other path names the
- * `tsconfig.json` inside it. Reference-target existence is never probed, so a referenced
- * config that does not exist yet already has the spelling it will have, and a
- * watcher registered on it sees it appear. An unreadable config or a malformed
- * entry contributes nothing, since the compiler owns the diagnostic for a
- * broken solution.
+ * `tsconfig.json` inside it. Reference-target existence is never probed, so a
+ * referenced config that does not exist yet already has the spelling it will
+ * have, and a watcher registered on it sees it appear. An unreadable config or
+ * a malformed entry contributes nothing, since the compiler owns the diagnostic
+ * for a broken solution.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Only the config's own references are read. String paths preserve declaration

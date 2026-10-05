@@ -89,8 +89,13 @@ function spawnGoToolProcess(
   );
   if (!resolved.wrapper) {
     const nativeArgs = [...args];
-    return E2ETrace.synchronous(goBinary, nativeArgs, options, "windows-go-tool",
-      () => spawnSync(goBinary, nativeArgs, options));
+    return E2ETrace.synchronous(
+      goBinary,
+      nativeArgs,
+      options,
+      "windows-go-tool",
+      () => spawnSync(goBinary, nativeArgs, options),
+    );
   }
   // Supply the install-guidance ENOENT result when no regular wrapper candidate
   // was selected, before cmd.exe becomes the actual child. Candidate stat
@@ -101,26 +106,32 @@ function spawnGoToolProcess(
     return missingGoTool(goBinary, args);
   }
   const shim = createWindowsGoCommandShim([resolved.location, ...args]);
-  const command = GoToolResolution.readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ??
-      GoToolResolution.readWindowsEnvironmentValue(process.env, "COMSPEC") ??
-      "cmd.exe";
+  const command =
+    GoToolResolution.readWindowsEnvironmentValue(inheritedEnv, "COMSPEC") ??
+    GoToolResolution.readWindowsEnvironmentValue(process.env, "COMSPEC") ??
+    "cmd.exe";
   const commandArgs = windowsGoCommandArgs(shim.payload);
-  const trace = E2ETrace.begin(command, commandArgs, options, "windows-go-wrapper");
+  const trace = E2ETrace.begin(
+    command,
+    commandArgs,
+    options,
+    "windows-go-wrapper",
+  );
   const result = spawnSync(command, commandArgs, {
-      ...options,
-      env: { ...inheritedEnv, ...shim.environment },
-      shell: false,
-      // The /c payload is already one fully quoted Windows command line.
-      windowsVerbatimArguments: true,
-    });
+    ...options,
+    env: { ...inheritedEnv, ...shim.environment },
+    shell: false,
+    // The /c payload is already one fully quoted Windows command line.
+    windowsVerbatimArguments: true,
+  });
   E2ETrace.result(trace, result);
   return result;
 }
 
 /**
- * Construct a no-process ENOENT-shaped result for unavailable wrapper selection.
- * Errno comes from Node's system-error map; this is not a recorded native spawn
- * failure proving the wrapper's exact absence/permission cause.
+ * Construct a no-process ENOENT-shaped result for unavailable wrapper
+ * selection. Errno comes from Node's system-error map; this is not a recorded
+ * native spawn failure proving the wrapper's exact absence/permission cause.
  */
 function missingGoTool(
   goBinary: string,

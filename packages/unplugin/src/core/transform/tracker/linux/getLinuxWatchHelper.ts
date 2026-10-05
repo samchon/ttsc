@@ -13,9 +13,9 @@ import { routeLinuxWatchHelperLine } from "./routeLinuxWatchHelperLine";
  * The helper is the `__watch` command of ttsc's platform binary, found by
  * ttsc's own rules (`ttsc/binary`), so it always comes from the binary ttsc
  * itself uses. It owns one inotify instance and forwards the kernel's queue
- * overflow notice, which libuv discards. Readiness and ordered sync qualify
- * the native notification scope; helper construction alone proves no input.
- * When the helper exits, every subscription ends and every sync is released
+ * overflow notice, which libuv discards. Readiness and ordered sync qualify the
+ * native notification scope; helper construction alone proves no input. When
+ * the helper exits, every subscription ends and every sync is released
  * unanswered, so each watch's observer stops vouching for anything; the next
  * watch starts a new helper. A binary that exits before the decoder receives
  * parsed object output is not tried again. Output receipt is separate from a

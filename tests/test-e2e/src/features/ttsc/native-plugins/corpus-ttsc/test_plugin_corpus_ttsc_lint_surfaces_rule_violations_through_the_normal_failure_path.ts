@@ -24,8 +24,8 @@ import {
  * 1. Copy the `lint-violations` fixture (which contains `// expect:` comments).
  * 2. Run ttsc with `--noEmit`.
  * 3. Assert non-zero exit, that every annotated violation appears in stderr, that
- *    no unannotated parsed banner appears, and that `[no-non-null-assertion]` (the
- *    `off` rule) is absent.
+ *    no unannotated parsed banner appears, and that `[no-non-null-assertion]`
+ *    (the `off` rule) is absent.
  *
  * @evidence contracts/testing.md#behavioral-verification ttsc --noEmit returns failure and matches every parsed fixture rule/severity/line expectation in both directions while the off rule stays absent.
  * @evidence contracts/testing.md#independent-expectations Authored expect comments and lint config establish the rule, severity and source line before diagnostics run; the expected set is not derived from stderr.
@@ -55,7 +55,11 @@ export const test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_n
     // must match the line we annotated.
     const sourcePath = path.join(root, "src", "main.ts");
     const expected = parseExpectations(sourcePath);
-    assert.equal(expected.length, 8, "expected the complete authored lint annotation population");
+    assert.equal(
+      expected.length,
+      8,
+      "expected the complete authored lint annotation population",
+    );
     const got = parseDiagnostics(result.stderr, sourcePath);
 
     // 1. No diagnostic is missing.

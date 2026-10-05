@@ -14,8 +14,8 @@ import { runTtsc } from "../../../../../packages/ttsc/src/launcher/internal/runT
  *
  * 1. Query canonical, mixed-case and project-alias arguments with explicit roots.
  * 2. Require independently authored path fields for each successful query.
- * 3. Reject attached/spaced JSON values and unsupported/unknown options with
- *    their literal errors, restoring captured streams and environment afterward.
+ * 3. Reject attached/spaced JSON values and unsupported/unknown options with their
+ *    literal errors, restoring captured streams and environment afterward.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual runTtsc and its private parseCachePathsArgs, project resolver and cache report operation. Three accepted argv lists require status zero and literal cwd/project/cache/plugin/Go roots plus required, cacheable and accelerator arrays. Four invalid lists require status two, empty stdout and exact stderr.
  * @evidence contracts/testing.md#independent-expectations Expected path components, source provenance and complete error messages are authored literals from the cache command contract; one command's report is never used as another's oracle.
@@ -23,7 +23,9 @@ import { runTtsc } from "../../../../../packages/ttsc/src/launcher/internal/runT
  * @evidence contracts/testing.md#execution-ownership This direct source unit uses a temporary resolver input and synchronous stream capture, spawns no command and builds no artifact. The E2E compiler corpus retains the real public cache command boundary; lexical refusals and report values belong here.
  */
 export function test_cache_paths_dispatch_preserves_schema_and_reported_roots(): void {
-  const allocated = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-cache-source-"));
+  const allocated = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-cache-source-"),
+  );
   const envKeys = ["TTSC_CACHE_DIR", "TTSC_GO_CACHE_DIR", "GOCACHE"] as const;
   const previous = new Map(envKeys.map((key) => [key, process.env[key]]));
   const writeOut = process.stdout.write;
@@ -51,15 +53,27 @@ export function test_cache_paths_dispatch_preserves_schema_and_reported_roots():
     fs.writeFileSync(path.join(root, "tsconfig.json"), '{"include":["src"]}');
     fs.writeFileSync(path.join(root, "pnpm-workspace.yaml"), "packages: []\n");
     fs.mkdirSync(path.join(root, "src"));
-    fs.writeFileSync(path.join(root, "src", "main.ts"), "export const value = 1;\n");
+    fs.writeFileSync(
+      path.join(root, "src", "main.ts"),
+      "export const value = 1;\n",
+    );
     process.env.TTSC_CACHE_DIR = "";
     process.env.GOCACHE = "";
     const goRoot = path.join(root, "go-cache");
     process.env.TTSC_GO_CACHE_DIR = goRoot;
     for (const [argv, cacheRoot] of [
-      [["--json", "--cwd", root, "--cache-dir", ".cache"], path.join(root, ".cache")],
-      [["--JSON", "--Cwd", root, "--CACHE-DIR", ".cache"], path.join(root, ".cache")],
-      [["--JSON", "--CWD", root, "-P", "tsconfig.json"], path.join(root, "node_modules", ".cache", "ttsc")],
+      [
+        ["--json", "--cwd", root, "--cache-dir", ".cache"],
+        path.join(root, ".cache"),
+      ],
+      [
+        ["--JSON", "--Cwd", root, "--CACHE-DIR", ".cache"],
+        path.join(root, ".cache"),
+      ],
+      [
+        ["--JSON", "--CWD", root, "-P", "tsconfig.json"],
+        path.join(root, "node_modules", ".cache", "ttsc"),
+      ],
     ] as const) {
       stdout = stderr = "";
       check(argv, () => {
@@ -82,7 +96,10 @@ export function test_cache_paths_dispatch_preserves_schema_and_reported_roots():
       [["--json=true"], "ttsc: --json does not take a value\n"],
       [["--json", "false"], 'ttsc: cache paths does not support "false"\n'],
       [["--binary", "tsgo"], 'ttsc: cache paths does not support "--binary"\n'],
-      [["--not-a-real-cache-option"], 'ttsc: cache paths does not support "--not-a-real-cache-option"\n'],
+      [
+        ["--not-a-real-cache-option"],
+        'ttsc: cache paths does not support "--not-a-real-cache-option"\n',
+      ],
     ] as const) {
       stdout = stderr = "";
       check(argv, () => {
@@ -97,7 +114,13 @@ export function test_cache_paths_dispatch_preserves_schema_and_reported_roots():
     for (const [key, value] of previous)
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
-    fs.rmSync(allocated, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    fs.rmSync(allocated, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+      retryDelay: 100,
+    });
   }
-  if (failures.length) throw new AggregateError(failures, "cache dispatcher source cases failed");
+  if (failures.length)
+    throw new AggregateError(failures, "cache dispatcher source cases failed");
 }

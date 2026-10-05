@@ -33,11 +33,11 @@ func (p *linkedPluginProbe) ApplyProgram(_ *driver.Program, ctx driver.PluginCon
 // used, so the case does not distinguish pairing by order from any other
 // one-to-one pairing.
 //
-// 1. Register a probe that implements both linked plugin hooks.
-// 2. Load a real Program with one linked plugin manifest entry.
-// 3. Assert the source preamble was returned, ApplyProgram ran once, and both
-//    hooks received the Program's cwd, the tsconfig name and that entry's name
-//    and config.
+//  1. Register a probe that implements both linked plugin hooks.
+//  2. Load a real Program with one linked plugin manifest entry.
+//  3. Assert the source preamble was returned, ApplyProgram ran once, and both
+//     hooks received the Program's cwd, the tsconfig name and that entry's name
+//     and config.
 //
 // @evidence contracts/testing.md#behavioral-verification LoadProgram returns the probe preamble and ApplyLinkedPlugins calls its hook once with two captured contexts containing cwd, tsconfig, manifest name and answer.
 // @evidence contracts/testing.md#independent-expectations The registered probe and literal manifest whatever/answer 42 establish the expected hook effects and context fields.

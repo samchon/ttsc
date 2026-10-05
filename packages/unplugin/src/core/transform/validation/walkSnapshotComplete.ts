@@ -5,10 +5,10 @@
  * that no compiled input consumed. Such a file can fail its own bracketed read
  * while every declared input holds still. A validating walk may already limit
  * those reads to declared keys. Attributable failure outside that population
- * does not establish that the generation changed. A walk that could not enumerate
- * a directory, or a file-level failure this snapshot could not attribute to a
- * key, still taints everything: neither can be shown to leave the inputs
- * alone.
+ * does not establish that the generation changed. A walk that could not
+ * enumerate a directory, or a file-level failure this snapshot could not
+ * attribute to a key, still taints everything: neither can be shown to leave
+ * the inputs alone.
  *
  * @evidence contracts/common.md#principled-implementation Global directory incompleteness taints all inputs, while attributable unstable files taint a declared generation only when their keys belong to its required population.
  * @evidence contracts/common.md#clear-and-simple-design One predicate separates enumeration coherence from file-level coherence without duplicating the filesystem walk.

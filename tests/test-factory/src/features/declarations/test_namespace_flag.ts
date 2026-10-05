@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags, SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  NodeFlags,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { id, mod, num, print } from "../../internal/helpers";
 
 /**
@@ -12,8 +15,10 @@ import { id, mod, num, print } from "../../internal/helpers";
  * `createModuleDeclaration` documented the opposite, so the package
  * contradicted itself and the published input did nothing (#834).
  *
- * 1. Build an exported identifier-named module App containing `const x = 1;`, pass NodeFlags.Namespace to createModuleDeclaration and print it.
- * 2. Compare against the literal `export namespace App` declaration with a two-space indented body.
+ * 1. Build an exported identifier-named module App containing `const x = 1;`, pass
+ *    NodeFlags.Namespace to createModuleDeclaration and print it.
+ * 2. Compare against the literal `export namespace App` declaration with a
+ *    two-space indented body.
  *
  * @evidence contracts/testing.md#behavioral-verification createModuleDeclaration with NodeFlags.Namespace and an identifier name is printed by TsPrinter.print with the namespace keyword.
  * @evidence contracts/testing.md#independent-expectations The literal three-line `export namespace App` block containing `const x = 1;` is authored from TypeScript syntax and the flag contract in the doc comment, not captured from the printer.

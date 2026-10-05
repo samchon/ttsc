@@ -54,10 +54,16 @@ func TestUserSourceFilesExcludeImportedDeclarationsAndJavaScript(t *testing.T) {
   for _, file := range prog.tsProgram.SourceFiles() {
     name := filepath.ToSlash(filepath.Clean(file.FileName()))
     for expected := range imported {
-      if name == filepath.ToSlash(filepath.Join(root, expected)) { imported[expected]++ }
+      if name == filepath.ToSlash(filepath.Join(root, expected)) {
+        imported[expected]++
+      }
     }
   }
-  for name, count := range imported { if count != 1 { t.Fatalf("upstream Program must actually read excluded import %s exactly once, got %d", name, count) } }
+  for name, count := range imported {
+    if count != 1 {
+      t.Fatalf("upstream Program must actually read excluded import %s exactly once, got %d", name, count)
+    }
+  }
 
   names := make([]string, 0)
   for _, file := range prog.userSourceFiles() {

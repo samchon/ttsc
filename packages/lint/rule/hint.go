@@ -62,7 +62,7 @@ type HintTrigger struct {
   Scope HintScope `json:"scope"`
 
   // After is the literal prefix whose following text is replaced.
-  After string    `json:"after"`
+  After string `json:"after"`
 }
 
 // Hint is one completion an editor may offer.

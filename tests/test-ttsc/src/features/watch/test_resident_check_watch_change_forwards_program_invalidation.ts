@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
 import { residentCheckRequest } from "../../../../../packages/ttsc/src/compiler/internal/build/residentCheckRequest";
 import { PendingResidentCheckWatchChanges } from "../../../../../packages/ttsc/src/launcher/internal/PendingResidentCheckWatchChanges";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies classified watch changes survive coalescing and wire conversion.
@@ -50,7 +50,11 @@ export const test_resident_check_watch_change_forwards_program_invalidation =
         changed: [json, markdown].sort(),
         external: [json, markdown].sort(),
       });
-      assert.deepEqual(pending.take(), {}, "taking a cycle must drain its state");
+      assert.deepEqual(
+        pending.take(),
+        {},
+        "taking a cycle must drain its state",
+      );
 
       pending.push({ kind: "project", path: json });
       assert.deepEqual(

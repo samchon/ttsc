@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, print, ref } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, kw, print, ref } from "../../internal/helpers";
  * `as`, `satisfies`, non-null `!`, spread `...`, `await`, value-space `typeof`,
  * and a parenthesized expression.
  *
- * 1. As, satisfies, nonnull, spread, await, typeof and explicit parentheses retain their token syntax.
- * 2. The individual literal sources independently fix the supplied type/expression and operator markers.
+ * 1. As, satisfies, nonnull, spread, await, typeof and explicit parentheses retain
+ *    their token syntax.
+ * 2. The individual literal sources independently fix the supplied type/expression
+ *    and operator markers.
  *
  * @evidence contracts/testing.md#behavioral-verification As, satisfies, nonnull, spread, await, typeof and explicit parentheses retain their token syntax.
  * @evidence contracts/testing.md#independent-expectations The individual literal sources independently fix the supplied type/expression and operator markers.

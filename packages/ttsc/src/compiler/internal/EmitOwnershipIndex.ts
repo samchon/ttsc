@@ -88,8 +88,9 @@ export class EmitOwnershipIndex {
       props.outputs === undefined
         ? undefined
         : new Set(
-            props.outputs.map((file) =>
-              outputIdentity.resolve(path.resolve(this.emitDir, file)).key,
+            props.outputs.map(
+              (file) =>
+                outputIdentity.resolve(path.resolve(this.emitDir, file)).key,
             ),
           );
     const accounted = new Set<string>();

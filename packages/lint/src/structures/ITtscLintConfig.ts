@@ -1,7 +1,7 @@
 import type { ITtscLintPlugin } from "./ITtscLintPlugin";
 import type { ITtscLintFormat } from "./format/ITtscLintFormat";
-import type { TtscLintContributorOverlay } from "./rules/TtscLintContributorOverlay";
 import type { ITtscLintRules } from "./rules/ITtscLintRules";
+import type { TtscLintContributorOverlay } from "./rules/TtscLintContributorOverlay";
 
 /**
  * Top-level object accepted by `@ttsc/lint` config files.
@@ -9,13 +9,12 @@ import type { ITtscLintRules } from "./rules/ITtscLintRules";
  * Keep the file shape plain: users export an object and use `satisfies
  * ITtscLintConfig` when they want type checking. A config that uses typed
  * contributor rules passes the contributor's published rule interface, or an
- * intersection of several, as the generic argument:
- * `satisfies ITtscLintConfig<IDemoLintRules>`.
+ * intersection of several, as the generic argument: `satisfies
+ * ITtscLintConfig<IDemoLintRules>`.
  *
  * @typeParam TContributors - Contributor rule interfaces whose rules receive
- *   exact option checking; see {@link TtscLintContributorOverlay}. Omitted, every
- *   contributor rule keeps the open `unknown`-options fallback.
- *
+ *   exact option checking; see {@link TtscLintContributorOverlay}. Omitted,
+ *   every contributor rule keeps the open `unknown`-options fallback.
  * @evidence contracts/common.md#principled-implementation Optional selection, inheritance, formatting and rule fields represent one flat-config entry; the host folds entries in order.
  * @evidence contracts/common.md#clear-and-simple-design One interface owns the entry shape while rule and formatter schemas remain in their respective types.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration choices remain declared fields rather than consumer-specific branches or foreign mutations.
@@ -34,8 +33,8 @@ export interface ITtscLintConfig<
   /**
    * Globs that exclude files from linting.
    *
-   * When `files` contains patterns, the ignores only refine that selection
-   * (the entry's rules skip the matched files). Without a nonempty `files`
+   * When `files` contains patterns, the ignores only refine that selection (the
+   * entry's rules skip the matched files). Without a nonempty `files`
    * restriction, including `files: []`, the ignores are global: the matched
    * files are excluded from every rule in the resolved config, including rules
    * inherited through `extends`.

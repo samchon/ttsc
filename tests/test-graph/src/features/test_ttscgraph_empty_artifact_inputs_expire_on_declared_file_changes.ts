@@ -60,9 +60,17 @@ export function test_ttscgraph_empty_artifact_inputs_expire_on_declared_file_cha
     );
     for (const file of [config, manifest]) {
       fs.writeFileSync(file, '{"changed":true}');
-      assert.equal(artifactsAreStale(resolved), true, `${file} must expire reuse`);
+      assert.equal(
+        artifactsAreStale(resolved),
+        true,
+        `${file} must expire reuse`,
+      );
       resolved.fingerprint = fingerprintInputs(inputs);
-      assert.equal(artifactsAreStale(resolved), false, `${file} updated baseline`);
+      assert.equal(
+        artifactsAreStale(resolved),
+        false,
+        `${file} updated baseline`,
+      );
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

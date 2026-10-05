@@ -27,12 +27,14 @@ import { spawnNative } from "./spawnNative";
  *
  * A separate observed safety tokenizer checks response frames before reporting
  * flags are appended; the native compiler still owns expansion and value
- * validation. Inspection uses the caller-provided child environment when supplied.
+ * validation. Inspection uses the caller-provided child environment when
+ * supplied.
  *
  * Native shown properties remain authoritative, including paths and enums.
  * Reporting booleans omitted from showConfig retain their observed ordered
- * response assignments or configured boolean; an explicit null is still present.
- * Other omissions remain undefined rather than reviving a configured value.
+ * response assignments or configured boolean; an explicit null is still
+ * present. Other omissions remain undefined rather than reviving a configured
+ * value.
  *
  * Visible arguments share one native-frame projection. Enum discriminants
  * follow their origin: CLI values are trimmed before lookup, while config

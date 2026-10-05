@@ -9,7 +9,8 @@ import { TestProject } from "../../../utils/src/TestProject";
  * Verifies model and field citation comments reach their own payload intact.
  *
  * A joined two-line model comment must remain separate from the single-line
- * price comment. The existing prose-only fixture does not exercise these bytes.
+ * price comment. The existing prose-only fixture does not exercise these
+ * bytes.
  *
  * 1. Parse the original model and column citation-comment schema.
  * 2. Require one model and the documented price field with exact comment text.
@@ -21,21 +22,39 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership Matching src/features export directly invokes maintained TypeScript source and the WASM parser in the same unit process. No consumer installation, native build or product child occurs. Admission blocks dependent payload checks; independent documentation checks and exact-root removal/absence failures are collected. Runtime and census require separate verification.
  */
 export async function test_prisma_source_loader_preserves_original_documentation(): Promise<void> {
-  const { loadPrismaModels } = createRequire(import.meta.url)(fileURLToPath(new URL(
-    "../../../../packages/evidence/src/internal/loadPrismaModels.ts", import.meta.url,
-  ))) as {
-    loadPrismaModels(request: { root: string; sets: Array<{ id: string; files: string[] }> }): Promise<{
-      documents: Array<{ models: Array<{ documentation: string; fields: Array<{ name: string; documentation: string }> }> }>;
+  const { loadPrismaModels } = createRequire(import.meta.url)(
+    fileURLToPath(
+      new URL(
+        "../../../../packages/evidence/src/internal/loadPrismaModels.ts",
+        import.meta.url,
+      ),
+    ),
+  ) as {
+    loadPrismaModels(request: {
+      root: string;
+      sets: Array<{ id: string; files: string[] }>;
+    }): Promise<{
+      documents: Array<{
+        models: Array<{
+          documentation: string;
+          fields: Array<{ name: string; documentation: string }>;
+        }>;
+      }>;
       problems: unknown[];
     }>;
   };
   const root = TestProject.tmpdir("prisma-original-documentation-");
   const failures: Error[] = [];
   const check = (label: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(label, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(label, { cause }));
+    }
   };
   try {
-    TestProject.writeFiles(root, { "prisma/schema.prisma": `datasource db {
+    TestProject.writeFiles(root, {
+      "prisma/schema.prisma": `datasource db {
   provider = "postgresql"
 }
 
@@ -47,23 +66,38 @@ model Sale {
   /// @evidence docs/spec.md#amounts the amount is stored here
   price Int
 }
-` });
-    const result = await loadPrismaModels({ root, sets: [{ id: "comments", files: ["prisma/schema.prisma"] }] });
+`,
+    });
+    const result = await loadPrismaModels({
+      root,
+      sets: [{ id: "comments", files: ["prisma/schema.prisma"] }],
+    });
     assert.deepEqual(result.problems, []);
     assert.equal(result.documents.length, 1);
     assert.equal(result.documents[0]!.models.length, 1);
     const model = result.documents[0]!.models[0]!;
-    check("model documentation", () => assert.equal(model.documentation,
-      "A sale.\n@evidence docs/spec.md#pricing the sale concept comes from here"));
-    const price = model.fields.find(field => field.name === "price");
+    check("model documentation", () =>
+      assert.equal(
+        model.documentation,
+        "A sale.\n@evidence docs/spec.md#pricing the sale concept comes from here",
+      ),
+    );
+    const price = model.fields.find((field) => field.name === "price");
     check("price exists", () => assert.ok(price));
-    check("price documentation", () => assert.equal(price?.documentation,
-      "@evidence docs/spec.md#amounts the amount is stored here"));
+    check("price documentation", () =>
+      assert.equal(
+        price?.documentation,
+        "@evidence docs/spec.md#amounts the amount is stored here",
+      ),
+    );
   } catch (cause) {
     failures.push(new Error("documentation source load", { cause }));
   } finally {
-    check("cleanup:remove", () => fs.rmSync(root, { recursive: true, force: true }));
+    check("cleanup:remove", () =>
+      fs.rmSync(root, { recursive: true, force: true }),
+    );
     check("cleanup:absence", () => assert.equal(fs.existsSync(root), false));
   }
-  if (failures.length) throw new AggregateError(failures, "Original Prisma documentation failed.");
+  if (failures.length)
+    throw new AggregateError(failures, "Original Prisma documentation failed.");
 }

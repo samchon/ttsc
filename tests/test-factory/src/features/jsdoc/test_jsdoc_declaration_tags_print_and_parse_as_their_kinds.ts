@@ -28,8 +28,16 @@ export const test_jsdoc_declaration_tags_print_and_parse_as_their_kinds =
       factory.createJSDocTypeExpression(kw(kind));
     const block = factory.createJSDocComment("S", [
       factory.createJSDocClassTag(undefined, "c"),
-      factory.createJSDocEnumTag(undefined, type(SyntaxKind.StringKeyword), "e"),
-      factory.createJSDocThisTag(undefined, type(SyntaxKind.ObjectKeyword), "t"),
+      factory.createJSDocEnumTag(
+        undefined,
+        type(SyntaxKind.StringKeyword),
+        "e",
+      ),
+      factory.createJSDocThisTag(
+        undefined,
+        type(SyntaxKind.ObjectKeyword),
+        "t",
+      ),
       factory.createJSDocSatisfiesTag(
         undefined,
         type(SyntaxKind.StringKeyword),

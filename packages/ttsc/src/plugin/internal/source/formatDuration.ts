@@ -1,9 +1,9 @@
 /**
  * Render a millisecond duration for lock diagnostics (`137ms`, `42s`, `9m 3s`).
  *
- * Total over every number: the lock state machine reports "released" instead
- * of an Infinity age, and as defense in depth a non-finite input renders as
- * `an unknown time` so no public diagnostic prints `Infinitym NaNs`.
+ * Total over every number: the lock state machine reports "released" instead of
+ * an Infinity age, and as defense in depth a non-finite input renders as `an
+ * unknown time` so no public diagnostic prints `Infinitym NaNs`.
  *
  * @evidence contracts/common.md#principled-implementation Finite durations are decomposed into milliseconds or whole seconds/minutes; negative short values clamp to zero and nonfinite values use an explicit unknown-duration message.
  * @evidence contracts/common.md#clear-and-simple-design One numeric formatter owns all diagnostic duration spellings without a second lock-state representation.

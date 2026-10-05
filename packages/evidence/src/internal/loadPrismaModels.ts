@@ -214,8 +214,8 @@ const readSet = async (root: string, sources: string[]): Promise<IReadSet> => {
  * current chunk, so retained backing allocations grow with accepted bytes
  * rather than with the number of reads. Each acquired-handle path awaits a
  * close attempt. A close rejection becomes a set problem and may replace a
- * prior read error; a rejected close does not certify resource release.
- * This is a per-file acquisition bound; decoding, parser input and native
+ * prior read error; a rejected close does not certify resource release. This is
+ * a per-file acquisition bound; decoding, parser input and native
  * digest/location reads have separate costs, not a whole-process memory quota.
  */
 const readSchema = async (root: string, source: string): Promise<Buffer> => {

@@ -50,7 +50,8 @@ export interface ITtscParsedProjectConfig {
 
   /**
    * Selected project root from identity resolution: the explicit override when
-   * supplied, otherwise the resolved config directory, after attempted realpath.
+   * supplied, otherwise the resolved config directory, after attempted
+   * realpath.
    */
   root: string;
 }

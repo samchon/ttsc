@@ -38,10 +38,10 @@ func TestContributorRuleReceivesAndReportsConfiguredSeverity(t *testing.T) {
   })
 
   for _, run := range []struct {
-    name     string
-    config   Severity
-    public   publicrule.Severity
-    finding  Severity
+    name    string
+    config  Severity
+    public  publicrule.Severity
+    finding Severity
   }{
     {"warn", SeverityWarn, publicrule.SeverityWarn, SeverityWarn},
     {"error", SeverityError, publicrule.SeverityError, SeverityError},

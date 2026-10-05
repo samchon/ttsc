@@ -13,13 +13,12 @@ const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
  *
  * Lists use the compiler's last-inherited-array rule: a later base declaring
  * null cannot erase an earlier array. Invalid elements are preserved so this
- * overlay does not hide the compiler's configuration diagnostics.
- * The three list searches share decoded sources only within this call; a later
- * call reads current bytes in a fresh transaction.
+ * overlay does not hide the compiler's configuration diagnostics. The three
+ * list searches share decoded sources only within this call; a later call reads
+ * current bytes in a fresh transaction.
  *
  * @param configDir The directory `${configDir}` stands for, as
  *   `readEffectiveTsconfigTemplateCompilerOptions` takes it.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Template-bearing file lists are materialized at the final consumer rather
  *   than the scratch wrapper. Ordinary entries keep their declaring anchors

@@ -14,9 +14,13 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * Whole-field validation would also be wrong — one malformed edge must not
  * discard the sound remainder of the graph.
  *
- * 1. Serialize the shared malformedAdvisory envelope, whose graph carries empty keys, non-list edges, a non-list globals, a non-string config and malformed hash, observation, proof-failure and realpath entries, and whose volatile is not a list.
+ * 1. Serialize the shared malformedAdvisory envelope, whose graph carries empty
+ *    keys, non-list edges, a non-list globals, a non-string config and
+ *    malformed hash, observation, proof-failure and realpath entries, and whose
+ *    volatile is not a list.
  * 2. Decode it with parseNativeTransformOutput, which must not throw.
- * 3. Assert the retained graph deep-equals the literal expected value and volatile is undefined.
+ * 3. Assert the retained graph deep-equals the literal expected value and volatile
+ *    is undefined.
  *
  * @evidence contracts/testing.md#behavioral-verification Decodes mixed graph observations and checks the complete literal retained graph, malformed/conflicting proof-failure reasons and absent malformed volatile section.
  * @evidence contracts/testing.md#independent-expectations Independently authored valid source edges, config path, SHA256-shaped content and missing-state observations define retained values; invalid booleans and mutually true file/directory observations define exact failure reasons.

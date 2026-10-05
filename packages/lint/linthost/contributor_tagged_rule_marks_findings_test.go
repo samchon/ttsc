@@ -1,9 +1,9 @@
 package linthost
 
 import (
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 // TestContributorTaggedRuleMarksFindings verifies a rule.TaggedRule's
@@ -35,7 +35,9 @@ func TestContributorTaggedRuleMarksFindings(t *testing.T) {
   findings := NewEngineWithResolver(InlineRuleResolver{
     Rules: RuleConfig{"demo/tagged": SeverityWarn},
   }).Run([]*shimast.SourceFile{file}, nil)
-  if err := validateSemanticRuleFindings(RuleConfig{"demo/tagged": SeverityWarn}, findings); err != nil { t.Fatal(err) }
+  if err := validateSemanticRuleFindings(RuleConfig{"demo/tagged": SeverityWarn}, findings); err != nil {
+    t.Fatal(err)
+  }
 
   if len(findings) != 1 {
     t.Fatalf("want one finding, got %d", len(findings))
@@ -43,7 +45,9 @@ func TestContributorTaggedRuleMarksFindings(t *testing.T) {
   if len(findings[0].Tags) != 1 || findings[0].Tags[0] != rule.DiagnosticTagUnnecessary {
     t.Fatalf("tag did not reach the finding: %v", findings[0].Tags)
   }
-  if findings[0].Message != "flagged" { t.Fatalf("tagged contributor message lost: %q", findings[0].Message) }
+  if findings[0].Message != "flagged" {
+    t.Fatalf("tagged contributor message lost: %q", findings[0].Message)
+  }
 }
 
 // taggedContributor reports one finding on the first statement it visits and
@@ -66,6 +70,9 @@ func (taggedContributor) Check(ctx *rule.Context, node *shimast.Node) {
 
 // untaggedContributor owns the distinct absence-of-marker control.
 type untaggedContributor struct{}
+
 func (untaggedContributor) Name() string { return "demo/tagged" }
-func (untaggedContributor) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindVariableStatement} }
+func (untaggedContributor) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindVariableStatement}
+}
 func (untaggedContributor) Check(ctx *rule.Context, node *shimast.Node) { ctx.Report(node, "flagged") }

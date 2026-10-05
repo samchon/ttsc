@@ -39,8 +39,8 @@ export namespace DependencyBuildAdmission {
     | { outcome: "abandoned"; reason: string; fence: DependencyBuildLockFence };
 
   /**
-   * Run one builder with a fenced lease, or reuse an accepted publication.
-   * Any acquisition exception invokes the existing uncoordinated build fallback,
+   * Run one builder with a fenced lease, or reuse an accepted publication. Any
+   * acquisition exception invokes the existing uncoordinated build fallback,
    * including failures after partial lock publication; it does not authenticate
    * the namespace or guarantee that no held generation remains. One monotonic
    * budget is checked across attempts and peer turnover, not as a hard deadline
@@ -76,8 +76,12 @@ export namespace DependencyBuildAdmission {
         return build();
       }
       if (lease === null) {
-        const waited = wait(cacheDir, metaPath, lockDir,
-          Math.max(0, timeoutMs - (performance.now() - startedAt)));
+        const waited = wait(
+          cacheDir,
+          metaPath,
+          lockDir,
+          Math.max(0, timeoutMs - (performance.now() - startedAt)),
+        );
         if (waited.outcome === "built") return waited.built;
         if (waited.outcome === "abandoned")
           reclaimDependencyBuildLock(lockDir, waited.fence);
@@ -121,29 +125,35 @@ export namespace DependencyBuildAdmission {
       const lock = inspectDependencyBuildLock(lockDir, Date.now());
       if (lock.state === "released") {
         const built = readDependencyCache(cacheDir, metaPath);
-        return built !== null ? { outcome: "built", built } : { outcome: "released" };
+        return built !== null
+          ? { outcome: "built", built }
+          : { outcome: "released" };
       }
       if (lock.state === "abandoned")
         return { outcome: "abandoned", reason: lock.reason, fence: lock.fence };
       const remaining = timeoutMs - (performance.now() - startedAt);
       if (remaining <= 0) throw timeoutError(timeoutMs);
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0,
-        Math.min(DependencyBuildLockProtocol.DEP_BUILD_LOCK_POLL_MS, remaining));
+      Atomics.wait(
+        new Int32Array(new SharedArrayBuffer(4)),
+        0,
+        0,
+        Math.min(DependencyBuildLockProtocol.DEP_BUILD_LOCK_POLL_MS, remaining),
+      );
     }
   }
 }
 
-/**
- * Expiration limits a contender; it never grants retirement authority.
- */
+/** Expiration limits a contender; it never grants retirement authority. */
 function timeoutError(timeoutMs: number): Error {
-  return new Error(`ttsx: dependency build admission timed out after ${DependencyBuildLockProtocol.formatDuration(timeoutMs)}; the holding generation was not retired`);
+  return new Error(
+    `ttsx: dependency build admission timed out after ${DependencyBuildLockProtocol.formatDuration(timeoutMs)}; the holding generation was not retired`,
+  );
 }
 
-/**
- * Require a finite nonnegative admission budget before polling.
- */
+/** Require a finite nonnegative admission budget before polling. */
 function assertWaitBudget(timeoutMs: number): void {
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0)
-    throw new RangeError("ttsx: dependency build admission budget must be finite and nonnegative");
+    throw new RangeError(
+      "ttsx: dependency build admission budget must be finite and nonnegative",
+    );
 }

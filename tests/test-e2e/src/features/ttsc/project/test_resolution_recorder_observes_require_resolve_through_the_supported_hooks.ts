@@ -1,12 +1,13 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import path from "node:path";
 
 import { RuntimeLoaderCapabilities } from "../../../../../../packages/ttsc/lib/launcher/internal/runtime/RuntimeLoaderCapabilities.js";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies the shared resolution recorder records a `require.resolve` a config
@@ -16,9 +17,9 @@ import { RuntimeLoaderCapabilities } from "../../../../../../packages/ttsc/lib/l
  * to record resolutions a resolve hook missed (samchon/ttsc#1523). A resolve
  * hook sees every `import` and `require()`; only `require.resolve` bypasses it,
  * and only on some releases. The maintained recorder uses the public hook and
- * marks observations incomplete when its capability probe cannot establish
- * that `require.resolve` consults it. This historical test still expects a
- * private wrapper on that branch; the supported survivor is recorded below.
+ * marks observations incomplete when its capability probe cannot establish that
+ * `require.resolve` consults it. This historical test still expects a private
+ * wrapper on that branch; the supported survivor is recorded below.
  *
  * 1. In a child process, create a recorder and let it observe resolutions.
  * 2. Resolve a present file and a missing candidate through `require.resolve`.
@@ -38,7 +39,10 @@ import { RuntimeLoaderCapabilities } from "../../../../../../packages/ttsc/lib/l
 export const test_resolution_recorder_observes_require_resolve_through_the_supported_hooks =
   () => {
     const allocatedRoot = TestProject.tmpdir("ttsc-recorder-require-resolve-");
-    TestProject.retainTemporaryDirectory(allocatedRoot, "Resolution observer descendants are not joined");
+    TestProject.retainTemporaryDirectory(
+      allocatedRoot,
+      "Resolution observer descendants are not joined",
+    );
     const root = fs.realpathSync.native(allocatedRoot);
     fs.writeFileSync(path.join(root, "present.js"), "module.exports = 1;\n");
     const recorder = path.resolve(

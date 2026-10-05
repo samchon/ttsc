@@ -5,7 +5,7 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 /**
  * Record a module after admitted output selection and watch notification.
  *
- * transformTtsc also marks an admitted missing-output return, then hands the
+ * TransformTtsc also marks an admitted missing-output return, then hands the
  * source back unchanged. For actual output it marks before constructing the
  * final host value; this is a generation validation checkpoint, not a guarantee
  * that downstream result construction or the host's delivery completed.

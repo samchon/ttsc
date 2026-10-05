@@ -1,9 +1,9 @@
 import { TestProject } from "@ttsc/testing";
-import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 
@@ -75,9 +75,8 @@ export function test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_togeth
   assert.match(dts, /import\("\.\/modules\/message\.js"\)/);
   assert.doesNotMatch(dts, /@lib\/join|exact-message/);
   assert.equal(
-    JSON.parse(
-      fs.readFileSync(path.join(root, "dist", "main.js.map"), "utf8"),
-    ).version,
+    JSON.parse(fs.readFileSync(path.join(root, "dist", "main.js.map"), "utf8"))
+      .version,
     3,
   );
   assert.equal(

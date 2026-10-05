@@ -30,10 +30,10 @@ import { refreshFilesystemClockReference } from "./refreshFilesystemClockReferen
  * (`userStateDirectory`), whose provider rechecks the native layout on each
  * call; the probe is rewritten in place. A later session attempts to reclaim
  * dead-process entries when it scans that state root. The main thread registers
- * best-effort exit removal for its first successfully obtained directory. Worker
- * threads share the process id and so the directory: a probe another thread
- * rewrites between this one's write and its read is still a stamp minted before
- * this proof reads.
+ * best-effort exit removal for its first successfully obtained directory.
+ * Worker threads share the process id and so the directory: a probe another
+ * thread rewrites between this one's write and its read is still a stamp minted
+ * before this proof reads.
  *
  * Minting is an optimization's precondition, never a requirement. When the
  * directory cannot be had, either physical address cannot be resolved, or the
@@ -42,7 +42,6 @@ import { refreshFilesystemClockReference } from "./refreshFilesystemClockReferen
  *
  * @param root The project or source the probe must lie outside.
  * @param filesystem The operations whose references the proof judges against.
- *
  * @evidence contracts/common.md#principled-implementation Detached proofs mint a fresh reference in a process-owned directory outside the observed root; unavailable or inside-root storage clears reference authority instead.
  * @evidence contracts/common.md#clear-and-simple-design The operation selects process storage then delegates the actual mint to the same reference writer used by generations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No process timestamp substitutes for a filesystem stamp, and failure preserves real content comparison without writing into the user's source tree.

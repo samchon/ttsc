@@ -12,6 +12,7 @@ import { fetchNpmMetadata } from "../../../../packages/playground/src/npm/intern
  * 1. Return controlled response streams for an optional 404 and a hard 500.
  * 2. Exercise the skip and rejection paths without reading either body.
  * 3. Assert both streams are cancelled exactly once.
+ *
  * @evidence contracts/testing.md#behavioral-verification fetchNpmMetadata skips an optional404 as null and rejects required500 with status context, cancelling each unused response body exactly once.
  * @evidence contracts/testing.md#independent-expectations ReadableStream cancel callbacks independently count resource release; literal null/status500 and count1 derive from optional-absence versus hard-error contracts rather than helper internals.
  * @evidence contracts/testing.md#distinguishing-cases The two scenario rows differ in optionality and response status, retaining separate skip/reject assertions and stream counters without reading the rejected bodies.

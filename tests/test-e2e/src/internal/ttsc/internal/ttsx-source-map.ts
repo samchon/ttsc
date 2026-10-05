@@ -118,11 +118,10 @@ export function runTtsxWithCoverage(
   spawn: typeof TestProject.spawn = TestProject.spawn,
   coverageDir: string = TestProject.tmpdir("ttsx-v8-coverage-"),
 ): CoverageRun {
-  const result = spawn(
-    TestProject.TTSX_BIN,
-    ["--cwd", root, entry],
-    { cwd: root, env: { ...env, NODE_V8_COVERAGE: coverageDir } },
-  );
+  const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, entry], {
+    cwd: root,
+    env: { ...env, NODE_V8_COVERAGE: coverageDir },
+  });
   const scripts = readCoverageScripts(coverageDir);
   return {
     status: result.status,

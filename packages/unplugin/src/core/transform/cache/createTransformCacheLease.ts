@@ -22,14 +22,14 @@ const RELEASE_GRACE_MS = 2_000;
  * compilers, each ran a session of their own over the same program, and each
  * one discarded the generation at its end, so the next compiled the whole
  * project again. The cache can retain generation data and clock probes;
- * generation capture decides whether notification handles are retained.
- * When the last session releases it, the lease keeps it for a short grace.
- * A session acquired within that grace opens its
- * own delivery pass, and the pass's first delivery proves the kept generation
- * against the filesystem. The grace callback resets a cache still unowned
- * when it runs; event-loop scheduling is not a wall-clock cleanup deadline.
- * Optional registry hooks observe acquisition and final idle reclamation;
- * they do not change the generation's validation or the lease's owner count.
+ * generation capture decides whether notification handles are retained. When
+ * the last session releases it, the lease keeps it for a short grace. A session
+ * acquired within that grace opens its own delivery pass, and the pass's first
+ * delivery proves the kept generation against the filesystem. The grace
+ * callback resets a cache still unowned when it runs; event-loop scheduling is
+ * not a wall-clock cleanup deadline. Optional registry hooks observe
+ * acquisition and final idle reclamation; they do not change the generation's
+ * validation or the lease's owner count.
  *
  * @evidence contracts/common.md#principled-implementation Active-session counting prevents premature reset, and final release schedules a grace timer whose callback rechecks ownership before resetting the generation.
  * @evidence contracts/common.md#clear-and-simple-design One counter and one pending timer represent active ownership and the between-session grace; reacquisition cancels that timer.

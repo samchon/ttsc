@@ -23,7 +23,11 @@ export class TtscLintDaemonState {
   private failed = false;
   private closing: Promise<void> | undefined;
 
-  public constructor(private readonly open: (events: TtscGraphLinePeer.Events) => TtscGraphLinePeer.Connection) {}
+  public constructor(
+    private readonly open: (
+      events: TtscGraphLinePeer.Events,
+    ) => TtscGraphLinePeer.Connection,
+  ) {}
 
   /**
    * Ask one verb and return its raw JSON, or `null` when this daemon cannot
@@ -83,18 +87,18 @@ export class TtscLintDaemonState {
     verb: string,
     invalidate: boolean,
   ): Promise<string | null> {
-    if (this.failed) { await this.closing; return null; }
+    if (this.failed) {
+      await this.closing;
+      return null;
+    }
     const child = this.start();
     if (child === undefined) return null;
     const reply = await new Promise<IReply | null>((resolve) => {
       this.pending.push(resolve);
-      child.write(
-        `${JSON.stringify({ invalidate, verb })}\n`,
-        (error) => {
-          if (error === null || error === undefined) return;
-          this.fail();
-        },
-      );
+      child.write(`${JSON.stringify({ invalidate, verb })}\n`, (error) => {
+        if (error === null || error === undefined) return;
+        this.fail();
+      });
     });
     if (reply === null || reply.code !== 0) {
       // A nonzero code is the sidecar declining, and this client cannot tell

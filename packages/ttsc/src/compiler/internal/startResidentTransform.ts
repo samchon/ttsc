@@ -9,6 +9,7 @@ import type { StartedResidentTransform } from "./StartedResidentTransform";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import { assertSharedHostCompatibility } from "./sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "./sharedHost/clearInheritedSemanticConfigPath";
 import { clearInheritedTsgoArgs } from "./sharedHost/clearInheritedTsgoArgs";
@@ -17,7 +18,6 @@ import { linkedTransformPlugins } from "./sharedHost/linkedTransformPlugins";
 import { publishLinkedTransformPlugins } from "./sharedHost/publishLinkedTransformPlugins";
 import { resolvePluginConfigDir } from "./sharedHost/resolvePluginConfigDir";
 import { selectSharedHostPlugin } from "./sharedHost/selectSharedHostPlugin";
-import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 
 /**
  * Start a resident `serve` host for the configured project.
@@ -39,12 +39,9 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  * host rather than reusing a process built for the previous selection.
  *
  * @param context Project/plugin selection, environment and executable anchors.
- *
  * @returns A resident client and the project root passed to its native host.
- *
  * @throws On synchronous setup failures or an unsupported plugin population.
  *   Asynchronous spawn, compilation and transport failures reach the client.
- *
  * @evidence contracts/common.md#principled-implementation The configured transform population selects one compatible compiler owner, and its serve protocol owns project-relative replies; linked libraries execute within that owner's Program, while custom executable owners must supply the same protocol.
  * @evidence contracts/common.md#clear-and-simple-design Startup resolves project, plugin ownership, compiler and environment before acquiring the child, then returns the process together with its project anchor.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing transforms and conflicting executable owners are setup errors; the selected host is not guessed from a plugin name or rescued through a different compiler after an incompatible selection.

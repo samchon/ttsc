@@ -11,11 +11,10 @@ import { buildSourcePlugin } from "../../plugin/internal/source/buildSourcePlugi
  * The host is the `cmd/ttsc` Go entrypoint compiled with `buildSourcePlugin`.
  * The cache key incorporates the ttsc package version and the full `go.mod`
  * contents as supplemental cache tokens. Actual source and selected toolchain
- * identity are established by the owning builder; metadata labels alone do
- * not certify every toolchain upgrade.
+ * identity are established by the owning builder; metadata labels alone do not
+ * certify every toolchain upgrade.
  *
  * @returns Absolute path to the compiled host executable.
- *
  * @evidence contracts/common.md#principled-implementation The compiler host is the package's cmd/ttsc Go source built by the same source-plugin artifact owner; package version and full module text supplement that owner's source and environment identity.
  * @evidence contracts/common.md#clear-and-simple-design This adapter supplies the host source, cache anchor and version tokens while buildSourcePlugin owns compilation, locking and artifact admission.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Version read fallbacks label unavailable metadata; they do not replace the owning builder's actual source/environment proof or synthesize a binary path.

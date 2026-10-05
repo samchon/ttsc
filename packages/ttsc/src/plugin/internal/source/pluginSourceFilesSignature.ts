@@ -15,16 +15,15 @@ import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
  * removed or renamed changes the selected population, while content-write
  * detection relies on the owner's reported metadata and separability premises.
  * The signature itself does not read content or certify arbitrary metadata
- * restoration. What metadata/separability proves is the host's to answer,
- * since only the host owns a clock reference on the filesystem it
- * observes (`evidence`). The file list is ttsc's, so every host signs exactly
- * what the build keys on: `@ttsc/unplugin` keeps a digest
- * per delivery this way, and the capability-resolution cache across processes.
+ * restoration. What metadata/separability proves is the host's to answer, since
+ * only the host owns a clock reference on the filesystem it observes
+ * (`evidence`). The file list is ttsc's, so every host signs exactly what the
+ * build keys on: `@ttsc/unplugin` keeps a digest per delivery this way, and the
+ * capability-resolution cache across processes.
  *
  * @param directory The plugin source directory, absolute.
  * @param evidence One file's metadata signature and separability, or
  *   `undefined` when it cannot be stated.
- *
  * @evidence contracts/common.md#principled-implementation Each selected file's relative path and caller-supplied metadata enter the signature, while all separability flags must hold; absent metadata rejects the proof rather than pretending an unreadable file is unchanged.
  * @evidence contracts/common.md#clear-and-simple-design The shared file population stays with ttsc while the observing owner supplies filesystem stamps and its clock-based separability judgment.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The function does not infer safe reuse from a quiet watcher or a convenient timestamp; the consumer must establish each stamp's separability.

@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+
 import { watchedBy } from "../../../../packages/graph/src/model/publishedArtifacts";
+
 /**
- * Verifies a wildcard immediately below a native filesystem root watches that root.
+ * Verifies a wildcard immediately below a native filesystem root watches that
+ * root.
  *
  * A pattern whose fixed prefix is a bare separator names the filesystem root
  * itself rather than a drive-relative path, so the expected root must come from
@@ -26,14 +29,22 @@ export function test_artifact_globs_preserve_the_native_absolute_root(): void {
   const rows = [
     [path.join(root, "*.md"), { path: root, recursive: false }],
     [path.join(root, "**", "*.md"), { path: root, recursive: true }],
-    [path.join(root, "docs", "*.md"), { path: path.join(root, "docs"), recursive: false }],
+    [
+      path.join(root, "docs", "*.md"),
+      { path: path.join(root, "docs"), recursive: false },
+    ],
     ["*.md", { path: cwd, recursive: false }],
     ["docs/*/readme.md", { path: path.join(cwd, "docs"), recursive: true }],
     ["docs/readme.md", null],
   ] as const;
   const failures: unknown[] = [];
   for (const [pattern, expected] of rows) {
-    try { assert.deepEqual(watchedBy(pattern, cwd), expected); } catch (error) { failures.push(error); }
+    try {
+      assert.deepEqual(watchedBy(pattern, cwd), expected);
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "Native root glob matrix failed");
+  if (failures.length)
+    throw new AggregateError(failures, "Native root glob matrix failed");
 }

@@ -12,12 +12,11 @@ import type { Expression } from "./Expression";
  * rest markers are syntax only; callers must provide a valid combination for
  * the enclosing object or array pattern.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Independent source property and local BindingName fields preserve renamed destructuring; optional default and rest fields record their syntax without validating their combination.
  * @evidence contracts/common.md#clear-and-simple-design The element owns one local binding with optional mapping and default; enclosing patterns own collection order and punctuation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A rest marker and renamed property are explicit input syntax, not synthesized bindings compensating for a missing source property.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes source and local names and valid-context requirements; each optional member explains its effect with separated comments and tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface BindingElement {
   /** Discriminant tag; always `"BindingElement"`. */

@@ -1,14 +1,15 @@
 /**
  * The source a development session hands Turbopack for a module whose compile
- * failed: evaluation throws an Error with the compile's message. The loader
- * can complete successfully with this source after reporting its diagnostic
- * (samchon/ttsc#1458); worker retention and page presentation remain host-owned.
+ * failed: evaluation throws an Error with the compile's message. The loader can
+ * complete successfully with this source after reporting its diagnostic
+ * (samchon/ttsc#1458); worker retention and page presentation remain
+ * host-owned.
  *
  * The message is embedded as a JSON string, so nothing in a diagnostic can
  * escape the literal on the supported JavaScript runtime. It fabricates no
  * exports. A host that rejects an import during linking can report that error
- * before evaluation; this helper guarantees the diagnostic when evaluated,
- * not every importer's error presentation.
+ * before evaluation; this helper guarantees the diagnostic when evaluated, not
+ * every importer's error presentation.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A top-level throw preserves a compiler verdict when evaluated; JSON string

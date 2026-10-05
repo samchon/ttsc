@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { documentationTarget, leadingToken } from "../../../../packages/graph/src/model/TtscGraphMemory";
+
+import {
+  documentationTarget,
+  leadingToken,
+} from "../../../../packages/graph/src/model/TtscGraphMemory";
 import { docTagsOf as sourceDocTagsOf } from "../../../../packages/graph/src/server/runDetails";
 
 const docTagsOf = sourceDocTagsOf as (
@@ -28,90 +32,90 @@ const docTagsOf = sourceDocTagsOf as (
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored operations through the unit loader; no installed consumer, native build or product host is used.
  */
 export function test_ttscgraph_documentation_address_rule_is_shared_by_index_and_cap(): void {
-    // Addresses: a path with an anchor, an operation, a data model, a qualified
-    // symbol, a URL, and an inline link.
-    for (const address of [
-      "docs/pricing.md#sale",
-      "POST:/orders/{orderId}",
-      "prisma:Sale.price",
-      "Shopping.ISale",
-      "https://example.com/spec#part",
-      "{@link ISale}",
-    ]) {
-      assert.strictEqual(
-        documentationTarget(`${address} and the reason after it.`),
-        address,
-        `${address} must be read as an address`,
-      );
-    }
-
-    // Prose is not. Each of these opens a tag TypeScript does not recognize —
-    // `@todo`, `@default`, `@remarks` — and none of them names anything.
-    for (const prose of [
-      "Add caching here.",
-      "4",
-      "Uses the cache.",
-      "",
-      "   ",
-    ]) {
-      assert.strictEqual(
-        documentationTarget(prose),
-        undefined,
-        `${JSON.stringify(prose)} must not be read as an address`,
-      );
-    }
-
-    // An unclosed brace group is not a token: falling back to the whitespace
-    // split would index `{@link`, which every link in the project shares.
+  // Addresses: a path with an anchor, an operation, a data model, a qualified
+  // symbol, a URL, and an inline link.
+  for (const address of [
+    "docs/pricing.md#sale",
+    "POST:/orders/{orderId}",
+    "prisma:Sale.price",
+    "Shopping.ISale",
+    "https://example.com/spec#part",
+    "{@link ISale}",
+  ]) {
     assert.strictEqual(
-      leadingToken("{@link ISale and no closing brace"),
+      documentationTarget(`${address} and the reason after it.`),
+      address,
+      `${address} must be read as an address`,
+    );
+  }
+
+  // Prose is not. Each of these opens a tag TypeScript does not recognize —
+  // `@todo`, `@default`, `@remarks` — and none of them names anything.
+  for (const prose of [
+    "Add caching here.",
+    "4",
+    "Uses the cache.",
+    "",
+    "   ",
+  ]) {
+    assert.strictEqual(
+      documentationTarget(prose),
       undefined,
+      `${JSON.stringify(prose)} must not be read as an address`,
     );
-    assert.strictEqual(
-      documentationTarget("{@link ISale and no closing brace"),
-      undefined,
-    );
+  }
 
-    // The cap keeps the address whole. This link's group is longer than the
-    // 200-character budget and holds spaces, so a cap measuring to the first
-    // whitespace would return `{@link` and cut the address away.
-    const longAddress = `{@link ${"A".repeat(230)} trailing}`;
-    const capped = docTagsOf({
-      docTags: [{ name: "evidence", text: `${longAddress} And the reason.` }],
-    });
-    assert.ok(
-      capped?.[0]?.text?.startsWith(longAddress),
-      `the address must survive the cap: ${JSON.stringify(capped?.[0]?.text?.slice(0, 40))}`,
-    );
-    assert.ok(
-      capped?.[0]?.text?.endsWith("…"),
-      "a text that really was cut must say so",
-    );
+  // An unclosed brace group is not a token: falling back to the whitespace
+  // split would index `{@link`, which every link in the project shares.
+  assert.strictEqual(
+    leadingToken("{@link ISale and no closing brace"),
+    undefined,
+  );
+  assert.strictEqual(
+    documentationTarget("{@link ISale and no closing brace"),
+    undefined,
+  );
 
-    // A text that is nothing but an over-long address comes back whole, with no
-    // marker: it was not cut.
-    const onlyAddress = `docs/${"a".repeat(250)}.md#x`;
-    const whole = docTagsOf({
-      docTags: [{ name: "evidence", text: onlyAddress }],
-    });
-    assert.strictEqual(
-      whole?.[0]?.text,
-      onlyAddress,
-      "an uncut text must carry no elision marker",
-    );
+  // The cap keeps the address whole. This link's group is longer than the
+  // 200-character budget and holds spaces, so a cap measuring to the first
+  // whitespace would return `{@link` and cut the address away.
+  const longAddress = `{@link ${"A".repeat(230)} trailing}`;
+  const capped = docTagsOf({
+    docTags: [{ name: "evidence", text: `${longAddress} And the reason.` }],
+  });
+  assert.ok(
+    capped?.[0]?.text?.startsWith(longAddress),
+    `the address must survive the cap: ${JSON.stringify(capped?.[0]?.text?.slice(0, 40))}`,
+  );
+  assert.ok(
+    capped?.[0]?.text?.endsWith("…"),
+    "a text that really was cut must say so",
+  );
 
-    // A short text is untouched, and the optional filter narrows without
-    // rewriting.
-    const both = docTagsOf(
-      {
-        docTags: [
-          { name: "evidence", text: "docs/a.md#x Reason." },
-          { name: "reference", text: "https://example.com Other." },
-        ],
-      },
-      (tag) => tag.name === "reference",
-    );
-    assert.deepStrictEqual(both, [
-      { name: "reference", text: "https://example.com Other." },
-    ]);
+  // A text that is nothing but an over-long address comes back whole, with no
+  // marker: it was not cut.
+  const onlyAddress = `docs/${"a".repeat(250)}.md#x`;
+  const whole = docTagsOf({
+    docTags: [{ name: "evidence", text: onlyAddress }],
+  });
+  assert.strictEqual(
+    whole?.[0]?.text,
+    onlyAddress,
+    "an uncut text must carry no elision marker",
+  );
+
+  // A short text is untouched, and the optional filter narrows without
+  // rewriting.
+  const both = docTagsOf(
+    {
+      docTags: [
+        { name: "evidence", text: "docs/a.md#x Reason." },
+        { name: "reference", text: "https://example.com Other." },
+      ],
+    },
+    (tag) => tag.name === "reference",
+  );
+  assert.deepStrictEqual(both, [
+    { name: "reference", text: "https://example.com Other." },
+  ]);
 }

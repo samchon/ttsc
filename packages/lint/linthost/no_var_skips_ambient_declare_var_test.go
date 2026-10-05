@@ -26,9 +26,9 @@ func TestNoVarSkipsAmbientDeclareVar(t *testing.T) {
     t.Fatalf("noVar reported ambient declare var: %d findings", len(findings))
   }
   cases := []struct {
-    name string
+    name   string
     source string
-    count int
+    count  int
   }{
     {"global augmentation", "export {};\ndeclare global { var __ttsxSideEffect: string | undefined; }\nglobalThis.__ttsxSideEffect = \"side-effect-import-ok\";\n", 0},
     {"ambient namespace", "declare namespace Ambient { var value: string; }\n", 0},

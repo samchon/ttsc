@@ -1,5 +1,7 @@
 import { type ChildProcess } from "node:child_process";
+
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
 const { spawn } = E2eProcessTrace;
 
 /**
@@ -73,7 +75,8 @@ export const startSwaggerServer = async (
     transcript += chunk;
     const lines = transcript.split(/\r?\n/u);
     transcript = lines.pop() ?? "";
-    for (const line of lines) if (line.startsWith("request:")) requests.push(line.slice(8));
+    for (const line of lines)
+      if (line.startsWith("request:")) requests.push(line.slice(8));
   });
   let port: number;
   try {
@@ -102,17 +105,24 @@ export const startSwaggerServer = async (
       };
       const onExit = (code: number | null): void => {
         cleanup();
-        reject(new Error(
-          `Swagger fixture server exited before listening (status ${String(code)}).`,
-        ));
+        reject(
+          new Error(
+            `Swagger fixture server exited before listening (status ${String(code)}).`,
+          ),
+        );
       };
       const onAbort = (): void => {
         cleanup();
-        reject(signal?.reason ?? new Error("Swagger fixture server startup aborted."));
+        reject(
+          signal?.reason ??
+            new Error("Swagger fixture server startup aborted."),
+        );
       };
       const timeout = setTimeout(() => {
         cleanup();
-        reject(new Error("Timed out while starting the Swagger fixture server."));
+        reject(
+          new Error("Timed out while starting the Swagger fixture server."),
+        );
       }, 10_000);
       child.stdout?.setEncoding("utf8");
       child.stdout?.on("data", onData);
@@ -125,7 +135,10 @@ export const startSwaggerServer = async (
     try {
       await stopSwaggerServer(child);
     } catch (cleanupError) {
-      throw new AggregateError([error, cleanupError], "Swagger startup and cleanup failed.");
+      throw new AggregateError(
+        [error, cleanupError],
+        "Swagger startup and cleanup failed.",
+      );
     }
     throw error;
   }
@@ -158,7 +171,11 @@ export const stopSwaggerServer = async (child: ChildProcess): Promise<void> => {
   const terminationFailure = new Promise<never>((_, reject) => {
     rejectTermination = reject;
     deadline = setTimeout(() => {
-      reject(new Error("The Swagger fixture server did not close after termination."));
+      reject(
+        new Error(
+          "The Swagger fixture server did not close after termination.",
+        ),
+      );
     }, 20_000);
   });
   try {

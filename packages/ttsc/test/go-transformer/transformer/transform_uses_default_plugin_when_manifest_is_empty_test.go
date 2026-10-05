@@ -29,8 +29,14 @@ func TestTransformUsesDefaultPluginWhenManifestIsEmpty(t *testing.T) {
   }
 
   want := "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.message = void 0;\nconst message = \"HELLO\";\nexports.message = message;\n"
-  if result.Code != want { t.Fatalf("nil-manifest output = %q, want %q", result.Code, want) }
+  if result.Code != want {
+    t.Fatalf("nil-manifest output = %q, want %q", result.Code, want)
+  }
   empty, err := Transform(`export const message: string = goUpper("hello");`, []Plugin{})
-  if err != nil { t.Fatal(err) }
-  if empty.Code != want { t.Fatalf("empty-manifest output = %q, want %q", empty.Code, want) }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if empty.Code != want {
+    t.Fatalf("empty-manifest output = %q, want %q", empty.Code, want)
+  }
 }

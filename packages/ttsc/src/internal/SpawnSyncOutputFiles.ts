@@ -2,14 +2,14 @@
  * The files a synchronous child's standard output and error are captured into.
  *
  * {@link spawnSyncResilient} needs them to retry a spawn that failed with
- * `EBADF` in the supported descriptor-limit failure class. The retry runs through
- * a fresh broker that opens these same files itself; numeric descriptor height
- * and retry success are not established by this path pair. The
- * caller reads the output from one place whichever path produced it.
+ * `EBADF` in the supported descriptor-limit failure class. The retry runs
+ * through a fresh broker that opens these same files itself; numeric descriptor
+ * height and retry success are not established by this path pair. The caller
+ * reads the output from one place whichever path produced it.
  *
  * The two destinations may name the same file to combine diagnostics. The
- * caller owns the capture files and their cleanup. These are native file
- * paths, not open descriptors or shell redirection expressions.
+ * caller owns the capture files and their cleanup. These are native file paths,
+ * not open descriptors or shell redirection expressions.
  *
  * @evidence contracts/common.md#principled-implementation Named stdout/stderr destinations carry actual output across ordinary and broker launches; equal paths deliberately combine the streams. The pair denotes caller-owned capture destinations rather than ownership of live descriptors.
  * @evidence contracts/common.md#clear-and-simple-design A two-path container supplies only the output destinations needed by the broker while spawn options and capture-file lifecycle remain with their owners.

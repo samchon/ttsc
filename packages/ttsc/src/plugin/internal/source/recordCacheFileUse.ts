@@ -2,13 +2,13 @@ import fs from "node:fs";
 
 /**
  * Record a use of a single-file cache entry by setting its modification time,
- * which `pruneCacheFileRoot` reads as its last use. A hit
- * that cannot record it still answers: the entry may then age out a use early
- * and be computed again.
+ * which `pruneCacheFileRoot` reads as its last use. A hit that cannot record it
+ * still answers: the entry may then age out a use early and be computed again.
  *
  * Pre-existing symbolic or multiply linked entries are left untouched so a
  * restored alias is rejected by the initial lstat. The later path-based utimes
- * is a separate operation, not an atomic inode-identity check against replacement.
+ * is a separate operation, not an atomic inode-identity check against
+ * replacement.
  *
  * @evidence contracts/common.md#principled-implementation A successful cache hit advances the file's mtime used by age/LRU pruning; a failed refresh cannot invalidate an already obtained answer.
  * @evidence contracts/common.md#clear-and-simple-design This helper changes only usage metadata and leaves answer validation to the reader and eviction to the collector.

@@ -10,11 +10,11 @@ import type { JSDocMemberName } from "./JSDocMemberName";
  * present name without inserting a separator, so labels must include a leading
  * space when needed. Target resolution belongs to documentation consumers.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation An optional entity or member target and required text express both named and text-only link forms; this representation does not assert that the referenced target exists.
  * @evidence contracts/common.md#clear-and-simple-design The target and verbatim suffix are separate fields so name structure remains reusable without parsing the label.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The literal link kind selects ordinary inline syntax; arbitrary targets and labels do not invoke consumer-specific lookup or patched symbol resolution.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains absent targets, caller-supplied spacing and unresolved references; separated member comments and paragraphs follow the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocLink {
   /** Discriminant tag; always `"JSDocLink"`. */

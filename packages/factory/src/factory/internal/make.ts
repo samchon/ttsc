@@ -5,8 +5,8 @@ import type { Node } from "../../ast";
  *
  * The discriminant selects the concrete node interface so normal typed callers
  * supply that interface's required fields and receive its specific return type.
- * The final assertion restores the relationship TypeScript cannot express for
- * a generic object spread; it does not perform runtime validation or guarantee
+ * The final assertion restores the relationship TypeScript cannot express for a
+ * generic object spread; it does not perform runtime validation or guarantee
  * excess-property rejection for structurally assignable nonliteral inputs.
  *
  * A fresh shallow object retains the supplied child references. Factory callers

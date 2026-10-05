@@ -91,9 +91,9 @@ export interface ViteServeInputWatch {
   begin(): number;
 
   /**
-   * Clear observer registrations and timers and attempt to close its scopes
-   * and poller; individual close failures are suppressed. The attached server
-   * and opened root are kept so an overlapping restart can register again.
+   * Clear observer registrations and timers and attempt to close its scopes and
+   * poller; individual close failures are suppressed. The attached server and
+   * opened root are kept so an overlapping restart can register again.
    *
    * @evidence contracts/common.md#principled-implementation
    *   Promise completion represents cleared observer ownership, not proof that

@@ -17,13 +17,12 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * which is the correct behavior for a mis-configured project.
  *
  * When discovery finds a config, nearer candidates not observed as files are
- * retained too. That can mean absence, another kind or unavailable metadata:
- * a `tsconfig.json` appearing beside the file
- * re-routes it to another project, and nothing else it read would change
- * (samchon/ttsc#1543).
- * With no discovered config, the cwd fallback returns no consulted ancestor
- * spellings, avoiding registration of machine-wide ancestors. This result does
- * not provide observation proof or a watch for every failed discovery candidate.
+ * retained too. That can mean absence, another kind or unavailable metadata: a
+ * `tsconfig.json` appearing beside the file re-routes it to another project,
+ * and nothing else it read would change (samchon/ttsc#1543). With no discovered
+ * config, the cwd fallback returns no consulted ancestor spellings, avoiding
+ * registration of machine-wide ancestors. This result does not provide
+ * observation proof or a watch for every failed discovery candidate.
  *
  * @evidence contracts/common.md#principled-implementation Explicit selection bypasses discovery. A discovered config follows referenced root-file admission and retains passed-over nonfile candidates; the no-config cwd fallback deliberately returns no consulted ancestors rather than certifying those unknown or absent paths unchanged.
  * @evidence contracts/common.md#clear-and-simple-design Three direct branches separate explicit selection, discovered reference selection and no-config fallback; existing helpers own discovery and reference traversal.

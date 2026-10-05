@@ -28,4 +28,3 @@ func TestUnicornSliceEndPreservesOtherReceiverBounds(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/no-unnecessary-slice-end", source) })
   }
 }
-

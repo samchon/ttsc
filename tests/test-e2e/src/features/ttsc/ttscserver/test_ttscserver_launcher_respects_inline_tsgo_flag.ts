@@ -1,11 +1,15 @@
 import { TestProject } from "@ttsc/testing";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import * as path from "node:path";
 
-import { assert, ttscPackageRoot } from "../../../internal/ttsc/internal/ttscserver";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+import {
+  assert,
+  ttscPackageRoot,
+} from "../../../internal/ttsc/internal/ttscserver";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies ttscserver launcher canonicalizes `--tsgo=<path>` for sidecars.
@@ -111,7 +115,10 @@ export const test_ttscserver_launcher_respects_inline_tsgo_flag = () => {
     assert.equal(actualRuntime.dev, expectedRuntime.dev);
     assert.equal(actualRuntime.ino, expectedRuntime.ino);
     if (actualRuntime.ino === 0 || expectedRuntime.ino === 0)
-      assert.equal(fs.realpathSync(recorded.node), fs.realpathSync(projectRuntime));
+      assert.equal(
+        fs.realpathSync(recorded.node),
+        fs.realpathSync(projectRuntime),
+      );
     assert.equal(recorded.tsgo, fakeTsgo);
   } finally {
     if (completed) {

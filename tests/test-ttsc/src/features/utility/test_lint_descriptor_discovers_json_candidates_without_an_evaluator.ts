@@ -1,27 +1,30 @@
-import { TestProject } from "../../../../utils/src/TestProject";
-import type createTtscPlugin from "../../../../../packages/lint/src/createTtscPlugin";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { createRequire } from "node:module";
+import path from "node:path";
+
+import type createTtscPlugin from "../../../../../packages/lint/src/createTtscPlugin";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies lint JSON discovery records candidates and stops at a selected file.
  *
  * Native descriptor input tracking must distinguish files from candidate-named
  * directories and retain absent nearer config names before an ancestor winner.
- * Plain JSON has no executable config dependency and needs no product evaluator.
+ * Plain JSON has no executable config dependency and needs no product
+ * evaluator.
  *
  * 1. Call the real lint factory for a project whose `lint.config.ts` is a
  *    directory and `lint.config.mts` is a link to a directory, with a
  *    `lint.config.json` file in the workspace two levels above.
  * 2. Assert the reported host inputs include the directory candidates, the
- *    ancestor's absent `ttsc-lint.config.cjs` name and the selected JSON, but not
- *    a file above it; then add two JSON configs in the project and assert the
- *    factory throws a multiple-config error.
+ *    ancestor's absent `ttsc-lint.config.cjs` name and the selected JSON, but
+ *    not a file above it; then add two JSON configs in the project and assert
+ *    the factory throws a multiple-config error.
  * 3. Contrast a differently-cased config with the filesystem's actual alias
- *    identity, then require a canonical-spelling config to stop discovery locally.
+ *    identity, then require a canonical-spelling config to stop discovery
+ *    locally.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the real @ttsc/lint createTtscPlugin factory over a temporary workspace and asserts descriptor.hostInputs membership, the error for two sibling JSON configs and local-versus-ancestor selection under the actual native case identity; canonical spelling must always select locally.
  * @evidence contracts/testing.md#independent-expectations Authored winner/directory/link inputs establish literal candidate paths and the multiple-config error naming lint.config.json and ttsc-lint.config.json. Native device/inode observations establish case alias identity independently of factory output; node:crypto computes SHA-256 of the authored JSON bytes independently of the descriptor's hash helper.
@@ -43,8 +46,18 @@ export function test_lint_descriptor_discovers_json_candidates_without_an_evalua
   const selected = path.join(workspace, "lint.config.json");
   fs.writeFileSync(selected, "{}\n", "utf8");
 
-  const filename = path.join(TestProject.WORKSPACE_ROOT, "packages", "lint", "src", "createTtscPlugin.ts");
-  const factory = (createRequire(import.meta.url)(filename) as { default: typeof createTtscPlugin }).default;
+  const filename = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "lint",
+    "src",
+    "createTtscPlugin.ts",
+  );
+  const factory = (
+    createRequire(import.meta.url)(filename) as {
+      default: typeof createTtscPlugin;
+    }
+  ).default;
   const context = {
     binary: "",
     cwd: project,
@@ -78,11 +91,7 @@ export function test_lint_descriptor_discovers_json_candidates_without_an_evalua
   );
 
   fs.writeFileSync(path.join(project, "lint.config.json"), "{}\n", "utf8");
-  fs.writeFileSync(
-    path.join(project, "ttsc-lint.config.json"),
-    "{}\n",
-    "utf8",
-  );
+  fs.writeFileSync(path.join(project, "ttsc-lint.config.json"), "{}\n", "utf8");
   assert.throws(
     () => factory(context),
     /multiple lint config files found.*lint\.config\.json, ttsc-lint\.config\.json/,
@@ -96,13 +105,14 @@ export function test_lint_descriptor_discovers_json_candidates_without_an_evalua
   const ancestor = path.join(caseWorkspace, "lint.config.json");
   fs.writeFileSync(caseVariant, "{}\n", "utf8");
   fs.writeFileSync(ancestor, "{}\n", "utf8");
-  const readCase = () => factory({
-    ...context,
-    cwd: caseProject,
-    pluginConfigDir: caseProject,
-    projectRoot: caseProject,
-    tsconfig: path.join(caseProject, "tsconfig.json"),
-  });
+  const readCase = () =>
+    factory({
+      ...context,
+      cwd: caseProject,
+      pluginConfigDir: caseProject,
+      projectRoot: caseProject,
+      tsconfig: path.join(caseProject, "tsconfig.json"),
+    });
   const caseDescriptor = readCase();
   const expectedHash = createHash("sha256").update("{}\n").digest("hex");
   assert.ok(caseDescriptor.hostInputHashes);
@@ -117,7 +127,9 @@ export function test_lint_descriptor_discovers_json_candidates_without_an_evalua
     assert.equal(caseDescriptor.hostInputHashes[canonical], expectedHash);
     assert.equal(caseDescriptor.hostInputs.includes(ancestor), false);
     assert.equal(
-      caseDescriptor.hostInputs.includes(path.join(caseWorkspace, "lint.config.ts")),
+      caseDescriptor.hostInputs.includes(
+        path.join(caseWorkspace, "lint.config.ts"),
+      ),
       false,
     );
   } else {
@@ -135,5 +147,4 @@ export function test_lint_descriptor_discovers_json_candidates_without_an_evalua
     exact.hostInputs.includes(path.join(caseWorkspace, "lint.config.ts")),
     false,
   );
-
 }

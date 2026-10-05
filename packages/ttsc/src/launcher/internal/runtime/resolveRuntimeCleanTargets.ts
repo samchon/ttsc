@@ -21,9 +21,7 @@ import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
  * owner records against independent mutation.
  *
  * @param cacheRoot The resolved cache root.
- *
  * @returns The directories to remove, and the run directories kept.
- *
  * @evidence contracts/common.md#principled-implementation Under the root lock, only provably abandoned owner sets become removal targets; live, unknown and unowned runs are preserved, and the physical run index pins external targets before unlinking an empty runtime tree.
  * @evidence contracts/common.md#clear-and-simple-design The function plans targets and kept runs without performing deletion, separating ownership classification from the clean command's removal effects.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No unreadable-owner or legacy unowned run is treated as abandoned merely to make clean remove more directories; physical target selection corrects alias identity rather than compensating with lexical retries.

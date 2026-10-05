@@ -9,8 +9,8 @@ import { isDeclarationFile } from "../utils/isDeclarationFile";
 import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
 import { derivationIdentity } from "./derivationIdentity";
-import { mergeGraphInputObservations } from "./mergeGraphInputObservations";
 import { legacyProjectionOfGraphInputObservation } from "./legacyProjectionOfGraphInputObservation";
+import { mergeGraphInputObservations } from "./mergeGraphInputObservations";
 import { normalizeGraphInputObservation } from "./normalizeGraphInputObservation";
 import { selectListedFiles } from "./selectListedFiles";
 
@@ -20,8 +20,8 @@ import { selectListedFiles } from "./selectListedFiles";
  * historical per-delivery scan.
  *
  * Identity-keyed adjacency supports reachability, while lexical proof keys
- * preserve the exact compiler predicate calls. Malformed or contradictory
- * proof records cannot become usable observations. Directory listings already
+ * preserve the exact compiler predicate calls. Malformed or contradictory proof
+ * records cannot become usable observations. Directory listings already
  * recorded as enumerated by a complete pre-compile membership walk are omitted
  * only when other predicates remain; universal resolver listings keep their
  * independent observation. Lexical policy eligibility alone supplies no such
@@ -89,23 +89,32 @@ export function envelopeGraphIndexes(
       built.spellings.set(identity, absolute);
       const entries = built.edges.get(identity) ?? [];
       for (const entryToAppend of targets
-          .filter(
-            (target): target is string =>
-              typeof target === "string" && target.length !== 0,
-          )
-          .map((target) => {
-            const absoluteTarget = path.resolve(props.projectRoot, target);
-            const targetIdentity = derivationIdentity(state, absoluteTarget);
-            built.memberSpellings.add(absoluteTarget);
-            if (!built.spellings.has(targetIdentity)) {
-              built.spellings.set(targetIdentity, absoluteTarget);
-            }
-            return absoluteTarget;
-          })) entries.push(entryToAppend);
+        .filter(
+          (target): target is string =>
+            typeof target === "string" && target.length !== 0,
+        )
+        .map((target) => {
+          const absoluteTarget = path.resolve(props.projectRoot, target);
+          const targetIdentity = derivationIdentity(state, absoluteTarget);
+          built.memberSpellings.add(absoluteTarget);
+          if (!built.spellings.has(targetIdentity)) {
+            built.spellings.set(targetIdentity, absoluteTarget);
+          }
+          return absoluteTarget;
+        }))
+        entries.push(entryToAppend);
       built.edges.set(identity, entries);
     }
-    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.globals)) built.globals.push(entryToAppend);
-    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.configs)) built.configs.push(entryToAppend);
+    for (const entryToAppend of selectListedFiles(
+      props.projectRoot,
+      graph.globals,
+    ))
+      built.globals.push(entryToAppend);
+    for (const entryToAppend of selectListedFiles(
+      props.projectRoot,
+      graph.configs,
+    ))
+      built.configs.push(entryToAppend);
     for (const input of [...built.globals, ...built.configs]) {
       const identity = derivationIdentity(state, input);
       built.memberSpellings.add(path.resolve(input));
@@ -127,7 +136,11 @@ export function envelopeGraphIndexes(
       }
     }
     const realized = new Set(built.memberSpellings);
-    for (const entryToAppend of selectListedFiles(props.projectRoot, graph.resolutionInputs)) built.resolutionInputs.push(entryToAppend);
+    for (const entryToAppend of selectListedFiles(
+      props.projectRoot,
+      graph.resolutionInputs,
+    ))
+      built.resolutionInputs.push(entryToAppend);
     for (const input of built.resolutionInputs) {
       const spelling = path.resolve(input);
       const identity = derivationIdentity(state, input);
@@ -333,4 +346,3 @@ export function envelopeGraphIndexes(
   state.graph = built;
   return built;
 }
-

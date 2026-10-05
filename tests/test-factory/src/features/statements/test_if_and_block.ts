@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, num, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, num, print } from "../../internal/helpers";
  * An empty block `{}`, an `if (cond) { ... }`, and a full `if/else` whose
  * branch blocks always break onto their own lines.
  *
- * 1. Empty blocks, if-then and if-else preserve braces, condition and branch association.
- * 2. Literal block and complete if sources independently fix delimiters and else placement.
+ * 1. Empty blocks, if-then and if-else preserve braces, condition and branch
+ *    association.
+ * 2. Literal block and complete if sources independently fix delimiters and else
+ *    placement.
  *
  * @evidence contracts/testing.md#behavioral-verification Empty blocks, if-then and if-else preserve braces, condition and branch association.
  * @evidence contracts/testing.md#independent-expectations Literal block and complete if sources independently fix delimiters and else placement.

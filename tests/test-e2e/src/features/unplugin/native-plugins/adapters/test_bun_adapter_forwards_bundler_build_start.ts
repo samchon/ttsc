@@ -36,34 +36,40 @@ import type { BunLoader } from "../../../../internal/unplugin/internal/adapter-b
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every started captured build ends through finally, including failed assertions. Successful final onEnd permits the parent's original echo-only runtime profile. Hook completion is not real Bun shutdown or descendant join; pending native requests are awaited before mutation.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: captured onStart/onEnd retain an unchanged generation, reject a broken main when secondary is delivered, recover at count two, and compile at count three after end. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_bun_adapter_forwards_bundler_build_start(
-  prepared?: { root: string; runLog: string },
-): Promise<void> {
+export async function test_bun_adapter_forwards_bundler_build_start(prepared?: {
+  root: string;
+  runLog: string;
+}): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
-  const runLog = prepared?.runLog ?? path.join(
-    TestProject.tmpdir("ttsc-unplugin-bun-build-log-"),
-    "compiles.bin",
-  );
-  const root = prepared?.root ?? TestUnpluginProject.createProject({
-    plugins: [
-      {
-        transform: "./plugin.cjs",
-        name: "fixture",
-        operation: "echo-file",
-        path: "src/secondary.ts",
-      },
-      {
-        transform: "./plugin.cjs",
-        name: "runs",
-        operation: "count-runs",
-        runLog,
-      },
-    ],
-  });
+  const runLog =
+    prepared?.runLog ??
+    path.join(
+      TestProject.tmpdir("ttsc-unplugin-bun-build-log-"),
+      "compiles.bin",
+    );
+  const root =
+    prepared?.root ??
+    TestUnpluginProject.createProject({
+      plugins: [
+        {
+          transform: "./plugin.cjs",
+          name: "fixture",
+          operation: "echo-file",
+          path: "src/secondary.ts",
+        },
+        {
+          transform: "./plugin.cjs",
+          name: "runs",
+          operation: "count-runs",
+          runLog,
+        },
+      ],
+    });
   const secondary = path.join(root, "src", "secondary.ts");
   fs.writeFileSync(secondary, "export const secondary = 1;\n", "utf8");
   const baseline = fs.existsSync(runLog) ? fs.statSync(runLog).size : 0;
-  const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0) - baseline;
+  const compiles = () =>
+    (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0) - baseline;
 
   let start: (() => void | Promise<void>) | undefined;
   let end: (() => void | Promise<void>) | undefined;
@@ -85,49 +91,51 @@ export async function test_bun_adapter_forwards_bundler_build_start(
   assert.ok(loader);
 
   try {
-  const first = await loader({ path: TestUnpluginProject.mainFile(root) });
-  assert.ok(first);
-  TestUnpluginProject.assertTransformedToPlugin(first.contents);
-  assert.equal(compiles(), 1);
+    const first = await loader({ path: TestUnpluginProject.mainFile(root) });
+    assert.ok(first);
+    TestUnpluginProject.assertTransformedToPlugin(first.contents);
+    assert.equal(compiles(), 1);
 
-  await start();
-  const unchanged = await loader({ path: TestUnpluginProject.mainFile(root) });
-  assert.ok(unchanged);
-  assert.equal(
-    compiles(),
-    1,
-    "a new build pass must retain an unchanged active generation",
-  );
+    await start();
+    const unchanged = await loader({
+      path: TestUnpluginProject.mainFile(root),
+    });
+    assert.ok(unchanged);
+    assert.equal(
+      compiles(),
+      1,
+      "a new build pass must retain an unchanged active generation",
+    );
 
-  fs.writeFileSync(
-    TestUnpluginProject.mainFile(root),
-    "export const broken = true;\n",
-    "utf8",
-  );
-  await start();
-  await assert.rejects(
-    () => loader({ path: secondary }),
-    /expected export const value/,
-    "the next build must compile again instead of serving the old generation",
-  );
+    fs.writeFileSync(
+      TestUnpluginProject.mainFile(root),
+      "export const broken = true;\n",
+      "utf8",
+    );
+    await start();
+    await assert.rejects(
+      () => loader({ path: secondary }),
+      /expected export const value/,
+      "the next build must compile again instead of serving the old generation",
+    );
 
-  fs.writeFileSync(
-    TestUnpluginProject.mainFile(root),
-    'export const value: string = goUpper("plugin");\nconsole.log(value);\n',
-    "utf8",
-  );
-  await start();
-  assert.ok(await loader({ path: TestUnpluginProject.mainFile(root) }));
-  assert.equal(compiles(), 2);
+    fs.writeFileSync(
+      TestUnpluginProject.mainFile(root),
+      'export const value: string = goUpper("plugin");\nconsole.log(value);\n',
+      "utf8",
+    );
+    await start();
+    assert.ok(await loader({ path: TestUnpluginProject.mainFile(root) }));
+    assert.equal(compiles(), 2);
 
-  await end();
-  await start();
-  assert.ok(await loader({ path: TestUnpluginProject.mainFile(root) }));
-  assert.equal(
-    compiles(),
-    3,
-    "a completed Bun build must dispose its generation before the next build",
-  );
+    await end();
+    await start();
+    assert.ok(await loader({ path: TestUnpluginProject.mainFile(root) }));
+    assert.equal(
+      compiles(),
+      3,
+      "a completed Bun build must dispose its generation before the next build",
+    );
   } finally {
     await end();
   }

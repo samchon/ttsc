@@ -1,15 +1,18 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { print } from "../../internal/helpers";
 
 /**
  * Verifies printing of `break` / `continue`, both bare and with a target label.
  *
- * Label omission and keyword choice are independent statement decisions; neither may inherit the previous variant.
+ * Label omission and keyword choice are independent statement decisions;
+ * neither may inherit the previous variant.
  *
- * 1. Break and continue statements retain optional label names and terminating semicolons.
- * 2. Literal break;, continue; and labeled variants specify the grammar independently.
+ * 1. Break and continue statements retain optional label names and terminating
+ *    semicolons.
+ * 2. Literal break;, continue; and labeled variants specify the grammar
+ *    independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Break and continue statements retain optional label names and terminating semicolons.
  * @evidence contracts/testing.md#independent-expectations Literal break;, continue; and labeled variants specify the grammar independently.

@@ -4,18 +4,19 @@ import { insideExcludedProjectDirectory } from "../../../../../packages/unplugin
 import type { ITtscProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/ITtscProjectMembershipPolicy";
 
 /**
- * Verifies configured directory exclusions use compiler case policy independently
- * of the selected native path grammar.
+ * Verifies configured directory exclusions use compiler case policy
+ * independently of the selected native path grammar.
  *
  * The compiler supplies case sensitivity to both include and exclude matching.
  * These authored policies exercise that supported boundary, without claiming
  * that this machine's filesystem has either case policy or every literal name.
  *
- * 1. Contrast Output descendants with output descendants under both policies
- *    and both Windows and POSIX grammar.
+ * 1. Contrast Output descendants with output descendants under both policies and
+ *    both Windows and POSIX grammar.
  * 2. Require strict mode to exempt exact entries under the same comparison rule.
  * 3. Contrast Unicode simple folding, literal characters, roots and adjacent
- *    component, drive and UNC boundaries without using native filesystem setup.
+ *    component, drive and UNC boundaries without using native filesystem
+ *    setup.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual insideExcludedProjectDirectory with its existing explicit view-platform argument and immutable compiler policies; literal verdicts require policy-sensitive containment and strict exact-entry exemption under Windows and POSIX grammars.
  * @evidence contracts/testing.md#independent-expectations Literal sensitive/insensitive verdict columns express the compiler's exact versus Unicode simple-fold exclusion semantics, which pinned typescript-go vfsmatch supplies to exclude literal components. Expected booleans are independent of Node relative, product containment or another matcher. Native separators define components; backslash remains literal in the POSIX view.
@@ -29,7 +30,8 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
     readonly rows: readonly (readonly [string, boolean, boolean, boolean])[];
   }[] = [
     {
-      platform: "win32", excluded: "C:\\project\\Output",
+      platform: "win32",
+      excluded: "C:\\project\\Output",
       rows: [
         ["C:\\project\\Output\\main.ts", false, true, true],
         ["C:\\project\\Output\\main.ts", true, true, true],
@@ -45,7 +47,8 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
       ],
     },
     {
-      platform: "linux", excluded: "/project/Output",
+      platform: "linux",
+      excluded: "/project/Output",
       rows: [
         ["/project/Output/main.ts", false, true, true],
         ["/project/output/main.ts", false, false, true],
@@ -61,7 +64,8 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
       ],
     },
     {
-      platform: "linux", excluded: "/project/σ",
+      platform: "linux",
+      excluded: "/project/σ",
       rows: [
         ["/project/σ/main.ts", false, true, true],
         ["/project/ς/main.ts", false, false, true],
@@ -70,32 +74,37 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
       ],
     },
     {
-      platform: "win32", excluded: "C:\\project\\K",
+      platform: "win32",
+      excluded: "C:\\project\\K",
       rows: [
         ["C:\\project\\K\\main.ts", false, false, true],
         ["C:\\project\\K", true, false, false],
       ],
     },
     {
-      platform: "linux", excluded: "/project/ß",
+      platform: "linux",
+      excluded: "/project/ß",
       rows: [["/project/ss/main.ts", false, false, false]],
     },
     {
-      platform: "linux", excluded: "/project/a[bc]+.$",
+      platform: "linux",
+      excluded: "/project/a[bc]+.$",
       rows: [
         ["/project/a[bc]+.$/main.ts", false, true, true],
         ["/project/abbbX/main.ts", false, false, false],
       ],
     },
     {
-      platform: "linux", excluded: "/project/back\\slash",
+      platform: "linux",
+      excluded: "/project/back\\slash",
       rows: [
         ["/project/back\\slash/main.ts", false, true, true],
         ["/project/back/slash/main.ts", false, false, false],
       ],
     },
     {
-      platform: "linux", excluded: "/project/Output\n",
+      platform: "linux",
+      excluded: "/project/Output\n",
       rows: [
         ["/project/Output\n/main.ts", false, true, true],
         ["/project/Output\n", true, false, false],
@@ -103,7 +112,8 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
       ],
     },
     {
-      platform: "linux", excluded: "/",
+      platform: "linux",
+      excluded: "/",
       rows: [
         ["/main.ts", false, true, true],
         ["/main.ts", true, true, true],
@@ -112,7 +122,8 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
       ],
     },
     {
-      platform: "win32", excluded: "C:\\",
+      platform: "win32",
+      excluded: "C:\\",
       rows: [
         ["C:\\main.ts", false, true, true],
         ["C:\\", false, true, true],
@@ -121,7 +132,8 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
       ],
     },
     {
-      platform: "win32", excluded: "\\\\server\\share\\",
+      platform: "win32",
+      excluded: "\\\\server\\share\\",
       rows: [
         ["\\\\server\\share\\main.ts", false, true, true],
         ["\\\\server\\share\\", false, true, true],
@@ -143,14 +155,23 @@ export function test_project_directory_exclusions_follow_compiler_case_policy():
         assert.equal(
           insideExcludedProjectDirectory(location, policy, strictly, platform),
           useCaseSensitiveFileNames ? sensitive : insensitive,
-          JSON.stringify({ platform, excluded, useCaseSensitiveFileNames, location, strictly }),
+          JSON.stringify({
+            platform,
+            excluded,
+            useCaseSensitiveFileNames,
+            location,
+            strictly,
+          }),
         );
       }
       const empty: ITtscProjectMembershipPolicy = Object.freeze({
         ...policy,
         excludedDirectories: Object.freeze([]),
       });
-      assert.equal(insideExcludedProjectDirectory(excluded, empty, false, platform), false);
+      assert.equal(
+        insideExcludedProjectDirectory(excluded, empty, false, platform),
+        false,
+      );
     }
   }
 }

@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code workspace removal stops descendant server roots.
@@ -26,18 +27,13 @@ export function test_vscode_server_resolution_removes_descendant_workspace_roots
   const removed = path.join(parent, "repo");
   const nested = path.join(removed, "packages", "demo");
   const sibling = path.join(parent, "other");
-  for (const entry of [removed, nested, sibling]) assert.equal(fs.existsSync(entry), false);
+  for (const entry of [removed, nested, sibling])
+    assert.equal(fs.existsSync(entry), false);
   const observed = (() => {
-    return mod.rootsInsideRemovedWorkspace([
-      (nested),
-      (sibling)
-    ], (removed));
-  
+    return mod.rootsInsideRemovedWorkspace([nested, sibling], removed);
   })();
   assert.deepEqual(
-    (observed as string[]).map((entry) =>
-      path.normalize(entry),
-    ),
+    (observed as string[]).map((entry) => path.normalize(entry)),
     [path.normalize(nested)],
   );
 }

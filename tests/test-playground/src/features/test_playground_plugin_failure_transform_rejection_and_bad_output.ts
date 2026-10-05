@@ -86,6 +86,10 @@ export const test_playground_plugin_failure_transform_rejection_and_bad_output =
       assert.equal(result.type, "success", "empty transform output is a no-op");
       assert.equal(result.value, "x=1;");
       assert.equal(record.build.length, 1, "no-op transform still builds once");
-      assert.equal(record.writes["/work/src/playground.ts"], source, "a no-op transform must preserve original source bytes");
+      assert.equal(
+        record.writes["/work/src/playground.ts"],
+        source,
+        "a no-op transform must preserve original source bytes",
+      );
     }
   };

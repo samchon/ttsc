@@ -26,18 +26,17 @@ import type { WatchBroker } from "./WatchBroker";
  * reached it, which are those registered before the request was sent. A
  * registration opened after an in-flight drain was sent therefore does not
  * share it: its watches were never probed by that drain, so it starts one that
- * covers it (samchon/ttsc#1546).
- * A caller without a registration id can join the current drain without this
- * coverage check. Sharing keeps that request's original timeout; a later
- * override does not reset it. Timer thresholds require event-loop progress
- * and are not global wall-time guarantees. Exceptional native/ref/send work
- * can reject the request rather than supplying an acknowledgment.
+ * covers it (samchon/ttsc#1546). A caller without a registration id can join
+ * the current drain without this coverage check. Sharing keeps that request's
+ * original timeout; a later override does not reset it. Timer thresholds
+ * require event-loop progress and are not global wall-time guarantees.
+ * Exceptional native/ref/send work can reject the request rather than supplying
+ * an acknowledgment.
  *
  * @param timeout How long to wait for the reply; the default is what the child
  *   is given plus the same again, and a test of the wait itself passes less.
  * @param registration The registration asking, when one is; it shares the
  *   in-flight drain only when that drain covers it.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Id-bound replies establish ordering only for the snapshot of registrations
  *   held before submission; timeout withdraws proof rather than certifying silence.

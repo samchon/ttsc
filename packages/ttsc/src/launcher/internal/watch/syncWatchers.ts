@@ -4,11 +4,10 @@
  * Missing watchers are created first. Only when every desired watcher exists
  * are the ones no longer desired closed, so a failed or interrupted creation
  * retains the previously live watcher map. This ordering alone does not prove
- * native coverage during backend failure. A watcher that later errors removes itself
- * and reports through `onError`.
+ * native coverage during backend failure. A watcher that later errors removes
+ * itself and reports through `onError`.
  *
  * @returns `false` when a creation failed or `shouldContinue` stopped the pass.
- *
  * @evidence contracts/common.md#principled-implementation New coverage is admitted before obsolete watchers are retired, so a failed creation leaves the previously live observation set intact.
  * @evidence contracts/common.md#clear-and-simple-design Creation and retirement are two explicit passes; one captured watcher identity qualifies later error removal.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed creation is reported instead of replacing the missing watcher with a fake success or discarding old coverage.

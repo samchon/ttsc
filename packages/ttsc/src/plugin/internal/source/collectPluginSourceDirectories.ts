@@ -14,17 +14,14 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
  * this sequential listing does not prove every edit was observed. Names pruned
  * by policy are omitted regardless of who writes them. `ttsc --watch` and the
  * `ttscserver` selection-input capture share this enumeration rule. The root
- * uses stat (and may be an alias); listed child links are not descended into.
- * A non-directory root has no results, but a queued directory can disappear
- * after being appended to the returned list.
+ * uses stat (and may be an alias); listed child links are not descended into. A
+ * non-directory root has no results, but a queued directory can disappear after
+ * being appended to the returned list.
  *
  * @param root The plugin source directory.
- *
  * @returns Absolute directories, `root` first.
- *
  * @throws When a directory cannot be read for a reason other than having
  *   vanished while it was listed.
- *
  * @evidence contracts/common.md#principled-implementation The explicit stack visits ordinary unpruned directories, including the root, giving nonrecursive watchers the directory population needed to observe source additions and edits.
  * @evidence contracts/common.md#clear-and-simple-design Iterative traversal and one vanished-entry classifier keep enumeration separate from watcher acquisition and callback ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Directory pruning delegates the actual source contract instead of hiding expensive or failing consumer directories behind local exceptions.

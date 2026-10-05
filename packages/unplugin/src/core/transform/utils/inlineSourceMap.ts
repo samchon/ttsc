@@ -11,7 +11,6 @@ import type { TtscTransformResult } from "../TtscTransformResult";
  *
  * @param result The transform result to hand to a contents-only host.
  * @returns The contents to return from the host's `onLoad`.
- *
  * @evidence contracts/common.md#principled-implementation
  *   JSON encoded as UTF-8 base64 gives contents-only hosts an inline v3 map;
  *   a line boundary prevents the directive from joining the final source line.

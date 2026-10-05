@@ -42,7 +42,9 @@ func TestProjectRuleLiveReportsAreConcurrentAndDeterministic(t *testing.T) {
     name: fileRuleName,
     check: func(ctx *publicrule.Context) {
       if arrival := arrivals.Add(1); runtime.NumCPU() > 1 && arrival <= 2 {
-        if arrival == 2 { close(release) }
+        if arrival == 2 {
+          close(release)
+        }
         <-release
       }
       result := ctx.ProjectResult(projectRuleName)
@@ -67,9 +69,13 @@ func TestProjectRuleLiveReportsAreConcurrentAndDeterministic(t *testing.T) {
     projectRuleName: SeverityError,
     fileRuleName:    SeverityError,
   })
-  if err := engine.ConfigError(); err != nil || engine.runsSerial() { t.Fatalf("concurrency fixture must select real AST-only workers: %v / serial=%v", err, engine.runsSerial()) }
+  if err := engine.ConfigError(); err != nil || engine.runsSerial() {
+    t.Fatalf("concurrency fixture must select real AST-only workers: %v / serial=%v", err, engine.runsSerial())
+  }
   findings := engine.Run(files, nil)
-  if got := arrivals.Load(); got != 32 { t.Fatalf("file dispatch count = %d, want 32", got) }
+  if got := arrivals.Load(); got != 32 {
+    t.Fatalf("file dispatch count = %d, want 32", got)
+  }
 
   if len(findings) != 3 {
     t.Fatalf("parallel reports should produce three project findings, got %#v", findings)

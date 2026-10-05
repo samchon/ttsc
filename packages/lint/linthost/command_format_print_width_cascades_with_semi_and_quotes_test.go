@@ -26,7 +26,6 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert the exact authored output and a clean exit with no output.
 //
-//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with format.printWidth 20 on a single-quoted, unterminated import plus a one-line object literal and requires exit 0, empty output and the whole file equal to an authored text with the import broken, double-quoted and terminated, and the object broken with a trailing comma.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored literal (double quotes, semicolons, trailing commas, one member per line) following from the default format rules; it is not derived from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases One input that needs print-width, quotes, semi and trailing-comma together; a duplicate semicolon (`;;`) from print-width plus semi, or a missing quote conversion, would differ from the literal text. Only a single import and object are covered.

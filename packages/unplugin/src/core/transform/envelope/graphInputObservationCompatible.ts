@@ -5,7 +5,8 @@ import type { ITtscCompilerTransformation } from "ttsc";
  *
  * Nonempty directory entries establish directory presence, but empty entries
  * and failed reads establish neither presence nor absence. Unqueried predicates
- * remain unknown; this check compares recorded results without probing the host.
+ * remain unknown; this check compares recorded results without probing the
+ * host.
  *
  * @evidence contracts/common.md#principled-implementation Successful reads require file-compatible predicates, nonempty listings require directory-compatible predicates, and explicit stat kinds rule out conflicting existence results; unknown and failed-read values are not treated as absence.
  * @evidence contracts/common.md#clear-and-simple-design Explicit contradiction checks compare one normalized record without combining schema parsing, host observation or legacy encoding in the same predicate.

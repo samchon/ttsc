@@ -71,6 +71,7 @@ const REFUSED_GLOBS = [
  * 3. Assert the wrapper adds exactly the globs each one leaves unrouted, for every
  *    loader spelling.
  * 4. Assert every unmeasured spelling suppresses nothing.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls authored next on single and multi-extension, recursive, partial, conditional and foreign-loader rules; exact remaining glob lists detect duplicate registration and silent uncovered source families.
  * @evidence contracts/testing.md#independent-expectations

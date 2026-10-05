@@ -7,10 +7,10 @@ package paths_test
 import (
   _ "unsafe"
 
-  "github.com/samchon/ttsc/packages/ttsc/driver"
-  _ "github.com/samchon/ttsc/packages/paths/driver"
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  _ "github.com/samchon/ttsc/packages/paths/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 type pathsRewriter struct {

@@ -18,9 +18,9 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership This Go Test and named subtests use runRuleFindingsSnapshot to execute the owning engine; its declared checker requirement selects the direct Program lifecycle without installing a consumer or launching a product host.
 func TestNoExtendNativeRespectsConstructorBindings(t *testing.T) {
   cases := []struct {
-    name string
+    name   string
     source string
-    count int
+    count  int
   }{
     {"parameter", "function f(Array: any) { Array.prototype.extra = 1; }\n", 0},
     {"destructured parameter", "function f({Array}: any) { Array.prototype.extra = 1; }\n", 0},

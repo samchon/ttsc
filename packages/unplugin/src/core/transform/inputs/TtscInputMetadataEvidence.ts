@@ -32,7 +32,8 @@ export interface TtscInputMetadataEvidence {
    * Whether current device references separate the recorded modification ticks.
    * Without separation, a same-length rewrite inside a stamp's own tick can
    * leave the signature unchanged. Consumers must refresh references before
-   * proving later reuse, because clock rollback can invalidate earlier evidence.
+   * proving later reuse, because clock rollback can invalidate earlier
+   * evidence.
    */
   separable: boolean;
 }

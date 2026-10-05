@@ -9,7 +9,8 @@ import type { TtscProjectMutationTracker } from "../../../../../packages/unplugi
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 
 /**
- * Verifies discarding generations preserves the current delivery pass until reset.
+ * Verifies discarding generations preserves the current delivery pass until
+ * reset.
  *
  * Pending compilations can finish after withdrawal. Their handles still belong
  * to the removed generation, whereas the pass declaration belongs to the

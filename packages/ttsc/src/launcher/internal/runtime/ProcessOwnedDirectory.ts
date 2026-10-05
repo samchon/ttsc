@@ -49,7 +49,6 @@ export namespace ProcessOwnedDirectory {
    * Create `directory` and record this process as its owner.
    *
    * @param directory The directory this process now owns.
-   *
    * @evidence contracts/common.md#principled-implementation Recursive directory creation precedes a host-pid admission record, making a prepared run explicitly attributable to this process before other synchronized callers classify it.
    * @evidence contracts/common.md#clear-and-simple-design Claim reuses admission's record writer instead of maintaining a second owner format.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The current pid and actual hostname establish the claim; no assumed liveness based on a directory name substitutes for its record.
@@ -75,7 +74,6 @@ export namespace ProcessOwnedDirectory {
    *
    * @param directory A directory this process claimed.
    * @param pid The process that owns it too.
-   *
    * @evidence contracts/common.md#principled-implementation A pid-named record stores this host and the admitted pid, allowing later validation to compare filename identity with its contents and conservatively probe the same native owner.
    * @evidence contracts/common.md#clear-and-simple-design One writer owns the record grammar shared by initial claim and child admission; callers retain synchronization and process-transfer policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual host and pid values record supported ownership transfer without special-casing a launcher or expected cleanup result.
@@ -115,19 +113,17 @@ export namespace ProcessOwnedDirectory {
   }
 
   /**
-   * Whether any recognized owner is not proven gone, all are proven gone,
-   * or none is recorded at all. An unreadable directory or owner record has
+   * Whether any recognized owner is not proven gone, all are proven gone, or
+   * none is recorded at all. An unreadable directory or owner record has
    * unknown ownership. An owner on another host, or a pid something else now
    * holds, counts as alive, since neither is provably gone
-   * (`isLocalProcessGone`).
-   * A recognized non-gone record takes precedence over malformed evidence;
-   * otherwise malformed records yield unknown before an all-gone or unowned
-   * result. These are sequential record/probe observations under the namespace
-   * and coordination premises stated by the namespace.
+   * (`isLocalProcessGone`). A recognized non-gone record takes precedence over
+   * malformed evidence; otherwise malformed records yield unknown before an
+   * all-gone or unowned result. These are sequential record/probe observations
+   * under the namespace and coordination premises stated by the namespace.
    *
    * @param legacyProcessRoot Also read the former `owner.json` record in a
    *   manifest-less `process-<pid>-<nonce>` dependency cache directory.
-   *
    * @evidence contracts/common.md#principled-implementation Validated pid-named records must all prove local absence for abandonment; any live/remote/recycled owner wins, malformed evidence stays unknown, and absent records remain unowned.
    * @evidence contracts/common.md#clear-and-simple-design One scan aggregates live, uncertain and dead evidence, with record syntax and process liveness delegated to private decoding and the shared predicate.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Directory names alone do not establish ownership; the explicitly supported legacy owner record is checked against its pid-bearing directory grammar.
@@ -180,7 +176,6 @@ export namespace ProcessOwnedDirectory {
    * @param parent The directory holding owned entries.
    * @param accepts Which entry names are owned directories.
    * @param legacyProcessRoot Include the prior manifest-less owner format.
-   *
    * @evidence contracts/common.md#principled-implementation A pinned physical parent and all-proven-dead ownership select only abandoned entries; missing, malformed and live claims are preserved, preventing alias retargeting from choosing another same-named removal target.
    * @evidence contracts/common.md#clear-and-simple-design The sweep separates one parent snapshot, caller-defined entry selection and shared ownership classification before best-effort removal.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed inspection or deletion does not trigger broader cleanup; the operation never treats a caller's accepted name as proof that its owner is dead.

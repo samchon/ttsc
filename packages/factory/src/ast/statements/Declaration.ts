@@ -9,12 +9,11 @@ import type { TypeAliasDeclaration } from "../declarations/TypeAliasDeclaration"
  * forms. Their own shapes determine name presence; this alias does not require
  * an otherwise optional declaration name.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The alias collects the supported function/class/interface/type-alias/enum declaration forms; their own optional names remain permissive rather than enforcing naming here.
  * @evidence contracts/common.md#clear-and-simple-design One alias groups declaration consumers while each concrete declaration owns its fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Alternatives describe declared syntax forms, without fixture-dependent declaration categories.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies the declaration grouping and its naming limitation; prose/tag separation follows the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export type Declaration =
   | FunctionDeclaration

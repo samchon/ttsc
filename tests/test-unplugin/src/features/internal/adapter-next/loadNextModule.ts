@@ -1,5 +1,4 @@
 import * as nextModule from "../../../../../../packages/unplugin/src/next";
-
 import type { INextLikeConfig } from "./INextLikeConfig";
 
 interface INextModule {

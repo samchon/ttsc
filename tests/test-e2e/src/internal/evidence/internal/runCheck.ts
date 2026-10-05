@@ -1,12 +1,13 @@
 import { type SpawnSyncReturns } from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import path from "node:path";
 
-import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
+import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
 import { pluginCacheDirectory } from "../../../../../utils/src/evidence/pluginCacheDirectory";
 import { resolveDependency } from "../../../../../utils/src/evidence/resolveDependency";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Runs `ttsc check` in the fixture and captures everything it said.
@@ -19,8 +20,8 @@ import { resolveDependency } from "../../../../../utils/src/evidence/resolveDepe
  * not state, and fail the moment it was driven any other way.
  *
  * A null status or signal leaves descendant closure unknown. The original
- * result remains available to assertions, while shared inputs are retained
- * and fixture cleanup or another command refuses that unresolved identity.
+ * result remains available to assertions, while shared inputs are retained and
+ * fixture cleanup or another command refuses that unresolved identity.
  *
  * @evidence contracts/common.md#principled-implementation Invokes the resolved published launcher with actual cwd/options and returns its status and complete captured streams; unknown signal/null closure records a blocking input lifetime without fabricating a compiler verdict.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous command boundary owns capture and forwards unresolved-reader state to the fixture ownership registry; callers retain their original assertions and cleanup policy.
@@ -56,10 +57,12 @@ export const runCheck = (directory: string): IRunResult => {
   const stdout: string = result.stdout ?? "";
   const stderr: string = result.stderr ?? "";
   if (result.status === null || result.signal !== null)
-    EvidenceProcessOwnership.retain(directory, new Error(
-      "The CLI launcher did not establish descendant closure.",
-      { cause: result.error ?? result.signal },
-    ));
+    EvidenceProcessOwnership.retain(
+      directory,
+      new Error("The CLI launcher did not establish descendant closure.", {
+        cause: result.error ?? result.signal,
+      }),
+    );
   return {
     status: result.status,
     stdout,

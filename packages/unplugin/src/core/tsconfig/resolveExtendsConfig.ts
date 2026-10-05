@@ -7,14 +7,13 @@ import { resolveTsconfigExtends } from "ttsc/tsconfig";
  * The rule is ttsc's, `resolveTsconfigExtends`, written to TypeScript-Go's
  * `getExtendsConfigPath`: separators folded, a file-path specifier kept under
  * the spelling it was reached by, as TypeScript anchors a relatively extended
- * config, and a module specifier resolved to its physical
- * path. This reader only adds its policy: it is best-effort, so a specifier
- * that names nothing, or a preset whose manifest does not parse, answers
- * `null`, and the compiler reports the configuration error itself.
+ * config, and a module specifier resolved to its physical path. This reader
+ * only adds its policy: it is best-effort, so a specifier that names nothing,
+ * or a preset whose manifest does not parse, answers `null`, and the compiler
+ * reports the configuration error itself.
  *
  * @param tsconfig The declaring config, as this reader named it.
  * @param specifier The `extends` value as written.
- *
  * @evidence contracts/common.md#principled-implementation
  *   The host resolver owns TypeScript-Go file and package extends semantics;
  *   this reader maps absence and resolver errors to an unproven null result.

@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { num, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { num, print } from "../../internal/helpers";
  * An object pattern with a renamed and a rest element, and an array pattern
  * with a default, an elision (hole), and a rest element.
  *
- * 1. Object renamed/rest bindings and array default/elision/rest bindings preserve pattern syntax and order.
- * 2. Literal object/array binding text fixes rename direction, assignment and spread markers independently.
+ * 1. Object renamed/rest bindings and array default/elision/rest bindings preserve
+ *    pattern syntax and order.
+ * 2. Literal object/array binding text fixes rename direction, assignment and
+ *    spread markers independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Object renamed/rest bindings and array default/elision/rest bindings preserve pattern syntax and order.
  * @evidence contracts/testing.md#independent-expectations Literal object/array binding text fixes rename direction, assignment and spread markers independently.

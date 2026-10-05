@@ -67,7 +67,7 @@ func TestLSPProxyDropsOlderVersionlessPluginDiagnosticsGeneration(t *testing.T) 
   var publication struct {
     Method string `json:"method"`
     Params struct {
-      URI string `json:"uri"`
+      URI         string `json:"uri"`
       Diagnostics []struct {
         Message string `json:"message"`
       } `json:"diagnostics"`

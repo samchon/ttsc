@@ -10,9 +10,9 @@ import type { TtscUnpluginOptions } from "@ttsc/unplugin/api";
  *
  * Every field is JSON-serialisable on purpose: `withTtsc` runs in the Metro
  * **config** process, but the transformer runs in Metro's **worker** processes,
- * so the resolved options have to survive a JSON / env round-trip
- * to reach them (see {@link serializeOptions}). That is why `include`/`exclude`
- * are plain substring patterns rather than `RegExp`.
+ * so the resolved options have to survive a JSON / env round-trip to reach them
+ * (see {@link serializeOptions}). That is why `include`/`exclude` are plain
+ * substring patterns rather than `RegExp`.
  *
  * @evidence contracts/common.md#principled-implementation
  *   This interface extends the documented Unplugin option contract rather than

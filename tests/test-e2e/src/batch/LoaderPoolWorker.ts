@@ -2,27 +2,46 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 
 export interface LoaderPoolOutcome {
-  hostObservation?: { before: Record<string, string | null>; after: Record<string, string | null>; elapsedMs: number; maximumGapMs: number; ticks: number };
+  hostObservation?: {
+    before: Record<string, string | null>;
+    after: Record<string, string | null>;
+    elapsedMs: number;
+    maximumGapMs: number;
+    ticks: number;
+  };
   value?: any;
   error?: string;
-  adapterCalls?: { mode: string; pid: number; filename: string; outcome: string; startedAt: string; finishedAt?: string }[];
-  callbackObservation?: { dependencies: string[]; contextDependencies: string[]; cacheability: boolean[]; errors: string[]; completions: number };
+  adapterCalls?: {
+    mode: string;
+    pid: number;
+    filename: string;
+    outcome: string;
+    startedAt: string;
+    finishedAt?: string;
+  }[];
+  callbackObservation?: {
+    dependencies: string[];
+    contextDependencies: string[];
+    cacheability: boolean[];
+    errors: string[];
+    completions: number;
+  };
 }
 /**
  * Own one real resident adapter process and join its actual close receipt.
  *
  * Requests are bounded observations of that same adapter/cache/session. An
- * optional deliveredSource carries the caller's earlier bytes independently
- * of the current disk input, without changing the worker or compiler options. A
- * descriptorFlow command uses the same Node caller before adapter admission;
- * it does not start a worker and its evaluator attempts remain actual cost. A
+ * optional deliveredSource carries the caller's earlier bytes independently of
+ * the current disk input, without changing the worker or compiler options. A
+ * descriptorFlow command uses the same Node caller before adapter admission; it
+ * does not start a worker and its evaluator attempts remain actual cost. A
  * mixed lint input graph uses that same command and worker stdout/stderr to
  * carry contributor results and joined logs; factory re-evaluations are actual
- * internal calls, not a zero-cost or one-Program assertion. A
- * plugin-lock command retains actual lease/fence state in these same two
- * residents; twelve command/reply barriers add no adapter delivery. An exited
- * seed is a separately recorded real process, not a unit-only observation.
- * timeout refuses ownership resolution; it does not kill or certify release.
+ * internal calls, not a zero-cost or one-Program assertion. A plugin-lock
+ * command retains actual lease/fence state in these same two residents; twelve
+ * command/reply barriers add no adapter delivery. An exited seed is a
+ * separately recorded real process, not a unit-only observation. timeout
+ * refuses ownership resolution; it does not kill or certify release.
  *
  * @evidence contracts/testing.md#behavioral-verification The caller submits normal/failure/replay/repair observations to one actual adapter child, collects its line replies and joins close before releasing shared inputs.
  * @evidence contracts/testing.md#independent-expectations Authored command ids route literal child outcomes; the caller compares native outputs, diagnostic markers and publication identities independently of this transport.
@@ -34,61 +53,167 @@ export interface LoaderPoolOutcome {
  * @evidence contracts/e2e.md#preserved-coverage The caller retains initial Metro forwarding/Turbopack map and dependency controls while extending actual failure sharing/replay/repair; no legacy case/profile loop is invoked.
  */
 export function createLoaderPoolWorker(props: {
-  mode: "metro" | "turbopack"; root: string; cache: string; session: string;
-  metro: string; turbopack: string; traceRoot: string;
+  mode: "metro" | "turbopack";
+  root: string;
+  cache: string;
+  session: string;
+  metro: string;
+  turbopack: string;
+  traceRoot: string;
 }) {
-  const child = spawn(process.execPath, [path.join(props.root, "loader-pool.mjs"), props.mode, props.root, props.metro, props.turbopack], {
-    cwd: props.root, windowsHide: true, stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env, NODE_ENV: props.mode === "turbopack" ? "development" : "production", TTSC_CACHE_DIR: props.cache, TTSC_UNPLUGIN_TRANSFORM_SESSION: props.session, TTSC_E2E_TRACE: props.traceRoot },
-  });
-  let buffered = "", stderr = "", next = 0;
-  const pending = new Map<number, { resolve(reply: LoaderPoolOutcome): void; reject(error: unknown): void; timer: ReturnType<typeof setTimeout> }>();
+  const child = spawn(
+    process.execPath,
+    [
+      path.join(props.root, "loader-pool.mjs"),
+      props.mode,
+      props.root,
+      props.metro,
+      props.turbopack,
+    ],
+    {
+      cwd: props.root,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        NODE_ENV: props.mode === "turbopack" ? "development" : "production",
+        TTSC_CACHE_DIR: props.cache,
+        TTSC_UNPLUGIN_TRANSFORM_SESSION: props.session,
+        TTSC_E2E_TRACE: props.traceRoot,
+      },
+    },
+  );
+  let buffered = "",
+    stderr = "",
+    next = 0;
+  const pending = new Map<
+    number,
+    {
+      resolve(reply: LoaderPoolOutcome): void;
+      reject(error: unknown): void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
   const rejectPending = (error: unknown) => {
-    for (const request of pending.values()) { clearTimeout(request.timer); request.reject(error); }
+    for (const request of pending.values()) {
+      clearTimeout(request.timer);
+      request.reject(error);
+    }
     pending.clear();
   };
   child.stdout.on("data", (chunk) => {
     buffered += chunk;
     let newline: number;
     while ((newline = buffered.indexOf("\n")) >= 0) {
-      const line = buffered.slice(0, newline); buffered = buffered.slice(newline + 1);
+      const line = buffered.slice(0, newline);
+      buffered = buffered.slice(newline + 1);
       try {
         const reply = JSON.parse(line) as LoaderPoolOutcome & { id: number };
         const request = pending.get(reply.id);
-        if (!request) throw new Error(`${props.mode}: unexpected response ${line}`);
-        pending.delete(reply.id); clearTimeout(request.timer); request.resolve(reply);
-      } catch (error) { rejectPending(error); }
+        if (!request)
+          throw new Error(`${props.mode}: unexpected response ${line}`);
+        pending.delete(reply.id);
+        clearTimeout(request.timer);
+        request.resolve(reply);
+      } catch (error) {
+        rejectPending(error);
+      }
     }
   });
-  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
   let processError: Error | undefined;
-  child.once("error", (error) => { processError = error; });
-  const closed = new Promise<void>((resolve, reject) => child.once("close", (code, signal) => {
-    const error = processError ?? (code !== 0 || signal !== null ? new Error(`${props.mode}: status=${code} signal=${signal}\n${stderr}`) : undefined);
-    rejectPending(error ?? new Error(`${props.mode}: closed before reply`));
-    error ? reject(error) : resolve();
-  }));
+  child.once("error", (error) => {
+    processError = error;
+  });
+  const closed = new Promise<void>((resolve, reject) =>
+    child.once("close", (code, signal) => {
+      const error =
+        processError ??
+        (code !== 0 || signal !== null
+          ? new Error(
+              `${props.mode}: status=${code} signal=${signal}\n${stderr}`,
+            )
+          : undefined);
+      rejectPending(error ?? new Error(`${props.mode}: closed before reply`));
+      error ? reject(error) : resolve();
+    }),
+  );
   void closed.catch(() => undefined);
   return {
-    request: (sourceSuffix = "", deliveredSource?: string, descriptorFlow?: { root: string; api: string; binary: string; tsgo: string; runtimeInputs?: { config: string; cache: string; nodePath: string }; lint?: { root: string; factory: string; ttsx: string; alpha: string; beta: string } }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
-      const id = ++next;
-      const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${props.mode}: delivery remains unresolved: ${stderr}`)); }, 120_000);
-      pending.set(id, { resolve, reject, timer });
-      child.stdin.write(JSON.stringify({ id, sourceSuffix, deliveredSource, descriptorFlow }) + "\n");
-    }),
+    request: (
+      sourceSuffix = "",
+      deliveredSource?: string,
+      descriptorFlow?: {
+        root: string;
+        api: string;
+        binary: string;
+        tsgo: string;
+        runtimeInputs?: { config: string; cache: string; nodePath: string };
+        lint?: {
+          root: string;
+          factory: string;
+          ttsx: string;
+          alpha: string;
+          beta: string;
+        };
+      },
+    ) =>
+      new Promise<LoaderPoolOutcome>((resolve, reject) => {
+        const id = ++next;
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          reject(
+            new Error(`${props.mode}: delivery remains unresolved: ${stderr}`),
+          );
+        }, 120_000);
+        pending.set(id, { resolve, reject, timer });
+        child.stdin.write(
+          JSON.stringify({
+            id,
+            sourceSuffix,
+            deliveredSource,
+            descriptorFlow,
+          }) + "\n",
+        );
+      }),
     diagnostics: () => stderr,
-    pluginLock: (input: { root: string; api: string; action: string }) => new Promise<LoaderPoolOutcome>((resolve, reject) => {
-      const id = ++next;
-      const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${props.mode}: plugin lock transition remains unresolved: ${stderr}`)); }, 120_000);
-      pending.set(id, { resolve, reject, timer });
-      child.stdin.write(JSON.stringify({ id, pluginLock: input }) + "\n");
-    }),
+    pluginLock: (input: { root: string; api: string; action: string }) =>
+      new Promise<LoaderPoolOutcome>((resolve, reject) => {
+        const id = ++next;
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          reject(
+            new Error(
+              `${props.mode}: plugin lock transition remains unresolved: ${stderr}`,
+            ),
+          );
+        }, 120_000);
+        pending.set(id, { resolve, reject, timer });
+        child.stdin.write(JSON.stringify({ id, pluginLock: input }) + "\n");
+      }),
     close: async () => {
       child.stdin.end(JSON.stringify({ close: true }) + "\n");
       let timer: ReturnType<typeof setTimeout> | undefined;
-      try { await Promise.race([closed, new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`${props.mode}: close remains unresolved: ${stderr}`)), 120_000);
-      })]); } finally { if (timer) clearTimeout(timer); }
+      try {
+        await Promise.race([
+          closed,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `${props.mode}: close remains unresolved: ${stderr}`,
+                  ),
+                ),
+              120_000,
+            );
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
     },
   };
 }

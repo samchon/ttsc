@@ -11,9 +11,10 @@ import { make } from "../internal/make";
  * The result is a single semicolon:
  *
  * ```ts
- * ;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link EmptyStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   EmptyStatement encodes a lone semicolon, which is a valid empty body where
  *   grammar requires a Statement. It does not remove an existing statement.
@@ -27,9 +28,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc gives the no-op meaning and loop-body use, separated from tags under
  *   the documentation skill's paragraph guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link EmptyStatement}.
  */
 export const createEmptyStatement = (): EmptyStatement =>
   make("EmptyStatement", {});

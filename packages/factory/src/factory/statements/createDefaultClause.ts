@@ -15,6 +15,9 @@ import { make } from "../internal/make";
  *   b();
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param statements The statements.
+ * @returns The created {@link DefaultClause}.
  * @evidence contracts/common.md#principled-implementation
  *   DefaultClause has ordered statements and no match expression, distinguishing
  *   the fallback arm while preserving explicit fall-through/break decisions.
@@ -28,10 +31,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states the no-match meaning and termination responsibility,
  *   with a separate default-arm example before acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param statements The statements.
- * @returns The created {@link DefaultClause}.
  */
 export const createDefaultClause = (
   statements: readonly Statement[],

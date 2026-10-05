@@ -8,10 +8,10 @@ import { parseLintDiagnostics } from "../../../../packages/playground/src/compil
  * line.
  *
  * The lint plugin prints tsgo-style pretty diagnostics, possibly with ANSI
- * colors and CRLF line ends, mixed with summaries and source excerpts. A finding
- * is one `file:line:column - severity TSnnnn: [rule] message` line; the editor
- * needs its length from the identifier-like token that starts at the reported
- * column, falling back to one unit where no token starts there.
+ * colors and CRLF line ends, mixed with summaries and source excerpts. A
+ * finding is one `file:line:column - severity TSnnnn: [rule] message` line; the
+ * editor needs its length from the identifier-like token that starts at the
+ * reported column, falling back to one unit where no token starts there.
  *
  * 1. Parse an error, a colored warning and a bracket-containing message from one
  *    CRLF stderr that also holds a summary, an excerpt and a squiggle line.

@@ -34,9 +34,9 @@ import { realpath } from "./realpath";
 import { someSet } from "./someSet";
 
 /**
- * The adapter's observer of compiler inputs, keyed by owner: each
- * owner registers the inputs one delivery depended on, and hears which owners'
- * inputs changed.
+ * The adapter's observer of compiler inputs, keyed by owner: each owner
+ * registers the inputs one delivery depended on, and hears which owners' inputs
+ * changed.
  *
  * Two owners use it. The Vite dev server's owners are its importers
  * (`createViteServeInputWatch`), which it reloads or invalidates through Vite's
@@ -53,16 +53,16 @@ import { someSet } from "./someSet";
  * topology checks because retargeting a junction need not emit events on its
  * old descendants. Every event is re-checked against the input's recorded
  * condition before an owner hears it, so an event that changed nothing the
- * compile observed is silent.
- * Native event names can have aliases missing from lexical indexes. Each
- * settled event batch therefore rechecks all registered conditions of the
- * reporting scope; directory admission still limits native watch coverage.
+ * compile observed is silent. Native event names can have aliases missing from
+ * lexical indexes. Each settled event batch therefore rechecks all registered
+ * conditions of the reporting scope; directory admission still limits native
+ * watch coverage.
  *
  * A project's root-file membership is one entry for the project root
  * (samchon/ttsc#1419). Its scope admits every directory the project walk
- * enters, and an event in its scope schedules a current policy-aware walk.
- * Its owners are reported as invalidated rather
- * than reloaded, since most new files change no other module.
+ * enters, and an event in its scope schedules a current policy-aware walk. Its
+ * owners are reported as invalidated rather than reloaded, since most new files
+ * change no other module.
  *
  * A plugin's Go source directory is one entry too (samchon/ttsc#1487). Its
  * scope admits every directory below it but those the plugin build passes over
@@ -78,7 +78,6 @@ import { someSet } from "./someSet";
  *   change alone.
  * @param operations Watch/poll and identity-case capabilities. These do not
  *   replace the native filesystem used to read input conditions or paths.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Owned registration maps and callbacks separate compiler-input conditions
  *   from Vite importer or build-record policy.
@@ -350,10 +349,7 @@ export function createInputObserver(
     for (const scope of entry.scopes) scopesToPrune.add(scope);
   };
 
-  const recordChange = (
-    eventType: string,
-    file: string,
-  ): void => {
+  const recordChange = (eventType: string, file: string): void => {
     const absolute = path.resolve(file);
     const parent = path.dirname(absolute);
     const direct = new Set<string>();
@@ -500,7 +496,11 @@ export function createInputObserver(
     }
   };
 
-  const enqueue = (scope: WatchScope, eventType: string, file: string): void => {
+  const enqueue = (
+    scope: WatchScope,
+    eventType: string,
+    file: string,
+  ): void => {
     recordChange(eventType, path.resolve(file));
     scope.lastEventAt = changeSequence;
     // Native event names can be aliases absent from the lexical indexes, even
@@ -682,7 +682,10 @@ export function createInputObserver(
       const directoryKey = watchPathKey(directory);
       if (contributed.has(directoryKey)) break;
       contributed.add(directoryKey);
-      scope.directories.set(directoryKey, (scope.directories.get(directoryKey) ?? 0) + 1);
+      scope.directories.set(
+        directoryKey,
+        (scope.directories.get(directoryKey) ?? 0) + 1,
+      );
     }
     scope.watcher?.track?.(file);
     return !scope.failed;
@@ -921,8 +924,8 @@ export function createInputObserver(
   return {
     open(root, declaredPolling) {
       const nextRoot = path.resolve(root);
-      const reanchor = opened &&
-        (projectRoot !== nextRoot || polling !== declaredPolling);
+      const reanchor =
+        opened && (projectRoot !== nextRoot || polling !== declaredPolling);
       const retained = reanchor ? [...entries.values()] : [];
       if (reanchor) {
         // Conditions and owner registrations survive a host restart, while

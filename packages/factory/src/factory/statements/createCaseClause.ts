@@ -18,6 +18,10 @@ import { make } from "../internal/make";
  *   break;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @param statements The statements.
+ * @returns The created {@link CaseClause}.
  * @evidence contracts/common.md#principled-implementation
  *   CaseClause retains its match expression and ordered statements; it does
  *   not insert a break, preserving caller-defined fall-through behavior.
@@ -31,11 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the fall-through consequence and why break must be explicit,
  *   with its example separated from the acknowledgment block.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @param statements The statements.
- * @returns The created {@link CaseClause}.
  */
 export const createCaseClause = (
   expression: Expression,

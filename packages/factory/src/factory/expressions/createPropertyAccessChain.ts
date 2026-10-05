@@ -20,22 +20,21 @@ import { createIdentifier } from "../names/createIdentifier";
  * With `expression` of `a`, a `?.` token, and `name` of `b`, the printer emits:
  *
  * ```ts
- * a?.b
+ * a?.b;
  * ```
  *
- * String names must be valid identifiers; private-name access must be legal
- * in its enclosing context. The constructor does not check those conditions.
- *
- * @evidence contracts/common.md#principled-implementation Strings normalize to Identifiers while supplied identifier nodes remain unchanged; chain kind and marker retain this-link optionality, with lexical/private-name legality caller-owned.
- * @evidence contracts/common.md#clear-and-simple-design Shared identifier construction and make store one link, preserving preceding links in the receiver instead of flattening them.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker is explicit optional syntax and name normalization does not guess member identity from consumer objects.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains marker absence, string normalization and name legality; example and ordered parameters are separated from tags.
+ * String names must be valid identifiers; private-name access must be legal in
+ * its enclosing context. The constructor does not check those conditions.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The receiver expression.
  * @param questionDotToken The optional `?.` token, if this link is optional.
  * @param name The accessed member name.
  * @returns The created {@link PropertyAccessChain}.
+ * @evidence contracts/common.md#principled-implementation Strings normalize to Identifiers while supplied identifier nodes remain unchanged; chain kind and marker retain this-link optionality, with lexical/private-name legality caller-owned.
+ * @evidence contracts/common.md#clear-and-simple-design Shared identifier construction and make store one link, preserving preceding links in the receiver instead of flattening them.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker is explicit optional syntax and name normalization does not guess member identity from consumer objects.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains marker absence, string normalization and name legality; example and ordered parameters are separated from tags.
  */
 export const createPropertyAccessChain = (
   expression: Expression,

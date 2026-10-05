@@ -1125,16 +1125,26 @@ func regexFitsInMeta(n regexNode, meta string, hasIUFlags bool) bool {
     // SAFETY: endpoint membership proves containment only for convex sets.
     // Word, whitespace and complement sets have gaps, so compare the entire
     // interval with their constituent ranges rather than dropping its interior.
-    if cr.From.codePointIsNaN() || cr.To.codePointIsNaN() { return false }
+    if cr.From.codePointIsNaN() || cr.To.codePointIsNaN() {
+      return false
+    }
     from, to := cr.From.CodePoint, cr.To.CodePoint
-    if from > to { return false }
+    if from > to {
+      return false
+    }
     ranges := regexMetaIntervals(meta, hasIUFlags)
-    if len(ranges) == 0 { return false }
+    if len(ranges) == 0 {
+      return false
+    }
     complement := meta == "\\D" || meta == "\\W" || meta == "\\S"
     for _, interval := range ranges {
       if complement {
-        if from <= interval[1] && to >= interval[0] { return false }
-      } else if from >= interval[0] && to <= interval[1] { return true }
+        if from <= interval[1] && to >= interval[0] {
+          return false
+        }
+      } else if from >= interval[0] && to <= interval[1] {
+        return true
+      }
     }
     return complement
   }
@@ -1181,7 +1191,9 @@ func regexMetaIntervals(meta string, hasIUFlags bool) [][2]int {
     return [][2]int{{0x30, 0x39}}
   case "\\w", "\\W":
     intervals := [][2]int{{0x30, 0x39}, {0x41, 0x5a}, {0x5f, 0x5f}, {0x61, 0x7a}}
-    if hasIUFlags { intervals = append(intervals, [2]int{0x017f, 0x017f}, [2]int{0x212a, 0x212a}) }
+    if hasIUFlags {
+      intervals = append(intervals, [2]int{0x017f, 0x017f}, [2]int{0x212a, 0x212a})
+    }
     return intervals
   case "\\s", "\\S":
     return [][2]int{{0x9, 0xd}, {0x20, 0x20}, {0xa0, 0xa0}, {0x1680, 0x1680},

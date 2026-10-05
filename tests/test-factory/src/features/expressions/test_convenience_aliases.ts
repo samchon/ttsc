@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, print } from "../../internal/helpers";
  * `createVoidZero` → `void 0`, `createExportDefault` → `export default ...`,
  * and `createExternalModuleExport` → `export { name }`.
  *
- * 1. Convenience constructors print void 0, default export and named export with their intended token shapes.
- * 2. Explicit void 0, export default value; and export { foo }; literals define each alias output independently.
+ * 1. Convenience constructors print void 0, default export and named export with
+ *    their intended token shapes.
+ * 2. Explicit void 0, export default value; and export { foo }; literals define
+ *    each alias output independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Convenience constructors print void 0, default export and named export with their intended token shapes.
  * @evidence contracts/testing.md#independent-expectations Explicit void 0, export default value; and export { foo }; literals define each alias output independently.

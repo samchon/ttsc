@@ -11,10 +11,10 @@ import (
 //
 // Empty lists have no final item or comma position. Normalizing a neighboring nonempty list must not create punctuation in any of them.
 //
-// 1. Parse empty function declarations, calls, and array literals.
-// 2. Run the engine with formatTrailingComma enabled.
-// 3. Require zero findings, then normalize a neighboring nonempty array while
-//    preserving every original empty list.
+//  1. Parse empty function declarations, calls, and array literals.
+//  2. Run the engine with formatTrailingComma enabled.
+//  3. Require zero findings, then normalize a neighboring nonempty array while
+//     preserving every original empty list.
 //
 // @evidence contracts/testing.md#behavioral-verification Empty function, array, object, call and new lists must produce no findings. A neighboring nonempty multiline array must still gain its comma while every original empty list stays byte-identical.
 // @evidence contracts/testing.md#independent-expectations An empty list has no last item after which a comma could be inserted. The literal neighboring array output follows the supported all-mode policy and retains the complete original empty-list source.

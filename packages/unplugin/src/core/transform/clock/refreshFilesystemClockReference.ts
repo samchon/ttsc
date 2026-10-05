@@ -14,10 +14,10 @@ import { filesystemClockReferences } from "./filesystemClockReferences";
  * operations and keyed by the device those operations report, so it only ever
  * separates stamps on the filesystem that actually minted it. When its volume
  * differs from the inputs' volume, or the observed filesystem cannot see the
- * probe at all, nothing is proven and content comparison continues.
- * The write uses the native host filesystem; the supplied observing view must
- * coherently observe that probe for its metadata to represent this mint. This
- * function does not independently certify equivalence of a replaced view.
+ * probe at all, nothing is proven and content comparison continues. The write
+ * uses the native host filesystem; the supplied observing view must coherently
+ * observe that probe for its metadata to represent this mint. This function
+ * does not independently certify equivalence of a replaced view.
  *
  * Forcing the reference onto the inputs' volume would require writing into the
  * user's project or an otherwise unowned neighboring directory. That is not a

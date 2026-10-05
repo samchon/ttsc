@@ -12,12 +12,12 @@ import type { CapturedProcessOutput } from "./CapturedProcessOutput";
  * string limits; file capture does not make output unbounded.
  *
  * The directory is per-call, so ordinary concurrent captures use separate
- * destinations. This is not held-directory protection against namespace mutation.
- * Descriptor acquisition failures attempt rollback; cleanup failures
+ * destinations. This is not held-directory protection against namespace
+ * mutation. Descriptor acquisition failures attempt rollback; cleanup failures
  * are suppressed, and the temp creator can leave an unclaimed postflight
- * allocation. The caller
- * owns the returned capture and must dispose it after reading; read failures
- * propagate, while disposal is idempotent and cleanup is best effort.
+ * allocation. The caller owns the returned capture and must dispose it after
+ * reading; read failures propagate, while disposal is idempotent and cleanup is
+ * best effort.
  *
  * @evidence contracts/common.md#principled-implementation Precreated files receive exact child stream bytes through inherited descriptors; decoding happens on read, and I/O errors cannot masquerade as empty successful output.
  * @evidence contracts/common.md#clear-and-simple-design One capture owns two descriptors and their private directory. Acquisition rollback and disposal share cleanup helpers, leaving consumers responsible for a finally boundary.

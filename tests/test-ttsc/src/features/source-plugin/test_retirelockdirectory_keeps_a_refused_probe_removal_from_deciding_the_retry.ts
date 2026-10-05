@@ -1,29 +1,29 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import type { RetireLockDirectoryOperations } from "../../../../../packages/ttsc/src/internal/RetireLockDirectoryOperations";
 import { retireLockDirectory } from "../../../../../packages/ttsc/src/internal/retireLockDirectory";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies a refused removal of the contention probe never decides the retry
- * of a lock retirement.
+ * Verifies a refused removal of the contention probe never decides the retry of
+ * a lock retirement.
  *
  * On Windows renaming a freshly created sibling between the same parents
  * permits retry under the caller-held generation premise. That probe does not
- * establish the cause of a source-specific refusal. Deleting
- * that empty probe can be refused for a moment by an indexer or scanner, and the
- * deletion only cleans up after an answer the rename already gave, so it must
- * neither throw out of the retry loop nor turn peer contention into a failure.
- * The cases drive the real directory renames and creations over a private
- * temporary tree through the injected operations, refusing exactly the
- * operations named below with the native error codes Windows reports.
+ * establish the cause of a source-specific refusal. Deleting that empty probe
+ * can be refused for a moment by an indexer or scanner, and the deletion only
+ * cleans up after an answer the rename already gave, so it must neither throw
+ * out of the retry loop nor turn peer contention into a failure. The cases
+ * drive the real directory renames and creations over a private temporary tree
+ * through the injected operations, refusing exactly the operations named below
+ * with the native error codes Windows reports.
  *
- * 1. Supply EPERM for the first retirement rename,
- *    and refuse every probe removal with EBUSY.
- * 2. Require the retirement to return true after exactly one yield, with the
- *    held directory moved to its tombstone and the empty probe left behind.
+ * 1. Supply EPERM for the first retirement rename, and refuse every probe removal
+ *    with EBUSY.
+ * 2. Require the retirement to return true after exactly one yield, with the held
+ *    directory moved to its tombstone and the empty probe left behind.
  * 3. Contrast a code outside the contention set, a refused probe rename and a
  *    non-Windows platform, and require none of them to retry on the probe's
  *    word.

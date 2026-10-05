@@ -6,15 +6,14 @@ import { hashText } from "../transform/utils/hashText";
  *
  * Deliveries and repeated retry signals can move record bytes
  * (`writeProjectRecordFile`, `signalProjectRecordFile`). The digest compares
- * sampled content, not every intermediate write; equal samples do not prove
- * no intervening change, and SHA-256 is a fingerprint rather than equality
- * without collision assumptions. Rollup's
- * cache is the host that needs it: a module it restores from the cache it was
- * handed carries the digest its delivery wrote, and the adapter compares it
- * with the record's bytes now (`createRollupCachedModuleProof`).
+ * sampled content, not every intermediate write; equal samples do not prove no
+ * intervening change, and SHA-256 is a fingerprint rather than equality without
+ * collision assumptions. Rollup's cache is the host that needs it: a module it
+ * restores from the cache it was handed carries the digest its delivery wrote,
+ * and the adapter compares it with the record's bytes now
+ * (`createRollupCachedModuleProof`).
  *
  * @param bytes The record file's bytes, as written or as read.
- *
  * @evidence contracts/common.md#principled-implementation
  *   The shared content hash fingerprints the bytes the host records; matching
  *   serialization, rather than object identity, makes cross-process comparison possible.

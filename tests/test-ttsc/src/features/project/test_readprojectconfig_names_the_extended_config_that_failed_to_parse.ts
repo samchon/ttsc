@@ -1,6 +1,10 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies a malformed `extends` ancestor is named, not the root that pulled it

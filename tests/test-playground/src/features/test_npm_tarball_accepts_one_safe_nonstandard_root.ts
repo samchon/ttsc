@@ -14,6 +14,7 @@ import { createTarball } from "../internal/tarball";
  * 2. Assert the root is stripped from an ordinary entry and from a GNU long-name
  *    entry, and that the manifest is read. Mixed-root rejection is owned by the
  *    path-confinement unit.
+ *
  * @evidence contracts/testing.md#behavioral-verification unpackNpmTarball accepts the single node/ archive root, strips it from index.d.ts and a GNU long-name path, and preserves the @types/node manifest name and exact declaration text.
  * @evidence contracts/testing.md#independent-expectations Authored node/ entries and literal declaration bytes independently determine stripped keys; the longPath is fixture input, not a key computed from extraction output.
  * @evidence contracts/testing.md#distinguishing-cases Ordinary declaration and sixteen-level GNU long-name override share one safe nonstandard root; mixed/unsafe roots remain covered by the neighboring rejection case.

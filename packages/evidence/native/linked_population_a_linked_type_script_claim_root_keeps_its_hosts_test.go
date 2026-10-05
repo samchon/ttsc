@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 /**
@@ -30,32 +30,32 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkedTypeScriptClaimRootKeepsItsHosts(t *testing.T) {
-	workspace := t.TempDir()
-	project := filepath.Join(workspace, "project")
-	if err := os.MkdirAll(project, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := linkDirectory(t, project, filepath.Join(workspace, "mirror")); err != nil {
-		t.Fatalf("this platform refused to create a link: %v", err)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/docs/pricing.md": "## Discounts {#discounts}\n",
-		"project/src/sale.ts":     "/** @evidence */\nexport interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(t, project, filepath.Join(workspace, "mirror")); err != nil {
+    t.Fatalf("this platform refused to create a link: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/src/sale.ts":     "/** @evidence */\nexport interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "root":"../mirror",
     "files":["src/**/*.ts"],
     "symbol":"type",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-	assertProblemContains(
-		t,
-		messages,
-		"Missing acknowledgement for 'docs/pricing.md#discounts'",
-	)
-	// The target above belongs to the default Markdown base, so it would survive a
-	// repair that composed the TypeScript address from the resolved directory. A
-	// location naming the host file is the half that would not, which is why the
-	// source carries a tag the rule has to report by position.
-	assertProblemContains(t, messages, "../mirror/src/sale.ts")
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'docs/pricing.md#discounts'",
+  )
+  // The target above belongs to the default Markdown base, so it would survive a
+  // repair that composed the TypeScript address from the resolved directory. A
+  // location naming the host file is the half that would not, which is why the
+  // source carries a tag the rule has to report by position.
+  assertProblemContains(t, messages, "../mirror/src/sale.ts")
 }

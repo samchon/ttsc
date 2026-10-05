@@ -4,8 +4,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, readMainSnapshot, runWorkerSnapshot, workerSnapshotFiles, workerSnapshotTrees } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  prepareSnapshot,
+  readMainSnapshot,
+  runWorkerSnapshot,
+  workerSnapshotFiles,
+  workerSnapshotTrees,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies the worker snapshot guards every implicit-project dependency.

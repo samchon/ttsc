@@ -1,6 +1,10 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies a malformed config is reported by name, in ttsc's own voice.

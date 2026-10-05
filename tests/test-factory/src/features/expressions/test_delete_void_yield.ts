@@ -1,15 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, num, print, ref } from "../../internal/helpers";
 
 /**
- * Verifies printing of `delete` / `void` / `yield` and an angle-bracket type assertion.
+ * Verifies printing of `delete` / `void` / `yield` and an angle-bracket type
+ * assertion.
  *
- * Optional yield operands and delegated yields must not share the wrong keyword or asterisk branch.
+ * Optional yield operands and delegated yields must not share the wrong keyword
+ * or asterisk branch.
  *
- * 1. Delete, void, yield, yield-star, bare yield and angle-bracket assertion preserve keyword/token variants.
- * 2. Exact literals specify each keyword, asterisk, optional operand and type assertion punctuation independently.
+ * 1. Delete, void, yield, yield-star, bare yield and angle-bracket assertion
+ *    preserve keyword/token variants.
+ * 2. Exact literals specify each keyword, asterisk, optional operand and type
+ *    assertion punctuation independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Delete, void, yield, yield-star, bare yield and angle-bracket assertion preserve keyword/token variants.
  * @evidence contracts/testing.md#independent-expectations Exact literals specify each keyword, asterisk, optional operand and type assertion punctuation independently.

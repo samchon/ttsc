@@ -1,8 +1,8 @@
 import { assertSnapshotReaderKeepsInputsAcrossConcurrentCompaction } from "../../internal/metro-cache";
 
 /**
- * Verifies a snapshot reader never loses a recorded input while another
- * process compacts the snapshot.
+ * Verifies a snapshot reader never loses a recorded input while another process
+ * compacts the snapshot.
  *
  * A compaction renames each worker file to a claimed name, publishes the merged
  * main file, and only then removes the claimed copy. A reader that listed a
@@ -13,8 +13,8 @@ import { assertSnapshotReaderKeepsInputsAcrossConcurrentCompaction } from "../..
  *
  * 1. Start a second process that records one new input per round and compacts.
  * 2. Read the snapshot state concurrently from this process until it exits.
- * 3. Require each trusted state to retain the inputs counted by the prior
- *    progress observation.
+ * 3. Require each trusted state to retain the inputs counted by the prior progress
+ *    observation.
  *
  * @evidence contracts/testing.md#behavioral-verification A real second process alternates createSnapshotRecorder().record of a distinct external path with prepareSnapshot for 150 rounds while this process loops readSnapshotState; any trusted state lacking a path whose progress marker was read before the snapshot read began fails the list of lost rounds. The child must exit 0, the completion marker must report all 150 rounds, and at least one trusted state must be observed.
  * @evidence contracts/testing.md#independent-expectations The expected set follows from the authored progress marker: a round counted by the marker was recorded before the reader started, so its path must be present whichever file it currently lives in; the marker is written by the child, not derived from the reader.

@@ -83,5 +83,7 @@ func TestProjectRuleStateAndLiveFailureReachFileDispatch(t *testing.T) {
   if got := len(findings); got != 2 || findings[0].File != nil || findings[0].Rule != projectRuleName || findings[1].File == nil || findings[1].Rule != observerRuleName {
     t.Fatalf("final project finding should precede file findings: %#v", findings)
   }
-  if findings[0].Severity != SeverityError || findings[0].Message != "resource changed before guarded use" || findings[1].Severity != SeverityWarn || findings[1].Message != "dependent operation skipped" || findings[1].engineFailure { t.Fatalf("live failure or dependent diagnostic payload lost: %#v", findings) }
+  if findings[0].Severity != SeverityError || findings[0].Message != "resource changed before guarded use" || findings[1].Severity != SeverityWarn || findings[1].Message != "dependent operation skipped" || findings[1].engineFailure {
+    t.Fatalf("live failure or dependent diagnostic payload lost: %#v", findings)
+  }
 }

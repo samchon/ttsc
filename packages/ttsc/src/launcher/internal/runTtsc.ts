@@ -12,8 +12,8 @@ import { getBoolean } from "../../flags/getBoolean";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
-import { cacheEntryExists } from "../../internal/cacheEntryExists";
 import { E2ETrace } from "../../internal/E2ETrace";
+import { cacheEntryExists } from "../../internal/cacheEntryExists";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { isFilesystemPathIdentityWithin } from "../../internal/pathIdentity/isFilesystemPathIdentityWithin";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
@@ -25,10 +25,10 @@ import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resol
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
-import { prepareTtscBuildMode } from "./prepareTtscBuildMode";
 import type { TtscBuildMode } from "./TtscBuildMode";
-import { parseTtscBuildArgs } from "./parseTtscBuildArgs";
 import { getCompilerVersionText } from "./getCompilerVersionText";
+import { parseTtscBuildArgs } from "./parseTtscBuildArgs";
+import { prepareTtscBuildMode } from "./prepareTtscBuildMode";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
 import { resolveRuntimeCleanTargets } from "./runtime/resolveRuntimeCleanTargets";
@@ -38,9 +38,9 @@ import { WatchTopology } from "./watch/WatchTopology";
 
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate lane (build,
- * check, fix, format, cache, prepare, clean, help or version) and returns
- * an exit code. Synchronous lane errors are caught here and reported to stderr;
- * an error thrown by reporting itself can still escape this entry.
+ * check, fix, format, cache, prepare, clean, help or version) and returns an
+ * exit code. Synchronous lane errors are caught here and reported to stderr; an
+ * error thrown by reporting itself can still escape this entry.
  *
  * Watch setup returns before its asynchronous first build finishes. Signal
  * shutdown and supported Node IPC stop requests await the resident close and
@@ -52,10 +52,8 @@ import { WatchTopology } from "./watch/WatchTopology";
  * transaction against concurrent path replacement.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
- *
  * @returns The selected lane's status, or `2` for an error caught by this
  *   entry.
- *
  * @evidence contracts/common.md#principled-implementation Command and schema identities select the declared build, check, edit and cache lanes; emit tri-state and ordered passthrough values preserve compiler authority. Cleanup prevalidates the complete target population and protected physical identities before removals, without atomic replacement or rollback guarantees.
  * @evidence contracts/common.md#clear-and-simple-design One public entry owns dispatch and reporting; private argument, cleanup, single-file and watch operations isolate their distinct lifecycles while sharing the package's flag and build owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Command names and debounce timing are declared CLI policy, not consumer-specific answers; completed build statuses are reported while entry exceptions map to 2 and process exit normalization remains explicit. Reuse validity belongs to maintained source-build owners rather than an assumed historical binary.
@@ -136,9 +134,15 @@ function isBuildAlias(command: string): boolean {
   );
 }
 
-function runCompatibleBuild(argv: readonly string[], mode: TtscBuildMode): number {
+function runCompatibleBuild(
+  argv: readonly string[],
+  mode: TtscBuildMode,
+): number {
   const checkOnly = mode !== "build";
-  const options = prepareTtscBuildMode(normalizeBuildOptions(parseTtscBuildArgs(argv)), mode);
+  const options = prepareTtscBuildMode(
+    normalizeBuildOptions(parseTtscBuildArgs(argv)),
+    mode,
+  );
   if (options.watch) return runWatch(options, checkOnly);
   if (options.files.length !== 0) return runSingleFile(options);
   const result = runBuild(options);
@@ -782,27 +786,41 @@ function runWatch(
     }
     const residentClosing = resident?.close() ?? Promise.resolve();
     const activeClosing = active ?? Promise.resolve();
-    closing = Promise.allSettled([residentClosing, activeClosing]).then((results) => {
-      const errors = results.flatMap((result) =>
-        result.status === "rejected" ? [result.reason] : [],
-      );
-      if (topologyError !== undefined) errors.push(topologyError);
-      if (errors.length !== 0)
-        throw new AggregateError(errors, `ttsc: watch shutdown failed: ${errors.map(formatError).join("; ")}`);
-    });
+    closing = Promise.allSettled([residentClosing, activeClosing]).then(
+      (results) => {
+        const errors = results.flatMap((result) =>
+          result.status === "rejected" ? [result.reason] : [],
+        );
+        if (topologyError !== undefined) errors.push(topologyError);
+        if (errors.length !== 0)
+          throw new AggregateError(
+            errors,
+            `ttsc: watch shutdown failed: ${errors.map(formatError).join("; ")}`,
+          );
+      },
+    );
     if (process.env.TTSC_E2E_TRACE) {
       // Observe the original promises without substituting their settlements.
       void residentClosing.then(
-        () => E2ETrace.watchShutdown("resident-settled", { outcome: "fulfilled" }),
-        () => E2ETrace.watchShutdown("resident-settled", { outcome: "rejected" }),
+        () =>
+          E2ETrace.watchShutdown("resident-settled", { outcome: "fulfilled" }),
+        () =>
+          E2ETrace.watchShutdown("resident-settled", { outcome: "rejected" }),
       );
       void activeClosing.then(
-        () => E2ETrace.watchShutdown("active-settled", { outcome: "fulfilled" }),
+        () =>
+          E2ETrace.watchShutdown("active-settled", { outcome: "fulfilled" }),
         () => E2ETrace.watchShutdown("active-settled", { outcome: "rejected" }),
       );
       void closing.then(
-        () => E2ETrace.watchShutdown("close-promise-settled", { outcome: "fulfilled" }),
-        () => E2ETrace.watchShutdown("close-promise-settled", { outcome: "rejected" }),
+        () =>
+          E2ETrace.watchShutdown("close-promise-settled", {
+            outcome: "fulfilled",
+          }),
+        () =>
+          E2ETrace.watchShutdown("close-promise-settled", {
+            outcome: "rejected",
+          }),
       );
     }
     void closing.catch(() => {});
@@ -812,16 +830,24 @@ function runWatch(
     E2ETrace.watchShutdown("finish-start", { stopId: id });
     try {
       await close();
-      E2ETrace.watchShutdown("close-settled", { stopId: id, outcome: "fulfilled" });
+      E2ETrace.watchShutdown("close-settled", {
+        stopId: id,
+        outcome: "fulfilled",
+      });
       process.exitCode = toExitCode(lastStatus);
       if (id !== undefined && process.connected && process.send !== undefined) {
         E2ETrace.watchShutdown("ack-send", { stopId: id });
         await new Promise<void>((resolve, reject) => {
           process.send!(
-            { type: "ttsc.watch.stopped", id, status: completedBuild ? lastStatus : null },
+            {
+              type: "ttsc.watch.stopped",
+              id,
+              status: completedBuild ? lastStatus : null,
+            },
             (error: Error | null) => {
               E2ETrace.watchShutdown("ack-callback", {
-                stopId: id, outcome: error === null ? "fulfilled" : "rejected",
+                stopId: id,
+                outcome: error === null ? "fulfilled" : "rejected",
               });
               error === null ? resolve() : reject(error);
             },
@@ -835,29 +861,48 @@ function runWatch(
     } finally {
       if (process.connected) {
         E2ETrace.watchShutdown("disconnect-start", {
-          stopId: id, selected: process.disconnect !== undefined,
+          stopId: id,
+          selected: process.disconnect !== undefined,
         });
         try {
           process.disconnect?.();
-          E2ETrace.watchShutdown("disconnect-return", { stopId: id, outcome: "fulfilled" });
-        }
-        catch (error) {
-          E2ETrace.watchShutdown("disconnect-return", { stopId: id, outcome: "rejected" });
+          E2ETrace.watchShutdown("disconnect-return", {
+            stopId: id,
+            outcome: "fulfilled",
+          });
+        } catch (error) {
+          E2ETrace.watchShutdown("disconnect-return", {
+            stopId: id,
+            outcome: "rejected",
+          });
           process.stderr.write(`${formatError(error)}\n`);
           process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
         }
       }
-      E2ETrace.watchShutdown("finish-end", { stopId: id, exitCode: process.exitCode });
+      E2ETrace.watchShutdown("finish-end", {
+        stopId: id,
+        exitCode: process.exitCode,
+      });
     }
   };
-  const onInterrupt = () => { void finish(); };
-  const onTerminate = () => { void finish(); };
-  const onDisconnect = () => { void finish(); };
+  const onInterrupt = () => {
+    void finish();
+  };
+  const onTerminate = () => {
+    void finish();
+  };
+  const onDisconnect = () => {
+    void finish();
+  };
   const onMessage = (message: unknown) => {
     if (
-      typeof message === "object" && message !== null &&
-      "type" in message && message.type === "ttsc.watch.stop" &&
-      "id" in message && typeof message.id === "string" && message.id.length !== 0
+      typeof message === "object" &&
+      message !== null &&
+      "type" in message &&
+      message.type === "ttsc.watch.stop" &&
+      "id" in message &&
+      typeof message.id === "string" &&
+      message.id.length !== 0
     ) {
       const id = message.id;
       E2ETrace.watchShutdown("ipc-stop-received", { stopId: id });

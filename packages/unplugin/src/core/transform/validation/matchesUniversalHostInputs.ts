@@ -7,10 +7,9 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
 /**
  * Validate universal descriptor/config inputs without re-reading them for every
- * module. Existing paths use the generation's native metadata manifest;
- * missing probes are grouped by the nearest
- * existing directory and checked through native candidate stats so alternate
- * spellings cannot hide an existing input.
+ * module. Existing paths use the generation's native metadata manifest; missing
+ * probes are grouped by the nearest existing directory and checked through
+ * native candidate stats so alternate spellings cannot hide an existing input.
  *
  * While the tracker proves every input the manifest covers unchanged, source
  * content is not read; plugin build environments still require their own

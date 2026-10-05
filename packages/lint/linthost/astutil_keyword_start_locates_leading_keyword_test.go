@@ -41,8 +41,12 @@ func TestAstutilKeywordStartLocatesLeadingKeyword(t *testing.T) {
   if pos != 0 {
     t.Fatalf("KeywordStart should locate `var` at offset 0, got %d", pos)
   }
-  if astutil.KeywordStart(file, declList, "const") != -1 || astutil.KeywordStart(file, declList, "x") != -1 { t.Fatal("missing keyword or declaration name was accepted as declaration keyword") }
-  if astutil.KeywordStart(nil, declList, "var") != -1 || astutil.KeywordStart(file, nil, "var") != -1 || astutil.KeywordStart(file, declList, "") != -1 { t.Fatal("absent keyword input should return no match") }
+  if astutil.KeywordStart(file, declList, "const") != -1 || astutil.KeywordStart(file, declList, "x") != -1 {
+    t.Fatal("missing keyword or declaration name was accepted as declaration keyword")
+  }
+  if astutil.KeywordStart(nil, declList, "var") != -1 || astutil.KeywordStart(file, nil, "var") != -1 || astutil.KeywordStart(file, declList, "") != -1 {
+    t.Fatal("absent keyword input should return no match")
+  }
   cases := []struct {
     name      string
     prefix    string

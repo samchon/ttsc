@@ -6,8 +6,8 @@ type Native = Parameters<typeof mapDiagnostic>[0];
 
 /**
  * Verifies a diagnostic without a usable byte start is located from its
- * one-based line and UTF-8 byte column, and that its span, severity and code are
- * normalized when the producer omits or malforms them.
+ * one-based line and UTF-8 byte column, and that its span, severity and code
+ * are normalized when the producer omits or malforms them.
  *
  * The native driver reports `start` for every located diagnostic, but the
  * mapper must still place one that carries only a display location, and must
@@ -114,7 +114,11 @@ export function test_map_diagnostic_derives_a_missing_start_from_line_and_byte_c
     {
       name: "non-finite line and column default to the start",
       source: "ab\ncd",
-      input: { line: Number.NaN, character: Number.POSITIVE_INFINITY, length: 1 },
+      input: {
+        line: Number.NaN,
+        character: Number.POSITIVE_INFINITY,
+        length: 1,
+      },
       expected: { line: 1, column: 1, length: 1 },
     },
     {
@@ -189,7 +193,10 @@ export function test_map_diagnostic_derives_a_missing_start_from_line_and_byte_c
   for (const row of rows) {
     try {
       assert.deepEqual(
-        mapDiagnostic({ ...base, ...row.input } as unknown as Native, row.source),
+        mapDiagnostic(
+          { ...base, ...row.input } as unknown as Native,
+          row.source,
+        ),
         {
           line: row.expected.line,
           column: row.expected.column,

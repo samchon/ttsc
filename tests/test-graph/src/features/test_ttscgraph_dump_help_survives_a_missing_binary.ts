@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import { TtscGraphLauncherArguments } from "../../../../packages/graph/src/TtscGraphLauncherArguments";
 
 /**
- * Verifies the missing-binary dump fallback answers help with usage and fails other commands.
+ * Verifies the missing-binary dump fallback answers help with usage and fails
+ * other commands.
  *
- * runDump consults TtscGraphLauncherArguments.missingDump only after binary
- * resolution returns null. Help spellings must then succeed with a usage summary
- * that names the native authority, any other dump must fail with the
+ * RunDump consults TtscGraphLauncherArguments.missingDump only after binary
+ * resolution returns null. Help spellings must then succeed with a usage
+ * summary that names the native authority, any other dump must fail with the
  * installation diagnostic, and a resolved binary's help must be forwarded
  * unchanged.
  *
@@ -33,16 +34,30 @@ export function test_ttscgraph_dump_help_survives_a_missing_binary(): void {
       assert.match(result.stdout ?? "", /^Usage: ttsc-graph dump/mu);
       assert.match(result.stdout ?? "", /ttscgraph/u);
       assert.equal(result.stderr, undefined);
-    } catch (error) { failures.push(error); }
+    } catch (error) {
+      failures.push(error);
+    }
   }
   try {
     TtscGraphLauncherArguments.dump(["--pretty"]);
     const ordinary = TtscGraphLauncherArguments.missingDump(["--pretty"]);
     assert.equal(ordinary.code, 1);
-    assert.match(ordinary.stderr ?? "", /could not resolve the ttscgraph binary/u);
+    assert.match(
+      ordinary.stderr ?? "",
+      /could not resolve the ttscgraph binary/u,
+    );
     assert.equal(ordinary.stdout, undefined);
-    assert.deepEqual(TtscGraphLauncherArguments.dumpVector(["--help"], null), ["dump", "--help"]);
-    assert.deepEqual(TtscGraphLauncherArguments.dumpCompletion({ status: 23 }), { code: 23 });
-  } catch (error) { failures.push(error); }
-  if (failures.length !== 0) throw new AggregateError(failures, "dump help source controls failed");
+    assert.deepEqual(TtscGraphLauncherArguments.dumpVector(["--help"], null), [
+      "dump",
+      "--help",
+    ]);
+    assert.deepEqual(
+      TtscGraphLauncherArguments.dumpCompletion({ status: 23 }),
+      { code: 23 },
+    );
+  } catch (error) {
+    failures.push(error);
+  }
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "dump help source controls failed");
 }

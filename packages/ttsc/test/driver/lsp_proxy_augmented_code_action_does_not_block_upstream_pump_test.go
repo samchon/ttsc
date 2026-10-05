@@ -79,7 +79,7 @@ func TestLSPProxyAugmentedCodeActionDoesNotBlockUpstreamPump(t *testing.T) {
     t.Fatalf("codeAction response was not eventually augmented:\n%s", body)
   }
   var response struct {
-    ID int `json:"id"`
+    ID     int `json:"id"`
     Result []struct {
       Title string `json:"title"`
     } `json:"result"`

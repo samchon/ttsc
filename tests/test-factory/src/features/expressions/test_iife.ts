@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { num, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { num, print } from "../../internal/helpers";
  * `createImmediatelyInvokedFunctionExpression` and its arrow counterpart wrap a
  * body in a parenthesized callee and invoke it.
  *
- * 1. Function and arrow IIFEs preserve the call target grouping and return-one body.
- * 2. Exact independently authored multiline call sources distinguish invocation syntax from a bare function expression.
+ * 1. Function and arrow IIFEs preserve the call target grouping and return-one
+ *    body.
+ * 2. Exact independently authored multiline call sources distinguish invocation
+ *    syntax from a bare function expression.
  *
  * @evidence contracts/testing.md#behavioral-verification Function and arrow IIFEs preserve the call target grouping and return-one body.
  * @evidence contracts/testing.md#independent-expectations Exact independently authored multiline call sources distinguish invocation syntax from a bare function expression.

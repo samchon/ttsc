@@ -29,12 +29,13 @@ export function test_evidence_fixture_preparation_releases_partial_workspace(): 
   options.circular = options;
   try {
     assert.throws(
-      () => createProject({
-        name,
-        compilerOptions: options,
-        lintConfig: "export default {};\n",
-        files: {},
-      }),
+      () =>
+        createProject({
+          name,
+          compilerOptions: options,
+          lintConfig: "export default {};\n",
+          files: {},
+        }),
       TypeError,
     );
     assert.deepEqual(
@@ -45,6 +46,9 @@ export function test_evidence_fixture_preparation_releases_partial_workspace(): 
   } finally {
     for (const entry of fs.readdirSync(os.tmpdir()))
       if (entry.startsWith(prefix))
-        fs.rmSync(path.join(os.tmpdir(), entry), { recursive: true, force: true });
+        fs.rmSync(path.join(os.tmpdir(), entry), {
+          recursive: true,
+          force: true,
+        });
   }
 }

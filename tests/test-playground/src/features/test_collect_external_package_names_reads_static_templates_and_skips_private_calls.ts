@@ -9,12 +9,11 @@ import { collectExternalPackageNames } from "../../../../packages/playground/src
  * A template without a substitution or an escape is a constant string, so
  * `require(`a`)` and `import(`b`)` request the same package as the quoted form.
  * Substitutions are computed arguments. Escaped templates can also be constant,
- * but the collector's documented lexical contract deliberately omits them.
- * A template can never follow
- * `import` or `from` in a declaration, so those forms are invalid JavaScript
- * and request nothing. `[...require("e")]` is a real call whose three dots are
- * a spread rather than a member access, while `this.#require("f")` calls a
- * private method.
+ * but the collector's documented lexical contract deliberately omits them. A
+ * template can never follow `import` or `from` in a declaration, so those forms
+ * are invalid JavaScript and request nothing. `[...require("e")]` is a real
+ * call whose three dots are a spread rather than a member access, while
+ * `this.#require("f")` calls a private method.
  *
  * 1. Collect a source holding static-template calls, spread and quoted
  *    declarations as positive controls.

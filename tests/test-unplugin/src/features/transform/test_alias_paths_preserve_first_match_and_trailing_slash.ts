@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+
 import { createAliasPaths } from "../../../../../packages/unplugin/src/core/transform/alias/createAliasPaths";
+
 /**
- * Verifies first-match alias ownership despite TypeScript longest-key selection.
+ * Verifies first-match alias ownership despite TypeScript longest-key
+ * selection.
  *
- * Aliases are consulted in declaration order, so the first match owns a name even
- * where the compiler would pick the longest key, and a trailing slash on either
- * side is normalized without inventing an exact key.
+ * Aliases are consulted in declaration order, so the first match owns a name
+ * even where the compiler would pick the longest key, and a trailing slash on
+ * either side is normalized without inventing an exact key.
  *
  * 1. Create paths from duplicate, short-before-long and long-before-short alias
- *    lists and require the first declaration to own each exact and wildcard key.
+ *    lists and require the first declaration to own each exact and wildcard
+ *    key.
  * 2. Create paths from aliases that differ by a trailing slash and require the
  *    omitted ordinary prefix keys and the paired-slash exact/wildcard keys.
  * 3. Create paths from an unsupported relative replacement and require its
@@ -23,14 +27,26 @@ import { createAliasPaths } from "../../../../../packages/unplugin/src/core/tran
 export function test_alias_paths_preserve_first_match_and_trailing_slash(): void {
   const first = path.resolve("/alias-first").replace(/\\/g, "/");
   const second = path.resolve("/alias-second").replace(/\\/g, "/");
-  const aliases = (find: string, replacement: string) => ({ find, replacement });
-  const duplicate = createAliasPaths([aliases("@x", first), aliases("@x", second)]);
+  const aliases = (find: string, replacement: string) => ({
+    find,
+    replacement,
+  });
+  const duplicate = createAliasPaths([
+    aliases("@x", first),
+    aliases("@x", second),
+  ]);
   assert.deepEqual(duplicate["@x"], [first]);
   assert.deepEqual(duplicate["@x/*"], [first + "/*"]);
-  const short = createAliasPaths([aliases("@x", first), aliases("@x/sub", second)]);
+  const short = createAliasPaths([
+    aliases("@x", first),
+    aliases("@x/sub", second),
+  ]);
   assert.deepEqual(short["@x/sub"], [first + "/sub"]);
   assert.deepEqual(short["@x/sub/*"], [first + "/sub/*"]);
-  const long = createAliasPaths([aliases("@x/sub", second), aliases("@x", first)]);
+  const long = createAliasPaths([
+    aliases("@x/sub", second),
+    aliases("@x", first),
+  ]);
   assert.deepEqual(long["@x/sub"], [second]);
   assert.deepEqual(long["@x/*"], [first + "/*"]);
   const findOnly = createAliasPaths([aliases("@x/", first)]);
@@ -40,6 +56,9 @@ export function test_alias_paths_preserve_first_match_and_trailing_slash(): void
   const both = createAliasPaths([aliases("@x/", first + "/")]);
   assert.deepEqual(both["@x"], [first]);
   assert.deepEqual(both["@x/*"], [first + "/*"]);
-  const unsupportedFirst = createAliasPaths([aliases("@x", "../unit/transform/relative"), aliases("@x/sub", second)]);
+  const unsupportedFirst = createAliasPaths([
+    aliases("@x", "../unit/transform/relative"),
+    aliases("@x/sub", second),
+  ]);
   assert.equal(unsupportedFirst["@x/sub"], undefined);
 }

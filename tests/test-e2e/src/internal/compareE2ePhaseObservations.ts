@@ -18,37 +18,69 @@ export function compareE2ePhaseObservations(
   baseline: TracePhaseObservation<unknown>,
   consolidated: TracePhaseObservation<unknown>,
 ) {
-  assert.ok(baseline.traces && consolidated.traces, "Comparison requires both actual trace observations");
+  assert.ok(
+    baseline.traces && consolidated.traces,
+    "Comparison requires both actual trace observations",
+  );
   assert.match(baseline.elapsedNanoseconds, /^\d+$/);
   assert.match(consolidated.elapsedNanoseconds, /^\d+$/);
-  const observations: Record<string, { before: number; after: number; delta: number }> = {};
-  for (const key of ["writerInstances", "processAttempts", "processStarts", "processExits", "processCloses", "installedDriverFacades", "bridgeCacheHits"] as const) {
+  const observations: Record<
+    string,
+    { before: number; after: number; delta: number }
+  > = {};
+  for (const key of [
+    "writerInstances",
+    "processAttempts",
+    "processStarts",
+    "processExits",
+    "processCloses",
+    "installedDriverFacades",
+    "bridgeCacheHits",
+  ] as const) {
     const before = baseline.traces[key];
     const after = consolidated.traces[key];
     assert.ok(Number.isSafeInteger(before) && before >= 0);
     assert.ok(Number.isSafeInteger(after) && after >= 0);
     observations[key] = { before, after, delta: after - before };
   }
-  for (const key of ["fullLoad", "fullReconstruction", "reusedDataGeneration", "other"] as const) {
+  for (const key of [
+    "fullLoad",
+    "fullReconstruction",
+    "reusedDataGeneration",
+    "other",
+  ] as const) {
     const before = baseline.traces.programConstructions[key];
     const after = consolidated.traces.programConstructions[key];
     assert.ok(Number.isSafeInteger(before) && before >= 0);
     assert.ok(Number.isSafeInteger(after) && after >= 0);
-    observations[`programConstruction.${key}`] = { before, after, delta: after - before };
+    observations[`programConstruction.${key}`] = {
+      before,
+      after,
+      delta: after - before,
+    };
   }
   return {
     observedOnly: true,
     wallTimeNanoseconds: {
       before: baseline.elapsedNanoseconds,
       after: consolidated.elapsedNanoseconds,
-      delta: (BigInt(consolidated.elapsedNanoseconds) - BigInt(baseline.elapsedNanoseconds)).toString(),
-      scope: "runner callback including enabled in-process instrumentation; preparation and post-phase scans excluded",
+      delta: (
+        BigInt(consolidated.elapsedNanoseconds) -
+        BigInt(baseline.elapsedNanoseconds)
+      ).toString(),
+      scope:
+        "runner callback including enabled in-process instrumentation; preparation and post-phase scans excluded",
     },
     observations,
-    processCounterScope: "distinct observed invocations; overlapping observers are not deduplicated physical launches",
-    programCounterScope: "maintained driver constructor-return events; raw/upstream constructions are not inferred",
+    processCounterScope:
+      "distinct observed invocations; overlapping observers are not deduplicated physical launches",
+    programCounterScope:
+      "maintained driver constructor-return events; raw/upstream constructions are not inferred",
     outcomes: { before: baseline.outcome, after: consolidated.outcome },
-    cachesBefore: { before: baseline.cachesBefore, after: consolidated.cachesBefore },
+    cachesBefore: {
+      before: baseline.cachesBefore,
+      after: consolidated.cachesBefore,
+    },
     identicalColdTemperatureCertified: false,
     wholePopulationReductionCertified: false,
     assertionCoverageCertified: false,

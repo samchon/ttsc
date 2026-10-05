@@ -59,6 +59,7 @@ func rewriteStringLiterals(node *shimast.Node, from, to string) {
 //     transform (numeric 0 -> 100).
 //  3. Assert the emitted JS carries BOTH the host transform's rewrite and the
 //     linked plugin's rewrite.
+//
 // @evidence contracts/testing.md#behavioral-verification Calls actual host-owned transform emission with a registered linked ProgramPlugin; output must contain linked-applied and host numeric replacement 100.
 // @evidence contracts/testing.md#independent-expectations Authored string and numeric replacement literals independently prove both plugin phases ran; no expected output is printed by another compiler.
 // @evidence contracts/testing.md#distinguishing-cases ProgramPlugin mutation and host emit transformation coexist in one source, detecting omission of either phase.

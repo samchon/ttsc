@@ -1,19 +1,23 @@
+import { createHash } from "node:crypto";
+import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
+
 import type { ResolvedTtscUnpluginOptions } from "../../../../../packages/unplugin/src/core/options/ResolvedTtscUnpluginOptions";
-import type { TtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/TtscTransformCache";
 import { resolveOptions } from "../../../../../packages/unplugin/src/core/options/resolveOptions";
+import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import type { TtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/TtscTransformCache";
 import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
 import { createTransformCacheKey } from "../../../../../packages/unplugin/src/core/transform/cache/createTransformCacheKey";
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
-import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
 import { transformTtsc } from "../../../../../packages/unplugin/src/core/transform/transformTtsc";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../../utils/src/TestProject";
-import { createHash } from "node:crypto";
-import path from "node:path";
 
-/** Literal generation input for the actual delivery coordinator, without a producer. */
+/**
+ * Literal generation input for the actual delivery coordinator, without a
+ * producer.
+ */
 export function createCachedDeliveryUnitFixture(): {
   api: { transformTtsc: typeof transformTtsc };
   cache: TtscTransformCache;

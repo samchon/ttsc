@@ -37,7 +37,9 @@ func TestPublicRuleContextReportRangeFixForwardsToFixReporter(t *testing.T) {
   if !reflect.DeepEqual(reporter.lastEdits, []rule.TextEdit{edit}) {
     t.Fatalf("edits mismatch: want %+v, got %+v", []rule.TextEdit{edit}, reporter.lastEdits)
   }
-  if reporter.lastPos != 3 || reporter.lastEnd != 5 || reporter.lastMessage != "msg" { t.Fatalf("range-fix diagnostic payload lost: %+v", reporter) }
+  if reporter.lastPos != 3 || reporter.lastEnd != 5 || reporter.lastMessage != "msg" {
+    t.Fatalf("range-fix diagnostic payload lost: %+v", reporter)
+  }
   reporter = &captureReporter{}
   ctx = rule.NewContext(nil, nil, rule.SeverityError, nil, reporter)
   ctx.ReportRangeFix(2, 9, "different diagnostic anchor", edit)

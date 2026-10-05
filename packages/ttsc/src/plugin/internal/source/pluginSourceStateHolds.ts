@@ -22,9 +22,7 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * @param state The state the envelope reported.
  * @param options.sourceDigest The directory's `pluginSourceDigest`, when the
  *   caller holds one it can vouch for.
- *
  * @throws When a listed source file cannot be read, as the build itself would.
- *
  * @evidence contracts/common.md#principled-implementation Equality uses shared state composition and one real environment refresh after mismatch. This allows changed observations to be reconsidered without certifying the second comparison must match; supplied digest validity and native witness premises remain with their owners.
  * @evidence contracts/common.md#clear-and-simple-design One source reading is passed through both attempts and only the environment owner performs the refresh.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh corrects a genuinely changed environment reading rather than adding exceptions for particular digest values or consumers.

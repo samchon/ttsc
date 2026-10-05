@@ -21,21 +21,40 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership The matching feature export executes maintained TypeScript source and the parser in the same unit Node process over one temporary file. It installs no consumer, builds no native artifact and starts no product child. After admission, model and column checks collect independent failures; cleanup removes only its exact tracked root and records removal/absence errors. Actual execution and scanner census are not implied by this body.
  */
 export async function test_prisma_source_loader_returns_views_as_models(): Promise<void> {
-  const { loadPrismaModels } = createRequire(import.meta.url)(fileURLToPath(new URL(
-    "../../../../packages/evidence/src/internal/loadPrismaModels.ts", import.meta.url,
-  ))) as {
-    loadPrismaModels(request: { root: string; sets: Array<{ id: string; files: string[] }> }): Promise<{
-      documents: Array<{ id: string; models: Array<{ name: string; fields: Array<{ name: string; symbol: string }> }> }>;
+  const { loadPrismaModels } = createRequire(import.meta.url)(
+    fileURLToPath(
+      new URL(
+        "../../../../packages/evidence/src/internal/loadPrismaModels.ts",
+        import.meta.url,
+      ),
+    ),
+  ) as {
+    loadPrismaModels(request: {
+      root: string;
+      sets: Array<{ id: string; files: string[] }>;
+    }): Promise<{
+      documents: Array<{
+        id: string;
+        models: Array<{
+          name: string;
+          fields: Array<{ name: string; symbol: string }>;
+        }>;
+      }>;
       problems: unknown[];
     }>;
   };
   const root = TestProject.tmpdir("prisma-view-source-");
   const failures: Error[] = [];
   const check = (label: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(label, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(label, { cause }));
+    }
   };
   try {
-    TestProject.writeFiles(root, { "prisma/schema.prisma": `datasource db {
+    TestProject.writeFiles(root, {
+      "prisma/schema.prisma": `datasource db {
   provider = "postgresql"
 }
 
@@ -53,23 +72,41 @@ view SaleSummary {
   id    String @unique
   total Int
 }
-` });
-    const result = await loadPrismaModels({ root, sets: [{ id: "views", files: ["prisma/schema.prisma"] }] });
+`,
+    });
+    const result = await loadPrismaModels({
+      root,
+      sets: [{ id: "views", files: ["prisma/schema.prisma"] }],
+    });
     assert.deepEqual(result.problems, []);
     assert.equal(result.documents.length, 1);
     const document = result.documents[0]!;
     check("set identity", () => assert.equal(document.id, "views"));
-    check("ordinary model", () => assert.ok(document.models.some(model => model.name === "Sale")));
-    check("view model", () => assert.ok(document.models.some(model => model.name === "SaleSummary")));
-    check("view total column", () => assert.equal(
-      document.models.find(model => model.name === "SaleSummary")?.fields.find(field => field.name === "total")?.symbol,
-      "column",
-    ));
+    check("ordinary model", () =>
+      assert.ok(document.models.some((model) => model.name === "Sale")),
+    );
+    check("view model", () =>
+      assert.ok(document.models.some((model) => model.name === "SaleSummary")),
+    );
+    check("view total column", () =>
+      assert.equal(
+        document.models
+          .find((model) => model.name === "SaleSummary")
+          ?.fields.find((field) => field.name === "total")?.symbol,
+        "column",
+      ),
+    );
   } catch (cause) {
     failures.push(new Error("view source load", { cause }));
   } finally {
-    check("cleanup:remove", () => fs.rmSync(root, { recursive: true, force: true }));
+    check("cleanup:remove", () =>
+      fs.rmSync(root, { recursive: true, force: true }),
+    );
     check("cleanup:absence", () => assert.equal(fs.existsSync(root), false));
   }
-  if (failures.length) throw new AggregateError(failures, "Prisma view payload distinctions failed.");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Prisma view payload distinctions failed.",
+    );
 }

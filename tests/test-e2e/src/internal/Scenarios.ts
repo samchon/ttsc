@@ -4,14 +4,19 @@ import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 
 const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
   begin(): string | undefined;
-  record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+  record(
+    event: string,
+    invocation: string | undefined,
+    fields: Record<string, unknown>,
+  ): void;
 };
 
 /** Runs the independent scenarios of one package experiment. */
 export namespace Scenarios {
   /**
-   * Observe one actual named callback without collecting or changing its result.
-   * The caller decides which settled inputs and resource gates admit the call.
+   * Observe one actual named callback without collecting or changing its
+   * result. The caller decides which settled inputs and resource gates admit
+   * the call.
    *
    * @evidence contracts/common.md#principled-implementation Records invocation before the actual callback and returned/skipped/threw after its awaited result. An actual false result is skipped, matching the test runner's capability outcome; the original value or exception is propagated unchanged.
    * @evidence contracts/common.md#clear-and-simple-design One invocation token connects a named callback to its terminal observation. Failure collection and reuse admission remain caller responsibilities.
@@ -37,15 +42,25 @@ export namespace Scenarios {
       const result = await run(...args);
       trace.record("profile-result", invocation, {
         pid: process.pid,
-        data: { writerRuntime: process.version, label, name, outcome: result === false ? "skipped" : "returned",
-          assertionCoverageCertified: false },
+        data: {
+          writerRuntime: process.version,
+          label,
+          name,
+          outcome: result === false ? "skipped" : "returned",
+          assertionCoverageCertified: false,
+        },
       });
       return result;
     } catch (error) {
       trace.record("profile-result", invocation, {
         pid: process.pid,
-        data: { writerRuntime: process.version, label, name, outcome: "threw",
-          assertionCoverageCertified: false },
+        data: {
+          writerRuntime: process.version,
+          label,
+          name,
+          outcome: "threw",
+          assertionCoverageCertified: false,
+        },
       });
       throw error;
     }

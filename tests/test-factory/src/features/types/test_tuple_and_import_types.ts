@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, print, ref, str } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { kw, print, ref, str } from "../../internal/helpers";
  * A labeled tuple `[first: string, ...rest: number[]]`, optional `[string?]`,
  * rest `[...number[]]`, an `import("mod").Foo<T>` type, and a `typeof import`.
  *
- * 1. Named/optional/rest tuple members and qualified/generic or typeof import types retain each token distinction.
- * 2. Explicit tuple/import source literals independently fix labels, spread/question markers, qualifier and typeof prefix.
+ * 1. Named/optional/rest tuple members and qualified/generic or typeof import
+ *    types retain each token distinction.
+ * 2. Explicit tuple/import source literals independently fix labels,
+ *    spread/question markers, qualifier and typeof prefix.
  *
  * @evidence contracts/testing.md#behavioral-verification Named/optional/rest tuple members and qualified/generic or typeof import types retain each token distinction.
  * @evidence contracts/testing.md#independent-expectations Explicit tuple/import source literals independently fix labels, spread/question markers, qualifier and typeof prefix.

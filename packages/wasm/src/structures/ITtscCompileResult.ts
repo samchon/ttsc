@@ -4,7 +4,8 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
  * Structured payload inside `ITtscResult.result` for `build` and `check`.
  *
  * `output` maps emit-destination paths to file contents. Paths inside `cwd` are
- * relative; outside destinations remain absolute. `check` returns an empty map.
+ * relative; outside destinations remain absolute. `check` returns an empty
+ * map.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A path-keyed string record matches the native JSON output map; optional

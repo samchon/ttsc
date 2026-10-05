@@ -1,5 +1,6 @@
-import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
 import assert from "node:assert/strict";
+
+import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
 
 /**
  * Verifies the shared `transformInclude` predicate accepts exactly the
@@ -14,6 +15,7 @@ import assert from "node:assert/strict";
  * 2. Assert `.ts`, `.tsx`, `.mts`, and `.cts` sources are included.
  * 3. Assert JavaScript, unknown extensions, every declaration spelling,
  *    `node_modules` sources, and a `\0` virtual id are excluded.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls the authored unplugin raw transformInclude predicate and asserts the four TypeScript source extensions are admitted while JavaScript, virtual IDs, declarations and node_modules are refused.
  * @evidence contracts/testing.md#independent-expectations

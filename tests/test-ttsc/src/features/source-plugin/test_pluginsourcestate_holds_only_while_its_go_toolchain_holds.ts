@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
 import fs from "node:fs";
@@ -6,6 +5,7 @@ import path from "node:path";
 
 import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceState";
 import { pluginSourceStateHolds } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceStateHolds";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies source-state proof refutes native Go tool and GOENV changes.
@@ -14,8 +14,10 @@ import { pluginSourceStateHolds } from "../../../../../packages/ttsc/src/plugin/
  * wrapper or its formerly absent environment file changes. Source bytes remain
  * fixed while real Go metadata queries observe each transition.
  *
- * 1. Copy the package-owned Go inputs and select a real-Go wrapper and missing GOENV.
- * 2. Preserve two unchanged proofs, rewrite the wrapper and accept only its fresh state.
+ * 1. Copy the package-owned Go inputs and select a real-Go wrapper and missing
+ *    GOENV.
+ * 2. Preserve two unchanged proofs, rewrite the wrapper and accept only its fresh
+ *    state.
  * 3. Create GOENV with literal GOFLAGS and require the previous state to fail.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual pluginSourceState and pluginSourceStateHolds preserve the two unchanged true results, wrapper-edit old false/fresh inequality/new true, and missing-to-present GOENV old false/fresh inequality.
@@ -41,7 +43,10 @@ export const test_pluginsourcestate_holds_only_while_its_go_toolchain_holds =
       ),
       plugin,
     );
-    fs.renameSync(path.join(plugin, "main.go.txt"), path.join(plugin, "main.go"));
+    fs.renameSync(
+      path.join(plugin, "main.go.txt"),
+      path.join(plugin, "main.go"),
+    );
     const realGo = child_process
       .execFileSync("go", ["env", "GOROOT"], { encoding: "utf8" })
       .trim();

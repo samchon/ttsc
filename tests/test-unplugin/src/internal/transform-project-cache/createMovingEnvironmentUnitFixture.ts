@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -8,20 +7,27 @@ import {
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Copy the original source/project corpus and move its private GOENV at the
- * first supplied source metadata read. The actual provider supplies before
- * and moved labels plus source state, not synthetic environment digests.
- * GOFLAGS is temporarily absent so ambient overrides cannot hide the file's
- * literal GOFLAGS=-mod=mod line. Catch and dispose restore both exact prior
- * environment values; metadata-read counts remain case-local.
+ * first supplied source metadata read. The actual provider supplies before and
+ * moved labels plus source state, not synthetic environment digests. GOFLAGS is
+ * temporarily absent so ambient overrides cannot hide the file's literal
+ * GOFLAGS=-mod=mod line. Catch and dispose restore both exact prior environment
+ * values; metadata-read counts remain case-local.
  */
 export function createMovingEnvironmentUnitFixture() {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-moving-environment-"),
   );
-  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/e2e/createMovingEnvironmentFixture/inputs-1"), root);
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/unplugin/test/fixtures/e2e/createMovingEnvironmentFixture/inputs-1",
+    ),
+    root,
+  );
   const project = path.join(root, "project");
   const source = path.join(root, "plugin");
   const environmentFile = path.join(root, "go.env");

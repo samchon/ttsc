@@ -44,9 +44,9 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * the program is running, for an installed package whose directory may be
  * read-only or for a plugin descriptor whose inputs are fingerprinted by their
  * directory's metadata, and a file created and removed in the user's tree would
- * disturb both. The overlay is created exclusively: an occupied name is
- * refused without writing or removing that entry. After acquisition, closing
- * its descriptor and removing the overlay are attempted on success or failure;
+ * disturb both. The overlay is created exclusively: an occupied name is refused
+ * without writing or removing that entry. After acquisition, closing its
+ * descriptor and removing the overlay are attempted on success or failure;
  * native cleanup failures may leave the overlay behind.
  *
  * `rootDir` is the root of the source's volume. The layout of this emit is
@@ -73,10 +73,8 @@ import { singleRootProjectConfig } from "./singleRootProjectConfig";
  * @returns The project, effective `rootDir` and compiler-owned source
  *   provenance for actual written outputs. Missing provenance is not
  *   synthesized from maps.
- *
  * @throws When the build fails. A checked build fails on any diagnostic; an
  *   emit-only build fails only when it produced no JavaScript at all.
- *
  * @evidence contracts/common.md#principled-implementation A transient extends overlay changes only roots and runtime output constraints, while preserving configDir-sensitive anchors; effective rootDir is returned for output ownership rather than inferred from emitted filenames.
  * @evidence contracts/common.md#clear-and-simple-design This boundary owns single-root overlay construction and cleanup, delegates project parsing/building, and isolates writable-directory diagnostics in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Private emit layout, disabled declaration/composite products and checked versus installed-package diagnostics are runtime contract distinctions, not source patches or tests-only compiler modes.

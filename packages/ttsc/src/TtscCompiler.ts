@@ -18,7 +18,6 @@ import {
 import { type SafeCacheCleanupTarget } from "./internal/SafeCacheCleanupTarget";
 import { cacheEntryExists } from "./internal/cacheEntryExists";
 import { resolveSafeCacheCleanupTargets } from "./internal/resolveSafeCacheCleanupTargets";
-
 import { resolveRuntimeCleanTargets } from "./launcher/internal/runtime/resolveRuntimeCleanTargets";
 import { withRuntimeDirectoryLock } from "./launcher/internal/runtime/withRuntimeDirectoryLock";
 import { loadProjectPlugins } from "./plugin/internal/load/loadProjectPlugins";
@@ -26,10 +25,8 @@ import { SourceBuildCacheLayout } from "./plugin/internal/source/SourceBuildCach
 import { resolveCleanTargets } from "./plugin/internal/source/resolveCleanTargets";
 import { resolveSourceBuildCachePaths } from "./plugin/internal/source/resolveSourceBuildCachePaths";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
-
 import type { ITtscCompilerResult } from "./structures/ITtscCompilerResult";
 import type { ITtscCompilerTransformation } from "./structures/ITtscCompilerTransformation";
-
 
 /**
  * Programmatic compiler host for the `ttsc` TypeScript-Go pipeline.
@@ -100,7 +97,6 @@ export class TtscCompiler {
    * Program, does not run diagnostics, and does not emit output files.
    *
    * @returns Compiled native plugin binary paths.
-   *
    * @evidence contracts/common.md#principled-implementation Loading descriptors under resolved project anchors and building declared source plugins returns the actual resulting native binaries; preparation does not claim project diagnostic validity.
    * @evidence contracts/common.md#clear-and-simple-design One operation creates a fresh context view and delegates descriptor loading/building to their owners, returning only the binary paths relevant to preparation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin declarations are resolved through the actual loader and failures propagate; no expected binary path or fabricated successful build substitutes for compilation.
@@ -147,11 +143,10 @@ export class TtscCompiler {
    * Default runtime selection uses the runtime-root lock and conservative owner
    * records. An explicit whole-cache selector is not filtered by runtime owner
    * liveness. Root discovery and metadata checks are sequential observations,
-   * not a namespace snapshot: selected roots/physical parents must remain stable
-   * while the operation uses its lock and deletion plan.
+   * not a namespace snapshot: selected roots/physical parents must remain
+   * stable while the operation uses its lock and deletion plan.
    *
    * @returns Cache directories that were removed.
-   *
    * @evidence contracts/common.md#principled-implementation Explicit and default ownership select different cache sets, and every candidate is validated before deletion; physical overlap preserves caller GOCACHE while roots and project-containing candidates fail closed.
    * @evidence contracts/common.md#clear-and-simple-design This public operation selects the project and optional runtime lock; cleanResolved owns the complete candidate plan and the shared cleanup helper owns deletion safety across API and CLI paths.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache ownership follows declared selectors and observed physical identities, not fixture-specific directories. Default runtime selection preserves live/unknown ownership; an explicit whole-cache selector has its documented separate deletion meaning.
@@ -273,7 +268,6 @@ export class TtscCompiler {
    * preparation, execution, response decoding, output capture or cleanup.
    *
    * @returns Structured compilation result containing diagnostics or output.
-   *
    * @evidence contracts/common.md#principled-implementation Native status and error diagnostics jointly determine success versus failure; unexpected host exceptions remain a separate envelope, and emitted files come from the actual compiler pipeline.
    * @evidence contracts/common.md#clear-and-simple-design The public method supplies an owned context to the compiler and delegates outcome adaptation to runProject, avoiding a second compile-specific selection policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Captured output never substitutes for a successful status or absence of error diagnostics; real host exceptions are exposed rather than patched into expected results.
@@ -304,7 +298,6 @@ export class TtscCompiler {
    * errors return `exception`.
    *
    * @returns Transformation result containing TypeScript text or diagnostics.
-   *
    * @evidence contracts/common.md#principled-implementation The transform owner returns source-language text and diagnostics, and outcome adaptation uses real status/error severity; host failures remain exceptions rather than absent transformed files.
    * @evidence contracts/common.md#clear-and-simple-design The method supplies the same context policy as compile and delegates source transformation plus its distinct envelope to their owning helpers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No emitted JavaScript is mislabeled as TypeScript and no consumer-specific output substitutes for native transformation; supported plugin/no-plugin lanes preserve actual diagnostics.
@@ -327,17 +320,15 @@ export class TtscCompiler {
    * descriptor-resilient launches. The whole transform, plugin loading
    * included, runs on a worker thread. Calling-thread context copying, request
    * transfer and result adaptation still perform work; this is not a guarantee
-   * that the event loop stays free throughout. The
-   * worker adopts `process.env` as it is at the call: a host that scopes
-   * process-global state such as `TEMP` around the call covers the whole
-   * transform, and nothing that changes the environment afterward reaches it.
-   * Idle workers are pooled so plugin loading's in-process caches stay warm,
-   * and never keep the process alive. The pool bounds idle workers by reported
-   * host parallelism; active requests have no implicit concurrency cap or
-   * deadline.
+   * that the event loop stays free throughout. The worker adopts `process.env`
+   * as it is at the call: a host that scopes process-global state such as
+   * `TEMP` around the call covers the whole transform, and nothing that changes
+   * the environment afterward reaches it. Idle workers are pooled so plugin
+   * loading's in-process caches stay warm, and never keep the process alive.
+   * The pool bounds idle workers by reported host parallelism; active requests
+   * have no implicit concurrency cap or deadline.
    *
    * @returns Transformation result containing TypeScript text or diagnostics.
-   *
    * @evidence contracts/common.md#principled-implementation The worker executes the same synchronous transform under the invocation environment; separate selector/payload transfer preserves constructor JSON conversion, and success/failure/exception adaptation matches the synchronous API.
    * @evidence contracts/common.md#clear-and-simple-design The method owns only asynchronous outcome adaptation; the worker owner handles exclusive checkout, environment adoption and terminal settlement while the snapshot owner handles transport-safe plugin meaning.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported workers offload transform execution instead of patching caller globals; caller-side setup/transfer/adaptation remains, and failures become the actual exception envelope.

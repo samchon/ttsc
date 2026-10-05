@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print, str } from "../../internal/helpers";
 
 /**
@@ -10,8 +10,10 @@ import { id, print, str } from "../../internal/helpers";
  * ns.Y` via an entity name, `export * as ns from "mod"`, `export as namespace
  * Lib`, and a stray `;` class element.
  *
- * 1. Import-equals require/qualified forms, namespace exports and the empty statement retain their distinct source tokens.
- * 2. Literal import x = require("mod");, import y = ns.Y; and namespace export expectations come from TypeScript grammar.
+ * 1. Import-equals require/qualified forms, namespace exports and the empty
+ *    statement retain their distinct source tokens.
+ * 2. Literal import x = require("mod");, import y = ns.Y; and namespace export
+ *    expectations come from TypeScript grammar.
  *
  * @evidence contracts/testing.md#behavioral-verification Import-equals require/qualified forms, namespace exports and the empty statement retain their distinct source tokens.
  * @evidence contracts/testing.md#independent-expectations Literal import x = require("mod");, import y = ns.Y; and namespace export expectations come from TypeScript grammar.

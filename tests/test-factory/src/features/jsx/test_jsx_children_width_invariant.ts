@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type JsxChild, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  type JsxChild,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { jsxChildren } from "../../internal/oracle";
 
 const element = (children: readonly JsxChild[]): JsxChild =>
@@ -95,33 +98,37 @@ export const test_jsx_children_width_invariant = (): void => {
     ],
   ];
   const independent = new Map<string, string>([
-  [
-    "text before an expression",
-    "<div>aaaaaaaaaaaaaaaaaaaa {bbbbbbbbbbbbbbbbbbbb}</div>"
-  ],
-  [
-    "whitespace-only separator",
-    "<div>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</div>"
-  ],
-  [
-    "whitespace-only separator in a fragment",
-    "<>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</>"
-  ],
-  [
-    "text on both sides of an expression",
-    "<div>Hello there, {nameOfTheCurrentlySignedInVisitor}!</div>"
-  ],
-  [
-    "a fragment nested in an element",
-    "<div><>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</></div>"
-  ]
-]);
+    [
+      "text before an expression",
+      "<div>aaaaaaaaaaaaaaaaaaaa {bbbbbbbbbbbbbbbbbbbb}</div>",
+    ],
+    [
+      "whitespace-only separator",
+      "<div>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</div>",
+    ],
+    [
+      "whitespace-only separator in a fragment",
+      "<>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</>",
+    ],
+    [
+      "text on both sides of an expression",
+      "<div>Hello there, {nameOfTheCurrentlySignedInVisitor}!</div>",
+    ],
+    [
+      "a fragment nested in an element",
+      "<div><>{alphaAlphaAlphaAlpha} {bravoBravoBravoBravo}</></div>",
+    ],
+  ]);
   for (const [title, node] of cases) {
     const rendered: string[] = [200, 80, 40, 10].map((printWidth) =>
       jsxChildren(new TsPrinter({ printWidth }).print(node)),
     );
     for (const value of rendered)
-      TestValidator.equals(`${title} preserves independent JSX children`, value, jsxChildren(independent.get(title)!));
+      TestValidator.equals(
+        `${title} preserves independent JSX children`,
+        value,
+        jsxChildren(independent.get(title)!),
+      );
     TestValidator.equals(
       `${title} renders the same at every width`,
       new Set(rendered).size,

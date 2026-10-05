@@ -17,14 +17,14 @@ import (
  */
 func TestPrismaSharedDecodedClaimsKeepRootedDiagnostics(t *testing.T) {
   for _, scenario := range []struct {
-    name string
-    schema string
+    name      string
+    schema    string
     documents map[string]string
-    config string
+    config    string
   }{
     {name: "each-claim-owes-its-reference", schema: "model sale {\n  id String @id\n}\n", documents: map[string]string{
       "docs/installed.md": "## Installed {#installed}\n",
-      "docs/source.md": "## Source {#source}\n",
+      "docs/source.md":    "## Source {#source}\n",
     }, config: `{"claims":[
       {"type":"prisma","root":"store","files":["**/*.prisma"],"symbol":"model","reference":{"type":"markdown","files":["docs/installed.md"],"symbol":"h2"}},
       {"type":"prisma","root":"mirror","files":["**/*.prisma"],"symbol":"model","reference":{"type":"markdown","files":["docs/source.md"],"symbol":"h2"}}

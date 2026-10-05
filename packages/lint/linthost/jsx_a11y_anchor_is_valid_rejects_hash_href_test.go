@@ -8,9 +8,9 @@ import "testing"
 // The rule handles the high-confidence invalid targets that need no router
 // settings: an empty href, a hash-only href and a javascript: URL.
 //
-// 1. Run only `jsx-a11y/anchor-is-valid` over `<a href="#">Home</a>` and
-//    expect one finding whose message contains "href".
-// 2. Run it over `<a href="/home">Home</a>` and expect none.
+//  1. Run only `jsx-a11y/anchor-is-valid` over `<a href="#">Home</a>` and
+//     expect one finding whose message contains "href".
+//  2. Run it over `<a href="/home">Home</a>` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/anchor-is-valid enabled. The anchor with href="#" yields exactly one ordinary SeverityError finding from that rule whose message contains "href"; assertJsxA11yRuleSkips requires zero findings for href="/home".
 // @evidence contracts/testing.md#independent-expectations The lint policy treats the literal hash-only href as a placeholder and accepts the authored /home path. The literal pair and message fragment are independent policy expectations; no browser navigation or destination existence is asserted.

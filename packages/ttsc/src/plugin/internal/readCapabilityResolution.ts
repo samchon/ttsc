@@ -25,11 +25,11 @@ import { recordCacheFileUse } from "./source/recordCacheFileUse";
  * `pluginSourceStateHolds` refreshes that observation on mismatch. A hit avoids
  * descriptor evaluation/discovery but still checks source/build state. Source
  * bytes can be skipped only when a recorded digest, matching signature and
- * fresh separability evidence are available; unavailable evidence also causes
- * a content read, even without a known metadata change.
- * These sequential checks rely on producer declarations and native metadata
- * semantics. Binary presence is checked with existsSync, not a binary content
- * hash or an executable-lifetime claim.
+ * fresh separability evidence are available; unavailable evidence also causes a
+ * content read, even without a known metadata change. These sequential checks
+ * rely on producer declarations and native metadata semantics. Binary presence
+ * is checked with existsSync, not a binary content hash or an
+ * executable-lifetime claim.
  *
  * @evidence contracts/common.md#principled-implementation Shape/version, both host-input snapshots, every plugin source's build state and binary presence must all hold before returning the recorded answer; any unproved premise yields null for real project discovery.
  * @evidence contracts/common.md#clear-and-simple-design One reader owns entry acceptance while shared format, source-build proof and input-observation helpers own their distinct identities.

@@ -1,7 +1,7 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 import {
   STANDARD_DECORATOR_OUTPUT,
   STANDARD_DECORATOR_SOURCE,
@@ -17,6 +17,7 @@ import {
  * 1. Re-export a project-owned const enum from a decorated CommonJS orphan.
  * 2. Run with preserveConstEnums disabled and enabled through cold/warm caches.
  * 3. Assert names match real values and name discovery executes no source effects.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual decorated CommonJS orphan reexports an owned enum to ESM. Exact preserve-dependent named/default presence, enum value, actual 17 and exactly one values-loaded effect detect invented exports and discovery executing source.
  * @evidence contracts/testing.md#independent-expectations The owned source authors enum 42 and actual 17; preserveConstEnums independently determines runtime enum presence, while the authored log must execute exactly once.
  * @evidence contracts/testing.md#distinguishing-cases Preserve false/true and CommonJS/ESM owners run first and repeated requests. Hook-loaded ESM-to-CJS bridge is selected only on Node 24+, with CommonJS on the Node 22 floor.
@@ -28,28 +29,60 @@ import {
  */
 export function test_ttsx_decorator_orphan_reexports_honor_the_owning_project() {
   // Node 22 cannot require a hook-loaded ESM dependency from this CJS bridge.
-  const modules = Number(process.versions.node.split(".")[0]) >= 24
-    ? ["commonjs", "esnext"] : ["commonjs"];
-  const profiles = modules.flatMap((module) => [false, true].map((preserve) => ({
-    module, preserve, name: "dep-" + module + "-" + preserve,
-  })));
-  const files: Record<string, string> = FixtureFiles.read("ttsc/ttsx_decorator_orphan_reexports_honor_the_owning_project/inputs-1");
-  const entry = ['declare const process: { exitCode: number };', 'export {};'];
+  const modules =
+    Number(process.versions.node.split(".")[0]) >= 24
+      ? ["commonjs", "esnext"]
+      : ["commonjs"];
+  const profiles = modules.flatMap((module) =>
+    [false, true].map((preserve) => ({
+      module,
+      preserve,
+      name: "dep-" + module + "-" + preserve,
+    })),
+  );
+  const files: Record<string, string> = FixtureFiles.read(
+    "ttsc/ttsx_decorator_orphan_reexports_honor_the_owning_project/inputs-1",
+  );
+  const entry = ["declare const process: { exitCode: number };", "export {};"];
   for (const profile of profiles) {
     const directory = "node_modules/" + profile.name;
-    files[directory + "/package.json"] = JSON.stringify({ name: profile.name, type: "commonjs", exports: "./index.ts" });
-    files[directory + "/index.ts"] = STANDARD_DECORATOR_SOURCE + '\nexport * from "./values/entry";';
-    files[directory + "/values/package.json"] = JSON.stringify({ type: profile.module === "esnext" ? "module" : "commonjs" });
-    files[directory + "/values/tsconfig.json"] = TestProject.tsconfig({ target: "ES2022", module: profile.module, rootDir: ".", outDir: "lib", preserveConstEnums: profile.preserve }, { include: ["entry.ts"] });
-    files[directory + "/values/entry.ts"] = 'console.log("values-loaded"); export const enum Value { Entry = 42 } export const actual = 17;';
-    entry.push(`console.log("BEGIN:${profile.name}");`, `try { const name: string = ${JSON.stringify(profile.name)}; const dep = await import(name); console.log(Object.hasOwn(dep, "Value"), Object.hasOwn(dep.default, "Value"), dep.Value?.Entry ?? "missing", dep.actual); } catch (error) { console.log("FAILED:" + String(error)); process.exitCode = 1; }`, `console.log("END:${profile.name}");`);
+    files[directory + "/package.json"] = JSON.stringify({
+      name: profile.name,
+      type: "commonjs",
+      exports: "./index.ts",
+    });
+    files[directory + "/index.ts"] =
+      STANDARD_DECORATOR_SOURCE + '\nexport * from "./values/entry";';
+    files[directory + "/values/package.json"] = JSON.stringify({
+      type: profile.module === "esnext" ? "module" : "commonjs",
+    });
+    files[directory + "/values/tsconfig.json"] = TestProject.tsconfig(
+      {
+        target: "ES2022",
+        module: profile.module,
+        rootDir: ".",
+        outDir: "lib",
+        preserveConstEnums: profile.preserve,
+      },
+      { include: ["entry.ts"] },
+    );
+    files[directory + "/values/entry.ts"] =
+      'console.log("values-loaded"); export const enum Value { Entry = 42 } export const actual = 17;';
+    entry.push(
+      `console.log("BEGIN:${profile.name}");`,
+      `try { const name: string = ${JSON.stringify(profile.name)}; const dep = await import(name); console.log(Object.hasOwn(dep, "Value"), Object.hasOwn(dep.default, "Value"), dep.Value?.Entry ?? "missing", dep.actual); } catch (error) { console.log("FAILED:" + String(error)); process.exitCode = 1; }`,
+      `console.log("END:${profile.name}");`,
+    );
   }
   files["src/main.ts"] = entry.join("\n");
   const root = TestProject.createProject(files);
   const cacheDir = TestProject.tmpdir("ttsx-owned-reexport-");
   const failures: unknown[] = [];
   for (const phase of ["cold", "warm"]) {
-    const result = TestProject.spawn(TestProject.TTSX_BIN, ["src/main.ts"], { cwd: root, env: { TTSC_CACHE_DIR: cacheDir } });
+    const result = TestProject.spawn(TestProject.TTSX_BIN, ["src/main.ts"], {
+      cwd: root,
+      env: { TTSC_CACHE_DIR: cacheDir },
+    });
     const lines = result.stdout.trim().split(/\r?\n/);
     for (const profile of profiles) {
       try {
@@ -57,12 +90,30 @@ export function test_ttsx_decorator_orphan_reexports_honor_the_owning_project() 
         const end = lines.indexOf("END:" + profile.name);
         assert.ok(begin >= 0 && end > begin, phase + ":" + profile.name);
         const output = lines.slice(begin + 1, end);
-        assert.ok(output.join("\n").includes(STANDARD_DECORATOR_OUTPUT), phase + ":" + profile.name);
-        assert.equal(output.filter((line) => line === "values-loaded").length, 1, phase + ":" + profile.name);
-        assert.equal(output.at(-1), `${profile.preserve} ${profile.preserve} ${profile.preserve ? 42 : "missing"} 17`, phase + ":" + profile.name);
-      } catch (error) { failures.push(error); }
+        assert.ok(
+          output.join("\n").includes(STANDARD_DECORATOR_OUTPUT),
+          phase + ":" + profile.name,
+        );
+        assert.equal(
+          output.filter((line) => line === "values-loaded").length,
+          1,
+          phase + ":" + profile.name,
+        );
+        assert.equal(
+          output.at(-1),
+          `${profile.preserve} ${profile.preserve} ${profile.preserve ? 42 : "missing"} 17`,
+          phase + ":" + profile.name,
+        );
+      } catch (error) {
+        failures.push(error);
+      }
     }
-    try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
+    try {
+      assert.equal(result.status, 0, result.stderr);
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "owned decorator reexport batch failed");
+  if (failures.length)
+    throw new AggregateError(failures, "owned decorator reexport batch failed");
 }

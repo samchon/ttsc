@@ -7,8 +7,10 @@ import { assertSnapshotFailureWithoutRecoveryStorageFailsClosed } from "../../in
  *
  * 1. Prepare a reusable run and replace the cache directory holding both the
  *    snapshot and its recovery location with a regular file.
- * 2. Assert the recorder fails and preparation transports a private nonreusable token.
- * 3. Restore storage and verify old private tokens still nonce while ordinary runs stabilize.
+ * 2. Assert the recorder fails and preparation transports a private nonreusable
+ *    token.
+ * 3. Restore storage and verify old private tokens still nonce while ordinary runs
+ *    stabilize.
  *
  * @evidence contracts/testing.md#behavioral-verification With the cache directory holding the snapshot and recovery locations replaced by a regular file, so the main snapshot is unreachable and both stores reject writes, a reusable-run recorder throws an AggregateError with the persist-failure message and prepareSnapshot returns a nonce:<32 hex> token; after access returns, recovery files are gone, computeProjectFingerprint with that token differs between two calls, and ordinary getCacheKey values are equal.
  * @evidence contracts/testing.md#independent-expectations The fail-closed contract is checked through authored literals: the exact error name and message, the nonce token regular expression, empty recovery listing, inequality for the old token and equality for ordinary runs.

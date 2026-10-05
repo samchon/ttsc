@@ -33,12 +33,19 @@ func TestTransformOrderedPlugins(t *testing.T) {
   }
 
   source := `export const message: string = goUpper("hello");`
-  for _, tc := range []struct { plugins []Plugin; want string }{
-    {[]Plugin{{Operation:"go-prefix", Config:map[string]any{"prefix":"a:"}}, {Operation:"go-uppercase"}, {Operation:"go-suffix", Config:map[string]any{"suffix":":z"}}}, "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.message = void 0;\nconst message = \"A:HELLO:z\";\nexports.message = message;\n"},
-    {[]Plugin{{Operation:"go-suffix", Config:map[string]any{"suffix":":z"}}, {Operation:"go-uppercase"}, {Operation:"go-prefix", Config:map[string]any{"prefix":"a:"}}}, "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.message = void 0;\nconst message = \"a:HELLO:Z\";\nexports.message = message;\n"},
+  for _, tc := range []struct {
+    plugins []Plugin
+    want    string
+  }{
+    {[]Plugin{{Operation: "go-prefix", Config: map[string]any{"prefix": "a:"}}, {Operation: "go-uppercase"}, {Operation: "go-suffix", Config: map[string]any{"suffix": ":z"}}}, "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.message = void 0;\nconst message = \"A:HELLO:z\";\nexports.message = message;\n"},
+    {[]Plugin{{Operation: "go-suffix", Config: map[string]any{"suffix": ":z"}}, {Operation: "go-uppercase"}, {Operation: "go-prefix", Config: map[string]any{"prefix": "a:"}}}, "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.message = void 0;\nconst message = \"a:HELLO:Z\";\nexports.message = message;\n"},
   } {
     ordered, err := Transform(source, tc.plugins)
-    if err != nil { t.Fatal(err) }
-    if ordered.Code != tc.want { t.Fatalf("ordered output = %q, want %q", ordered.Code, tc.want) }
+    if err != nil {
+      t.Fatal(err)
+    }
+    if ordered.Code != tc.want {
+      t.Fatalf("ordered output = %q, want %q", ordered.Code, tc.want)
+    }
   }
 }

@@ -13,8 +13,8 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  *
  * - `target: ESNext` preserves proposal decorators. The build lowers to ES2025,
  *   TypeScript-Go's latest standard target, which runs the upstream decorator
- *   lowering policy while retaining the standard class-field target, without changing the
- *   implied library or module kind.
+ *   lowering policy while retaining the standard class-field target, without
+ *   changing the implied library or module kind.
  * - `jsx: preserve` and `jsx: react-native` keep JSX. The build compiles it with
  *   the JSX runtime the type-check already reads.
  *

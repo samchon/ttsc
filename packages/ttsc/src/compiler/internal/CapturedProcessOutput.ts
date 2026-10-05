@@ -5,7 +5,8 @@
  * Produced by {@link captureProcessOutput}. Pass `stdoutFd` and `stderrFd` as
  * the child's stdio, read the streams back after it exits, and always call
  * `dispose` to attempt descriptor closure and private-directory removal.
- * Cleanup errors are suppressed, so calling it does not certify native release.
+ * Cleanup errors are suppressed, so calling it does not certify native
+ * release.
  *
  * @evidence contracts/common.md#principled-implementation Separate descriptors and paths represent inherited child writes and retry-by-name reads, while read and dispose expose the two permitted lifecycle operations.
  * @evidence contracts/common.md#clear-and-simple-design The interface groups both streams under one disposal operation, while exposed native descriptors remain the caller responsibility; encoding is chosen at read time.

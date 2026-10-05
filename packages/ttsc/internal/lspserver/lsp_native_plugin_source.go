@@ -91,7 +91,7 @@ type NativeLSPPluginEntry struct {
 
   // InitialProjectInputKey refers to the manifest's shared startup snapshot.
   // A nonempty key takes precedence over InitialProjectInputs.
-  InitialProjectInputKey string                   `json:"initialProjectInputKey,omitempty"`
+  InitialProjectInputKey string `json:"initialProjectInputKey,omitempty"`
 
   // InitialProjectInputs optionally supplies an inline startup declaration.
   InitialProjectInputs *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
@@ -330,7 +330,9 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     return nil, fmt.Errorf("ttscserver: encode plugin manifest: %w", err)
   }
   sidecarCwd, sidecarTsconfig, err := nativeSidecarContext(opts.Cwd, opts.Tsconfig, manifest.ProjectContext)
-  if err != nil { return nil, err }
+  if err != nil {
+    return nil, err
+  }
   source := &NativePluginSource{
     cwd:                sidecarCwd,
     err:                opts.Err,

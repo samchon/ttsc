@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   "encoding/json"
+  "testing"
 )
 
 // TestNoRestrictedTypesHasNoImplicitDefaults verifies no-restricted-types

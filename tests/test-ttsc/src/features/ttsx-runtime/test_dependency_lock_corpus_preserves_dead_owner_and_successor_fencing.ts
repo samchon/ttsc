@@ -23,31 +23,48 @@ import { releaseDependencyBuildLock } from "../../../../../packages/ttsc/src/lau
  * @evidence contracts/testing.md#execution-ownership Existing unit-loader synchronous source hooks load actual production TypeScript in three native Node workers. Owned seed/contender/package fixtures preserve original LF scripts except source-bound require extensions, with no fake library, product API, synthetic PID, foreign replacement, install or native compiler. Error/unknown child completion retains the private root; otherwise cleanup failure is aggregated. Timeouts request termination without certifying descendant cleanup or bounding native IO, and stdout/stderr captures have no explicit byte quota. Authored body is separate from actual selection/runtime/survival execution.
  */
 export async function test_dependency_lock_corpus_preserves_dead_owner_and_successor_fencing(): Promise<void> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-dependency-lock-corpus-"));
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-dependency-lock-corpus-"),
+  );
   const lock = path.join(root, "entry.lock");
-  const loader = new URL("../../../../../config/register-unit-loader.mjs", import.meta.url).href;
-  const apiDirectory = fileURLToPath(new URL(
-    "../../../../../packages/ttsc/src/launcher/internal/runtime/",
+  const loader = new URL(
+    "../../../../../config/register-unit-loader.mjs",
     import.meta.url,
-  ));
-  const fixtureDirectory = fileURLToPath(new URL(
-    "../../../fixtures/dependency-lock-corpus/",
-    import.meta.url,
-  ));
+  ).href;
+  const apiDirectory = fileURLToPath(
+    new URL(
+      "../../../../../packages/ttsc/src/launcher/internal/runtime/",
+      import.meta.url,
+    ),
+  );
+  const fixtureDirectory = fileURLToPath(
+    new URL("../../../fixtures/dependency-lock-corpus/", import.meta.url),
+  );
   const env = { LOCK_ROOT: root, LOCK_API: apiDirectory };
   const failures: Error[] = [];
   let retainRoot = false;
-  type Outcome = { status: number | null; signal: NodeJS.Signals | null;
-    pid: number | undefined; stdout: string; stderr: string };
+  type Outcome = {
+    status: number | null;
+    signal: NodeJS.Signals | null;
+    pid: number | undefined;
+    stdout: string;
+    stderr: string;
+  };
   const workers: Promise<Outcome>[] = [];
   const check = (name: string, action: () => void): void => {
-    try { action(); }
-    catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      action();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
-  const read = (name: string): unknown => JSON.parse(fs.readFileSync(path.join(root, name), "utf8"));
+  const read = (name: string): unknown =>
+    JSON.parse(fs.readFileSync(path.join(root, name), "utf8"));
   const readLease = (name: string): DependencyBuildLockLease => {
     const value = read(name);
-    assert.ok(typeof value === "object" && value !== null && "generation" in value);
+    assert.ok(
+      typeof value === "object" && value !== null && "generation" in value,
+    );
     assert.ok(typeof value.generation === "string");
     return { ...value, generation: value.generation };
   };
@@ -63,18 +80,32 @@ export async function test_dependency_lock_corpus_preserves_dead_owner_and_succe
   };
   const start = (script: string, role?: string): Promise<Outcome> => {
     const result = new Promise<Outcome>((resolve, reject) => {
-      const child = childProcess.spawn(process.execPath,
-        ["--import", loader, path.join(root, script)], {
-          env: { ...process.env, ...env, ...(role === undefined ? {} : { LOCK_ROLE: role }) },
+      const child = childProcess.spawn(
+        process.execPath,
+        ["--import", loader, path.join(root, script)],
+        {
+          env: {
+            ...process.env,
+            ...env,
+            ...(role === undefined ? {} : { LOCK_ROLE: role }),
+          },
           stdio: ["ignore", "pipe", "pipe"],
           timeout: 120_000,
           windowsHide: true,
-        });
+        },
+      );
       let stdout = "";
       let stderr = "";
-      child.stdout?.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
-      child.stderr?.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
-      child.once("error", (cause) => { retainRoot = true; reject(cause); });
+      child.stdout?.on("data", (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      child.once("error", (cause) => {
+        retainRoot = true;
+        reject(cause);
+      });
       child.once("close", (status, signal) => {
         if (status === null && signal === null) retainRoot = true;
         resolve({ status, signal, pid: child.pid, stdout, stderr });
@@ -92,31 +123,47 @@ export async function test_dependency_lock_corpus_preserves_dead_owner_and_succe
       assert.equal(seedResult.status, 0, seedResult.stderr);
       assert.equal(seedResult.signal, null, seedResult.stderr);
       const seedPid = seedResult.pid;
-      assert.ok(seedPid !== undefined && Number.isInteger(seedPid) && seedPid > 0);
+      assert.ok(
+        seedPid !== undefined && Number.isInteger(seedPid) && seedPid > 0,
+      );
       assert.throws(() => process.kill(seedPid, 0), { code: "ESRCH" });
       const seed = readLease("seed.json");
       check("dead seed", () => {
         const observation = inspectDependencyBuildLock(lock, Date.now());
         assert.equal(observation.state, "abandoned");
-        assert.deepEqual(observation.state === "abandoned" ? observation.fence : null, seed);
+        assert.deepEqual(
+          observation.state === "abandoned" ? observation.fence : null,
+          seed,
+        );
       });
       workers.push(start("contender.cjs", "a"), start("contender.cjs", "b"));
       await Promise.all([wait("a-ready.json"), wait("b-ready.json")]);
       for (const role of ["a", "b"])
-        check(role + " ready fence", () => assert.deepEqual(read(role + "-ready.json"), seed));
+        check(role + " ready fence", () =>
+          assert.deepEqual(read(role + "-ready.json"), seed),
+        );
       open("a-start");
       await wait("a-lease.json");
       const old = readLease("a-lease.json");
       open("b-start");
       await wait("b-observed.json");
       check("one stale winner", () => {
-        assert.deepEqual(read("a-observed.json"), { reclaimed: true, holding: true });
-        assert.deepEqual(read("b-observed.json"), { reclaimed: false, holding: false });
+        assert.deepEqual(read("a-observed.json"), {
+          reclaimed: true,
+          holding: true,
+        });
+        assert.deepEqual(read("b-observed.json"), {
+          reclaimed: false,
+          holding: false,
+        });
         assert.equal(fs.existsSync(path.join(root, "b-lease.json")), false);
         const active = inspectDependencyBuildLock(lock, Date.now());
         assert.equal(active.state, "active");
         assert.deepEqual(active.state === "active" ? active.fence : null, old);
-        assert.equal(fs.existsSync(path.join(lock, "retired", seed.generation)), true);
+        assert.equal(
+          fs.existsSync(path.join(lock, "retired", seed.generation)),
+          true,
+        );
       });
       assert.equal(reclaimDependencyBuildLock(lock, old), true);
       open("b-successor");
@@ -128,27 +175,45 @@ export async function test_dependency_lock_corpus_preserves_dead_owner_and_succe
         assert.deepEqual(read("a-result.json"), { released: false });
         const active = inspectDependencyBuildLock(lock, Date.now());
         assert.equal(active.state, "active");
-        assert.deepEqual(active.state === "active" ? active.fence : null, successor);
+        assert.deepEqual(
+          active.state === "active" ? active.fence : null,
+          successor,
+        );
       });
       open("b-finalize");
       await Promise.all(workers);
       check("normal successor release", () => {
         assert.deepEqual(read("b-result.json"), { released: true });
-        assert.deepEqual(inspectDependencyBuildLock(lock, Date.now()), { state: "released" });
+        assert.deepEqual(inspectDependencyBuildLock(lock, Date.now()), {
+          state: "released",
+        });
         assert.equal(reclaimDependencyBuildLock(lock, seed), false);
         assert.equal(releaseDependencyBuildLock(lock, old), false);
         for (const lease of [seed, old, successor])
-          assert.equal(fs.existsSync(path.join(lock, "retired", lease.generation)), true);
+          assert.equal(
+            fs.existsSync(path.join(lock, "retired", lease.generation)),
+            true,
+          );
       });
     } catch (cause) {
-      failures.push(new Error("dependency lock corpus native ordering", { cause }));
+      failures.push(
+        new Error("dependency lock corpus native ordering", { cause }),
+      );
     } finally {
-      for (const gate of ["a-start", "b-start", "b-successor", "a-finalize", "b-finalize"])
+      for (const gate of [
+        "a-start",
+        "b-start",
+        "b-successor",
+        "a-finalize",
+        "b-finalize",
+      ])
         check(`finally opens ${gate}`, () => open(gate));
       const outcomes = await Promise.allSettled(workers);
       for (const [index, outcome] of outcomes.entries()) {
         if (outcome.status === "rejected") {
-          failures.push(new Error(`worker ${index} completion`, { cause: outcome.reason }));
+          failures.push(
+            new Error(`worker ${index} completion`, { cause: outcome.reason }),
+          );
           continue;
         }
         check(`worker ${index} exit`, () => {
@@ -158,11 +223,20 @@ export async function test_dependency_lock_corpus_preserves_dead_owner_and_succe
       }
     }
   } catch (cause) {
-    failures.push(new Error("dependency lock corpus fixture preparation", { cause }));
+    failures.push(
+      new Error("dependency lock corpus fixture preparation", { cause }),
+    );
   } finally {
-    if (retainRoot) console.error("unresolved dependency lock worker inputs retained", root);
-    else check("dependency lock corpus root cleanup", () => fs.rmSync(root, { recursive: true, force: true }));
+    if (retainRoot)
+      console.error("unresolved dependency lock worker inputs retained", root);
+    else
+      check("dependency lock corpus root cleanup", () =>
+        fs.rmSync(root, { recursive: true, force: true }),
+      );
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "dependency lock corpus observations failed");
+    throw new AggregateError(
+      failures,
+      "dependency lock corpus observations failed",
+    );
 }

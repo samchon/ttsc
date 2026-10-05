@@ -24,6 +24,7 @@ import (
 //     rewrite set.
 //  3. Assert the project's main.js is written under outDir and no write
 //     targets the dependency's source tree.
+//
 // @evidence contracts/testing.md#behavioral-verification Calls actual EmitAll on a self-referenced dependency project, records every write and requires main.js under the authored dist plus confinement of all writes.
 // @evidence contracts/testing.md#independent-expectations The fixture explicitly sets proj/dist and src/main.ts; test-local prefix checks independently reject any output outside that directory.
 // @evidence contracts/testing.md#distinguishing-cases Project output remains positive while external dependency source outputs are rejected; the sibling raw-emitter case owns the separate funnel.

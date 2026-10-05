@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { resolveTsgo } from "../../../../../packages/ttsc/src/compiler/internal/resolveTsgo";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies resolveTsgo accepts `TTSC_TSGO_BINARY` as an explicit compiler
@@ -27,17 +27,20 @@ import { resolveTsgo } from "../../../../../packages/ttsc/src/compiler/internal/
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/tsgo; it calls resolveTsgo directly over an empty file in a TestProject.tmpdir directory, which is never executed. No typescript package is installed and no compiler is launched.
  */
 export function test_resolvetsgo_accepts_ttsc_tsgo_binary_as_an_explicit_compiler() {
-    const root = TestProject.tmpdir("ttsc-tsgo-test-");
-    const binary = path.join(root, "tsgo");
-    fs.writeFileSync(binary, "", "utf8");
+  const root = TestProject.tmpdir("ttsc-tsgo-test-");
+  const binary = path.join(root, "tsgo");
+  fs.writeFileSync(binary, "", "utf8");
 
-    const resolved = resolveTsgo({
-      env: { TTSC_TSGO_BINARY: binary },
-    });
+  const resolved = resolveTsgo({
+    env: { TTSC_TSGO_BINARY: binary },
+  });
 
-    assert.equal(resolved.binary, binary);
-    assert.equal(resolved.version, "custom");
-    for (const override of ["relative-tsgo", path.join(root, "missing-tsgo")]) {
-      assert.throws(() => resolveTsgo({ env: { TTSC_TSGO_BINARY: override } }), /existing absolute path/);
-    }
+  assert.equal(resolved.binary, binary);
+  assert.equal(resolved.version, "custom");
+  for (const override of ["relative-tsgo", path.join(root, "missing-tsgo")]) {
+    assert.throws(
+      () => resolveTsgo({ env: { TTSC_TSGO_BINARY: override } }),
+      /existing absolute path/,
+    );
+  }
 }

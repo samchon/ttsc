@@ -25,11 +25,11 @@ import {
  * Portable declaration semantics run through seven actual graph-rule Go units,
  * including imported namespace ancestors and independent uncited controls.
  * Their named native unit entries are selected by the root test:go command;
- * that wiring is not evidence of an executed survivor. Here
- * scoped config entries preserve each file-rule fixture's options and file
- * scope while one installed contributor and sequential native requests prove
- * registration, JSON option transport, exit status and source-anchored
- * diagnostic rendering for the whole batch.
+ * that wiring is not evidence of an executed survivor. Here scoped config
+ * entries preserve each file-rule fixture's options and file scope while one
+ * installed contributor and sequential native requests prove registration, JSON
+ * option transport, exit status and source-anchored diagnostic rendering for
+ * the whole batch.
  *
  * 1. Materialize all unchanged fixtures under isolated source subdirectories.
  * 2. Check the shared project once with all authored scoped rule settings.

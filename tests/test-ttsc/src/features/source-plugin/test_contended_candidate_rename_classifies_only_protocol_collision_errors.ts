@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+
 import { isContendedCandidateRename } from "../../../../../packages/ttsc/src/internal/isContendedCandidateRename";
 
 /**
- * Verifies only the native collision error codes of a lock publication rename are
- * classified as contention.
+ * Verifies only the native collision error codes of a lock publication rename
+ * are classified as contention.
  *
  * Writable-parent lock publication interprets these native collision errors
- * without re-reading a destination that a concurrent holder may already remove.
+ * without re-reading a destination that a concurrent holder may already
+ * remove.
  *
  * 1. Classify rename errors and bare objects carrying EEXIST, ENOTEMPTY, EACCES
  *    and EPERM and require contention.
@@ -22,7 +24,16 @@ import { isContendedCandidateRename } from "../../../../../packages/ttsc/src/int
  */
 export function test_contended_candidate_rename_classifies_only_protocol_collision_errors(): void {
   for (const code of ["EEXIST", "ENOTEMPTY", "EACCES", "EPERM"]) {
-    assert.equal(isContendedCandidateRename(Object.assign(new Error("rename collision"), { code, syscall: "rename" })), true, code);
+    assert.equal(
+      isContendedCandidateRename(
+        Object.assign(new Error("rename collision"), {
+          code,
+          syscall: "rename",
+        }),
+      ),
+      true,
+      code,
+    );
     assert.equal(isContendedCandidateRename({ code }), true, code);
   }
   for (const code of ["EIO", "ENOENT", "ENOSPC", "EBUSY", ""]) {

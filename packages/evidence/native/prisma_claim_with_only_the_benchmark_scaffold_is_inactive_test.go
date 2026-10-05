@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 /**
@@ -25,11 +25,11 @@ import (
  * @evidence contracts/testing.md#execution-ownership TestPrismaClaimWithOnlyTheBenchmarkScaffoldIsInactive is a Go unit entry of package evidence, run by go test in the package process. It calls the loader functions it names and, through them, the Node parser or normalizer child that the built lib/internal loader provides; it starts no ttsc check, lint sidecar or installed consumer.
  */
 func TestPrismaClaimWithOnlyTheBenchmarkScaffoldIsInactive(t *testing.T) {
-	root := prismaBridgeRoot(t, map[string]string{
-		"prisma/schema/main.prisma": emptyPrismaScaffold,
-	})
-	requireColdPrismaSchemaFixture(t, root, "prisma/schema/main.prisma", emptyPrismaScaffold)
-	config := decodeInventoryConfig(t, root, `{"claims":[{
+  root := prismaBridgeRoot(t, map[string]string{
+    "prisma/schema/main.prisma": emptyPrismaScaffold,
+  })
+  requireColdPrismaSchemaFixture(t, root, "prisma/schema/main.prisma", emptyPrismaScaffold)
+  config := decodeInventoryConfig(t, root, `{"claims":[{
     "type":"prisma",
     "files":["prisma/schema/**/*.prisma"],
     "symbol":"model",
@@ -40,48 +40,48 @@ func TestPrismaClaimWithOnlyTheBenchmarkScaffoldIsInactive(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	inventories, problems := loadPrismaInventories(root, config)
-	if len(problems) != 0 {
-		t.Fatalf("the benchmark Prisma scaffold must load cleanly: %v", problems)
-	}
-	active := activeGraphConfig(
-		config,
-		map[string]*artifactInventory{},
-		inventories,
-		map[string]*artifactInventory{},
-	)
-	if len(active.Claims) != 0 {
-		t.Fatal("a matched Prisma scaffold with no selected model must be inactive")
-	}
-	const wholeConfig = `{"claims":[
+  inventories, problems := loadPrismaInventories(root, config)
+  if len(problems) != 0 {
+    t.Fatalf("the benchmark Prisma scaffold must load cleanly: %v", problems)
+  }
+  active := activeGraphConfig(
+    config,
+    map[string]*artifactInventory{},
+    inventories,
+    map[string]*artifactInventory{},
+  )
+  if len(active.Claims) != 0 {
+    t.Fatal("a matched Prisma scaffold with no selected model must be inactive")
+  }
+  const wholeConfig = `{"claims":[
     {"type":"typescript","files":["src/**/*.ts"],"symbol":"function","reference":{"type":"markdown","root":"missing-typescript-docs","files":["**/*.md"],"symbol":"h2"}},
     {"type":"markdown","files":["docs/claim.md"],"symbol":"h2","reference":{"type":"prisma","root":"missing-markdown-prisma","files":["**/*.prisma"],"symbol":"model"}},
     {"type":"prisma","files":["prisma/schema/main.prisma"],"symbol":"model","reference":{"type":"markdown","root":"missing-prisma-docs","files":["**/*.md"],"symbol":"h2"}}
   ]}`
-	for _, scenario := range []struct {
-		name        string
-		source      string
-		document    string
-		missingRoot string
-	}{
-		{"three-inactive-hosts", "export const value = 1;\n", "# Claim\n", ""},
-		{"function-activates-reference", "export const value = 1;\nexport function selected(): void {}\n", "# Claim\n", "missing-typescript-docs"},
-		{"heading-activates-reference", "export const value = 1;\n", "# Claim\n## Selected\n", "missing-markdown-prisma"},
-	} {
-		t.Run(scenario.name, func(t *testing.T) {
-			result := runIndexRuleAtSeverity(t, root, map[string]string{
-				"src/claim.ts":              scenario.source,
-				"docs/claim.md":             scenario.document,
-				"prisma/schema/main.prisma": emptyPrismaScaffold,
-			}, wholeConfig, rule.SeverityError)
-			if result.failed != (scenario.missingRoot != "") {
-				t.Errorf("unexpected failure state %v: %v", result.failed, result.messages)
-			}
-			if scenario.missingRoot == "" {
-				assertNoProblems(t, result.messages)
-			} else {
-				assertProblemContains(t, result.messages, scenario.missingRoot)
-			}
-		})
-	}
+  for _, scenario := range []struct {
+    name        string
+    source      string
+    document    string
+    missingRoot string
+  }{
+    {"three-inactive-hosts", "export const value = 1;\n", "# Claim\n", ""},
+    {"function-activates-reference", "export const value = 1;\nexport function selected(): void {}\n", "# Claim\n", "missing-typescript-docs"},
+    {"heading-activates-reference", "export const value = 1;\n", "# Claim\n## Selected\n", "missing-markdown-prisma"},
+  } {
+    t.Run(scenario.name, func(t *testing.T) {
+      result := runIndexRuleAtSeverity(t, root, map[string]string{
+        "src/claim.ts":              scenario.source,
+        "docs/claim.md":             scenario.document,
+        "prisma/schema/main.prisma": emptyPrismaScaffold,
+      }, wholeConfig, rule.SeverityError)
+      if result.failed != (scenario.missingRoot != "") {
+        t.Errorf("unexpected failure state %v: %v", result.failed, result.messages)
+      }
+      if scenario.missingRoot == "" {
+        assertNoProblems(t, result.messages)
+      } else {
+        assertProblemContains(t, result.messages, scenario.missingRoot)
+      }
+    })
+  }
 }

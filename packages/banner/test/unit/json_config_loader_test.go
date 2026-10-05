@@ -39,7 +39,6 @@ func TestJSONConfigLoader(t *testing.T) {
     t.Fatalf("JSON object config mismatch: %#v", raw)
   }
 
-
   // Invalid JSON.
   badJSON := filepath.Join(root, "bad", "banner.config.json")
   shared.WriteFile(t, badJSON, `not valid json`)

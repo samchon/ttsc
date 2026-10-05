@@ -28,7 +28,10 @@ import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Complete snapshot admission owns shared proof and adoption; this pass contributes one physical-target verdict.
  */
 export function matchesExternalInputRealpaths(
-  /** Generation retaining legacy target witnesses and separately replayed predicates. */
+  /**
+   * Generation retaining legacy target witnesses and separately replayed
+   * predicates.
+   */
   cached: TtscCachedProjectTransform,
 ): boolean {
   const expected = cached.externalInputRealpaths;

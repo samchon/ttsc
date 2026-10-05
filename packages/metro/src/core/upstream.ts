@@ -33,7 +33,8 @@ export const UPSTREAM_CANDIDATES = [
  * module-level state lets a changed `upstreamTransformer` always take effect.
  *
  * `load` is the explicit module-loading boundary. Its default uses Node's real
- * `require`; an injected loader must preserve absence versus failure semantics.
+ * `require`; an injected loader must preserve absence versus failure
+ * semantics.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node createRequire loads the configured module or documented
@@ -138,7 +139,6 @@ export function resolveUpstreamTransformer(
  *
  * @param resolve Resolves a module specifier from the project.
  * @returns The absolute path of the first installed candidate, or `undefined`.
- *
  * @evidence contracts/common.md#principled-implementation
  *   The supplied project resolver uses Node module resolution without
  *   executing candidate code. Only recognized entry-absence errors continue

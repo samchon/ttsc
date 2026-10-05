@@ -43,7 +43,10 @@ export namespace DependencyBuildGeneration {
     /** The generation directory holding the project's emitted JavaScript. */
     emitDir: string;
 
-    /** Source-root context, physically resolved when observable, with best-effort fallback spelling. */
+    /**
+     * Source-root context, physically resolved when observable, with
+     * best-effort fallback spelling.
+     */
     rootDir: string;
 
     /** The build's record of its outputs, relative to `emitDir`. */
@@ -67,8 +70,8 @@ export namespace DependencyBuildGeneration {
    * presence and provenance checks, using a same-directory temporary file and
    * rename. Successful replacement publishes one whole marker under supported
    * native rename semantics; retained immutable generations and stable layout
-   * remain cooperative premises. Parsing this structural record alone does
-   * not prove current artifact presence, compiler success or crash durability.
+   * remain cooperative premises. Parsing this structural record alone does not
+   * prove current artifact presence, compiler success or crash durability.
    *
    * @evidence contracts/common.md#principled-implementation The generation names the immutable directory described by format and actual emit provenance; optional historical fields remain decodable but the current reader rejects their absence rather than inventing program membership from output names.
    * @evidence contracts/common.md#clear-and-simple-design One completion record contains publication identity and serving metadata, leaving pid ownership and lock state to their separate records.
@@ -84,7 +87,10 @@ export namespace DependencyBuildGeneration {
     /** The 128-bit hex id of the published generation directory. */
     generation: string;
 
-    /** Source-root context with physical resolution when observable and best-effort fallback otherwise. */
+    /**
+     * Source-root context with physical resolution when observable and
+     * best-effort fallback otherwise.
+     */
     rootDir: string;
 
     /**

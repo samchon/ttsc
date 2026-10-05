@@ -7,9 +7,9 @@ import { createHostPathIdentityContext } from "../filesystem/createHostPathIdent
 import { graphInputObservationFailures } from "./graphInputObservationFailures";
 
 /**
- * Normalize and replay one compiler graph observation against a filesystem view.
- * Invalid or contradictory proof shape returns proof-conflict; otherwise the
- * returned strings identify recorded predicates that no longer hold.
+ * Normalize and replay one compiler graph observation against a filesystem
+ * view. Invalid or contradictory proof shape returns proof-conflict; otherwise
+ * the returned strings identify recorded predicates that no longer hold.
  *
  * @evidence contracts/common.md#principled-implementation Normalization rejects unsupported proof combinations before replay, and a filesystem-derived identity context supplies target equivalence for valid observations.
  * @evidence contracts/common.md#clear-and-simple-design Proof-shape validation, context creation and predicate replay each retain a single owner rather than duplicating their rules here.

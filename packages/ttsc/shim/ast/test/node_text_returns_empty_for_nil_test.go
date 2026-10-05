@@ -25,5 +25,7 @@ func TestNodeTextReturnsEmptyForNil(t *testing.T) {
   }
 
   factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
-  if got := shimast.NodeText(factory.NewIdentifier("Present")); got != "Present" { t.Fatalf("identifier control = %q", got) }
+  if got := shimast.NodeText(factory.NewIdentifier("Present")); got != "Present" {
+    t.Fatalf("identifier control = %q", got)
+  }
 }

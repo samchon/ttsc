@@ -17,16 +17,16 @@ import "testing"
 func TestNoExtendNativeCoversAssignmentAndStaticCalleeForms(t *testing.T) {
   for _, operator := range []string{"=", "+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "&&=", "||=", "??="} {
     t.Run(operator, func(t *testing.T) {
-      _, _, findings := runRuleFindingsSnapshot(t, "no-extend-native", "Array.prototype.extra " + operator + " 1;\n", nil)
+      _, _, findings := runRuleFindingsSnapshot(t, "no-extend-native", "Array.prototype.extra "+operator+" 1;\n", nil)
       if len(findings) != 1 {
         t.Errorf("want one native prototype write, got %d: %+v", len(findings), findings)
       }
     })
   }
   cases := []struct {
-    name string
+    name   string
     source string
-    count int
+    count  int
   }{
     {"computed singular", "Object['defineProperty'](Array.prototype, 'extra', {value: 1});\n", 1},
     {"computed plural", "Object['defineProperties'](Array.prototype, {extra: {value: 1}});\n", 1},

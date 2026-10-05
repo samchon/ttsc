@@ -120,10 +120,17 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
       const previous = changes.length;
       fs.writeFileSync(exactOutput, "predicted output\n", "utf8");
       assert.notEqual(realpath(exactInput), realpath(exactOutput));
-      assert.equal(fs.readFileSync(exactInput, "utf8"), "case-distinct output\n");
+      assert.equal(
+        fs.readFileSync(exactInput, "utf8"),
+        "case-distinct output\n",
+      );
       notify(topology, exactOutput);
       await delay();
-      assert.equal(changes.length, previous, "the actual output twin was reported");
+      assert.equal(
+        changes.length,
+        previous,
+        "the actual output twin was reported",
+      );
       await writeAndWait(
         topology,
         changes,

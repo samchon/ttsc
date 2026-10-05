@@ -1,7 +1,6 @@
 import type { ITtscLintDaemonTarget } from "./ITtscLintDaemonTarget";
-
-import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
 import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
+import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
 import { TtscLintDaemonState } from "./TtscLintDaemonState";
 
 /**
@@ -38,10 +37,19 @@ export class TtscLintDaemon {
     private readonly cwd: string,
     private readonly tsconfig: string,
   ) {
-    this.state = new TtscLintDaemonState((events) => TtscGraphLinePeer.open(
-      this.target.binary,
-      TtscGraphNativeArguments.lint(this.cwd, this.tsconfig, this.target.manifest, this.target.projectContext), events, { cwd: this.cwd, stderr: "drain" },
-    ));
+    this.state = new TtscLintDaemonState((events) =>
+      TtscGraphLinePeer.open(
+        this.target.binary,
+        TtscGraphNativeArguments.lint(
+          this.cwd,
+          this.tsconfig,
+          this.target.manifest,
+          this.target.projectContext,
+        ),
+        events,
+        { cwd: this.cwd, stderr: "drain" },
+      ),
+    );
   }
 
   /**
@@ -84,5 +92,7 @@ export class TtscLintDaemon {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Both normal and failed shutdown settle pending callbacks, close readline and end/kill the owned process; the returned completion still joins stdio after process exit and rejects unknown or forced termination.
    * @evidence contracts/portability.md#os-neutral-implementation Node stream closure and child.kill own native termination rather than platform shell commands.
    */
-  public close(): Promise<void> { return this.state.close(); }
+  public close(): Promise<void> {
+    return this.state.close();
+  }
 }

@@ -34,7 +34,9 @@ func TestNodeTextSkipsEmptyQualifiedLeft(t *testing.T) {
 
   for _, tc := range []struct{ left, right, want string }{{"Outer", "", "Outer"}, {"", "", ""}} {
     node := factory.NewQualifiedName(factory.NewIdentifier(tc.left), factory.NewIdentifier(tc.right))
-    if got := shimast.NodeText(node); got != tc.want { t.Fatalf("NodeText(%q.%q) = %q, want %q", tc.left, tc.right, got, tc.want) }
+    if got := shimast.NodeText(node); got != tc.want {
+      t.Fatalf("NodeText(%q.%q) = %q, want %q", tc.left, tc.right, got, tc.want)
+    }
   }
 
   nested := factory.NewQualifiedName(factory.NewIdentifier("Outer"), factory.NewIdentifier(""))
@@ -43,7 +45,10 @@ func TestNodeTextSkipsEmptyQualifiedLeft(t *testing.T) {
   if got := shimast.NodeText(nested); got != "Outer.Inner" {
     t.Fatalf("nested empty component spelling = %q, want Outer.Inner", got)
   }
-  for _, tc := range []struct{ node *shimast.Node; want string }{
+  for _, tc := range []struct {
+    node *shimast.Node
+    want string
+  }{
     {factory.NewQualifiedName(nil, factory.NewIdentifier("Inner")), "Inner"},
     {factory.NewQualifiedName(factory.NewIdentifier("Outer"), nil), "Outer"},
     {factory.NewQualifiedName(nil, nil), ""},

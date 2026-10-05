@@ -81,8 +81,8 @@ func TestScriptConfigLoader(t *testing.T) {
   // A value without the dependency observations is refused: accepting it would
   // claim complete observations that were never returned.
   for name, payload := range map[string]string{
-    "bare-value":      `{"value":{"text":"x"}}`,
-    "no-realpaths":    `{"complete":true,"inputs":[],"hashes":{},"value":{"text":"x"}}`,
+    "bare-value":   `{"value":{"text":"x"}}`,
+    "no-realpaths": `{"complete":true,"inputs":[],"hashes":{},"value":{"text":"x"}}`,
   } {
     bareNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-"+name), payload, "", 0)
     t.Setenv("TTSC_NODE_BINARY", bareNode)

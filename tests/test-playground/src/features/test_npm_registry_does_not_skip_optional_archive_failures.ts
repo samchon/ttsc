@@ -12,6 +12,7 @@ import { createNpmFixtureTarball } from "../internal/npmFixture";
  * 1. Install a root whose optional edge resolves to registry metadata.
  * 2. Give that edge a mismatched digest and then no tarball URL.
  * 3. Assert both archive failures abort; only registry absence may skip.
+ *
  * @evidence contracts/testing.md#behavioral-verification installPlaygroundDependencies rejects an existing optional package with mismatched SHA512 and an optional metadata entry lacking a tarball URL; neither becomes a silent absence skip.
  * @evidence contracts/testing.md#independent-expectations Authored root optional-edge metadata, zero-filled nonmatching digest and missing dist URL independently require contextual integrity/no-tarball errors after metadata exists.
  * @evidence contracts/testing.md#distinguishing-cases Corrupt archive and absent archive URL are separate negative cases; populated root/optional tarballs prevent missing fixture bytes from masquerading as optional registry absence.

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { TextDecoder } from "node:util";
 
-import type { TraceMeasurements } from "../../../internal/readE2eTraceMeasurements";
 import type { PreparedAssetObservation } from "../../../internal/captureE2ePreparedAssets";
+import type { TraceMeasurements } from "../../../internal/readE2eTraceMeasurements";
 import { readE2eTracePayload } from "../../../internal/readE2eTracePayload";
 
 /**
@@ -36,7 +36,11 @@ export function case_evidence_bridge_preserves_observed_json_transport(
     requestSources: readonly string[];
     documentIds: readonly string[];
     problemIds: readonly string[];
-    digests: readonly { id: string; native: "present" | "absent"; wire: "nonempty" | "empty" }[];
+    digests: readonly {
+      id: string;
+      native: "present" | "absent";
+      wire: "nonempty" | "empty";
+    }[];
     fixedAssetLabels: readonly string[];
   },
   assetsBefore: readonly PreparedAssetObservation[],
@@ -45,8 +49,8 @@ export function case_evidence_bridge_preserves_observed_json_transport(
   assert.deepEqual(traces.integrityProblems, []);
   assert.ok(expected.requestSources.length > 0);
   for (const label of expected.fixedAssetLabels) {
-    const before = assetsBefore.filter(asset => asset.label === label);
-    const after = assetsAfter.filter(asset => asset.label === label);
+    const before = assetsBefore.filter((asset) => asset.label === label);
+    const after = assetsAfter.filter((asset) => asset.label === label);
     assert.equal(before.length, 1, `before fixture ${label}`);
     assert.equal(after.length, 1, `after fixture ${label}`);
     assert.equal(before[0]!.role, "fixture");
@@ -55,17 +59,37 @@ export function case_evidence_bridge_preserves_observed_json_transport(
     assert.equal(after[0]!.realPath, before[0]!.realPath);
     assert.deepEqual(after[0]!.identityBefore, before[0]!.identityAfter);
   }
-  if (expected.digests.some(item => item.native === "present" && item.wire === "nonempty"))
-    assert.ok(expected.fixedAssetLabels.length > 0, "local digest equality requires fixed fixture observations");
-  const lookups = traces.writerObservations.filter(({ observation: row }) =>
-    row.writerPid === expected.writerPid && row.event === "bridge-lookup" &&
-    row.data?.bridge === expected.bridge && row.data.root === expected.root &&
-    JSON.stringify(row.data.sources) === JSON.stringify(expected.lookupSources));
-  assert.equal(lookups.length, 1, "one selected actual native lookup in this phase");
+  if (
+    expected.digests.some(
+      (item) => item.native === "present" && item.wire === "nonempty",
+    )
+  )
+    assert.ok(
+      expected.fixedAssetLabels.length > 0,
+      "local digest equality requires fixed fixture observations",
+    );
+  const lookups = traces.writerObservations.filter(
+    ({ observation: row }) =>
+      row.writerPid === expected.writerPid &&
+      row.event === "bridge-lookup" &&
+      row.data?.bridge === expected.bridge &&
+      row.data.root === expected.root &&
+      JSON.stringify(row.data.sources) ===
+        JSON.stringify(expected.lookupSources),
+  );
+  assert.equal(
+    lookups.length,
+    1,
+    "one selected actual native lookup in this phase",
+  );
   const lookup = lookups[0]!.observation;
   assert.equal(lookup.data?.nativeLookup, true);
-  const paired = traces.writerObservations.filter(({ observation: row }) =>
-    row.writerPid === lookup.writerPid && row.instance === lookup.instance && row.invocation === lookup.invocation);
+  const paired = traces.writerObservations.filter(
+    ({ observation: row }) =>
+      row.writerPid === lookup.writerPid &&
+      row.instance === lookup.instance &&
+      row.invocation === lookup.invocation,
+  );
   const one = (name: string) => {
     const rows = paired.filter(({ observation: row }) => row.event === name);
     assert.equal(rows.length, 1, `actual ${name}`);
@@ -76,20 +100,32 @@ export function case_evidence_bridge_preserves_observed_json_transport(
   assert.equal(request.data?.bridge, expected.bridge);
   assert.equal(request.data?.root, expected.root);
   assert.deepEqual(request.data?.sources, expected.requestSources);
-  const misses = paired.filter(({ observation: row }) => row.event === "bridge-cache-miss");
+  const misses = paired.filter(
+    ({ observation: row }) => row.event === "bridge-cache-miss",
+  );
   if (expected.bridge === "prisma") {
     assert.equal(lookup.data?.requestId, "schema");
     assert.equal(request.data?.requestId, "schema");
     assert.equal(misses.length, 1);
-    assert.equal(paired.some(({ observation: row }) => row.event === "bridge-cache-hit"), false);
+    assert.equal(
+      paired.some(({ observation: row }) => row.event === "bridge-cache-hit"),
+      false,
+    );
   } else {
-    assert.deepEqual(misses.map(({ observation: row }) => row.data?.source), expected.requestSources);
+    assert.deepEqual(
+      misses.map(({ observation: row }) => row.data?.source),
+      expected.requestSources,
+    );
   }
   const attempt = one("process-attempt");
   const process = one("process-result");
   const result = one("bridge-result");
-  assert.ok(lookup.sequence < request.sequence && request.sequence < attempt.sequence &&
-    attempt.sequence < process.sequence && process.sequence < result.sequence);
+  assert.ok(
+    lookup.sequence < request.sequence &&
+      request.sequence < attempt.sequence &&
+      attempt.sequence < process.sequence &&
+      process.sequence < result.sequence,
+  );
   assert.equal(process.data?.bridge, expected.bridge);
   assert.ok(typeof process.pid === "number" && process.pid > 0);
   assert.equal(process.data?.started, true);
@@ -103,23 +139,32 @@ export function case_evidence_bridge_preserves_observed_json_transport(
   assert.equal(result.data?.unmarshalOutcome, "succeeded");
   assert.equal(result.data?.unmarshalError, "");
   const capture = readE2eTracePayload(traceRoot, result, result.data?.stdout);
-  const reply = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(capture.bytes)) as {
+  const reply = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(capture.bytes),
+  ) as {
     documents: Record<string, unknown>[];
     problems: Record<string, unknown>[];
   };
   assert.ok(Array.isArray(reply.documents) && Array.isArray(reply.problems));
   const key = expected.bridge === "prisma" ? "id" : "source";
-  const documents = reply.documents.map(item => item[key]);
-  const problems = reply.problems.map(item => item[key]);
+  const documents = reply.documents.map((item) => item[key]);
+  const problems = reply.problems.map((item) => item[key]);
   assert.deepEqual(documents, expected.documentIds);
   assert.deepEqual(problems, expected.problemIds);
   assert.deepEqual(result.data?.documentIds, expected.documentIds);
   assert.deepEqual(result.data?.problemIds, expected.problemIds);
-  assert.equal(expected.digests.length, reply.documents.length + reply.problems.length);
-  assert.deepEqual(expected.digests.map(item => item.id).sort(),
-    [...expected.documentIds, ...expected.problemIds].sort());
+  assert.equal(
+    expected.digests.length,
+    reply.documents.length + reply.problems.length,
+  );
+  assert.deepEqual(
+    expected.digests.map((item) => item.id).sort(),
+    [...expected.documentIds, ...expected.problemIds].sort(),
+  );
   for (const oracle of expected.digests) {
-    const items = [...reply.documents, ...reply.problems].filter(item => item[key] === oracle.id);
+    const items = [...reply.documents, ...reply.problems].filter(
+      (item) => item[key] === oracle.id,
+    );
     assert.equal(items.length, 1, `one raw digest owner ${oracle.id}`);
     const digest = items[0]!.digest;
     assert.equal(typeof digest, "string");
@@ -132,7 +177,10 @@ export function case_evidence_bridge_preserves_observed_json_transport(
     } else {
       const native = lookup.data?.nativeDigests as Record<string, unknown>;
       assert.ok(native !== null && typeof native === "object");
-      assert.equal(Object.hasOwn(native, oracle.id), oracle.native === "present");
+      assert.equal(
+        Object.hasOwn(native, oracle.id),
+        oracle.native === "present",
+      );
       if (oracle.native === "present") assert.equal(digest, native[oracle.id]);
     }
   }

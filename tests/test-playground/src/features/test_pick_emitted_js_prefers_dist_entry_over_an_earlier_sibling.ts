@@ -9,7 +9,8 @@ import { pickEmittedJS } from "../../../../packages/playground/src/compiler/pick
  * Object key order is insertion order, so a first-`.js` fallback alone would
  * return the sibling. The entry candidates must be consulted first.
  *
- * 1. Place `dist/helper.js` before `dist/playground.js` and pick for `playground.ts`.
+ * 1. Place `dist/helper.js` before `dist/playground.js` and pick for
+ *    `playground.ts`.
  * 2. Remove the entry output and observe the sibling become the fallback.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls pickEmittedJS with sibling-first maps and compares the returned text with authored literals.

@@ -14,6 +14,8 @@ import { make } from "../internal/make";
  * <>
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link JsxOpeningFragment}.
  * @evidence contracts/common.md#principled-implementation
  *   The zero-field opening fragment denotes the fixed <> boundary without a
  *   tag name or attributes; the parent fragment supplies its children and closure.
@@ -29,9 +31,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the empty delimiter, pairing constructor and absence of
  *   inputs, with a standalone opening example and documented return type.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link JsxOpeningFragment}.
  */
 export const createJsxOpeningFragment = (): JsxOpeningFragment =>
   make("JsxOpeningFragment", {});

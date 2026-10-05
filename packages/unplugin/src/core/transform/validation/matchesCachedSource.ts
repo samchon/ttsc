@@ -29,9 +29,9 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * derived input set and project membership; graph-free envelopes conservatively
  * validate the complete project and out-of-walk snapshots, reusing qualified
  * signatures. A mismatch rejects this generation for the delivery; its caller
- * chooses replacement or capture. Delivered text that differs while the
- * disk still holds the bytes the generation compiled is not one: it is reported
- * and served, since the compile read the disk (samchon/ttsc#1394).
+ * chooses replacement or capture. Delivered text that differs while the disk
+ * still holds the bytes the generation compiled is not one: it is reported and
+ * served, since the compile read the disk (samchon/ttsc#1394).
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page

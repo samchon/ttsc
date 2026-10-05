@@ -3,8 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { E2eProcessTrace } from "../../../../utils/src/E2eProcessTrace";
-import { captureE2eTracePhase, type TracePhaseObservation } from "../../internal/captureE2eTracePhase";
 import type { PreparedAssetSelection } from "../../internal/captureE2ePreparedAssets";
+import {
+  type TracePhaseObservation,
+  captureE2eTracePhase,
+} from "../../internal/captureE2eTracePhase";
 import { readE2eTraceMeasurements } from "../../internal/readE2eTraceMeasurements";
 import { case_lint_loader_preserves_observed_raw_normalization } from "./case_lint_loader_preserves_observed_raw_normalization";
 
@@ -37,27 +40,68 @@ export async function case_lint_loader_preserves_aba_instability_after_restorati
   traceRoot: string;
   producerAssets: readonly PreparedAssetSelection[];
   cacheRoots: readonly string[];
-}): Promise<TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>> {
-  assert.ok(path.isAbsolute(input.directory) && path.isAbsolute(input.binary) && path.isAbsolute(input.helperFile));
-  assert.ok(input.producerAssets.some(asset => asset.role === "executable" &&
-    fs.realpathSync.native(asset.file) === fs.realpathSync.native(input.binary)));
+}): Promise<
+  TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>
+> {
+  assert.ok(
+    path.isAbsolute(input.directory) &&
+      path.isAbsolute(input.binary) &&
+      path.isAbsolute(input.helperFile),
+  );
+  assert.ok(
+    input.producerAssets.some(
+      (asset) =>
+        asset.role === "executable" &&
+        fs.realpathSync.native(asset.file) ===
+          fs.realpathSync.native(input.binary),
+    ),
+  );
   assert.deepEqual(fs.readFileSync(input.helperFile), input.beforeBytes);
   const location = path.resolve(input.directory, input.configFile);
   const requiredWriterPids: number[] = [];
-  const cursor = readE2eTraceMeasurements(input.traceRoot, []).lastWriterSequences;
-  const phase = await captureE2eTracePhase({ label: "config-loader-aba", traceRoot: input.traceRoot,
-    assets: [...input.producerAssets,
-      { label: "aba-config", file: location, role: "configuration" },
-      { label: "aba-helper", file: input.helperFile, role: "fixture" }],
-    cacheRoots: input.cacheRoots, requiredWriterPids, afterSequences: cursor,
-  }, async () => {
-    const result = E2eProcessTrace.spawnSync(input.binary, ["check", "--cwd", input.directory,
-      "--tsconfig", input.tsconfig, "--plugins-json",
-      JSON.stringify([{ name: "@ttsc/lint", config: { configFile: input.configFile } }])],
-      { cwd: input.directory, env: process.env, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-    if (Number.isSafeInteger(result.pid) && result.pid > 0) requiredWriterPids.push(result.pid);
-    return result;
-  });
+  const cursor = readE2eTraceMeasurements(
+    input.traceRoot,
+    [],
+  ).lastWriterSequences;
+  const phase = await captureE2eTracePhase(
+    {
+      label: "config-loader-aba",
+      traceRoot: input.traceRoot,
+      assets: [
+        ...input.producerAssets,
+        { label: "aba-config", file: location, role: "configuration" },
+        { label: "aba-helper", file: input.helperFile, role: "fixture" },
+      ],
+      cacheRoots: input.cacheRoots,
+      requiredWriterPids,
+      afterSequences: cursor,
+    },
+    async () => {
+      const result = E2eProcessTrace.spawnSync(
+        input.binary,
+        [
+          "check",
+          "--cwd",
+          input.directory,
+          "--tsconfig",
+          input.tsconfig,
+          "--plugins-json",
+          JSON.stringify([
+            { name: "@ttsc/lint", config: { configFile: input.configFile } },
+          ]),
+        ],
+        {
+          cwd: input.directory,
+          env: process.env,
+          encoding: "utf8",
+          maxBuffer: 64 * 1024 * 1024,
+        },
+      );
+      if (Number.isSafeInteger(result.pid) && result.pid > 0)
+        requiredWriterPids.push(result.pid);
+      return result;
+    },
+  );
   const failures: unknown[] = [];
   try {
     assert.deepEqual(phase.observationErrors, []);
@@ -70,23 +114,63 @@ export async function case_lint_loader_preserves_aba_instability_after_restorati
     assert.equal(result.status, 0, String(result.stderr));
     assert.equal(result.stdout, "");
     assert.ok(phase.traces);
-    case_lint_loader_preserves_observed_raw_normalization(input.traceRoot, phase.traces, {
-      writerPid: result.pid, location, label: "config file",
-      evaluations: [1, 2, 3].map(() => ({
-        value: input.duringValue,
-        rawDependencies: [{ path: input.rawHelperPath, fields: { kind: "file", identityStable: false, digest: "" } }],
-        normalizedDependencies: [{ path: input.normalizedHelperPath, fields: { kind: "file", identityStable: false, digest: "" } }],
-        absentRawPaths: [], absentNormalizedPaths: [], cacheOutcomes: ["not-current"],
-      })), fixedOutputs: [],
-    });
-    const caches = phase.traces.writerObservations.map(row => row.observation).filter(row =>
-      row.writerPid === result.pid && row.event === "config-cache-outcome" && row.data?.location === location)
+    case_lint_loader_preserves_observed_raw_normalization(
+      input.traceRoot,
+      phase.traces,
+      {
+        writerPid: result.pid,
+        location,
+        label: "config file",
+        evaluations: [1, 2, 3].map(() => ({
+          value: input.duringValue,
+          rawDependencies: [
+            {
+              path: input.rawHelperPath,
+              fields: { kind: "file", identityStable: false, digest: "" },
+            },
+          ],
+          normalizedDependencies: [
+            {
+              path: input.normalizedHelperPath,
+              fields: { kind: "file", identityStable: false, digest: "" },
+            },
+          ],
+          absentRawPaths: [],
+          absentNormalizedPaths: [],
+          cacheOutcomes: ["not-current"],
+        })),
+        fixedOutputs: [],
+      },
+    );
+    const caches = phase.traces.writerObservations
+      .map((row) => row.observation)
+      .filter(
+        (row) =>
+          row.writerPid === result.pid &&
+          row.event === "config-cache-outcome" &&
+          row.data?.location === location,
+      )
       .sort((left, right) => left.sequence - right.sequence);
-    assert.deepEqual(caches.map(row => row.data?.attempt), [1, 2, 3]);
-    assert.deepEqual(caches.map(row => row.data?.returnedUncached), [false, false, true]);
-  } catch (error) { failures.push(error); }
-  try { assert.deepEqual(fs.readFileSync(input.helperFile), input.beforeBytes); }
-  catch (error) { failures.push(new Error("ABA helper final bytes", { cause: error })); }
-  if (failures.length) throw new AggregateError(failures, "Actual loader ABA refusal and restoration");
+    assert.deepEqual(
+      caches.map((row) => row.data?.attempt),
+      [1, 2, 3],
+    );
+    assert.deepEqual(
+      caches.map((row) => row.data?.returnedUncached),
+      [false, false, true],
+    );
+  } catch (error) {
+    failures.push(error);
+  }
+  try {
+    assert.deepEqual(fs.readFileSync(input.helperFile), input.beforeBytes);
+  } catch (error) {
+    failures.push(new Error("ABA helper final bytes", { cause: error }));
+  }
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Actual loader ABA refusal and restoration",
+    );
   return phase;
 }

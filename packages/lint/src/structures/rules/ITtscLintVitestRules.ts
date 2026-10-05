@@ -26,7 +26,8 @@ export interface ITtscLintVitestRules {
 
   /**
    * Reject recognized `expect(...)` calls in conditional or loop syntax inside
-   * test callbacks. The native conditional-kind set does not include try/catch.
+   * test callbacks. The native conditional-kind set does not include
+   * try/catch.
    *
    * A branch that never runs turns the assertion into a silent no-op rather
    * than a failure.
@@ -99,7 +100,8 @@ export interface ITtscLintVitestRules {
 
   /**
    * Reject explicit return statements in recognized Vitest test callbacks,
-   * including bare returns and returned Promises; return types are not inferred.
+   * including bare returns and returned Promises; return types are not
+   * inferred.
    *
    * The rule is an AST source policy and does not execute runner completion.
    *
@@ -121,8 +123,8 @@ export interface ITtscLintVitestRules {
   /**
    * Validate the shape of Vitest `describe` callbacks.
    *
-   * The native check requires a function callback without an async modifier.
-   * It does not validate parameter count or infer returned Promise types.
+   * The native check requires a function callback without an async modifier. It
+   * does not validate parameter count or infer returned Promise types.
    *
    * @reference https://github.com/vitest-dev/eslint-plugin-vitest/blob/main/docs/rules/valid-describe-callback.md
    */
@@ -130,8 +132,8 @@ export interface ITtscLintVitestRules {
 
   /**
    * Require at least one `expect(...)` argument and a terminating matcher call,
-   * permitting `not`, `resolves`, and `rejects` property links. The native check
-   * does not impose a maximum arity or validate asynchronous handling.
+   * permitting `not`, `resolves`, and `rejects` property links. The native
+   * check does not impose a maximum arity or validate asynchronous handling.
    *
    * Malformed expects either throw at runtime or pass without asserting
    * anything.

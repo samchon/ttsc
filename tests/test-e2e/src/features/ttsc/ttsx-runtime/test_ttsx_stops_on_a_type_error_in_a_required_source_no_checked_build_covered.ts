@@ -1,10 +1,13 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsc/internal/ttsx-register";
+import { FixtureFiles } from "../../../internal/FixtureFiles";
+import {
+  TTSX_REGISTER,
+  linkTtscPackage,
+} from "../../../internal/ttsc/internal/ttsx-register";
 
 /**
  * Verifies ttsx type-checks a required source that no checked build covered,
@@ -34,25 +37,25 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsc/internal/
  * @evidence contracts/e2e.md#preserved-coverage Both original nonzero statuses, effect.ts root diagnostic, assignability text and marker absence plus final root-prefix cleanup assertion remain; no broad cache-cleanliness claim is added.
  */
 export function test_ttsx_stops_on_a_type_error_in_a_required_source_no_checked_build_covered() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_stops_on_a_type_error_in_a_required_source_no_checked_build_covered/inputs-1"));
-    linkTtscPackage(root);
-    const marker = path.join(root, "effect-ran.txt");
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_stops_on_a_type_error_in_a_required_source_no_checked_build_covered/inputs-1",
+    ),
+  );
+  linkTtscPackage(root);
+  const marker = path.join(root, "effect-ran.txt");
 
-    const failures: unknown[] = [];
-    for (const [lane, command, args] of [
-      ["ttsx", TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"]],
-      [
-        "register",
-        process.execPath,
-        ["--require", TTSX_REGISTER, "src/main.ts"],
-      ],
-    ] as const) {
-      fs.rmSync(marker, { force: true });
-      const result = TestProject.spawn(command, [...args], {
-        cwd: root,
-        env: { TTSX_ROOT_MARKER: marker },
-      });
-      try {
+  const failures: unknown[] = [];
+  for (const [lane, command, args] of [
+    ["ttsx", TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"]],
+    ["register", process.execPath, ["--require", TTSX_REGISTER, "src/main.ts"]],
+  ] as const) {
+    fs.rmSync(marker, { force: true });
+    const result = TestProject.spawn(command, [...args], {
+      cwd: root,
+      env: { TTSX_ROOT_MARKER: marker },
+    });
+    try {
       assert.notEqual(result.status, 0, `${lane}: ${result.stdout}`);
       assert.match(result.stderr, /root check failed for .*effect\.ts/);
       assert.match(
@@ -60,12 +63,19 @@ export function test_ttsx_stops_on_a_type_error_in_a_required_source_no_checked_
         /Type 'string' is not assignable to type 'number'/,
       );
       assert.equal(fs.existsSync(marker), false, `${lane} ran the root`);
-      } catch (error) { failures.push(new Error(lane, { cause: error })); }
+    } catch (error) {
+      failures.push(new Error(lane, { cause: error }));
     }
+  }
 
-    try { assert.deepEqual(
+  try {
+    assert.deepEqual(
       fs.readdirSync(root).filter((name) => name.startsWith(".ttsx-")),
       [],
-    ); } catch (error) { failures.push(error); }
-    if (failures.length) throw new AggregateError(failures, "required root diagnostic gates failed");
+    );
+  } catch (error) {
+    failures.push(error);
   }
+  if (failures.length)
+    throw new AggregateError(failures, "required root diagnostic gates failed");
+}

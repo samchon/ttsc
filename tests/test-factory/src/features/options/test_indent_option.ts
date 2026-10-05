@@ -1,16 +1,17 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 import { num } from "../../internal/helpers";
 
 /**
  * Verifies the `indent` option controls the indentation unit.
  *
- * With `indent: "    "` (four spaces) a broken array indents four spaces per level
+ * With `indent: " "` (four spaces) a broken array indents four spaces per level
  * instead of the default two.
  *
  * 1. A forced broken array uses four spaces for each configured indentation step.
- * 2. Explicit multiline array lines contain four spaces rather than the default two.
+ * 2. Explicit multiline array lines contain four spaces rather than the default
+ *    two.
  *
  * @evidence contracts/testing.md#behavioral-verification A forced broken array uses four spaces for each configured indentation step.
  * @evidence contracts/testing.md#independent-expectations Explicit multiline array lines contain four spaces rather than the default two.

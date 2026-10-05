@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { selectCachedGenerationAction } from "../../../../../packages/unplugin/src/core/transform/cache/selectCachedGenerationAction";
-import { notifyVolatileDelivery } from "../../../../../packages/unplugin/src/core/transform/watch/notifyVolatileDelivery";
 import type { TtscTransformHooks } from "../../../../../packages/unplugin/src/core/transform/watch/TtscTransformHooks";
+import { notifyVolatileDelivery } from "../../../../../packages/unplugin/src/core/transform/watch/notifyVolatileDelivery";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 
 /**
@@ -25,7 +25,15 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  */
 export function test_cached_generation_action_keeps_or_replaces_the_actual_owner(): void {
   const failures: Error[] = [];
-  for (const variant of ["valid", "volatile", "changed", "replaced", "incomplete", "fresh-only", "no-pass"] as const) {
+  for (const variant of [
+    "valid",
+    "volatile",
+    "changed",
+    "replaced",
+    "incomplete",
+    "fresh-only",
+    "no-pass",
+  ] as const) {
     const fixture = createCachedDeliveryUnitFixture();
     const { cache, key, good, file, source } = fixture;
     const generation = Promise.resolve(good);
@@ -66,21 +74,44 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
       fixture.dispose();
     }
   }
-  for (const variant of ["volatile", "ordinary", "no-hooks", "no-callback", "throw"] as const) {
+  for (const variant of [
+    "volatile",
+    "ordinary",
+    "no-hooks",
+    "no-callback",
+    "throw",
+  ] as const) {
     const fixture = createCachedDeliveryUnitFixture();
-    const cached = { ...fixture.good, result: { ...fixture.good.result,
-      volatile: variant === "ordinary" ? [] : ["src/main.ts"] } };
-    let calls = 0;
-    const callbackError = new Error("authored volatility callback failure");
-    const hooks: TtscTransformHooks = variant === "no-callback" ? {} : {
-      markVolatile: function (this: TtscTransformHooks): void {
-        assert.equal(this, hooks, "notification preserves the hook receiver");
-        calls++;
-        if (variant === "throw") throw callbackError;
+    const cached = {
+      ...fixture.good,
+      result: {
+        ...fixture.good.result,
+        volatile: variant === "ordinary" ? [] : ["src/main.ts"],
       },
     };
+    let calls = 0;
+    const callbackError = new Error("authored volatility callback failure");
+    const hooks: TtscTransformHooks =
+      variant === "no-callback"
+        ? {}
+        : {
+            markVolatile: function (this: TtscTransformHooks): void {
+              assert.equal(
+                this,
+                hooks,
+                "notification preserves the hook receiver",
+              );
+              calls++;
+              if (variant === "throw") throw callbackError;
+            },
+          };
     try {
-      const notify = () => notifyVolatileDelivery(variant === "no-hooks" ? undefined : hooks, cached, fixture.file);
+      const notify = () =>
+        notifyVolatileDelivery(
+          variant === "no-hooks" ? undefined : hooks,
+          cached,
+          fixture.file,
+        );
       if (variant === "throw") {
         assert.throws(notify, (error) => error === callbackError);
         assert.equal(calls, 1);
@@ -88,9 +119,16 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
         assert.doesNotThrow(notify);
         assert.equal(calls, variant === "volatile" ? 1 : 0);
         assert.doesNotThrow(notify);
-        assert.equal(calls, variant === "volatile" ? 2 : 0, "warm declaration reuse does not suppress delivery notification");
+        assert.equal(
+          calls,
+          variant === "volatile" ? 2 : 0,
+          "warm declaration reuse does not suppress delivery notification",
+        );
       }
-      assert.deepEqual(cached.result.volatile, variant === "ordinary" ? [] : ["src/main.ts"]);
+      assert.deepEqual(
+        cached.result.volatile,
+        variant === "ordinary" ? [] : ["src/main.ts"],
+      );
     } catch (error) {
       failures.push(new Error("delivery-" + variant, { cause: error }));
     } finally {
@@ -98,6 +136,9 @@ export function test_cached_generation_action_keeps_or_replaces_the_actual_owner
     }
   }
   if (failures.length !== 0) {
-    throw new AggregateError(failures, "Cached generation action variants failed");
+    throw new AggregateError(
+      failures,
+      "Cached generation action variants failed",
+    );
   }
 }

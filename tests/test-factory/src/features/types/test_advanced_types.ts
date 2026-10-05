@@ -1,17 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, param, print, ref } from "../../internal/helpers";
 
 /**
  * Verifies printing of the advanced type-system nodes.
  *
- * The `this` type, a conditional type, an `infer` type, an `is` type
- * predicate (plain and `asserts`), a constructor type, and a mapped type with
- * `readonly` / `?` modifiers.
+ * The `this` type, a conditional type, an `infer` type, an `is` type predicate
+ * (plain and `asserts`), a constructor type, and a mapped type with `readonly`
+ * / `?` modifiers.
  *
- * 1. This/conditional/infer/predicate/constructor/mapped type nodes retain their specialized syntax and modifiers.
- * 2. Exact independently authored type literals specify extends/infer/is/asserts/new and readonly/question mapped markers.
+ * 1. This/conditional/infer/predicate/constructor/mapped type nodes retain their
+ *    specialized syntax and modifiers.
+ * 2. Exact independently authored type literals specify
+ *    extends/infer/is/asserts/new and readonly/question mapped markers.
  *
  * @evidence contracts/testing.md#behavioral-verification This/conditional/infer/predicate/constructor/mapped type nodes retain their specialized syntax and modifiers.
  * @evidence contracts/testing.md#independent-expectations Exact independently authored type literals specify extends/infer/is/asserts/new and readonly/question mapped markers.

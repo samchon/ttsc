@@ -6,9 +6,9 @@ import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
 import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
-import { copyGraphSnapshot } from "./copyGraphSnapshot";
 import { type TtscGraphReadonly } from "./TtscGraphReadonly";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
+import { copyGraphSnapshot } from "./copyGraphSnapshot";
 
 type SnapshotNode = TtscGraphReadonly<ITtscGraphNode>;
 type SnapshotEdge = TtscGraphReadonly<ITtscGraphEdge>;
@@ -385,14 +385,31 @@ function ownerKey(node: ITtscGraphNode): string | undefined {
 }
 
 /** Prove lexical ownership using complete same-file declaration coordinates. */
-function enclosesDeclaration(owner: ITtscGraphNode, member: ITtscGraphNode): boolean {
+function enclosesDeclaration(
+  owner: ITtscGraphNode,
+  member: ITtscGraphNode,
+): boolean {
   const outer = owner.evidence;
   const inner = member.evidence;
-  if (outer === undefined || inner === undefined || outer.file !== inner.file ||
-      outer.startCol === undefined || outer.endLine === undefined || outer.endCol === undefined ||
-      inner.startCol === undefined || inner.endLine === undefined || inner.endCol === undefined) return false;
-  return (outer.startLine < inner.startLine || (outer.startLine === inner.startLine && outer.startCol <= inner.startCol)) &&
-    (outer.endLine > inner.endLine || (outer.endLine === inner.endLine && outer.endCol >= inner.endCol));
+  if (
+    outer === undefined ||
+    inner === undefined ||
+    outer.file !== inner.file ||
+    outer.startCol === undefined ||
+    outer.endLine === undefined ||
+    outer.endCol === undefined ||
+    inner.startCol === undefined ||
+    inner.endLine === undefined ||
+    inner.endCol === undefined
+  )
+    return false;
+  return (
+    (outer.startLine < inner.startLine ||
+      (outer.startLine === inner.startLine &&
+        outer.startCol <= inner.startCol)) &&
+    (outer.endLine > inner.endLine ||
+      (outer.endLine === inner.endLine && outer.endCol >= inner.endCol))
+  );
 }
 
 /** A file's id and node name from its dump path coordinate. */
@@ -487,12 +504,20 @@ function synthesize(dump: ITtscGraphDump): {
   const owner = (node: ITtscGraphNode): ITtscGraphNode | undefined => {
     if (owners.has(node)) return owners.get(node);
     const parent = ownerKey(node);
-    const candidates = parent === undefined ? undefined : byFileKey.get(node.file + "\0" + parent);
+    const candidates =
+      parent === undefined
+        ? undefined
+        : byFileKey.get(node.file + "\0" + parent);
     // A unique checker handle also owns merged namespace members outside its
     // primary declaration span. Only a colliding handle needs lexical evidence.
     // Ambiguous or incomplete ranges prove no declaration owner; retain file
     // containment rather than assigning an arbitrary merged declaration.
-    const enclosing = candidates?.length === 1 ? candidates : candidates?.filter((candidate) => enclosesDeclaration(candidate, node));
+    const enclosing =
+      candidates?.length === 1
+        ? candidates
+        : candidates?.filter((candidate) =>
+            enclosesDeclaration(candidate, node),
+          );
     const selected = enclosing?.length === 1 ? enclosing[0] : undefined;
     owners.set(node, selected);
     return selected;

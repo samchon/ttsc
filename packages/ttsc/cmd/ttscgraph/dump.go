@@ -15,13 +15,13 @@ import (
 // preparedDumpCommand retains one loaded Program and its actual graph, source
 // texts and producer origin until the command adapter finishes encoding.
 type preparedDumpCommand struct {
-  program *driver.Program
-  built *graph.Graph
-  cwd string
+  program  *driver.Program
+  built    *graph.Graph
+  cwd      string
   tsconfig string
-  texts map[string]string
-  origin graph.DumpOrigin
-  pretty bool
+  texts    map[string]string
+  origin   graph.DumpOrigin
+  pretty   bool
 }
 
 // runDump emits the complete raw graph as a JSON document, without MCP caps.
@@ -30,7 +30,9 @@ type preparedDumpCommand struct {
 // Returns 0 on success, 1 on a load or serialize error, 2 on invalid invocation.
 func runDump(args []string) int {
   prepared, code := prepareDumpCommand(args)
-  if prepared == nil { return code }
+  if prepared == nil {
+    return code
+  }
   defer func() { _ = prepared.program.Close() }()
   return prepared.encode(graph.GitIgnoredFiles(prepared.cwd, prepared.built))
 }

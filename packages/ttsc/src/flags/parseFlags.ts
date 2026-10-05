@@ -1,10 +1,10 @@
-import { readCompilerOptionOccurrence } from "./readCompilerOptionOccurrence";
 import type { AnySubcommand } from "./AnySubcommand";
 import type { FlagSpec } from "./FlagSpec";
 import type { ParseOptions } from "./ParseOptions";
 import type { ParseResult } from "./ParseResult";
 import { flagsForSubcommand } from "./flagsForSubcommand";
 import { normalizeFlagToken } from "./normalizeFlagToken";
+import { readCompilerOptionOccurrence } from "./readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "./resolveFlagSpec";
 
 /**
@@ -113,7 +113,9 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 
       // The compiler's table owns arity for options the launcher does not own.
       passthrough.push(current);
-      if (readCompilerOptionOccurrence(head.tokens, head.index - 1).width === 2) {
+      if (
+        readCompilerOptionOccurrence(head.tokens, head.index - 1).width === 2
+      ) {
         passthrough.push(head.tokens[head.index++]!);
       }
       continue;
@@ -261,7 +263,8 @@ function consumeFlag(
  * flag" guard `ttsc --cwd --strict src/main.ts` would silently consume
  * `--strict` as the value of `--cwd`, leaving `--strict` lost and `cwd` set to
  * a junk path. This is the launcher's own missing-value policy; native scalar
- * options instead consume a following dash token through the occurrence reader.
+ * options instead consume a following dash token through the occurrence
+ * reader.
  */
 function takeValueToken(
   flag: string,

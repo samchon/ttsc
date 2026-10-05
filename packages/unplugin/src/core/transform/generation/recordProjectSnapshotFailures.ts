@@ -45,7 +45,10 @@ export function recordProjectSnapshotFailures(
     /** Post-compile walk used for content, metadata and membership comparison. */
     snapshot: ReturnType<typeof collectProjectInputSnapshot>;
 
-    /** Observer that spans the compile window; absence contributes no event list. */
+    /**
+     * Observer that spans the compile window; absence contributes no event
+     * list.
+     */
     tracker?: TtscProjectMutationTracker;
   },
 ): void {

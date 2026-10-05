@@ -5,9 +5,9 @@ import path from "node:path";
  *
  * When `cacheDir` is absent or empty, returns `undefined` so callers fall
  * through to the `TTSC_CACHE_DIR` environment variable and the workspace-local
- * default handled by the shared source-build cache resolver. When `cacheDir` is already
- * absolute it is returned unchanged; otherwise it is resolved relative to
- * `cwd`.
+ * default handled by the shared source-build cache resolver. When `cacheDir` is
+ * already absolute it is returned unchanged; otherwise it is resolved relative
+ * to `cwd`.
  *
  * @evidence contracts/common.md#principled-implementation Empty input preserves downstream cache precedence, absolute paths retain their spelling and relative paths are anchored to the invocation directory using native path resolution.
  * @evidence contracts/common.md#clear-and-simple-design This helper resolves only the CLI option; environment and workspace-default selection remain with the source-build cache owner.

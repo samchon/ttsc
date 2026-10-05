@@ -1,9 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { runTtsxWithCoverage } from "../../../internal/ttsc/internal/ttsx-source-map";
 
 /**
@@ -21,12 +21,13 @@ import { runTtsxWithCoverage } from "../../../internal/ttsc/internal/ttsx-source
  *
  * A source map alone cannot distinguish project emit from orphan lowering,
  * because both lanes supply maps. ES2019 lowering of optional chaining is the
- * independent project-option witness; isolated orphan emit uses a modern
- * target and would retain that syntax.
+ * independent project-option witness; isolated orphan emit uses a modern target
+ * and would retain that syntax.
  *
  * 1. Link an external source into a project configured for ES2019.
  * 2. Execute the linked entry under V8 coverage.
  * 3. Require its original marker, lowered optional chaining and served map.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs a linked external clear.ts under V8 coverage and checks success, its original marker, lowered optional-function syntax, a recorded script and nonnull source map.
  * @evidence contracts/testing.md#independent-expectations The ES2019 language contract requires optional chaining to be lowered; the authored function source and its false syntax result independently distinguish project options from modern isolated orphan emit. The V8 record separately establishes map presence.
  * @evidence contracts/testing.md#distinguishing-cases The lexical owning project requests ES2019 while the external physical source has no config. Unavailable symlink creation still returns early; nonnull maps alone are deliberately not a lane discriminator.
@@ -38,8 +39,14 @@ import { runTtsxWithCoverage } from "../../../internal/ttsc/internal/ttsx-source
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both tracked directories own the link and target; coverage is read after synchronous completion and fixture cleanup occurs at process exit.
  * @evidence contracts/e2e.md#preserved-coverage All original status, marker, V8-script and map assertions remain; the additional false optional-chain result now independently establishes project-option inheritance instead of relying on the disproved orphan-no-map premise.
  */
-export function test_ttsx_runs_an_entry_that_is_itself_a_symlink(): void | false {
-  const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_runs_an_entry_that_is_itself_a_symlink/inputs-1"));
+export function test_ttsx_runs_an_entry_that_is_itself_a_symlink():
+  | void
+  | false {
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_runs_an_entry_that_is_itself_a_symlink/inputs-1",
+    ),
+  );
   // Tracked by the harness, so it is reclaimed even on the early return below.
   const outside = TestProject.tmpdir("ttsc-symlink-target-");
   fs.writeFileSync(

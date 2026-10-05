@@ -1,6 +1,6 @@
-import type { ITtscCompilerTransformation } from "ttsc";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import type { ITtscCompilerTransformation } from "ttsc";
 
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/resultFilesystem";
@@ -14,8 +14,8 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * Observe fixture filesystem inputs for a handwritten consumer generation.
  *
  * The caller supplies literal protocol metadata. This helper never invokes or
- * substitutes for a compiler; it only records the real file and directory
- * facts that the delivery decision subsequently compares. Snapshot collection
+ * substitutes for a compiler; it only records the real file and directory facts
+ * that the delivery decision subsequently compares. Snapshot collection
  * supplies setup data, not the expected action or request-count oracle.
  */
 export function observeValidationUnitGeneration(
@@ -39,7 +39,8 @@ export function observeValidationUnitGeneration(
     undefined,
     { policy: cached.membershipPolicy },
   );
-  if (!snapshot.complete) throw new Error("Fixture input observation was incomplete");
+  if (!snapshot.complete)
+    throw new Error("Fixture input observation was incomplete");
   cached.projectSnapshotComplete = true;
   cached.projectDirectories = snapshot.projectDirectories;
   cached.inputHashes = snapshot.hashes;
@@ -55,12 +56,20 @@ export function observeValidationUnitGeneration(
   for (const file of external) {
     const identity = state.identityContext.resolve(file).key;
     const bytes = filesystem.readFile(file);
-    cached.externalInputHashes[identity] = createHash("sha256").update(bytes).digest("hex");
+    cached.externalInputHashes[identity] = createHash("sha256")
+      .update(bytes)
+      .digest("hex");
     cached.externalInputRealpaths[identity] = filesystem.realpath(file);
   }
-  const universal = captureUniversalHostInputValidation(cached, path.join(root, "src", "mod0.ts"));
+  const universal = captureUniversalHostInputValidation(
+    cached,
+    path.join(root, "src", "mod0.ts"),
+  );
   if (universal.validation === undefined) {
-    throw new Error("Fixture universal input observation was incomplete: " + JSON.stringify(universal.failures));
+    throw new Error(
+      "Fixture universal input observation was incomplete: " +
+        JSON.stringify(universal.failures),
+    );
   }
   cached.hostInputValidation = universal.validation;
   return cached;

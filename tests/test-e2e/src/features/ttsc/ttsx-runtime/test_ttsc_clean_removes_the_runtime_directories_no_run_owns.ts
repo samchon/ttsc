@@ -6,13 +6,13 @@ import path from "node:path";
 import { TtscCompiler } from "../../../../../../packages/ttsc/lib/index.js";
 import { isolatedCacheEnvironment } from "../../../internal/ttsc/internal/isolated-cache-environment";
 import {
+  type IWaitingRun,
   WAITING_PROGRAM,
   forceTerminate,
   runDirectory,
   runtimeRunsDirectory,
   startWaitingRun,
   stopWaitingRun,
-  type IWaitingRun,
 } from "../../../internal/ttsc/internal/ttsx-run";
 
 /**
@@ -42,77 +42,88 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage All terminated-removal, live-preservation, exact report, API removal-report and final runtime-removal assertions stay here; no live-owner distinction is dropped.
  */
 export async function test_ttsc_clean_removes_the_runtime_directories_no_run_owns(): Promise<void> {
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "clean-runs", private: true, workspaces: ["packages/*"] }),
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-          outDir: "lib",
-          types: [],
-        },
-        include: ["src"],
-      }),
-      "src/waiting.ts": WAITING_PROGRAM,
-    });
-    const runs = runtimeRunsDirectory(root);
-    const env = isolatedCacheEnvironment(root);
-    const running = await startWaitingRun(root, "src/waiting.ts");
-    let killed: IWaitingRun | undefined;
-    let primaryFailure: unknown;
-    try {
-      killed = await startWaitingRun(root, "src/waiting.ts");
-      await forceTerminate(killed.launcher.pid!);
-      await forceTerminate(killed.program);
-      const kept = runDirectory(runs, running.launcher.pid!);
-      const terminated = runDirectory(runs, killed.launcher.pid!);
-      assert.equal(fs.existsSync(terminated), true, killed.output());
-      const result = TestProject.spawn(
-        TestProject.TTSC_BIN,
-        ["clean", "--cwd", root],
-        { cwd: root, env },
-      );
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(fs.existsSync(terminated), false, result.stdout);
-      assert.equal(fs.existsSync(kept), true, result.stdout);
-      assert.ok(
-        result.stdout
-          .split(/\r?\n/)
-          .includes(
-            `ttsc: kept ${path.relative(root, kept)}: a run that may still be in progress owns it`,
-          ),
-        result.stdout,
-      );
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({
+      name: "clean-runs",
+      private: true,
+      workspaces: ["packages/*"],
+    }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "lib",
+        types: [],
+      },
+      include: ["src"],
+    }),
+    "src/waiting.ts": WAITING_PROGRAM,
+  });
+  const runs = runtimeRunsDirectory(root);
+  const env = isolatedCacheEnvironment(root);
+  const running = await startWaitingRun(root, "src/waiting.ts");
+  let killed: IWaitingRun | undefined;
+  let primaryFailure: unknown;
+  try {
+    killed = await startWaitingRun(root, "src/waiting.ts");
+    await forceTerminate(killed.launcher.pid!);
+    await forceTerminate(killed.program);
+    const kept = runDirectory(runs, running.launcher.pid!);
+    const terminated = runDirectory(runs, killed.launcher.pid!);
+    assert.equal(fs.existsSync(terminated), true, killed.output());
+    const result = TestProject.spawn(
+      TestProject.TTSC_BIN,
+      ["clean", "--cwd", root],
+      { cwd: root, env },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(fs.existsSync(terminated), false, result.stdout);
+    assert.equal(fs.existsSync(kept), true, result.stdout);
+    assert.ok(
+      result.stdout
+        .split(/\r?\n/)
+        .includes(
+          `ttsc: kept ${path.relative(root, kept)}: a run that may still be in progress owns it`,
+        ),
+      result.stdout,
+    );
 
-      await forceTerminate(running.launcher.pid!);
-      await forceTerminate(running.program);
-      // The API reports what it removed by an absolute path, which may spell the
-      // directory through the cwd as given or as the filesystem names it.
-      const runtime = path.dirname(runs);
-      const spellings = new Set([
-        runtime,
-        fs.realpathSync(runtime),
-        fs.realpathSync.native(runtime),
-      ]);
-      assert.ok(
-        new TtscCompiler({ cwd: root, env })
-          .clean()
-          .some((removed) => spellings.has(removed)),
-        "TtscCompiler.clean() did not report the runtime directory",
+    await forceTerminate(running.launcher.pid!);
+    await forceTerminate(running.program);
+    // The API reports what it removed by an absolute path, which may spell the
+    // directory through the cwd as given or as the filesystem names it.
+    const runtime = path.dirname(runs);
+    const spellings = new Set([
+      runtime,
+      fs.realpathSync(runtime),
+      fs.realpathSync.native(runtime),
+    ]);
+    assert.ok(
+      new TtscCompiler({ cwd: root, env })
+        .clean()
+        .some((removed) => spellings.has(removed)),
+      "TtscCompiler.clean() did not report the runtime directory",
+    );
+    assert.equal(fs.existsSync(runtime), false);
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
+  } finally {
+    const outcomes = await Promise.allSettled([
+      stopWaitingRun(running),
+      ...(killed === undefined ? [] : [stopWaitingRun(killed)]),
+    ]);
+    const failures = outcomes.filter(
+      (outcome) => outcome.status === "rejected",
+    );
+    if (failures.length !== 0)
+      throw new AggregateError(
+        [
+          ...(primaryFailure === undefined ? [] : [primaryFailure]),
+          ...failures.map((failure) => failure.reason),
+        ],
+        "waiting pair cleanup failed",
       );
-      assert.equal(fs.existsSync(runtime), false);
-    } catch (error) {
-      primaryFailure = error;
-      throw error;
-    } finally {
-      const outcomes = await Promise.allSettled([
-        stopWaitingRun(running),
-        ...(killed === undefined ? [] : [stopWaitingRun(killed)]),
-      ]);
-      const failures = outcomes.filter((outcome) => outcome.status === "rejected");
-      if (failures.length !== 0) throw new AggregateError(
-        [...(primaryFailure === undefined ? [] : [primaryFailure]), ...failures.map((failure) => failure.reason)], "waiting pair cleanup failed",
-      );
-    }
   }
+}

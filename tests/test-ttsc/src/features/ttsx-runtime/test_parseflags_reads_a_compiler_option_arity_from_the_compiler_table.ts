@@ -10,8 +10,9 @@ import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
  * Ttsx used to guess from the entry's extension which bare token was a flag
  * value: only a TypeScript-extensioned token could be the entry, so a
  * JavaScript entry was read as a value and everything after it as compiler
- * flags (samchon/ttsc#1569). `COMPILER_OPTIONS`, generated from the pinned native
- * option declarations, now owns option kind, list and configuration boundaries.
+ * flags (samchon/ttsc#1569). `COMPILER_OPTIONS`, generated from the pinned
+ * native option declarations, now owns option kind, list and configuration
+ * boundaries.
  *
  * 1. Parse `--target es2020 --strict --noEmitOnError false script.js a --help` the
  *    way ttsx does, with no positional predicate.

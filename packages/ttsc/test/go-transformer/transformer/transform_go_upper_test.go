@@ -31,5 +31,7 @@ func TestTransformGoUpper(t *testing.T) {
   }
 
   want := "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.message = void 0;\nconst message = \"HELLO\";\nexports.message = message;\nconsole.log(message);\n"
-  if result.Code != want { t.Fatalf("complete uppercase output = %q, want %q", result.Code, want) }
+  if result.Code != want {
+    t.Fatalf("complete uppercase output = %q, want %q", result.Code, want)
+  }
 }

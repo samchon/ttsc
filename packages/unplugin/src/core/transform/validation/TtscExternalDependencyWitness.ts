@@ -34,7 +34,8 @@ export interface TtscExternalDependencyWitness {
 
   /**
    * Equality of the before/after observed signatures, including two undefined
-   * results. This flag alone proves neither usable metadata nor atomic content.
+   * results. This flag alone proves neither usable metadata nor atomic
+   * content.
    */
   stable: boolean;
 }

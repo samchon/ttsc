@@ -17,10 +17,10 @@ interface Pending {
 /**
  * Queue, request correlation and generation ownership for one resident graph.
  *
- * The host supplies artifact synchronization and validated line decoding;
- * this owner accepts typed envelopes, atomically replaces graph generations,
- * and retires a peer when its transport or generation cannot be trusted.
- * It is internal to the graph facade, not an alternate public session API.
+ * The host supplies artifact synchronization and validated line decoding; this
+ * owner accepts typed envelopes, atomically replaces graph generations, and
+ * retires a peer when its transport or generation cannot be trusted. It is
+ * internal to the graph facade, not an alternate public session API.
  *
  * @evidence contracts/common.md#principled-implementation Serialized admission and identity-checked reply settlement protect one atomic shard generation across abort, close and peer replacement.
  * @evidence contracts/common.md#clear-and-simple-design Artifact discovery and generated schema decoding remain host responsibilities; this owner controls queue, pending replies, memory and shard retirement.
@@ -56,10 +56,13 @@ export class TtscGraphSessionState {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It acquires or releases nothing; graph and close own the queried peer.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation reads one field.
    */
-  public hasPeer(): boolean { return this.child !== undefined; }
+  public hasPeer(): boolean {
+    return this.child !== undefined;
+  }
 
   /**
-   * Refresh one graph, rejecting queued cancellation without disturbing its head.
+   * Refresh one graph, rejecting queued cancellation without disturbing its
+   * head.
    *
    * @evidence contracts/common.md#principled-implementation Promise serialization and single-settlement guards preserve one live native generation and independent queued abort ownership.
    * @evidence contracts/common.md#clear-and-simple-design Admission owns queued cancellation while refresh owns artifact synchronization, semantic checks and atomic model replacement.
@@ -140,9 +143,21 @@ export class TtscGraphSessionState {
     else this.failPending(error);
     this.closing = (async () => {
       await this.queue;
-      const results = await Promise.allSettled([hostClose, ...this.retirements]);
-      const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected").map((result) => result.reason);
-      if (failures.length > 0) throw new AggregateError(failures, "@ttsc/graph: session shutdown failed");
+      const results = await Promise.allSettled([
+        hostClose,
+        ...this.retirements,
+      ]);
+      const failures = results
+        .filter(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected",
+        )
+        .map((result) => result.reason);
+      if (failures.length > 0)
+        throw new AggregateError(
+          failures,
+          "@ttsc/graph: session shutdown failed",
+        );
     })();
     void this.closing.catch(() => undefined);
     return this.closing;
@@ -243,8 +258,7 @@ export class TtscGraphSessionState {
           // answered with, and omitting the field instead would say only that
           // this client has no opinion. Omitted only before a child exists,
           // which no request reaches.
-          artifacts:
-            this.host.artifacts(),
+          artifacts: this.host.artifacts(),
         })}\n`,
         (error) => {
           if (error === null || error === undefined) return;
@@ -272,10 +286,18 @@ export class TtscGraphSessionState {
           this.failChild(child, asError(error));
         }
       },
-      error: (error) => this.failChild(child, new Error(`@ttsc/graph: native session failed: ${error.message}`)),
-      exit: (code, signal) => this.failChild(child, new Error(
-        `@ttsc/graph: native session exited (code=${String(code)}, signal=${String(signal)})${stderrSuffix(child)}`,
-      )),
+      error: (error) =>
+        this.failChild(
+          child,
+          new Error(`@ttsc/graph: native session failed: ${error.message}`),
+        ),
+      exit: (code, signal) =>
+        this.failChild(
+          child,
+          new Error(
+            `@ttsc/graph: native session exited (code=${String(code)}, signal=${String(signal)})${stderrSuffix(child)}`,
+          ),
+        ),
     });
     this.child = child;
     return child;
@@ -297,7 +319,10 @@ export class TtscGraphSessionState {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Settlement removes exactly one pending entry and its abort listener; mismatch retirement clears this peer's current model/store and fails its pending owners.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation correlates a decoded envelope with its pending request in memory.
    */
-  public receive(child: TtscGraphLinePeer.Connection, response: ITtscGraphSnapshot): void {
+  public receive(
+    child: TtscGraphLinePeer.Connection,
+    response: ITtscGraphSnapshot,
+  ): void {
     if (this.child !== child) return;
     // The envelope's version is not the body's, and only the envelope has been
     // held to one so far. A producer can speak this protocol and still carry a
@@ -344,10 +369,16 @@ export class TtscGraphSessionState {
     // Even an exited process must join its stdio before release is known.
     const retirement = Promise.resolve(child.close(true));
     this.retirements.add(retirement);
-    void retirement.then(() => this.retirements.delete(retirement), () => undefined);
+    void retirement.then(
+      () => this.retirements.delete(retirement),
+      () => undefined,
+    );
   }
 
-  private failPending(error: Error, child?: TtscGraphLinePeer.Connection): void {
+  private failPending(
+    error: Error,
+    child?: TtscGraphLinePeer.Connection,
+  ): void {
     for (const [id, pending] of this.pending) {
       if (child === undefined || pending.child === child) {
         this.settlePending(id, pending, error);
@@ -456,7 +487,10 @@ export namespace TtscGraphSessionState {
     close(): void | Promise<void>;
   }
 }
-function cancelledError(signal?: AbortSignal, child?: TtscGraphLinePeer.Connection): Error {
+function cancelledError(
+  signal?: AbortSignal,
+  child?: TtscGraphLinePeer.Connection,
+): Error {
   const error = new Error(
     `@ttsc/graph: native snapshot request cancelled${abortDetail(signal)}${
       child === undefined ? "" : stderrSuffix(child)

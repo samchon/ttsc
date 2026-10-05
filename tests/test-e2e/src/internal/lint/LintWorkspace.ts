@@ -21,10 +21,20 @@ export namespace LintWorkspace {
    * @evidence contracts/performance.md#reuse-equivalent-work The package lifetime and parent tree serve all ordinary consumers, while their conflicting configurations remain siblings.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Standalone close removes and verifies its owned tree; borrowed close clears this active input context and leaves directory retention/removal to the caller. Neither operation proves arbitrary descendant retirement.
    */
-  export function open(preparation?: { root: string; nativeProducer: "workspace" | "snapshot" }): void {
-    assert.equal(current, undefined, "Lint experiment already owns a workspace");
+  export function open(preparation?: {
+    root: string;
+    nativeProducer: "workspace" | "snapshot";
+  }): void {
+    assert.equal(
+      current,
+      undefined,
+      "Lint experiment already owns a workspace",
+    );
     if (preparation) {
-      assert.ok(path.isAbsolute(preparation.root), "Borrowed lint root must be absolute");
+      assert.ok(
+        path.isAbsolute(preparation.root),
+        "Borrowed lint root must be absolute",
+      );
       fs.mkdirSync(preparation.root);
       current = preparation.root;
       producer = preparation.nativeProducer;
@@ -38,6 +48,7 @@ export namespace LintWorkspace {
 
   /**
    * Selected immutable or live native producer for the active input population.
+   *
    * @evidence contracts/common.md#principled-implementation Returns only the preparation owner's explicit selection; native package preparation and command results remain in their existing owners.
    * @evidence contracts/common.md#clear-and-simple-design One selector connects compatible lint projects to the same snapshot identity already prepared by the common consumer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not override an explicitly supplied project selector or infer source identity from a version or result.
@@ -62,7 +73,11 @@ export namespace LintWorkspace {
    */
   export function caseRoot(name: string, create = false): string {
     assert.ok(current, "Lint experiment has no workspace owner");
-    assert.match(name, /^[a-zA-Z0-9_-]+$/, "Lint consumer names are path segments");
+    assert.match(
+      name,
+      /^[a-zA-Z0-9_-]+$/,
+      "Lint consumer names are path segments",
+    );
     const root = path.join(current, name);
     if (create) fs.mkdirSync(root, { recursive: true });
     return root;
@@ -83,8 +98,17 @@ export namespace LintWorkspace {
   export function close(): void {
     assert.ok(current, "Lint experiment has no workspace owner");
     if (!borrowed) {
-      fs.rmSync(current, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
-      assert.equal(fs.existsSync(current), false, "Lint consumer workspace remained after cleanup");
+      fs.rmSync(current, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 100,
+      });
+      assert.equal(
+        fs.existsSync(current),
+        false,
+        "Lint consumer workspace remained after cleanup",
+      );
     }
     current = undefined;
     borrowed = false;

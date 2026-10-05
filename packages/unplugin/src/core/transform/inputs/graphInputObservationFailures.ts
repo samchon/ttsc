@@ -2,8 +2,8 @@ import type { ITtscCompilerTransformation } from "ttsc";
 import type { FilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
-import { compilerInputRealpathObservation } from "./compilerInputRealpathObservation";
 import { compilerAccessibleEntries } from "./compilerAccessibleEntries";
+import { compilerInputRealpathObservation } from "./compilerInputRealpathObservation";
 import { compilerStatKind } from "./compilerStatKind";
 import { graphInputReadHash } from "./graphInputReadHash";
 import { sameHostInputRealpath } from "./sameHostInputRealpath";

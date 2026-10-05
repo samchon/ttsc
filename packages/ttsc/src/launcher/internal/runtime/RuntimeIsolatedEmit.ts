@@ -4,8 +4,8 @@
  * These isolated emits ignore consumer configuration and use ES2022 lowering.
  * The runtime chooses the source's module format before calling this policy;
  * export-name preparation requests CommonJS. Execution includes source maps,
- * while speculative name preparation keeps its output separate from the
- * runtime orphan cache. Compiler invocation and fallback belong to the caller.
+ * while speculative name preparation keeps its output separate from the runtime
+ * orphan cache. Compiler invocation and fallback belong to the caller.
  *
  * @evidence contracts/common.md#principled-implementation Both callers use the same isolated compiler policy and the cache includes that policy's original token sequence, preserving lowering and cache identity together.
  * @evidence contracts/common.md#clear-and-simple-design One internal namespace owns argument construction and its cache discriminator; invocation, source ownership and fallback remain in the runtime hook owner.
@@ -18,7 +18,8 @@
  */
 export namespace RuntimeIsolatedEmit {
   /**
-   * Build the isolated emit arguments for an already selected source and format.
+   * Build the isolated emit arguments for an already selected source and
+   * format.
    *
    * Module execution uses ESNext emit; CommonJS execution and name preparation
    * use CommonJS emit. Only execution requests external maps and inline source

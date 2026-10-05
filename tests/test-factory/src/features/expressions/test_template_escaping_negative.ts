@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { print } from "../../internal/helpers";
 
 /**
@@ -36,7 +36,8 @@ export const test_template_escaping_negative = (): void => {
       print(factory.createNoSubstitutionTemplateLiteral(text)),
       `\`${text}\``,
     );
-  TestValidator.equals("pre-escaped rawText literal",
+  TestValidator.equals(
+    "pre-escaped rawText literal",
     print(factory.createNoSubstitutionTemplateLiteral("a`b", "a\\`b")),
     "`a\\`b`",
   );

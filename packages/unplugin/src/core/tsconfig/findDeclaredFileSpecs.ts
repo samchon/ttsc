@@ -28,7 +28,6 @@ import { resolveRealPath } from "./resolveRealPath";
  * @returns The list and its declaring directory, `undefined` when no config in
  *   the chain supplies an array, or `null` when `tsconfig` itself cannot be
  *   read, which leaves the caller without any configuration to model.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Own key presence masks inherited lists even for invalid values; inherited
  *   arrays replace earlier bases in declaration order. Each list keeps its

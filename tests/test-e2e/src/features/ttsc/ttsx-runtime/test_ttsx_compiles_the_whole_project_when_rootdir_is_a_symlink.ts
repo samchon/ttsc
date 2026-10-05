@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies a `rootDir` that is a symlinked directory still selects the whole
@@ -23,6 +24,7 @@ import path from "node:path";
  * 2. Have the entry name a type only an ambient `.d.ts` in that directory
  *    declares.
  * 3. Run ttsx and assert it compiled and ran under the real project.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs src/main through a junction to sources and requires success, the runtime marker and absence of a missing BUILD_TAG diagnostic.
  * @evidence contracts/testing.md#independent-expectations The authored ambient declaration and main marker independently require the compiler to include the project declaration population.
  * @evidence contracts/testing.md#distinguishing-cases The symlinked root must retain ambient membership; inability to create the link returns without exercising this boundary.
@@ -34,29 +36,35 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The alias and its target belong to the tracked project; the child completes synchronously and process-exit cleanup owns the fixture.
  * @evidence contracts/e2e.md#preserved-coverage The runtime and ambient-diagnostic assertions remain here; the early return is a coverage limitation, not proof for unsupported link creation.
  */
-export function test_ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink(): void | false {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink/inputs-1"));
-    try {
-      fs.symlinkSync(
-        path.join(root, "sources"),
-        path.join(root, "src"),
-        "junction",
-      );
-    } catch {
-      // Without symlink permission the two spellings never diverge, and the
-      // contract this pins cannot be exercised.
-      return false;
-    }
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      { cwd: root },
+export function test_ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink():
+  | void
+  | false {
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_compiles_the_whole_project_when_rootdir_is_a_symlink/inputs-1",
+    ),
+  );
+  try {
+    fs.symlinkSync(
+      path.join(root, "sources"),
+      path.join(root, "src"),
+      "junction",
     );
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /ran-under-the-project/);
-    assert.doesNotMatch(
-      result.stderr,
-      /Cannot find name 'BUILD_TAG'/,
-      "the entry-only fallback lost the project's ambient declaration",
-    );
+  } catch {
+    // Without symlink permission the two spellings never diverge, and the
+    // contract this pins cannot be exercised.
+    return false;
   }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /ran-under-the-project/);
+  assert.doesNotMatch(
+    result.stderr,
+    /Cannot find name 'BUILD_TAG'/,
+    "the entry-only fallback lost the project's ambient declaration",
+  );
+}

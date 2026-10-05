@@ -121,6 +121,10 @@ func TestProjectInputSnapshotPreservesMissingFilesZeroMatchGlobsAndConfigProvena
     t.Fatalf("globs = %#v, want %#v", snapshot.Globs, wantGlobs)
   }
   physical, err := filepath.EvalSymlinks(root)
-  if err != nil { t.Fatal(err) }
-  if snapshot.Root != filepath.ToSlash(physical) || !reflect.DeepEqual(snapshot.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "missing.md")), filepath.ToSlash(filepath.Join(physical, "lint.config.json"))}) || !reflect.DeepEqual(snapshot.ReloadFiles, []string{filepath.ToSlash(filepath.Join(physical, "lint.config.json"))}) || !reflect.DeepEqual(snapshot.ReloadDirectories, []string{filepath.ToSlash(filepath.Join(physical, "config-deps"))}) || !reflect.DeepEqual(snapshot.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "**", "*.json"))}) { t.Fatalf("authored missing/config dependency topology lost independently: %#v", snapshot) }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if snapshot.Root != filepath.ToSlash(physical) || !reflect.DeepEqual(snapshot.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "missing.md")), filepath.ToSlash(filepath.Join(physical, "lint.config.json"))}) || !reflect.DeepEqual(snapshot.ReloadFiles, []string{filepath.ToSlash(filepath.Join(physical, "lint.config.json"))}) || !reflect.DeepEqual(snapshot.ReloadDirectories, []string{filepath.ToSlash(filepath.Join(physical, "config-deps"))}) || !reflect.DeepEqual(snapshot.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "**", "*.json"))}) {
+    t.Fatalf("authored missing/config dependency topology lost independently: %#v", snapshot)
+  }
 }

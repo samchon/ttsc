@@ -88,7 +88,8 @@ const FRAMEWORK_KEYS = new Set<string>([
 ]);
 
 /**
- * Plugin factory called by the ttsc host to obtain the `@ttsc/banner` descriptor.
+ * Plugin factory called by the ttsc host to obtain the `@ttsc/banner`
+ * descriptor.
  *
  * The only banner-specific key accepted in the tsconfig plugin entry is
  * `configFile`. Any other key that is not a known framework key is rejected

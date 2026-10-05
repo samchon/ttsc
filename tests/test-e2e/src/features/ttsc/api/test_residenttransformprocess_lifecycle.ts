@@ -69,8 +69,8 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * end of the host-death case is itself the no-crash assertion, because an
  * unhandled pipe "error" would take the whole test process down.
  *
- * 1. Preserve negatives and recover from three operation mismatches, then
- *    resolve concurrent FIFO echoes before terminal corruption on that peer.
+ * 1. Preserve negatives and recover from three operation mismatches, then resolve
+ *    concurrent FIFO echoes before terminal corruption on that peer.
  * 2. Warm another peer, dispose it and reject a subsequent request.
  * 3. Exit a third peer during a request and require rejection without crashing.
  *
@@ -93,49 +93,71 @@ export const test_residenttransformprocess_lifecycle = async () => {
       proc = spawnStub(ECHO_STUB);
       release = observeResidentTransformClose(proc);
       const client = proc;
-      const check = async (name: string, operation: () => Promise<void>): Promise<void> => {
-        try { await operation(); }
-        catch (cause) { failures.push(new Error(name, { cause })); }
+      const check = async (
+        name: string,
+        operation: () => Promise<void>,
+      ): Promise<void> => {
+        try {
+          await operation();
+        } catch (cause) {
+          failures.push(new Error(name, { cause }));
+        }
       };
       await check("Legal transform negative", async () => {
         const reply = await client.request({ file: "missing.ts" }, "transform");
         assert.equal(reply.found, false);
       });
       await check("Legal update negative", async () => {
-        const reply = await client.request({ update: "missing.ts", content: "x" }, "update");
+        const reply = await client.request(
+          { update: "missing.ts", content: "x" },
+          "update",
+        );
         assert.equal(reply.updated, false);
       });
       await check("Update shape cannot answer transform", async () => {
-        await assert.rejects(() => client.request({ file: "wrong-transform.ts" }, "transform"), /invalid transform reply/);
+        await assert.rejects(
+          () => client.request({ file: "wrong-transform.ts" }, "transform"),
+          /invalid transform reply/,
+        );
       });
       await check("Found transform requires text", async () => {
-        await assert.rejects(() => client.request({ file: "missing-text.ts" }, "transform"), /invalid transform reply/);
+        await assert.rejects(
+          () => client.request({ file: "missing-text.ts" }, "transform"),
+          /invalid transform reply/,
+        );
       });
       await check("Transform shape cannot answer update", async () => {
-        await assert.rejects(() => client.request({ update: "wrong-update.ts", content: "x" }, "update"), /invalid update reply/);
+        await assert.rejects(
+          () =>
+            client.request(
+              { update: "wrong-update.ts", content: "x" },
+              "update",
+            ),
+          /invalid update reply/,
+        );
       });
       await check("Session survives operation mismatches", async () => {
         const reply = await client.request({ file: "missing.ts" }, "transform");
         assert.equal(reply.found, false);
       });
       await check("FIFO echo identities", async () => {
-      const replies = await Promise.allSettled([
-        client.request({ file: "a.ts" }, "transform"),
-        client.request({ file: "b.ts" }, "transform"),
-      ]);
-      const first = replies[0]!;
-      const second = replies[1]!;
-      if (first.status !== "fulfilled" || second.status !== "fulfilled") {
-        const rejected: unknown[] = [];
-        if (first.status === "rejected") rejected.push(first.reason);
-        if (second.status === "rejected") rejected.push(second.reason);
-        throw new AggregateError(rejected, "FIFO echo requests rejected");
-      }
-      const a = first.value;
-      const b = second.value;
-      assert.equal(a.found, true);
-      assert.equal(a.typescript, "echo:a.ts");
-      assert.equal(b.typescript, "echo:b.ts");
+        const replies = await Promise.allSettled([
+          client.request({ file: "a.ts" }, "transform"),
+          client.request({ file: "b.ts" }, "transform"),
+        ]);
+        const first = replies[0]!;
+        const second = replies[1]!;
+        if (first.status !== "fulfilled" || second.status !== "fulfilled") {
+          const rejected: unknown[] = [];
+          if (first.status === "rejected") rejected.push(first.reason);
+          if (second.status === "rejected") rejected.push(second.reason);
+          throw new AggregateError(rejected, "FIFO echo requests rejected");
+        }
+        const a = first.value;
+        const b = second.value;
+        assert.equal(a.found, true);
+        assert.equal(a.typescript, "echo:a.ts");
+        assert.equal(b.typescript, "echo:b.ts");
       });
       // This terminal corruption follows all healthy observations. It shares
       // their actual pipe owner rather than launching another malformed peer.
@@ -149,7 +171,10 @@ export const test_residenttransformprocess_lifecycle = async () => {
         await assert.rejects(collateral, /malformed reply/);
       });
       await check("Malformed session rejects later requests", async () => {
-        await assert.rejects(() => client.request({ file: "later.ts" }, "transform"), /malformed reply/);
+        await assert.rejects(
+          () => client.request({ file: "later.ts" }, "transform"),
+          /malformed reply/,
+        );
       });
     } catch (error) {
       failures.push(new Error("FIFO echo", { cause: error }));
@@ -174,7 +199,9 @@ export const test_residenttransformprocess_lifecycle = async () => {
       const warm = await proc.request({ file: "warm.ts" }, "transform");
       assert.equal(warm.typescript, "echo:warm.ts");
       proc.dispose();
-      await assert.rejects(() => client.request({ file: "after.ts" }, "transform"));
+      await assert.rejects(() =>
+        client.request({ file: "after.ts" }, "transform"),
+      );
     } catch (error) {
       failures.push(new Error("Dispose after warmup", { cause: error }));
     } finally {
@@ -182,7 +209,9 @@ export const test_residenttransformprocess_lifecycle = async () => {
         if (release) await release();
         else proc?.dispose();
       } catch (error) {
-        failures.push(new Error("Dispose after warmup cleanup", { cause: error }));
+        failures.push(
+          new Error("Dispose after warmup cleanup", { cause: error }),
+        );
       }
     }
   }

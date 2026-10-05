@@ -49,20 +49,20 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
     t.Fatalf("event bytes=%q error=%v", eventBytes, err)
   }
   var event struct {
-    Schema int `json:"schema"`
-    Event string `json:"event"`
-    WriterPID int `json:"writerPid"`
-    PID int `json:"pid"`
-    Instance string `json:"instance"`
-    Sequence int `json:"sequence"`
+    Schema     int    `json:"schema"`
+    Event      string `json:"event"`
+    WriterPID  int    `json:"writerPid"`
+    PID        int    `json:"pid"`
+    Instance   string `json:"instance"`
+    Sequence   int    `json:"sequence"`
     Invocation string `json:"invocation"`
-    Data struct {
-      WriterRuntime string `json:"writerRuntime"`
-      NormalizationAccepted *bool `json:"normalizationAccepted"`
-      Raw struct {
-        Path string `json:"path"`
+    Data       struct {
+      WriterRuntime         string `json:"writerRuntime"`
+      NormalizationAccepted *bool  `json:"normalizationAccepted"`
+      Raw                   struct {
+        Path    string `json:"path"`
         Outcome string `json:"outcome"`
-        Length int `json:"length"`
+        Length  int    `json:"length"`
       } `json:"raw"`
     } `json:"data"`
   }
@@ -94,15 +94,15 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
     t.Fatalf("expected original and explicit integrity event: %q", eventBytes)
   }
   var integrity struct {
-    Event string `json:"event"`
+    Event      string `json:"event"`
     Invocation string `json:"invocation"`
-    Sequence int `json:"sequence"`
-    Data struct {
+    Sequence   int    `json:"sequence"`
+    Data       struct {
       WriterRuntime string `json:"writerRuntime"`
-      Operation string `json:"operation"`
-      Payload struct {
+      Operation     string `json:"operation"`
+      Payload       struct {
         Outcome string `json:"outcome"`
-        Error string `json:"error"`
+        Error   string `json:"error"`
       } `json:"payload"`
     } `json:"data"`
   }

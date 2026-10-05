@@ -75,8 +75,8 @@ export interface ITtscLintPromiseRules {
 
   /**
    * Report a `new Promise` or `Promise.*` use when no collected import or
-   * declaration is named `Promise` anywhere in the file. Native recognition
-   * is file-wide and does not resolve lexical scope or runtime implementation.
+   * declaration is named `Promise` anywhere in the file. Native recognition is
+   * file-wide and does not resolve lexical scope or runtime implementation.
    *
    * Useful for projects that substitute Bluebird or another library and want
    * the choice grep-visible per file.
@@ -119,7 +119,8 @@ export interface ITtscLintPromiseRules {
    * Reject `return` from inside a `finally()` callback.
    *
    * This is a source policy, not proof that evaluating the returned expression
-   * has no effect: a thrown error or returned rejection can change the outcome.
+   * has no effect: a thrown error or returned rejection can change the
+   * outcome.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-promise/blob/main/docs/rules/no-return-in-finally.md
    */
@@ -158,7 +159,8 @@ export interface ITtscLintPromiseRules {
 
   /**
    * Prefer `await` over explicit `.then()`/`.catch()`/`.finally()` chains
-   * wherever their member-call shapes occur, including outside async functions.
+   * wherever their member-call shapes occur, including outside async
+   * functions.
    *
    * Sequential awaits compose more naturally with try/catch and avoid the
    * indentation creep of deeply nested handlers.

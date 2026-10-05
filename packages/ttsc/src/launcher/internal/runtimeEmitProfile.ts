@@ -24,7 +24,6 @@ import { projectModuleOptions } from "./runtime/projectModuleOptions";
  * @param binary - An explicit TypeScript-Go binary, for a response file.
  * @param effectiveOptions - A reader already resolved for this exact build's
  *   project and forwarded arguments, or null after compiler rejection.
- *
  * @evidence contracts/common.md#principled-implementation Reading effective options in compiler order classifies the actual emit, and the two map booleans prevent asking for conflicting external and inline maps.
  * @evidence contracts/common.md#clear-and-simple-design The profile carries only module classification and whether a map must be requested; the local boolean reader normalizes supported true spellings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid forwarded arguments retain the compiler's own rejection path; config fallback is provisional classification rather than silently dropping those arguments.

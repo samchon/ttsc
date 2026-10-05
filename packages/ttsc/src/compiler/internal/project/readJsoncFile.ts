@@ -35,7 +35,9 @@ export function readJsoncFile(file: string): Record<string, unknown> {
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     const name =
-      path.basename(file) === "jsconfig.json" ? "jsconfig.json" : "tsconfig.json";
+      path.basename(file) === "jsconfig.json"
+        ? "jsconfig.json"
+        : "tsconfig.json";
     throw new Error(
       `ttsc: failed to parse ${file}: The root value of a '${name}' file must be an object.`,
     );

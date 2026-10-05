@@ -9,11 +9,11 @@ import { make } from "../internal/make";
  * printer emits it as a single semicolon on its own line:
  *
  * ```ts
- * class C {
- *   ;
- * }
+ * class C {}
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link SemicolonClassElement}.
  * @evidence contracts/common.md#principled-implementation
  *   The zero-field SemicolonClassElement discriminant represents an empty
  *   class member; the printer emits its semicolon rather than a named property.
@@ -27,9 +27,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the unnamed/bodyless member and its corrected class example,
  *   with descriptive prose and acknowledgments visibly separated.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link SemicolonClassElement}.
  */
 export const createSemicolonClassElement = (): SemicolonClassElement =>
   make("SemicolonClassElement", {});

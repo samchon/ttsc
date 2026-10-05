@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import { type ChildProcess } from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawn } = E2eProcessTrace;
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
-import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
+import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
 import { pluginCacheDirectory } from "../../../../../utils/src/evidence/pluginCacheDirectory";
+
+const { spawn } = E2eProcessTrace;
 
 /**
  * Starts an actual published SDK-selected resident check sidecar.
@@ -22,8 +23,8 @@ import { pluginCacheDirectory } from "../../../../../utils/src/evidence/pluginCa
  * The authored caller keeps compiler options and source membership fixed within
  * each lifetime and joins the old child before switching compiler families.
  * Monotonic helper timings distinguish preparation, fresh selection and native
- * response waits; they are separate from the actual protocol response.
- * Only normal native EOF shutdown with exit zero establishes release of its
+ * response waits; they are separate from the actual protocol response. Only
+ * normal native EOF shutdown with exit zero establishes release of its
  * synchronous config-loader children. Forced, nonzero or unjoined closure
  * permanently retains fixture and shared producer inputs and blocks writes.
  *
@@ -240,7 +241,9 @@ export interface INativeCheckSession {
 
 interface IProcess {
   registration: IRegistration;
-  request(value: unknown): Promise<Omit<INativeCheckResult, "registration" | "timing">>;
+  request(
+    value: unknown,
+  ): Promise<Omit<INativeCheckResult, "registration" | "timing">>;
   close(): Promise<void>;
 }
 
@@ -281,7 +284,9 @@ function open(directory: string, registration: IRegistration): IProcess {
   let failure: unknown;
   let pending:
     | {
-        resolve(value: Omit<INativeCheckResult, "registration" | "timing">): void;
+        resolve(
+          value: Omit<INativeCheckResult, "registration" | "timing">,
+        ): void;
         reject(error: unknown): void;
       }
     | undefined;
@@ -296,10 +301,13 @@ function open(directory: string, registration: IRegistration): IProcess {
       exitCode = code;
       exitSignal = signal;
       if (forced || code !== 0 || signal !== null)
-        EvidenceProcessOwnership.retain(directory, new Error(
-          "Native closure does not establish joined config descendants.",
-          { cause: { code, signal, forced } },
-        ));
+        EvidenceProcessOwnership.retain(
+          directory,
+          new Error(
+            "Native closure does not establish joined config descendants.",
+            { cause: { code, signal, forced } },
+          ),
+        );
       resolve();
       pending?.reject(
         failure ??
@@ -368,24 +376,24 @@ function open(directory: string, registration: IRegistration): IProcess {
       if (closed) throw new Error("The native check child already closed.");
       let timer: NodeJS.Timeout | undefined;
       try {
-        return await new Promise<Omit<INativeCheckResult, "registration" | "timing">>(
-          (resolve, fail) => {
-            pending = { resolve, reject: fail };
-            timer = setTimeout(
-              () =>
-                fail(
-                  new Error(
-                    "The native sidecar did not answer within 120000 ms.\n" +
-                      stderr,
-                  ),
+        return await new Promise<
+          Omit<INativeCheckResult, "registration" | "timing">
+        >((resolve, fail) => {
+          pending = { resolve, reject: fail };
+          timer = setTimeout(
+            () =>
+              fail(
+                new Error(
+                  "The native sidecar did not answer within 120000 ms.\n" +
+                    stderr,
                 ),
-              120_000,
-            );
-            child.stdin!.write(JSON.stringify(value) + "\n", (error) => {
-              if (error != null) reject(error);
-            });
-          },
-        );
+              ),
+            120_000,
+          );
+          child.stdin!.write(JSON.stringify(value) + "\n", (error) => {
+            if (error != null) reject(error);
+          });
+        });
       } finally {
         if (timer !== undefined) clearTimeout(timer);
         pending = undefined;
@@ -407,9 +415,10 @@ function open(directory: string, registration: IRegistration): IProcess {
             new Promise<never>((_, fail) => {
               force = setTimeout(() => {
                 forced = true;
-                EvidenceProcessOwnership.retain(directory, new Error(
-                  "Native EOF shutdown required forced termination.",
-                ));
+                EvidenceProcessOwnership.retain(
+                  directory,
+                  new Error("Native EOF shutdown required forced termination."),
+                );
                 try {
                   child.kill("SIGKILL");
                 } catch (error) {

@@ -16,10 +16,10 @@ import { walkProjectInputs } from "./walkProjectInputs";
  * Reuse a recorded hash only when separable metadata still matches its proven
  * signature. Reads are bracketed by metadata observations; unavailable or
  * changed signatures mark the snapshot incomplete instead of hiding that
- * observed instability. A validating caller may restrict
- * hashing to its declared keys while retaining the whole membership walk.
- * The caller owns the identity observation lifetime and refreshes native clock
- * references before relying on separability; this collector does not mint them.
+ * observed instability. A validating caller may restrict hashing to its
+ * declared keys while retaining the whole membership walk. The caller owns the
+ * identity observation lifetime and refreshes native clock references before
+ * relying on separability; this collector does not mint them.
  *
  * @evidence contracts/common.md#principled-implementation The snapshot separates directory completeness, file-read stability and attributable failures; only matching separable metadata substitutes for the content read that established a prior hash.
  * @evidence contracts/common.md#clear-and-simple-design One walk feeds one file pass, with shared metadata and key helpers owning their respective boundaries; returned sets preserve which proof obligations failed.
@@ -40,11 +40,17 @@ import { walkProjectInputs } from "./walkProjectInputs";
 export function collectProjectInputSnapshot(
   /** Lexical root whose native membership is fully enumerated. */
   projectRoot: string,
-  /** Caller-owned identity context with an appropriate current observation lifetime. */
+  /**
+   * Caller-owned identity context with an appropriate current observation
+   * lifetime.
+   */
   identities: FilesystemPathIdentityContext,
   /** Coherent native read/metadata/listing view used by the entire snapshot. */
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
-  /** Prior readable hashes and witnesses qualified against the caller-refreshed clock. */
+  /**
+   * Prior readable hashes and witnesses qualified against the caller-refreshed
+   * clock.
+   */
   proven?: {
     hashes: Record<string, string>;
     signatures: Record<string, string>;

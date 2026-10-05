@@ -36,13 +36,24 @@ func (unicornNoUselessErrorCaptureStackTrace) Check(ctx *Context, node *shimast.
     filter := stripParens(call.Arguments.Nodes[1])
     var constructor *shimast.Node
     for parent := node.Parent; parent != nil; parent = parent.Parent {
-      if parent.Kind == shimast.KindConstructor { constructor = parent; break }
-      if isFunctionLikeKind(parent) { break }
+      if parent.Kind == shimast.KindConstructor {
+        constructor = parent
+        break
+      }
+      if isFunctionLikeKind(parent) {
+        break
+      }
     }
-    if constructor == nil || constructor.Parent == nil || filter == nil { return }
+    if constructor == nil || constructor.Parent == nil || filter == nil {
+      return
+    }
     owner := constructor.Parent.Name()
-    if filter.Kind != shimast.KindMetaProperty && (filter.Kind != shimast.KindIdentifier || identifierText(filter) != identifierText(owner)) { return }
-    if filter.Kind == shimast.KindMetaProperty && nodeText(ctx.File, filter) != "new.target" { return }
+    if filter.Kind != shimast.KindMetaProperty && (filter.Kind != shimast.KindIdentifier || identifierText(filter) != identifierText(owner)) {
+      return
+    }
+    if filter.Kind == shimast.KindMetaProperty && nodeText(ctx.File, filter) != "new.target" {
+      return
+    }
   }
   ctx.Report(node, "Don't call `Error.captureStackTrace(this, ...)` in an `Error` subclass — the default capture already happens.")
 }

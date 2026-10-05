@@ -6,9 +6,10 @@ import { pathToFileURL } from "node:url";
  * Give a hook-served CommonJS module its own source-aware require function.
  *
  * Node's module-local require binding is writable. Adapting that binding keeps
- * the shared module cache and callable loader while leaving Node's resolver
- * and global extension registry untouched. Source maps account for the inserted
- * first-line columns; directive and hashbang semantics remain those of the body.
+ * the shared module cache and callable loader while leaving Node's resolver and
+ * global extension registry untouched. Source maps account for the inserted
+ * first-line columns; directive and hashbang semantics remain those of the
+ * body.
  *
  * @evidence contracts/common.md#principled-implementation The public load boundary supplies CommonJS source and its wrapper binding; an owned function delegates loading to createRequire's shared native cache. Acorn identifies real directives and comments before inserting bootstrap syntax.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns the source bootstrap and the function it installs; the runtime installer supplies its existing source-resolution policy.
@@ -50,12 +51,20 @@ export namespace CommonJsRuntimeSource {
    * @evidence contracts/performance.md#reuse-equivalent-work Callable loading delegates to Node's CommonJS cache; the configured resolve policy remains a distinct per-call operation, not a cached result of constructing the function.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The evaluated module owns the returned function, captured filename/native require and copied extension registry. Captured cache/main references share Node or original-require state rather than copying all cached modules; the factory adds no historical module collection or native handle.
    */
-  export function create(original: NodeJS.Require, filename: string): NodeJS.Require {
+  export function create(
+    original: NodeJS.Require,
+    filename: string,
+  ): NodeJS.Require {
     const native = createRequire(filename);
     const owned = ((specifier: string) => native(specifier)) as NodeJS.Require;
     Object.assign(owned, native, original);
     owned.resolve = ((specifier: string, options?: { paths?: string[] }) =>
-      resolve(native.resolve, specifier, options, filename)) as NodeJS.RequireResolve;
+      resolve(
+        native.resolve,
+        specifier,
+        options,
+        filename,
+      )) as NodeJS.RequireResolve;
     owned.resolve.paths = native.resolve.paths;
     owned.cache = original.cache ?? native.cache;
     owned.extensions = { ...(original.extensions ?? native.extensions) };
@@ -65,13 +74,13 @@ export namespace CommonJsRuntimeSource {
   }
 
   /**
-   * Insert the local bootstrap without changing lines or directive semantics.
-   * A module that declares its own top-level require function keeps that binding.
+   * Insert the local bootstrap without changing lines or directive semantics. A
+   * module that declares its own top-level require function keeps that binding.
    * Flat and embedded indexed JSON maps preserve their source coordinates.
    * Base64/charset and percent-encoded inline payloads are decoded; unusable
    * payloads, inspected map shapes or first-column encodings fall back to an
-   * identity map. This is not validation of every source-map field, and optional
-   * metadata failures do not become executable-syntax failures.
+   * identity map. This is not validation of every source-map field, and
+   * optional metadata failures do not become executable-syntax failures.
    *
    * @evidence contracts/common.md#principled-implementation Acorn's CommonJS grammar identifies directive prologues, hoisted require declarations and actual trailing source-map comments. Flat mappings or indexed section offsets shift generated columns on exactly the insertion line, preserving original locations. Optional malformed or externally indexed maps do not become executable-syntax failures.
    * @evidence contracts/common.md#clear-and-simple-design Source adaptation constructs one prefix and one corresponding map adjustment; evaluation stays with Node rather than a second interpreter.
@@ -87,9 +96,15 @@ export namespace CommonJsRuntimeSource {
     const program = parse(source, {
       ecmaVersion: "latest",
       sourceType: "commonjs",
-      onComment: (_block, text, start, end) => comments.push({ end, start, text }),
+      onComment: (_block, text, start, end) =>
+        comments.push({ end, start, text }),
     });
-    if (program.body.some((node) => node.type === "FunctionDeclaration" && node.id?.name === "require"))
+    if (
+      program.body.some(
+        (node) =>
+          node.type === "FunctionDeclaration" && node.id?.name === "require",
+      )
+    )
       return source;
     let strict = false;
     for (const node of program.body) {
@@ -98,15 +113,18 @@ export namespace CommonJsRuntimeSource {
     }
     const firstBreak = /\r\n|[\r\n\u2028\u2029]/.exec(source);
     if (source.startsWith("#!") && firstBreak === null) return source;
-    const offset = source.startsWith("#!") ? firstBreak!.index + firstBreak![0].length : 0;
+    const offset = source.startsWith("#!")
+      ? firstBreak!.index + firstBreak![0].length
+      : 0;
     const line = offset === 0 ? 0 : 1;
     factories[FACTORY_KEY] ??= create;
     const factoryExpression = `globalThis[Symbol.for(${JSON.stringify(FACTORY_NAME)})]`;
     const header = `${strict ? '"use strict";' : ""}require=require("node:vm").runInThisContext(${JSON.stringify(factoryExpression)})(require,${JSON.stringify(filename)});`;
     const trailing = comments.at(-1);
-    const directive = trailing !== undefined && source.slice(trailing.end).trim() === ""
-      ? /^\s*[#@]\s*sourceMappingURL\s*=\s*(\S+)\s*$/.exec(trailing.text)
-      : null;
+    const directive =
+      trailing !== undefined && source.slice(trailing.end).trim() === ""
+        ? /^\s*[#@]\s*sourceMappingURL\s*=\s*(\S+)\s*$/.exec(trailing.text)
+        : null;
     let map: Record<string, unknown> | undefined;
     let body = source;
     const uri = directive?.[1];
@@ -116,23 +134,54 @@ export namespace CommonJsRuntimeSource {
     if (map !== undefined) {
       body = source.slice(0, trailing!.start);
     } else {
-      const rows = Array(source.split(/\r\n|[\r\n\u2028\u2029]/).length).fill("A");
-      const first = source.slice(offset).split(/\r\n|[\r\n\u2028\u2029]/, 1)[0]!;
-      rows[line] = encodeColumn(header.length) + "A" + encodeColumn(line) + "A" + ",CAAC".repeat(first.length);
-      map = { version: 3, names: [], sources: [pathToFileURL(filename).href], sourcesContent: [source], mappings: rows.join(";") };
+      const rows = Array(source.split(/\r\n|[\r\n\u2028\u2029]/).length).fill(
+        "A",
+      );
+      const first = source
+        .slice(offset)
+        .split(/\r\n|[\r\n\u2028\u2029]/, 1)[0]!;
+      rows[line] =
+        encodeColumn(header.length) +
+        "A" +
+        encodeColumn(line) +
+        "A" +
+        ",CAAC".repeat(first.length);
+      map = {
+        version: 3,
+        names: [],
+        sources: [pathToFileURL(filename).href],
+        sourcesContent: [source],
+        mappings: rows.join(";"),
+      };
     }
-    return body.slice(0, offset) + header + body.slice(offset) + "\n//# sourceMappingURL=data:application/json;base64," + Buffer.from(JSON.stringify(map)).toString("base64");
+    return (
+      body.slice(0, offset) +
+      header +
+      body.slice(offset) +
+      "\n//# sourceMappingURL=data:application/json;base64," +
+      Buffer.from(JSON.stringify(map)).toString("base64")
+    );
   }
 }
 
-type Resolver = (native: NodeJS.RequireResolve, specifier: string, options: { paths?: string[] } | undefined, filename: string) => string;
-let resolve: Resolver = (native, specifier, options) => native(specifier, options);
+type Resolver = (
+  native: NodeJS.RequireResolve,
+  specifier: string,
+  options: { paths?: string[] } | undefined,
+  filename: string,
+) => string;
+let resolve: Resolver = (native, specifier, options) =>
+  native(specifier, options);
 // The installed hooks outlive individual CommonJS cache entries. This owned
 // symbol retains one factory per helper location without mutating Node's cache.
 const FACTORY_NAME = `ttsc.CommonJsRuntimeSource:${__filename}`;
 const FACTORY_KEY = Symbol.for(FACTORY_NAME);
-const factories = globalThis as unknown as Record<symbol, typeof CommonJsRuntimeSource.create | undefined>;
-const BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const factories = globalThis as unknown as Record<
+  symbol,
+  typeof CommonJsRuntimeSource.create | undefined
+>;
+const BASE64 =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /** Encode one nonnegative source-map VLQ column or line delta. */
 function encodeColumn(value: number): string {
@@ -146,7 +195,10 @@ function encodeColumn(value: number): string {
   return output;
 }
 
-/** Shift only the first generated column; subsequent segment deltas are relative. */
+/**
+ * Shift only the first generated column; subsequent segment deltas are
+ * relative.
+ */
 function shiftFirstColumn(row: string, amount: number): string {
   let value = 0;
   let power = 1;
@@ -154,16 +206,25 @@ function shiftFirstColumn(row: string, amount: number): string {
   let digit: number;
   do {
     digit = BASE64.indexOf(row[index++]!);
-    if (digit < 0) throw new Error("ttsx: malformed CommonJS source map column");
+    if (digit < 0)
+      throw new Error("ttsx: malformed CommonJS source map column");
     value += (digit % 32) * power;
     power *= 32;
   } while (digit >= 32);
-  if (value % 2 !== 0) throw new Error("ttsx: negative CommonJS source map column");
+  if (value % 2 !== 0)
+    throw new Error("ttsx: negative CommonJS source map column");
   return encodeColumn(value / 2 + amount) + row.slice(index);
 }
 
-/** Decode optional JSON metadata; malformed maps must not reject valid JavaScript. */
-function adjustedInlineMap(uri: string, line: number, amount: number): Record<string, unknown> | undefined {
+/**
+ * Decode optional JSON metadata; malformed maps must not reject valid
+ * JavaScript.
+ */
+function adjustedInlineMap(
+  uri: string,
+  line: number,
+  amount: number,
+): Record<string, unknown> | undefined {
   const match = /^data:application\/json((?:;[^,]*)?),([\s\S]*)$/i.exec(uri);
   if (match === null) return undefined;
   try {
@@ -181,7 +242,8 @@ function adjustedInlineMap(uri: string, line: number, amount: number): Record<st
 
 /** Shift one generated line in a flat map or its recursively indexed sections. */
 function shiftMapLine(value: unknown, line: number, amount: number): boolean {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return false;
   const map = value as Record<string, unknown>;
   if (map.version !== 3) return false;
   if (typeof map.mappings === "string") {
@@ -192,14 +254,30 @@ function shiftMapLine(value: unknown, line: number, amount: number): boolean {
   }
   if (!Array.isArray(map.sections)) return false;
   for (const value of map.sections) {
-    if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+    if (value === null || typeof value !== "object" || Array.isArray(value))
+      return false;
     const section = value as Record<string, unknown>;
-    const offset = section.offset as { line?: unknown; column?: unknown } | undefined;
-    if (offset === undefined || offset === null ||
-      !Number.isSafeInteger(offset.line) || !Number.isSafeInteger(offset.column) ||
-      (offset.line as number) < 0 || (offset.column as number) < 0) return false;
+    const offset = section.offset as
+      | { line?: unknown; column?: unknown }
+      | undefined;
+    if (
+      offset === undefined ||
+      offset === null ||
+      !Number.isSafeInteger(offset.line) ||
+      !Number.isSafeInteger(offset.column) ||
+      (offset.line as number) < 0 ||
+      (offset.column as number) < 0
+    )
+      return false;
     const start = offset.line as number;
-    if (!shiftMapLine(section.map, start < line ? line - start : -1, start < line ? amount : 0)) return false;
+    if (
+      !shiftMapLine(
+        section.map,
+        start < line ? line - start : -1,
+        start < line ? amount : 0,
+      )
+    )
+      return false;
     if (start === line) {
       // Section columns affect their first line alone, exactly as the prefix does.
       offset.column = (offset.column as number) + amount;

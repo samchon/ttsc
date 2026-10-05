@@ -9,10 +9,10 @@ import "testing"
 // script and style, so a sibling spread changes nothing about the violation.
 // This also guards the former crash of the attribute walk on spread members.
 //
-// 1. Run only `jsx-a11y/aria-unsupported-elements` over
-//    `<meta charSet="utf-8" role="none" {...props} />` and expect one finding
-//    whose message contains "ARIA roles".
-// 2. Run it over `<meta charSet="utf-8" {...props} />` and expect none.
+//  1. Run only `jsx-a11y/aria-unsupported-elements` over
+//     `<meta charSet="utf-8" role="none" {...props} />` and expect one finding
+//     whose message contains "ARIA roles".
+//  2. Run it over `<meta charSet="utf-8" {...props} />` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-unsupported-elements enabled. The meta element with role="none" and a spread yields exactly one ordinary SeverityError finding from that rule whose message contains "ARIA roles"; assertJsxA11yRuleSkips requires zero findings for the same meta and spread without the role.
 // @evidence contracts/testing.md#independent-expectations The static policy rejects an explicitly written role on meta despite an unknown spread; removing that explicit role leaves no known ARIA attribute for this rule to report. The literal pair and message fragment independently pin known-attribute handling, not the unknown runtime spread contents.

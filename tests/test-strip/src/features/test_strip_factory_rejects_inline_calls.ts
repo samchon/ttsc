@@ -8,12 +8,13 @@ import { fileURLToPath } from "node:url";
 import type createStrip from "../../../../packages/strip/src/index";
 
 /**
- * Verifies the strip factory rejects inline calls while accepting file selection.
+ * Verifies the strip factory rejects inline calls while accepting file
+ * selection.
  *
  * The TypeScript descriptor must reject calls on the plugin entry before native
- * strip config loading. Accepting configFile and host registration keys preserves
- * the separate file-based configuration path without evaluating that file in the
- * descriptor factory.
+ * strip config loading. Accepting configFile and host registration keys
+ * preserves the separate file-based configuration path without evaluating that
+ * file in the descriptor factory.
  *
  * 1. Call the authored factory with the stale inline calls array.
  * 2. Assert the throw names calls as unsupported and points to configFile.

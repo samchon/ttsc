@@ -10,7 +10,7 @@ import (
 // Ignore membership is evaluated outside the compiler/state owner, then applied
 // to this exact graph. A failed publication leaves its change pending.
 type preparedDumpProjection struct {
-  built *graph.Graph
+  built   *graph.Graph
   publish func(map[string]bool) (*graph.Dump, error)
 }
 
@@ -18,8 +18,8 @@ type preparedDumpProjection struct {
 // A fallback is another prepared graph, not a canned transaction: callers must
 // evaluate membership for that graph before completing it too.
 type preparedShardProjection struct {
-  built *graph.Graph
-  change *graphChange
+  built   *graph.Graph
+  change  *graphChange
   publish func(map[string]bool) (*serveGraphSnapshot, *serveGraphStore, *preparedShardProjection, error)
 }
 
@@ -35,7 +35,9 @@ func completeShardProjection(prepared *preparedShardProjection, ignored map[stri
 func publishNativeShardProjection(prepared *preparedShardProjection, cwd string) (*serveGraphSnapshot, *serveGraphStore, error) {
   for {
     snapshot, store, fallback, err := completeShardProjection(prepared, graph.GitIgnoredFiles(cwd, prepared.built))
-    if err != nil || fallback == nil { return snapshot, store, err }
+    if err != nil || fallback == nil {
+      return snapshot, store, err
+    }
     prepared = fallback
   }
 }

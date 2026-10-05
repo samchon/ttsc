@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a failed native watcher moves its inputs to a bounded fallback
@@ -21,6 +21,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * 3. Drive ticks and assert each inspects one fair, fixed-size slice, and the
  *    scheduler stops when no work remains.
  * 4. Dispose and assert the detached watcher is not closed again.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Injects native watcher failure into createViteServeInputWatch; asserts immediate handle release, one scheduler, 64 then 65 invalidations and scheduler stop without a second close.
  * @evidence contracts/testing.md#independent-expectations

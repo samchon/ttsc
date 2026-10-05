@@ -18,17 +18,17 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
  * Without any manifest there is no run to share with: a child whose environment
  * dropped `TTSX_RUNTIME_MANIFEST`, or one that loads its first TypeScript after
  * the launcher removed the manifest. Its builds go to a directory private to
- * this process with removal attempted by one exit callback. A shared directory keyed
- * only by the tsconfig path would let an edited dependency keep running its
- * first build until the temp directory was cleared. A later manifest-less
+ * this process with removal attempted by one exit callback. A shared directory
+ * keyed only by the tsconfig path would let an edited dependency keep running
+ * its first build until the temp directory was cleared. A later manifest-less
  * acquisition attempts to sweep recognized abandoned process directories;
- * unknown, unowned or non-gone records and native failures can remain indefinitely.
- * Canonical spellings protect against retargeting the original alias, not
- * replacement of the observed physical namespace. Descriptor/run root cleanup
- * is the selecting caller's responsibility, not an outcome certified here.
+ * unknown, unowned or non-gone records and native failures can remain
+ * indefinitely. Canonical spellings protect against retargeting the original
+ * alias, not replacement of the observed physical namespace. Descriptor/run
+ * root cleanup is the selecting caller's responsibility, not an outcome
+ * certified here.
  *
  * @param env Environment to read the descriptor-evaluation variables from.
- *
  * @evidence contracts/common.md#principled-implementation Descriptor-owned output, a checked run's depCacheDir and a manifest-less process directory are distinct lifetime authorities; selecting in that order keeps dependency emit with the owner that removes it.
  * @evidence contracts/common.md#clear-and-simple-design One root selector owns the three supported execution contexts, with process-directory acquisition isolated in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing manifest selects a genuinely process-owned cache rather than persistent path-only reuse; descriptor channels are explicit host inputs, not fixture-specific names.

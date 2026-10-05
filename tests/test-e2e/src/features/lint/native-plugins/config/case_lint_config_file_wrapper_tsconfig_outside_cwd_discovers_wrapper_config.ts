@@ -1,10 +1,10 @@
-import { LintWorkspace } from "../../../../internal/lint/LintWorkspace";
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../../../../../../packages/ttsc/lib/index.js";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
+import { LintWorkspace } from "../../../../internal/lint/LintWorkspace";
 import {
   SOURCE,
   TSGO_BINARY,
@@ -41,63 +41,64 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original failure type and exact rendered no-var message/category list remain executable, including absence of the competing cwd no-console finding.
  */
 export function test_lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config() {
-    const project = createLintProject({
-      name: "config-file-wrapper-outside-cwd",
-      source: SOURCE,
-      pluginConfig: {},
-      extraSources: FixtureFiles.read("lint/lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config/inputs-1"),
+  const project = createLintProject({
+    name: "config-file-wrapper-outside-cwd",
+    source: SOURCE,
+    pluginConfig: {},
+    extraSources: FixtureFiles.read(
+      "lint/lint_config_file_wrapper_tsconfig_outside_cwd_discovers_wrapper_config/inputs-1",
+    ),
+  });
+  const wrapper = LintWorkspace.caseRoot("ttsc-lint-wrapper-", true);
+  const failures: unknown[] = [];
+  try {
+    const tsconfig = path.join(wrapper, "tsconfig.json");
+    fs.writeFileSync(
+      path.join(wrapper, "lint.config.json"),
+      JSON.stringify({ rules: { "no-var": "error" } }),
+      "utf8",
+    );
+    fs.writeFileSync(
+      tsconfig,
+      JSON.stringify({ extends: path.join(project.tmpdir, "tsconfig.json") }),
+      "utf8",
+    );
+    const compiler = new TtscCompiler({
+      cacheDir: TestProject.sharedPluginCache(),
+      cwd: project.tmpdir,
+      env: {
+        PATH: lintGoPath(),
+        TTSC_GO_CACHE_DIR: TestProject.sharedGoBuildCache(),
+        TTSC_TSGO_BINARY: TSGO_BINARY,
+        TTSC_TTSX_BINARY: TTSX_BIN,
+      },
+      projectRoot: project.tmpdir,
+      tsconfig,
     });
-    const wrapper = LintWorkspace.caseRoot("ttsc-lint-wrapper-", true);
-    const failures: unknown[] = [];
-    try {
-      const tsconfig = path.join(wrapper, "tsconfig.json");
-      fs.writeFileSync(
-        path.join(wrapper, "lint.config.json"),
-        JSON.stringify({ rules: { "no-var": "error" } }),
-        "utf8",
-      );
-      fs.writeFileSync(
-        tsconfig,
-        JSON.stringify({ extends: path.join(project.tmpdir, "tsconfig.json") }),
-        "utf8",
-      );
-      const compiler = new TtscCompiler({
-        cacheDir: TestProject.sharedPluginCache(),
-        cwd: project.tmpdir,
-        env: {
-          PATH: lintGoPath(),
-          TTSC_GO_CACHE_DIR: TestProject.sharedGoBuildCache(),
-          TTSC_TSGO_BINARY: TSGO_BINARY,
-          TTSC_TTSX_BINARY: TTSX_BIN,
-        },
-        projectRoot: project.tmpdir,
-        tsconfig,
-      });
-      const result = compiler.compile();
+    const result = compiler.compile();
 
-      assert.equal(result.type, "failure");
-      assert.deepEqual(
-        result.diagnostics.map((d) => [d.messageText, d.category]),
-        [
-          [
-            "[no-var] Unexpected var, use let or const instead.\n  ~~~",
-            "error",
-          ],
-        ],
-      );
+    assert.equal(result.type, "failure");
+    assert.deepEqual(
+      result.diagnostics.map((d) => [d.messageText, d.category]),
+      [["[no-var] Unexpected var, use let or const instead.\n  ~~~", "error"]],
+    );
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    try {
+      fs.rmSync(wrapper, { recursive: true, force: true });
     } catch (error) {
       failures.push(error);
-    } finally {
-      try {
-        fs.rmSync(wrapper, { recursive: true, force: true });
-      } catch (error) {
-        failures.push(error);
-      }
-      try {
-        project.cleanup();
-      } catch (error) {
-        failures.push(error);
-      }
     }
-    if (failures.length) throw new AggregateError(failures, "Wrapper lint configuration or owned cleanup failed");
+    try {
+      project.cleanup();
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Wrapper lint configuration or owned cleanup failed",
+    );
+}

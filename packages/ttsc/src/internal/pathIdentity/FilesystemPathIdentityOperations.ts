@@ -26,8 +26,8 @@ import fs from "node:fs";
 export type FilesystemPathIdentityOperations = {
   /**
    * Whether ASCII names inside `directory` are compared case-sensitively. The
-   * resolver queries a resolved ancestor when interpreting unresolved suffixes or
-   * answering an explicit directory-policy query; if no existing prefix
+   * resolver queries a resolved ancestor when interpreting unresolved suffixes
+   * or answering an explicit directory-policy query; if no existing prefix
    * resolves, it can query the volume root. Return true for established
    * sensitivity, false for established insensitivity or undefined if the policy
    * cannot be established. Existing boolean-returning callbacks remain valid.
@@ -99,8 +99,8 @@ export type FilesystemPathIdentityOperations = {
    * When `true` (the default), a realpath failure other than a missing entry
    * propagates. When `false`, every failure is treated as an unavailable
    * physical observation and resolution continues with the parent. This does
-   * not establish absence: existing inaccessible entries can become part of
-   * the unresolved suffix used by best-effort callers such as runtime hooks.
+   * not establish absence: existing inaccessible entries can become part of the
+   * unresolved suffix used by best-effort callers such as runtime hooks.
    */
   throwOnRealpathError: boolean;
 };

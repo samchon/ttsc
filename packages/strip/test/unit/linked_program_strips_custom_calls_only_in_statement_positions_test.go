@@ -29,7 +29,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership Named unit entry TestLinkedProgramStripsCustomCallsOnlyInStatementPositions is in test/unit for the utility overlay. One noLib single-threaded Program and actual registered plugin execute in this Go process; the absolute fixture configFile is JSON-only, t.Setenv restores the manifest and Close releases the checker lease. No script evaluation, native producer, subprocess, private linkname or global registry replacement is involved.
 func TestLinkedProgramStripsCustomCallsOnlyInStatementPositions(t *testing.T) {
   root := shared.SeedProject(t, map[string]string{
-    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","noLib":true},"files":["src/main.ts"]}`,
+    "tsconfig.json":     `{"compilerOptions":{"target":"ES2022","module":"commonjs","noLib":true},"files":["src/main.ts"]}`,
     "strip.config.json": `{"calls":["console.warn","drop","custom.*","logger.trace"],"statements":[]}`,
     "src/main.ts": `function drop(value: string) { return value; }
 declare const custom: any;

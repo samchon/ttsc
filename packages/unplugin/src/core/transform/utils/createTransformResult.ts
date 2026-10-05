@@ -16,7 +16,6 @@ import { resolveTransformSourceMap } from "./resolveTransformSourceMap";
  * @param file Absolute path of the transformed module.
  * @param source Text the bundler delivered for the module.
  * @param output The envelope's entry for the module.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Equal delivered/emitted text needs no update; changed text carries a map
  *   only after its source content is matched to what this host delivered.

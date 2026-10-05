@@ -24,8 +24,8 @@ func TestPrismaDecodedPopulationControlsActivation(t *testing.T) {
   }]}`)
   address := config.Claims[0].Base.addressOf("prisma/schema/main.prisma")
   for _, scenario := range []struct {
-    name string
-    units []*evidenceUnit
+    name   string
+    units  []*evidenceUnit
     failed bool
     active int
   }{
@@ -37,10 +37,10 @@ func TestPrismaDecodedPopulationControlsActivation(t *testing.T) {
     t.Run(scenario.name, func(t *testing.T) {
       inventories := map[string]*artifactInventory{
         address.Key: {
-          Address: address.Key,
-          Path: address.Display,
-          Type: artifactPrisma,
-          Units: scenario.units,
+          Address:    address.Key,
+          Path:       address.Display,
+          Type:       artifactPrisma,
+          Units:      scenario.units,
           LoadFailed: scenario.failed,
         },
       }

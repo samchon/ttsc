@@ -16,7 +16,8 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  * rechecks both current host variables and external witnesses after transfer.
  * The worker reads the parent's shared environment for native fallback rules;
  * neither it nor this owner writes that environment. Explicit reader inputs
- * still use the request snapshot and publication still qualifies that snapshot.
+ * still use the request snapshot and publication still qualifies that
+ * snapshot.
  *
  * @evidence contracts/common.md#principled-implementation Readings pair complete environment identity with the producer's native pre-read witness; cached reuse validates that witness and asynchronous publication rechecks variables/witness after transfer. Synchronous fresh reads publish their paired observations without an extra post-read holds call here; native metadata distinguishability remains a premise.
  * @evidence contracts/common.md#clear-and-simple-design One owner shares observation records across synchronous reads, cache-only proof and asynchronous preparation.
@@ -53,8 +54,8 @@ export namespace PluginBuildEnvironmentReadings {
   /**
    * Return a qualified reading without starting a native subprocess or cold
    * content/environment preparation. Witness validation still queries native
-   * filesystem/link/ambient-variable state.
-   * Undefined requires preparation or invalidation, rather than a cold fallback.
+   * filesystem/link/ambient-variable state. Undefined requires preparation or
+   * invalidation, rather than a cold fallback.
    *
    * @evidence contracts/common.md#principled-implementation Both current full variables and every external-path witness must match before cached authority is returned.
    * @evidence contracts/common.md#clear-and-simple-design One optional digest boundary distinguishes usable proof from unavailable proof.
@@ -67,7 +68,8 @@ export namespace PluginBuildEnvironmentReadings {
    */
   export function cached(directory: string): string | undefined {
     const known = readings.get(key(directory, process.env));
-    return known !== undefined && PluginBuildEnvironmentWitness.holds(known.witness)
+    return known !== undefined &&
+      PluginBuildEnvironmentWitness.holds(known.witness)
       ? known.environment
       : undefined;
   }
@@ -100,9 +102,9 @@ export namespace PluginBuildEnvironmentReadings {
    * requests. A changed environment or witness during transfer refuses the
    * reading; the caller's admission/recovery policy owns a fresh attempt.
    * Worker errors/exits retire and reject; a native-reader error returned in a
-   * normal message rejects the request while retaining that live worker.
-   * Later requests can create a worker after retirement. Refresh bypasses a
-   * cached reading but can still share an equivalent in-flight request.
+   * normal message rejects the request while retaining that live worker. Later
+   * requests can create a worker after retirement. Refresh bypasses a cached
+   * reading but can still share an equivalent in-flight request.
    *
    * @evidence contracts/common.md#principled-implementation Worker results publish only under their exact current variable identity and still-current native pre-read witness; changed or unwitnessable transfer windows reject instead of publishing authority or retrying indefinitely.
    * @evidence contracts/common.md#clear-and-simple-design Qualified hits return immediately; equivalent misses share one pending promise and exclusive queued worker request.
@@ -113,7 +115,10 @@ export namespace PluginBuildEnvironmentReadings {
    * @evidence contracts/performance.md#reuse-equivalent-work Pending identity is directory plus complete variables; the warm worker shares native toolchain memos while published authority still requires fresh witness validation.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Pending identity entries are removed in finally at settlement and per-request worker listeners are removed by the terminal path. Idle worker remains unreferenced with lifetime retirement listeners; worker failure initiates termination without awaiting completion. Distinct queued contexts retain environment/witness/promise data without a population bound or timeout, and a stalled producer blocks later queued work.
    */
-  export async function prepare(directory: string, refresh = false): Promise<string> {
+  export async function prepare(
+    directory: string,
+    refresh = false,
+  ): Promise<string> {
     const known = refresh ? undefined : cached(directory);
     if (known !== undefined) return known;
     const env = SidecarEnvironment.merge(process.env);
@@ -122,8 +127,13 @@ export namespace PluginBuildEnvironmentReadings {
     if (existing !== undefined) return existing;
     const request = (async () => {
       const reading = await observe(directory, env);
-      if (identity !== key(directory, process.env) || !PluginBuildEnvironmentWitness.holds(reading.witness))
-        throw new Error(`ttsc: plugin build environment could not be qualified for ${directory}`);
+      if (
+        identity !== key(directory, process.env) ||
+        !PluginBuildEnvironmentWitness.holds(reading.witness)
+      )
+        throw new Error(
+          `ttsc: plugin build environment could not be qualified for ${directory}`,
+        );
       readings.set(identity, reading);
       return reading.environment;
     })();
@@ -137,51 +147,81 @@ export namespace PluginBuildEnvironmentReadings {
 
   function key(directory: string, env: NodeJS.ProcessEnv): string {
     const variables = crypto.createHash("sha256");
-    for (const [name, value] of Object.entries(SidecarEnvironment.merge(env)).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0))
-      if (value !== undefined) variables.update(`${name.length}:${name}${value.length}:${value}\0`);
+    for (const [name, value] of Object.entries(
+      SidecarEnvironment.merge(env),
+    ).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)))
+      if (value !== undefined)
+        variables.update(`${name.length}:${name}${value.length}:${value}\0`);
     return `${directory}\0${variables.digest("hex")}`;
   }
 
-  function observe(directory: string, env: NodeJS.ProcessEnv): Promise<Reading> {
-    const request = queue.then(() => new Promise<Reading>((resolve, reject) => {
-      const current = acquireWorker();
-      current.ref();
-      let settled = false;
-      const release = (reusable: boolean) => {
-        if (settled) return false;
-        settled = true;
-        current.off("message", onMessage);
-        current.off("error", onError);
-        current.off("exit", onExit);
-        if (reusable) current.unref();
-        else {
-          if (worker === current) worker = undefined;
-          void current.terminate();
-        }
-        return true;
-      };
-      const onMessage = (reply: Reading | { thrown: unknown }) => {
-        if (!release(true)) return;
-        if ("thrown" in reply) reject(reply.thrown);
-        else resolve(reply);
-      };
-      const onError = (error: Error) => { if (release(false)) reject(error); };
-      const onExit = (code: number) => { if (release(false)) reject(new Error(`ttsc: build environment worker exited with code ${code} before answering`)); };
-      current.on("message", onMessage);
-      current.on("error", onError);
-      current.on("exit", onExit);
-      try { current.postMessage({ directory, env }); }
-      catch (error) { release(false); reject(error); }
-    }));
-    queue = request.then(() => undefined, () => undefined);
+  function observe(
+    directory: string,
+    env: NodeJS.ProcessEnv,
+  ): Promise<Reading> {
+    const request = queue.then(
+      () =>
+        new Promise<Reading>((resolve, reject) => {
+          const current = acquireWorker();
+          current.ref();
+          let settled = false;
+          const release = (reusable: boolean) => {
+            if (settled) return false;
+            settled = true;
+            current.off("message", onMessage);
+            current.off("error", onError);
+            current.off("exit", onExit);
+            if (reusable) current.unref();
+            else {
+              if (worker === current) worker = undefined;
+              void current.terminate();
+            }
+            return true;
+          };
+          const onMessage = (reply: Reading | { thrown: unknown }) => {
+            if (!release(true)) return;
+            if ("thrown" in reply) reject(reply.thrown);
+            else resolve(reply);
+          };
+          const onError = (error: Error) => {
+            if (release(false)) reject(error);
+          };
+          const onExit = (code: number) => {
+            if (release(false))
+              reject(
+                new Error(
+                  `ttsc: build environment worker exited with code ${code} before answering`,
+                ),
+              );
+          };
+          current.on("message", onMessage);
+          current.on("error", onError);
+          current.on("exit", onExit);
+          try {
+            current.postMessage({ directory, env });
+          } catch (error) {
+            release(false);
+            reject(error);
+          }
+        }),
+    );
+    queue = request.then(
+      () => undefined,
+      () => undefined,
+    );
     return request;
   }
 
   function acquireWorker(): Worker {
     if (worker !== undefined) return worker;
-    const created = new Worker(path.join(__dirname, "pluginBuildEnvironmentWorker.js"), { env: SHARE_ENV });
+    const created = new Worker(
+      path.join(__dirname, "pluginBuildEnvironmentWorker.js"),
+      { env: SHARE_ENV },
+    );
     worker = created;
-    const retire = () => { if (worker === created) worker = undefined; };
+    const retire = () => {
+      if (worker === created) worker = undefined;
+    };
     // Idle death must retire the cached thread without an unhandled error;
     // active requests additionally own their terminal rejection listeners.
     created.on("error", retire);

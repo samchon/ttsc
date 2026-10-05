@@ -11,13 +11,16 @@ import { TestProject } from "../../../utils/src/TestProject";
  * An operation is often only a `$ref` to a request DTO, so a digest over the
  * operation as written would not move when the DTO changes. The digest must
  * also stay put when only key order differs, and malformed operations must be
- * reported as source problems without hiding the other documents of the request.
+ * reported as source problems without hiding the other documents of the
+ * request.
  *
  * 1. Load one authored document and require its two operations in sorted order.
  * 2. Edit a referenced schema, an unrelated operation, key order and a recursive
- *    schema one at a time and compare each operation's digest with the baseline.
+ *    schema one at a time and compare each operation's digest with the
+ *    baseline.
  * 3. Load a path without a leading slash and a duplicated operation beside a
- *    healthy document and require attributed problems with the healthy one kept.
+ *    healthy document and require attributed problems with the healthy one
+ *    kept.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored loadSwaggerOperations source API on real files. A digest that covered only the written operation would not move when its referenced DTO changes, and a digest that covered the whole document would move for the unrelated sibling; both fail an assertion below.
  * @evidence contracts/testing.md#independent-expectations Operation identities, ordering and which operation must or must not move follow from the authored documents and the contract that an operation owns what it references. Digests are compared relationally and no hash value is computed from the implementation.
@@ -87,31 +90,39 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
         ]),
       );
     } catch (cause) {
-      failures.push(new Error(`Swagger digest input failed: ${name}`, { cause }));
+      failures.push(
+        new Error(`Swagger digest input failed: ${name}`, { cause }),
+      );
       return undefined;
     }
   };
   try {
     const baseline = await load("baseline.json", document(schemaOf("string")));
-    if (baseline) check(() =>
-      assert.deepEqual(Object.keys(baseline), ["GET /sales", "POST /members"]),
-    );
+    if (baseline)
+      check(() =>
+        assert.deepEqual(Object.keys(baseline), [
+          "GET /sales",
+          "POST /members",
+        ]),
+      );
 
     const retyped = await load("retyped.json", document(schemaOf("number")));
-    if (retyped && baseline) check(() =>
-      assert.notEqual(
-        retyped["POST /members"],
-        baseline["POST /members"],
-        "an edit to the referenced schema must move the operation that references it",
-      ),
-    );
-    if (retyped && baseline) check(() =>
-      assert.equal(
-        retyped["GET /sales"],
-        baseline["GET /sales"],
-        "an edit to a schema the operation does not reference must leave it unchanged",
-      ),
-    );
+    if (retyped && baseline)
+      check(() =>
+        assert.notEqual(
+          retyped["POST /members"],
+          baseline["POST /members"],
+          "an edit to the referenced schema must move the operation that references it",
+        ),
+      );
+    if (retyped && baseline)
+      check(() =>
+        assert.equal(
+          retyped["GET /sales"],
+          baseline["GET /sales"],
+          "an edit to a schema the operation does not reference must leave it unchanged",
+        ),
+      );
 
     const described = await load(
       "described.json",
@@ -119,12 +130,14 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
         responses: { "200": { description: "Changed" } },
       }),
     );
-    if (described && baseline) check(() =>
-      assert.notEqual(described["GET /sales"], baseline["GET /sales"]),
-    );
-    if (described && baseline) check(() =>
-      assert.equal(described["POST /members"], baseline["POST /members"]),
-    );
+    if (described && baseline)
+      check(() =>
+        assert.notEqual(described["GET /sales"], baseline["GET /sales"]),
+      );
+    if (described && baseline)
+      check(() =>
+        assert.equal(described["POST /members"], baseline["POST /members"]),
+      );
 
     // The same document with every object's keys written in the opposite order.
     const reversed = (value: unknown): unknown =>
@@ -132,17 +145,17 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
         ? value.map(reversed)
         : value !== null && typeof value === "object"
           ? Object.fromEntries(
-              Object.entries(value).reverse().map(([key, child]) => [
-                key,
-                reversed(child),
-              ]),
+              Object.entries(value)
+                .reverse()
+                .map(([key, child]) => [key, reversed(child)]),
             )
           : value;
     const reordered = await load(
       "reordered.json",
       reversed(document(schemaOf("string"))),
     );
-    if (reordered && baseline) check(() => assert.deepEqual(reordered, baseline));
+    if (reordered && baseline)
+      check(() => assert.deepEqual(reordered, baseline));
 
     const recursive = (type: string) =>
       schemaOf(type, { parent: { $ref: "#/components/schemas/IMember" } });
@@ -151,13 +164,14 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
       "cyclic-edited.json",
       document(recursive("number")),
     );
-    if (cyclicEdited && cyclic) check(() =>
-      assert.notEqual(
-        cyclicEdited["POST /members"],
-        cyclic["POST /members"],
-        "a self-referencing schema must still distinguish an edit beneath it",
-      ),
-    );
+    if (cyclicEdited && cyclic)
+      check(() =>
+        assert.notEqual(
+          cyclicEdited["POST /members"],
+          cyclic["POST /members"],
+          "a self-referencing schema must still distinguish an edit beneath it",
+        ),
+      );
 
     fs.writeFileSync(
       path.join(root, "no-slash.json"),
@@ -210,5 +224,8 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Swagger operation digest cases failed.");
+    throw new AggregateError(
+      failures,
+      "Swagger operation digest cases failed.",
+    );
 }

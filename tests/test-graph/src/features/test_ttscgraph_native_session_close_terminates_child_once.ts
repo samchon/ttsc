@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+
 import { admitted, assertRetired, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies closing a session twice settles its active and queued requests once and retires the peer once.
+ * Verifies closing a session twice settles its active and queued requests once
+ * and retires the peer once.
  *
- * Close is terminal and idempotent: it must reject the request in flight and the
- * one queued behind it, close the host once, and refuse
- * any later request without opening another peer.
+ * Close is terminal and idempotent: it must reject the request in flight and
+ * the one queued behind it, close the host once, and refuse any later request
+ * without opening another peer.
  *
  * 1. Issue two graph requests (one active on the recorded port, one queued),
  *    counting each settlement.
@@ -26,8 +28,12 @@ export async function test_ttscgraph_native_session_close_terminates_child_once(
   try {
     let activeSettlements = 0;
     let queuedSettlements = 0;
-    const active = session.graph().finally(() => { activeSettlements++; });
-    const queued = session.graph().finally(() => { queuedSettlements++; });
+    const active = session.graph().finally(() => {
+      activeSettlements++;
+    });
+    const queued = session.graph().finally(() => {
+      queuedSettlements++;
+    });
     void active.catch(() => undefined);
     void queued.catch(() => undefined);
     const port = await admitted(ports);
@@ -42,5 +48,7 @@ export async function test_ttscgraph_native_session_close_terminates_child_once(
     await assert.rejects(session.graph(), /native session is closed/);
     assert.equal(ports.length, 1);
     assert.equal(fixture.closed(), 1);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

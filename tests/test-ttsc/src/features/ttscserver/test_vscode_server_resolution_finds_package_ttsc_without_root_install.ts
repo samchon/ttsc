@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server resolution finds a per-package ttsc when the root has
@@ -58,10 +59,9 @@ export function test_vscode_server_resolution_finds_package_ttsc_without_root_in
 
   const observed = (() => {
     return {
-      fromFile: mod.resolveTtscServerLauncher((fileDir)) ?? "",
-      fromRoot: mod.resolveTtscServerLauncher((workspace)) ?? "",
+      fromFile: mod.resolveTtscServerLauncher(fileDir) ?? "",
+      fromRoot: mod.resolveTtscServerLauncher(workspace) ?? "",
     };
-  
   })();
   const resolved = observed as {
     fromFile: string;

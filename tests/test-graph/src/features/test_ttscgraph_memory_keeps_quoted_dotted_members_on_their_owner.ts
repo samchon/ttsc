@@ -25,27 +25,27 @@ import {
  * @evidence contracts/testing.md#execution-ownership Calls TtscGraphMemory.from through createSyntheticGraph in the test process with typed in-memory nodes; no resolver call is made, and no native producer or process is involved.
  */
 export function test_ttscgraph_memory_keeps_quoted_dotted_members_on_their_owner(): void {
-    const box: ResolverGraphNode = {
-      id: "src/box.ts#Box:class",
-      kind: "class",
-      name: "Box",
-      file: "src/box.ts",
-      external: false,
-    };
-    const member: ResolverGraphNode = {
-      id: "src/box.ts#Box.a.b:variable",
-      kind: "variable",
-      name: "a.b",
-      qualifiedName: "Box.a.b",
-      file: "src/box.ts",
-      external: false,
-    };
-    const graph = createSyntheticGraph([box, member]);
-    const property = graph.nodes.find((node) => node.id === member.id);
-    assert.strictEqual(property?.kind, "property");
-    assert.ok(
-      graph
-        .incoming(member.id)
-        .some((edge) => edge.kind === "contains" && edge.from === box.id),
-    );
+  const box: ResolverGraphNode = {
+    id: "src/box.ts#Box:class",
+    kind: "class",
+    name: "Box",
+    file: "src/box.ts",
+    external: false,
+  };
+  const member: ResolverGraphNode = {
+    id: "src/box.ts#Box.a.b:variable",
+    kind: "variable",
+    name: "a.b",
+    qualifiedName: "Box.a.b",
+    file: "src/box.ts",
+    external: false,
+  };
+  const graph = createSyntheticGraph([box, member]);
+  const property = graph.nodes.find((node) => node.id === member.id);
+  assert.strictEqual(property?.kind, "property");
+  assert.ok(
+    graph
+      .incoming(member.id)
+      .some((edge) => edge.kind === "contains" && edge.from === box.id),
+  );
 }

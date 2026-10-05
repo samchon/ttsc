@@ -5,14 +5,15 @@
  *
  * Some mounted or remote filesystem configurations need that fallback; mount
  * names alone do not identify them. This reads the explicit conventions of
- * Chokidar and Watchpack, rather than certifying the host's final watcher mode:
+ * Chokidar and Watchpack, rather than certifying the host's final watcher
+ * mode:
  *
  * - `CHOKIDAR_USEPOLLING`, read by chokidar (Vite's watcher) and overriding the
  *   host's own `usePolling` option: `false` and `0` turn polling off, `true`
  *   and `1` turn it on, and any other non-empty value turns it on.
  * - `WATCHPACK_POLLING`, read by Watchpack (webpack and Next.js): a numeric value
- *   forces polling when its canonical numeric conversion is truthy (not zero
- *   or NaN), and other strings request it unless empty or `false`.
+ *   forces polling when its canonical numeric conversion is truthy (not zero or
+ *   NaN), and other strings request it unless empty or `false`.
  *
  * @param env The process environment to read.
  * @param usePolling The host watcher's own polling option, such as Vite's

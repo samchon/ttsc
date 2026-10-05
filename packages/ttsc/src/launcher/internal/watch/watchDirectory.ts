@@ -16,9 +16,7 @@ import { watchDirectoryThroughFsWatch } from "./watchDirectoryThroughFsWatch";
  * @param listener Receives `change` or `rename` and a relative entry name, or
  *   `null` when anything below the directory may have changed. The final flag
  *   marks an observation gap that needs a content recheck.
- *
  * @returns The open watch.
- *
  * @evidence contracts/common.md#principled-implementation Backend selection preserves relative names and observation-gap notifications through one shared subscription contract.
  * @evidence contracts/common.md#clear-and-simple-design The dispatcher chooses the process registry or the fs.watch adapter without duplicating event interpretation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback serves an unavailable optional production binding and emits its warning; no foreign watcher method is monkeypatched.

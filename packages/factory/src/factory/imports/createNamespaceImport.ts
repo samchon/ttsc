@@ -15,6 +15,9 @@ import { make } from "../internal/make";
  * * as ns
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param name The name.
+ * @returns The created {@link NamespaceImport}.
  * @evidence contracts/common.md#principled-implementation
  *   asName converts a string binding to Identifier; NamespaceImport represents
  *   the * as binding clause while the enclosing import carries its target.
@@ -29,10 +32,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains namedBindings placement and string conversion, with
  *   a namespace example and separated acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param name The name.
- * @returns The created {@link NamespaceImport}.
  */
 export const createNamespaceImport = (
   name: string | Identifier,

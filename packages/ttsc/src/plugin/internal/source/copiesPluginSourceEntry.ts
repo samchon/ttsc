@@ -25,7 +25,6 @@ import { GoSourceInputs } from "./GoSourceInputs";
  *
  * @param root The plugin source directory being copied, which is always taken.
  * @param location An entry at or below `root`.
- *
  * @evidence contracts/common.md#principled-implementation Equal resolved root spelling is admitted without kind validation. Other entries use lstat and the digest walk's kind-specific prune/omit policy, refusing observed links; the copy owner owns root validation and post-copy digest comparisons, with sequential pathname observations rather than an atomic snapshot.
  * @evidence contracts/common.md#clear-and-simple-design One copy filter delegates shared name policy and leaves recursive materialization to fs.cpSync.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Kind-aware matching corrects the false assumption that every entry with a directory-like name is a directory, rather than adding filename exceptions.

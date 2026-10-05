@@ -8,10 +8,10 @@ import (
 // TestUnicornRelativeURLStylePreservesLeadingTrimmedCharacters checks that
 // removing a relative prefix does not expose URL parser trimming semantics.
 //
-// 1. Parse each literal with the actual lint engine in this process.
-// 2. Require no recommendation for values whose leading space or C0 byte would
-//    become an authority, query, fragment, or changed path after removal.
-// 3. Keep ordinary relative paths as positive recommendation controls.
+//  1. Parse each literal with the actual lint engine in this process.
+//  2. Require no recommendation for values whose leading space or C0 byte would
+//     become an authority, query, fragment, or changed path after removal.
+//  3. Keep ordinary relative paths as positive recommendation controls.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the actual relative-url-style rule through the parser and Engine.Run helper and asserts the exact finding count and rule identity for each authored URL expression.
 // @evidence contracts/testing.md#independent-expectations Literal negative expectations follow WHATWG URL leading C0 and space trimming: the characters inside the original path survive, while prefix removal exposes trimming. The ordinary path controls preserve URL identity and owe one recommendation.
@@ -21,7 +21,7 @@ func TestUnicornRelativeURLStylePreservesLeadingTrimmedCharacters(t *testing.T) 
   const rule = "unicorn/relative-url-style"
   for _, row := range []struct {
     name, value string
-    findings int
+    findings    int
   }{
     {"space-authority", "./ //host/path", 0},
     {"space-query", "./ ?x", 0},

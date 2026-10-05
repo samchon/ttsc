@@ -4,15 +4,21 @@
  * parsing, and re-exports of the ttsc CLI paths and workspace constants used
  * across the plugin-corpus feature suite.
  */
-import { TestProject, getNativeLintProducer, linkNativeLintPackage } from "@ttsc/testing";
-import { ProjectFixtures } from "./ProjectFixtures";
+import {
+  TestProject,
+  getNativeLintProducer,
+  linkNativeLintPackage,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+import { ProjectFixtures } from "./ProjectFixtures";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 const INTERNAL_DIR = path.join(
   TestProject.WORKSPACE_ROOT,
@@ -52,19 +58,53 @@ function pluginProject(
 }
 
 /** Absolute identity of an immutable native producer shared by CLI consumers. */
-function nativePluginSource(fixture: "transformer" | "simple-source" | "runtime-source" | "raw-linked-host" | "own-linked-host" = "transformer"): string {
+function nativePluginSource(
+  fixture:
+    | "transformer"
+    | "simple-source"
+    | "runtime-source"
+    | "raw-linked-host"
+    | "own-linked-host" = "transformer",
+): string {
   if (fixture === "raw-linked-host" || fixture === "own-linked-host") {
-    return path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "go-linked-driver-host", "cmd",
-      fixture === "raw-linked-host" ? "driver-host" : "emit-host");
+    return path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "go-linked-driver-host",
+      "cmd",
+      fixture === "raw-linked-host" ? "driver-host" : "emit-host",
+    );
   }
   if (fixture === "runtime-source") {
-    return path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "go-source-runtime-plugin");
+    return path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "go-source-runtime-plugin",
+    );
   }
   if (fixture === "transformer") {
-    return path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "go-transformer", "cmd", "ttsc-go-transformer");
+    return path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "go-transformer",
+      "cmd",
+      "ttsc-go-transformer",
+    );
   }
-  return path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test",
-    "go-source-plugin", "go-plugin");
+  return path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "test",
+    "go-source-plugin",
+    "go-plugin",
+  );
 }
 
 function nativePlugin(): string {
@@ -224,9 +264,10 @@ function setupLintProject(
   const root = ProjectFixtures.copy(name);
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });
-  const target = options.nativeProducer === "snapshot"
-    ? getNativeLintProducer().packageRoot
-    : path.join(TestProject.WORKSPACE_ROOT, "packages", "lint");
+  const target =
+    options.nativeProducer === "snapshot"
+      ? getNativeLintProducer().packageRoot
+      : path.join(TestProject.WORKSPACE_ROOT, "packages", "lint");
   const link = path.join(linkDir, "lint");
   linkNativeLintPackage(target, link);
   return root;

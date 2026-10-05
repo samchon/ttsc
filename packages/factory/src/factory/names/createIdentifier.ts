@@ -11,9 +11,12 @@ import { make } from "../internal/make";
  * With `text` of `foo`, this prints:
  *
  * ```ts
- * foo
+ * foo;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The textual content.
+ * @returns The created {@link Identifier}.
  * @evidence contracts/common.md#principled-implementation
  *   Identifier text is stored verbatim. Lexical validity is a caller premise,
  *   explicitly documented because no escaping can repair an arbitrary name.
@@ -27,10 +30,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc warns that validation and escaping are absent, with the caller's
  *   responsibility and an example separated from the acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The textual content.
- * @returns The created {@link Identifier}.
  */
 export const createIdentifier = (text: string): Identifier =>
   make("Identifier", { text });

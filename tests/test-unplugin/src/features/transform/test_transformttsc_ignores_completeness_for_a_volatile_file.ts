@@ -12,8 +12,8 @@ import { createWatchInputUnitFixture } from "../../internal/transform-complete/c
  * file can represent. The conservative one has to win, since narrowing to the
  * declared set would drop inputs the volatile output might still depend on.
  *
- * 1. Supply a literal envelope with a reported dependency, a graph, a completeness declaration,
- *    and a volatility declaration for `src/main.ts`.
+ * 1. Supply a literal envelope with a reported dependency, a graph, a completeness
+ *    declaration, and a volatility declaration for `src/main.ts`.
  * 2. Collect its watch inputs.
  * 3. Assert they are the full union of the reported dependency, the graph reach,
  *    and the universal inputs.
@@ -37,7 +37,9 @@ export function test_transformttsc_ignores_completeness_for_a_volatile_file(): v
     dependencies: { "src/main.ts": ["src/consulted.d.ts"] },
     volatile: ["src/main.ts"],
     hostInputs: ["package.json", "plugin.cjs", "tsconfig.json"],
-    pluginSources: { [path.join(fixture.root, "plugin-source")]: "unit-input-state" },
+    pluginSources: {
+      [path.join(fixture.root, "plugin-source")]: "unit-input-state",
+    },
   });
 
   assert.deepEqual(

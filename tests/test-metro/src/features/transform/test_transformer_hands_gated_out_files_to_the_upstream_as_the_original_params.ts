@@ -11,7 +11,8 @@ import { assertGatedOutFilesReachTheUpstreamAsTheOriginalParams } from "../../in
  *
  * 1. Install an upstream that records the params it receives.
  * 2. Transform a JavaScript file, a declaration, an excluded file, a file outside
- *    `include`, and a relative file below a project root named like the include.
+ *    `include`, and a relative file below a project root named like the
+ *    include.
  * 3. Assert each time the recorded params are the object that was passed in.
  *
  * @evidence contracts/testing.md#behavioral-verification transform on five gated-out files hands the recording upstream the identical params object, so a gate that let any of them into the ttsc pass would pass a spread copy and fail the identity check; the relative file is gated on its project-relative name, not on the absolute path containing the include word.

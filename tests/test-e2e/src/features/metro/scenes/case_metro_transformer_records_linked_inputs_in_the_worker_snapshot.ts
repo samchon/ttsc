@@ -4,8 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, workerSnapshotFiles, workerSnapshotTrees } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  prepareSnapshot,
+  workerSnapshotFiles,
+  workerSnapshotTrees,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies Metro records linked graph inputs in the worker snapshot.
@@ -43,8 +47,16 @@ export async function case_metro_transformer_records_linked_inputs_in_the_worker
   );
   const linked = path.join(linkedDirectory, "types.d.ts");
   const physicalTarget = fs.realpathSync.native(target);
-  assert.equal(fs.realpathSync.native(linked), physicalTarget, "the authored directory link must reach the external declaration");
-  assert.notEqual(path.resolve(linked), physicalTarget, "the dependency must retain a distinct lexical link spelling");
+  assert.equal(
+    fs.realpathSync.native(linked),
+    physicalTarget,
+    "the authored directory link must reach the external declaration",
+  );
+  assert.notEqual(
+    path.resolve(linked),
+    physicalTarget,
+    "the dependency must retain a distinct lexical link spelling",
+  );
   await prepareSnapshot(root);
   await TestMetroRuntime.runTransform({
     options: {

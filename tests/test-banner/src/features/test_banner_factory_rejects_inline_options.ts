@@ -8,12 +8,14 @@ import { fileURLToPath } from "node:url";
 import type createBanner from "../../../../packages/banner/src/index";
 
 /**
- * Verifies the banner factory rejects inline options before descriptor discovery.
+ * Verifies the banner factory rejects inline options before descriptor
+ * discovery.
  *
- * The TypeScript factory owns the first rejection of stale plugin-entry options,
- * before the Go driver can evaluate a banner config. A valid explicit configFile
- * and host registration keys must still produce the native descriptor even when
- * the selected config is absent; evaluating that file belongs to the driver.
+ * The TypeScript factory owns the first rejection of stale plugin-entry
+ * options, before the Go driver can evaluate a banner config. A valid explicit
+ * configFile and host registration keys must still produce the native
+ * descriptor even when the selected config is absent; evaluating that file
+ * belongs to the driver.
  *
  * 1. Call the authored factory with separate text, config and options entries.
  * 2. Assert each throw identifies its literal key and the configFile remedy.

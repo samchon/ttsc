@@ -1,13 +1,14 @@
 import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
 import { pathIsWithin } from "../../../../../../packages/unplugin/lib/core/transform/filesystem/pathIsWithin.mjs";
 import type { TtscSharedCompilePublication } from "../../../../../../packages/unplugin/lib/core/transform/session/TtscSharedCompilePublication.mjs";
 import { claimSharedCompile } from "../../../../../../packages/unplugin/lib/core/transform/session/claimSharedCompile.mjs";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Verifies Next worker inheritance, fresh-process store persistence and real

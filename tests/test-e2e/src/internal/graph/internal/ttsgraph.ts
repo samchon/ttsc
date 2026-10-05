@@ -1,10 +1,12 @@
 import { TestProject } from "@ttsc/testing";
 import { type ChildProcessWithoutNullStreams } from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawn } = E2eProcessTrace;
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const { spawn } = E2eProcessTrace;
 
 // Re-export the binding directly (not a re-bound const) so its assertion-function
 // signatures survive: `assert.ok` narrows only when the call target carries an

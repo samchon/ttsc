@@ -8,8 +8,9 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
 /**
  * Verifies plain JSON configuration can resolve without a script evaluator.
  *
- * The fixture contains neither plugins nor extends. Its deliberately nonexistent
- * launcher input makes an unnecessary attempt to evaluate user code observable.
+ * The fixture contains neither plugins nor extends. Its deliberately
+ * nonexistent launcher input makes an unnecessary attempt to evaluate user code
+ * observable.
  *
  * 1. Point the evaluator binary at a nonexistent launcher and write a JSON
  *    configuration without plugins or extends.
@@ -30,23 +31,23 @@ export function test_plain_json_config_does_not_require_a_script_evaluator(): vo
   try {
     for (const content of [
       '{"rules":{"no-var":"error"}}',
-      '{}',
-      '[]',
+      "{}",
+      "[]",
       '[null,{"rules":{"no-var":"error"}}]',
       '{"plugins":null,"extends":null,"rules":{}}',
     ]) {
       fs.writeFileSync(path.join(root, "ttsc-lint.config.json"), content);
       const descriptor = TestLintPlugin.loadFactory()({
-      ...TestLintPlugin.factoryContext({
-        transform: "@ttsc/lint",
-        configFile: "./ttsc-lint.config.json",
-      }),
-      binary: missingLauncher,
-      cwd: root,
-      pluginConfigDir: root,
-      projectRoot: root,
-      tsconfig: path.join(root, "tsconfig.json"),
-    });
+        ...TestLintPlugin.factoryContext({
+          transform: "@ttsc/lint",
+          configFile: "./ttsc-lint.config.json",
+        }),
+        binary: missingLauncher,
+        cwd: root,
+        pluginConfigDir: root,
+        projectRoot: root,
+        tsconfig: path.join(root, "tsconfig.json"),
+      });
       assert.equal(descriptor.name, "@ttsc/lint", content);
       assert.deepEqual(descriptor.contributors ?? [], [], content);
     }

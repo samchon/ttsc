@@ -14,7 +14,6 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * module asks it.
  *
  * @param result The generation's envelope.
- *
  * @evidence contracts/common.md#principled-implementation Each valid producer directory/digest pair records a universal plugin-build input; exceptions and malformed entries contribute no proven state rather than implying an empty subtree is unchanged.
  * @evidence contracts/common.md#clear-and-simple-design One weakly memoized map exposes absolute directory spellings and their reported states; subtree observation and digest validation remain with the consuming cache/watch owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Digest values come from the actual envelope and are not recomputed later to retroactively certify the compile; non-string values cannot masquerade as a source-state proof.

@@ -6,12 +6,11 @@ import type { JsxAttributeValue } from "./JsxAttributeValue";
  *
  * Built by {@link factory.createJsxAttribute}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Name and optional JsxAttributeValue preserve valued versus bare attributes; absence prints a bare name rather than manufacturing a boolean value node.
  * @evidence contracts/common.md#clear-and-simple-design Shared name/value unions own their alternatives while this node owns attachment and initializer presence.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Names and values are supplied syntax without special component attributes for consumers.
  * @evidence contracts/common.md#meaningful-documentation JSDoc illustrates quoted, expression and bare attributes and explains omitted initializer; comments follow the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JsxAttribute {
   /** Discriminant tag; always `"JsxAttribute"`. */

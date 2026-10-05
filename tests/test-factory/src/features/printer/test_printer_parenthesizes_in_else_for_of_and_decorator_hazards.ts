@@ -50,11 +50,11 @@ const forInit = (initializer: ReturnType<typeof inExpression> | Node) =>
 
 /**
  * Verifies the printer parenthesizes `in` inside a `for` initializer, braces a
- * then-branch that would capture an `else`, and keeps the groupings a `for...of`
- * target, a decorator and a `>` chain need.
+ * then-branch that would capture an `else`, and keeps the groupings a
+ * `for...of` target, a decorator and a `>` chain need.
  *
- * `in` at the top level of a `for` initializer ends the initializer and starts a
- * `for...in`, so it needs parentheses there and nowhere inside brackets or a
+ * `in` at the top level of a `for` initializer ends the initializer and starts
+ * a `for...in`, so it needs parentheses there and nowhere inside brackets or a
  * conditional's consequent. An `else` binds to the nearest unmatched `if`, so a
  * then-branch that ends in an `if` without an `else` must be wrapped in a block
  * even when the statement is a loop or label around that `if`.
@@ -66,7 +66,10 @@ const forInit = (initializer: ReturnType<typeof inExpression> | Node) =>
  *    label around one, with an unbraced and a braced then-branch, and the
  *    neighbors that need no block.
  * 3. Print a `for...of` over a comma list, a decorator on an element access, and
- *    `>`, `>>` and neighbors at a width where other operators break. The `<` comparisons that need parentheses to avoid a type-argument reading are owned by test_printer_keeps_less_than_comparisons_from_reading_as_type_arguments.
+ *    `>`, `>>` and neighbors at a width where other operators break. The `<`
+ *    comparisons that need parentheses to avoid a type-argument reading are
+ *    owned by
+ *    test_printer_keeps_less_than_comparisons_from_reading_as_type_arguments.
  *
  * @evidence contracts/testing.md#behavioral-verification Prints each tree with TsPrinter and requires the exact authored text; the else cases additionally parse that equal literal and compare outer/inner else presence with authored pairs, including the inner-own-else and outer-no-else controls.
  * @evidence contracts/testing.md#independent-expectations The literals follow the ECMAScript grammar (the `[~In]` initializer, the dangling-else rule, `for (x of AssignmentExpression)`, a decorator's parenthesized member expression, which forbids `@d[e]`); each is parsed by the pinned legacy parser and its tree compared with an authored kind outline, so the oracle is the grammar and not the printer's own text. The legacy printer is not used because it prints the same trees with the hazards unprotected.
@@ -135,7 +138,8 @@ export const test_printer_parenthesizes_in_else_for_of_and_decorator_hazards =
     ];
     const expression = (name: string) => f.createExpressionStatement(id(name));
     const bareIf = () => f.createIfStatement(id("b"), expression("x"));
-    const braced = (statement: Node) => f.createBlock([statement as never], true);
+    const braced = (statement: Node) =>
+      f.createBlock([statement as never], true);
     const elseCases: Case[] = [
       {
         name: "then-branch is an if without else",
@@ -228,7 +232,9 @@ export const test_printer_parenthesizes_in_else_for_of_and_decorator_hazards =
         tree: () =>
           f.createClassDeclaration(
             [
-              f.createDecorator(f.createElementAccessExpression(id("d"), id("e"))),
+              f.createDecorator(
+                f.createElementAccessExpression(id("d"), id("e")),
+              ),
             ],
             "A",
             undefined,
@@ -244,7 +250,11 @@ export const test_printer_parenthesizes_in_else_for_of_and_decorator_hazards =
         tree: () =>
           f.createExpressionStatement(
             f.createBinaryExpression(
-              f.createBinaryExpression(id("a"), SyntaxKind.LessThanToken, id("b")),
+              f.createBinaryExpression(
+                id("a"),
+                SyntaxKind.LessThanToken,
+                id("b"),
+              ),
               SyntaxKind.GreaterThanToken,
               id("c"),
             ),
@@ -264,7 +274,10 @@ export const test_printer_parenthesizes_in_else_for_of_and_decorator_hazards =
         const inner = innermostIf(outer.thenStatement);
         TestValidator.equals(
           `${c.name}: the else belongs to the outer if`,
-          [outer.elseStatement !== undefined, inner?.elseStatement !== undefined],
+          [
+            outer.elseStatement !== undefined,
+            inner?.elseStatement !== undefined,
+          ],
           c.elses,
         );
         continue;
@@ -293,7 +306,11 @@ export const test_printer_parenthesizes_in_else_for_of_and_decorator_hazards =
       );
     for (const [name, kind, operator] of [
       ["less-than", SyntaxKind.LessThanToken, "<"],
-      ["unsigned right shift", SyntaxKind.GreaterThanGreaterThanGreaterThanToken, ">>>"],
+      [
+        "unsigned right shift",
+        SyntaxKind.GreaterThanGreaterThanGreaterThanToken,
+        ">>>",
+      ],
       ["greater-or-equal", SyntaxKind.GreaterThanEqualsToken, ">="],
     ] as const) {
       TestValidator.equals(

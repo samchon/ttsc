@@ -441,10 +441,19 @@ export function createMemFS(): IMemFSHost {
   }
 
   /** Reject invalid byte slices before a write or queued read can mutate state. */
-  function validSlice(buffer: Uint8Array, offset: number, length: number): boolean {
-    return Number.isSafeInteger(offset) && Number.isSafeInteger(length) &&
-      offset >= 0 && length >= 0 && offset <= buffer.byteLength &&
-      length <= buffer.byteLength - offset;
+  function validSlice(
+    buffer: Uint8Array,
+    offset: number,
+    length: number,
+  ): boolean {
+    return (
+      Number.isSafeInteger(offset) &&
+      Number.isSafeInteger(length) &&
+      offset >= 0 &&
+      length >= 0 &&
+      offset <= buffer.byteLength &&
+      length <= buffer.byteLength - offset
+    );
   }
 
   /**

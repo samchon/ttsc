@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { BASE_OPTIONS, envelope, makeFakeWorker } from "../internal/fakeWorker";
 
 /**
- * Verifies a lint plugin failure is surfaced rather than reported as a clean file.
+ * Verifies a lint plugin failure is surfaced rather than reported as a clean
+ * file.
  *
  * A lint plugin that fails to run must stay visible; it can never collapse into
  * an empty (clean) diagnostic list. A lint run that _completed_ — even with a
@@ -40,7 +41,16 @@ export const test_playground_plugin_failure_lint_never_reports_false_clean =
       const { diagnostics } = await service.lint({ source });
       assert.equal(diagnostics.length, 1, "a failed lint must not look clean");
       assert.equal(diagnostics[0]?.severity, "error");
-      assert.deepEqual(diagnostics, [{ line: 1, column: 1, length: 1, severity: "error", message: "panic: lint host exploded", code: "PLUGIN" }]);
+      assert.deepEqual(diagnostics, [
+        {
+          line: 1,
+          column: 1,
+          length: 1,
+          severity: "error",
+          message: "panic: lint host exploded",
+          code: "PLUGIN",
+        },
+      ]);
     }
 
     // 2. Rejected call → surfaced failure.
@@ -57,7 +67,16 @@ export const test_playground_plugin_failure_lint_never_reports_false_clean =
         "a rejected lint must not look clean",
       );
       assert.match(String(diagnostics[0]?.message), /worker terminated/);
-      assert.deepEqual(diagnostics, [{ line: 1, column: 1, length: 1, severity: "error", message: "worker terminated", code: "PLUGIN" }]);
+      assert.deepEqual(diagnostics, [
+        {
+          line: 1,
+          column: 1,
+          length: 1,
+          severity: "error",
+          message: "worker terminated",
+          code: "PLUGIN",
+        },
+      ]);
     }
 
     // 3. Negative twin: a completed linter's real findings survive intact.
@@ -76,7 +95,16 @@ export const test_playground_plugin_failure_lint_never_reports_false_clean =
       assert.equal(diagnostics[0]?.column, 14);
       assert.equal(diagnostics[0]?.code, "TS9001");
       assert.match(String(diagnostics[0]?.message), /no-magic/);
-      assert.deepEqual(diagnostics, [{ line: 1, column: 14, length: 1, severity: "error", code: "TS9001", message: "[no-magic] avoid literals" }]);
+      assert.deepEqual(diagnostics, [
+        {
+          line: 1,
+          column: 14,
+          length: 1,
+          severity: "error",
+          code: "TS9001",
+          message: "[no-magic] avoid literals",
+        },
+      ]);
     }
 
     // 4. Boundary: a completed clean run is genuinely empty.

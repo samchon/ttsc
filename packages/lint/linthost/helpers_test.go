@@ -200,8 +200,6 @@ func findingRules(findings []*Finding) []string {
   return names
 }
 
-
-
 // requireNoAmbientInstall skips the case when a `node_modules` above the
 // fixture already installs `pkg`.
 //
@@ -219,7 +217,6 @@ func requireNoAmbientInstall(t *testing.T, root, pkg string) {
     t.Skipf("an ambient %s install at %s answers above the fixture", pkg, found)
   }
 }
-
 
 // seedProjectTtsc materializes the `ttsc` install a project-anchored launcher
 // resolution walks to, under `root`'s node_modules, and returns the launcher

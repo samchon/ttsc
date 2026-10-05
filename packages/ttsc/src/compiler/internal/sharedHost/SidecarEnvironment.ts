@@ -22,9 +22,9 @@ export namespace SidecarEnvironment {
    * names.
    *
    * Windows names are case-insensitive. Within one layer the lexicographically
-   * first own spelling wins, matching Node spawn's duplicate selection for
-   * this own-entry boundary; later layers override earlier
-   * layers independently of spelling. POSIX names remain case-sensitive.
+   * first own spelling wins, matching Node spawn's duplicate selection for this
+   * own-entry boundary; later layers override earlier layers independently of
+   * spelling. POSIX names remain case-sensitive.
    *
    * @evidence contracts/common.md#principled-implementation Layer order expresses caller authority; Windows folds name identity while selecting each layer's lexicographically first spelling, matching Node's duplicate-name rule without allowing an inherited alias to defeat an override.
    * @evidence contracts/common.md#clear-and-simple-design One environment merge owns native name identity for every sidecar constructor; callers supply distinct default, caller and resolved-value layers instead of embedding precedence in object spreads.

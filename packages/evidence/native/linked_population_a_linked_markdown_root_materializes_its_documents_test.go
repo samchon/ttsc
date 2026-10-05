@@ -1,7 +1,7 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 )
 
 /**
@@ -24,14 +24,14 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkedMarkdownRootMaterializesItsDocuments(t *testing.T) {
-	workspace := t.TempDir()
-	writeLinkedDocuments(t, workspace, map[string]string{
-		"requirements/pricing.md": "## Discounts {#discounts}\n",
-	})
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/src/sale.ts": "/** @evidence requirements/pricing.md#discounts Discount rules follow this section. */\n" +
-			"export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  writeLinkedDocuments(t, workspace, map[string]string{
+    "requirements/pricing.md": "## Discounts {#discounts}\n",
+  })
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "/** @evidence requirements/pricing.md#discounts Discount rules follow this section. */\n" +
+      "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
@@ -42,5 +42,5 @@ func TestALinkedMarkdownRootMaterializesItsDocuments(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	assertNoProblems(t, messages)
+  assertNoProblems(t, messages)
 }

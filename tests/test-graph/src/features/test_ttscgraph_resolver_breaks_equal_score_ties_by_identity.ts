@@ -23,27 +23,27 @@ import {
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
 export function test_ttscgraph_resolver_breaks_equal_score_ties_by_identity(): void {
-    const nodes: ResolverGraphNode[] = ["c", "a", "b"].map((letter) => ({
-      id: `src/${letter}.ts#Tied:class`,
-      kind: "class",
-      name: "Tied",
-      file: `src/${letter}.ts`,
-      external: false,
-    }));
-    const expected = [
-      "src/a.ts#Tied:class",
-      "src/b.ts#Tied:class",
-      "src/c.ts#Tied:class",
-    ];
+  const nodes: ResolverGraphNode[] = ["c", "a", "b"].map((letter) => ({
+    id: `src/${letter}.ts#Tied:class`,
+    kind: "class",
+    name: "Tied",
+    file: `src/${letter}.ts`,
+    external: false,
+  }));
+  const expected = [
+    "src/a.ts#Tied:class",
+    "src/b.ts#Tied:class",
+    "src/c.ts#Tied:class",
+  ];
 
-    const forward = resolveSyntheticGraph(nodes, "Tied", 3);
-    const reverse = resolveSyntheticGraph([...nodes].reverse(), "Tied", 3);
-    assert.deepStrictEqual(
-      forward.candidates?.map((node) => node.id),
-      expected,
-    );
-    assert.deepStrictEqual(
-      reverse.candidates?.map((node) => node.id),
-      expected,
-    );
+  const forward = resolveSyntheticGraph(nodes, "Tied", 3);
+  const reverse = resolveSyntheticGraph([...nodes].reverse(), "Tied", 3);
+  assert.deepStrictEqual(
+    forward.candidates?.map((node) => node.id),
+    expected,
+  );
+  assert.deepStrictEqual(
+    reverse.candidates?.map((node) => node.id),
+    expected,
+  );
 }

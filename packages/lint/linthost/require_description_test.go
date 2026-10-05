@@ -8,10 +8,10 @@ import "testing"
 // The rule is comment-local: a block with only tags does not explain the
 // declaration regardless of which node the comment precedes.
 //
-// 1. Run the rule over a block whose only content is `@param name description`
-//    and expect one finding on line 1, the opening line of the block.
-// 2. Run the rule over a block that adds the prose line `Explains the
-//    declaration.` before the same tag and expect none.
+//  1. Run the rule over a block whose only content is `@param name description`
+//     and expect one finding on line 1, the opening line of the block.
+//  2. Run the rule over a block that adds the prose line `Explains the
+//     declaration.` before the same tag and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-description rule through NewEngine.Run over a parsed virtual TypeScript file. The tag-only block yields exactly one finding, with that rule at error severity, on line 1 (the `/**` opener); the block with a prose line yields none.
 // @evidence contracts/testing.md#independent-expectations The authored @param payload supplies no block description, while the authored prose line does. These literal inputs independently fix the report at opening line 1 and the clean outcome; the message text and @description-tag branch are not asserted.

@@ -8,26 +8,26 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 
 /**
- * Remove missing or unreadable input claims from mutable tracker coverage.
- * This is a postcapture filter, not independent admission of every remaining
+ * Remove missing or unreadable input claims from mutable tracker coverage. This
+ * is a postcapture filter, not independent admission of every remaining
  * spelling; generation stability and tracker health must also hold.
  *
  * The observers must open before the post-compile snapshots so they can witness
  * an A-B-A race. Their exact coverage can only be narrowed after those reads.
- * Unreadable nondirectory and absent inputs can record the same `missing` state;
- * neither may inherit a content shortcut because its metadata can stay fixed
- * while bytes become readable. Missing resolver candidates inside the project
- * retain their separate component-aware candidate tracker, while every other
- * such input continues through the recorded predicate or directory-list proof.
+ * Unreadable nondirectory and absent inputs can record the same `missing`
+ * state; neither may inherit a content shortcut because its metadata can stay
+ * fixed while bytes become readable. Missing resolver candidates inside the
+ * project retain their separate component-aware candidate tracker, while every
+ * other such input continues through the recorded predicate or directory-list
+ * proof.
  *
  * A plugin source directory has no entry, and is kept all the same: capture
  * records it among the manifest's trees only once its state was proven
  * (`pluginSourceHolds`, samchon/ttsc#1487), and the tracker watches it as a
  * whole subtree. Qualified silence can serve its source files, but the build
- * environment still needs separate proof. Dropping it left every delivery unable
- * to take the
- * manifest's notification shortcut, re-reading every universal input and
- * proving every plugin source's state again.
+ * environment still needs separate proof. Dropping it left every delivery
+ * unable to take the manifest's notification shortcut, re-reading every
+ * universal input and proving every plugin source's state again.
  *
  * @evidence contracts/common.md#principled-implementation This filter removes explicit missing/unreadable host or external states, while admitted trees and kind/content-qualified entries keep their separate authority. Missing host validation alone does not clear the set or prove other spellings; full admission remains with capture and validators.
  * @evidence contracts/common.md#clear-and-simple-design One postcapture operation reconciles watcher coverage with the admitted manifest rather than duplicating snapshot rules during observer acquisition.

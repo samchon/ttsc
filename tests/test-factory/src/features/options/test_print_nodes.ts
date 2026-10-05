@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags } from "../../../../../packages/factory/src/index";
 
+import factory, { NodeFlags } from "../../../../../packages/factory/src/index";
 import { id, num, printer } from "../../internal/helpers";
 
 /**
@@ -8,8 +8,10 @@ import { id, num, printer } from "../../internal/helpers";
  *
  * Two `const` statements print on consecutive lines.
  *
- * 1. TsPrinter.printNodes joins const a = 1; and const b = 2; with one newline in order.
- * 2. The exact two-statement literal specifies values, declaration modes and separator without asking another printer.
+ * 1. TsPrinter.printNodes joins const a = 1; and const b = 2; with one newline in
+ *    order.
+ * 2. The exact two-statement literal specifies values, declaration modes and
+ *    separator without asking another printer.
  *
  * @evidence contracts/testing.md#behavioral-verification TsPrinter.printNodes joins const a = 1; and const b = 2; with one newline in order.
  * @evidence contracts/testing.md#independent-expectations The exact two-statement literal specifies values, declaration modes and separator without asking another printer.

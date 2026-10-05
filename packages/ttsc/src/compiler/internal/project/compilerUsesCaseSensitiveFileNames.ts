@@ -12,20 +12,20 @@ import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/re
  * (`internal/vfs/osvfs/os.go`, `isFileSystemCaseSensitive`):
  *
  * - On Windows, never; on the upstream WebAssembly host, always;
- * - On other upstream hosts, unless `os.Executable()` is found again under its case-swapped
- *   spelling, every letter's case flipped (`swapCase`); a missing swapped path
- *   means sensitive, and any other failure stops the compiler.
+ * - On other upstream hosts, unless `os.Executable()` is found again under its
+ *   case-swapped spelling, every letter's case flipped (`swapCase`); a missing
+ *   swapped path means sensitive, and any other failure stops the compiler.
  *
- * This Node helper returns false on Windows. Elsewhere it resolves the project's
- * plugin-cache root (`--cache-dir`, `TTSC_CACHE_DIR`, or the default workspace
- * root), creates it and probes its physical spelling. Source-built compiler and
- * plugin hosts are placed at `<plugin cache root>/<key>/plugin`, but probing the
- * root is a proxy, not observation of their executable. Different directory
- * case policies, lexical symlink spellings and Unicode case mappings can make
- * the proxy disagree. In particular, on Darwin an explicitly linked root is
- * probed at its target rather than the spelling the compiler sees. This helper
- * does not implement the upstream WebAssembly branch or certify an arbitrary
- * selected compiler binary.
+ * This Node helper returns false on Windows. Elsewhere it resolves the
+ * project's plugin-cache root (`--cache-dir`, `TTSC_CACHE_DIR`, or the default
+ * workspace root), creates it and probes its physical spelling. Source-built
+ * compiler and plugin hosts are placed at `<plugin cache root>/<key>/plugin`,
+ * but probing the root is a proxy, not observation of their executable.
+ * Different directory case policies, lexical symlink spellings and Unicode case
+ * mappings can make the proxy disagree. In particular, on Darwin an explicitly
+ * linked root is probed at its target rather than the spelling the compiler
+ * sees. This helper does not implement the upstream WebAssembly branch or
+ * certify an arbitrary selected compiler binary.
  *
  * Cache setup failures and swapped-path errors other than ENOENT return false.
  * That fallback admits more case spellings than a sensitive answer; it does not
@@ -35,7 +35,6 @@ import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/re
  * @param props.projectRoot The project the compile runs for.
  * @param props.cacheDir The cache directory the compile is given, if any.
  * @param props.env The compile's environment.
- *
  * @evidence contracts/common.md#principled-implementation The Windows return matches the pinned compiler's explicit policy; other hosts probe the physical plugin-cache root's swapped spelling as a proxy for the executable placed beneath it, with the documented Darwin lexical-path limitation.
  * @evidence contracts/common.md#clear-and-simple-design Cache-root selection stays with SourceBuildCacheLayout while this boundary owns the compiler case-policy approximation and swapCase owns Unicode spelling conversion.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The platform branch expresses actual upstream compiler behavior rather than a generic filesystem assumption; unreadable probes conservatively admit more spellings instead of inventing a known project answer.
@@ -102,7 +101,8 @@ const ANSWERS = new Map<string, boolean>();
  * upper-case to their title-case forms. Such a character is kept as it is here.
  * The resulting string therefore need not equal Go's swapped string. Whether
  * either spelling resolves is a separate native filesystem observation; this
- * conversion alone does not prove that one probe's answers contain the other's.
+ * conversion alone does not prove that one probe's answers contain the
+ * other's.
  *
  * This private helper owns only spelling conversion. The caller owns native
  * filesystem interpretation and caches established root answers. One code-point

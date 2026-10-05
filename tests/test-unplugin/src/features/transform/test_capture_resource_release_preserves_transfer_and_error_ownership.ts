@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestProject } from "../../../../utils/src/TestProject";
 import { disposeFilesystemClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/disposeFilesystemClockReference";
 import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/refreshFilesystemClockReference";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { releaseCaptureResources } from "../../../../../packages/unplugin/src/core/transform/generation/releaseCaptureResources";
-import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
+import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies capture cleanup preserves transfer and selected error ownership.
@@ -28,13 +28,25 @@ import type { TtscProjectMutationTracker } from "../../../../../packages/unplugi
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit invokes the actual production cleanup operation in process on native temporary storage and constructor-owned scripted watch handles. It starts no native watcher, compiler, producer, process or host, and certifies neither resource acquisition nor capture/IPC nor a throwing backend's actual native release. Shared claim release and final clock registration remain caller responsibilities. Finally attempts remaining tracker closes and known clock cleanup.
  */
 export async function test_capture_resource_release_preserves_transfer_and_error_ownership(): Promise<void> {
-  for (const mode of ["unretained", "retained", "nested-errors", "rollback", "prior-capture-error"] as const) {
-    const root = fs.realpathSync.native(TestProject.createProject({ "input.json": "{}\n" }));
+  for (const mode of [
+    "unretained",
+    "retained",
+    "nested-errors",
+    "rollback",
+    "prior-capture-error",
+  ] as const) {
+    const root = fs.realpathSync.native(
+      TestProject.createProject({ "input.json": "{}\n" }),
+    );
     const input = path.join(root, "input.json");
     const scratch = TestProject.tmpdir("ttsc-cleanup-scratch-");
-    TestProject.writeFiles(scratch, { "nested/generated.json": "owned scratch\n" });
+    TestProject.writeFiles(scratch, {
+      "nested/generated.json": "owned scratch\n",
+    });
     const clock = TestProject.tmpdir("ttsc-cleanup-clock-");
-    refreshFilesystemClockReference(clock, { ...DEFAULT_FILESYSTEM_OPERATIONS });
+    refreshFilesystemClockReference(clock, {
+      ...DEFAULT_FILESYSTEM_OPERATIONS,
+    });
     const probe = path.join(clock, "clock-reference");
     assert.equal(fs.statSync(probe).isFile(), true);
     const clockBytes = fs.readFileSync(probe);
@@ -46,51 +58,104 @@ export async function test_capture_resource_release_preserves_transfer_and_error
     try {
       for (const name of ["project", "host", "candidate"] as const) {
         let opened = 0;
-        const error = mode === "nested-errors"
-          ? name === "project" ? projectError : name === "candidate" ? candidateError : undefined
-          : mode === "rollback" || mode === "prior-capture-error"
-            ? name === "project" ? projectError : name === "host" ? hostError : candidateError
-            : undefined;
-        const tracker = await createHostInputMutationTracker([input], {
-          ...DEFAULT_FILESYSTEM_OPERATIONS,
-          caseSensitive: () => true,
-          watch: () => {
-            opened++;
-            return { close: () => {
-              closes.push(name);
-              if (error !== undefined) throw error;
-            } };
+        const error =
+          mode === "nested-errors"
+            ? name === "project"
+              ? projectError
+              : name === "candidate"
+                ? candidateError
+                : undefined
+            : mode === "rollback" || mode === "prior-capture-error"
+              ? name === "project"
+                ? projectError
+                : name === "host"
+                  ? hostError
+                  : candidateError
+              : undefined;
+        const tracker = await createHostInputMutationTracker(
+          [input],
+          {
+            ...DEFAULT_FILESYSTEM_OPERATIONS,
+            caseSensitive: () => true,
+            watch: () => {
+              opened++;
+              return {
+                close: () => {
+                  closes.push(name);
+                  if (error !== undefined) throw error;
+                },
+              };
+            },
           },
-        }, new Set([input]), "all", root);
+          new Set([input]),
+          "all",
+          root,
+        );
         trackers.push(tracker);
-        assert.equal(opened, 1, "one actual constructor owns one supplied root handle");
+        assert.equal(
+          opened,
+          1,
+          "one actual constructor owns one supplied root handle",
+        );
         assert.equal(tracker.failed, false);
       }
       const retained = mode === "retained";
       const rollback = mode === "rollback" || mode === "prior-capture-error";
       const releasing = releaseCaptureResources({
-        project: trackers[0], host: trackers[1], candidate: trackers[2],
-        retainProject: retained, retainHost: retained || rollback,
-        retainCandidate: retained || rollback, scratchDirectory: scratch,
-        clockReferenceDirectory: clock, retainClockReference: retained || rollback,
+        project: trackers[0],
+        host: trackers[1],
+        candidate: trackers[2],
+        retainProject: retained,
+        retainHost: retained || rollback,
+        retainCandidate: retained || rollback,
+        scratchDirectory: scratch,
+        clockReferenceDirectory: clock,
+        retainClockReference: retained || rollback,
         captureFailed: mode === "prior-capture-error",
       });
-      if (mode === "nested-errors") await assert.rejects(releasing, (error: unknown) => error === candidateError);
-      else if (mode === "rollback") await assert.rejects(releasing, (error: unknown) => error === projectError);
+      if (mode === "nested-errors")
+        await assert.rejects(
+          releasing,
+          (error: unknown) => error === candidateError,
+        );
+      else if (mode === "rollback")
+        await assert.rejects(
+          releasing,
+          (error: unknown) => error === projectError,
+        );
       else await releasing;
-      assert.equal(fs.existsSync(scratch), false, "scratch removal follows all local close attempts");
-      assert.deepEqual(closes, retained ? [] : ["project", "host", "candidate"]);
+      assert.equal(
+        fs.existsSync(scratch),
+        false,
+        "scratch removal follows all local close attempts",
+      );
+      assert.deepEqual(
+        closes,
+        retained ? [] : ["project", "host", "candidate"],
+      );
       assert.equal(fs.existsSync(probe), retained);
       assert.equal(fs.existsSync(clock), retained);
       if (retained) {
-        assert.deepEqual(fs.readFileSync(probe), clockBytes, "transferred reference is untouched");
-        assert.deepEqual(trackers.map((tracker) => tracker.failed), [false, false, false]);
+        assert.deepEqual(
+          fs.readFileSync(probe),
+          clockBytes,
+          "transferred reference is untouched",
+        );
+        assert.deepEqual(
+          trackers.map((tracker) => tracker.failed),
+          [false, false, false],
+        );
       } else {
-        assert.deepEqual(trackers.map((tracker) => tracker.failed), [true, true, true]);
+        assert.deepEqual(
+          trackers.map((tracker) => tracker.failed),
+          [true, true, true],
+        );
       }
     } finally {
       for (const tracker of trackers) {
-        try { tracker.close(); } catch {}
+        try {
+          tracker.close();
+        } catch {}
       }
       disposeFilesystemClockReference(clock);
     }

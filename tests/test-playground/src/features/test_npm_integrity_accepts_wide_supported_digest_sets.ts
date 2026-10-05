@@ -21,15 +21,29 @@ import { verifyTarball } from "../../../../packages/playground/src/npm/internal/
  * @evidence contracts/testing.md#distinguishing-cases Singleton and wide valid sets contrast with a wide set computed over different bytes; cancellation belongs to the archive abort-boundary unit and strongest-digest precedence to the strongest-integrity unit.
  * @evidence contracts/testing.md#execution-ownership This exported asynchronous source unit directly invokes the authored verifier and Web Crypto on an in-memory three-byte payload, without fetching or installing an archive or starting a product host.
  */
-export const test_npm_integrity_accepts_wide_supported_digest_sets = async (): Promise<void> => {
-  const bytes = new Uint8Array([1, 2, 3]);
-  const good = "sha256-" + createHash("sha256").update(bytes).digest("base64");
-  const bad = "sha256-" + createHash("sha256").update(new Uint8Array([3, 2, 1])).digest("base64");
-  for (const size of [1, 200_000]) {
-    await verifyTarball(bytes.buffer, { integrity: Array(size).fill(good).join(" ") }, undefined);
-  }
-  await assert.rejects(
-    verifyTarball(bytes.buffer, { integrity: Array(200_000).fill(bad).join(" ") }, undefined),
-    /tarball integrity mismatch \(sha256\)/,
-  );
-};
+export const test_npm_integrity_accepts_wide_supported_digest_sets =
+  async (): Promise<void> => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const good =
+      "sha256-" + createHash("sha256").update(bytes).digest("base64");
+    const bad =
+      "sha256-" +
+      createHash("sha256")
+        .update(new Uint8Array([3, 2, 1]))
+        .digest("base64");
+    for (const size of [1, 200_000]) {
+      await verifyTarball(
+        bytes.buffer,
+        { integrity: Array(size).fill(good).join(" ") },
+        undefined,
+      );
+    }
+    await assert.rejects(
+      verifyTarball(
+        bytes.buffer,
+        { integrity: Array(200_000).fill(bad).join(" ") },
+        undefined,
+      ),
+      /tarball integrity mismatch \(sha256\)/,
+    );
+  };

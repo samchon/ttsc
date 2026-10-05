@@ -22,7 +22,10 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage The original JavaScript-entry donor's five argv tokens and typed value survive here in the shared typed-entry connection; its CommonJS-main frontdoor is not certified by this dependency. Portable option partition and runtime suffix decisions remain in the two existing test-ttsc argument units; response expansion, main startup and fatal exit lifetimes are not certified by those units or this assertion.
  */
 export function assertRuntimeCliCorpus(actual: unknown): void {
-  assert.ok(actual !== null && typeof actual === "object", "cli policy payload is required");
+  assert.ok(
+    actual !== null && typeof actual === "object",
+    "cli policy payload is required",
+  );
   const observed = actual as Record<string, unknown>;
   const failures: Error[] = [];
   const check = (name: string, run: () => void): void => {
@@ -33,10 +36,12 @@ export function assertRuntimeCliCorpus(actual: unknown): void {
     }
   };
   check("post-entry option-shaped argv", () =>
-    assert.deepEqual(observed.argv, ["--config", "x", "--port", "3", "--help"]));
+    assert.deepEqual(observed.argv, ["--config", "x", "--port", "3", "--help"]),
+  );
   check("typed dependency value", () => assert.equal(observed.value, "typed"));
   check("imported dependency is not the main module", () =>
-    assert.equal(observed.dependencyMain, "main" in import.meta ? false : null));
+    assert.equal(observed.dependencyMain, "main" in import.meta ? false : null),
+  );
   if (failures.length)
     throw new AggregateError(failures, "Shared runtime CLI corpus failed");
 }

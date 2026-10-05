@@ -66,7 +66,8 @@ export interface ICompilerService {
 
 export namespace ICompilerService {
   /**
-   * Per-call source and transform enablement; omitted flags use service defaults.
+   * Per-call source and transform enablement; omitted flags use service
+   * defaults.
    *
    * @evidence contracts/common.md#principled-implementation Text and optional flags capture the complete per-call input without embedding factory runtime identity.
    * @evidence contracts/common.md#clear-and-simple-design Compile, bundle and lint share one input record rather than duplicate source policy.
@@ -121,7 +122,8 @@ export namespace ICompilerService {
   }
 
   /**
-   * Compile outcome discriminated by successful emit, findings or operation error.
+   * Compile outcome discriminated by successful emit, findings or operation
+   * error.
    *
    * @evidence contracts/common.md#principled-implementation The type field discriminates string emit from unknown error payload; failure retains both emit and diagnostics.
    * @evidence contracts/common.md#clear-and-simple-design Named variants centralize result narrowing across Worker and UI.
@@ -131,7 +133,8 @@ export namespace ICompilerService {
   export type IResult = ISuccess | IFailure | IError;
 
   /**
-   * JavaScript emit with no error diagnostics; empty text may mean no emitted file.
+   * JavaScript emit with no error diagnostics; empty text may mean no emitted
+   * file.
    *
    * @evidence contracts/common.md#principled-implementation The success discriminant and string payload represent the compile lane's non-error outcome.
    * @evidence contracts/common.md#clear-and-simple-design The common envelope is reused without an unnecessary second success structure.
@@ -153,7 +156,8 @@ export namespace ICompilerService {
   }
 
   /**
-   * Operation failure whose transport payload may be an error record or message.
+   * Operation failure whose transport payload may be an error record or
+   * message.
    *
    * @evidence contracts/common.md#principled-implementation Unknown preserves the permitted error payload domain until the receiver normalizes it.
    * @evidence contracts/common.md#clear-and-simple-design The error discriminant shares routing fields with other outcomes without pretending its payload is JavaScript.
@@ -169,7 +173,8 @@ export namespace ICompilerService {
   }
 
   /**
-   * UI diagnostic with one-based location and a span measured in source characters.
+   * UI diagnostic with one-based location and a span measured in source
+   * characters.
    *
    * @evidence contracts/common.md#principled-implementation Location, severity, text and optional code represent compiler and lint findings without tying them to one producer.
    * @evidence contracts/common.md#clear-and-simple-design One diagnostic shape is shared by compile and lint result lanes.
@@ -194,7 +199,8 @@ export namespace ICompilerService {
   }
 
   /**
-   * Lint findings, including an error diagnostic when the configured plugin fails.
+   * Lint findings, including an error diagnostic when the configured plugin
+   * fails.
    *
    * @evidence contracts/common.md#principled-implementation A diagnostic array covers both rule findings and plugin failure reports; absence of configured lint yields an empty array.
    * @evidence contracts/common.md#clear-and-simple-design The lint lane returns findings without unrelated JavaScript output fields.

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
 import { runLookup } from "../../../../packages/graph/src/server/runLookup";
 import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
@@ -91,38 +92,40 @@ const dump = (): ITtscGraphDump => ({
  * @evidence contracts/testing.md#execution-ownership The named src/features entry invokes authored memory and lookup functions on deliberately synthetic index data without installed artifacts, native builds or a host.
  */
 export function test_ttscgraph_artifact_nodes_answer_the_address_they_name(): void {
-    const graph = TtscGraphMemory.from(dump());
+  const graph = TtscGraphMemory.from(dump());
 
-    const section = graph.node("docs/sale.md#pricing");
-    assert.notEqual(section, undefined, "the section is not in the memory");
-    const contains = graph
-      .incoming(section!.id)
-      .filter((edge) => edge.kind === "contains");
-    assert.deepEqual(
-      contains.map((edge) => edge.from),
-      ["docs/sale.md"],
-      "a section is contained by its document, never by a synthesized file node",
-    );
+  const section = graph.node("docs/sale.md#pricing");
+  assert.notEqual(section, undefined, "the section is not in the memory");
+  const contains = graph
+    .incoming(section!.id)
+    .filter((edge) => edge.kind === "contains");
+  assert.deepEqual(
+    contains.map((edge) => edge.from),
+    ["docs/sale.md"],
+    "a section is contained by its document, never by a synthesized file node",
+  );
 
-    const hits = runLookup(graph, { type: "lookup", query: "docs/sale.md#pricing" }).result
-      .hits;
-    assert.equal(
-      hits[0]?.id,
-      "docs/sale.md#pricing",
-      "the artifact does not lead the answer to its own address",
-    );
-    assert.equal(
-      hits[0]?.name,
-      "Pricing",
-      "the artifact answered without the heading text it exists to carry",
-    );
-    assert.ok(
-      hits.some((hit) => hit.id === "src/notice.ts#renderNotice:function"),
-      "the declaration citing the address is missing from the answer",
-    );
-    assert.equal(
-      hits.some((hit) => hit.id === "src/price.ts#price:function"),
-      false,
-      "an unrelated code dependency is not a citation to the artifact",
-    );
-  }
+  const hits = runLookup(graph, {
+    type: "lookup",
+    query: "docs/sale.md#pricing",
+  }).result.hits;
+  assert.equal(
+    hits[0]?.id,
+    "docs/sale.md#pricing",
+    "the artifact does not lead the answer to its own address",
+  );
+  assert.equal(
+    hits[0]?.name,
+    "Pricing",
+    "the artifact answered without the heading text it exists to carry",
+  );
+  assert.ok(
+    hits.some((hit) => hit.id === "src/notice.ts#renderNotice:function"),
+    "the declaration citing the address is missing from the answer",
+  );
+  assert.equal(
+    hits.some((hit) => hit.id === "src/price.ts#price:function"),
+    false,
+    "an unrelated code dependency is not a citation to the artifact",
+  );
+}

@@ -22,20 +22,20 @@
  */
 export type IJavaScriptRuntimeCapabilities = {
   /**
-   * The probe reports `typeof globalThis.Bun === "object"`. The evaluator selects
-   * its Bun loader lane from this flag; this value is not an independently
-   * certified executable family. That lane loads TypeScript descriptors, and the
-   * descriptor evaluator isolates it from Bun's own config, `.env` loading, and
-   * network auto-install. The ttsx runtime-hook preload is gated separately, on
-   * the measured {@link registerHooks}, so Bun receives it only if it ever
-   * reports that hook.
+   * The probe reports `typeof globalThis.Bun === "object"`. The evaluator
+   * selects its Bun loader lane from this flag; this value is not an
+   * independently certified executable family. That lane loads TypeScript
+   * descriptors, and the descriptor evaluator isolates it from Bun's own
+   * config, `.env` loading, and network auto-install. The ttsx runtime-hook
+   * preload is gated separately, on the measured {@link registerHooks}, so Bun
+   * receives it only if it ever reports that hook.
    */
   bun: boolean;
 
   /**
    * The absolute path the runtime reports as its own `process.execPath`, when
-   * the probe returned an absolute spelling. A wrapper candidate may differ from
-   * this reported executable, letting the evaluator select the reported
+   * the probe returned an absolute spelling. A wrapper candidate may differ
+   * from this reported executable, letting the evaluator select the reported
    * interpreter instead of the wrapper spelling. This field alone is not a
    * physical-identity or immutable-runtime certificate.
    */
@@ -43,9 +43,8 @@ export type IJavaScriptRuntimeCapabilities = {
 
   /**
    * The probe reports `typeof Module.registerHooks === "function"` for
-   * `node:module`.
-   * This presence check selects the synchronous-hook lane; installation can
-   * still fail and is owned by the runtime-hook installer.
+   * `node:module`. This presence check selects the synchronous-hook lane;
+   * installation can still fail and is owned by the runtime-hook installer.
    */
   registerHooks: boolean;
 };

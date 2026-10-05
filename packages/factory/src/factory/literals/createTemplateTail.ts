@@ -19,6 +19,10 @@ import { make } from "../internal/make";
  * }tail`
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The text.
+ * @param rawText The source spelling before escape processing, if supplied.
+ * @returns The created node.
  * @evidence contracts/common.md#principled-implementation
  *   TemplateTail carries the final span after a substitution. Its cooked text
  *   and optional raw spelling preserve the printer's representation choice.
@@ -33,11 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native documentation states the last-substitution boundary and raw/cooked
  *   behavior with separated explanatory paragraphs, example and tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The text.
- * @param rawText The source spelling before escape processing, if supplied.
- * @returns The created node.
  */
 export const createTemplateTail = (
   text: string,

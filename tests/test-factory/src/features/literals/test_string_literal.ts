@@ -1,16 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { print, str } from "../../internal/helpers";
 
 /**
- * Verifies printing of {@link factory.createStringLiteral|string literals} with escaping.
+ * Verifies printing of {@link factory.createStringLiteral|string literals} with
+ * escaping.
  *
  * Double quotes are the default; single quotes are opt-in. Embedded quotes and
  * control characters (newline) are escaped.
  *
- * 1. String literal emission uses default double or requested single quotes and escapes active quotes/newlines.
- * 2. Exact authored source strings specify delimiter choice and escape bytes independently.
+ * 1. String literal emission uses default double or requested single quotes and
+ *    escapes active quotes/newlines.
+ * 2. Exact authored source strings specify delimiter choice and escape bytes
+ *    independently.
  *
  * @evidence contracts/testing.md#behavioral-verification String literal emission uses default double or requested single quotes and escapes active quotes/newlines.
  * @evidence contracts/testing.md#independent-expectations Exact authored source strings specify delimiter choice and escape bytes independently.

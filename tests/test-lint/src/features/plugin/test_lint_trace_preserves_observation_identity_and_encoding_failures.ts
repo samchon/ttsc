@@ -70,16 +70,20 @@ export function test_lint_trace_preserves_observation_identity_and_encoding_fail
     const filename = path.join(root, files[0]!);
     const bytes = fs.readFileSync(filename, "utf8");
     assert.equal(bytes.endsWith("\n"), true);
-    const records = bytes.trimEnd().split("\n").map((line) =>
-      JSON.parse(line) as TraceRecord,
+    const records = bytes
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as TraceRecord);
+    assert.deepEqual(
+      records.map(({ event }) => event),
+      [
+        "unit-zero-pid",
+        "unit-null-pid",
+        "unit-next-invocation",
+        "trace-integrity-failure",
+        "unit-after-integrity",
+      ],
     );
-    assert.deepEqual(records.map(({ event }) => event), [
-      "unit-zero-pid",
-      "unit-null-pid",
-      "unit-next-invocation",
-      "trace-integrity-failure",
-      "unit-after-integrity",
-    ]);
     const [zero, absent, next, integrity, recovered] = records;
     assert.deepEqual(zero!.data, {
       pid: 0,
@@ -108,7 +112,10 @@ export function test_lint_trace_preserves_observation_identity_and_encoding_fail
     assert.notEqual(zero!.invocation, next!.invocation);
     assert.equal(next!.invocation, integrity!.invocation);
     assert.equal(next!.invocation, recovered!.invocation);
-    assert.deepEqual(records.slice(0, 3).map(({ sequence }) => sequence), [1, 2, 3]);
+    assert.deepEqual(
+      records.slice(0, 3).map(({ sequence }) => sequence),
+      [1, 2, 3],
+    );
     assert.equal(integrity!.sequence > next!.sequence, true);
     assert.equal(recovered!.sequence > integrity!.sequence, true);
     assert.equal(integrity!.data.operation, "event-append");
@@ -123,7 +130,17 @@ export function test_lint_trace_preserves_observation_identity_and_encoding_fail
     assert.equal(typeof zero!.instance, "string");
     assert.notEqual(zero!.instance, "");
     for (const record of records) {
-      for (const field of ["schema", "event", "writerPid", "instance", "sequence", "at", "invocation", "pid", "data"]) {
+      for (const field of [
+        "schema",
+        "event",
+        "writerPid",
+        "instance",
+        "sequence",
+        "at",
+        "invocation",
+        "pid",
+        "data",
+      ]) {
         assert.equal(Object.hasOwn(record, field), true, field);
       }
       assert.equal(record.schema, 1);

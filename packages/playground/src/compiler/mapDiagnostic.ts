@@ -6,8 +6,8 @@ import { lineColumnOf } from "./lineColumnOf";
 /**
  * Convert a `@ttsc/wasm` diagnostic into the playground's normalized shape.
  *
- * Native positions and spans count UTF-8 bytes; the editor counts UTF-16
- * units. Source text converts that boundary, including optional coordinates.
+ * Native positions and spans count UTF-8 bytes; the editor counts UTF-16 units.
+ * Source text converts that boundary, including optional coordinates.
  *
  * @evidence contracts/common.md#principled-implementation Native byte offsets and spans are converted against the same source into UTF-16 editor coordinates; optional line/byte-column metadata supplies the start only when the absolute offset is absent.
  * @evidence contracts/common.md#clear-and-simple-design A single mapping keeps WASM diagnostic fields and UI conventions separate from rendering.
@@ -18,12 +18,17 @@ export function mapDiagnostic(
   diag: NonNullable<ITtscCompileResult["diagnostics"]>[number],
   source: string,
 ): ICompilerService.IDiagnostic {
-  const start = typeof diag.start === "number" && Number.isFinite(diag.start) && diag.start >= 0
-    ? utf16OffsetOfBytes(source, diag.start)
-    : optionalStart(source, diag.line, diag.character);
+  const start =
+    typeof diag.start === "number" &&
+    Number.isFinite(diag.start) &&
+    diag.start >= 0
+      ? utf16OffsetOfBytes(source, diag.start)
+      : optionalStart(source, diag.line, diag.character);
   const location = lineColumnOf(source, start);
-  const byteLength = typeof diag.length === "number" && Number.isFinite(diag.length)
-    ? Math.max(0, Math.trunc(diag.length)) : 0;
+  const byteLength =
+    typeof diag.length === "number" && Number.isFinite(diag.length)
+      ? Math.max(0, Math.trunc(diag.length))
+      : 0;
   const end = utf16OffsetOfBytes(source, byteLength, start);
   return {
     line: location.line,
@@ -50,14 +55,32 @@ function utf16OffsetOfBytes(source: string, bytes: number, start = 0): number {
 }
 
 /** Optional native line and byte-column metadata uses the same source domain. */
-function optionalStart(source: string, line: number | undefined, character: number | undefined): number {
+function optionalStart(
+  source: string,
+  line: number | undefined,
+  character: number | undefined,
+): number {
   let start = 0;
-  const targetLine = typeof line === "number" && Number.isFinite(line) ? Math.max(1, Math.trunc(line)) : 1;
-  for (let current = 1; current < targetLine && start < source.length; ++current) {
-    while (start < source.length && ![10, 13, 0x2028, 0x2029].includes(source.charCodeAt(start))) ++start;
+  const targetLine =
+    typeof line === "number" && Number.isFinite(line)
+      ? Math.max(1, Math.trunc(line))
+      : 1;
+  for (
+    let current = 1;
+    current < targetLine && start < source.length;
+    ++current
+  ) {
+    while (
+      start < source.length &&
+      ![10, 13, 0x2028, 0x2029].includes(source.charCodeAt(start))
+    )
+      ++start;
     const code = source.charCodeAt(start++);
     if (code === 13 && source.charCodeAt(start) === 10) ++start;
   }
-  const column = typeof character === "number" && Number.isFinite(character) ? Math.max(0, Math.trunc(character) - 1) : 0;
+  const column =
+    typeof character === "number" && Number.isFinite(character)
+      ? Math.max(0, Math.trunc(character) - 1)
+      : 0;
   return Math.min(source.length, utf16OffsetOfBytes(source, column, start));
 }

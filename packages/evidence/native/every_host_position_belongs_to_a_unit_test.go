@@ -1,10 +1,10 @@
 package evidence
 
 import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   "sort"
   "strings"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // hostPositionCorpus carries one citation on every declaration form that

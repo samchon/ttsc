@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { positionOf } from "../../../../internal/unplugin/internal/source-map/positionOf";
-import { createLinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
 import type { ILinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/ILinkedPluginProject";
+import { createLinkedPluginProject } from "../../../../internal/unplugin/internal/transform-linked-completeness/createLinkedPluginProject";
 
 const viteCreateServer =
   TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite").createServer;

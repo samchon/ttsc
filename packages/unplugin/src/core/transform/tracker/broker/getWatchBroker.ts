@@ -1,5 +1,4 @@
 import { traceProcessSpawn } from "../../../tracing/traceProcessSpawn";
-
 import { WATCH_BROKER } from "./WATCH_BROKER";
 import type { WatchBroker } from "./WatchBroker";
 import { fseventsBindingPath } from "./fseventsBindingPath";
@@ -29,8 +28,8 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *
  * Registration/drain owners unreference the child and IPC channel after their
  * outstanding acknowledgments finish; startup itself returns a referenced
- * child. Last-registration closure attempts disconnection and termination.
- * This accessor has no independent shutdown deadline or exit wait.
+ * child. Last-registration closure attempts disconnection and termination. This
+ * accessor has no independent shutdown deadline or exit wait.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Native watches run in a protocol child. Error/exit dispatch reports failure

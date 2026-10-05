@@ -51,142 +51,154 @@ const SELECTION_TIMEOUT = 120_000;
  * @evidence contracts/e2e.md#preserved-coverage Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
  */
 export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes() {
-    const project = TestLint.createProject({
-      name: "ttscserver-plugin-selection-config",
-      rules: { "no-var": "error" },
-      source: SOURCE,
+  const project = TestLint.createProject({
+    name: "ttscserver-plugin-selection-config",
+    rules: { "no-var": "error" },
+    source: SOURCE,
+  });
+  const tsconfig = path.join(project.tmpdir, "tsconfig.json");
+  const manifest = path.join(project.tmpdir, "package.json");
+  const configured = fs.readFileSync(tsconfig, "utf8");
+  const unconfigured = JSON.parse(configured) as {
+    compilerOptions: { plugins?: unknown };
+  };
+  delete unconfigured.compilerOptions.plugins;
+  const withoutPlugins = JSON.stringify(unconfigured, null, 2);
+  const file = path.join(project.tmpdir, "src", "main.ts");
+  const uri = pathToFileURL(file).href;
+  let activeClient: TtscserverClient | undefined;
+
+  /** Start a session and open the file. */
+  const start = async (): Promise<TtscserverClient> => {
+    const client = TtscserverClient.startLauncher(project.tmpdir, {
+      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
-    const tsconfig = path.join(project.tmpdir, "tsconfig.json");
-    const manifest = path.join(project.tmpdir, "package.json");
-    const configured = fs.readFileSync(tsconfig, "utf8");
-    const unconfigured = JSON.parse(configured) as {
-      compilerOptions: { plugins?: unknown };
-    };
-    delete unconfigured.compilerOptions.plugins;
-    const withoutPlugins = JSON.stringify(unconfigured, null, 2);
-    const file = path.join(project.tmpdir, "src", "main.ts");
-    const uri = pathToFileURL(file).href;
-    let activeClient: TtscserverClient | undefined;
-
-    /** Start a session and open the file. */
-    const start = async (): Promise<TtscserverClient> => {
-      const client = TtscserverClient.startLauncher(project.tmpdir, {
-        env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
-      });
-      activeClient = client;
-      await client.request("initialize", {
-        capabilities: {},
-        processId: process.pid,
-        rootUri: pathToFileURL(project.tmpdir).href,
-      });
-      client.notify("initialized", {});
-      return client;
-    };
-    /** Write `changed`, report it as the editor would, and await the end. */
-    const change = async (
-      client: TtscserverClient,
-      changed: string,
-      text: string,
-    ): Promise<void> => {
-      const selection = client.waitForNotification(
-        "ttsc/pluginSelectionChanged",
-        () => true,
-        SELECTION_TIMEOUT,
-      );
-      const existed = fs.existsSync(changed);
-      fs.writeFileSync(changed, text);
-      client.notify("workspace/didChangeWatchedFiles", {
-        changes: [{ type: existed ? 2 : 1, uri: pathToFileURL(changed).href }],
-      });
-      await selection;
-      const code = await waitForTtscserverOutcome(
-        client.waitForExit(),
-        SELECTION_TIMEOUT,
-        "plugin selector changed but direct child close was not joined",
-      );
-      activeClient = undefined;
-      assert.equal(code, 1, "selection restart must propagate the native sentinel exit");
-    };
-    const session = async (
-      body: (client: TtscserverClient) => Promise<void>,
-      expectNoVar = false,
-    ): Promise<void> => {
-      const client = await start();
-      const publication = expectNoVar
-        ? client.waitForNotification<PublishDiagnosticsParams>(
-            "textDocument/publishDiagnostics",
-            (params) =>
-              params.uri === uri &&
-              (params.diagnostics ?? []).some(
-                (diagnostic) => diagnostic.code === "no-var",
-              ),
-            PLUGIN_BUILD_TIMEOUT,
-          )
-        : undefined;
-      client.notify("textDocument/didOpen", {
-        textDocument: {
-          languageId: "typescript",
-          text: SOURCE,
-          uri,
-          version: 1,
-        },
-      });
-      if (publication !== undefined) {
-        const published = await publication;
-        assert.ok(published.diagnostics?.length);
-      }
-      await body(client);
-    };
-
-    try {
-      // 1. A plugin added to the tsconfig.
-      fs.writeFileSync(tsconfig, withoutPlugins);
-      await session((client) => change(client, tsconfig, configured));
-
-      // 2. The next session runs it; removing it ends that session too.
-      await session((client) => change(client, tsconfig, withoutPlugins), true);
-
-      // 3. A dependency that publishes a plugin.
-      const previous = fs.existsSync(manifest)
-        ? (JSON.parse(fs.readFileSync(manifest, "utf8")) as Record<
-            string,
-            unknown
-          >)
-        : { name: "ttscserver-plugin-selection-config", private: true };
-      await session((client) =>
-        change(
-          client,
-          manifest,
-          JSON.stringify(
-            {
-              ...previous,
-              dependencies: {
-                ...((previous.dependencies as object | undefined) ?? {}),
-                "@ttsc/lint": "*",
-              },
-            },
-            null,
-            2,
-          ),
-        ),
-      );
-    } catch (error) {
-      const failures: unknown[] = [error];
-      const reason = "plugin-selector session startup, body or close failed";
-      try { TestProject.retainTemporaryDirectory(project.tmpdir, reason); }
-      catch (retentionError) { failures.push(retentionError); }
-      try { TestProject.retainSharedPluginCache(reason); }
-      catch (retentionError) { failures.push(retentionError); }
-      if (activeClient !== undefined) {
-        try {
-          await waitForTtscserverOutcome(
-            shutdownTtscserverClient(activeClient),
-            SELECTION_TIMEOUT,
-            "failed selector session shutdown was not joined",
-          );
-        } catch (shutdownError) { failures.push(shutdownError); }
-      }
-      throw new AggregateError(failures, reason);
+    activeClient = client;
+    await client.request("initialize", {
+      capabilities: {},
+      processId: process.pid,
+      rootUri: pathToFileURL(project.tmpdir).href,
+    });
+    client.notify("initialized", {});
+    return client;
+  };
+  /** Write `changed`, report it as the editor would, and await the end. */
+  const change = async (
+    client: TtscserverClient,
+    changed: string,
+    text: string,
+  ): Promise<void> => {
+    const selection = client.waitForNotification(
+      "ttsc/pluginSelectionChanged",
+      () => true,
+      SELECTION_TIMEOUT,
+    );
+    const existed = fs.existsSync(changed);
+    fs.writeFileSync(changed, text);
+    client.notify("workspace/didChangeWatchedFiles", {
+      changes: [{ type: existed ? 2 : 1, uri: pathToFileURL(changed).href }],
+    });
+    await selection;
+    const code = await waitForTtscserverOutcome(
+      client.waitForExit(),
+      SELECTION_TIMEOUT,
+      "plugin selector changed but direct child close was not joined",
+    );
+    activeClient = undefined;
+    assert.equal(
+      code,
+      1,
+      "selection restart must propagate the native sentinel exit",
+    );
+  };
+  const session = async (
+    body: (client: TtscserverClient) => Promise<void>,
+    expectNoVar = false,
+  ): Promise<void> => {
+    const client = await start();
+    const publication = expectNoVar
+      ? client.waitForNotification<PublishDiagnosticsParams>(
+          "textDocument/publishDiagnostics",
+          (params) =>
+            params.uri === uri &&
+            (params.diagnostics ?? []).some(
+              (diagnostic) => diagnostic.code === "no-var",
+            ),
+          PLUGIN_BUILD_TIMEOUT,
+        )
+      : undefined;
+    client.notify("textDocument/didOpen", {
+      textDocument: {
+        languageId: "typescript",
+        text: SOURCE,
+        uri,
+        version: 1,
+      },
+    });
+    if (publication !== undefined) {
+      const published = await publication;
+      assert.ok(published.diagnostics?.length);
     }
-    project.cleanup();
+    await body(client);
+  };
+
+  try {
+    // 1. A plugin added to the tsconfig.
+    fs.writeFileSync(tsconfig, withoutPlugins);
+    await session((client) => change(client, tsconfig, configured));
+
+    // 2. The next session runs it; removing it ends that session too.
+    await session((client) => change(client, tsconfig, withoutPlugins), true);
+
+    // 3. A dependency that publishes a plugin.
+    const previous = fs.existsSync(manifest)
+      ? (JSON.parse(fs.readFileSync(manifest, "utf8")) as Record<
+          string,
+          unknown
+        >)
+      : { name: "ttscserver-plugin-selection-config", private: true };
+    await session((client) =>
+      change(
+        client,
+        manifest,
+        JSON.stringify(
+          {
+            ...previous,
+            dependencies: {
+              ...((previous.dependencies as object | undefined) ?? {}),
+              "@ttsc/lint": "*",
+            },
+          },
+          null,
+          2,
+        ),
+      ),
+    );
+  } catch (error) {
+    const failures: unknown[] = [error];
+    const reason = "plugin-selector session startup, body or close failed";
+    try {
+      TestProject.retainTemporaryDirectory(project.tmpdir, reason);
+    } catch (retentionError) {
+      failures.push(retentionError);
+    }
+    try {
+      TestProject.retainSharedPluginCache(reason);
+    } catch (retentionError) {
+      failures.push(retentionError);
+    }
+    if (activeClient !== undefined) {
+      try {
+        await waitForTtscserverOutcome(
+          shutdownTtscserverClient(activeClient),
+          SELECTION_TIMEOUT,
+          "failed selector session shutdown was not joined",
+        );
+      } catch (shutdownError) {
+        failures.push(shutdownError);
+      }
+    }
+    throw new AggregateError(failures, reason);
   }
+  project.cleanup();
+}

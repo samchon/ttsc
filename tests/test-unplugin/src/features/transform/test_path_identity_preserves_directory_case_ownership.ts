@@ -9,9 +9,9 @@ import { pathIdentityKey } from "../../../../../packages/unplugin/src/core/trans
  * Verifies observed directory policy merges ordinary Windows spellings while
  * preserving sensitive existing files and unresolved candidate spellings.
  *
- * Windows grammar alone does not supply a directory's case policy. The
- * authored native view supplies canonical ordinary prefixes and two distinct
- * sensitive files, so this case does not infer policy from its execution host.
+ * Windows grammar alone does not supply a directory's case policy. The authored
+ * native view supplies canonical ordinary prefixes and two distinct sensitive
+ * files, so this case does not infer policy from its execution host.
  *
  * 1. Resolve ordinary aliases through one explicit Windows identity context.
  * 2. Contrast sensitive existing twins and missing Future/future candidates.
@@ -25,7 +25,8 @@ import { pathIdentityKey } from "../../../../../packages/unplugin/src/core/trans
 export async function test_path_identity_preserves_directory_case_ownership(): Promise<void> {
   const windows = createFilesystemPathIdentityContext({
     platform: "win32",
-    caseSensitive: (directory) => directory.toLowerCase().startsWith("c:\\sensitive"),
+    caseSensitive: (directory) =>
+      directory.toLowerCase().startsWith("c:\\sensitive"),
     realpath: (location) => {
       const resolved = path.win32.resolve(location);
       const folded = resolved.toLowerCase();
@@ -35,7 +36,9 @@ export async function test_path_identity_preserves_directory_case_ownership(): P
       if (resolved === "C:\\Sensitive\\src") return resolved;
       if (resolved === "C:\\Sensitive\\src\\Main.ts") return resolved;
       if (resolved === "C:\\Sensitive\\src\\main.ts") return resolved;
-      throw Object.assign(new Error("authored native entry is absent"), { code: "ENOENT" });
+      throw Object.assign(new Error("authored native entry is absent"), {
+        code: "ENOENT",
+      });
     },
   });
   assert.equal(

@@ -21,11 +21,11 @@ import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult"
  * owns their accepted canonical private directory and attempts file and empty
  * directory removal without recursive deletion. Setup observes ownership before
  * entering the cleanup boundary, so a setup observation failure can leave the
- * allocation unclaimed. Cleanup failures retain the original
- * thrown failure or completed result as their cause. Before reading and
- * removing the artifact, the parent must still have its captured native
- * identity; a replaced directory is left untouched and reported as failure.
- * These observations do not provide an atomic descriptor or ABA guarantee.
+ * allocation unclaimed. Cleanup failures retain the original thrown failure or
+ * completed result as their cause. Before reading and removing the artifact,
+ * the parent must still have its captured native identity; a replaced directory
+ * is left untouched and reported as failure. These observations do not provide
+ * an atomic descriptor or ABA guarantee.
  *
  * @evidence contracts/common.md#principled-implementation Only the selected check generation's explicitly negotiated sidecar carries driver-observed input states; hosts with a different observation contract keep their original command and declared-input authority without fabricating driver completeness or incompleteness.
  * @evidence contracts/common.md#clear-and-simple-design One adapter owns negotiation, strict wire decoding and private artifact lifetime; its callback retains command and diagnostic normalization ownership.

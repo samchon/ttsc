@@ -10,9 +10,7 @@ import path from "node:path";
  * guessing from a missing directory.
  */
 export namespace ProjectFixtures {
-  const PACKAGE_OWNED = new Set([
-    "go-source-plugin",
-  ]);
+  const PACKAGE_OWNED = new Set(["go-source-plugin"]);
 
   /**
    * Copy the named project to a tracked temporary directory and return it.
@@ -29,7 +27,11 @@ export namespace ProjectFixtures {
   export function copy(name: string): string {
     const source = PACKAGE_OWNED.has(name)
       ? path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", name)
-      : path.resolve(import.meta.dirname, "../../../../fixtures/ttsc/projects", name);
+      : path.resolve(
+          import.meta.dirname,
+          "../../../../fixtures/ttsc/projects",
+          name,
+        );
     const root = TestProject.tmpdir(`ttsc-${name}-`);
     TestProject.copyDirectory(source, root);
     return root;

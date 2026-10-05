@@ -29,8 +29,12 @@ export function assertRuntimeNormalPopulation(input: unknown): void {
   };
   const failures: Error[] = [];
   for (const [name, value] of Object.entries(expected)) {
-    try { assert.deepEqual(actual[name], value); }
-    catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      assert.deepEqual(actual[name], value);
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "Shared Runtime normal population");
+  if (failures.length)
+    throw new AggregateError(failures, "Shared Runtime normal population");
 }

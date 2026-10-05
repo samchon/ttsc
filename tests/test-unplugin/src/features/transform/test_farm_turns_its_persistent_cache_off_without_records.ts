@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { fallbackToolDirectory } from "../../../../../packages/unplugin/src/core/bridge/fallbackToolDirectory";
 import { farmPersistentCacheWithoutRecords } from "../../../../../packages/unplugin/src/core/farm/farmPersistentCacheWithoutRecords";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies Farm keeps its persistent cache where the adapter can write a

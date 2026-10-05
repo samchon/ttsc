@@ -30,7 +30,7 @@ func TestBoundariesNoPrivateRejectsCrossElementPrivateImport(t *testing.T) {
     ]
   }`, map[string]string{
     "src/domain/internal/secret.ts": "export {};",
-    "src/domain/public.ts": "export {};",
+    "src/domain/public.ts":          "export {};",
   })
   assertSingleBoundaryFinding(t, ruleName, findings, `private boundary file`)
   if got := source[findings[0].Pos:findings[0].End]; got != `"../domain/internal/secret"` {

@@ -13,8 +13,8 @@ import { createWatchInputUnitFixture } from "../../internal/transform-complete/c
  * reach nor anything else may be registered, while the config chain stays
  * universal.
  *
- * 1. Supply a literal envelope with a graph and a completeness declaration for `src/main.ts`,
- *    reporting no dependencies.
+ * 1. Supply a literal envelope with a graph and a completeness declaration for
+ *    `src/main.ts`, reporting no dependencies.
  * 2. Collect its watch inputs.
  * 3. Assert they are exactly the universal host inputs.
  *
@@ -35,11 +35,10 @@ export function test_transformttsc_keeps_only_universal_inputs_for_a_complete_fi
     graph: GRAPH,
     dependenciesComplete: ["src/main.ts"],
     hostInputs: ["package.json", "plugin.cjs", "tsconfig.json"],
-    pluginSources: { [path.join(fixture.root, "plugin-source")]: "unit-input-state" },
+    pluginSources: {
+      [path.join(fixture.root, "plugin-source")]: "unit-input-state",
+    },
   });
 
-  assert.deepEqual(
-    watched,
-    [...fixture.universal].sort(),
-  );
+  assert.deepEqual(watched, [...fixture.universal].sort());
 }

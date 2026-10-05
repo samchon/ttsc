@@ -1,9 +1,11 @@
-import { TestProject } from "../../../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+import { TestProject } from "../../../../../../utils/src/TestProject";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Verifies VS Code `ttsc.serverPath` launches a Windows `.cmd`/`.bat` shim.
@@ -45,7 +47,10 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
       "serverResolution.ts",
     );
     const fixture = TestProject.tmpdir("ttsc-vscode-launch-");
-    TestProject.retainTemporaryDirectory(fixture, "Windows server shim has no descendant join acknowledgement");
+    TestProject.retainTemporaryDirectory(
+      fixture,
+      "Windows server shim has no descendant join acknowledgement",
+    );
     const script = `
     import { pathToFileURL } from "node:url";
     import fs from "node:fs";
@@ -175,8 +180,16 @@ export const case_vscode_server_launch_command_spawns_windows_command_shim =
         encoding: "utf8",
       },
     );
-    assert.equal(result.error, undefined, "Windows server observer launch error");
-    assert.equal(result.signal, null, "Windows server observer terminated by signal");
+    assert.equal(
+      result.error,
+      undefined,
+      "Windows server observer launch error",
+    );
+    assert.equal(
+      result.signal,
+      null,
+      "Windows server observer terminated by signal",
+    );
     assert.equal(result.status, 0, result.stderr);
     const parsed = JSON.parse(result.stdout) as {
       platform: string;

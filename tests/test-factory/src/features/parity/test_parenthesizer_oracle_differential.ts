@@ -1,7 +1,11 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, type Node, SyntaxKind } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
+import factory, {
+  type Expression,
+  type Node,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { kindsOf, printLegacy, structure, wide } from "../../internal/oracle";
 
 const f = factory;
@@ -559,8 +563,8 @@ const requiredProductions: readonly string[] = [
 ];
 
 /**
- * Verifies the represented parenthesizer operand positions print text that means
- * what the legacy printer's text for the same tree means.
+ * Verifies the represented parenthesizer operand positions print text that
+ * means what the legacy printer's text for the same tree means.
  *
  * The corpus is a full cross product of consuming positions and operand shapes,
  * built twice — once with `@ttsc/factory`, once with the pinned `ts-legacy`

@@ -24,34 +24,107 @@ export function assertRuntimeNodeCorpus(actual: unknown): void {
   const values = payload.values as Record<string, unknown>;
   const failures: Error[] = [];
   const check = (name: string, operation: () => void): void => {
-    try { operation(); }
-    catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
-  check("runtime-node-module-failures", () => assert.deepEqual(payload.failures, []));
+  check("runtime-node-module-failures", () =>
+    assert.deepEqual(payload.failures, []),
+  );
   for (const name of ["nested-star-esm", "nested-star-commonjs"])
-    check("test_ttsx_exposes_nested_cjs_source_star_exports_to_esm_named_imports/" + name, () =>
+    check(
+      "test_ttsx_exposes_nested_cjs_source_star_exports_to_esm_named_imports/" +
+        name,
+      () =>
+        assert.deepEqual(values[name], {
+          joined: "foo-ok:bar-ok:renamed-ok:leaf-ok",
+          ghosts: [false, false, false, false, false, false, false],
+        }),
+    );
+  check(
+    "test_ttsx_runs_a_dependency_with_a_circular_module_graph/runtime-edge",
+    () => assert.equal(values["commonjs-circular-graph"], "combined:AB"),
+  );
+  check(
+    "test_ttsx_commonjs_require_rescues_a_js_specifier_inside_a_dynamic_import",
+    () =>
+      assert.deepEqual(values["dynamic-commonjs-tsx-rescue"], {
+        default: "RESCUED",
+      }),
+  );
+  check(
+    "test_ttsx_esm_rewrite_leaves_strings_templates_comments_and_regex_literals_untouched",
+    () =>
+      assert.deepEqual(values["scanner-inert-text"], {
+        message: "scanner-ok",
+        dynamic: "dynamic-ok",
+        interpolation: "dynamic-ok",
+        ordinary: "from './helper'",
+        template: "import('./dynamic')",
+        regex: "import\\('\\.\\/helper'\\)",
+      }),
+  );
+  check(
+    "test_ttsx_esm_rewrite_preserves_query_and_hash_on_extensioned_specifiers",
+    () =>
+      assert.deepEqual(values["query-and-hash"], {
+        query: "?query",
+        hash: "#hash",
+      }),
+  );
+  check("test_ttsx_rewrites_extensionless_esm_side_effect_imports", () =>
+    assert.equal(values["extensionless-side-effect"], "side-effect-import-ok"),
+  );
+  check("test_ttsx_rewrites_extensionless_esm_directory_index_imports", () =>
+    assert.equal(values["extensionless-directory-index"], "directory-index-ok"),
+  );
+  check(
+    "test_ttsx_gives_a_javascript_commonjs_module_an_import_reaches_nodes_require/native-graph",
+    () =>
+      assert.deepEqual(values["native-cjs-require-object"], {
+        properties: "object,object,function",
+        value: "from-ts,from-ts",
+        whole: "from-ts,from-ts",
+      }),
+  );
+  check(
+    "test_ttsx_advertises_typescript_to_commonjs_extension_detection/native-graph",
+    () =>
+      assert.deepEqual(values["native-extension-detection"], {
+        config: "typed-config",
+        lone: "only-ts",
+        loneResolved: true,
+        nodeHandler: true,
+        precedence: "from-js",
+      }),
+  );
+  check(
+    "test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_alone/native-graph",
+    () =>
+      assert.deepEqual(values["native-supported-require-hooks"], {
+        handler: true,
+        resolved: true,
+        resolvedFromPaths: true,
+        target: "SERVED",
+        wrapped: false,
+      }),
+  );
+  for (const name of [
+    "missing-bare",
+    "missing-extensionless",
+    "missing-extensioned",
+  ])
+    check("native missing import/" + name, () =>
       assert.deepEqual(values[name], {
-        joined: "foo-ok:bar-ok:renamed-ok:leaf-ok",
-        ghosts: [false, false, false, false, false, false, false],
+        code: "ERR_MODULE_NOT_FOUND",
+        mentionsInput: true,
       }),
     );
-  check("test_ttsx_runs_a_dependency_with_a_circular_module_graph/runtime-edge", () => assert.equal(values["commonjs-circular-graph"], "combined:AB"));
-  check("test_ttsx_commonjs_require_rescues_a_js_specifier_inside_a_dynamic_import", () => assert.deepEqual(values["dynamic-commonjs-tsx-rescue"], { default: "RESCUED" }));
-  check("test_ttsx_esm_rewrite_leaves_strings_templates_comments_and_regex_literals_untouched", () => assert.deepEqual(values["scanner-inert-text"], {
-    message: "scanner-ok",
-    dynamic: "dynamic-ok",
-    interpolation: "dynamic-ok",
-    ordinary: "from './helper'",
-    template: "import('./dynamic')",
-    regex: "import\\('\\.\\/helper'\\)",
-  }));
-  check("test_ttsx_esm_rewrite_preserves_query_and_hash_on_extensioned_specifiers", () => assert.deepEqual(values["query-and-hash"], { query: "?query", hash: "#hash" }));
-  check("test_ttsx_rewrites_extensionless_esm_side_effect_imports", () => assert.equal(values["extensionless-side-effect"], "side-effect-import-ok"));
-  check("test_ttsx_rewrites_extensionless_esm_directory_index_imports", () => assert.equal(values["extensionless-directory-index"], "directory-index-ok"));
-  check("test_ttsx_gives_a_javascript_commonjs_module_an_import_reaches_nodes_require/native-graph", () => assert.deepEqual(values["native-cjs-require-object"], { properties: "object,object,function", value: "from-ts,from-ts", whole: "from-ts,from-ts" }));
-  check("test_ttsx_advertises_typescript_to_commonjs_extension_detection/native-graph", () => assert.deepEqual(values["native-extension-detection"], { config: "typed-config", lone: "only-ts", loneResolved: true, nodeHandler: true, precedence: "from-js" }));
-  check("test_ttsx_serves_commonjs_typescript_through_the_supported_hooks_alone/native-graph", () => assert.deepEqual(values["native-supported-require-hooks"], { handler: true, resolved: true, resolvedFromPaths: true, target: "SERVED", wrapped: false }));
-  for (const name of ["missing-bare", "missing-extensionless", "missing-extensioned"])
-    check("native missing import/" + name, () => assert.deepEqual(values[name], { code: "ERR_MODULE_NOT_FOUND", mentionsInput: true }));
-  if (failures.length) throw new AggregateError(failures, "Shared Runtime node corpus assertions failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Shared Runtime node corpus assertions failed",
+    );
 }

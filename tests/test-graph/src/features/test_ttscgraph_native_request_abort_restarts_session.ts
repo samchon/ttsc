@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 
 /**
- * Verifies aborting an active request retires the peer even when the abort reason cannot be printed.
+ * Verifies aborting an active request retires the peer even when the abort
+ * reason cannot be printed.
  *
- * Once the request has been written to the peer, an AbortSignal abort must reject
- * the request, retire the peer, and let the next request open a new one. A reason
- * whose toString throws must not stop that cleanup.
+ * Once the request has been written to the peer, an AbortSignal abort must
+ * reject the request, retire the peer, and let the next request open a new one.
+ * A reason whose toString throws must not stop that cleanup.
  *
  * 1. Start a graph request with an AbortSignal and wait until its request line is
  *    recorded as written to the port.
@@ -28,7 +35,11 @@ export async function test_ttscgraph_native_request_abort_restarts_session(): Pr
     const active = session.graph({ signal: controller.signal });
     void active.catch(() => undefined);
     const port = await admitted(ports);
-    controller.abort({ toString(): string { throw new Error("unprintable cancellation reason"); } });
+    controller.abort({
+      toString(): string {
+        throw new Error("unprintable cancellation reason");
+      },
+    });
     await assert.rejects(active, /native snapshot request cancelled/);
     assertRetired(port);
 
@@ -38,5 +49,7 @@ export async function test_ttscgraph_native_request_abort_restarts_session(): Pr
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

@@ -3,8 +3,8 @@ import path from "node:path";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 
 /**
- * Attempt one warning per native resolved spelling and generation when a
- * module arrives with text that differs from the file it names.
+ * Attempt one warning per native resolved spelling and generation when a module
+ * arrives with text that differs from the file it names.
  *
  * The spelling is recorded before stderr is written, so a synchronous write
  * failure propagates but does not authorize another attempt for that key.

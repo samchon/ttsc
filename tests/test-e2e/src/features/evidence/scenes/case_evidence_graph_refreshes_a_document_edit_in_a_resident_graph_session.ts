@@ -4,12 +4,12 @@ import path from "node:path";
 
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
 import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 import {
   type ITtscEvidenceProject,
   pluginCacheDirectory,
   resolveDependency,
 } from "../../../internal/evidence/internal/index";
-import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 
 const require_ = createRequire(import.meta.url);
 
@@ -69,7 +69,11 @@ export async function case_evidence_graph_refreshes_a_document_edit_in_a_residen
   // imports `@ttsc/evidence`, whose declarations live in the linked workspace
   // package, while the fixture is in the OS temp directory. The rule reads its
   // configuration independently.
-  TransitionProject.enter(project, { include: ["src"], lintConfig: lintConfig!, files });
+  TransitionProject.enter(project, {
+    include: ["src"],
+    lintConfig: lintConfig!,
+    files,
+  });
 
   // The plugin cache is the suite's, not the fixture's: a fresh node_modules
   // per case would otherwise pay the cold Go link every time.

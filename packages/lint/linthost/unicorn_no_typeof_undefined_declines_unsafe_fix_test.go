@@ -33,7 +33,7 @@ value.deep === "undefined";
 `
   _, _, findings := runRuleFindingsSnapshot(t, "unicorn/no-typeof-undefined", source, nil)
   want := map[int]bool{
-    strings.Index(source, `typeof [items] === "undefined"`): true,
+    strings.Index(source, `typeof [items] === "undefined"`):       true,
     strings.Index(source, "typeof\nvalue.deep === \"undefined\""): true,
   }
   if len(findings) != len(want) {

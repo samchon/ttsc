@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 
 /**
@@ -8,10 +9,10 @@ import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
  *
  * On Windows, `PATH` and `PATHEXT` lookup and `.cmd`/`.bat` wrappers make a
  * bare `go` ambiguous: the answer can change between the cache-key probe and
- * the build if relative lookup is repeated. A successfully selected native
- * path avoids reinterpreting that name against a later scratch cwd. The path
- * is not a retained executable handle and cannot prevent replacement; an
- * unresolved bare name can still be returned for normal spawn failure/search.
+ * the build if relative lookup is repeated. A successfully selected native path
+ * avoids reinterpreting that name against a later scratch cwd. The path is not
+ * a retained executable handle and cannot prevent replacement; an unresolved
+ * bare name can still be returned for normal spawn failure/search.
  *
  * POSIX PATH entries and qualified relative executables are also pinned before
  * the build moves into its scratch directory.
@@ -166,7 +167,12 @@ export namespace GoToolResolution {
             "NoDefaultCurrentDirectoryInExePath",
           )
         : undefined;
-    if (process.platform === "win32") PluginBuildEnvironmentWitness.addEnvironment(witness, "NoDefaultCurrentDirectoryInExePath", noDefaultCurrentDirectory);
+    if (process.platform === "win32")
+      PluginBuildEnvironmentWitness.addEnvironment(
+        witness,
+        "NoDefaultCurrentDirectoryInExePath",
+        noDefaultCurrentDirectory,
+      );
     if (
       process.platform === "win32" &&
       noDefaultCurrentDirectory === undefined
@@ -277,9 +283,9 @@ export namespace GoToolResolution {
   }
 
   /**
-   * Read an environment variable with lowercase-name matching. An
-   * exact-case key wins; otherwise the first matching key in sorted order, so
-   * the answer is deterministic when a caller supplied several spellings.
+   * Read an environment variable with lowercase-name matching. An exact-case
+   * key wins; otherwise the first matching key in sorted order, so the answer
+   * is deterministic when a caller supplied several spellings.
    *
    * @evidence contracts/common.md#principled-implementation Exact spelling is preferred; otherwise matching keys are sorted before selecting one, making case-insensitive aliases deterministic for injected environments.
    * @evidence contracts/common.md#clear-and-simple-design One helper centralizes the Windows variable-spelling policy used by PATH, PATHEXT and shell selection.

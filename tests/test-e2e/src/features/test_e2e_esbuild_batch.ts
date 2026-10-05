@@ -1,15 +1,16 @@
 import { TestUnpluginRuntime } from "@ttsc/testing";
+import { build } from "esbuild";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { build } from "esbuild";
 
+import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
-import { BatchWorkspace } from "../batch/BatchWorkspace";
 
 /**
- * Verifies one real esbuild graph and its actual disposal carry all source rows.
+ * Verifies one real esbuild graph and its actual disposal carry all source
+ * rows.
  *
  * The built adapter is a public esbuild plugin. A public onDispose observer
  * awaits this same build's teardown without intercepting internal methods.
@@ -33,42 +34,87 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
   process.env.TTSC_CACHE_DIR = workspace.cache;
   let disposals = 0;
   let resolveDisposed!: () => void;
-  const disposed = new Promise<void>((resolve) => { resolveDisposed = resolve; });
+  const disposed = new Promise<void>((resolve) => {
+    resolveDisposed = resolve;
+  });
   try {
     const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("esbuild");
     const result = await build({
-      absWorkingDir: workspace.root, entryPoints: ["src/bundle.ts"],
-      bundle: true, minify: false, format: "iife", write: false, sourcemap: "external", outfile: path.join(workspace.root, "dist/esbuild-shared.js"), logLevel: "silent",
-      plugins: [adapter(), { name: "observe-shared-build-disposal", setup(host) {
-        host.onDispose(() => { disposals++; resolveDisposed(); });
-      } }],
+      absWorkingDir: workspace.root,
+      entryPoints: ["src/bundle.ts"],
+      bundle: true,
+      minify: false,
+      format: "iife",
+      write: false,
+      sourcemap: "external",
+      outfile: path.join(workspace.root, "dist/esbuild-shared.js"),
+      logLevel: "silent",
+      plugins: [
+        adapter(),
+        {
+          name: "observe-shared-build-disposal",
+          setup(host) {
+            host.onDispose(() => {
+              disposals++;
+              resolveDisposed();
+            });
+          },
+        },
+      ],
     });
     let timer: NodeJS.Timeout | undefined;
     try {
-      await Promise.race([disposed, new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("esbuild disposal did not complete")), 30_000);
-      })]);
-    } finally { if (timer !== undefined) clearTimeout(timer); }
+      await Promise.race([
+        disposed,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("esbuild disposal did not complete")),
+            30_000,
+          );
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
     assert.equal(disposals, 1);
     assert.equal(result.outputFiles.length, 2);
     const output = result.outputFiles.find((file) => file.path.endsWith(".js"));
-    const mapOutput = result.outputFiles.find((file) => file.path.endsWith(".js.map"));
+    const mapOutput = result.outputFiles.find((file) =>
+      file.path.endsWith(".js.map"),
+    );
     assert.ok(output);
     assert.ok(mapOutput);
     const code = output.text;
-    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
+    BatchWorkspace.assertResult(
+      BatchWorkspace.readBundle(code),
+      workspace.expected,
+    );
     const map = JSON.parse(mapOutput.text);
     assert.equal(map.version, 3);
     const marker = '"map-coordinate-control"';
     const generated = positionOf(code, marker);
     const original = originalPositionFor(map, generated.line, generated.column);
-    assert.ok(original, "the generated control must map to its authored source");
+    assert.ok(
+      original,
+      "the generated control must map to its authored source",
+    );
     assert.match(original.source, /(?:^|\/)map\.ts$/);
-    const authored = fs.readFileSync(path.join(workspace.root, "src/map.ts"), "utf8").replace(/\r\n/g, "\n");
-    assert.equal(map.sourcesContent[map.sources.indexOf(original.source)]!.replace(/\r\n/g, "\n"), authored);
-    assert.deepEqual({ line: original.line, column: original.column }, positionOf(authored, marker));
+    const authored = fs
+      .readFileSync(path.join(workspace.root, "src/map.ts"), "utf8")
+      .replace(/\r\n/g, "\n");
+    assert.equal(
+      map.sourcesContent[map.sources.indexOf(original.source)]!.replace(
+        /\r\n/g,
+        "\n",
+      ),
+      authored,
+    );
+    assert.deepEqual(
+      { line: original.line, column: original.column },
+      positionOf(authored, marker),
+    );
   } finally {
-    if (previous === undefined) delete process.env.TTSC_CACHE_DIR; else process.env.TTSC_CACHE_DIR = previous;
+    if (previous === undefined) delete process.env.TTSC_CACHE_DIR;
+    else process.env.TTSC_CACHE_DIR = previous;
   }
 }
-

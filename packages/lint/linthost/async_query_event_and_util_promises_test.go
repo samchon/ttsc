@@ -46,10 +46,10 @@ async function testCase() {
     {Rule: "testing-library/await-async-events", Severity: SeverityError, Line: 10},
   })
   assertTestingLibraryFindings(t, "import { fireEvent, screen, waitFor } from \"@testing-library/react\"; import userEvent from \"@testing-library/user-event\"; async function testCase() { await screen.findByText(\"Saved\"); screen.getByText(\"Ready\"); await waitFor(() => screen.getByText(\"Done\")); fireEvent.click(screen.getByText(\"Save\")); await userEvent.click(screen.getByRole(\"button\")); }\n", RuleConfig{
-    "testing-library/await-async-events": SeverityError,
-    "testing-library/await-async-queries": SeverityError,
-    "testing-library/await-async-utils": SeverityError,
-    "testing-library/no-await-sync-events": SeverityError,
+    "testing-library/await-async-events":    SeverityError,
+    "testing-library/await-async-queries":   SeverityError,
+    "testing-library/await-async-utils":     SeverityError,
+    "testing-library/no-await-sync-events":  SeverityError,
     "testing-library/no-await-sync-queries": SeverityError,
   }, nil)
 }

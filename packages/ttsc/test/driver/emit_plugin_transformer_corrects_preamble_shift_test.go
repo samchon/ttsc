@@ -36,6 +36,7 @@ func (preambleEmitPlugin) SourcePreamble(driver.PluginContext) (string, error) {
 //  3. Decode source-bearing `.js.map` segments and require their source lines
 //     in {0, 1} (not the shifted {4, 5}) and both authored lines represented.
 //     The test decoder ignores generated-column-only segments.
+//
 // @evidence contracts/testing.md#behavioral-verification Registers a real preamble plugin and emits through the actual identity-transform route, decoding source-map JSON/VLQ and requiring mappings to both authored zero/one lines and no shifted lines.
 // @evidence contracts/testing.md#independent-expectations Literal two authored lines and four injected lines independently establish permitted original mapping coordinates; test-local decoding does not call production map correction.
 // @evidence contracts/testing.md#distinguishing-cases Applied preamble presence plus nonempty mappings and both source-line controls prevent vacuous success from absent preamble or map output.

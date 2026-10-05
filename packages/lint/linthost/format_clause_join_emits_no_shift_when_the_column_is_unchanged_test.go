@@ -32,7 +32,7 @@ func TestFormatClauseJoinEmitsNoShiftWhenTheColumnIsUnchanged(t *testing.T) {
   source := "outer:\nfor (const item of items) {\n  visit(item);\n}\n"
   file := parseTSFile(t, "/virtual/main.ts", source)
   resolver := InlineRuleResolver{
-    Rules: RuleConfig{"format/clause-join": SeverityError},
+    Rules:   RuleConfig{"format/clause-join": SeverityError},
     Options: RuleOptionsMap{"format/clause-join": []byte(`{"printWidth":80,"tabWidth":2}`)},
   }
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)

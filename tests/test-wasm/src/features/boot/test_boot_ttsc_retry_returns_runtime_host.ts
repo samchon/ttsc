@@ -10,8 +10,8 @@ import { openFd, readFdText } from "../../internal/callbackFs";
  *
  * The regression this guards: a failed attempt left its `globalThis.fs`
  * installed, so a retry (which only installs `fs` when absent) created a fresh
- * host, saw the stale global, and returned a host the runtime never used.
- * Files written through it were invisible to the compiler. Restoring the failed
+ * host, saw the stale global, and returned a host the runtime never used. Files
+ * written through it were invisible to the compiler. Restoring the failed
  * attempt's own globals lets the retry install and return the host its runtime
  * binds.
  *

@@ -19,16 +19,16 @@ import (
 // The mutex protects invocation ordinals, event sequence and the shared byte
 // budget. A process nonce distinguishes this stream from later PID reuse.
 type lintTraceWriter struct {
-  mu sync.Mutex
-  root string
+  mu       sync.Mutex
+  root     string
   instance string
   sequence uint64
-  ordinal uint64
-  bytes int64
+  ordinal  uint64
+  bytes    int64
 }
 
 var lintTraceState struct {
-  once sync.Once
+  once   sync.Once
   writer *lintTraceWriter
 }
 
@@ -38,9 +38,9 @@ var lintTraceState struct {
 // The short-lived reference links process, raw bytes, normalization and cache
 // observations without retaining their history or owning the child process.
 type lintTraceInvocation struct {
-  writer *lintTraceWriter
+  writer  *lintTraceWriter
   ordinal uint64
-  id string
+  id      string
 }
 
 // newLintTraceInvocation allocates identity only when the fixed external trace
@@ -78,9 +78,9 @@ func newLintTraceInvocation() *lintTraceInvocation {
   ordinal := writer.ordinal
   writer.mu.Unlock()
   return &lintTraceInvocation{
-    writer: writer,
+    writer:  writer,
     ordinal: ordinal,
-    id: fmt.Sprintf("%s:%d", writer.instance, ordinal),
+    id:      fmt.Sprintf("%s:%d", writer.instance, ordinal),
   }
 }
 
@@ -117,15 +117,15 @@ func (invocation *lintTraceInvocation) record(event string, data map[string]any)
   }
   observedData["writerRuntime"] = runtime.Version()
   body, err := json.Marshal(map[string]any{
-    "schema": 1,
-    "event": event,
-    "writerPid": os.Getpid(),
-    "instance": writer.instance,
-    "sequence": writer.sequence,
-    "at": time.Now().UTC().Format(time.RFC3339Nano),
+    "schema":     1,
+    "event":      event,
+    "writerPid":  os.Getpid(),
+    "instance":   writer.instance,
+    "sequence":   writer.sequence,
+    "at":         time.Now().UTC().Format(time.RFC3339Nano),
     "invocation": invocation.id,
-    "pid": pid,
-    "data": observedData,
+    "pid":        pid,
+    "data":       observedData,
   })
   if err != nil {
     failure = err.Error()

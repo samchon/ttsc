@@ -68,9 +68,9 @@ function bootKey(apiName: string, wasmUrl: string): string {
  * Resolve `wasmUrl` against the current location before keying so that
  * `./playground.wasm`, `/compiler/playground.wasm`, and the fully qualified
  * absolute href all collapse to the same cache entry instead of spawning
- * duplicate boots. In environments without a location, such as Node-side
- * tests, relative URLs use the synthetic `http://local/` base. If parsing
- * fails, the input retains its original spelling.
+ * duplicate boots. In environments without a location, such as Node-side tests,
+ * relative URLs use the synthetic `http://local/` base. If parsing fails, the
+ * input retains its original spelling.
  */
 function resolveWasmUrl(wasmUrl: string): string {
   try {

@@ -1,13 +1,13 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createRollupCachedModuleProof } from "../../../../../packages/unplugin/src/core/rollup/createRollupCachedModuleProof";
-import { selectRollupCachedModuleTransform } from "../../../../../packages/unplugin/src/core/rollup/selectRollupCachedModuleTransform";
 import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { createRollupCachedModuleProof } from "../../../../../packages/unplugin/src/core/rollup/createRollupCachedModuleProof";
+import { selectRollupCachedModuleTransform } from "../../../../../packages/unplugin/src/core/rollup/selectRollupCachedModuleTransform";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies Rollup's cache is answered from what a delivery carries in its
@@ -30,6 +30,7 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/cor
  *    module the adapter does not transform is left to Rollup.
  * 4. Move the record's bytes, open the next build, and assert the module runs
  *    again until a delivery hands the bytes now held.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored createRollupCachedModuleProof compares delivered options and actual fixture record bytes; selectRollupCachedModuleTransform maps its actual answer and bridge debt to true/null, with callable receiver, short-circuit and error assertions.
  * @evidence contracts/testing.md#independent-expectations
@@ -101,22 +102,39 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
   // A pass observes one record frontier, while each module owns its delivery.
   const second = proof.deliver({
     options: "A",
-    record: { digest: createHash("sha256").update('{"signal":1}').digest("hex"), file },
+    record: {
+      digest: createHash("sha256").update('{"signal":1}').digest("hex"),
+      file,
+    },
   });
   fs.writeFileSync(file, '{"signal":2}');
-  assert.equal(ask(again), false, "quiet mid-pass state uses its recorded frontier");
+  assert.equal(
+    ask(again),
+    false,
+    "quiet mid-pass state uses its recorded frontier",
+  );
   proof.begin();
   assert.equal(ask(again), true);
   assert.equal(ask(second, "second.ts"), true);
   const firstFresh = proof.deliver({
     options: "A",
-    record: { digest: createHash("sha256").update('{"signal":2}').digest("hex"), file },
+    record: {
+      digest: createHash("sha256").update('{"signal":2}').digest("hex"),
+      file,
+    },
   });
   assert.equal(ask(firstFresh), false);
-  assert.equal(ask(second, "second.ts"), true, "another module still owes delivery");
+  assert.equal(
+    ask(second, "second.ts"),
+    true,
+    "another module still owes delivery",
+  );
   const secondFresh = proof.deliver({
     options: "A",
-    record: { digest: createHash("sha256").update('{"signal":2}').digest("hex"), file },
+    record: {
+      digest: createHash("sha256").update('{"signal":2}').digest("hex"),
+      file,
+    },
   });
   proof.begin();
   assert.equal(ask(firstFresh), false);
@@ -124,16 +142,25 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
 
   // The shared hook protocol leaves a proven module to the host's cache.
   const module = { id: "main.ts", meta: firstFresh };
-  assert.equal(selectRollupCachedModuleTransform(undefined, proof, module), null);
+  assert.equal(
+    selectRollupCachedModuleTransform(undefined, proof, module),
+    null,
+  );
   options = "B";
-  assert.equal(selectRollupCachedModuleTransform(undefined, proof, module), true);
+  assert.equal(
+    selectRollupCachedModuleTransform(undefined, proof, module),
+    true,
+  );
   options = "A";
   const bridge = openHostWatchBridge(root, {
     poll: () => ({ close: () => undefined }),
     watch: () => ({ close: () => undefined }),
   });
   try {
-    assert.equal(selectRollupCachedModuleTransform(bridge, proof, module), null);
+    assert.equal(
+      selectRollupCachedModuleTransform(bridge, proof, module),
+      null,
+    );
     const bridgeRecord = path.join(root, "bridge.json");
     writeProjectRecordFile(bridgeRecord, {
       inputs: {},
@@ -153,7 +180,10 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
         },
       },
     ]);
-    assert.equal(selectRollupCachedModuleTransform(bridge, proof, module), true);
+    assert.equal(
+      selectRollupCachedModuleTransform(bridge, proof, module),
+      true,
+    );
   } finally {
     await bridge.close();
   }
@@ -174,7 +204,10 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
       return true;
     },
   };
-  assert.equal(selectRollupCachedModuleTransform(owed, delegated, module), true);
+  assert.equal(
+    selectRollupCachedModuleTransform(owed, delegated, module),
+    true,
+  );
   assert.equal(movedCalls, 0, "owed delivery bypasses module judgment");
   assert.equal(
     selectRollupCachedModuleTransform(undefined, delegated, module),
@@ -193,9 +226,16 @@ export async function test_rollup_cache_serves_a_delivery_only_under_its_options
   assert.equal(movedCalls, 2);
   const bridgeError = new Error("authored bridge judgment failed");
   assert.throws(
-    () => selectRollupCachedModuleTransform(
-      { owes: () => { throw bridgeError; } }, delegated, module,
-    ),
+    () =>
+      selectRollupCachedModuleTransform(
+        {
+          owes: () => {
+            throw bridgeError;
+          },
+        },
+        delegated,
+        module,
+      ),
     (error) => error === bridgeError,
   );
   assert.equal(movedCalls, 2, "a bridge failure does not consult module proof");

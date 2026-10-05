@@ -85,7 +85,10 @@ export function test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_paren
         };
         const assertChannel = (): void => {
           assert.equal(fs.readFileSync(channel, "utf8"), sentinel);
-          assert.equal(process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE, active);
+          assert.equal(
+            process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE,
+            active,
+          );
           assert.equal(process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT, channel);
         };
         for (const phase of ["initial", "recovered"]) {
@@ -121,10 +124,16 @@ export function test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_paren
           for (const input of descriptor.hostInputs)
             assert.ok(Object.hasOwn(descriptor.hostInputHashes, input));
           if (phase === "initial") {
-            fs.writeFileSync(config, 'throw new Error("owned config failure");\n');
+            fs.writeFileSync(
+              config,
+              'throw new Error("owned config failure");\n',
+            );
             assert.throws(() => factory(context), /owned config failure/);
             assertChannel();
-            fs.writeFileSync(config, configSource + "// recovered evaluation\n");
+            fs.writeFileSync(
+              config,
+              configSource + "// recovered evaluation\n",
+            );
           }
         }
       } catch (error) {
@@ -138,5 +147,8 @@ export function test_ttsc_lint_config_evaluator_keeps_bootstrap_out_of_the_paren
     });
   }
   if (failures.length)
-    throw new AggregateError(failures, "lint evaluator channel controls failed");
+    throw new AggregateError(
+      failures,
+      "lint evaluator channel controls failed",
+    );
 }

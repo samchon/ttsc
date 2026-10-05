@@ -1,4 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
+
 import factory, {
   SyntaxKind,
   addSyntheticLeadingComment,
@@ -8,13 +9,17 @@ import factory, {
   setSyntheticTrailingComments,
 } from "../../../../../packages/factory/src/index";
 import { print, ref } from "../../internal/helpers";
+
 /**
- * Verifies nodes without synthesized comments print exactly as before (no regression).
+ * Verifies nodes without synthesized comments print exactly as before (no
+ * regression).
  *
  * Comment support must leave a node with no attached comment unchanged.
  *
- * 1. TsPrinter.print emits the uncommented type reference X without comment delimiters or extra whitespace.
- * 2. The literal X is the TypeScript spelling of the supplied reference; it is not captured from the printer.
+ * 1. TsPrinter.print emits the uncommented type reference X without comment
+ *    delimiters or extra whitespace.
+ * 2. The literal X is the TypeScript spelling of the supplied reference; it is not
+ *    captured from the printer.
  *
  * @evidence contracts/testing.md#behavioral-verification TsPrinter.print emits the uncommented type reference X without comment delimiters or extra whitespace.
  * @evidence contracts/testing.md#independent-expectations The literal X is the TypeScript spelling of the supplied reference; it is not captured from the printer.

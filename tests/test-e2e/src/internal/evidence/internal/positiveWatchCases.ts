@@ -3,7 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
-import { assertExcludes, assertFailure, assertIncludes, assertStatus, runCheck, type IRunResult, type ITtscEvidenceProject } from "./index";
+import {
+  type IRunResult,
+  type ITtscEvidenceProject,
+  assertExcludes,
+  assertFailure,
+  assertIncludes,
+  assertStatus,
+  runCheck,
+} from "./index";
 
 /**
  * Authored watch mutations and assertions consumed by one positive watcher.
@@ -19,7 +27,8 @@ import { assertExcludes, assertFailure, assertIncludes, assertStatus, runCheck, 
  */
 export namespace positiveWatchCases {
   /**
-   * The batch-owned actual fixture, roots, results and cycle operations for one phase.
+   * The batch-owned actual fixture, roots, results and cycle operations for one
+   * phase.
    *
    * @evidence contracts/common.md#principled-implementation Actual owned paths and captured verdicts connect authored mutations to the original independent assertions; the batch owns guarded writes and process lifetime.
    * @evidence contracts/common.md#clear-and-simple-design One readonly context carries the phase inputs and observation operations without allocating another consumer or watcher.
@@ -30,28 +39,53 @@ export namespace positiveWatchCases {
     /** Canonical primary project used unchanged by the original cold check. */
     readonly project: ITtscEvidenceProject;
 
-    /** Physical root containing this phase's authored local source and documents. */
+    /**
+     * Physical root containing this phase's authored local source and
+     * documents.
+     */
     readonly localRoot: string;
 
-    /** Owned physical ancestor root containing external inputs absent from the Program. */
+    /**
+     * Owned physical ancestor root containing external inputs absent from the
+     * Program.
+     */
     readonly outsideRoot: string;
 
-    /** Actual detached private Evidence library, the only permitted loader-deletion target. */
+    /**
+     * Actual detached private Evidence library, the only permitted
+     * loader-deletion target.
+     */
     readonly library: string;
 
-    /** Activation result, independently checked for its authored status0 or2; assertions collect independently. */
+    /**
+     * Activation result, independently checked for its authored status0 or2;
+     * assertions collect independently.
+     */
     readonly baseline: IRunResult;
 
     /** Writes and records exact originals for bounded later recovery. */
-    readonly write: (relative: string, bytes: string, outside?: boolean) => void;
+    readonly write: (
+      relative: string,
+      bytes: string,
+      outside?: boolean,
+    ) => void;
 
-    /** Removes one exact owned input while retaining its original bytes or absence for recovery. */
+    /**
+     * Removes one exact owned input while retaining its original bytes or
+     * absence for recovery.
+     */
     readonly remove: (relative: string, outside?: boolean) => void;
 
-    /** Observes the latest settled real cycle; requested status/text do not replace its result. */
+    /**
+     * Observes the latest settled real cycle; requested status/text do not
+     * replace its result.
+     */
     readonly next: (status: number, marker?: string) => Promise<IRunResult>;
 
-    /** Requires a finite real no-build observation and rejects a terminated watcher. */
+    /**
+     * Requires a finite real no-build observation and rejects a terminated
+     * watcher.
+     */
     readonly quiet: (milliseconds: number) => Promise<unknown>;
 
     /** Records independent assertion failures so unrelated cases still execute. */
@@ -62,13 +96,53 @@ export namespace positiveWatchCases {
   export const alpha = "## Alpha\n";
 
   /** Authors the original PostgreSQL datasource and one UUID-id model per name. */
-  export const schema = (names: readonly string[]): string => ["datasource db {", '  provider = "postgresql"', "}", "", ...names.flatMap(name => [`model ${name} {`, "  id String @id @db.Uuid", "}", ""])].join("\n");
-
-  /** Authors original member operations; sibling contracts retain Created/201 responses. */
-  export const swagger = (methods: readonly string[], operation = "/members", external = false): string => JSON.stringify({ openapi: "3.1.0", info: { title: "Members", version: "1.0.0" }, paths: { [operation]: Object.fromEntries(methods.map(method => [method, { responses: external ? { "201": { description: "Created" } } : { "200": { description: "OK" } } }])) } }, null, 2) + "\n";
+  export const schema = (names: readonly string[]): string =>
+    [
+      "datasource db {",
+      '  provider = "postgresql"',
+      "}",
+      "",
+      ...names.flatMap((name) => [
+        `model ${name} {`,
+        "  id String @id @db.Uuid",
+        "}",
+        "",
+      ]),
+    ].join("\n");
 
   /**
-   * Verifies an exact Swagger dependency arrives after initially missing startup.
+   * Authors original member operations; sibling contracts retain Created/201
+   * responses.
+   */
+  export const swagger = (
+    methods: readonly string[],
+    operation = "/members",
+    external = false,
+  ): string =>
+    JSON.stringify(
+      {
+        openapi: "3.1.0",
+        info: { title: "Members", version: "1.0.0" },
+        paths: {
+          [operation]: Object.fromEntries(
+            methods.map((method) => [
+              method,
+              {
+                responses: external
+                  ? { "201": { description: "Created" } }
+                  : { "200": { description: "OK" } },
+              },
+            ]),
+          ),
+        },
+      },
+      null,
+      2,
+    ) + "\n";
+
+  /**
+   * Verifies an exact Swagger dependency arrives after initially missing
+   * startup.
    *
    * Registering only existing files would leave the first failing build unable
    * to observe the generator's first creation of the parent and document.
@@ -87,11 +161,28 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#preserved-coverage Both original status2 and generated0 assertions from evidence watch observes a generated swagger document remain here with identical source/citation, JSON bytes and real cycle timeout.
    */
   export async function generatedSwagger(context: Context): Promise<void> {
-    context.check(() => assert.ok(!fs.existsSync(path.join(context.localRoot, "api")), "The original generated Swagger parent must be absent at startup."));
-    context.check(() => assertStatus(context.baseline, 2, "A citation against a document that does not exist cannot resolve and must be reported."));
+    context.check(() =>
+      assert.ok(
+        !fs.existsSync(path.join(context.localRoot, "api")),
+        "The original generated Swagger parent must be absent at startup.",
+      ),
+    );
+    context.check(() =>
+      assertStatus(
+        context.baseline,
+        2,
+        "A citation against a document that does not exist cannot resolve and must be reported.",
+      ),
+    );
     context.write("api/swagger.json", swagger(["post"]));
     const generated = await context.next(0);
-    context.check(() => assertStatus(generated, 0, "Generating the declared document must be observed even though it was missing when the watch started."));
+    context.check(() =>
+      assertStatus(
+        generated,
+        0,
+        "Generating the declared document must be observed even though it was missing when the watch started.",
+      ),
+    );
   }
 
   /**
@@ -114,16 +205,52 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#preserved-coverage Original initial2 and all five empty/Alpha inclusions or exclusions from evidence watch observes markdown create and delete remain with identical .keep/source/heading bytes; no later status assertion is claimed.
    */
   export async function markdownLife(context: Context): Promise<void> {
-    context.check(() => assertStatus(context.baseline, 2, "A reference glob matching no document cannot materialize evidence and must be reported."));
-    context.check(() => assertIncludes(context.baseline, "matched no markdown files", "The empty population must name the globs that produced it."));
+    context.check(() =>
+      assertStatus(
+        context.baseline,
+        2,
+        "A reference glob matching no document cannot materialize evidence and must be reported.",
+      ),
+    );
+    context.check(() =>
+      assertIncludes(
+        context.baseline,
+        "matched no markdown files",
+        "The empty population must name the globs that produced it.",
+      ),
+    );
     context.write("docs/spec.md", alpha);
     const created = await context.next(2);
-    context.check(() => assertIncludes(created, "Missing acknowledgement for 'docs/spec.md#alpha'", "A created document must be observed even though nothing matched the glob when the watch started."));
-    context.check(() => assertExcludes(created, "matched no markdown files", "The population must stop being empty once the document exists."));
+    context.check(() =>
+      assertIncludes(
+        created,
+        "Missing acknowledgement for 'docs/spec.md#alpha'",
+        "A created document must be observed even though nothing matched the glob when the watch started.",
+      ),
+    );
+    context.check(() =>
+      assertExcludes(
+        created,
+        "matched no markdown files",
+        "The population must stop being empty once the document exists.",
+      ),
+    );
     context.remove("docs/spec.md");
     const deleted = await context.next(2);
-    context.check(() => assertIncludes(deleted, "matched no markdown files", "Deleting the only matched document must empty the population again."));
-    context.check(() => assertExcludes(deleted, "Missing acknowledgement for 'docs/spec.md#alpha'", "A deleted heading must not survive as an obligation in the next cycle."));
+    context.check(() =>
+      assertIncludes(
+        deleted,
+        "matched no markdown files",
+        "Deleting the only matched document must empty the population again.",
+      ),
+    );
+    context.check(() =>
+      assertExcludes(
+        deleted,
+        "Missing acknowledgement for 'docs/spec.md#alpha'",
+        "A deleted heading must not survive as an obligation in the next cycle.",
+      ),
+    );
   }
 
   /**
@@ -147,18 +274,53 @@ export namespace positiveWatchCases {
    */
   export async function documentedConfig(context: Context): Promise<void> {
     const invalid = (result: IRunResult): void => {
-      context.check(() => assertStatus(result, 2, "The invalid documented option must fail."));
-      context.check(() => assertIncludes(result, "Invalid evidence/documented configuration", "The invalid setting must name its rule."));
-      context.check(() => assert.equal(result.output.split("Invalid evidence/documented configuration").length - 1, 1, "Each invalid cycle must report its configuration finding once.\n" + result.output));
+      context.check(() =>
+        assertStatus(result, 2, "The invalid documented option must fail."),
+      );
+      context.check(() =>
+        assertIncludes(
+          result,
+          "Invalid evidence/documented configuration",
+          "The invalid setting must name its rule.",
+        ),
+      );
+      context.check(() =>
+        assert.equal(
+          result.output.split("Invalid evidence/documented configuration")
+            .length - 1,
+          1,
+          "Each invalid cycle must report its configuration finding once.\n" +
+            result.output,
+        ),
+      );
     };
     invalid(context.baseline);
-    context.write("src/extra.ts", "/** Extra, edited. */\nexport interface Extra {}\n");
+    context.write(
+      "src/extra.ts",
+      "/** Extra, edited. */\nexport interface Extra {}\n",
+    );
     invalid(await context.next(2));
-    const config = fs.readFileSync(path.join(context.localRoot, "lint.config.ts"), "utf8");
-    assert.equal(config.split('symbols: "type"').length - 1, 1, "Exactly the original unsupported option must be repaired.");
-    context.write("lint.config.ts", config.replace('symbols: "type"', 'symbol: "type"'));
+    const config = fs.readFileSync(
+      path.join(context.localRoot, "lint.config.ts"),
+      "utf8",
+    );
+    assert.equal(
+      config.split('symbols: "type"').length - 1,
+      1,
+      "Exactly the original unsupported option must be repaired.",
+    );
+    context.write(
+      "lint.config.ts",
+      config.replace('symbols: "type"', 'symbol: "type"'),
+    );
     const repaired = await context.next(0);
-    context.check(() => assertStatus(repaired, 0, "Repairing the option must clear the cycle-scoped configuration finding."));
+    context.check(() =>
+      assertStatus(
+        repaired,
+        0,
+        "Repairing the option must clear the cycle-scoped configuration finding.",
+      ),
+    );
   }
 
   /**
@@ -169,7 +331,8 @@ export namespace positiveWatchCases {
    *
    * 1. Observe the original unreviewed Pricing citation and requested fingerprint.
    * 2. Write that review into the original source and require success.
-   * 3. Change the rate from30% to45% and require stale diagnostics quoting the old token.
+   * 3. Change the rate from30% to45% and require stale diagnostics quoting the old
+   *    token.
    *
    * @evidence contracts/testing.md#behavioral-verification The actual unreviewed build fails with its Pricing citation, the requested review passes0, then changed Markdown fails as stale and names the source's old fingerprint.
    * @evidence contracts/testing.md#independent-expectations The authored30%→45% change and literal unreviewed/stale categories establish expiry independently. The accepted token is product-derived transport input, not an independent digest-value oracle.
@@ -181,30 +344,87 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#preserved-coverage Original evidence graph expires a review when cited content changes retains initial failure/category, accepted0, stale failure/category and quoted old-token assertions, original source/document bytes, typechecked config membership and timeouts.
    */
   export async function reviewExpiry(context: Context): Promise<void> {
-    context.check(() => assertFailure(context.baseline, "An unreviewed requireReview citation must fail."));
-    context.check(() => assertIncludes(context.baseline, "Unreviewed @evidence for 'docs/spec.md#pricing'", "The finding must name its citation."));
-    const opening = [context.baseline.output.indexOf("Unreviewed @"), context.baseline.output.indexOf("Unfingerprinted @evidenceReview")].filter(index => index >= 0).sort((left, right) => left - right)[0];
-    const match = opening === undefined ? null : context.baseline.output.slice(opening).match(/#([0-9a-f]{7})(?=[\s'",.)])/);
-    if (match === null) throw new Error("Expected a review diagnostic naming a fingerprint:\n" + context.baseline.output);
+    context.check(() =>
+      assertFailure(
+        context.baseline,
+        "An unreviewed requireReview citation must fail.",
+      ),
+    );
+    context.check(() =>
+      assertIncludes(
+        context.baseline,
+        "Unreviewed @evidence for 'docs/spec.md#pricing'",
+        "The finding must name its citation.",
+      ),
+    );
+    const opening = [
+      context.baseline.output.indexOf("Unreviewed @"),
+      context.baseline.output.indexOf("Unfingerprinted @evidenceReview"),
+    ]
+      .filter((index) => index >= 0)
+      .sort((left, right) => left - right)[0];
+    const match =
+      opening === undefined
+        ? null
+        : context.baseline.output
+            .slice(opening)
+            .match(/#([0-9a-f]{7})(?=[\s'",.)])/);
+    if (match === null)
+      throw new Error(
+        "Expected a review diagnostic naming a fingerprint:\n" +
+          context.baseline.output,
+      );
     const fingerprint = match[1]!;
-    context.write("src/ISale.ts", "/**\n * @evidence docs/spec.md#pricing Derives the sale price from this section.\n * @evidenceReview docs/spec.md#pricing #" + fingerprint + " Section caps the rate at 30%; price clamps to 30.\n */\nexport interface ISale {\n  price: number;\n}\n");
+    context.write(
+      "src/ISale.ts",
+      "/**\n * @evidence docs/spec.md#pricing Derives the sale price from this section.\n * @evidenceReview docs/spec.md#pricing #" +
+        fingerprint +
+        " Section caps the rate at 30%; price clamps to 30.\n */\nexport interface ISale {\n  price: number;\n}\n",
+    );
     const accepted = await context.next(0);
-    context.check(() => assertStatus(accepted, 0, "The requested review fingerprint must satisfy the obligation."));
+    context.check(() =>
+      assertStatus(
+        accepted,
+        0,
+        "The requested review fingerprint must satisfy the obligation.",
+      ),
+    );
     context.write("docs/spec.md", "## Pricing\n\nThe rate is capped at 45%.\n");
     const stale = await context.next(2);
-    context.check(() => assertFailure(stale, "Rewriting the cited section must expire its review."));
-    context.check(() => assertIncludes(stale, "Stale @evidenceReview for 'docs/spec.md#pricing'", "The finding must report stale rather than missing."));
-    context.check(() => assertIncludes(stale, `names '#${fingerprint}'`, "The diagnostic must quote the review's old value."));
+    context.check(() =>
+      assertFailure(
+        stale,
+        "Rewriting the cited section must expire its review.",
+      ),
+    );
+    context.check(() =>
+      assertIncludes(
+        stale,
+        "Stale @evidenceReview for 'docs/spec.md#pricing'",
+        "The finding must report stale rather than missing.",
+      ),
+    );
+    context.check(() =>
+      assertIncludes(
+        stale,
+        `names '#${fingerprint}'`,
+        "The diagnostic must quote the review's old value.",
+      ),
+    );
   }
 
   /**
-   * Verifies declared Markdown freshness, unrelated quiet and stable resident identity.
+   * Verifies declared Markdown freshness, unrelated quiet and stable resident
+   * identity.
    *
-   * The original warm and declared-input cases have byte-identical Alpha sources.
-   * One rename can prove both telemetry residency and fresh graph inventory.
+   * The original warm and declared-input cases have byte-identical Alpha
+   * sources. One rename can prove both telemetry residency and fresh graph
+   * inventory.
    *
-   * 1. Verify the original Alpha document bytes and observe an unrelated README edit.
-   * 2. Rename Alpha to Beta and check failure, old/new findings and resident telemetry.
+   * 1. Verify the original Alpha document bytes and observe an unrelated README
+   *    edit.
+   * 2. Rename Alpha to Beta and check failure, old/new findings and resident
+   *    telemetry.
    * 3. Restore Alpha and require recovery before another phase.
    *
    * @evidence contracts/testing.md#behavioral-verification Real watch ignores README for 1500ms, reports status 2 with unresolved alpha and missing beta, preserves actual resident PID and cumulative Program loads, then recovers to 0.
@@ -221,26 +441,67 @@ export namespace positiveWatchCases {
     context.write("README.md", "# Fixture\n\nUnrelated prose.\n");
     await context.quiet(1_500);
     context.write("docs/spec.md", "## Beta\n");
-    const renamed = await context.next(2, "Unresolved evidence target 'docs/spec.md#alpha'");
-    context.check(() => assertStatus(renamed, 2, "The actual Markdown rebuild must fail."));
-    context.check(() => assertIncludes(renamed, "Unresolved evidence target 'docs/spec.md#alpha'", "The old heading must become stale."));
-    context.check(() => assertIncludes(renamed, "Missing acknowledgement for 'docs/spec.md#beta'", "Beta must become the current obligation."));
-    const before = telemetry(context.baseline), after = telemetry(renamed);
-    context.check(() => assert.notEqual(before, null, "Initial native resident telemetry must exist."));
-    context.check(() => assert.ok(before !== null && after !== null && before.pid === after.pid && before.loads === after.loads, `Markdown-only changes must retain PID/count: ${JSON.stringify({ before, after })}\n\nBaseline:\n${context.baseline.output}\n\nRefreshed:\n${renamed.output}`));
+    const renamed = await context.next(
+      2,
+      "Unresolved evidence target 'docs/spec.md#alpha'",
+    );
+    context.check(() =>
+      assertStatus(renamed, 2, "The actual Markdown rebuild must fail."),
+    );
+    context.check(() =>
+      assertIncludes(
+        renamed,
+        "Unresolved evidence target 'docs/spec.md#alpha'",
+        "The old heading must become stale.",
+      ),
+    );
+    context.check(() =>
+      assertIncludes(
+        renamed,
+        "Missing acknowledgement for 'docs/spec.md#beta'",
+        "Beta must become the current obligation.",
+      ),
+    );
+    const before = telemetry(context.baseline),
+      after = telemetry(renamed);
+    context.check(() =>
+      assert.notEqual(
+        before,
+        null,
+        "Initial native resident telemetry must exist.",
+      ),
+    );
+    context.check(() =>
+      assert.ok(
+        before !== null &&
+          after !== null &&
+          before.pid === after.pid &&
+          before.loads === after.loads,
+        `Markdown-only changes must retain PID/count: ${JSON.stringify({ before, after })}\n\nBaseline:\n${context.baseline.output}\n\nRefreshed:\n${renamed.output}`,
+      ),
+    );
     context.write("docs/spec.md", alpha);
     const restored = await context.next(0);
-    context.check(() => assertStatus(restored, 0, "The restored Alpha document must recover from its event alone."));
+    context.check(() =>
+      assertStatus(
+        restored,
+        0,
+        "The restored Alpha document must recover from its event alone.",
+      ),
+    );
   }
 
   /**
-   * Verifies warm findings agree with a fresh compiler on the same physical inputs.
+   * Verifies warm findings agree with a fresh compiler on the same physical
+   * inputs.
    *
-   * The second process is an actual cold Program, even when its native artifact is cached.
+   * The second process is an actual cold Program, even when its native artifact
+   * is cached.
    *
    * 1. Add an uncited Delta sibling without changing compiler sources.
    * 2. Run the canonical workspace producer's real check in the same directory.
-   * 3. Compare status2 and nonempty five-category findings with exact multiplicity.
+   * 3. Compare status2 and nonempty five-category findings with exact
+   *    multiplicity.
    *
    * @evidence contracts/testing.md#behavioral-verification Actual warm and cold checks of Delta must both return 2 and have equal extracted diagnostic text and multiplicity, with nonempty findings and bidirectional containment.
    * @evidence contracts/testing.md#independent-expectations The fresh invocation supplies a differential state oracle on identical bytes and paths; it shares product implementation, so literal authored Delta independently requires failure.
@@ -254,19 +515,42 @@ export namespace positiveWatchCases {
   export async function cold(context: Context): Promise<void> {
     verifyAlpha(context);
     context.write("docs/spec.md", "## Alpha\n\n## Delta\n");
-    const warm = await context.next(2, "Missing acknowledgement for 'docs/spec.md#delta'");
+    const warm = await context.next(
+      2,
+      "Missing acknowledgement for 'docs/spec.md#delta'",
+    );
     const fresh = runCheck(context.project.directory);
-    context.check(() => assertStatus(fresh, 2, "The actual fresh compiler must fail Delta."));
-    context.check(() => assertStatus(warm, 2, "The actual warm compiler must fail Delta."));
-    const left = diagnostics(fresh), right = diagnostics(warm);
-    context.check(() => assert.deepEqual([...left].sort(), [...right].sort(), "Warm/cold findings must retain exact multiplicity."));
-    context.check(() => assert.notEqual(left.length, 0, "The comparison must not be vacuous."));
-    for (const item of left) context.check(() => assertIncludes(warm, item, "Cold findings must appear warm."));
-    for (const item of right) context.check(() => assertIncludes(fresh, item, "Warm findings must appear cold."));
+    context.check(() =>
+      assertStatus(fresh, 2, "The actual fresh compiler must fail Delta."),
+    );
+    context.check(() =>
+      assertStatus(warm, 2, "The actual warm compiler must fail Delta."),
+    );
+    const left = diagnostics(fresh),
+      right = diagnostics(warm);
+    context.check(() =>
+      assert.deepEqual(
+        [...left].sort(),
+        [...right].sort(),
+        "Warm/cold findings must retain exact multiplicity.",
+      ),
+    );
+    context.check(() =>
+      assert.notEqual(left.length, 0, "The comparison must not be vacuous."),
+    );
+    for (const item of left)
+      context.check(() =>
+        assertIncludes(warm, item, "Cold findings must appear warm."),
+      );
+    for (const item of right)
+      context.check(() =>
+        assertIncludes(fresh, item, "Warm findings must appear cold."),
+      );
   }
 
   /**
-   * Verifies an exact local Swagger input widens and recovers through resident watch.
+   * Verifies an exact local Swagger input widens and recovers through resident
+   * watch.
    *
    * 1. Add GET beside the cited POST.
    * 2. Require the literal missing GET finding and status2.
@@ -283,17 +567,37 @@ export namespace positiveWatchCases {
    */
   export async function swaggerRefresh(context: Context): Promise<void> {
     context.write("api/swagger.json", swagger(["post", "get"]));
-    const widened = await context.next(2, "Missing acknowledgement for 'GET:/members'");
-    context.check(() => assertStatus(widened, 2, "GET must fail the actual rebuild."));
-    context.check(() => assertIncludes(widened, "Missing acknowledgement for 'GET:/members'", "The changed document must renormalize."));
+    const widened = await context.next(
+      2,
+      "Missing acknowledgement for 'GET:/members'",
+    );
+    context.check(() =>
+      assertStatus(widened, 2, "GET must fail the actual rebuild."),
+    );
+    context.check(() =>
+      assertIncludes(
+        widened,
+        "Missing acknowledgement for 'GET:/members'",
+        "The changed document must renormalize.",
+      ),
+    );
     context.write("api/swagger.json", swagger(["post"]));
     const restored = await context.next(0);
-    context.check(() => assertStatus(restored, 0, "Withdrawn GET must recover."));
-    context.check(() => assertExcludes(restored, "Missing acknowledgement", "Withdrawn operations must not remain cached."));
+    context.check(() =>
+      assertStatus(restored, 0, "Withdrawn GET must recover."),
+    );
+    context.check(() =>
+      assertExcludes(
+        restored,
+        "Missing acknowledgement",
+        "Withdrawn operations must not remain cached.",
+      ),
+    );
   }
 
   /**
-   * Verifies both declared ancestor channels refresh beyond compiler source membership.
+   * Verifies both declared ancestor channels refresh beyond compiler source
+   * membership.
    *
    * 1. Rename and restore the rooted sibling Markdown heading.
    * 2. Change and restore the ascending Swagger operation path.
@@ -309,24 +613,71 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#preserved-coverage Original initial0 and both invalid2/stale-target/recovery0 sequences survive; new-target names remain outside the original oracle.
    */
   export async function outside(context: Context): Promise<void> {
-    context.write("docs/requirements/pricing.md", "## Refund Policy {#refunds}\n", true);
-    const renamed = await context.next(2, "Unresolved evidence target 'requirements/pricing.md#discounts'");
-    context.check(() => assertStatus(renamed, 2, "Ancestor Markdown must invalidate."));
-    context.check(() => assertIncludes(renamed, "Unresolved evidence target 'requirements/pricing.md#discounts'", "The original sibling anchor must become stale."));
-    context.write("docs/requirements/pricing.md", "## Discount Policy {#discounts}\n", true);
+    context.write(
+      "docs/requirements/pricing.md",
+      "## Refund Policy {#refunds}\n",
+      true,
+    );
+    const renamed = await context.next(
+      2,
+      "Unresolved evidence target 'requirements/pricing.md#discounts'",
+    );
+    context.check(() =>
+      assertStatus(renamed, 2, "Ancestor Markdown must invalidate."),
+    );
+    context.check(() =>
+      assertIncludes(
+        renamed,
+        "Unresolved evidence target 'requirements/pricing.md#discounts'",
+        "The original sibling anchor must become stale.",
+      ),
+    );
+    context.write(
+      "docs/requirements/pricing.md",
+      "## Discount Policy {#discounts}\n",
+      true,
+    );
     const restoredDocument = await context.next(0);
-    context.check(() => assertStatus(restoredDocument, 0, "Restoring outside Markdown must recover."));
-    context.write("contracts/swagger.json", swagger(["post"], "/customers", true), true);
-    const changed = await context.next(2, "Unresolved evidence target 'POST:/members'");
-    context.check(() => assertStatus(changed, 2, "Ancestor Swagger must invalidate."));
-    context.check(() => assertIncludes(changed, "Unresolved evidence target 'POST:/members'", "The old outside operation must be stale."));
-    context.write("contracts/swagger.json", swagger(["post"], "/members", true), true);
+    context.check(() =>
+      assertStatus(
+        restoredDocument,
+        0,
+        "Restoring outside Markdown must recover.",
+      ),
+    );
+    context.write(
+      "contracts/swagger.json",
+      swagger(["post"], "/customers", true),
+      true,
+    );
+    const changed = await context.next(
+      2,
+      "Unresolved evidence target 'POST:/members'",
+    );
+    context.check(() =>
+      assertStatus(changed, 2, "Ancestor Swagger must invalidate."),
+    );
+    context.check(() =>
+      assertIncludes(
+        changed,
+        "Unresolved evidence target 'POST:/members'",
+        "The old outside operation must be stale.",
+      ),
+    );
+    context.write(
+      "contracts/swagger.json",
+      swagger(["post"], "/members", true),
+      true,
+    );
     const restored = await context.next(0);
-    context.check(() => assertStatus(restored, 0, "Restoring outside Swagger must recover."));
+    context.check(() =>
+      assertStatus(restored, 0, "Restoring outside Swagger must recover."),
+    );
   }
 
   /**
-   * Verifies an external code-link export rename, deletion and restoration refresh.
+   * Verifies an external code-link export rename, deletion and restoration
+   * refresh.
    *
    * 1. Rename value in the original physical sibling source.
    * 2. Delete that file and require the distinct file diagnostic.
@@ -344,16 +695,38 @@ export namespace positiveWatchCases {
   export async function codeLink(context: Context): Promise<void> {
     context.write("api/example.ts", "export const renamed = 1;\n", true);
     const renamed = await context.next(2, "Missing TypeScript evidence export");
-    context.check(() => assertFailure(renamed, "Renamed external export must fail."));
-    context.check(() => assertIncludes(renamed, "Missing TypeScript evidence export", "The rename must invalidate the link."));
+    context.check(() =>
+      assertFailure(renamed, "Renamed external export must fail."),
+    );
+    context.check(() =>
+      assertIncludes(
+        renamed,
+        "Missing TypeScript evidence export",
+        "The rename must invalidate the link.",
+      ),
+    );
     EvidenceProcessOwnership.assertAvailable(context.project.directory);
     fs.unlinkSync(path.join(context.outsideRoot, "api/example.ts"));
     const deleted = await context.next(2, "Missing TypeScript evidence file");
-    context.check(() => assertFailure(deleted, "Deleted external file must fail."));
-    context.check(() => assertIncludes(deleted, "Missing TypeScript evidence file", "The deletion must be observed."));
+    context.check(() =>
+      assertFailure(deleted, "Deleted external file must fail."),
+    );
+    context.check(() =>
+      assertIncludes(
+        deleted,
+        "Missing TypeScript evidence file",
+        "The deletion must be observed.",
+      ),
+    );
     context.write("api/example.ts", "export const value = 2;\n", true);
     const restored = await context.next(0);
-    context.check(() => assertStatus(restored, 0, "Changed numeric bytes with restored export must recover."));
+    context.check(() =>
+      assertStatus(
+        restored,
+        0,
+        "Changed numeric bytes with restored export must recover.",
+      ),
+    );
   }
 
   /**
@@ -373,23 +746,51 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#preserved-coverage Original disabled status0/path absence, enabled failure, exact Claim1 name and missing path survive; reset0 is added between consumers.
    */
   export async function staged(context: Context): Promise<void> {
-    context.check(() => assertExcludes(context.baseline, "missing-docs", "The disabled population must not load."));
-    const original = fs.readFileSync(path.join(context.localRoot, "lint.config.ts"), "utf8");
+    context.check(() =>
+      assertExcludes(
+        context.baseline,
+        "missing-docs",
+        "The disabled population must not load.",
+      ),
+    );
+    const original = fs.readFileSync(
+      path.join(context.localRoot, "lint.config.ts"),
+      "utf8",
+    );
     const marker = "disabled: true";
-    assert.equal(original.split(marker).length - 1, 1, "Exactly the original first Staged marker must change.");
-    context.write("lint.config.ts", original.replace(marker, "disabled: false"));
+    assert.equal(
+      original.split(marker).length - 1,
+      1,
+      "Exactly the original first Staged marker must change.",
+    );
+    context.write(
+      "lint.config.ts",
+      original.replace(marker, "disabled: false"),
+    );
     const enabled = await context.next(2, "Claim 1 ('Staged')");
-    context.check(() => assertFailure(enabled, "Enabled incomplete claim must fail."));
-    context.check(() => assertIncludes(enabled, "Claim 1 ('Staged')", "Original position/name must survive."));
-    context.check(() => assertIncludes(enabled, "missing-docs", "Enabled population must load."));
+    context.check(() =>
+      assertFailure(enabled, "Enabled incomplete claim must fail."),
+    );
+    context.check(() =>
+      assertIncludes(
+        enabled,
+        "Claim 1 ('Staged')",
+        "Original position/name must survive.",
+      ),
+    );
+    context.check(() =>
+      assertIncludes(enabled, "missing-docs", "Enabled population must load."),
+    );
   }
 
   /**
    * Verifies both equal-byte parser caches with private loader revocation last.
    *
    * 1. Remove both actual loaders from the previously detached private SDK copy.
-   * 2. Make one unrelated TypeScript edit and require both cached inputs remain green.
-   * 3. Change Prisma, restore its original bytes, then change Swagger and require each distinct loader failure.
+   * 2. Make one unrelated TypeScript edit and require both cached inputs remain
+   *    green.
+   * 3. Change Prisma, restore its original bytes, then change Swagger and require
+   *    each distinct loader failure.
    *
    * @evidence contracts/testing.md#behavioral-verification Both absent packaged loaders permit an unchanged-input TypeScript rebuild0; changed Prisma fails2 with Prisma schema loader, exact original Prisma reset returns0, then changed Swagger fails2 with Swagger normalizer.
    * @evidence contracts/testing.md#independent-expectations Physical deletion of the private real loader modules makes a parse miss unusable. Changed-input failures independently validate the revocation control and original-byte recovery checks digest reuse.
@@ -402,38 +803,89 @@ export namespace positiveWatchCases {
    */
   export async function caches(context: Context): Promise<void> {
     EvidenceProcessOwnership.assertAvailable(context.project.directory);
-    for (const name of ["loadPrismaModels.js", "loadSwaggerOperations.js"]) fs.rmSync(path.join(context.library, "internal", name));
+    for (const name of ["loadPrismaModels.js", "loadSwaggerOperations.js"])
+      fs.rmSync(path.join(context.library, "internal", name));
     context.write("src/unrelated.ts", "export const version = 2;\n");
     const reused = await context.next(0);
-    context.check(() => assertStatus(reused, 0, "Both unchanged inputs must reuse memory without loaders."));
+    context.check(() =>
+      assertStatus(
+        reused,
+        0,
+        "Both unchanged inputs must reuse memory without loaders.",
+      ),
+    );
     context.write("prisma/schema.prisma", schema(["Sale", "Seller"]));
     const changedSchema = await context.next(2, "Prisma schema loader");
-    context.check(() => assertStatus(changedSchema, 2, "Changed schema must miss cache."));
-    context.check(() => assertIncludes(changedSchema, "Prisma schema loader", "Actual removed Prisma loader must be needed."));
+    context.check(() =>
+      assertStatus(changedSchema, 2, "Changed schema must miss cache."),
+    );
+    context.check(() =>
+      assertIncludes(
+        changedSchema,
+        "Prisma schema loader",
+        "Actual removed Prisma loader must be needed.",
+      ),
+    );
     context.write("prisma/schema.prisma", schema(["Sale"]));
     const restored = await context.next(0);
-    context.check(() => assertStatus(restored, 0, "Original schema bytes must remain cached after the failed miss."));
+    context.check(() =>
+      assertStatus(
+        restored,
+        0,
+        "Original schema bytes must remain cached after the failed miss.",
+      ),
+    );
     context.write("api/swagger.json", swagger(["post", "get"]));
     const changedSwagger = await context.next(2, "Swagger normalizer");
-    context.check(() => assertStatus(changedSwagger, 2, "Changed Swagger must miss cache."));
-    context.check(() => assertIncludes(changedSwagger, "Swagger normalizer", "Actual removed Swagger loader must be needed."));
+    context.check(() =>
+      assertStatus(changedSwagger, 2, "Changed Swagger must miss cache."),
+    );
+    context.check(() =>
+      assertIncludes(
+        changedSwagger,
+        "Swagger normalizer",
+        "Actual removed Swagger loader must be needed.",
+      ),
+    );
   }
 }
 
 /** Verifies actual shared fixture bytes before either original Alpha mutation. */
 function verifyAlpha(context: positiveWatchCases.Context): void {
-  context.check(() => assert.equal(fs.readFileSync(path.join(context.localRoot, "docs/spec.md"), "utf8"), positiveWatchCases.alpha));
-  context.check(() => assert.equal(fs.readFileSync(path.join(context.localRoot, "src/implementation.ts"), "utf8"), "/** @evidence docs/spec.md#alpha Implements the current specification section. */\nexport interface Implementation {}\n"));
+  context.check(() =>
+    assert.equal(
+      fs.readFileSync(path.join(context.localRoot, "docs/spec.md"), "utf8"),
+      positiveWatchCases.alpha,
+    ),
+  );
+  context.check(() =>
+    assert.equal(
+      fs.readFileSync(
+        path.join(context.localRoot, "src/implementation.ts"),
+        "utf8",
+      ),
+      "/** @evidence docs/spec.md#alpha Implements the current specification section. */\nexport interface Implementation {}\n",
+    ),
+  );
 }
 
 function telemetry(result: IRunResult): { pid: number; loads: number } | null {
-  const match = result.output.match(/@ttsc\/lint resident check: pid=(\d+) programLoads=(\d+)/);
-  return match === null ? null : { pid: Number(match[1]), loads: Number(match[2]) };
+  const match = result.output.match(
+    /@ttsc\/lint resident check: pid=(\d+) programLoads=(\d+)/,
+  );
+  return match === null
+    ? null
+    : { pid: Number(match[1]), loads: Number(match[2]) };
 }
 
 function diagnostics(result: IRunResult): string[] {
-  return result.output.split(/\r?\n/).map(line => {
-    const match = line.match(/(Missing|Unresolved|Duplicate|Ambiguous|Out-of-scope) /);
-    return match?.index === undefined ? "" : line.slice(match.index).trim();
-  }).filter(line => line.length !== 0);
+  return result.output
+    .split(/\r?\n/)
+    .map((line) => {
+      const match = line.match(
+        /(Missing|Unresolved|Duplicate|Ambiguous|Out-of-scope) /,
+      );
+      return match?.index === undefined ? "" : line.slice(match.index).trim();
+    })
+    .filter((line) => line.length !== 0);
 }

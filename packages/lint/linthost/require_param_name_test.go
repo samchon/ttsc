@@ -5,9 +5,9 @@ import "testing"
 // TestRuleJSDocRequireParamName verifies jsdoc/require-param-name reports a
 // @param that has only a type and accepts one that names the parameter.
 //
-// 1. Run the rule over a block whose third line is `@param {string}` and
-//    expect one finding on line 3.
-// 2. Run the rule over a block with `@param {string} name description` and expect none.
+//  1. Run the rule over a block whose third line is `@param {string}` and
+//     expect one finding on line 3.
+//  2. Run the rule over a block with `@param {string} name description` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-param-name rule through NewEngine.Run over a parsed virtual TypeScript file. `@param {string}` yields exactly one finding, with that rule at error severity, on line 3; `@param {string} name description` yields none.
 // @evidence contracts/testing.md#independent-expectations A type alone cannot identify the documented parameter. The literal sources and expected line 3 follow from that policy; the message text is not asserted.

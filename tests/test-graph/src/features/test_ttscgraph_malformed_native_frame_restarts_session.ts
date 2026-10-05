@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 
 /**
- * Verifies a non-JSON line from the native peer rejects the request and retires the peer before recovery.
+ * Verifies a non-JSON line from the native peer rejects the request and retires
+ * the peer before recovery.
  *
  * The state hands each received line to its host decoder; an unparseable line
  * must fail the active request and retire the peer rather than being ignored.
@@ -35,5 +42,7 @@ export async function test_ttscgraph_malformed_native_frame_restarts_session(): 
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

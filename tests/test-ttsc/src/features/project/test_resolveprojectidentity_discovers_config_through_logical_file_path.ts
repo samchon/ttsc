@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   fs,
@@ -53,14 +52,26 @@ export const test_resolveprojectidentity_discovers_config_through_logical_file_p
     );
     const nested = path.join(physicalRoot, "src", "nested");
     fs.mkdirSync(nested);
-    fs.writeFileSync(path.join(nested, "tsconfig.json"), '{"compilerOptions":{"noEmit":true}}\n');
+    fs.writeFileSync(
+      path.join(nested, "tsconfig.json"),
+      '{"compilerOptions":{"noEmit":true}}\n',
+    );
     fs.writeFileSync(path.join(nested, "main.ts"), "export {};\n");
     const nestedIdentity = resolveProjectIdentity({
       cwd: logicalParent,
       file: path.join("linked-project", "src", "nested", "main.ts"),
     });
-    assert.equal(nestedIdentity.logicalConfigPath, path.join(logicalRoot, "src", "nested", "tsconfig.json"));
-    assert.equal(nestedIdentity.logicalProjectRoot, path.join(logicalRoot, "src", "nested"));
-    assert.equal(nestedIdentity.physicalConfigPath, fs.realpathSync(path.join(nested, "tsconfig.json")));
+    assert.equal(
+      nestedIdentity.logicalConfigPath,
+      path.join(logicalRoot, "src", "nested", "tsconfig.json"),
+    );
+    assert.equal(
+      nestedIdentity.logicalProjectRoot,
+      path.join(logicalRoot, "src", "nested"),
+    );
+    assert.equal(
+      nestedIdentity.physicalConfigPath,
+      fs.realpathSync(path.join(nested, "tsconfig.json")),
+    );
     assert.equal(nestedIdentity.physicalProjectRoot, fs.realpathSync(nested));
   };

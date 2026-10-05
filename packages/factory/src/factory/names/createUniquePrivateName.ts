@@ -8,16 +8,21 @@ import { createPrivateIdentifier } from "./createPrivateIdentifier";
  * returned private identifier is unique within its scope. This package is
  * stateless, so this is a simplified placeholder: it does not guarantee
  * uniqueness, it assembles a name from the optional `prefix`, the `text` (or
- * the fallback `_unique` when omitted or empty), and the optional `suffix`, then
- * delegates to {@link createPrivateIdentifier}. Any leading `#` on `text` is
- * stripped first so the delegate adds exactly one.
+ * the fallback `_unique` when omitted or empty), and the optional `suffix`,
+ * then delegates to {@link createPrivateIdentifier}. Any leading `#` on `text`
+ * is stripped first so the delegate adds exactly one.
  *
  * With no arguments, the fallback applies and this prints:
  *
  * ```ts
- * #_unique
+ * #_unique;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The base name text, if any.
+ * @param prefix An optional name prefix.
+ * @param suffix An optional name suffix.
+ * @returns The created {@link PrivateIdentifier}.
  * @evidence contracts/common.md#principled-implementation
  *   Optional affixes surround the caller base or documented _unique fallback;
  *   stripping a leading # before prefix assembly keeps that delimiter at the
@@ -34,12 +39,6 @@ import { createPrivateIdentifier } from "./createPrivateIdentifier";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the fallback, affixes, # normalization and stateless limitation
  *   in separate paragraphs with an example and blank before acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The base name text, if any.
- * @param prefix An optional name prefix.
- * @param suffix An optional name suffix.
- * @returns The created {@link PrivateIdentifier}.
  */
 export const createUniquePrivateName = (
   text?: string,

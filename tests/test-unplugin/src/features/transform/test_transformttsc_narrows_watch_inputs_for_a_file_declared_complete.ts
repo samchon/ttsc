@@ -13,8 +13,8 @@ import { createWatchInputUnitFixture } from "../../internal/transform-complete/c
  * global-scope files both drop, while an input the plugin reported but the
  * graph never named still registers.
  *
- * 1. Supply a literal envelope with two reported dependencies, one absent from the graph, a graph,
- *    and a completeness declaration for `src/main.ts`.
+ * 1. Supply a literal envelope with two reported dependencies, one absent from the
+ *    graph, a graph, and a completeness declaration for `src/main.ts`.
  * 2. Collect its watch inputs.
  * 3. Assert they are exactly the two reported dependencies and the universal
  *    inputs, then consume the same envelope for an unmarked sibling and assert
@@ -39,9 +39,13 @@ export function test_transformttsc_narrows_watch_inputs_for_a_file_declared_comp
     },
     graph: GRAPH,
     dependenciesComplete: ["src/main.ts"],
-    dependencies: { "src/main.ts": ["src/consulted.d.ts", "src/only-declared.d.ts"] },
+    dependencies: {
+      "src/main.ts": ["src/consulted.d.ts", "src/only-declared.d.ts"],
+    },
     hostInputs: ["package.json", "plugin.cjs", "tsconfig.json"],
-    pluginSources: { [path.join(fixture.root, "plugin-source")]: "unit-input-state" },
+    pluginSources: {
+      [path.join(fixture.root, "plugin-source")]: "unit-input-state",
+    },
   };
 
   assert.deepEqual(

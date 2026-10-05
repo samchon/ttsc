@@ -55,7 +55,11 @@ func TestGuardForInStructuralMatrix(t *testing.T) {
         "  for (const k in o) " + tc.body + "\n" +
         "}\n"
       _, _, findings := runRuleFindingsSnapshot(t, "guard-for-in", source, nil)
-      for _, finding := range findings { if finding.Rule != "guard-for-in" || finding.Severity != SeverityError { t.Fatalf("unexpected rule/severity: %+v", finding) } }
+      for _, finding := range findings {
+        if finding.Rule != "guard-for-in" || finding.Severity != SeverityError {
+          t.Fatalf("unexpected rule/severity: %+v", finding)
+        }
+      }
       if len(findings) != tc.want {
         t.Fatalf(
           "guard-for-in on body %q: want %d finding(s), got %d (%+v)",

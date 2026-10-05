@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { fakeUpstreamOptions } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import { fakeUpstreamOptions } from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies the transformer propagates genuine compile/plugin errors.

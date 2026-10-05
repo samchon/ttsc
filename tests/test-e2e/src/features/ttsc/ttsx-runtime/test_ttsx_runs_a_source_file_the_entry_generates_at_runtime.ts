@@ -1,6 +1,7 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx runs a `.ts` source the entry writes into its own project at
@@ -22,6 +23,7 @@ import assert from "node:assert/strict";
  *    `require`s it.
  * 2. Run ttsx against the entry.
  * 3. Assert the generated module loaded and produced its value.
+ *
  * @evidence contracts/testing.md#behavioral-verification An already running NodeNext CommonJS entry writes generated/leaf.ts and requires it extensionlessly, requiring VALUE42.
  * @evidence contracts/testing.md#independent-expectations The authored generated export and literal output determine the expected value independently of runtime discovery.
  * @evidence contracts/testing.md#distinguishing-cases A source absent during upfront compilation must become loadable after a real write; this entry supplies no generated type-error control.
@@ -32,14 +34,18 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage The exact VALUE42 assertion remains here, without claiming a generated-source type-gate negative.
  */
 export function test_ttsx_runs_a_source_file_the_entry_generates_at_runtime() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_runs_a_source_file_the_entry_generates_at_runtime/inputs-1"));
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_runs_a_source_file_the_entry_generates_at_runtime/inputs-1",
+    ),
+  );
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      { cwd: root },
-    );
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "VALUE:42");
-  }
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "VALUE:42");
+}

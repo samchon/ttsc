@@ -20,8 +20,8 @@ import {
  *    separator, comparing each with its literal components.
  * 2. Parse ids with no separator, an empty tail, an empty name, an empty kind and
  *    only a quoted hash, and require undefined for each.
- * 3. Write an identity whose path and name hold `\` and `#` and require the
- *    quoted literal, then parse it back to the original components.
+ * 3. Write an identity whose path and name hold `\` and `#` and require the quoted
+ *    literal, then parse it back to the original components.
  *
  * @evidence contracts/testing.md#behavioral-verification parseTtscGraphNodeId must return the literal path, name and optional kind for each well-formed id and undefined for each malformed one, and writeTtscGraphNodeId must produce the quoted literal that parses back to the same components.
  * @evidence contracts/testing.md#independent-expectations Each id and component is a literal derived from the documented path#name:kind grammar (a backslash quotes a hash or a backslash, the final colon opens the kind), not read from the codec; the written form is the literal quoting of the authored input.
@@ -39,10 +39,19 @@ export function test_ttscgraph_node_id_round_trips_quoted_components_and_rejects
   };
 
   const parsed: [string, { path: string; name: string; kind?: string }][] = [
-    ["src/box.ts#Box.a:class", { path: "src/box.ts", name: "Box.a", kind: "class" }],
+    [
+      "src/box.ts#Box.a:class",
+      { path: "src/box.ts", name: "Box.a", kind: "class" },
+    ],
     ["src/box.ts#Box", { path: "src/box.ts", name: "Box" }],
-    ["src/a\\#b.ts#n:function", { path: "src/a#b.ts", name: "n", kind: "function" }],
-    ["src/a.ts#a\\#b:variable", { path: "src/a.ts", name: "a#b", kind: "variable" }],
+    [
+      "src/a\\#b.ts#n:function",
+      { path: "src/a#b.ts", name: "n", kind: "function" },
+    ],
+    [
+      "src/a.ts#a\\#b:variable",
+      { path: "src/a.ts", name: "a#b", kind: "variable" },
+    ],
     ["src/a.ts#a:b:c", { path: "src/a.ts", name: "a:b", kind: "c" }],
     ["src/a\\\\#n:class", { path: "src/a\\", name: "n", kind: "class" }],
   ];

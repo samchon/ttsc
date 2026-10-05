@@ -15,17 +15,16 @@ import { reloadImporters } from "./reloadImporters";
  * never go through it (samchon/ttsc#1368). Each importer registers them with
  * the adapter's own observer instead (`createInputObserver`), `node_modules`
  * included. A reload verdict requests importer-node propagation through Vite
- * (`reloadImporters`, samchon/ttsc#1393); Vite decides HMR acceptance and client
- * effects. A remaining membership invalidation verdict only invalidates graph
- * nodes (`invalidateImporters`, samchon/ttsc#1419), without proving that the
- * actual root set changed or requesting an HMR update.
+ * (`reloadImporters`, samchon/ttsc#1393); Vite decides HMR acceptance and
+ * client effects. A remaining membership invalidation verdict only invalidates
+ * graph nodes (`invalidateImporters`, samchon/ttsc#1419), without proving that
+ * the actual root set changed or requesting an HMR update.
  *
  * The observer opens on the server's root once a server attaches, and a server
  * told to poll registers inputs for the observer's per-tick bounded poll
  * (samchon/ttsc#1395).
  *
  * @param operations Native watch seams, replaceable for tests.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Compiler-only inputs belong to the shared observer, while verdicts route to
  *   Vite's importer lookup. Reload verdicts request HMR propagation and

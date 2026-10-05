@@ -1,9 +1,9 @@
 /**
  * What a `module.registerHooks` resolve hook returns, as ttsx's hooks use it.
  *
- * This local structural view names the result fields consumed by ttsx; it is
- * a subset of Node's current ResolveFnOutput rather than a claim that Node has
- * no synchronous hook typings.
+ * This local structural view names the result fields consumed by ttsx; it is a
+ * subset of Node's current ResolveFnOutput rather than a claim that Node has no
+ * synchronous hook typings.
  *
  * @evidence contracts/common.md#principled-implementation URL, nullable format hint and optional shortCircuit represent the synchronous resolver's supported result distinctions without treating absent format as a guessed loader kind.
  * @evidence contracts/common.md#clear-and-simple-design One local structural interface names the consumed URL, format and chain-control fields; Node's ResolveFnOutput also carries import attributes that this view does not describe or remove.

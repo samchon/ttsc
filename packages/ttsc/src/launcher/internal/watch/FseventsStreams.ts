@@ -10,10 +10,9 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
  * opening an ancestor starts its stream before retiring the descendant streams.
  * Still-active transferred watches receive a deferred gap notification; their
  * owners decide the content recheck. Retired streams reject later callbacks
- * through their inactive guard. Stream roots and
- * their descendants are indexed, so registration, close, and named event
- * delivery depend on path depth and affected watches rather than every stream
- * in the process.
+ * through their inactive guard. Stream roots and their descendants are indexed,
+ * so registration, close, and named event delivery depend on path depth and
+ * affected watches rather than every stream in the process.
  *
  * @evidence contracts/common.md#principled-implementation Ancestor streams cover descendant subscriptions; promotion starts replacement observation before retiring old streams and then reports the handoff gap.
  * @evidence contracts/common.md#clear-and-simple-design Stream ownership and descendant indexes are distinct from each watch's listener and close state.
@@ -74,9 +73,7 @@ export class FseventsStreams {
    * @param recursive Whether to receive events below immediate children.
    * @param listener Receives the event and its relative name, or `null` with a
    *   gap flag when every affected input needs a content recheck.
-   *
    * @returns A watcher whose close is idempotent.
-   *
    * @evidence contracts/common.md#principled-implementation A watch joins a covering ancestor stream; promotion transfers existing subscriptions before retiring displaced streams and schedules one gap recheck.
    * @evidence contracts/common.md#clear-and-simple-design Stream selection is separate from subscription state; returned close/on callbacks operate on one captured watch.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Transfer gaps are reported explicitly rather than hidden by repeated registration or assumptions about stopped native callbacks.

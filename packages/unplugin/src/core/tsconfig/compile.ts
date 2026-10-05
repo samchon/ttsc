@@ -14,8 +14,8 @@ import type { IRootPattern } from "./IRootPattern";
  * file.
  *
  * The filesystem view's platform selects path grammar; the compiler's
- * comparison policy independently selects case sensitivity. Resolved specs
- * use the compiler's slash-normalized representation, not native identity.
+ * comparison policy independently selects case sensitivity. Resolved specs use
+ * the compiler's slash-normalized representation, not native identity.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Component compilation preserves literal-file versus include semantics,

@@ -2,10 +2,12 @@
 // Source of truth: pinned native OptionsDeclarations and OptionsForWatch.
 // Regenerate with: pnpm format
 // Verify in CI with: node packages/ttsc/scripts/check-flags.cjs
-
 import type { CompilerOptionSpec } from "./CompilerOptionSpec";
 
-/** Pinned native option grammar, including alias, list and config-only boundaries. */
+/**
+ * Pinned native option grammar, including alias, list and config-only
+ * boundaries.
+ */
 export const COMPILER_OPTIONS: ReadonlyMap<string, CompilerOptionSpec> =
   new Map<string, CompilerOptionSpec>([
     ["?", { name: "help", kind: "boolean", configOnly: false }],

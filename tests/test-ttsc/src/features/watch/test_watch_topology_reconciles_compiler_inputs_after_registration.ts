@@ -21,8 +21,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * 1. Author the nine config, membership, lane, fingerprint and owner-handoff
  *    scenarios.
- * 2. Drive swallowed and event-first transitions through native directory
- *    owners on Windows and per-file owners on POSIX. The recursive Windows
+ * 2. Drive swallowed and event-first transitions through native directory owners
+ *    on Windows and per-file owners on POSIX. The recursive Windows
  *    mixed-membership scenario remains specific to that backend.
  * 3. Collect every scenario result and require exact reports, errors and handle
  *    retirements.
@@ -265,7 +265,11 @@ async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Pro
       (watcher) => watcher.active && watcher.location === physicalJson,
     );
     if (process.platform === "win32") {
-      assert.equal(fileWatcher, undefined, "Windows must not acquire a per-file JSON owner");
+      assert.equal(
+        fileWatcher,
+        undefined,
+        "Windows must not acquire a per-file JSON owner",
+      );
       assert.ok(
         compilerDirectoryWatcher,
         "Windows has no recursive compiler owner for the JSON member",
@@ -691,9 +695,14 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
         0,
         "Windows acquired a per-file owner during replacement",
       );
-      assert.ok(directoryOwner, "Windows has no directory owner for the source");
+      assert.ok(
+        directoryOwner,
+        "Windows has no directory owner for the source",
+      );
       assert.deepEqual(
-        registrations.filter(({ location }) => fs.statSync(location).isDirectory()),
+        registrations.filter(({ location }) =>
+          fs.statSync(location).isDirectory(),
+        ),
         originalDirectoryOwners,
         "an ordinary source replacement re-created its directory owners",
       );
@@ -719,7 +728,8 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
         "change",
         path.relative(directoryOwner.location, fixture.physicalSource),
       );
-    } else sourceRegistrations[1]?.listener("change", path.basename(fixture.source));
+    } else
+      sourceRegistrations[1]?.listener("change", path.basename(fixture.source));
     await Promise.resolve();
 
     assert.deepEqual(changes, [

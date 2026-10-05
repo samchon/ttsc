@@ -27,11 +27,11 @@ func TestTypeScriptConfigLoaderPreparationReportsIOFailures(t *testing.T) {
   root := t.TempDir()
   config := filepath.Join(root, "banner.config.ts")
   for _, scenario := range []struct {
-    name string
-    failWrite int
+    name        string
+    failWrite   int
     linkFailure bool
-    expected string
-    writes int
+    expected    string
+    writes      int
   }{
     {"link", 0, true, "link failed", 0},
     {"recorder", 1, false, "write config loader", 1},

@@ -12,14 +12,14 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * Coordination between Go builds that use ttsc's own Go object cache and the
  * opportunistic pruning of that cache.
  *
- * Coordinated build and admitted maintenance attempts publish records in private
- * cache directories and attempt heartbeat startup. Pruning skips the
+ * Coordinated build and admitted maintenance attempts publish records in
+ * private cache directories and attempt heartbeat startup. Pruning skips the
  * cohort a live build may still read, and an abandoned record expires after a
  * grace period (one hour for builds, one minute for maintenance). Byte-read
- * failure still permits age-based expiry when metadata is readable; unknown
- * age or failed clock-skew repair defers pruning conservatively. This is
- * opportunistic coordination rather than an absolute
- * proof that every abandoned record can be reclaimed.
+ * failure still permits age-based expiry when metadata is readable; unknown age
+ * or failed clock-skew repair defers pruning conservatively. This is
+ * opportunistic coordination rather than an absolute proof that every abandoned
+ * record can be reclaimed.
  *
  * Age-based expiry assumes a running task can keep its heartbeat fresh. A
  * prolonged suspension or failed heartbeat after startup can outlast the grace;
@@ -51,7 +51,8 @@ export namespace GoBuildCacheCoordination {
   const GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS = 5_000;
 
   /**
-   * Create the owned Go cache and return its observed physical directory spelling.
+   * Create the owned Go cache and return its observed physical directory
+   * spelling.
    *
    * The leaf may be user-controlled inside `node_modules/.cache`; accepting a
    * symlink or junction there would let LRU deletion escape into an arbitrary
@@ -103,9 +104,9 @@ export namespace GoBuildCacheCoordination {
 
     /**
      * Request heartbeat shutdown, attempt to mark the record complete, then
-     * attempt deletion. Shutdown is not joined and failures may leave a task or file.
-     * A successful completion write prevents a failed delete from leaving the
-     * task active; if both writes and deletion fail, stale-timeout handling
+     * attempt deletion. Shutdown is not joined and failures may leave a task or
+     * file. A successful completion write prevents a failed delete from leaving
+     * the task active; if both writes and deletion fail, stale-timeout handling
      * remains the collector's fallback.
      *
      * @evidence contracts/common.md#principled-implementation The terminal callback requests refresher shutdown and attempts complete-state publication before removal; only successful publication records completion if deletion fails, and task termination is not joined.
@@ -122,12 +123,13 @@ export namespace GoBuildCacheCoordination {
     finish: () => void;
 
     /**
-     * Keep the record fresh from a background refresher while this thread blocks
-     * in a synchronous build. Successful startup is reused; failed startup can
-     * be attempted again. Returns `false` when no mechanism could
-     * initialize during readiness checks (the record then relies on age policy).
-     * Repeated calls reuse the startup-acknowledged capability without proving
-     * the refresher is still healthy. Finished records cannot be restarted.
+     * Keep the record fresh from a background refresher while this thread
+     * blocks in a synchronous build. Successful startup is reused; failed
+     * startup can be attempted again. Returns `false` when no mechanism could
+     * initialize during readiness checks (the record then relies on age
+     * policy). Repeated calls reuse the startup-acknowledged capability without
+     * proving the refresher is still healthy. Finished records cannot be
+     * restarted.
      *
      * @evidence contracts/common.md#principled-implementation Initialization acknowledgement is required before the callback reports an independently refreshing task; a completed record has no restart capability.
      * @evidence contracts/common.md#clear-and-simple-design Lazy initialization stores one acknowledged refresher capability per unfinished record, separately from terminal finish state.
@@ -297,40 +299,41 @@ export namespace GoBuildCacheCoordination {
     let heartbeatChild: ReturnType<typeof spawn> | undefined;
     try {
       const heartbeatArgs = [
-          "-e",
-          [
-            'const fs = require("node:fs");',
-            "const file = process.argv[1];",
-            "const interval = Number(process.argv[2]);",
-            "const parent = Number(process.argv[3]);",
-            "const ready = process.argv[4];",
-            "const timer = setInterval(() => {",
-            "  try { process.kill(parent, 0); } catch { clearInterval(timer); process.exit(0); }",
-            "  try {",
-            '    if (JSON.parse(fs.readFileSync(file, "utf8")).status === "complete") {',
-            "      clearInterval(timer); process.exit(0);",
-            "    }",
-            "    const now = new Date();",
-            "    fs.utimesSync(file, now, now);",
-            '  } catch (error) { if (error.code === "ENOENT") { clearInterval(timer); process.exit(0); } }',
-            "}, interval);",
-            'try { fs.writeFileSync(ready, "ready", { flag: "wx" }); }',
-            "catch { clearInterval(timer); process.exit(1); }",
-          ].join("\n"),
-          file,
-          String(GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS),
-          String(process.pid),
-          ready,
-        ];
-      const trace = E2ETrace.begin(process.execPath, heartbeatArgs, {}, "go-cache-heartbeat");
-      const child = spawn(
+        "-e",
+        [
+          'const fs = require("node:fs");',
+          "const file = process.argv[1];",
+          "const interval = Number(process.argv[2]);",
+          "const parent = Number(process.argv[3]);",
+          "const ready = process.argv[4];",
+          "const timer = setInterval(() => {",
+          "  try { process.kill(parent, 0); } catch { clearInterval(timer); process.exit(0); }",
+          "  try {",
+          '    if (JSON.parse(fs.readFileSync(file, "utf8")).status === "complete") {',
+          "      clearInterval(timer); process.exit(0);",
+          "    }",
+          "    const now = new Date();",
+          "    fs.utimesSync(file, now, now);",
+          '  } catch (error) { if (error.code === "ENOENT") { clearInterval(timer); process.exit(0); } }',
+          "}, interval);",
+          'try { fs.writeFileSync(ready, "ready", { flag: "wx" }); }',
+          "catch { clearInterval(timer); process.exit(1); }",
+        ].join("\n"),
+        file,
+        String(GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS),
+        String(process.pid),
+        ready,
+      ];
+      const trace = E2ETrace.begin(
         process.execPath,
         heartbeatArgs,
-        {
-          stdio: [0, 1, 2],
-          windowsHide: true,
-        },
+        {},
+        "go-cache-heartbeat",
       );
+      const child = spawn(process.execPath, heartbeatArgs, {
+        stdio: [0, 1, 2],
+        windowsHide: true,
+      });
       E2ETrace.asynchronous(trace, child);
       heartbeatChild = child;
       child.on("error", () => {
@@ -366,8 +369,8 @@ export namespace GoBuildCacheCoordination {
 
   /**
    * The live records of one coordination directory at `now`. Completed and
-   * age-policy-stale records have deletion attempted; inaccessible metadata is retained when
-   * its age cannot be established safely.
+   * age-policy-stale records have deletion attempted; inaccessible metadata is
+   * retained when its age cannot be established safely.
    *
    * @evidence contracts/common.md#principled-implementation Complete status overrides age; ordinary records beyond the declared age policy have removal attempted. Unknown metadata age or far-future clock observations preserve possible work, while unreadable content alone does not prevent age-based expiry.
    * @evidence contracts/common.md#clear-and-simple-design One snapshot feeds a liveness helper and best-effort removal, returning only the protected paths.

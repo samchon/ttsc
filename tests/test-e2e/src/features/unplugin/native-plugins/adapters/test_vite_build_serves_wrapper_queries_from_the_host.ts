@@ -34,7 +34,9 @@ export async function test_vite_build_serves_wrapper_queries_from_the_host(
   preparedRoot?: string,
   onBuildReturned?: () => void,
 ): Promise<void> {
-  const root = fs.realpathSync.native(preparedRoot ?? TestUnpluginProject.createProject());
+  const root = fs.realpathSync.native(
+    preparedRoot ?? TestUnpluginProject.createProject(),
+  );
   const entry = path.join(root, "src", "entry.ts");
   fs.writeFileSync(
     entry,

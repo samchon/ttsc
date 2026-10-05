@@ -1,14 +1,14 @@
-import { TestProject } from "../../../../utils/src/TestProject";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   isRelativePluginSpecifier,
   parseJsonc,
   resolveTsconfigExtends,
   tsconfigExtendsFileCandidates,
 } from "../../../../../packages/ttsc/src/internal/tsconfig";
-
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the `ttsc/tsconfig` entry reads a config the way TypeScript-Go does:

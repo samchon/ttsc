@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, print, ref } from "../../internal/helpers";
 
 /**
@@ -9,7 +9,8 @@ import { kw, print, ref } from "../../internal/helpers";
  * `string | number` and `A & B` when they fit on one line.
  *
  * 1. Inline unions and intersections retain their different | and & operators.
- * 2. Literal string | number and A & B independently specify operand order and operator spelling.
+ * 2. Literal string | number and A & B independently specify operand order and
+ *    operator spelling.
  *
  * @evidence contracts/testing.md#behavioral-verification Inline unions and intersections retain their different | and & operators.
  * @evidence contracts/testing.md#independent-expectations Literal string | number and A & B independently specify operand order and operator spelling.

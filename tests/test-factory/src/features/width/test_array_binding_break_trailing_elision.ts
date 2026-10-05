@@ -1,7 +1,10 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags, TsPrinter } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
+import factory, {
+  NodeFlags,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { id } from "../../internal/helpers";
 
 /**
@@ -71,7 +74,11 @@ export const test_array_binding_break_trailing_elision = (): void => {
   const broken: string = new TsPrinter({ printWidth: 20 }).print(declare());
   TestValidator.equals("flat stays on one line", wide.includes("\n"), false);
   TestValidator.equals("broken layout breaks", broken.includes("\n"), true);
-  TestValidator.equals("flat arity", bindingNames(wide), ["first", "second", "<hole>"]);
+  TestValidator.equals("flat arity", bindingNames(wide), [
+    "first",
+    "second",
+    "<hole>",
+  ]);
   TestValidator.equals("broken arity", bindingNames(broken), [
     "first",
     "second",

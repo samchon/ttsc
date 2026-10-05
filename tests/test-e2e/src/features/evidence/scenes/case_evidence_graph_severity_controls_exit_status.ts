@@ -3,6 +3,7 @@ import path from "node:path";
 import { stripVTControlCharacters } from "node:util";
 
 import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 import {
   type ITtscEvidenceProject,
   assertExcludes,
@@ -11,7 +12,6 @@ import {
   assertStatus,
   runCheck,
 } from "../../../internal/evidence/internal/index";
-import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 
 /**
  * Verifies per-claim and per-reference severity reaches the real compiler.
@@ -82,12 +82,27 @@ export default {
   assertFailure(error, "An error reference must override its warning claim.");
   assertIncludes(error, "error TS", "The CLI must print an error.");
   const offReference = check('"error"', '"off"', "missing/**/*.md");
-  assertStatus(offReference, 0, "An off reference must not load missing evidence.");
-  assertExcludes(offReference, "[evidence/graph]", "An off reference must remain silent.");
+  assertStatus(
+    offReference,
+    0,
+    "An off reference must not load missing evidence.",
+  );
+  assertExcludes(
+    offReference,
+    "[evidence/graph]",
+    "An off reference must remain silent.",
+  );
   const offClaim = check('"off"', '"error"', "missing/**/*.md");
-  assertStatus(offClaim, 0, "An off claim must suppress even an error reference.");
+  assertStatus(
+    offClaim,
+    0,
+    "An off claim must suppress even an error reference.",
+  );
   const inherited = check("undefined", "undefined");
-  assertFailure(inherited, "Undefined at both levels must inherit the outer error.");
+  assertFailure(
+    inherited,
+    "Undefined at both levels must inherit the outer error.",
+  );
   assertIncludes(
     inherited,
     "Missing acknowledgement",

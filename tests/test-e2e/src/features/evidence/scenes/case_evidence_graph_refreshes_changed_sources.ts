@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 import {
   type ITtscEvidenceProject,
   assertFailure,
@@ -9,7 +10,6 @@ import {
   assertStatus,
   runCheck,
 } from "../../../internal/evidence/internal/index";
-import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 
 /**
  * Verifies repeated checks rebuild Markdown and TypeScript evidence
@@ -65,7 +65,10 @@ export function case_evidence_graph_refreshes_changed_sources(
     "The renamed Markdown unit must become the current obligation.",
   );
 
-  write("src/implementation.ts", files["src/implementation.ts"]!.replace("#alpha", "#beta"));
+  write(
+    "src/implementation.ts",
+    files["src/implementation.ts"]!.replace("#alpha", "#beta"),
+  );
   assertStatus(
     runCheck(project.directory),
     0,
@@ -74,7 +77,10 @@ export function case_evidence_graph_refreshes_changed_sources(
 
   write(
     "src/contracts.ts",
-    files["src/contracts.ts"]!.replace("state", "status").replace("run()", "execute()"),
+    files["src/contracts.ts"]!.replace("state", "status").replace(
+      "run()",
+      "execute()",
+    ),
   );
   const staleTypeScript = runCheck(project.directory);
   assertFailure(
@@ -94,9 +100,10 @@ export function case_evidence_graph_refreshes_changed_sources(
 
   write(
     "src/ledger.ts",
-    files["src/ledger.ts"]!
-      .replace("Api.state", "Api.status")
-      .replace("Service.prototype.run", "Service.prototype.execute"),
+    files["src/ledger.ts"]!.replace("Api.state", "Api.status").replace(
+      "Service.prototype.run",
+      "Service.prototype.execute",
+    ),
   );
   assertStatus(
     runCheck(project.directory),

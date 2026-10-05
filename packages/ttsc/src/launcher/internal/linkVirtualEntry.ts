@@ -5,12 +5,13 @@ import fs from "node:fs";
  *
  * Directories become junctions on Windows and symlinks elsewhere; files are
  * hard-linked, or copied when hard-link creation fails. On Windows a symbolic
- * link whose target is observed as a directory becomes a junction. Other entries
- * get a symlink to the original entry path, rather than a copy of its readlink
- * text. If that creation fails on any host, an existsSync false result skips the
- * entry; otherwise a hard-link attempt falls back to copying on failure. A
- * dangling target can therefore be mirrored successfully or skipped after a
- * failed symlink attempt. Failure alone does not identify a privilege error.
+ * link whose target is observed as a directory becomes a junction. Other
+ * entries get a symlink to the original entry path, rather than a copy of its
+ * readlink text. If that creation fails on any host, an existsSync false result
+ * skips the entry; otherwise a hard-link attempt falls back to copying on
+ * failure. A dangling target can therefore be mirrored successfully or skipped
+ * after a failed symlink attempt. Failure alone does not identify a privilege
+ * error.
  *
  * The launcher enumerates source entries and avoids known existing virtual
  * entries before calling this operation. That is not an atomic destination

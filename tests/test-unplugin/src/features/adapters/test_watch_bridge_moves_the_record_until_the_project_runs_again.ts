@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -7,6 +6,7 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/b
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the bridge moves a project's record at once when a registered
@@ -34,6 +34,7 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/cor
  *    the bridge owes the signal for the rest of that pass and the next, and not
  *    for the one after; then close the bridge with moves still owed to another
  *    record, and assert it writes nothing more.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored bridge registers stale and current predicate evidence; literal signal counts and owed-state assertions verify immediate and repeated moves, pass debt and cessation after close.
  * @evidence contracts/testing.md#independent-expectations
@@ -138,7 +139,10 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
     bridge.begin();
     assert.equal(bridge.owes(), false, "the pass after that owes nothing");
 
-    const other = projectRecordFile(tool, path.join(root, "tsconfig.other.json"));
+    const other = projectRecordFile(
+      tool,
+      path.join(root, "tsconfig.other.json"),
+    );
     writeProjectRecordFile(other, {
       inputs: {},
       membership: null,

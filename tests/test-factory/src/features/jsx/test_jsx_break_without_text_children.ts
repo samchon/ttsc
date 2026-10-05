@@ -1,6 +1,10 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type JsxChild, SyntaxKind, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  type JsxChild,
+  SyntaxKind,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { id, str } from "../../internal/helpers";
 import { jsxChildren } from "../../internal/oracle";
 
@@ -68,8 +72,13 @@ export const test_jsx_break_without_text_children = (): void => {
     ),
   );
 
-  TestValidator.equals("children match the independent JSX fixture",
-    jsxChildren(printed), jsxChildren("<div>{alphaAlphaAlphaAlphaAlpha}{bravoBravoBravoBravoBravo}</div>"));
+  TestValidator.equals(
+    "children match the independent JSX fixture",
+    jsxChildren(printed),
+    jsxChildren(
+      "<div>{alphaAlphaAlphaAlphaAlpha}{bravoBravoBravoBravoBravo}</div>",
+    ),
+  );
 
   // the raw-text exemption: the layout engine trims a line's trailing spaces
   // before writing a newline, which would silently edit JSX text content

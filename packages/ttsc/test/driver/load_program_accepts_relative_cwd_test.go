@@ -15,10 +15,10 @@ import (
 // instead of an absolute path. The driver should resolve that cwd before
 // locating tsconfig and source files.
 //
-// 1. Create a project directory under a temp parent and chdir into the parent.
-// 2. Load it with the relative cwd "project".
-// 3. Assert a Program is produced without diagnostics (the tsconfig and its
-//    source file were found; the resolved path itself is not inspected).
+//  1. Create a project directory under a temp parent and chdir into the parent.
+//  2. Load it with the relative cwd "project".
+//  3. Assert a Program is produced without diagnostics (the tsconfig and its
+//     source file were found; the resolved path itself is not inspected).
 //
 // @evidence contracts/testing.md#behavioral-verification LoadProgram accepts project relative to a temporary current directory and returns a non-nil Program without config diagnostics.
 // @evidence contracts/testing.md#independent-expectations The authored parent/project fixture must be locatable from the supplied relative cwd; the test does not inspect the resolved absolute spelling.

@@ -42,9 +42,9 @@ async function testCase() {
   await waitFor(() => expect(state.value).not.toBeInTheDocument());
 }
 `, RuleConfig{
-      "testing-library/prefer-presence-queries": SeverityError,
+      "testing-library/prefer-presence-queries":       SeverityError,
       "testing-library/prefer-query-by-disappearance": SeverityError,
-      "testing-library/prefer-query-matchers": SeverityError,
+      "testing-library/prefer-query-matchers":         SeverityError,
     }, nil)
   })
 }

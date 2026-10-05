@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
- * Verifies the sandbox require resolves legacy, exports, scoped, relative and JSON
- * packages from an in-memory pack.
+ * Verifies the sandbox require resolves legacy, exports, scoped, relative and
+ * JSON packages from an in-memory pack.
  *
  * `main` and `index` fallbacks, exact and wildcard subpath exports, scoped
  * names, relative requires, and JSON modules all pass through the same package

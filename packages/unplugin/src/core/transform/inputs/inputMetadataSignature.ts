@@ -5,7 +5,8 @@ import { inputMetadataEvidence } from "./inputMetadataEvidence";
 /**
  * Extract the current lexical-path and target metadata signature, or undefined
  * when metadata cannot be observed. Matching signatures alone do not authorize
- * content reuse: the caller must also establish clock separability and coverage.
+ * content reuse: the caller must also establish clock separability and
+ * coverage.
  *
  * @evidence contracts/common.md#principled-implementation Optional extraction preserves unavailable evidence instead of inventing a missing-path signature, while metadata semantics stay with inputMetadataEvidence.
  * @evidence contracts/common.md#clear-and-simple-design This adapter exposes just the signature to callers that own their separate reuse conditions.

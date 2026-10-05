@@ -11,11 +11,11 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
 /**
  * Atomically acquire the current generation of a dependency build lock, or
  * `null` when another process already holds it or the candidate loses its
- * publication race. Unexpected filesystem errors propagate.
- * Publication assumes a preserved lock namespace and a noncolliding generated
- * candidate identity. Native failures before/after rename can leave persisted
- * state: finally attempts candidate removal, and a cleanup error can propagate
- * after current was published but before a lease reaches the caller.
+ * publication race. Unexpected filesystem errors propagate. Publication assumes
+ * a preserved lock namespace and a noncolliding generated candidate identity.
+ * Native failures before/after rename can leave persisted state: finally
+ * attempts candidate removal, and a cleanup error can propagate after current
+ * was published but before a lease reaches the caller.
  *
  * @evidence contracts/common.md#principled-implementation A private candidate contains its generation and owner before directory rename publishes current; a nonempty held directory prevents replacement, giving the winner a fully initialized lease.
  * @evidence contracts/common.md#clear-and-simple-design Candidate preparation, native rename publication and finally removal attempts define one acquisition operation; layout and contention classification use shared owners.

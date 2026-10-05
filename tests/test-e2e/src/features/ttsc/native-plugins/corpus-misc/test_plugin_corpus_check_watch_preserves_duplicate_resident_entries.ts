@@ -74,7 +74,12 @@ export async function test_plugin_corpus_check_watch_preserves_duplicate_residen
     let transcript = session.transcript();
     let samples = residentSamples(transcript);
     assert.equal(samples.length, 2, transcript);
-    assert.ok(Number.isSafeInteger(samples[0]!.pid) && samples[0]!.pid > 0 && samples[0]!.pid !== process.pid, transcript);
+    assert.ok(
+      Number.isSafeInteger(samples[0]!.pid) &&
+        samples[0]!.pid > 0 &&
+        samples[0]!.pid !== process.pid,
+      transcript,
+    );
     assert.deepEqual(
       samples[0],
       {
@@ -138,7 +143,10 @@ export async function test_plugin_corpus_check_watch_preserves_duplicate_residen
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Resident check watch and shutdown failed");
+    throw new AggregateError(
+      failures,
+      "Resident check watch and shutdown failed",
+    );
 }
 
 function residentSamples(transcript: string): ResidentSample[] {

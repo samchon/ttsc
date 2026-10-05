@@ -5,8 +5,8 @@ import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, print } from "../../internal/helpers";
 
 /**
- * Verifies inline JSDoc links, text parts and name references print verbatim and
- * parse back as the intended inline kinds.
+ * Verifies inline JSDoc links, text parts and name references print verbatim
+ * and parse back as the intended inline kinds.
  *
  * A link prints its target followed directly by the caller's text, so a label's
  * separating space belongs to the text. Text parts and a member-name reference

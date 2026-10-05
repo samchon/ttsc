@@ -18,7 +18,8 @@
 export namespace PluginDescriptorInputObservation {
   /**
    * Arm observation after public runtime hooks have installed successfully.
-   * After the first begin, reinstallation neither erases records nor recovers a failed proof. Before initial installation, snapshot remains incomplete.
+   * After the first begin, reinstallation neither erases records nor recovers a
+   * failed proof. Before initial installation, snapshot remains incomplete.
    *
    * @evidence contracts/common.md#principled-implementation Successful hook installation establishes the observation owner's initial state; a repeated begin leaves an already invalid proof invalid.
    * @evidence contracts/common.md#clear-and-simple-design One initialization transition belongs to the runtime installer, separate from captured records and consumer snapshots.
@@ -56,7 +57,8 @@ export namespace PluginDescriptorInputObservation {
   }
 
   /**
-   * Refuse proof after an observation or channel failure. After initial begin, subsequent begin calls cannot recover completeness.
+   * Refuse proof after an observation or channel failure. After initial begin,
+   * subsequent begin calls cannot recover completeness.
    *
    * @evidence contracts/common.md#principled-implementation A failed observation cannot be reconstructed from a partial record population, so invalidation remains false after initial begin for this helper instance; initialization of a previously uninstalled recorder is a distinct transition.
    * @evidence contracts/common.md#clear-and-simple-design One failure transition avoids producer-specific success assumptions or recovery wrappers.

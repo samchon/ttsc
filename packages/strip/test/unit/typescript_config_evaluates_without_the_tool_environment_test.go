@@ -25,6 +25,7 @@ import (
 //  2. Shed TTSC_TSGO_BINARY and TTSC_TTSX_BINARY, then load a
 //     `strip.config.ts`.
 //  3. Assert the loaded value carries the project's own compiler path.
+//
 // @evidence contracts/testing.md#behavioral-verification The strip TypeScript loader resolves project fixtures without tool variables, starts the fixture launcher and returns its report of the exact --binary compiler path.
 // @evidence contracts/testing.md#independent-expectations The fake launcher rejects missing --binary and echoes the next argument; the expected path is independently authored project layout.
 // @evidence contracts/testing.md#distinguishing-cases The compiler is an empty fixture file and the launcher only reports argv. Config source is never evaluated, so this distinguishes argument transport rather than real TypeScript compilation.

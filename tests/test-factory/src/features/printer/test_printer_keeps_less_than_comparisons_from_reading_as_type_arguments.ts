@@ -29,20 +29,22 @@ const greater = (left: string, right: string) =>
 const statement = (expression: ts.Expression | Node) =>
   f.createExpressionStatement(expression as never);
 const LT = "BinaryExpression(Identifier,[<],Identifier)";
-const GT_PAREN = "BinaryExpression(Identifier,[>],ParenthesizedExpression(Identifier))";
+const GT_PAREN =
+  "BinaryExpression(Identifier,[>],ParenthesizedExpression(Identifier))";
 
 /**
  * Verifies the printer parenthesizes a `<` comparison exactly where the text
  * would otherwise be read as type arguments of a call, and leaves the same
  * comparison bare elsewhere.
  *
- * TypeScript reads `a < b ... > (` as a generic call when a later `>` is followed
- * by `(`, a template or a line break, so a comparison whose closing `>` sits
- * after it in the same expression list or operand chain must be parenthesized,
- * or must have its right operand prefixed with a value-neutral `+0 as number,`
- * sequence (the cast keeps the checker from reporting a side-effect-free comma
- * operand) when the `>` belongs to that operand. An arrow consequent whose body is a
- * parenthesized object is parenthesized so it is not read as a nested arrow head.
+ * TypeScript reads `a < b ... > (` as a generic call when a later `>` is
+ * followed by `(`, a template or a line break, so a comparison whose closing
+ * `>` sits after it in the same expression list or operand chain must be
+ * parenthesized, or must have its right operand prefixed with a value-neutral
+ * `+0 as number,` sequence (the cast keeps the checker from reporting a
+ * side-effect-free comma operand) when the `>` belongs to that operand. An
+ * arrow consequent whose body is a parenthesized object is parenthesized so it
+ * is not read as a nested arrow head.
  *
  * 1. Print the pair `a < b` and `c > (d)` as a call argument list, an array, a
  *    comma list, a bitwise operand and a binary operand, and parse each text.

@@ -4,8 +4,8 @@ import { pickEmittedJS } from "../../../../packages/playground/src/compiler/pick
 
 /**
  * Verifies the emitted-JavaScript picker prefers the entry file's own output in
- * its documented candidate order, then any JavaScript file, and never returns
- * a declaration or source map.
+ * its documented candidate order, then any JavaScript file, and never returns a
+ * declaration or source map.
  *
  * The playground compiles one entry, but the output map is keyed by a path
  * layout that depends on the project's `outDir` and `rootDir`. The picker tries
@@ -17,8 +17,7 @@ import { pickEmittedJS } from "../../../../packages/playground/src/compiler/pick
  *    order of preference.
  * 2. Offer only unrelated keys: the first JavaScript key wins, while declaration,
  *    source map and TypeScript keys never do.
- * 3. Map `.ts` and `.tsx` entry names, and a map with no
- *    JavaScript.
+ * 3. Map `.ts` and `.tsx` entry names, and a map with no JavaScript.
  *
  * @evidence contracts/testing.md#behavioral-verification pickEmittedJS prefers dist/playground.js for the default src-root layout, then dist/src/playground.js, dist/src/src/playground.js, src/src/playground.js and src/playground.js. It falls back to the first .js key, returns null when none exists and rejects declaration/map/source suffixes; distinct literal texts expose wrong priority.
  * @evidence contracts/testing.md#independent-expectations The documented default rootDir src/outDir dist makes src/playground.ts emit dist/playground.js before project-root layouts are considered. Authored distinct text values ROOT, A, X, C, D, E and F identify each selected key independently of the picker computation.

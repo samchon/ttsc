@@ -20,9 +20,13 @@ import { make } from "../internal/make";
  * Given a `"foo"` string literal, the printer renders:
  *
  * ```ts
- * "foo"
+ * "foo";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param literal The literal; a {@link PrefixUnaryExpression} covers negative
+ *   numeric literals such as `-1`.
+ * @returns The created {@link LiteralTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   The literal child remains structured inside LiteralTypeNode, preserving
  *   its literal spelling or unary form; allowed Token inputs still require valid context.
@@ -38,11 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc names the supported literal forms and shows a bare literal type;
  *   the child parameter and returned wrapper are documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param literal The literal; a {@link PrefixUnaryExpression} covers negative
- *   numeric literals such as `-1`.
- * @returns The created {@link LiteralTypeNode}.
  */
 export const createLiteralTypeNode = (
   literal:

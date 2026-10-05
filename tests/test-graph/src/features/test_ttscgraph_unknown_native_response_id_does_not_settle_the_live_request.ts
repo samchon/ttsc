@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+
 import { admitted, emptyResponse, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies a response carrying an unknown request id is ignored and does not settle the live request.
+ * Verifies a response carrying an unknown request id is ignored and does not
+ * settle the live request.
  *
  * The state correlates replies by id. A frame whose id matches no pending
  * request, including one carrying a full graph, must leave the live request
@@ -27,7 +29,14 @@ export async function test_ttscgraph_unknown_native_response_id_does_not_settle_
   try {
     let activeSettled = false;
     const active = session.graph();
-    void active.then(() => { activeSettled = true; }, () => { activeSettled = true; });
+    void active.then(
+      () => {
+        activeSettled = true;
+      },
+      () => {
+        activeSettled = true;
+      },
+    );
     const port = await admitted(ports);
     const id = Number(port.writes[0]!.id);
     session.receive(port.peer, emptyResponse(id + 1_000));
@@ -38,17 +47,34 @@ export async function test_ttscgraph_unknown_native_response_id_does_not_settle_
     assert.deepEqual(first.nodes, []);
     let nextSettled = false;
     const next = session.graph();
-    void next.then(() => { nextSettled = true; }, () => { nextSettled = true; });
+    void next.then(
+      () => {
+        nextSettled = true;
+      },
+      () => {
+        nextSettled = true;
+      },
+    );
     await admitted(ports, 2);
     const secondId = Number(port.writes[1]!.id);
     session.receive(port.peer, emptyResponse(id));
     await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(nextSettled, false, "a duplicate reply cannot settle the next request");
+    assert.equal(
+      nextSettled,
+      false,
+      "a duplicate reply cannot settle the next request",
+    );
     session.receive(port.peer, emptyResponse(secondId + 1_000));
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(nextSettled, false);
     session.receive(port.peer, emptyResponse(secondId, false));
-    assert.equal(await next, first, "unchanged response reuses resident memory");
+    assert.equal(
+      await next,
+      first,
+      "unchanged response reuses resident memory",
+    );
     assert.equal(ports.length, 1);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

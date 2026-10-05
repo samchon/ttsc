@@ -6,9 +6,9 @@ import path from "node:path";
  *
  * An explicit empty record declares no external reads. This shape/key predicate
  * cannot detect omitted reads or validate fingerprint values; producer honesty,
- * evaluator observations and cache proof acceptance remain separate premises.
- * A caught filesystem failure or the observed module graph alone cannot prove
- * the complete external input set.
+ * evaluator observations and cache proof acceptance remain separate premises. A
+ * caught filesystem failure or the observed module graph alone cannot prove the
+ * complete external input set.
  *
  * A `hostInputs` entry without a fingerprint is a declared input whose state
  * the descriptor could not prove, the way the protocol reports contradictory

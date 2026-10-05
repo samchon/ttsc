@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, print, ref } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { kw, print, ref } from "../../internal/helpers";
  * A bare reference `Foo`, a generic `Map<string, number>`, and an array type
  * `string[]`.
  *
- * 1. Bare Foo, generic Map<string, number> and string[] retain type arguments and postfix array syntax.
- * 2. Exact literal type sources independently specify names, argument order and brackets.
+ * 1. Bare Foo, generic Map<string, number> and string[] retain type arguments and
+ *    postfix array syntax.
+ * 2. Exact literal type sources independently specify names, argument order and
+ *    brackets.
  *
  * @evidence contracts/testing.md#behavioral-verification Bare Foo, generic Map<string, number> and string[] retain type arguments and postfix array syntax.
  * @evidence contracts/testing.md#independent-expectations Exact literal type sources independently specify names, argument order and brackets.

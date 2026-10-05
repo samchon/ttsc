@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { TestProject } from "../../../utils/src/TestProject";
 
 /**
- * Verifies original Prisma source populations and ordered two-file byte identity.
+ * Verifies original Prisma source populations and ordered two-file byte
+ * identity.
  *
  * The parser payload and byte framing are portable source operations. Physical
  * root deduplication, line scanning, native unit projection and cross-language
@@ -24,18 +25,36 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership Matching feature executes maintained source reads and the actual WASM parser in one unit Node process, with no native build, consumer install or product child. Three independently named set loads continue after failure; admission gates only that row's payload assertions. Exact tracked-root removal/absence failures are collected. Runtime and exact scanner census require separate verification.
  */
 export async function test_prisma_source_loader_preserves_original_source_sets(): Promise<void> {
-  const { loadPrismaModels } = createRequire(import.meta.url)(fileURLToPath(new URL(
-    "../../../../packages/evidence/src/internal/loadPrismaModels.ts", import.meta.url,
-  ))) as {
-    loadPrismaModels(request: { root: string; sets: Array<{ id: string; files: string[] }> }): Promise<{
-      documents: Array<{ digest: string; models: Array<{ name: string; fields: Array<{ name: string; symbol: string }> }> }>;
+  const { loadPrismaModels } = createRequire(import.meta.url)(
+    fileURLToPath(
+      new URL(
+        "../../../../packages/evidence/src/internal/loadPrismaModels.ts",
+        import.meta.url,
+      ),
+    ),
+  ) as {
+    loadPrismaModels(request: {
+      root: string;
+      sets: Array<{ id: string; files: string[] }>;
+    }): Promise<{
+      documents: Array<{
+        digest: string;
+        models: Array<{
+          name: string;
+          fields: Array<{ name: string; symbol: string }>;
+        }>;
+      }>;
       problems: unknown[];
     }>;
   };
   const root = TestProject.tmpdir("prisma-original-source-sets-");
   const failures: Error[] = [];
   const check = (label: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(label, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(label, { cause }));
+    }
   };
   const schema = `datasource db {
   provider = "postgresql"
@@ -68,29 +87,60 @@ model Seller {
       ["sale-refund-set", ["mirror/main.prisma", "store/main.prisma"]],
     ] as const) {
       try {
-        const result = await loadPrismaModels({ root, sets: [{ id: label, files: [...files] }] });
+        const result = await loadPrismaModels({
+          root,
+          sets: [{ id: label, files: [...files] }],
+        });
         assert.deepEqual(result.problems, [], label);
         assert.equal(result.documents.length, 1, label);
         const document = result.documents[0]!;
         if (label === "located-payload") {
           for (const [name, field, kind] of [
-            ["Sale", undefined, "model"], ["Sale", "price", "column"],
-            ["Sale", "seller_id", "column"], ["Sale", "seller", "relation"],
-            ["Seller", undefined, "model"], ["Seller", "sales", "relation"],
-          ] as const) check(label + ":" + name + (field ? "." + field : ""), () => {
-            const model = document.models.find(value => value.name === name);
-            if (field === undefined) assert.ok(model);
-            else assert.equal(model?.fields.find(value => value.name === field)?.symbol, kind);
-          });
+            ["Sale", undefined, "model"],
+            ["Sale", "price", "column"],
+            ["Sale", "seller_id", "column"],
+            ["Sale", "seller", "relation"],
+            ["Seller", undefined, "model"],
+            ["Seller", "sales", "relation"],
+          ] as const)
+            check(label + ":" + name + (field ? "." + field : ""), () => {
+              const model = document.models.find(
+                (value) => value.name === name,
+              );
+              if (field === undefined) assert.ok(model);
+              else
+                assert.equal(
+                  model?.fields.find((value) => value.name === field)?.symbol,
+                  kind,
+                );
+            });
         } else if (label === "two-file-digest") {
-          const framed = [["prisma/schema.prisma", schema], ["prisma/seller.prisma", extra]]
-            .map(([source, text]) => source + "\u0000" + createHash("sha256").update(text!).digest("hex") + "\n")
+          const framed = [
+            ["prisma/schema.prisma", schema],
+            ["prisma/seller.prisma", extra],
+          ]
+            .map(
+              ([source, text]) =>
+                source +
+                "\u0000" +
+                createHash("sha256").update(text!).digest("hex") +
+                "\n",
+            )
             .join("");
           const expected = createHash("sha256").update(framed).digest("hex");
-          check(label + ":digest", () => assert.equal(document.digest, expected));
-          check(label + ":nonempty", () => assert.notEqual(document.digest, ""));
+          check(label + ":digest", () =>
+            assert.equal(document.digest, expected),
+          );
+          check(label + ":nonempty", () =>
+            assert.notEqual(document.digest, ""),
+          );
         } else {
-          check(label + ":both models", () => assert.deepEqual(document.models.map(model => model.name), ["refund", "sale"]));
+          check(label + ":both models", () =>
+            assert.deepEqual(
+              document.models.map((model) => model.name),
+              ["refund", "sale"],
+            ),
+          );
         }
       } catch (cause) {
         failures.push(new Error(label + ":source load", { cause }));
@@ -99,8 +149,11 @@ model Seller {
   } catch (cause) {
     failures.push(new Error("source set preparation", { cause }));
   } finally {
-    check("cleanup:remove", () => fs.rmSync(root, { recursive: true, force: true }));
+    check("cleanup:remove", () =>
+      fs.rmSync(root, { recursive: true, force: true }),
+    );
     check("cleanup:absence", () => assert.equal(fs.existsSync(root), false));
   }
-  if (failures.length) throw new AggregateError(failures, "Original Prisma source sets failed.");
+  if (failures.length)
+    throw new AggregateError(failures, "Original Prisma source sets failed.");
 }

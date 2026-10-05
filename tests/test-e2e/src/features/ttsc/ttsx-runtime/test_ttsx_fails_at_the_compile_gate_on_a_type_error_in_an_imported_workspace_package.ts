@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx still fails at the compile gate on a type error inside an
@@ -28,31 +29,41 @@ import path from "node:path";
  * @evidence contracts/e2e.md#preserved-coverage Original workspace nonzero, dependency-file and empty-stdout assertions remain; all former consumer-only nonzero, project-check failed, number-to-string diagnostic, no program output/marker and existing-empty project-cache assertions execute here.
  */
 export function test_ttsx_fails_at_the_compile_gate_on_a_type_error_in_an_imported_workspace_package() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_fails_at_the_compile_gate_on_a_type_error_in_an_imported_workspace_package/inputs-1"));
-    fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
-    fs.symlinkSync(
-      path.join(root, "packages", "ws-dep"),
-      path.join(root, "node_modules", "ws-dep"),
-      "junction",
-    );
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_fails_at_the_compile_gate_on_a_type_error_in_an_imported_workspace_package/inputs-1",
+    ),
+  );
+  fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
+  fs.symlinkSync(
+    path.join(root, "packages", "ws-dep"),
+    path.join(root, "node_modules", "ws-dep"),
+    "junction",
+  );
 
-    const marker = path.join(root, "type-error-marker.txt");
-    const cacheDir = path.join(root, ".ttsx-cache");
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"],
-      { cwd: root, env: { TTSX_MARKER: marker } },
-    );
+  const marker = path.join(root, "type-error-marker.txt");
+  const cacheDir = path.join(root, ".ttsx-cache");
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "--cache-dir", cacheDir, "src/main.ts"],
+    { cwd: root, env: { TTSX_MARKER: marker } },
+  );
 
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /ws-dep[\\/]src[\\/]index\.ts/);
-    assert.equal(result.stdout.trim(), "");
-    assert.match(result.stderr, /project check failed/);
-    assert.match(result.stderr, /Type 'number' is not assignable to type 'string'/);
-    assert.match(result.stderr, /Type 'string' is not assignable to type 'number'/);
-    assert.doesNotMatch(result.stdout, /should-not-run/);
-    assert.equal(fs.existsSync(marker), false);
-    const projectCache = path.join(cacheDir, "project");
-    assert.equal(fs.existsSync(projectCache), true);
-    assert.deepEqual(fs.readdirSync(projectCache), []);
-  }
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /ws-dep[\\/]src[\\/]index\.ts/);
+  assert.equal(result.stdout.trim(), "");
+  assert.match(result.stderr, /project check failed/);
+  assert.match(
+    result.stderr,
+    /Type 'number' is not assignable to type 'string'/,
+  );
+  assert.match(
+    result.stderr,
+    /Type 'string' is not assignable to type 'number'/,
+  );
+  assert.doesNotMatch(result.stdout, /should-not-run/);
+  assert.equal(fs.existsSync(marker), false);
+  const projectCache = path.join(cacheDir, "project");
+  assert.equal(fs.existsSync(projectCache), true);
+  assert.deepEqual(fs.readdirSync(projectCache), []);
+}

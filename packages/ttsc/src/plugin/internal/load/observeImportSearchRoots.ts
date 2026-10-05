@@ -9,18 +9,16 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * `node_modules` search from the importer. Which package that is can be named
  * only once the resolution selected it, so the candidates of the nearer roots
  * are observed afterwards; each root's own metadata, taken here, is what shows
- * a nearer package that appeared in between. Pass the
- * result to `visitImportMappedCandidates`.
+ * a nearer package that appeared in between. Pass the result to
+ * `visitImportMappedCandidates`.
  *
  * The rule is the resolution input recorder's
  * (`RESOLUTION_INPUT_RECORDER_PATH`).
  *
  * @param parent The importer, a path or a file URL.
- *
  * @returns Each search root's metadata witness or unavailable `undefined`, by
  *   native path. Returns `undefined` when the importer is not an absolute path
  *   or convertible file URL; an absolute spelling need not exist.
- *
  * @evidence contracts/common.md#principled-implementation Taking search-root metadata before imports resolution can expose a nearer package that appears before the selected target is known; the later candidate visitor consumes this witness.
  * @evidence contracts/common.md#clear-and-simple-design The adapter returns the shared recorder's pre-resolution witness without duplicating Node's imports mapping or candidate expansion.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This adapter invokes the recorder's exported metadata query without replacing foreign methods or reproducing imports resolution.

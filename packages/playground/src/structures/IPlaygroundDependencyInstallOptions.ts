@@ -10,9 +10,7 @@ import type { IPlaygroundInstalledDependency } from "./IPlaygroundInstalledDepen
  * @evidence contracts/common.md#meaningful-documentation Member prose documents legacy limitations, byte units and streaming enforcement, with separate paragraphs and member spacing under the documentation skill.
  */
 export interface IPlaygroundDependencyInstallOptions {
-  /**
-   * Defaults to `globalThis.fetch`; inject a transport for offline runs.
-   */
+  /** Defaults to `globalThis.fetch`; inject a transport for offline runs. */
   fetch?: PlaygroundFetch;
 
   /**
@@ -62,7 +60,8 @@ export interface IPlaygroundDependencyInstallOptions {
   signal?: AbortSignal;
 
   /**
-   * Fires synchronously for phase transitions; callback failures reject the install.
+   * Fires synchronously for phase transitions; callback failures reject the
+   * install.
    */
   onProgress?: PlaygroundDependencyProgressHandler;
 }

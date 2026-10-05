@@ -1,4 +1,8 @@
-import { SOURCE, assert, runLint } from "../../../internal/lint/internal/config-file";
+import {
+  SOURCE,
+  assert,
+  runLint,
+} from "../../../internal/lint/internal/config-file";
 
 /**
  * Verifies that a `.cjs` lint config exports an `ITtscLintConfig` object via
@@ -23,23 +27,23 @@ import { SOURCE, assert, runLint } from "../../../internal/lint/internal/config-
  * @evidence contracts/e2e.md#preserved-coverage The original explicit standalone CJS pointer, warning spelling, exact one no-console/warn finding and zero-status assertion remain executable.
  */
 export function test_lint_config_file_javascript_configs_may_export_the_rules_object() {
-    const result = runLint({
-      name: "config-file-js",
-      source: SOURCE,
-      pluginConfig: {
-        configFile: "./ttsc-lint.config.cjs",
-      },
-      extraSources: {
-        "ttsc-lint.config.cjs": `module.exports = {
+  const result = runLint({
+    name: "config-file-js",
+    source: SOURCE,
+    pluginConfig: {
+      configFile: "./ttsc-lint.config.cjs",
+    },
+    extraSources: {
+      "ttsc-lint.config.cjs": `module.exports = {
         rules: { "no-console": "warning" },
       };\n`,
-      },
-    });
+    },
+  });
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-console", "warn"]],
-      result.stderr,
-    );
-  }
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.diagnostics.map((d) => [d.rule, d.severity]),
+    [["no-console", "warn"]],
+    result.stderr,
+  );
+}

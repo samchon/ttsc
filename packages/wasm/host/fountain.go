@@ -176,20 +176,20 @@ type GetDiagnosticsResult struct {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NodeInfo is a data type and performs no native filesystem, path or process operation.
 type NodeInfo struct {
   // Kind is the numeric TypeScript-Go AST kind.
-  Kind     int    `json:"kind"`
+  Kind int `json:"kind"`
 
   // KindName is its human-readable Stringer name.
   KindName string `json:"kindName"`
 
   // Pos is the inclusive UTF-8 byte offset of the token's first byte, after any
   // leading whitespace and comments.
-  Pos      int    `json:"pos"`
+  Pos int `json:"pos"`
 
   // End is the exclusive UTF-8 byte offset.
-  End      int    `json:"end"`
+  End int `json:"end"`
 
   // Text is omitted when the scanner has no nonempty source spelling.
-  Text     string `json:"text,omitempty"`
+  Text string `json:"text,omitempty"`
 }
 
 // GetNodeAtPositionResult is the response shape for `getNodeAtPosition()`.
@@ -219,10 +219,10 @@ type GetNodeAtPositionResult struct {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation TypeInfo is a data type and performs no native filesystem, path or process operation.
 type TypeInfo struct {
   // Text is the checker's TypeToString presentation.
-  Text  string `json:"text"`
+  Text string `json:"text"`
 
   // Flags is the numeric TypeScript-Go TypeFlags bitmask.
-  Flags int    `json:"flags"`
+  Flags int `json:"flags"`
 }
 
 // GetTypeAtPositionResult is the response shape for `getTypeAtPosition()`.
@@ -257,10 +257,10 @@ type SymbolDeclaration struct {
 
   // Pos is the inclusive UTF-8 byte offset of the declaration's first token,
   // after any leading whitespace, comments and JSDoc.
-  Pos  int     `json:"pos"`
+  Pos int `json:"pos"`
 
   // End is the declaration's exclusive UTF-8 byte offset.
-  End  int     `json:"end"`
+  End int `json:"end"`
 }
 
 // SymbolInfo is the serialized symbol returned by `getSymbolAtPosition`.
@@ -275,19 +275,19 @@ type SymbolDeclaration struct {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation SymbolInfo is a data type and performs no native filesystem, path or process operation.
 type SymbolInfo struct {
   // Name is the raw name, including TypeScript internal prefix markers.
-  Name             string              `json:"name"`
+  Name string `json:"name"`
 
   // Text is the optional checker-printed symbol representation.
-  Text             string              `json:"text,omitempty"`
+  Text string `json:"text,omitempty"`
 
   // Flags is the numeric TypeScript-Go SymbolFlags bitmask.
-  Flags            int                 `json:"flags"`
+  Flags int `json:"flags"`
 
   // Declarations contains at most 16 sites and is omitted when empty.
-  Declarations     []SymbolDeclaration `json:"declarations,omitempty"`
+  Declarations []SymbolDeclaration `json:"declarations,omitempty"`
 
   // DeclarationCount retains the original total and is omitted when zero.
-  DeclarationCount int                 `json:"declarationCount,omitempty"`
+  DeclarationCount int `json:"declarationCount,omitempty"`
 }
 
 // GetSymbolAtPositionResult is the response shape for `getSymbolAtPosition()`.

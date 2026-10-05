@@ -17,12 +17,12 @@ import (
 // the node binary, while a pinned native binary must be the program itself with
 // no node in front. This case inspects exec.Cmd.Args without starting either.
 //
-// 1. Seed the project launcher, clear both tool overrides and pin
-//    TTSC_NODE_BINARY to a literal name.
-// 2. Construct the command for --no-plugins and loader.mts and assert the node
-//    name, the launcher and the caller arguments in order.
-// 3. Pin TTSC_TTSX_BINARY to a non-script name and assert the command is that
-//    name followed by the caller arguments alone.
+//  1. Seed the project launcher, clear both tool overrides and pin
+//     TTSC_NODE_BINARY to a literal name.
+//  2. Construct the command for --no-plugins and loader.mts and assert the node
+//     name, the launcher and the caller arguments in order.
+//  3. Pin TTSC_TTSX_BINARY to a non-script name and assert the command is that
+//     name followed by the caller arguments alone.
 //
 // @evidence contracts/testing.md#behavioral-verification Constructs commands with stripTtsxCommandContext and asserts the exact Args: pinned node name, project launcher, --no-plugins, loader.mts for a discovered .js launcher, and the pinned native name followed by the same two arguments when TTSC_TTSX_BINARY names a non-script binary.
 // @evidence contracts/testing.md#independent-expectations The node name and the native name are literals chosen by the case, and the launcher path is the independently seeded fixture file, so the expected argv follows from the routing contract and not from the implementation's output.

@@ -66,8 +66,8 @@ export interface ITtscLintTestingLibraryRules {
    * Reject unnecessary `await` before synchronous event helpers
    * (`fireEvent.click(...)`).
    *
-   * The check recognizes the imported helper names and direct await syntax;
-   * it does not prove a return type or treat await as having no timing effect.
+   * The check recognizes the imported helper names and direct await syntax; it
+   * does not prove a return type or treat await as having no timing effect.
    *
    * @reference https://github.com/testing-library/eslint-plugin-testing-library/blob/main/docs/rules/no-await-sync-events.md
    */
@@ -153,8 +153,8 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/no-node-access"?: TtscLintRuleSetting;
 
   /**
-   * Reject arguments containing await or recognized async Testing Library
-   * calls passed to `fireEvent`; arbitrary Promise types are not resolved.
+   * Reject arguments containing await or recognized async Testing Library calls
+   * passed to `fireEvent`; arbitrary Promise types are not resolved.
    *
    * @reference https://github.com/testing-library/eslint-plugin-testing-library/blob/main/docs/rules/no-promise-in-fire-event.md
    */
@@ -317,8 +317,8 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/prefer-user-event-setup"?: TtscLintRuleSetting;
 
   /**
-   * Require the variable assigned from `render(...)` to use one of the
-   * accepted names (`view`, `utils`, or `renderResult`), or destructure it.
+   * Require the variable assigned from `render(...)` to use one of the accepted
+   * names (`view`, `utils`, or `renderResult`), or destructure it.
    *
    * The name is a reading cue: a non-conventional one usually signals that the
    * destructured queries are being treated as a component surface instead of a

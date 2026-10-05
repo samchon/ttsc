@@ -21,10 +21,9 @@ const compiled = new WeakMap<
  * spec ending in `.json`. A policy whose configuration could not be read stays
  * permissive. Matching does not test the candidate's existence, so a newly
  * created directory receives the same answer as an existing one. An absent
- * reported case answer can still invoke the native cache-root approximation.
- * An explicit
- * filesystem-view platform controls path grammar independently of the policy's
- * compiler comparison rule.
+ * reported case answer can still invoke the native cache-root approximation. An
+ * explicit filesystem-view platform controls path grammar independently of the
+ * policy's compiler comparison rule.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Compiled files/include patterns match root selection, not imported

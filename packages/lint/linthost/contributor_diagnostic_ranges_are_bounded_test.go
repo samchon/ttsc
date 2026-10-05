@@ -2,11 +2,11 @@ package linthost
 
 import (
   "bytes"
-  "strings"
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
+  "strings"
+  "testing"
 )
 
 // TestContributorDiagnosticRangesAreBounded verifies the public contributor
@@ -49,7 +49,9 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
 
   findings := NewEngine(RuleConfig{contributor.Name(): SeverityError}).
     Run(files, nil)
-  if err := validateSemanticRuleFindings(RuleConfig{contributor.Name(): SeverityError}, findings); err != nil { t.Fatal(err) }
+  if err := validateSemanticRuleFindings(RuleConfig{contributor.Name(): SeverityError}, findings); err != nil {
+    t.Fatal(err)
+  }
   if got, want := len(findings), len(files); got != want {
     t.Fatalf("findings = %d, want %d: %+v", got, want, findings)
   }
@@ -67,7 +69,9 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
     if !ok {
       t.Fatalf("unexpected finding file: %+v", finding)
     }
-    if seen[finding.File.FileName()] || finding.Message != "explicit contributor range" { t.Fatalf("duplicate file or lost contributor message: %+v", finding) }
+    if seen[finding.File.FileName()] || finding.Message != "explicit contributor range" {
+      t.Fatalf("duplicate file or lost contributor message: %+v", finding)
+    }
     seen[finding.File.FileName()] = true
     if finding.Pos != want[0] || finding.End != want[1] {
       t.Fatalf("range for %s = [%d,%d), want [%d,%d)",
@@ -93,7 +97,9 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
         finding.File.FileName(), diagnostic.Pos(), diagnostic.End(), want[0], want[1])
     }
     var rendered bytes.Buffer
-    if got := shimdw.FormatMixedDiagnostics(&rendered, nil, []*shimdw.LintDiagnostic{diagnostic}, "/virtual"); got != 1 { t.Fatalf("bounded error render count = %d, want 1", got) }
+    if got := shimdw.FormatMixedDiagnostics(&rendered, nil, []*shimdw.LintDiagnostic{diagnostic}, "/virtual"); got != 1 {
+      t.Fatalf("bounded error render count = %d, want 1", got)
+    }
     if !strings.Contains(rendered.String(), "bounded contributor diagnostic") {
       t.Fatalf("native diagnostic was not rendered for %s: %q", finding.File.FileName(), rendered.String())
     }

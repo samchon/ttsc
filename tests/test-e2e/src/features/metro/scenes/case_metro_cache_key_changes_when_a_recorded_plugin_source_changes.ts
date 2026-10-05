@@ -4,8 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, cacheKeyForRun, readMainSnapshot, workerSnapshotTrees } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  cacheKeyForRun,
+  prepareSnapshot,
+  readMainSnapshot,
+  workerSnapshotTrees,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies a Metro run's key carries the state of every plugin source a

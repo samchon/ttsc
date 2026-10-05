@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * @deco
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @returns The created {@link Decorator}.
  * @evidence contracts/common.md#principled-implementation
  *   Decorator stores its expression; the printer supplies @ at a declaration
  *   boundary instead of changing the supplied expression's AST.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains expression ownership and the missing surrounding declaration,
  *   with an example and separate acknowledgment paragraphs. The parentheses the printer adds for a bare binary expression or element access are stated.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @returns The created {@link Decorator}.
  */
 export const createDecorator = (expression: Expression): Decorator =>
   make("Decorator", { expression });

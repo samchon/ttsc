@@ -4,8 +4,8 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
 import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies native transform decoding forwards the envelope's `sourceMaps` entries
- * that are well-formed maps of transformed files, and drops the rest
+ * Verifies native transform decoding forwards the envelope's `sourceMaps`
+ * entries that are well-formed maps of transformed files, and drops the rest
  * (samchon/ttsc#1392).
  *
  * A consumer hands a map to a bundler, which trusts it to describe the text it
@@ -13,7 +13,10 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * cannot describe any output and must not reach a consumer. Dropping it
  * degrades that file to having no map, exactly as a host that writes none.
  *
- * 1. Serialize the shared malformedAdvisory envelope, whose sourceMaps hold a valid version 3 map for src/main.ts, a version 2 map for the returned src/extra.ts and a version 3 map for src/elsewhere.ts, which has no returned text.
+ * 1. Serialize the shared malformedAdvisory envelope, whose sourceMaps hold a
+ *    valid version 3 map for src/main.ts, a version 2 map for the returned
+ *    src/extra.ts and a version 3 map for src/elsewhere.ts, which has no
+ *    returned text.
  * 2. Decode it with parseNativeTransformOutput.
  * 3. Assert sourceMaps deep-equals only the src/main.ts map.
  *

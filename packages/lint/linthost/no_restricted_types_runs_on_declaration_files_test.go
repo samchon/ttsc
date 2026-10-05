@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   "encoding/json"
+  "testing"
 )
 
 // TestNoRestrictedTypesRunsOnDeclarationFiles verifies no-restricted-types
@@ -30,5 +30,7 @@ func TestNoRestrictedTypesRunsOnDeclarationFiles(t *testing.T) {
     t.Fatalf("declaration findings = %+v", findings)
   }
   start := len("declare const value: ")
-  if findings[0].Rule != noRestrictedTypesRuleName || findings[0].Severity != SeverityError || findings[0].Pos != start || findings[0].End != start+len("Banned") { t.Fatalf("declaration restriction range = %+v", findings[0]) }
+  if findings[0].Rule != noRestrictedTypesRuleName || findings[0].Severity != SeverityError || findings[0].Pos != start || findings[0].End != start+len("Banned") {
+    t.Fatalf("declaration restriction range = %+v", findings[0])
+  }
 }

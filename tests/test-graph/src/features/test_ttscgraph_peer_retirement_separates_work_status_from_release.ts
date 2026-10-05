@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import { TtscGraphLinePeer } from "../../../../packages/graph/src/model/TtscGraphLinePeer";
 
 /**
@@ -19,28 +20,100 @@ import { TtscGraphLinePeer } from "../../../../packages/graph/src/model/TtscGrap
 export function test_ttscgraph_peer_retirement_separates_work_status_from_release(): void {
   const failures: Error[] = [];
   const transport = new Error("authored transport failure");
-  const cases: { name: string; code: number | null; signal: NodeJS.Signals | null; forced: boolean; failure?: Error; expected?: string | Error }[] = [
+  const cases: {
+    name: string;
+    code: number | null;
+    signal: NodeJS.Signals | null;
+    forced: boolean;
+    failure?: Error;
+    expected?: string | Error;
+  }[] = [
     { name: "joined zero", code: 0, signal: null, forced: false },
-    { name: "joined unsupported command", code: 2, signal: null, forced: false },
+    {
+      name: "joined unsupported command",
+      code: 2,
+      signal: null,
+      forced: false,
+    },
     { name: "joined failed graph task", code: 17, signal: null, forced: false },
-    { name: "unknown status", code: null, signal: null, forced: false, expected: "@ttsc/graph: peer shutdown failed (code=null, signal=null, forced=false)" },
-    { name: "signal", code: null, signal: "SIGTERM", forced: false, expected: "@ttsc/graph: peer shutdown failed (code=null, signal=SIGTERM, forced=false)" },
-    { name: "signal cannot be hidden by numeric code", code: 0, signal: "SIGTERM", forced: false, expected: "@ttsc/graph: peer shutdown failed (code=0, signal=SIGTERM, forced=false)" },
-    { name: "forced zero", code: 0, signal: null, forced: true, expected: "@ttsc/graph: peer shutdown failed (code=0, signal=null, forced=true)" },
-    { name: "forced nonzero", code: 2, signal: null, forced: true, expected: "@ttsc/graph: peer shutdown failed (code=2, signal=null, forced=true)" },
-    { name: "transport", code: 0, signal: null, forced: false, failure: transport, expected: transport },
-    { name: "transport with other failures", code: null, signal: "SIGKILL", forced: true, failure: transport, expected: transport },
+    {
+      name: "unknown status",
+      code: null,
+      signal: null,
+      forced: false,
+      expected:
+        "@ttsc/graph: peer shutdown failed (code=null, signal=null, forced=false)",
+    },
+    {
+      name: "signal",
+      code: null,
+      signal: "SIGTERM",
+      forced: false,
+      expected:
+        "@ttsc/graph: peer shutdown failed (code=null, signal=SIGTERM, forced=false)",
+    },
+    {
+      name: "signal cannot be hidden by numeric code",
+      code: 0,
+      signal: "SIGTERM",
+      forced: false,
+      expected:
+        "@ttsc/graph: peer shutdown failed (code=0, signal=SIGTERM, forced=false)",
+    },
+    {
+      name: "forced zero",
+      code: 0,
+      signal: null,
+      forced: true,
+      expected:
+        "@ttsc/graph: peer shutdown failed (code=0, signal=null, forced=true)",
+    },
+    {
+      name: "forced nonzero",
+      code: 2,
+      signal: null,
+      forced: true,
+      expected:
+        "@ttsc/graph: peer shutdown failed (code=2, signal=null, forced=true)",
+    },
+    {
+      name: "transport",
+      code: 0,
+      signal: null,
+      forced: false,
+      failure: transport,
+      expected: transport,
+    },
+    {
+      name: "transport with other failures",
+      code: null,
+      signal: "SIGKILL",
+      forced: true,
+      failure: transport,
+      expected: transport,
+    },
   ];
   for (const input of cases) {
     try {
-      const result = TtscGraphLinePeer.retirementError(input.code, input.signal, input.forced, input.failure);
+      const result = TtscGraphLinePeer.retirementError(
+        input.code,
+        input.signal,
+        input.forced,
+        input.failure,
+      );
       if (typeof input.expected === "string") {
         assert.ok(result instanceof Error);
         assert.equal(result.message, input.expected);
       } else assert.equal(result, input.expected);
     } catch (error) {
-      failures.push(new Error(`${input.name}: ${String(error)}`, { cause: error }));
+      failures.push(
+        new Error(`${input.name}: ${String(error)}`, { cause: error }),
+      );
     }
   }
-  if (failures.length > 0) throw new AggregateError(failures, "peer retirement decision matrix failed");
+  if (failures.length > 0)
+    throw new AggregateError(
+      failures,
+      "peer retirement decision matrix failed",
+    );
 }

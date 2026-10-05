@@ -9,13 +9,13 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * Package managers can drop the execute bit of the bundled Go SDK. For the
  * bundled toolchain (`normalizeBundledPermissions`) the `go` and `gofmt`
  * regular binaries and observed regular files under ordinary `pkg/tool`
- * directories are normalized to `0755`; for a
- * toolchain the user selected, the owner-execute bit is added only when no
- * execute bit is present, preserving other permission bits. Windows requires no
- * POSIX permission repair. A nonregular main candidate stops repair, and
- * nonregular secondary entries are skipped. Traversal/repair failures are
- * tolerated; a later Go invocation may report a relevant native error but is
- * not guaranteed to expose every skipped repair failure.
+ * directories are normalized to `0755`; for a toolchain the user selected, the
+ * owner-execute bit is added only when no execute bit is present, preserving
+ * other permission bits. Windows requires no POSIX permission repair. A
+ * nonregular main candidate stops repair, and nonregular secondary entries are
+ * skipped. Traversal/repair failures are tolerated; a later Go invocation may
+ * report a relevant native error but is not guaranteed to expose every skipped
+ * repair failure.
  *
  * @evidence contracts/common.md#principled-implementation Regular-file admission precedes chmod and a nonregular main candidate stops SDK repair. The caller's bundled-layout flag selects full normalization; selected files otherwise gain owner execution only when no execute bit exists. This is a path-based attempt, not an immutable ownership or race-free handle certificate.
  * @evidence contracts/common.md#clear-and-simple-design Platform exit, SDK recognition and recursive tool discovery remain explicit; one private file operation owns the permission policy.

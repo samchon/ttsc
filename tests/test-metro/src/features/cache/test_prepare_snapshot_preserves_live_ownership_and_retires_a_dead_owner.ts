@@ -18,7 +18,8 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  * 2. Hold the lock with this process's PID and assert a private token without
  *    changing the epoch or pending worker.
  * 3. Replace the owner with an actually exited Node PID, verify retirement and
- *    retained work, then prepare again and verify the unchanged epoch and merge.
+ *    retained work, then prepare again and verify the unchanged epoch and
+ *    merge.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls source fingerprint.prepareSnapshot directly over a real temporary directory. Live ownership produces nonce: plus 32 hex digits without rewriting the main epoch or removing the worker. A proven-dead owner produces the same token grammar, retires the fixed lock to its token-named quarantine and retains the worker; a later preparation keeps the epoch, includes the recorded path and removes every worker document.
  * @evidence contracts/testing.md#independent-expectations The current PID and an owned Node child that exited with status zero and no signal establish native ownership inputs independently of prepareSnapshot. Only ESRCH from a separate signal-zero query establishes the departed PID is absent; success, EPERM and every other error fail that premise. Literal version-four document fields, owner tokens, nonce grammar and the recorded path establish the expected state transitions. Epoch equality checks preservation, not the implementation's epoch-generation algorithm.
@@ -67,7 +68,10 @@ export const test_prepare_snapshot_preserves_live_ownership_and_retires_a_dead_o
       );
       try {
         assert.match(fingerprint.prepareSnapshot(root), /^nonce:[a-f0-9]{32}$/);
-        assert.equal(JSON.parse(fs.readFileSync(mainFile, "utf8")).id, identity);
+        assert.equal(
+          JSON.parse(fs.readFileSync(mainFile, "utf8")).id,
+          identity,
+        );
         assert.deepEqual(workers(), [workerName]);
         assert.deepEqual(
           JSON.parse(fs.readFileSync(path.join(lock, "owner.json"), "utf8")),

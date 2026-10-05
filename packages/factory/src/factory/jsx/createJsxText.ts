@@ -15,9 +15,14 @@ import { make } from "../internal/make";
  * Given the text `Hello`, the printer emits:
  *
  * ```tsx
- * Hello
+ * Hello;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The text.
+ * @param containsOnlyTriviaWhiteSpaces Whether the text contains only trivia
+ *   whitespace.
+ * @returns The created {@link JsxText}.
  * @evidence contracts/common.md#principled-implementation
  *   Raw text remains unchanged and the trivia hint normalizes to a boolean;
  *   the hint does not authorize trimming or escaping characters in emitted JSX.
@@ -33,12 +38,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states verbatim output and the flag's lack of character effect;
  *   the corrected Hello example contains no invented semicolon.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The text.
- * @param containsOnlyTriviaWhiteSpaces Whether the text contains only trivia
- *   whitespace.
- * @returns The created {@link JsxText}.
  */
 export const createJsxText = (
   text: string,

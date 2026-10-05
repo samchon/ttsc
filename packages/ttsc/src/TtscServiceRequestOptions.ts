@@ -3,8 +3,8 @@
  *
  * An abort before enqueueing affects only this call. Once enqueued, an abort
  * retires the shared resident host and rejects its outstanding calls because
- * the FIFO reply protocol carries no request identifiers. Work already sent
- * has no rollback guarantee.
+ * the FIFO reply protocol carries no request identifiers. Work already sent has
+ * no rollback guarantee.
  *
  * @evidence contracts/common.md#principled-implementation The optional standard AbortSignal expresses caller cancellation; pre-enqueue cancellation is local, while queued cancellation retires the identifier-free FIFO so later replies cannot settle the wrong call.
  * @evidence contracts/common.md#clear-and-simple-design One per-call control leaves process ownership and request contents with their existing owners.

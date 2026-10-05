@@ -1,6 +1,9 @@
 import * as os from "node:os";
 
-import { TtscserverClient, assert } from "../../../internal/ttsc/internal/ttscserver";
+import {
+  TtscserverClient,
+  assert,
+} from "../../../internal/ttsc/internal/ttscserver";
 
 /**
  * Verifies ttscserver exits cleanly when the editor closes its stdin without
@@ -46,7 +49,9 @@ export const test_ttscserver_exits_on_stdin_close = async () => {
     try {
       client.terminate();
     } catch (cause) {
-      cleanupFailures.push(new Error("server termination request failed", { cause }));
+      cleanupFailures.push(
+        new Error("server termination request failed", { cause }),
+      );
     }
     let closeTimer: NodeJS.Timeout | undefined;
     try {
@@ -64,7 +69,10 @@ export const test_ttscserver_exits_on_stdin_close = async () => {
       clearTimeout(closeTimer);
     }
     if (cleanupFailures.length !== 0)
-      throw new AggregateError([error, ...cleanupFailures], "stdin EOF and cleanup failed");
+      throw new AggregateError(
+        [error, ...cleanupFailures],
+        "stdin EOF and cleanup failed",
+      );
     throw error;
   } finally {
     clearTimeout(timer);

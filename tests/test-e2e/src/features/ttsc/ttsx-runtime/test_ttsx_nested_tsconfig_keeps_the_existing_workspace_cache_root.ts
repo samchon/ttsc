@@ -19,6 +19,7 @@ import {
  * 1. Create a single package with a root install and a nested tsconfig.
  * 2. Run ttsx without plugins and assert it creates no nested `node_modules`.
  * 3. Assert cache-path discovery names the same root before and after the run.
+ *
  * @evidence contracts/testing.md#behavioral-verification Cache paths CLI before/after a nested-project ttsx run must select the root physical node_modules/.cache/ttsc; output is nested-cache-root, no nested node_modules exists and the runtime project cache is empty after exit.
  * @evidence contracts/testing.md#independent-expectations The authored root install and physicalRoot establish expected cache ancestry independently of discovery output; literal absent nested boundary and empty cache index detect unintended runtime topology.
  * @evidence contracts/testing.md#distinguishing-cases A nested tsconfig with root node_modules contrasts with creating a nearer false boundary. TTSC_CACHE_DIR is cleared for every discovery/run observation.
@@ -29,27 +30,31 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original output/status, exact before/root path, equal after path, absent nested node_modules and empty runtime index remain executable here.
  */
 export function test_ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root() {
-    const root = createProject(FixtureFiles.read("ttsc/ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root/inputs-1"));
-    const physicalRoot = fs.realpathSync(root);
-    fs.mkdirSync(path.join(root, "node_modules"));
+  const root = createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_nested_tsconfig_keeps_the_existing_workspace_cache_root/inputs-1",
+    ),
+  );
+  const physicalRoot = fs.realpathSync(root);
+  fs.mkdirSync(path.join(root, "node_modules"));
 
-    const before = cacheRoot(root);
-    const result = spawn(
-      ttsxBin,
-      ["--cwd", root, "--project", "test/tsconfig.json", "test/main.ts"],
-      { cwd: root, env: { TTSC_CACHE_DIR: "" } },
-    );
+  const before = cacheRoot(root);
+  const result = spawn(
+    ttsxBin,
+    ["--cwd", root, "--project", "test/tsconfig.json", "test/main.ts"],
+    { cwd: root, env: { TTSC_CACHE_DIR: "" } },
+  );
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "nested-cache-root");
-    assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false);
-    assert.equal(
-      before,
-      path.join(physicalRoot, "node_modules", ".cache", "ttsc"),
-    );
-    assert.equal(cacheRoot(root), before);
-    assert.deepEqual(fs.readdirSync(path.join(before, "ttsx", "project")), []);
-  }
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "nested-cache-root");
+  assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false);
+  assert.equal(
+    before,
+    path.join(physicalRoot, "node_modules", ".cache", "ttsc"),
+  );
+  assert.equal(cacheRoot(root), before);
+  assert.deepEqual(fs.readdirSync(path.join(before, "ttsx", "project")), []);
+}
 
 function cacheRoot(root: string): string {
   const result = spawn(

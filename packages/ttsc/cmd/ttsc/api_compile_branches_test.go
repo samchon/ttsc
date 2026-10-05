@@ -94,14 +94,26 @@ export const typed: MyType = { id: "x" };
   writeCommandProjectFile(t, root, "mytype.ts", "export interface MyType { id: string }\n")
   var failedProgram *driver.Program
   var failedInitial []driver.Diagnostic
-  t.Cleanup(func() { if failedProgram != nil { if err := failedProgram.Close(); err != nil { t.Errorf("failed API Program Close: %v", err) } } })
+  t.Cleanup(func() {
+    if failedProgram != nil {
+      if err := failedProgram.Close(); err != nil {
+        t.Errorf("failed API Program Close: %v", err)
+      }
+    }
+  })
   code, out, _ := captureCommand(t, func() int {
     request, status := prepareAPICompileInvocation([]string{"--cwd", root, "--tsconfig", "tsconfig.json"})
-    if status != 0 { return status }
+    if status != 0 {
+      return status
+    }
     var err error
     failedProgram, failedInitial, err = driver.LoadProgram(request.cwd, request.tsconfigPath, request.options)
-    if err != nil { t.Fatal(err) }
-    if failedProgram == nil { t.Fatal("semantic failure must retain its actual Program") }
+    if err != nil {
+      t.Fatal(err)
+    }
+    if failedProgram == nil {
+      t.Fatal("semantic failure must retain its actual Program")
+    }
     return writeCompiledProgramResponse(failedProgram, failedInitial, request.cwd)
   })
   if code != 2 || !strings.Contains(out, `"diagnostics"`) {
@@ -110,15 +122,30 @@ export const typed: MyType = { id: "x" };
   transformCode, transformedOutput, _ := captureCommand(t, func() int {
     return writeTransformedProgramResponse(failedProgram, failedInitial, root)
   })
-  if transformCode != 2 { t.Errorf("failed Program transform response status = %d, want 2", transformCode) }
+  if transformCode != 2 {
+    t.Errorf("failed Program transform response status = %d, want 2", transformCode)
+  }
   var transformed apiTransformResult
-  if err := json.Unmarshal([]byte(transformedOutput), &transformed); err != nil { t.Fatal(err) }
-  if !strings.Contains(transformed.TypeScript["index.ts"], `const value: number = "not-a-number"`) || !strings.Contains(transformed.TypeScript["mytype.ts"], "interface MyType") { t.Error("failed native response omitted original source") }
-  if transformed.Graph == nil || !slices.Equal(transformed.Graph.Edges["index.ts"], []string{"mytype.ts"}) { t.Errorf("failed native response omitted type-only graph: %#v", transformed.Graph) }
-  if len(transformed.Diagnostics) != 1 || transformed.Diagnostics[0].Code != 2322 { t.Errorf("failed native response diagnostics = %#v", transformed.Diagnostics) }
-  complete := append([]string{}, transformed.DependenciesComplete...); slices.Sort(complete)
-  if !slices.Equal(complete, []string{"index.ts", "mytype.ts"}) { t.Errorf("failed native completeness = %v", complete) }
-  if err := failedProgram.Close(); err != nil { t.Fatal(err) }
+  if err := json.Unmarshal([]byte(transformedOutput), &transformed); err != nil {
+    t.Fatal(err)
+  }
+  if !strings.Contains(transformed.TypeScript["index.ts"], `const value: number = "not-a-number"`) || !strings.Contains(transformed.TypeScript["mytype.ts"], "interface MyType") {
+    t.Error("failed native response omitted original source")
+  }
+  if transformed.Graph == nil || !slices.Equal(transformed.Graph.Edges["index.ts"], []string{"mytype.ts"}) {
+    t.Errorf("failed native response omitted type-only graph: %#v", transformed.Graph)
+  }
+  if len(transformed.Diagnostics) != 1 || transformed.Diagnostics[0].Code != 2322 {
+    t.Errorf("failed native response diagnostics = %#v", transformed.Diagnostics)
+  }
+  complete := append([]string{}, transformed.DependenciesComplete...)
+  slices.Sort(complete)
+  if !slices.Equal(complete, []string{"index.ts", "mytype.ts"}) {
+    t.Errorf("failed native completeness = %v", complete)
+  }
+  if err := failedProgram.Close(); err != nil {
+    t.Fatal(err)
+  }
   failedProgram = nil
   if got := toAPICompileDiagnostic(driver.Diagnostic{Severity: driver.SeverityWarning}).Category; got != "warning" {
     t.Fatalf("warning category mismatch: %q", got)

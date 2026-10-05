@@ -4,10 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import webpack from "webpack";
 
-import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
-import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { runRspackShared } from "../batch/runRspackShared";
+import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
+import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 
 /**
  * Verifies webpack loader transport and source-map publication in one build.
@@ -30,7 +30,8 @@ import { runRspackShared } from "../batch/runRspackShared";
  */
 export async function test_e2e_webpack_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
-  const configReceiptOffset = BatchWorkspace.readConfigPathReceipts(workspace).length;
+  const configReceiptOffset =
+    BatchWorkspace.readConfigPathReceipts(workspace).length;
   const previous = process.env.TTSC_CACHE_DIR;
   process.env.TTSC_CACHE_DIR = workspace.cache;
   let compiler: webpack.Compiler | undefined;
@@ -38,62 +39,168 @@ export async function test_e2e_webpack_batch(): Promise<void> {
     const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("webpack");
     const directory = path.join(workspace.root, "webpack-output");
     compiler = webpack({
-      context: workspace.root, entry: { corpus: path.join(workspace.root, "src/bundle.ts"), map: path.join(workspace.root, "src/map.ts") },
-      mode: "development", devtool: "source-map",
-      module: { rules: [
-        { test: /\.tsx?$/, type: "javascript/auto" },
-        { test: /\.tsx?$/, exclude: /[\\/]map\.ts$/, use: [{ loader: path.join(workspace.root, "typed-loader.cjs") }] },
-      ] },
+      context: workspace.root,
+      entry: {
+        corpus: path.join(workspace.root, "src/bundle.ts"),
+        map: path.join(workspace.root, "src/map.ts"),
+      },
+      mode: "development",
+      devtool: "source-map",
+      module: {
+        rules: [
+          { test: /\.tsx?$/, type: "javascript/auto" },
+          {
+            test: /\.tsx?$/,
+            exclude: /[\\/]map\.ts$/,
+            use: [{ loader: path.join(workspace.root, "typed-loader.cjs") }],
+          },
+        ],
+      },
       output: { path: directory, filename: "[name].js" },
-      plugins: [adapter({ project: path.join(workspace.projectAlias, "tsconfig.json"), compilerOptions: { plugins: JSON.parse(fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8")).compilerOptions.plugins.map((entry: Record<string, unknown>) => entry.name === "shared-real-program-probe" ? { ...entry, prefix: "c:" } : entry) } })], resolve: { alias: { "@data": path.join(workspace.root, "src/data.json") }, extensions: [".tsx", ".ts", ".js", ".json"] },
+      plugins: [
+        adapter({
+          project: path.join(workspace.projectAlias, "tsconfig.json"),
+          compilerOptions: {
+            plugins: JSON.parse(
+              fs.readFileSync(
+                path.join(workspace.root, "tsconfig.json"),
+                "utf8",
+              ),
+            ).compilerOptions.plugins.map((entry: Record<string, unknown>) =>
+              entry.name === "shared-real-program-probe"
+                ? { ...entry, prefix: "c:" }
+                : entry,
+            ),
+          },
+        }),
+      ],
+      resolve: {
+        alias: { "@data": path.join(workspace.root, "src/data.json") },
+        extensions: [".tsx", ".ts", ".js", ".json"],
+      },
     });
-    const baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
+    const baseline = fs.existsSync(workspace.programRunLog)
+      ? fs.statSync(workspace.programRunLog).size
+      : 0;
     const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
     const paired = runRspackShared(workspace);
     const webpackChecks = (async () => {
-    const owned = compiler!;
-    const stats = await new Promise<webpack.Stats>((resolve, reject) => {
-      owned.run((error, result) => error ? reject(error) : result ? resolve(result) : reject(new Error("webpack returned no stats")));
-    });
-    assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
-    const code = fs.readFileSync(path.join(directory, "corpus.js"), "utf8");
-    BatchWorkspace.assertResult(BatchWorkspace.readBundle(code), workspace.expected);
-    const map = JSON.parse(fs.readFileSync(path.join(directory, "map.js.map"), "utf8"));
-    assert.equal(map.version, 3);
-    assert.ok(map.sources.some((source: string) => source.includes("map.ts")));
-    assert.ok(map.mappings.length > 0);
-    const marker = '"authored-marker"';
-    const generated = positionOf(fs.readFileSync(path.join(directory, "map.js"), "utf8"), marker);
-    const original = originalPositionFor(map, generated.line, generated.column);
-    assert.ok(original);
-    assert.match(original.source, /map\.ts$/);
-    const deliveredSource = fs.readFileSync(path.join(workspace.root, "src/map.ts"), "utf8").replace(/\r\n/g, "\n");
-    const mappedSourceIndex = map.sources.indexOf(original.source);
-    assert.equal(map.sourcesContent[mappedSourceIndex].replace(/\r\n/g, "\n"), deliveredSource, "the restored bundler map describes the independently authored source");
-    assert.deepEqual({ line: original.line, column: original.column }, positionOf(deliveredSource, marker));
-    assert.equal(original.line, 0, "the authored marker begins on the original first line");
-    const banner = fs.readFileSync(path.join(workspace.root, "expected-map-source.txt"), "utf8").replace(/\r\n/g, "\n").split("export const value")[0]!;
-    assert.ok(fs.readFileSync(path.join(directory, "map.js"), "utf8").replace(/\r\n/g, "\n").includes(banner), "the generated module preserves the full configured banner independently of authored map provenance");
+      const owned = compiler!;
+      const stats = await new Promise<webpack.Stats>((resolve, reject) => {
+        owned.run((error, result) =>
+          error
+            ? reject(error)
+            : result
+              ? resolve(result)
+              : reject(new Error("webpack returned no stats")),
+        );
+      });
+      assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
+      const code = fs.readFileSync(path.join(directory, "corpus.js"), "utf8");
+      BatchWorkspace.assertResult(
+        BatchWorkspace.readBundle(code),
+        workspace.expected,
+      );
+      const map = JSON.parse(
+        fs.readFileSync(path.join(directory, "map.js.map"), "utf8"),
+      );
+      assert.equal(map.version, 3);
+      assert.ok(
+        map.sources.some((source: string) => source.includes("map.ts")),
+      );
+      assert.ok(map.mappings.length > 0);
+      const marker = '"authored-marker"';
+      const generated = positionOf(
+        fs.readFileSync(path.join(directory, "map.js"), "utf8"),
+        marker,
+      );
+      const original = originalPositionFor(
+        map,
+        generated.line,
+        generated.column,
+      );
+      assert.ok(original);
+      assert.match(original.source, /map\.ts$/);
+      const deliveredSource = fs
+        .readFileSync(path.join(workspace.root, "src/map.ts"), "utf8")
+        .replace(/\r\n/g, "\n");
+      const mappedSourceIndex = map.sources.indexOf(original.source);
+      assert.equal(
+        map.sourcesContent[mappedSourceIndex].replace(/\r\n/g, "\n"),
+        deliveredSource,
+        "the restored bundler map describes the independently authored source",
+      );
+      assert.deepEqual(
+        { line: original.line, column: original.column },
+        positionOf(deliveredSource, marker),
+      );
+      assert.equal(
+        original.line,
+        0,
+        "the authored marker begins on the original first line",
+      );
+      const banner = fs
+        .readFileSync(
+          path.join(workspace.root, "expected-map-source.txt"),
+          "utf8",
+        )
+        .replace(/\r\n/g, "\n")
+        .split("export const value")[0]!;
+      assert.ok(
+        fs
+          .readFileSync(path.join(directory, "map.js"), "utf8")
+          .replace(/\r\n/g, "\n")
+          .includes(banner),
+        "the generated module preserves the full configured banner independently of authored map provenance",
+      );
     })();
     const outcomes = await Promise.allSettled([webpackChecks, paired]);
-    const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
-    if (failures.length !== 0) throw new AggregateError(failures.map((failure) => failure.reason), "shared webpack/rspack deliveries failed");
-    assert.equal(fs.statSync(workspace.programRunLog).size - baseline, 1, "one actual native Program serves both retained compiler leases");
-    BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset), "c:");
-    const configReceipts = BatchWorkspace.readConfigPathReceipts(workspace).slice(configReceiptOffset);
-    assert.equal(configReceipts.length, 1, "both retained compiler owners must share the actual linked-project delivery");
+    const failures = outcomes.filter(
+      (outcome): outcome is PromiseRejectedResult =>
+        outcome.status === "rejected",
+    );
+    if (failures.length !== 0)
+      throw new AggregateError(
+        failures.map((failure) => failure.reason),
+        "shared webpack/rspack deliveries failed",
+      );
+    assert.equal(
+      fs.statSync(workspace.programRunLog).size - baseline,
+      1,
+      "one actual native Program serves both retained compiler leases",
+    );
+    BatchWorkspace.assertContextReceipts(
+      BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset),
+      "c:",
+    );
+    const configReceipts =
+      BatchWorkspace.readConfigPathReceipts(workspace).slice(
+        configReceiptOffset,
+      );
+    assert.equal(
+      configReceipts.length,
+      1,
+      "both retained compiler owners must share the actual linked-project delivery",
+    );
     const receipt = configReceipts[0]!;
-    const physicalConfig = fs.realpathSync.native(path.join(workspace.root, "config/banner.config.json"));
+    const physicalConfig = fs.realpathSync.native(
+      path.join(workspace.root, "config/banner.config.json"),
+    );
     assert.equal(receipt.name, "shared-real-program-probe");
     assert.equal(receipt.config, physicalConfig);
     assert.equal(receipt.configFile, physicalConfig);
     assert.equal(path.isAbsolute(String(receipt.tsconfig)), true);
-    assert.equal(fs.realpathSync.native(String(receipt.cwd)), fs.realpathSync.native(workspace.root));
+    assert.equal(
+      fs.realpathSync.native(String(receipt.cwd)),
+      fs.realpathSync.native(workspace.root),
+    );
   } finally {
     try {
       if (compiler !== undefined) {
         const owned = compiler;
-        await new Promise<void>((resolve, reject) => owned.close((error) => error ? reject(error) : resolve()));
+        await new Promise<void>((resolve, reject) =>
+          owned.close((error) => (error ? reject(error) : resolve())),
+        );
       }
     } finally {
       if (previous === undefined) delete process.env.TTSC_CACHE_DIR;
@@ -101,5 +208,3 @@ export async function test_e2e_webpack_batch(): Promise<void> {
     }
   }
 }
-
-

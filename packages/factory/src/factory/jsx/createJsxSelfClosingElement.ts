@@ -21,6 +21,11 @@ import { make } from "../internal/make";
  * <Foo bar="x" />
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param tagName The tag name.
+ * @param typeArguments The generic type arguments, if any.
+ * @param attributes The attributes.
+ * @returns The created {@link JsxSelfClosingElement}.
  * @evidence contracts/common.md#principled-implementation
  *   The tag, ordered type arguments and attributes remain structured inside a
  *   self-closing node, whose syntax has no child list or paired closing node.
@@ -36,12 +41,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains tag-name forms, generics and empty attributes, with
  *   a concrete self-closing example and all inputs documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param tagName The tag name.
- * @param typeArguments The generic type arguments, if any.
- * @param attributes The attributes.
- * @returns The created {@link JsxSelfClosingElement}.
  */
 export const createJsxSelfClosingElement = (
   tagName: JsxTagName,

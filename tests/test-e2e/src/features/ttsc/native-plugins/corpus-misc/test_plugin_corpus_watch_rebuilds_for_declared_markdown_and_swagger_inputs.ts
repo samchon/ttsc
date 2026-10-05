@@ -74,7 +74,11 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
       try {
         await session.waitForBuilds(1);
 
-        fs.writeFileSync(path.join(root, "docs", "spec.md"), "broken\n", "utf8");
+        fs.writeFileSync(
+          path.join(root, "docs", "spec.md"),
+          "broken\n",
+          "utf8",
+        );
         await session.waitForBuilds(2);
         await session.waitForQuiet(300);
         assertDeclaredInputBuildCount(session, 2);
@@ -104,7 +108,9 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         await session.waitForQuiet();
         assertDeclaredInputBuildCount(session, 4);
       } catch (error) {
-        errors.push(new Error("declared-input watch session phase", { cause: error }));
+        errors.push(
+          new Error("declared-input watch session phase", { cause: error }),
+        );
       } finally {
         await closeDeclaredInputWatch(session, "session");
       }
@@ -131,9 +137,14 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         await positional.waitForBuilds(2);
         await positional.waitForQuiet(300);
         assertDeclaredInputBuildCount(positional, 2);
-        assert.match(positional.transcript(), /TS9001: Markdown input is stale/);
+        assert.match(
+          positional.transcript(),
+          /TS9001: Markdown input is stale/,
+        );
       } catch (error) {
-        errors.push(new Error("declared-input watch positional phase", { cause: error }));
+        errors.push(
+          new Error("declared-input watch positional phase", { cause: error }),
+        );
       } finally {
         await closeDeclaredInputWatch(positional, "positional");
       }
@@ -157,7 +168,11 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         assertDeclaredInputBuildCount(emittingPositional, 1);
         assert.equal(fs.existsSync(path.join(root, "dist", "main.js")), true);
       } catch (error) {
-        errors.push(new Error("declared-input watch emittingPositional phase", { cause: error }));
+        errors.push(
+          new Error("declared-input watch emittingPositional phase", {
+            cause: error,
+          }),
+        );
       } finally {
         await closeDeclaredInputWatch(emittingPositional, "emittingPositional");
       }
@@ -176,7 +191,9 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
           /invalid snapshot.*not an absolute local path/s,
         );
       } catch (error) {
-        errors.push(new Error("declared-input watch invalid phase", { cause: error }));
+        errors.push(
+          new Error("declared-input watch invalid phase", { cause: error }),
+        );
       } finally {
         await closeDeclaredInputWatch(invalid, "invalid");
       }
@@ -199,7 +216,9 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
             extended.transcript(),
           );
         } catch (error) {
-          errors.push(new Error("declared-input watch extended phase", { cause: error }));
+          errors.push(
+            new Error("declared-input watch extended phase", { cause: error }),
+          );
         } finally {
           await closeDeclaredInputWatch(extended, "extended");
         }
@@ -247,7 +266,9 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         await reactNative.waitForQuiet();
         assertDeclaredInputBuildCount(reactNative, 1);
       } catch (error) {
-        errors.push(new Error("declared-input watch reactNative phase", { cause: error }));
+        errors.push(
+          new Error("declared-input watch reactNative phase", { cause: error }),
+        );
       } finally {
         await closeDeclaredInputWatch(reactNative, "reactNative");
       }
@@ -290,7 +311,9 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         await preserve.waitForQuiet();
         assertDeclaredInputBuildCount(preserve, 1);
       } catch (error) {
-        errors.push(new Error("declared-input watch preserve phase", { cause: error }));
+        errors.push(
+          new Error("declared-input watch preserve phase", { cause: error }),
+        );
       } finally {
         await closeDeclaredInputWatch(preserve, "preserve");
       }
@@ -341,17 +364,26 @@ export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger
         await removal.waitForQuiet();
         assertDeclaredInputBuildCount(removal, 2);
       } catch (error) {
-        errors.push(new Error("declared-input watch removal phase", { cause: error }));
+        errors.push(
+          new Error("declared-input watch removal phase", { cause: error }),
+        );
       } finally {
         await closeDeclaredInputWatch(removal, "removal");
       }
     } catch (error) {
-      throw new AggregateError([...errors, error], "declared-input watch phase setup or close");
+      throw new AggregateError(
+        [...errors, error],
+        "declared-input watch phase setup or close",
+      );
     }
-    if (errors.length) throw new AggregateError(errors, "declared-input watch phases");
+    if (errors.length)
+      throw new AggregateError(errors, "declared-input watch phases");
   };
 
-/** Label supported close failure; the owning outer guard preserves body failures and stops reset. */
+/**
+ * Label supported close failure; the owning outer guard preserves body failures
+ * and stops reset.
+ */
 async function closeDeclaredInputWatch(
   session: WatchSession,
   label: string,
@@ -363,10 +395,21 @@ async function closeDeclaredInputWatch(
   }
 }
 
-/** Literal expected completed-cycle count from the public transcript, not Program/process totals. */
-function assertDeclaredInputBuildCount(session: WatchSession, expected: number): void {
+/**
+ * Literal expected completed-cycle count from the public transcript, not
+ * Program/process totals.
+ */
+function assertDeclaredInputBuildCount(
+  session: WatchSession,
+  expected: number,
+): void {
   const transcript = session.transcript();
-  assert.equal((transcript.match(/\[ttsc\] watch build (?:complete|failed)/g) ?? []).length, expected, transcript);
+  assert.equal(
+    (transcript.match(/\[ttsc\] watch build (?:complete|failed)/g) ?? [])
+      .length,
+    expected,
+    transcript,
+  );
 }
 
 function goSource(): string {

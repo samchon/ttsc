@@ -23,8 +23,8 @@ export interface ITtscLintPluginConfig {
    *
    * When omitted, `@ttsc/lint` walks upward from that caller-declared directory
    * when supplied. Otherwise it walks from the tsconfig directory and, when
-   * that finds none, from the working directory, looking for `lint.config.*`
-   * or `ttsc-lint.config.*`.
+   * that finds none, from the working directory, looking for `lint.config.*` or
+   * `ttsc-lint.config.*`.
    *
    * ```jsonc
    * {

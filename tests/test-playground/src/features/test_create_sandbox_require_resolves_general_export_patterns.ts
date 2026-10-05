@@ -12,6 +12,7 @@ import { createSandboxRequire } from "../../../../packages/playground/src/sandbo
  * 1. Define exact, overlapping, suffix, repeated-target, empty, and null cases.
  * 2. Require matching package subpaths through the sandbox.
  * 3. Assert the selected exports and rejected boundaries.
+ *
  * @evidence contracts/testing.md#behavioral-verification createSandboxRequire selects exact, suffix and longer-prefix patterns, replaces every target star and rejects empty-star/null-private requests despite populated neighboring files.
  * @evidence contracts/testing.md#independent-expectations Node one-star specificity and nonempty matching define selection independently; every candidate module exports a distinct literal value so lexical-order or broad-pattern selection cannot pass.
  * @evidence contracts/testing.md#distinguishing-cases Exact key, suffix overlap, special prefix, nonsuffix CSS, repeated target substitution, empty wildcard and explicit null each retain separate assertions.

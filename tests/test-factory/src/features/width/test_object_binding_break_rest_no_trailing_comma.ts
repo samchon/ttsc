@@ -1,6 +1,10 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags, SyntaxKind, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  NodeFlags,
+  SyntaxKind,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { id } from "../../internal/helpers";
 
 /**

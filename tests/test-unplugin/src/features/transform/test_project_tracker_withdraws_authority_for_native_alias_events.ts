@@ -11,16 +11,17 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Verifies a project tracker cannot retain silence authority for an observed
  * native alias excluded only by the lexical root-file spelling.
  *
- * The supported filesystem view supplies a literal alias relationship and
- * watch callback. It models naming uncertainty rather than creating a native
- * short name or claiming that an injected watch proves content unchanged.
+ * The supported filesystem view supplies a literal alias relationship and watch
+ * callback. It models naming uncertainty rather than creating a native short
+ * name or claiming that an injected watch proves content unchanged.
  *
  * 1. Plant a project admitting only LongConfig.ts and supply exact native
  *    observations mapping SHORT~1.TS to that same file.
  * 2. Delete that file, then emit its old short spelling through the actual
- *    project's watch listener; current realpath cannot recover the relationship.
- * 3. Require verification authority to be withdrawn without asserting a
- *    definite membership mutation, then close the acquired watcher once.
+ *    project's watch listener; current realpath cannot recover the
+ *    relationship.
+ * 3. Require verification authority to be withdrawn without asserting a definite
+ *    membership mutation, then close the acquired watcher once.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual project-tracker constructor receives an alias rename through its supported watch callback and must withdraw notification authority instead of treating a lexical root-file mismatch as proof of irrelevance.
  * @evidence contracts/testing.md#independent-expectations The authored filesystem maps two literal names to one planted file, then deletion makes both absent before the notification. Literal unverified=true follows lost native-name certainty; content authority is explicitly false and no recorded generation is patched to manufacture it.
@@ -34,9 +35,12 @@ export async function test_project_tracker_withdraws_authority_for_native_alias_
   });
   const file = path.join(root, "LongConfig.ts");
   const alias = path.join(root, "SHORT~1.TS");
-  let notify: ((eventType: string, filename: string | null) => void) | undefined;
+  let notify:
+    | ((eventType: string, filename: string | null) => void)
+    | undefined;
   let closed = 0;
-  const resolve = (location: string): string => location === alias ? file : location;
+  const resolve = (location: string): string =>
+    location === alias ? file : location;
   const tracker = await createProjectMutationTracker(
     [{ path: root, relevant: true, signature: "authored-directory-input" }],
     new Set([file]),
@@ -48,10 +52,15 @@ export async function test_project_tracker_withdraws_authority_for_native_alias_
       realpath: (location) => fs.realpathSync.native(resolve(location)),
       readFile: (location) => fs.readFileSync(resolve(location)),
       stat: (location) => fs.statSync(resolve(location)),
-      statBigInt: (location) => fs.statSync(resolve(location), { bigint: true }),
+      statBigInt: (location) =>
+        fs.statSync(resolve(location), { bigint: true }),
       watch: (_directory, listener) => {
         notify = listener;
-        return { close: () => { ++closed; } };
+        return {
+          close: () => {
+            ++closed;
+          },
+        };
       },
     },
     readProjectMembershipPolicy(path.join(root, "tsconfig.json")),

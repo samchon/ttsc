@@ -94,8 +94,12 @@ func TestProjectInputSnapshotReconcilesOptionsAndPhysicalPaths(t *testing.T) {
     t.Fatalf("replacement globs = %#v, want %#v", second.Globs, wantGlobs)
   }
   physical, err := filepath.EvalSymlinks(physicalRoot)
-  if err != nil { t.Fatal(err) }
-  if first.Root != filepath.ToSlash(physical) || !reflect.DeepEqual(first.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "old.md"))}) || !reflect.DeepEqual(first.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "old", "**", "*.json"))}) || !reflect.DeepEqual(second.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "new.md"))}) || !reflect.DeepEqual(second.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "new", "**", "*.yaml"))}) { t.Fatalf("authored physical dependency patterns were not preserved independently: first=%#v second=%#v", first, second) }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if first.Root != filepath.ToSlash(physical) || !reflect.DeepEqual(first.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "old.md"))}) || !reflect.DeepEqual(first.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "old", "**", "*.json"))}) || !reflect.DeepEqual(second.Files, []string{filepath.ToSlash(filepath.Join(physical, "docs", "new.md"))}) || !reflect.DeepEqual(second.Globs, []string{filepath.ToSlash(filepath.Join(physical, "api", "new", "**", "*.yaml"))}) {
+    t.Fatalf("authored physical dependency patterns were not preserved independently: first=%#v second=%#v", first, second)
+  }
 }
 
 func quotedJSON(value string) string {

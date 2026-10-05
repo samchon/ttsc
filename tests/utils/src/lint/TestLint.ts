@@ -1,11 +1,14 @@
-import { E2eProcessTrace } from "../E2eProcessTrace";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
+import { E2eProcessTrace } from "../E2eProcessTrace";
+import {
+  getNativeLintProducer,
+  linkNativeLintPackage,
+} from "../NativeLintProducer";
 import { TestProject } from "../TestProject";
-import { getNativeLintProducer, linkNativeLintPackage } from "../NativeLintProducer";
 
 // Spawn the real `ttsc` binary against an isolated TypeScript fixture
 // and parse the rendered stderr diagnostics into structured records.
@@ -126,7 +129,10 @@ export namespace TestLint {
     sourcePath?: string;
     /** Optional nonexistent or empty disposable root under the OS temp dir. */
     projectRoot?: string;
-    /** Explicit immutable producer reuse; source/cache mutation cases use workspace. */
+    /**
+     * Explicit immutable producer reuse; source/cache mutation cases use
+     * workspace.
+     */
     nativeProducer?: "workspace" | "snapshot";
     rules?: Record<string, LintRuleConfigEntry>;
     pluginConfig?: Record<string, unknown>;
@@ -579,7 +585,10 @@ export namespace TestLint {
     const linkParent = path.join(tmpdir, "node_modules", "@ttsc");
     fs.mkdirSync(linkParent, { recursive: true });
     const link = path.join(linkParent, "lint");
-    const source = nativeProducer === "snapshot" ? getNativeLintProducer().packageRoot : LINT_PACKAGE_DIR;
+    const source =
+      nativeProducer === "snapshot"
+        ? getNativeLintProducer().packageRoot
+        : LINT_PACKAGE_DIR;
     linkNativeLintPackage(source, link);
   }
 

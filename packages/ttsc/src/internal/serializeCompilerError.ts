@@ -8,10 +8,9 @@
  * JSON cannot express use a tagged description. Accessor descriptors are not
  * invoked to read their values. Reflection can execute Proxy traps and expose
  * changing objects, so arbitrary reflective behavior has no deadline or fixed
- * graph-size guarantee. Failed reflective
- * inspection, such as a revoked Proxy, is marked rather than replacing the
- * compiler's exception. Internal slots of foreign classes are not projected
- * into ordinary data.
+ * graph-size guarantee. Failed reflective inspection, such as a revoked Proxy,
+ * is marked rather than replacing the compiler's exception. Internal slots of
+ * foreign classes are not projected into ordinary data.
  *
  * @evidence contracts/common.md#principled-implementation Explicit Error fields preserve exception meaning while recursively retaining cause, aggregate errors and ordinary outcome data; pointer markers distinguish repeated references and tagged values distinguish JSON-inexpressible primitives from lost fields.
  * @evidence contracts/common.md#clear-and-simple-design One traversal owns API and worker failure transport, with private property and scalar helpers; compiler status classification remains separate from serialization.

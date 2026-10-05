@@ -1,11 +1,11 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { hashPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/hashPluginBuildEnvironment";
 import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/internal/source/computeCacheKey";
+import { hashPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plugin/internal/source/hashPluginBuildEnvironment";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the plugin build environment hashes every program a C toolchain
@@ -56,22 +56,55 @@ export function test_hashpluginbuildenvironment_hashes_every_program_a_c_command
   assert.notEqual(replaced, first, "the delegated compiler is hashed");
   assert.notEqual(digest(command("-O3")), replaced, "a flag is command text");
   const plugin = path.join(root, "plugin");
-  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "hashpluginbuildenvironment_hashes_every_program_a_c_command_names", "inputs-1"), root);
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "unit",
+      "hashpluginbuildenvironment_hashes_every_program_a_c_command_names",
+      "inputs-1",
+    ),
+    root,
+  );
   fs.renameSync(path.join(plugin, "main.go.txt"), path.join(plugin, "main.go"));
-  assert.equal(fs.readFileSync(path.join(plugin, "go.mod"), "utf8"), "module example.com/plugin\n\ngo 1.26\n");
-  assert.equal(fs.readFileSync(path.join(plugin, "main.go"), "utf8"), "package main\n");
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "go.mod"), "utf8"),
+    "module example.com/plugin\n\ngo 1.26\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "main.go"), "utf8"),
+    "package main\n",
+  );
   const toolName = process.platform === "win32" ? "mycc.exe" : "mycc";
   const firstToolDir = path.join(root, "first");
   const secondToolDir = path.join(root, "second");
-  for (const [directory, bytes] of [[firstToolDir, "alpha"], [secondToolDir, "bravo"]] as const) {
+  for (const [directory, bytes] of [
+    [firstToolDir, "alpha"],
+    [secondToolDir, "bravo"],
+  ] as const) {
     fs.mkdirSync(directory);
     fs.writeFileSync(path.join(directory, toolName), bytes);
   }
-  const key = (toolDirectory: string): string => computeCacheKey({
-    dir: plugin, entry: ".", env: { CC: toolName, PATH: toolDirectory },
-    ttscVersion: "1.0.0", tsgoVersion: "7.0.0-dev",
-  });
+  const key = (toolDirectory: string): string =>
+    computeCacheKey({
+      dir: plugin,
+      entry: ".",
+      env: { CC: toolName, PATH: toolDirectory },
+      ttscVersion: "1.0.0",
+      tsgoVersion: "7.0.0-dev",
+    });
   const selected = key(firstToolDir);
-  assert.equal(key(firstToolDir), selected, "an unchanged PATH selection stays stable");
-  assert.notEqual(key(secondToolDir), selected, "PATH-selected compiler bytes reach the complete key");
+  assert.equal(
+    key(firstToolDir),
+    selected,
+    "an unchanged PATH selection stays stable",
+  );
+  assert.notEqual(
+    key(secondToolDir),
+    selected,
+    "PATH-selected compiler bytes reach the complete key",
+  );
 }

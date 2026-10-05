@@ -1,9 +1,9 @@
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 import { createSourcePolicyProject } from "../../internal/source-policy/createSourcePolicyProject";
 
 /**

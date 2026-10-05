@@ -1,7 +1,8 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server launch uses command mode for JS launchers.
@@ -16,8 +17,8 @@ import path from "node:path";
  *    project candidate.
  * 2. Build a `.cmd` launch command for platform `win32` with ComSpec `cmd.exe`.
  * 3. Compute the command-ID prefix for two different project roots.
- * 4. Assert the command/args shapes, verbatim flags, shim environment and
- *    prefixes match the extension contract.
+ * 4. Assert the command/args shapes, verbatim flags, shim environment and prefixes
+ *    match the extension contract.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls createServerLaunchCommand for a JS launcher, a native launcher and a Windows .cmd launcher, plus executeCommandIDPrefix for two roots, and asserts command, args, windowsVerbatimArguments, the cmd /d /s /c payload and the full commandShimEnvironment.
  * @evidence contracts/testing.md#independent-expectations The expected argument vectors are authored literals (--stdio, --cwd=, the suppressed command IDs ttsc.lint.fixAll,ttsc.format.document, --execute-command-id-prefix=, --tsconfig=), the shim payload is the literal six-placeholder string, and the prefix is only required to match ttsc.vscode.<16 hex>. and to differ between roots.
@@ -33,15 +34,18 @@ export function test_vscode_server_launch_command_uses_command_mode() {
   const cmdLauncher = "C:\\\\Tools & SDK\\\\ttscserver.cmd";
 
   const observed = (() => {
-    const candidate = { cwd: (cwd), resolveFrom: (cwd), tsconfig: (tsconfig) };
+    const candidate = { cwd: cwd, resolveFrom: cwd, tsconfig: tsconfig };
     return {
-      js: mod.createServerLaunchCommand((jsLauncher), candidate),
-      native: mod.createServerLaunchCommand((nativeLauncher), candidate),
-      cmd: mod.createServerLaunchCommand((cmdLauncher), candidate, "win32", { ComSpec: "cmd.exe" }),
-      prefix: mod.executeCommandIDPrefix((cwd)),
-      otherPrefix: mod.executeCommandIDPrefix((path.join(repo, "packages", "other"))),
+      js: mod.createServerLaunchCommand(jsLauncher, candidate),
+      native: mod.createServerLaunchCommand(nativeLauncher, candidate),
+      cmd: mod.createServerLaunchCommand(cmdLauncher, candidate, "win32", {
+        ComSpec: "cmd.exe",
+      }),
+      prefix: mod.executeCommandIDPrefix(cwd),
+      otherPrefix: mod.executeCommandIDPrefix(
+        path.join(repo, "packages", "other"),
+      ),
     };
-  
   })();
   const parsed = observed as {
     cmd: {

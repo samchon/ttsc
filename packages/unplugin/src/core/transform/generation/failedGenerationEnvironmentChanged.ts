@@ -143,7 +143,9 @@ function environmentChanged(
     if (recorded.tree) {
       // A plugin source that could not be read then moved once it can be.
       // The async delivery owner prepares native authority before confirmation.
-      const prepared = usesPreparedPluginBuildEnvironments(validation.cached.result)
+      const prepared = usesPreparedPluginBuildEnvironments(
+        validation.cached.result,
+      )
         ? { environment: PluginBuildEnvironmentReadings.cached(input) }
         : undefined;
       if (

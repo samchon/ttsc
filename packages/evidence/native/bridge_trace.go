@@ -38,23 +38,23 @@ var evidenceTraceSink *evidenceTraceWriter
 // Bound retention and release resources: No file handle stays open between
 // writes. Total bytes are capped; file retention belongs to the coordinator.
 type evidenceTraceWriter struct {
-  mutex sync.Mutex
+  mutex     sync.Mutex
   directory string
-  path string
-  instance string
-  pid int
-  ordinal uint64
-  sequence uint64
-  bytes int
+  path      string
+  instance  string
+  pid       int
+  ordinal   uint64
+  sequence  uint64
+  bytes     int
 }
 
 // evidenceBridgeTrace pairs one actual lookup with its subsequent Run/parse.
 // An unpaired direct normalizer call explicitly lacks a native lookup value.
 // It retains only the writer and ordinal, not replies or historical requests.
 type evidenceBridgeTrace struct {
-  writer *evidenceTraceWriter
-  invocation string
-  kind string
+  writer       *evidenceTraceWriter
+  invocation   string
+  kind         string
   nativeLookup bool
 }
 
@@ -62,15 +62,15 @@ type evidenceBridgeTrace struct {
 // subject, while WriterPID/Instance identify the writer. A pre-start failure
 // has PID zero; an invocation does not imply an actual process or Program.
 type evidenceTraceEvent struct {
-  Schema int `json:"schema"`
-  Event string `json:"event"`
-  WriterPID int `json:"writerPid"`
-  Instance string `json:"instance"`
-  Sequence uint64 `json:"sequence"`
-  At string `json:"at"`
+  Schema     int    `json:"schema"`
+  Event      string `json:"event"`
+  WriterPID  int    `json:"writerPid"`
+  Instance   string `json:"instance"`
+  Sequence   uint64 `json:"sequence"`
+  At         string `json:"at"`
   Invocation string `json:"invocation"`
-  PID int `json:"pid"`
-  Data any `json:"data"`
+  PID        int    `json:"pid"`
+  Data       any    `json:"data"`
 }
 
 // newEvidenceBridgeTrace allocates a process-local invocation only when the
@@ -101,7 +101,7 @@ func newEvidenceBridgeTrace(kind string) *evidenceBridgeTrace {
       return
     }
     writer := &evidenceTraceWriter{directory: directory, pid: os.Getpid()}
-    prefix := strconv.Itoa(writer.pid)+"-"
+    prefix := strconv.Itoa(writer.pid) + "-"
     file, err := os.CreateTemp(directory, prefix+"*.jsonl")
     if err != nil {
       return
@@ -159,7 +159,7 @@ func (writer *evidenceTraceWriter) append(invocation string, event string, pid i
   encoded, err := json.Marshal(evidenceTraceEvent{
     Schema: 1, Event: event, WriterPID: writer.pid, Instance: writer.instance,
     Sequence: writer.sequence, At: time.Now().UTC().Format(time.RFC3339Nano),
-    Invocation: writer.instance+":"+invocation, PID: pid, Data: observedData,
+    Invocation: writer.instance + ":" + invocation, PID: pid, Data: observedData,
   })
   if err != nil {
     return err
@@ -209,9 +209,9 @@ func (trace *evidenceBridgeTrace) capture(content []byte, productLimit int, exce
   writer.mutex.Lock()
   defer writer.mutex.Unlock()
   metadata := map[string]any{"observedByteLength": len(content), "capture": "complete", "bufferedOnly": true}
-  name := strconv.Itoa(writer.pid)+"-"+writer.instance+"-"+trace.invocation+"-stdout.bin"
+  name := strconv.Itoa(writer.pid) + "-" + writer.instance + "-" + trace.invocation + "-stdout.bin"
   if productLimit > 64*1024*1024 {
-    productLimit = 64*1024*1024
+    productLimit = 64 * 1024 * 1024
   }
   charge := len(content)
   if charge == 0 {
@@ -277,7 +277,7 @@ func (trace *evidenceBridgeTrace) preparationFailure(err error) {
   }
   trace.record("bridge-result", trace.writer.pid, map[string]any{
     "bridge": trace.kind, "nativeLookup": trace.nativeLookup, "preparationError": err.Error(),
-    "stdout": map[string]any{"capture": "absent", "observedByteLength": 0},
+    "stdout":           map[string]any{"capture": "absent", "observedByteLength": 0},
     "unmarshalOutcome": "not-attempted", "runAttempted": false,
   })
 }
@@ -342,7 +342,7 @@ func (trace *evidenceBridgeTrace) result(command *exec.Cmd, stdout *limitedBuffe
   trace.record("bridge-result", trace.writer.pid, map[string]any{
     "bridge": trace.kind, "nativeLookup": trace.nativeLookup,
     "runAttempted": true,
-    "stdout": metadata, "unmarshalOutcome": parseOutcome, "unmarshalError": message,
+    "stdout":       metadata, "unmarshalOutcome": parseOutcome, "unmarshalError": message,
     "documentIds": documents, "problemIds": problems,
   })
 }

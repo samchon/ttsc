@@ -136,14 +136,28 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
       EditorIn: bytes.NewReader(nil), EditorOut: &editorOut,
       UpstreamIn: upstreamWrite, UpstreamOut: bytes.NewReader(nil),
     })
-    if err := emptyProxy.Run(t.Context()); err != nil { t.Fatalf("empty stream result = %v", err) }
-    if editorOut.Len() != 0 { t.Fatalf("empty stream invented editor bytes: %q", editorOut.Bytes()) }
+    if err := emptyProxy.Run(t.Context()); err != nil {
+      t.Fatalf("empty stream result = %v", err)
+    }
+    if editorOut.Len() != 0 {
+      t.Fatalf("empty stream invented editor bytes: %q", editorOut.Bytes())
+    }
     closed := make(chan error, 1)
-    go func() { var one [1]byte; n, err := upstreamRead.Read(one[:]); if n != 0 { closed <- errors.New("empty stream wrote upstream bytes"); return }; closed <- err }()
+    go func() {
+      var one [1]byte
+      n, err := upstreamRead.Read(one[:])
+      if n != 0 {
+        closed <- errors.New("empty stream wrote upstream bytes")
+        return
+      }
+      closed <- err
+    }()
     select {
     case err := <-closed:
-      if !errors.Is(err, io.EOF) { t.Fatalf("upstream input closure = %v", err) }
-    case <-time.After(2*time.Second):
+      if !errors.Is(err, io.EOF) {
+        t.Fatalf("upstream input closure = %v", err)
+      }
+    case <-time.After(2 * time.Second):
       t.Fatal("empty editor EOF did not close its upstream input")
     }
   })

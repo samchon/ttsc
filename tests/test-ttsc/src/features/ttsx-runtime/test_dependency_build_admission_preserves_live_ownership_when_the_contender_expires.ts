@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
@@ -6,6 +5,7 @@ import { DependencyBuildAdmission } from "../../../../../packages/ttsc/src/launc
 import { acquireDependencyBuildLock } from "../../../../../packages/ttsc/src/launcher/internal/runtime/acquireDependencyBuildLock";
 import { inspectDependencyBuildLock } from "../../../../../packages/ttsc/src/launcher/internal/runtime/inspectDependencyBuildLock";
 import { releaseDependencyBuildLock } from "../../../../../packages/ttsc/src/launcher/internal/runtime/releaseDependencyBuildLock";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a contender's expired deadline never retires a live dependency-build
@@ -44,31 +44,53 @@ export function test_dependency_build_admission_preserves_live_ownership_when_th
     );
     assert.deepEqual(inspectDependencyBuildLock(lockDir, Date.now()), held);
     assert.throws(
-      () => DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () => {
-        ++builds;
-        throw new Error("a contender must not reach its builder");
-      }, 1),
+      () =>
+        DependencyBuildAdmission.run(
+          cacheDir,
+          metaPath,
+          lockDir,
+          () => {
+            ++builds;
+            throw new Error("a contender must not reach its builder");
+          },
+          1,
+        ),
       /dependency build admission timed out.*holding generation was not retired/,
     );
     assert.equal(builds, 0);
     assert.deepEqual(inspectDependencyBuildLock(lockDir, Date.now()), held);
     assert.throws(
-      () => DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () => {
-        ++builds;
-        throw new Error("a zero-budget contender must not build");
-      }, 0),
+      () =>
+        DependencyBuildAdmission.run(
+          cacheDir,
+          metaPath,
+          lockDir,
+          () => {
+            ++builds;
+            throw new Error("a zero-budget contender must not build");
+          },
+          0,
+        ),
       /dependency build admission timed out/,
     );
     assert.equal(builds, 0);
     for (const budget of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
       assert.throws(
-        () => DependencyBuildAdmission.wait(cacheDir, metaPath, lockDir, budget),
+        () =>
+          DependencyBuildAdmission.wait(cacheDir, metaPath, lockDir, budget),
         RangeError,
       );
       assert.throws(
-        () => DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () => {
-          throw new Error("an invalid-budget contender must not build");
-        }, budget),
+        () =>
+          DependencyBuildAdmission.run(
+            cacheDir,
+            metaPath,
+            lockDir,
+            () => {
+              throw new Error("an invalid-budget contender must not build");
+            },
+            budget,
+          ),
         RangeError,
       );
     }
@@ -76,7 +98,10 @@ export function test_dependency_build_admission_preserves_live_ownership_when_th
   } finally {
     assert.equal(releaseDependencyBuildLock(lockDir, lease!), true);
   }
-  assert.deepEqual(DependencyBuildAdmission.wait(cacheDir, metaPath, lockDir, 1), {
-    outcome: "released",
-  });
+  assert.deepEqual(
+    DependencyBuildAdmission.wait(cacheDir, metaPath, lockDir, 1),
+    {
+      outcome: "released",
+    },
+  );
 }

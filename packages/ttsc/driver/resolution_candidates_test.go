@@ -111,7 +111,9 @@ export const value: Folder = { value: internal + self };
     t.Errorf("wildcard type-root directory predicate = %#v", typeObservation.DirectoryExists)
   }
   physicalTypeRoot, err := filepath.EvalSymlinks(filepath.Join(root, "node_modules", "@types"))
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   if typeObservation.Realpath == nil || !typeObservation.Realpath.OK || filepath.Clean(typeObservation.Realpath.Path) != filepath.Clean(physicalTypeRoot) {
     t.Errorf("wildcard type-root observed identity = %#v, want %q", typeObservation.Realpath, physicalTypeRoot)
   }

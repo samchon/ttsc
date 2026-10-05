@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, print } from "../../internal/helpers";
  * Default-plus-named, namespace `* as ns`, default-plus-namespace, empty named
  * bindings, type-only named, type-only default and a side-effect-only import.
  *
- * 1. Default/named, namespace, type-only and side-effect imports preserve each supplied clause combination.
- * 2. Each literal import line independently fixes clause spelling, aliases and the module string.
+ * 1. Default/named, namespace, type-only and side-effect imports preserve each
+ *    supplied clause combination.
+ * 2. Each literal import line independently fixes clause spelling, aliases and the
+ *    module string.
  *
  * @evidence contracts/testing.md#behavioral-verification Default/named, namespace, type-only and side-effect imports preserve each supplied clause combination.
  * @evidence contracts/testing.md#independent-expectations Each literal import line independently fixes clause spelling, aliases and the module string.
@@ -52,20 +54,32 @@ export const test_import_combinations = (): void => {
   );
   TestValidator.equals(
     "default + namespace",
-    print(factory.createImportDeclaration(
-      undefined,
-      factory.createImportClause(undefined, id("def"), factory.createNamespaceImport("ns")),
-      "mod",
-    )),
+    print(
+      factory.createImportDeclaration(
+        undefined,
+        factory.createImportClause(
+          undefined,
+          id("def"),
+          factory.createNamespaceImport("ns"),
+        ),
+        "mod",
+      ),
+    ),
     'import def, * as ns from "mod";',
   );
   TestValidator.equals(
     "empty named bindings",
-    print(factory.createImportDeclaration(
-      undefined,
-      factory.createImportClause(undefined, undefined, factory.createNamedImports([])),
-      "mod",
-    )),
+    print(
+      factory.createImportDeclaration(
+        undefined,
+        factory.createImportClause(
+          undefined,
+          undefined,
+          factory.createNamedImports([]),
+        ),
+        "mod",
+      ),
+    ),
     'import {} from "mod";',
   );
   TestValidator.equals(

@@ -5,15 +5,17 @@ import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCa
 /**
  * Own Vite container identities and the build cache's session boundary.
  *
- * A replacement container may start before its predecessor ends. Only registered
- * identities decrement ownership; the last serve end resets, an ordinary build
- * releases its grace lease, and a watching build retains until watcher close.
- * Closing replaces the identity set so a late end cannot decrement below zero.
- * An unstarted end still performs the original idle action when no owner exists.
+ * A replacement container may start before its predecessor ends. Only
+ * registered identities decrement ownership; the last serve end resets, an
+ * ordinary build releases its grace lease, and a watching build retains until
+ * watcher close. Closing replaces the identity set so a late end cannot
+ * decrement below zero. An unstarted end still performs the original idle
+ * action when no owner exists.
  *
  * Server watching is disabled only by null; build watching requires a non-null
- * value. Configuration updates these modes without resetting existing ownership.
- * Poller disposal, bridge closure and delivery passes remain caller-owned.
+ * value. Configuration updates these modes without resetting existing
+ * ownership. Poller disposal, bridge closure and delivery passes remain
+ * caller-owned.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Stable container identity prevents an old end from releasing a replacement.

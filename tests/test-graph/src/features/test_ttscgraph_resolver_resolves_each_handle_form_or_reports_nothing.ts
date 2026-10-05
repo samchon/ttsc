@@ -60,7 +60,10 @@ export function test_ttscgraph_resolver_resolves_each_handle_form_or_reports_not
       failures.push(error);
     }
   };
-  expectNode("src/renderer.ts#render:function", "src/renderer.ts#render:function");
+  expectNode(
+    "src/renderer.ts#render:function",
+    "src/renderer.ts#render:function",
+  );
   expectNode("src/old.ts#render:function", "src/renderer.ts#render:function");
   expectNode("render", "src/renderer.ts#render:function");
   expectNode("ZodType.parse", "src/zod.ts#ZodType.parse:method");
@@ -79,9 +82,19 @@ export function test_ttscgraph_resolver_resolves_each_handle_form_or_reports_not
   } catch (error) {
     failures.push(error);
   }
-  for (const handle of ["", "missing", "Missing.thing", "render.", "src/old.ts#gone:function"]) {
+  for (const handle of [
+    "",
+    "missing",
+    "Missing.thing",
+    "render.",
+    "src/old.ts#gone:function",
+  ]) {
     try {
-      assert.deepStrictEqual(resolveSyntheticGraph(nodes, handle), {}, JSON.stringify(handle));
+      assert.deepStrictEqual(
+        resolveSyntheticGraph(nodes, handle),
+        {},
+        JSON.stringify(handle),
+      );
     } catch (error) {
       failures.push(error);
     }

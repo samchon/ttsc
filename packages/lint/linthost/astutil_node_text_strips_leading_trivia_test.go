@@ -42,5 +42,7 @@ func TestAstutilNodeTextStripsLeadingTrivia(t *testing.T) {
   if got != "var x = 1;" {
     t.Fatalf("NodeText should strip leading trivia, got %q", got)
   }
-  if astutil.NodeText(nil, stmt) != "" || astutil.NodeText(file, nil) != "" { t.Fatal("absent file/node should not yield source text") }
+  if astutil.NodeText(nil, stmt) != "" || astutil.NodeText(file, nil) != "" {
+    t.Fatal("absent file/node should not yield source text")
+  }
 }

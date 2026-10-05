@@ -1,20 +1,43 @@
 import assert from "node:assert/strict";
-import { TtscLintDaemonState } from "../../../../packages/graph/src/model/TtscLintDaemonState";
-import { TtscGraphNativeArguments } from "../../../../packages/graph/src/model/TtscGraphNativeArguments";
+
 import type { TtscGraphLinePeer } from "../../../../packages/graph/src/model/TtscGraphLinePeer";
+import { TtscGraphNativeArguments } from "../../../../packages/graph/src/model/TtscGraphNativeArguments";
+import { TtscLintDaemonState } from "../../../../packages/graph/src/model/TtscLintDaemonState";
 
 /** Declared port recordings only; input lines/events are supplied by each case. */
 const fixture = (retirement?: Promise<void>) => {
-  const ports: { events: TtscGraphLinePeer.Events; writes: { verb: string; invalidate: boolean }[]; closed: number }[] = [];
+  const ports: {
+    events: TtscGraphLinePeer.Events;
+    writes: { verb: string; invalidate: boolean }[];
+    closed: number;
+  }[] = [];
   const daemon = new TtscLintDaemonState((events) => {
-    const port = { events, writes: [] as { verb: string; invalidate: boolean }[], closed: 0 };
+    const port = {
+      events,
+      writes: [] as { verb: string; invalidate: boolean }[],
+      closed: 0,
+    };
     ports.push(port);
-    return { stderr: "", alive: () => port.closed === 0, write: (line, done) => { port.writes.push(JSON.parse(line)); done(); }, close: () => { port.closed++; return retirement; } };
+    return {
+      stderr: "",
+      alive: () => port.closed === 0,
+      write: (line, done) => {
+        port.writes.push(JSON.parse(line));
+        done();
+      },
+      close: () => {
+        port.closed++;
+        return retirement;
+      },
+    };
   });
   return { daemon, ports };
 };
 
-const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: number) => {
+const admitted = async (
+  ports: ReturnType<typeof fixture>["ports"],
+  count: number,
+) => {
   for (let turn = 0; turn < 20; turn++) {
     const port = ports[0];
     if (port !== undefined && port.writes.length >= count) return port;
@@ -24,7 +47,8 @@ const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: numbe
 };
 
 /**
- * Verifies the lint daemon state returns supported replies, answers null when it cannot, and serializes concurrent asks.
+ * Verifies the lint daemon state returns supported replies, answers null when
+ * it cannot, and serializes concurrent asks.
  *
  * A null answer means the caller must run the direct command; it must never be
  * mistaken for an empty project. Replies carry no request id, so a second
@@ -32,11 +56,11 @@ const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: numbe
  *
  * 1. Ask two supported verbs and check each reply's content, the invalidate flag
  *    written for each, and the lint argv builder's flags.
- * 2. Decline a verb, or supply exit(2, null) without a reply; require pending
- *    and later asks to wait for release, then return null only after joined
+ * 2. Decline a verb, or supply exit(2, null) without a reply; require pending and
+ *    later asks to wait for release, then return null only after joined
  *    completion, or preserve an unjoined failure with no new port.
- * 3. Ask two verbs at once and require the second request line to be written
- *    only after the first reply arrives.
+ * 3. Ask two verbs at once and require the second request line to be written only
+ *    after the first reply arrives.
  *
  * @evidence contracts/testing.md#behavioral-verification TtscLintDaemonState.ask returns parsed supported code-0 replies and literal invalidate flags, while a code-1 reply retires once and yields null. An unsupported-sidecar exit(2, null) keeps pending and queued fallback asks unsettled until release resolves, then yields null without another port; rejected release propagates the original Error to pending, queued and subsequent asks and close. Concurrent supported asks write one at a time. Native lint arguments retain lsp-serve and the four target/config/plugin/context flags.
  * @evidence contracts/testing.md#independent-expectations Verbs, servedBy marker, flags, reply/exit codes, null results, opener/close count one and unchanged write count one are authored literals. Deferred release and original unjoined Error are declared transport inputs; replies are authored JSON lines, not daemon output. Null is the owning fallback signal, not proof of actual direct-command execution.
@@ -45,10 +69,21 @@ const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: numbe
  */
 export async function test_ttscgraph_lint_daemon_answers_or_says_it_cannot(): Promise<void> {
   const errors: unknown[] = [];
-  for (const run of [verifyServes, verifyRejectedVerb, verifyMissingServe, verifyConcurrent, verifyMalformedReplies]) {
-    try { await run(); } catch (error) { errors.push(error); }
+  for (const run of [
+    verifyServes,
+    verifyRejectedVerb,
+    verifyMissingServe,
+    verifyConcurrent,
+    verifyMalformedReplies,
+  ]) {
+    try {
+      await run();
+    } catch (error) {
+      errors.push(error);
+    }
   }
-  if (errors.length !== 0) throw new AggregateError(errors, "lint daemon state scenarios failed");
+  if (errors.length !== 0)
+    throw new AggregateError(errors, "lint daemon state scenarios failed");
 }
 
 async function verifyServes(): Promise<void> {
@@ -56,20 +91,52 @@ async function verifyServes(): Promise<void> {
   try {
     const first = daemon.ask("project-inputs", true);
     const port = await admitted(ports, 1);
-    port.events.line(JSON.stringify({ code: 0, result: { servedBy: "daemon", verb: "project-inputs" } }));
+    port.events.line(
+      JSON.stringify({
+        code: 0,
+        result: { servedBy: "daemon", verb: "project-inputs" },
+      }),
+    );
     const inputs = await first;
     assert.notEqual(inputs, null);
     assert.equal(JSON.parse(inputs!).servedBy, "daemon");
     const second = daemon.ask("graph-nodes", false);
     await admitted(ports, 2);
-    port.events.line(JSON.stringify({ code: 0, result: { servedBy: "daemon", verb: "graph-nodes" } }));
+    port.events.line(
+      JSON.stringify({
+        code: 0,
+        result: { servedBy: "daemon", verb: "graph-nodes" },
+      }),
+    );
     assert.equal(JSON.parse((await second)!).verb, "graph-nodes");
     assert.equal(ports.length, 1);
-    const args = TtscGraphNativeArguments.lint("/fixture", "tsconfig.json", "[]", '{"physicalProjectRoot":"/fixture"}');
+    const args = TtscGraphNativeArguments.lint(
+      "/fixture",
+      "tsconfig.json",
+      "[]",
+      '{"physicalProjectRoot":"/fixture"}',
+    );
     assert.equal(args[0], "lsp-serve");
-    for (const flag of ["--cwd=", "--tsconfig=", "--plugins-json=", "--project-context-json="]) assert.equal(args.some((arg) => arg.startsWith(flag)), true);
-    assert.deepEqual(port.writes.map((request) => [request.verb, request.invalidate]), [["project-inputs", true], ["graph-nodes", false]]);
-  } finally { await daemon.close(); }
+    for (const flag of [
+      "--cwd=",
+      "--tsconfig=",
+      "--plugins-json=",
+      "--project-context-json=",
+    ])
+      assert.equal(
+        args.some((arg) => arg.startsWith(flag)),
+        true,
+      );
+    assert.deepEqual(
+      port.writes.map((request) => [request.verb, request.invalidate]),
+      [
+        ["project-inputs", true],
+        ["graph-nodes", false],
+      ],
+    );
+  } finally {
+    await daemon.close();
+  }
 }
 
 async function verifyRejectedVerb(): Promise<void> {
@@ -86,7 +153,9 @@ async function verifyRejectedVerb(): Promise<void> {
     assert.equal(await daemon.ask("project-inputs", true), null);
     assert.equal(ports.length, 1);
     assert.equal(port.closed, 1);
-  } finally { await daemon.close(); }
+  } finally {
+    await daemon.close();
+  }
 }
 
 async function verifyMissingServe(): Promise<void> {
@@ -94,7 +163,10 @@ async function verifyMissingServe(): Promise<void> {
   for (const outcome of ["joined", "unjoined"] as const) {
     let release!: () => void;
     let refuse!: (error: Error) => void;
-    const retirement = new Promise<void>((resolve, reject) => { release = resolve; refuse = reject; });
+    const retirement = new Promise<void>((resolve, reject) => {
+      release = resolve;
+      refuse = reject;
+    });
     const { daemon, ports } = fixture(retirement);
     try {
       const first = daemon.ask("project-inputs", true);
@@ -102,7 +174,14 @@ async function verifyMissingServe(): Promise<void> {
       const later = daemon.ask("graph-nodes", false);
       let settlements = 0;
       for (const ask of [first, later])
-        void ask.then(() => { settlements++; }, () => { settlements++; });
+        void ask.then(
+          () => {
+            settlements++;
+          },
+          () => {
+            settlements++;
+          },
+        );
       port.events.exit(2, null);
       for (let turn = 0; turn < 20; turn++) await Promise.resolve();
       assert.equal(settlements, 0, "fallback published before release");
@@ -119,20 +198,26 @@ async function verifyMissingServe(): Promise<void> {
         refuse(unjoined);
         await assert.rejects(first, (error) => error === unjoined);
         await assert.rejects(later, (error) => error === unjoined);
-        await assert.rejects(daemon.ask("project-inputs", true), (error) => error === unjoined);
+        await assert.rejects(
+          daemon.ask("project-inputs", true),
+          (error) => error === unjoined,
+        );
         await assert.rejects(daemon.close(), (error) => error === unjoined);
       }
       assert.equal(ports.length, 1);
       assert.equal(port.closed, 1);
       assert.equal(port.writes.length, 1);
     } catch (error) {
-      failures.push(new Error(`${outcome}: ${String(error)}`, { cause: error }));
+      failures.push(
+        new Error(`${outcome}: ${String(error)}`, { cause: error }),
+      );
     } finally {
       release();
       await daemon.close().catch(() => undefined);
     }
   }
-  if (failures.length > 0) throw new AggregateError(failures, "missing serve release matrix failed");
+  if (failures.length > 0)
+    throw new AggregateError(failures, "missing serve release matrix failed");
 }
 
 async function verifyConcurrent(): Promise<void> {
@@ -142,15 +227,24 @@ async function verifyConcurrent(): Promise<void> {
     const second = daemon.ask("graph-nodes", false);
     const port = await admitted(ports, 1);
     for (let turn = 0; turn < 5; turn++) await Promise.resolve();
-    assert.equal(port.writes.length, 1, "second request was written before first reply");
+    assert.equal(
+      port.writes.length,
+      1,
+      "second request was written before first reply",
+    );
     port.events.line('{"code":0,"result":{"verb":"project-inputs"}}');
     assert.equal(JSON.parse((await first)!).verb, "project-inputs");
     await admitted(ports, 2);
     port.events.line('{"code":0,"result":{"verb":"graph-nodes"}}');
     assert.equal(JSON.parse((await second)!).verb, "graph-nodes");
-    assert.deepEqual(port.writes.map((request) => request.verb), ["project-inputs", "graph-nodes"]);
+    assert.deepEqual(
+      port.writes.map((request) => request.verb),
+      ["project-inputs", "graph-nodes"],
+    );
     assert.equal(ports.length, 1);
-  } finally { await daemon.close(); }
+  } finally {
+    await daemon.close();
+  }
 }
 
 /** Invalid JSON and absent reply codes retire ownership rather than succeed. */
@@ -166,8 +260,12 @@ async function verifyMalformedReplies(): Promise<void> {
       assert.equal(await daemon.ask("graph-nodes", false), null);
       assert.equal(port.closed, 1);
       assert.equal(ports.length, 1);
-    } catch (error) { errors.push(error); }
-    finally { await daemon.close(); }
+    } catch (error) {
+      errors.push(error);
+    } finally {
+      await daemon.close();
+    }
   }
-  if (errors.length) throw new AggregateError(errors, "malformed daemon replies");
+  if (errors.length)
+    throw new AggregateError(errors, "malformed daemon replies");
 }

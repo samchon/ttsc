@@ -47,10 +47,10 @@ export interface TtscProjectMutationTracker {
    * Absolute input spellings eligible for this tracker's notification proof
    * when it watches exact scopes rather than whole directories.
    *
-   * A healthy verified content tracker can qualify an input in this set when
-   * no unproven scope or recorded change overlaps it. Paths outside the set
-   * remain on direct validation. A project-directory tracker may also carry
-   * the walk's exact input coverage while its root watch supplies notifications.
+   * A healthy verified content tracker can qualify an input in this set when no
+   * unproven scope or recorded change overlaps it. Paths outside the set remain
+   * on direct validation. A project-directory tracker may also carry the walk's
+   * exact input coverage while its root watch supplies notifications.
    */
   covered?: ReadonlySet<string>;
 

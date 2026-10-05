@@ -6,10 +6,10 @@ import { findNearestProjectTsconfigImpl } from "./findNearestProjectTsconfigImpl
 
 /**
  * Find the nearest config and retain the exact predicate observations used to
- * select it. False means not proven a regular file, including failed stat;
- * it is not an independent absence fact. A cache host must not rediscover
- * these candidates later as a replacement for the selection observation: a file
- * can disappear only for selection and return before that second observation.
+ * select it. False means not proven a regular file, including failed stat; it
+ * is not an independent absence fact. A cache host must not rediscover these
+ * candidates later as a replacement for the selection observation: a file can
+ * disappear only for selection and return before that second observation.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared ancestor walk returns its selected file and the exact positive

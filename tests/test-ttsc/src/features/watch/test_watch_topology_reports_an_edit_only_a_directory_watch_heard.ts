@@ -20,7 +20,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * 1. Admit the authored config and compiler member through recorded observers.
  * 2. Change strict mode and notify only the containing directory subscription.
- * 3. Repeat admitted-byte directory delivery on every platform and retain one report.
+ * 3. Repeat admitted-byte directory delivery on every platform and retain one
+ *    report.
  *
  * @evidence contracts/testing.md#behavioral-verification A changed config heard only by its directory produces one report; duplicate delivery of the admitted bytes produces none.
  * @evidence contracts/testing.md#independent-expectations The independent strict true-to-false config edit and literal single report establish directory-first ownership.

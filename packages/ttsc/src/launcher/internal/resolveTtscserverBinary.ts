@@ -5,9 +5,9 @@ import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEn
 
 /**
  * Resolve the platform-specific ttscserver binary path. Looks first at the
- * TTSCSERVER_BINARY environment override when absolute, then at the
- * shipped per-platform npm package (`@ttsc/<platform>-<arch>/bin/ttscserver`),
- * then at the local-build fallback under this package's `native/` directory.
+ * TTSCSERVER_BINARY environment override when absolute, then at the shipped
+ * per-platform npm package (`@ttsc/<platform>-<arch>/bin/ttscserver`), then at
+ * the local-build fallback under this package's `native/` directory.
  *
  * A relative override is ignored. Selected overrides are not checked for file
  * existence or executability here; the server launcher owns actual startup.

@@ -29,6 +29,7 @@ import (
 // Performance: Not applicable: Efficient algorithms: The declaration selects static inputs and performs no traversal.
 // Performance: Not applicable: Reuse equivalent work: Compiler preparation is coordinated by TestDriverRewriteRuntimeBatch, not this fixture declaration.
 // Performance: Bound retention and release resources: Embedded bytes are fixed by this authored fixture tree for the test binary lifetime and retain no native handles or historical entries.
+//
 //go:embed fixtures/rewrite-runtime
 var rewriteRuntimeFixtures embed.FS
 

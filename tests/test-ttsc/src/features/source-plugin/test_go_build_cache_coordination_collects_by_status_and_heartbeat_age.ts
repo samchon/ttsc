@@ -11,7 +11,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * A PID does not prove whether a build task has ended. The collector's declared
  * one-hour build grace and one-minute maintenance grace apply to the actual
- * record mtime, including records whose owner fields cannot identify a process.
+ * record mtime, including records whose owner fields cannot identify a
+ * process.
  *
  * 1. Collect missing and empty coordination directories without creating records.
  * 2. Compare fresh, exactly-at-grace and expired records across owner identities.
@@ -24,7 +25,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership This matching named source unit directly calls collectLiveGoBuildCacheCoordinationRecords with a supplied clock and actual filesystem metadata. It starts no worker, process, Go build or product host, collects independent failures and finally removes its owned root.
  */
 export function test_go_build_cache_coordination_collects_by_status_and_heartbeat_age(): void {
-  const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-coordination-policy-"));
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-coordination-policy-"),
+  );
   const failures: Error[] = [];
   const check = (name: string, operation: () => void): void => {
     try {
@@ -35,7 +38,11 @@ export function test_go_build_cache_coordination_collects_by_status_and_heartbea
   };
   const directories = [
     ["lease", GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR, 3_600_000],
-    ["maintenance", GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR, 60_000],
+    [
+      "maintenance",
+      GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR,
+      60_000,
+    ],
   ] as const;
   const owners = [
     ["current", process.pid, os.hostname()],
@@ -44,7 +51,13 @@ export function test_go_build_cache_coordination_collects_by_status_and_heartbea
     ["remote", process.pid, "unrelated-host.example"],
   ] as const;
   let sequence = 0;
-  const collect = (name: string, directoryName: string, bytes: string, age: number, retained: boolean): void => {
+  const collect = (
+    name: string,
+    directoryName: string,
+    bytes: string,
+    age: number,
+    retained: boolean,
+  ): void => {
     check(`${name}/operation`, () => {
       const cache = path.join(root, String(sequence++));
       const directory = path.join(cache, directoryName);
@@ -54,10 +67,22 @@ export function test_go_build_cache_coordination_collects_by_status_and_heartbea
       const timestamp = new Date(Math.floor(Date.now() / 1000) * 1000);
       fs.utimesSync(file, timestamp, timestamp);
       const now = fs.statSync(file).mtimeMs + age;
-      const actual = GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(cache, directoryName, now);
-      check(`${name}/returned-paths`, () => assert.deepEqual(actual, retained ? [file] : []));
-      check(`${name}/record-presence`, () => assert.equal(fs.existsSync(file), retained));
-      if (retained) check(`${name}/retained-bytes`, () => assert.equal(fs.readFileSync(file, "utf8"), bytes));
+      const actual =
+        GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+          cache,
+          directoryName,
+          now,
+        );
+      check(`${name}/returned-paths`, () =>
+        assert.deepEqual(actual, retained ? [file] : []),
+      );
+      check(`${name}/record-presence`, () =>
+        assert.equal(fs.existsSync(file), retained),
+      );
+      if (retained)
+        check(`${name}/retained-bytes`, () =>
+          assert.equal(fs.readFileSync(file, "utf8"), bytes),
+        );
     });
   };
   try {
@@ -72,31 +97,104 @@ export function test_go_build_cache_coordination_collects_by_status_and_heartbea
       fs.writeFileSync(file, bytes, "utf8");
       const fresh = new Date(now);
       fs.utimesSync(file, fresh, fresh);
-      const live = GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(cache, directoryName, now);
-      check("synthetic/transition/fresh-path", () => assert.deepEqual(live, [file]));
-      check("synthetic/transition/fresh-bytes", () => assert.equal(fs.readFileSync(file, "utf8"), bytes));
+      const live =
+        GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+          cache,
+          directoryName,
+          now,
+        );
+      check("synthetic/transition/fresh-path", () =>
+        assert.deepEqual(live, [file]),
+      );
+      check("synthetic/transition/fresh-bytes", () =>
+        assert.equal(fs.readFileSync(file, "utf8"), bytes),
+      );
       const expired = new Date(now - 7_200_000);
       fs.utimesSync(file, expired, expired);
-      const stale = GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(cache, directoryName, now);
-      check("synthetic/transition/stale-path", () => assert.deepEqual(stale, []));
-      check("synthetic/transition/deleted", () => assert.equal(fs.existsSync(file), false));
+      const stale =
+        GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+          cache,
+          directoryName,
+          now,
+        );
+      check("synthetic/transition/stale-path", () =>
+        assert.deepEqual(stale, []),
+      );
+      check("synthetic/transition/deleted", () =>
+        assert.equal(fs.existsSync(file), false),
+      );
     });
     for (const [kind, directoryName, grace] of directories) {
-      check(`${kind}/missing`, () => assert.deepEqual(GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(root, directoryName, Date.now()), []));
+      check(`${kind}/missing`, () =>
+        assert.deepEqual(
+          GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+            root,
+            directoryName,
+            Date.now(),
+          ),
+          [],
+        ),
+      );
       fs.mkdirSync(path.join(root, directoryName));
-      check(`${kind}/empty`, () => assert.deepEqual(GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(root, directoryName, Date.now()), []));
+      check(`${kind}/empty`, () =>
+        assert.deepEqual(
+          GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+            root,
+            directoryName,
+            Date.now(),
+          ),
+          [],
+        ),
+      );
       for (const [owner, pid, hostname] of owners) {
-        const active = JSON.stringify({ directoryName, hostname, pid, status: "active", version: 1 });
+        const active = JSON.stringify({
+          directoryName,
+          hostname,
+          pid,
+          status: "active",
+          version: 1,
+        });
         collect(`${kind}/${owner}/fresh`, directoryName, active, 0, true);
-        collect(`${kind}/${owner}/at-grace`, directoryName, active, grace, true);
-        collect(`${kind}/${owner}/expired`, directoryName, active, grace + 1_000, false);
-        collect(`${kind}/${owner}/complete`, directoryName, JSON.stringify({ directoryName, hostname, pid, status: "complete", version: 1 }), 0, false);
+        collect(
+          `${kind}/${owner}/at-grace`,
+          directoryName,
+          active,
+          grace,
+          true,
+        );
+        collect(
+          `${kind}/${owner}/expired`,
+          directoryName,
+          active,
+          grace + 1_000,
+          false,
+        );
+        collect(
+          `${kind}/${owner}/complete`,
+          directoryName,
+          JSON.stringify({
+            directoryName,
+            hostname,
+            pid,
+            status: "complete",
+            version: 1,
+          }),
+          0,
+          false,
+        );
       }
       collect(`${kind}/malformed/fresh`, directoryName, "{", 0, true);
-      collect(`${kind}/malformed/expired`, directoryName, "{", grace + 1_000, false);
+      collect(
+        `${kind}/malformed/expired`,
+        directoryName,
+        "{",
+        grace + 1_000,
+        false,
+      );
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "Go cache coordination task policy");
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "Go cache coordination task policy");
 }

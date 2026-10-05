@@ -100,7 +100,8 @@ export async function test_bun_register_explicit_options_are_not_shadowed_in_sam
     supplied.plugins[0]!.prefix = "MUTATED:";
     assert.equal(captured.length, 1);
 
-    const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
+    const root =
+      preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
     const pending = loader({ path: TestUnpluginProject.mainFile(root) });
 
     // Handler entry locks synchronously before its first await. An equal call

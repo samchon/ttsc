@@ -25,7 +25,6 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
  * another drive, does not take it (`hostToolDirectory`).
  *
  * @param root The host's root, as `hostToolDirectory` names it.
- *
  * @evidence contracts/common.md#principled-implementation
  *   A resolved-root digest gives each host a stable directory beneath the
  *   validated user state root; absence remains explicit when no safe root exists.

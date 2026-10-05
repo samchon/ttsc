@@ -36,7 +36,7 @@ func TestConfigLoaderSourcesEscapeEveryLiteralPercent(t *testing.T) {
   for _, generated := range []struct {
     name   string
     source string
-    kind shimcore.ScriptKind
+    kind   shimcore.ScriptKind
   }{
     {name: "script", source: scriptConfigLoaderSource(), kind: shimcore.ScriptKindJS},
     {

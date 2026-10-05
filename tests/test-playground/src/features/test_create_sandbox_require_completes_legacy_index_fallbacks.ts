@@ -13,6 +13,7 @@ import { createSandboxRequire } from "../../../../packages/playground/src/sandbo
  * 2. Resolve relative and bare subdirectories through their own manifests.
  * 3. Assert a root main target ignores a nested manifest and falls back to the
  *    root index.
+ *
  * @evidence contracts/testing.md#behavioral-verification createSandboxRequire loads missing-main fallback, root/directory JSON indexes and relative/bare nested manifests, while the main-boundary package returns root-fallback rather than recursively executing nested.cjs.
  * @evidence contracts/testing.md#independent-expectations Independent in-memory manifests and distinct literal module values specify Node-style CommonJS legacy file/index precedence; wrong-nested-main is a populated negative control, not an absent file.
  * @evidence contracts/testing.md#distinguishing-cases Six fixture packages distinguish missing main, JSON root, main directory, relative directory, bare subpath and nonrecursive selected main; exact objects/arrays preserve each returned value.

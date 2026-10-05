@@ -21,9 +21,9 @@ import { selectTransformAttemptDisposition } from "./selectTransformAttemptDispo
  * A capture whose snapshot could not be proven stable is disposed and attempted
  * again. At the movement or absolute attempt cap, a coherent diagnostic verdict
  * is returned; otherwise a terminal `TtscUnstableGenerationError` carries the
- * failed environment, so later
- * deliveries replay the verdict until that environment provably changes instead
- * of each repeating a whole-project compile.
+ * failed environment, so later deliveries replay the verdict until that
+ * environment provably changes instead of each repeating a whole-project
+ * compile.
  *
  * The bound is for a project that keeps moving, so it counts the failures that
  * say the project moved: every compile here that fails its proof, and every
@@ -70,8 +70,8 @@ import { selectTransformAttemptDisposition } from "./selectTransformAttemptDispo
  * persistent caching. Actual changes, conflicts and unexplained missing proof
  * retain the stabilization gate.
  *
- * Enabled private tracing records each computed disposition before its state
- * is applied. It does not supply proof when capture throws or tracing fails.
+ * Enabled private tracing records each computed disposition before its state is
+ * applied. It does not supply proof when capture throws or tracing fails.
  *
  * @evidence contracts/common.md#principled-implementation Each capture establishes config coherence and reusable success proof or a current diagnostic verdict; a local stable success with only explicit unavailable host observations instead transfers one fresh delivery without reuse authority, while mixed mutation, missing or conflicting proof retains retry admission.
  * @evidence contracts/common.md#clear-and-simple-design The pure attempt policy selects acceptance and retry budgets; this loop owns mutable learned facts and resource handoff, capture owns proof construction, and the shared error builder owns terminal rendering and final disposal.
@@ -190,7 +190,7 @@ export async function transformProject(props: {
         freshDeliveryOnly: disposition.freshDeliveryOnly,
         movedAfter: "moved" in disposition ? disposition.moved : null,
         rejectedAfter:
-          "rejected" in disposition ? disposition.rejected ?? null : null,
+          "rejected" in disposition ? (disposition.rejected ?? null) : null,
       },
     });
     if (disposition.freshDeliveryOnly) {

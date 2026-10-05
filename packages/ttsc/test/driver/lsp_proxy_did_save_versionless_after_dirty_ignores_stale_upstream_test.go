@@ -26,7 +26,7 @@ func TestLSPProxyDidSaveVersionlessAfterDirtyIgnoresStaleUpstream(t *testing.T) 
   type diagnosticPublication struct {
     Method string `json:"method"`
     Params struct {
-      URI string `json:"uri"`
+      URI         string `json:"uri"`
       Diagnostics []struct {
         Message string `json:"message"`
       } `json:"diagnostics"`

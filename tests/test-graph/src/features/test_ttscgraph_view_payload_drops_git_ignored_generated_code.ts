@@ -1,9 +1,10 @@
-import { reduce } from "../../../../packages/graph/src/reduce";
-
 import assert from "node:assert/strict";
 
+import { reduce } from "../../../../packages/graph/src/reduce";
+
 /**
- * Verifies the view reducer drops git-ignored generated code and external leaves by default and keeps ignored code on request.
+ * Verifies the view reducer drops git-ignored generated code and external
+ * leaves by default and keeps ignored code on request.
  *
  * The viewer shows the authored graph, so a node flagged ignored (generated
  * code) or external is dropped with its edges, and counted, unless the
@@ -22,45 +23,45 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#execution-ownership Calls the pure reduce function from packages/graph in the test process with an in-memory dump; no installed artifact, native build or product process is involved.
  */
 export function test_ttscgraph_view_payload_drops_git_ignored_generated_code(): void {
-    const raw = {
-      project: "fixture",
-      nodes: [
-        { id: "a", name: "authored", kind: "function", file: "src/a.ts" },
-        {
-          id: "g",
-          name: "generated",
-          kind: "function",
-          file: "src/generated/client.ts",
-          ignored: true,
-        },
-        {
-          id: "e",
-          name: "external",
-          kind: "function",
-          file: "node_modules/x/index.d.ts",
-          external: true,
-        },
-      ],
-      edges: [
-        { from: "a", to: "g", kind: "calls" },
-        { from: "a", to: "e", kind: "calls" },
-      ],
-    };
+  const raw = {
+    project: "fixture",
+    nodes: [
+      { id: "a", name: "authored", kind: "function", file: "src/a.ts" },
+      {
+        id: "g",
+        name: "generated",
+        kind: "function",
+        file: "src/generated/client.ts",
+        ignored: true,
+      },
+      {
+        id: "e",
+        name: "external",
+        kind: "function",
+        file: "node_modules/x/index.d.ts",
+        external: true,
+      },
+    ],
+    edges: [
+      { from: "a", to: "g", kind: "calls" },
+      { from: "a", to: "e", kind: "calls" },
+    ],
+  };
 
-    const payload = reduce(raw);
-    assert.deepEqual(
-      payload.nodes.map((n) => n.id),
-      [],
-      "with its only edges pointing at dropped nodes the authored node has degree zero",
-    );
-    assert.equal(payload.counts.droppedIgnored, 1);
-    assert.equal(payload.counts.droppedExternal, 1);
+  const payload = reduce(raw);
+  assert.deepEqual(
+    payload.nodes.map((n) => n.id),
+    [],
+    "with its only edges pointing at dropped nodes the authored node has degree zero",
+  );
+  assert.equal(payload.counts.droppedIgnored, 1);
+  assert.equal(payload.counts.droppedExternal, 1);
 
-    const kept = reduce(raw, { keepIgnored: true });
-    assert.deepEqual(
-      kept.nodes.map((n) => n.id).sort(),
-      ["a", "g"],
-      "keepIgnored restores the generated node and the edge to it",
-    );
-    assert.equal(kept.counts.droppedIgnored, 0);
+  const kept = reduce(raw, { keepIgnored: true });
+  assert.deepEqual(
+    kept.nodes.map((n) => n.id).sort(),
+    ["a", "g"],
+    "keepIgnored restores the generated node and the edge to it",
+  );
+  assert.equal(kept.counts.droppedIgnored, 0);
 }

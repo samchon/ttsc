@@ -15,7 +15,6 @@ import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
  * to change the supplied options.
  *
  * @author Jeongho Nam - https://github.com/samchon
- *
  * @evidence contracts/common.md#principled-implementation Optional construction inputs preserve explicit override versus discovery/default behavior; project root, config origin and invocation cwd remain distinct because wrappers and plugin resolution can use different anchors.
  * @evidence contracts/common.md#clear-and-simple-design The context groups one compiler instance's environment and selection policy; operations use this context instead of accepting competing per-call plugin overrides.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Binary, environment and plugin overrides are supported embedding inputs, not fabricated compiler results or foreign-method replacements.
@@ -100,9 +99,9 @@ export interface ITtscCompilerContext {
    * `ttsx` fallback), or the native compiler host used by
    * {@link TtscCompiler.compile}. `transformAsync` runs its whole transform on a
    * worker thread under the same merge, so its in-process work, such as the
-   * temporary directories it creates, follows it too.
-   * Descriptor output is diagnostic text and is forwarded to stderr so it
-   * cannot corrupt compiler/API protocol stdout.
+   * temporary directories it creates, follows it too. Descriptor output is
+   * diagnostic text and is forwarded to stderr so it cannot corrupt
+   * compiler/API protocol stdout.
    */
   env?: NodeJS.ProcessEnv;
 

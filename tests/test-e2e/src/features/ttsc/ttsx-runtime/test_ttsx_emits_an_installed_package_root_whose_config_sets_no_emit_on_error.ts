@@ -1,6 +1,7 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx still compiles an installed package's root through the
@@ -21,6 +22,7 @@ import assert from "node:assert/strict";
  *    legacy method decorator.
  * 2. Run a consumer entry that requires the package.
  * 3. Assert the program observes the legacy decorator's three arguments.
+ *
  * @evidence contracts/testing.md#behavioral-verification Ttsx requires strict-pkg/index.ts excluded by include, with noEmitOnError:true, a type error and a legacy method decorator; it must still print arguments=3 successfully.
  * @evidence contracts/testing.md#independent-expectations Foreign errors cannot withhold dependency-lane JavaScript, and the legacy three-argument call independently proves its project options were not lost to isolated fallback.
  * @evidence contracts/testing.md#distinguishing-cases This case adds noEmitOnError to the excluded erroneous package root, beyond its adjacent emit-only sibling. Consumer own-source checking is a different required negative.
@@ -31,13 +33,17 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage Original status zero and exact arguments=3 remain. NoEmitOnError suppression and decorator-option inheritance both remain observable in the same consumer.
  */
 export function test_ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error/inputs-1"));
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_emits_an_installed_package_root_whose_config_sets_no_emit_on_error/inputs-1",
+    ),
+  );
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      { cwd: root },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "arguments=3");
-  }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "arguments=3");
+}

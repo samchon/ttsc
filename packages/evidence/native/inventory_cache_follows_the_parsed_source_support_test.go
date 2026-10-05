@@ -1,10 +1,10 @@
 package evidence
 
 import (
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+  "testing"
 )
 
 func parseTestSource(t *testing.T, name string, content string) *shimast.SourceFile {

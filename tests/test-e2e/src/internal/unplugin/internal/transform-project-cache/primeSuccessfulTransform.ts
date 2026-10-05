@@ -6,9 +6,9 @@ import assert from "node:assert/strict";
  * fixture and return the cache API, the single cache key, the resolved good
  * generation value, and the arguments needed to retry the same module.
  *
- * The recovery batch reuses this to plant failed generations under
- * the exact key `transformTtsc` computes, without depending on the private
- * cache-key encoding.
+ * The recovery batch reuses this to plant failed generations under the exact
+ * key `transformTtsc` computes, without depending on the private cache-key
+ * encoding.
  */
 export async function primeSuccessfulTransform(): Promise<{
   api: {

@@ -17,21 +17,21 @@ import { createIdentifier } from "../names/createIdentifier";
  * With `expression` of `a` and `name` of `b`, the printer emits:
  *
  * ```ts
- * a.b
+ * a.b;
  * ```
  *
  * Strings must be valid member identifiers; private-name context is not
- * validated here. Use a chain builder when this link continues optional chaining.
- *
- * @evidence contracts/common.md#principled-implementation String names normalize to Identifiers and supplied name nodes remain intact; the ordinary-access kind distinguishes its chain boundary, with valid lexical and private-name context caller-owned.
- * @evidence contracts/common.md#clear-and-simple-design One name adapter and make call capture receiver/member syntax without a lookup abstraction or alternate chain schema.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The builder does not inspect known receiver objects to guess a member or monkey-patch their property access.
- * @evidence contracts/common.md#meaningful-documentation Native prose states name normalization, validity limits and the chain distinction, with example, parameters and acknowledgment block separated.
+ * validated here. Use a chain builder when this link continues optional
+ * chaining.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The receiver expression.
  * @param name The accessed member name.
  * @returns The created {@link PropertyAccessExpression}.
+ * @evidence contracts/common.md#principled-implementation String names normalize to Identifiers and supplied name nodes remain intact; the ordinary-access kind distinguishes its chain boundary, with valid lexical and private-name context caller-owned.
+ * @evidence contracts/common.md#clear-and-simple-design One name adapter and make call capture receiver/member syntax without a lookup abstraction or alternate chain schema.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The builder does not inspect known receiver objects to guess a member or monkey-patch their property access.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states name normalization, validity limits and the chain distinction, with example, parameters and acknowledgment block separated.
  */
 export const createPropertyAccessExpression = (
   expression: Expression,

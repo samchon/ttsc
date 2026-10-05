@@ -75,7 +75,7 @@ type projectPublishForSelectionTest struct {
 func decodeProjectPublishForSelectionTest(t *testing.T, body []byte) projectPublishForSelectionTest {
   t.Helper()
   var decoded struct {
-    Method string `json:"method"`
+    Method string                         `json:"method"`
     Params projectPublishForSelectionTest `json:"params"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {

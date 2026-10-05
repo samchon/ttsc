@@ -66,7 +66,10 @@ export namespace PluginDescriptorAdmission {
   }
 }
 
-/** Retain the loader's scalar stage predicate without rereading descriptor fields. */
+/**
+ * Retain the loader's scalar stage predicate without rereading descriptor
+ * fields.
+ */
 function isPluginStage(value: string): value is TtscPluginStage {
   return value === "transform" || value === "check";
 }

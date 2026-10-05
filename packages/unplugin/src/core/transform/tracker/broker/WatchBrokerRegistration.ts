@@ -54,8 +54,8 @@ export interface WatchBrokerRegistration {
    * watches, so a reported event is translated back before anything compares it
    * with a path the registration produced.
    *
-   * Required as routing state, but its entries are not completeness proof.
-   * A directory absent from this map is forwarded in child spelling; exact
+   * Required as routing state, but its entries are not completeness proof. A
+   * directory absent from this map is forwarded in child spelling; exact
    * identity/relevance classification stays with the sink.
    */
   spellings: ReadonlyMap<string, string>;

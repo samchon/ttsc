@@ -1,5 +1,6 @@
-import { loadNext } from "../internal/adapter-next/loadNext";
 import assert from "node:assert/strict";
+
+import { loadNext } from "../internal/adapter-next/loadNext";
 
 /**
  * Verifies the Next.js wrapper chains into a caller's `webpack` hook instead of
@@ -14,6 +15,7 @@ import assert from "node:assert/strict";
  * 2. Call the wrapped hook with an empty plugin list.
  * 3. Assert the caller's hook ran, its mark is on the returned config, and the
  *    returned config holds exactly one plugin.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls the authored next wrapper and the webpack hook it returns on `{ plugins: [] }`. The assertions require the caller's hook to have run (a flag), its `original` mark to appear on the returned config, and the plugin list to have length one; a wrapper that dropped the caller's hook or injected no plugin or two fails. A second hook returns a different object and the wrapper must return exactly that object, so a wrapper that returned its own config fails.
  * @evidence contracts/testing.md#independent-expectations

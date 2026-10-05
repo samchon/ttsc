@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, mod, param, print } from "../../internal/helpers";
 
 /**
@@ -9,7 +9,8 @@ import { kw, mod, param, print } from "../../internal/helpers";
  * A `public set value(v: number) {}` accessor with an empty body.
  *
  * 1. The public setter prints its value name, v: number parameter and empty body.
- * 2. Literal public set value(v: number) {} fixes setter keyword and punctuation without using the implementation output.
+ * 2. Literal public set value(v: number) {} fixes setter keyword and punctuation
+ *    without using the implementation output.
  *
  * @evidence contracts/testing.md#behavioral-verification The public setter prints its value name, v: number parameter and empty body.
  * @evidence contracts/testing.md#independent-expectations Literal public set value(v: number) {} fixes setter keyword and punctuation without using the implementation output.

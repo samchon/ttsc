@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { readCompilerOptionOccurrence } from "../../../flags/readCompilerOptionOccurrence";
-import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
+import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
 import { ensureExecutable } from "../ensureExecutable";
 import { spawnNative } from "../spawnNative";
 import { CompilerDiagnostics } from "./CompilerDiagnostics";
@@ -32,10 +32,10 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * A nonzero compiler status can still carry proved writes for an unchecked
  * consumer. Ownership metadata never changes that status or its diagnostics.
  * Profiling and tracing options suppress probes so their artifacts remain owned
- * by the emitting run.
- * TSFILE rows are the selected producer's write reports, not output-file byte
- * observations. Admission assumes that producer uses the supported upstream
- * naming subset; this adapter does not certify arbitrary compiler behavior.
+ * by the emitting run. TSFILE rows are the selected producer's write reports,
+ * not output-file byte observations. Admission assumes that producer uses the
+ * supported upstream naming subset; this adapter does not certify arbitrary
+ * compiler behavior.
  *
  * Normally reported ownerless outputs carry their actual failed proof boundary
  * in emittedSourceProofFailures. These explanations preserve compiler streams

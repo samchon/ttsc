@@ -4,12 +4,14 @@ import {
   TestUnpluginRuntime,
 } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const { execFile } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+
+const { execFile } = E2eProcessTrace;
 
 /**
  * Verifies a real Bun process closes each build's generation and gives the
@@ -38,7 +40,9 @@ import { promisify } from "node:util";
 export async function test_bun_native_host_owns_build_and_runtime_sessions(
   preparedRoot?: string,
 ): Promise<void> {
-  const root = fs.realpathSync.native(preparedRoot ?? TestUnpluginProject.createProject());
+  const root = fs.realpathSync.native(
+    preparedRoot ?? TestUnpluginProject.createProject(),
+  );
   const log = path.join(root, "dist", "compiles.bin");
   fs.mkdirSync(path.dirname(log), { recursive: true });
   const configuration = JSON.parse(

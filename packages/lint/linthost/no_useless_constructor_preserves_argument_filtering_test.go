@@ -15,7 +15,10 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases Zero arguments, positional filtering, exact rest, reordered/default/destructured parameters, visibility and parameter properties have authored finding-count oracles.
 // @evidence contracts/testing.md#execution-ownership TestNoUselessConstructorPreservesArgumentFiltering uses runRuleFindingsSnapshot in the enrolled Go rules unit batch without compiling or installing a consumer or launching a host.
 func TestNoUselessConstructorPreservesArgumentFiltering(t *testing.T) {
-  cases := []struct { name, source string; want int }{
+  cases := []struct {
+    name, source string
+    want         int
+  }{
     {"empty-base", "class A { constructor() {} }", 1},
     {"zero-filter", "class A {} class B extends A { constructor() { super(); } }", 0},
     {"positional-filter", "class A {} class B extends A { constructor(a: unknown, b: unknown) { super(a, b); } }", 0},
@@ -33,7 +36,9 @@ func TestNoUselessConstructorPreservesArgumentFiltering(t *testing.T) {
   for _, c := range cases {
     t.Run(c.name, func(t *testing.T) {
       _, _, findings := runRuleFindingsSnapshot(t, "no-useless-constructor", c.source, nil)
-      if len(findings) != c.want { t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings) }
+      if len(findings) != c.want {
+        t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings)
+      }
     })
   }
 }

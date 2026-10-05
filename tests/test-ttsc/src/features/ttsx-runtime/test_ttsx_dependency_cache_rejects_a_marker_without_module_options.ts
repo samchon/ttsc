@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
-
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
 import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/internal/runtime/readDependencyCache";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a dependency-cache marker that carries no `moduleOptions` object is
@@ -28,52 +28,48 @@ import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/i
  * @evidence contracts/testing.md#execution-ownership The named source-unit entry calls authored production functions directly; temporary fixture files are inputs, with no compiler build, consumer installation or product host.
  */
 export function test_ttsx_dependency_cache_rejects_a_marker_without_module_options() {
-    const root = TestProject.tmpdir("ttsx-depcache-schema-");
-    const cacheDir = path.join(root, "entry");
-    const metaPath = path.join(root, "entry.json");
-    const generation = "d".repeat(32);
-    const generationDir = path.join(cacheDir, `gen-${generation}`);
+  const root = TestProject.tmpdir("ttsx-depcache-schema-");
+  const cacheDir = path.join(root, "entry");
+  const metaPath = path.join(root, "entry.json");
+  const generation = "d".repeat(32);
+  const generationDir = path.join(cacheDir, `gen-${generation}`);
 
-    fs.mkdirSync(generationDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(generationDir, "index.js"),
-      "exports.value = 'legacy';\n",
-    );
+  fs.mkdirSync(generationDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(generationDir, "index.js"),
+    "exports.value = 'legacy';\n",
+  );
 
-    fs.writeFileSync(
-      metaPath,
-      JSON.stringify({
-        generation,
-        moduleOption: "commonjs",
-        emittedSources: {},
-        outputs: ["index.js"],
-        rootDir: root,
-      }),
-      "utf8",
-    );
-    assert.equal(
-      readDependencyCache(cacheDir, metaPath),
-      null,
-      "a marker without moduleOptions must not be reused",
-    );
+  fs.writeFileSync(
+    metaPath,
+    JSON.stringify({
+      generation,
+      moduleOption: "commonjs",
+      emittedSources: {},
+      outputs: ["index.js"],
+      rootDir: root,
+    }),
+    "utf8",
+  );
+  assert.equal(
+    readDependencyCache(cacheDir, metaPath),
+    null,
+    "a marker without moduleOptions must not be reused",
+  );
 
-    fs.writeFileSync(
-      metaPath,
-      JSON.stringify({
-        generation,
-        moduleOptions: { module: "commonjs" },
-        emittedSources: {},
-        outputs: ["index.js"],
-        rootDir: root,
-      }),
-      "utf8",
-    );
-    const reused = readDependencyCache(cacheDir, metaPath);
-    assert.notEqual(
-      reused,
-      null,
-      "the same generation must hit once described",
-    );
-    assert.equal(reused!.emitDir, generationDir);
-    assert.deepEqual(reused!.moduleOptions, { module: "commonjs" });
+  fs.writeFileSync(
+    metaPath,
+    JSON.stringify({
+      generation,
+      moduleOptions: { module: "commonjs" },
+      emittedSources: {},
+      outputs: ["index.js"],
+      rootDir: root,
+    }),
+    "utf8",
+  );
+  const reused = readDependencyCache(cacheDir, metaPath);
+  assert.notEqual(reused, null, "the same generation must hit once described");
+  assert.equal(reused!.emitDir, generationDir);
+  assert.deepEqual(reused!.moduleOptions, { module: "commonjs" });
 }

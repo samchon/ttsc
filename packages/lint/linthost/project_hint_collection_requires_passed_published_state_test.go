@@ -99,5 +99,7 @@ func TestProjectHintCollectionRequiresPassedPublishedState(t *testing.T) {
   if len(calls) != 1 || calls[passedName] != 1 {
     t.Fatalf("inactive providers should not be called: %#v", calls)
   }
-  if hints[0].Trigger.Scope != publicrule.HintScopeJSDoc || hints[0].Trigger.After != "@" { t.Fatalf("published trigger changed: %#v", hints[0]) }
+  if hints[0].Trigger.Scope != publicrule.HintScopeJSDoc || hints[0].Trigger.After != "@" {
+    t.Fatalf("published trigger changed: %#v", hints[0])
+  }
 }

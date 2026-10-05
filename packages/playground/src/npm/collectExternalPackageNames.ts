@@ -6,7 +6,8 @@ import { packageNameFromSpecifier } from "./packageNameFromSpecifier";
  * sorted list of bare npm package names that are not in `ignoredPackages`.
  *
  * This is a lexical discovery pass, not name binding: a locally shadowed direct
- * require call still looks like a dependency request. Computed strings are omitted.
+ * require call still looks like a dependency request. Computed strings are
+ * omitted.
  *
  * Static arguments are quoted strings and substitution-free, escape-free
  * templates (`require(`x`)`, `import(`x`)`). Deliberate limits of the
@@ -65,7 +66,9 @@ function collectModuleSpecifiers(source: string): string[] {
     const previous = tokens[index - 1];
     if (isPunct(previous, "#") || isPunct(previous, "?.")) return true;
     if (!isPunct(previous, ".")) return false;
-    return !(isPunct(tokens[index - 2], ".") && isPunct(tokens[index - 3], "."));
+    return !(
+      isPunct(tokens[index - 2], ".") && isPunct(tokens[index - 3], ".")
+    );
   };
   const isOptionalChain = (token: Token | undefined): boolean =>
     token !== undefined && token.kind === "punct" && token.value === "?.";
@@ -438,7 +441,8 @@ function tokenize(source: string): Token[] {
           const end = findTemplateSubstitutionEnd(source, start);
           staticValue = null;
           context.pushOther();
-          for (const entryToAppend of tokenize(source.slice(start, end))) tokens.push(entryToAppend);
+          for (const entryToAppend of tokenize(source.slice(start, end)))
+            tokens.push(entryToAppend);
           context.pushOther();
           i = end < n ? end + 1 : end;
           continue;

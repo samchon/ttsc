@@ -26,6 +26,14 @@ import { make } from "../internal/make";
  * greet(name: string): void
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The method name.
+ * @param questionToken The optional marker (`?`), if any.
+ * @param typeParameters The generic type parameters, if any.
+ * @param parameters The parameters.
+ * @param type The return type, if any.
+ * @returns The created {@link MethodSignature}.
  * @evidence contracts/common.md#principled-implementation
  *   Property-name normalization preserves node names and converts strings;
  *   modifiers, optionality, generics, parameters and return annotation retain
@@ -42,15 +50,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs describe modifier/name/optional/return order and provide
  *   a method-member example; every retained argument is documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The method name.
- * @param questionToken The optional marker (`?`), if any.
- * @param typeParameters The generic type parameters, if any.
- * @param parameters The parameters.
- * @param type The return type, if any.
- * @returns The created {@link MethodSignature}.
  */
 export const createMethodSignature = (
   modifiers: readonly ModifierLike[] | undefined,

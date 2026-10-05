@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { TestProject } from "../../../utils/src/TestProject";
+
 import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
 import { runDetails } from "../../../../packages/graph/src/server/runDetails";
 import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
+import { TestProject } from "../../../utils/src/TestProject";
 
 /** The heading text a section carries, and the prose it must never carry. */
 const HEADING = "Coupon stacking";
@@ -72,13 +73,21 @@ const dump = (): ITtscGraphDump => ({
  * @evidence contracts/testing.md#execution-ownership Calls TtscGraphMemory.from and runDetails in the test process over a real temporary directory holding the Markdown file; no consumer is installed and no native producer or host is started.
  */
 export function test_ttscgraph_details_never_returns_an_artifact_body(): void {
-    const directory = TestProject.tmpdir("graph-artifact-prose-");
-    try {
-      fs.mkdirSync(path.join(directory, "docs"));
-      fs.writeFileSync(path.join(directory, "docs/discount.md"), Array(11).fill("preamble").join("\n") + "\n## " + HEADING + "\n" + BODY + "\n");
-      const snapshot = dump();
-      snapshot.project = directory;
-      const graph = TtscGraphMemory.from(snapshot);
+  const directory = TestProject.tmpdir("graph-artifact-prose-");
+  try {
+    fs.mkdirSync(path.join(directory, "docs"));
+    fs.writeFileSync(
+      path.join(directory, "docs/discount.md"),
+      Array(11).fill("preamble").join("\n") +
+        "\n## " +
+        HEADING +
+        "\n" +
+        BODY +
+        "\n",
+    );
+    const snapshot = dump();
+    snapshot.project = directory;
+    const graph = TtscGraphMemory.from(snapshot);
     const detail = runDetails(graph, {
       type: "details",
       handles: ["docs/discount.md#coupon-stacking"],
@@ -114,7 +123,7 @@ export function test_ttscgraph_details_never_returns_an_artifact_body(): void {
       true,
       "an artifact has no members; a member list here would be invented",
     );
-      } finally {
-      fs.rmSync(directory, { recursive: true, force: true });
-    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 }

@@ -46,5 +46,7 @@ func TestProjectRuleRunsForEmptySourceSet(t *testing.T) {
   if got := len(findings); got != 1 || findings[0].File != nil || findings[0].Rule != name {
     t.Fatalf("empty project should produce one detached finding, got %#v", findings)
   }
-  if findings[0].Severity != SeverityWarn || findings[0].Message != "empty project checked" || findings[0].engineFailure { t.Fatalf("empty project did not preserve an ordinary warning: %+v", findings[0]) }
+  if findings[0].Severity != SeverityWarn || findings[0].Message != "empty project checked" || findings[0].engineFailure {
+    t.Fatalf("empty project did not preserve an ordinary warning: %+v", findings[0])
+  }
 }

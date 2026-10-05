@@ -1,15 +1,15 @@
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { resolveSourceBuildCachePaths } from "../../../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { canonicalRuntimeLanguageProfiles } from "../../../internal/ttsc/internal/runtime-canonical-language-profiles";
 import { canonicalDecoratorMapProfile } from "../../../internal/ttsc/internal/runtime-canonical-orphan-decorator-map-profile";
 import { runCanonicalRuntimeProfiles } from "../../../internal/ttsc/internal/runtime-canonical-profile-assembly";
-import { canonicalRuntimeLanguageProfiles } from "../../../internal/ttsc/internal/runtime-canonical-language-profiles";
 import {
   prepareNativeDependencyPublicationCorpus,
   verifyNativeDependencyDeclaredOutputs,
@@ -36,37 +36,37 @@ import {
  * Rewritten-root children share the initial host; propagation, fork and
  * concurrent dependency children share the configured host. The configured host
  * consumes a real linked run index. Default/explicit clean and exited-holder
- * recovery now run in the selected shared Runtime, outside this profile loop.
- * A composite dependency and its excluded root retain both runtime values
- * and recursive sorted path population without claiming existing-byte identity.
- * Original preload spellings and program-tail tokens retain a literal app
- * child project directory inside this owned workspace for their native cwd
- * basename and marker side-effect oracles, with one additional host request.
- * Computed missing imports preserve all three native error codes in one host
- * before rethrowing a captured Node error through the launcher boundary.
- * A descriptor-retargeted run-index alias preserves the original and victim
+ * recovery now run in the selected shared Runtime, outside this profile loop. A
+ * composite dependency and its excluded root retain both runtime values and
+ * recursive sorted path population without claiming existing-byte identity.
+ * Original preload spellings and program-tail tokens retain a literal app child
+ * project directory inside this owned workspace for their native cwd basename
+ * and marker side-effect oracles, with one additional host request. Computed
+ * missing imports preserve all three native error codes in one host before
+ * rethrowing a captured Node error through the launcher boundary. A
+ * descriptor-retargeted run-index alias preserves the original and victim
  * generation observations using this consumer and the existing external input
  * island; unknown launch or failed alias removal stops reuse and retains both.
- * The configured host already owns both live dependency root publications,
- * fork rescue, suppression and relative cache oracles. Readonly permission transitions now belong to the selected Runtime actor;
- * two remaining installation-boundary runtimes retain their native observations;
- * portable cache-query projections stay with their mapped source owners.
- * Newly added equivalent standalone profiles do not repeat those hosts.
- * Flat and nested check-only profiles stage their original inferred-root
- * inputs on this root after the previous graph is held; each public request
- * retains its exact greeting and both source-adjacent JavaScript absence
- * checks. They omit rootDir/outDir and preserve noEmit. The
- * initial no-rootDir profile also checks an excluded preload before main
- * execution; its invalid-byte transition retains one additional necessary
- * negative host. Three immutable dependency projects borrow the configured
- * consumer host while preserving their own options and excluded-source
- * preparation. Native source publication and its two race loads now belong to
- * the selected shared Runtime. Nine remaining profiles borrow this consumer
- * root, retaining seventeen requests and their configuration transitions.
- * Only their owned holding namespace is excluded from active-profile oracles.
- * An actual root junction preserves the excluded-entry alias boundary where
- * supported. Unresolved launch metadata stops input changes and retains both
- * the consumer root.
+ * The configured host already owns both live dependency root publications, fork
+ * rescue, suppression and relative cache oracles. Readonly permission
+ * transitions now belong to the selected Runtime actor; two remaining
+ * installation-boundary runtimes retain their native observations; portable
+ * cache-query projections stay with their mapped source owners. Newly added
+ * equivalent standalone profiles do not repeat those hosts. Flat and nested
+ * check-only profiles stage their original inferred-root inputs on this root
+ * after the previous graph is held; each public request retains its exact
+ * greeting and both source-adjacent JavaScript absence checks. They omit
+ * rootDir/outDir and preserve noEmit. The initial no-rootDir profile also
+ * checks an excluded preload before main execution; its invalid-byte transition
+ * retains one additional necessary negative host. Three immutable dependency
+ * projects borrow the configured consumer host while preserving their own
+ * options and excluded-source preparation. Native source publication and its
+ * two race loads now belong to the selected shared Runtime. Nine remaining
+ * profiles borrow this consumer root, retaining seventeen requests and their
+ * configuration transitions. Only their owned holding namespace is excluded
+ * from active-profile oracles. An actual root junction preserves the
+ * excluded-entry alias boundary where supported. Unresolved launch metadata
+ * stops input changes and retains both the consumer root.
  *
  * 1. Run included collisions and raw packages together; preserve suppression in
  *    the configured-output host.
@@ -85,9 +85,13 @@ import {
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every synchronous child exits before the root config changes. Central packages and source identities stay immutable, the stale JavaScript remains present, CommonJS profiles overwrite only tsconfig.json; the final NodeNext phase also replaces package.json with an authored module package after all CommonJS hosts finish, and TestProject owns the single corpus through process cleanup. The configured children join before its synchronous launcher closes, and the linked index is observed only after that closure. Readonly permissions and restoration are owned by the selected Runtime namespace and actor. This legacy corpus retains its own unresolved-child and input-restoration refusal before reuse. Clean ownership is transferred to the selected shared Runtime and no longer operates on this legacy cache. No warm-cache equivalence is asserted.
  * @evidence contracts/e2e.md#preserved-coverage Original ordered a,b,a,b,tools, rawpkg=package-own, entry-ran, configured dirname/template/native identities, absent-output asset/identity/no-adjacent emit, both fresh-source requests and both omitted-source launch routes, mts-runner-ok, 42:OK:7 and cts-runner-ok, the exact extension-detection JSON and both nested-star literal outputs with every ghost rejection, relative-cache identity and post-exit emptiness, no nearer boundary creation and the empty nearer boundary after its real first cache publication are retained. Four redundant native cache-path CLI queries are covered by actual cache-dispatch source units and the direct cache placement/marking source unit; the actual public cache transport stays in the compiler corpus. Original first,second rewritten bytes; worker:child-loaded-dependency; child:rescued-from-source; three worker:shared-built-once descendant outputs; actual child statuses; linked-run and the post-close empty physical index; the transferred eight conservative-versus-explicit legacy/malformed clean assertions in runtime-clean-flow.cjs, valid preload status/tag and invalid preload status/root/assignability/no-tag, included/excluded composite values and unchanged output paths, plus both dependency values and two fresh physical-root publications remain. Receipt boundaries occur exactly once; only the original single separator blank is removed, and order is free only among the three identical concurrent receipts. Original readonly default status/marker, excluded failure/path/remedy/no execution and included success/marker now reside in the selected Runtime, with native denied/restored writes and complete input-byte controls. Other unmigrated runtime connections remain disclosed here; legacy baseline execution is not a prerequisite for their replacement.
  */
-export async function test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles(includeLanguageProfiles = false) {
+export async function test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles(
+  includeLanguageProfiles = false,
+) {
   const root = TestProject.createProject(
-    E2eProcessTrace.fixtureFiles(FixtureFiles.read("ttsc/runtime-commonjs-corpus")),
+    E2eProcessTrace.fixtureFiles(
+      FixtureFiles.read("ttsc/runtime-commonjs-corpus"),
+    ),
   );
   linkTtscPackage(root);
   const failures: unknown[] = [];
@@ -570,8 +574,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     }
   }
   if (!safeForCleanup) {
-    const reason =
-      "unresolved canonical runtime consumer";
+    const reason = "unresolved canonical runtime consumer";
     retainInputs(reason);
   }
   if (failures.length)

@@ -28,6 +28,13 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The name.
+ * @param parameters The parameters.
+ * @param type The type.
+ * @param body The body.
+ * @returns The created {@link GetAccessorDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Property-name normalization preserves the accessor key and the node keeps
  *   return type/body. Callers must supply getter-valid parameters, normally none.
@@ -42,14 +49,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains getter arity, return type and body, with the public
  *   accessor example separated from acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The name.
- * @param parameters The parameters.
- * @param type The type.
- * @param body The body.
- * @returns The created {@link GetAccessorDeclaration}.
  */
 export const createGetAccessorDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

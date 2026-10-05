@@ -1,6 +1,10 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig fails visibly when a package.json#tsconfig target
@@ -16,7 +20,8 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project-unit
  * 1. Create `node_modules/broken-preset` whose `package.json#tsconfig` points at a
  *    non-existent `missing.json`.
  * 2. Write a project tsconfig that extends the bare `"broken-preset"`.
- * 3. Assert `readProjectConfig` throws ttsc's not-found error for the manifest-selected `missing.json`.
+ * 3. Assert `readProjectConfig` throws ttsc's not-found error for the
+ *    manifest-selected `missing.json`.
  *
  * @evidence contracts/testing.md#behavioral-verification Resolves a preset whose manifest names an absent config and requires a missing-extended-config error rather than a silently empty result.
  * @evidence contracts/testing.md#independent-expectations The fixture authors missing.json as the manifest target without creating that file; the expected rejection follows the declared preset resolution contract.

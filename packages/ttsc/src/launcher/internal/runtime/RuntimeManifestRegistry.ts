@@ -183,8 +183,8 @@ export namespace RuntimeManifestRegistry {
 
   /**
    * The ownership index of one manifest's build, created on first use. The
-   * association record and immutable emit are trusted preparation premises,
-   * so one index can serve multiple import specifiers; this cache does not
+   * association record and immutable emit are trusted preparation premises, so
+   * one index can serve multiple import specifiers; this cache does not
    * authenticate external artifact mutation. Query aliases are still resolved
    * afresh by the index.
    */

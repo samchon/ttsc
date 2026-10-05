@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership This discoverable Go Test and its eight named subtests call the owning optimizer and ordinary independent regexp library in process. No consumer installation, native artifact build, JavaScript runtime or real product host is launched.
 func TestRegexOptimizerPreservesRangesCrossingMetaSets(t *testing.T) {
   rows := []struct {
-    name string
+    name    string
     literal string
     shorten bool
   }{

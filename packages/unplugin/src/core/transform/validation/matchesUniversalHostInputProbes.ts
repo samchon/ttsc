@@ -7,14 +7,14 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 /**
  * Prove the universal inputs that were absent are still absent, through one
  * native stat of the requested candidate. Groups retain the first missing
- * component beneath the nearest directory; unqualified inputs retain their
- * full exact paths.
+ * component beneath the nearest directory; unqualified inputs retain their full
+ * exact paths.
  *
  * Unlike the entries half, this one rejects on an inability to prove: a
  * permission or I/O failure certifies nothing about absence. That is the right
  * answer for both narrow and complete proof: a recorded unavailable-content
- * marker alone cannot distinguish absence from a newly present unreadable
- * file. Complete validation still compares its recorded byte and membership
+ * marker alone cannot distinguish absence from a newly present unreadable file.
+ * Complete validation still compares its recorded byte and membership
  * populations after this independent native absence predicate holds.
  *
  * @evidence contracts/common.md#principled-implementation Exact native ENOENT or ENOTDIR observations prove candidate absence, including native Unicode and short-name aliases. A vanished ancestor leaves descendants unreachable; replacement by a file rejects the grouped directory proof.
@@ -32,7 +32,9 @@ export function matchesUniversalHostInputProbes(
 ): boolean {
   const filesystem = resultFilesystem(cached.result);
   const paths =
-    (filesystem.platform ?? process.platform) === "win32" ? path.win32 : path.posix;
+    (filesystem.platform ?? process.platform) === "win32"
+      ? path.win32
+      : path.posix;
   for (const input of validation.directMissing ?? []) {
     try {
       filesystem.stat(input);

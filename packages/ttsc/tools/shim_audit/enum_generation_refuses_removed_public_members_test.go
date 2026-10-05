@@ -31,7 +31,9 @@ import (
 func TestEnumGenerationRefusesRemovedPublicMembers(t *testing.T) {
   root := t.TempDir()
   directory := filepath.Join(root, "ast")
-  if err := os.MkdirAll(directory, 0o755); err != nil { t.Fatal(err) }
+  if err := os.MkdirAll(directory, 0o755); err != nil {
+    t.Fatal(err)
+  }
   authored := `package ast
 import innerast "github.com/microsoft/typescript-go/internal/ast"
 type Mode = innerast.Mode
@@ -42,28 +44,50 @@ import innerast "github.com/microsoft/typescript-go/internal/ast"
 const Delta = innerast.Delta
 `)
   output := filepath.Join(directory, "enums_gen.go")
-  if err := os.WriteFile(filepath.Join(directory, "shim.go"), []byte(authored), 0o644); err != nil { t.Fatal(err) }
-  if err := os.WriteFile(output, previous, 0o644); err != nil { t.Fatal(err) }
+  if err := os.WriteFile(filepath.Join(directory, "shim.go"), []byte(authored), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(output, previous, 0o644); err != nil {
+    t.Fatal(err)
+  }
   fset := token.NewFileSet()
   file, err := parser.ParseFile(fset, "upstream.go", "package ast\ntype Mode int\nconst ( Alpha Mode = iota; Beta )\n", 0)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   pkg, err := (&types.Config{}).Check(internalPrefix+"ast", fset, []*ast.File{file}, nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   reachable, err := scanShimReachable(root)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   exports, err := scanShimEnumExports(root, false)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   family, err := scanShimEnumExports(root, true)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   findings, _ := analyze(reachable, map[string]*packages.Package{"ast": {Types: pkg}}, exports, family)
   refusal := runFix(findings, root)
-  if refusal == nil || !strings.Contains(refusal.Error(), "ast.Delta") { t.Fatalf("removed member was not named in the refusal: %v", refusal) }
+  if refusal == nil || !strings.Contains(refusal.Error(), "ast.Delta") {
+    t.Fatalf("removed member was not named in the refusal: %v", refusal)
+  }
   evaluation := evaluateBaseline(findings, baselineFile{Accepted: []string{"ENUM_REMOVED|ast|Delta"}}, nil)
   if len(evaluation.enumRemovals) != 1 || evaluation.enumRemovals[0].symbol != "Delta" || len(evaluation.enumGaps) != 1 || evaluation.enumGaps[0].symbol != "Beta" {
     t.Fatalf("removal and new sibling must remain separate non-grandfathered findings: %#v", evaluation)
   }
-  if tierOf("ENUM_REMOVED") != 1 { t.Fatal("public removal was hidden in the informational summary") }
+  if tierOf("ENUM_REMOVED") != 1 {
+    t.Fatal("public removal was hidden in the informational summary")
+  }
   current, err := os.ReadFile(output)
-  if err != nil { t.Fatal(err) }
-  if !bytes.Equal(previous, current) { t.Fatal("upstream removal was silently overwritten while adding Beta") }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if !bytes.Equal(previous, current) {
+    t.Fatal("upstream removal was silently overwritten while adding Beta")
+  }
 }

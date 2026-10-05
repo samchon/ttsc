@@ -27,8 +27,8 @@ import (
 func TestConfigLoadsFromJSONFile(t *testing.T) {
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", "")
   root := shared.SeedProject(t, map[string]string{
-    "tsconfig.json":     `{"compilerOptions":{"target":"ES2022"}}`,
-    "strip.config.json": `{"calls":["console.log","console.debug"],"statements":["debugger"]}`,
+    "tsconfig.json":        `{"compilerOptions":{"target":"ES2022"}}`,
+    "strip.config.json":    `{"calls":["console.log","console.debug"],"statements":["debugger"]}`,
     "config/selected.json": `{"calls":["trace"],"statements":["debugger"]}`,
     "config/my-strip.json": `{"calls":["console.warn"],"statements":[]}`,
   })

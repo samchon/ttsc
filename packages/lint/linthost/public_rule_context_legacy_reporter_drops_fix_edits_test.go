@@ -35,13 +35,15 @@ func TestPublicRuleContextLegacyReporterDropsFixEdits(t *testing.T) {
   if reporter.reports != 1 {
     t.Fatalf("legacy Report should fire once on ReportFix downgrade, got %d", reporter.reports)
   }
-  if reporter.ranges != 0 || reporter.lastNode != node || reporter.lastMessage != "msg" { t.Fatalf("legacy node payload lost: %+v", reporter) }
+  if reporter.ranges != 0 || reporter.lastNode != node || reporter.lastMessage != "msg" {
+    t.Fatalf("legacy node payload lost: %+v", reporter)
+  }
 }
 
 type legacyOnlyReporter struct {
-  reports int
-  ranges  int
-  lastNode *shimast.Node
+  reports     int
+  ranges      int
+  lastNode    *shimast.Node
   lastMessage string
 }
 

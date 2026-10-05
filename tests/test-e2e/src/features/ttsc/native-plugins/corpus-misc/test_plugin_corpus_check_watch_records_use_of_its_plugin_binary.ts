@@ -76,7 +76,13 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
           .matchAll(/@ttsc\/lint resident check: pid=(\d+)/g),
       ].map((match) => match[1]!);
     const resident = residents().at(-1);
-    assert.ok(resident !== undefined && Number.isSafeInteger(Number(resident)) && Number(resident) > 0 && Number(resident) !== process.pid, session.transcript());
+    assert.ok(
+      resident !== undefined &&
+        Number.isSafeInteger(Number(resident)) &&
+        Number(resident) > 0 &&
+        Number(resident) !== process.pid,
+      session.transcript(),
+    );
     const aged = Date.now() - 40 * 24 * 60 * 60 * 1000;
     fs.writeFileSync(lastUsed, `${aged}\n`);
 
@@ -104,8 +110,16 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
   } catch (error) {
     failures.push(error);
   } finally {
-    try { await session.close(); } catch (error) { failures.push(error); }
+    try {
+      await session.close();
+    } catch (error) {
+      failures.push(error);
+    }
   }
   if (failures.length === 1) throw failures[0];
-  if (failures.length > 1) throw new AggregateError(failures, "Watch use recording and shutdown failed");
+  if (failures.length > 1)
+    throw new AggregateError(
+      failures,
+      "Watch use recording and shutdown failed",
+    );
 }

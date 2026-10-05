@@ -53,10 +53,6 @@ export interface ISale {
 export function activate(): void {}
 `
 
-
-
-
-
 const refusedTypeAliasSource = `
 /** @evidence docs/spec.md#contract A type alias is not a callable. */
 export type TSale = {
@@ -64,10 +60,6 @@ export type TSale = {
 };
 export function activate(): void {}
 `
-
-
-
-
 
 const refusedNamespaceSource = `
 /** @evidence docs/spec.md#contract A namespace is not a callable. */

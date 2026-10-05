@@ -30,6 +30,9 @@ export interface ITtscPluginOpts {
   /** Forwarded as `--tsconfig=<value>`; an absent value is left to the plugin. */
   tsconfig?: string;
 
-  /** Scalars become `--key=value`; true becomes `--key`, false/undefined are omitted. */
+  /**
+   * Scalars become `--key=value`; true becomes `--key`, false/undefined are
+   * omitted.
+   */
   [key: string]: string | boolean | number | undefined;
 }

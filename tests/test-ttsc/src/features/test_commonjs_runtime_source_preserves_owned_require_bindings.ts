@@ -39,7 +39,7 @@ export function test_commonjs_runtime_source_preserves_owned_require_bindings():
     ),
     '"use strict";function __filename(){};module.exports=42;',
     'function require(){return 42;}module.exports=require("owned");',
-    'function nested(){function __filename(){};}module.exports=42;',
+    "function nested(){function __filename(){};}module.exports=42;",
   ];
   const failures: Error[] = [];
   for (const source of sources) {
@@ -55,7 +55,8 @@ export function test_commonjs_runtime_source_preserves_owned_require_bindings():
   }
 
   const helper = Object.entries(native.cache).find(
-    ([, entry]) => entry?.exports?.CommonJsRuntimeSource === CommonJsRuntimeSource,
+    ([, entry]) =>
+      entry?.exports?.CommonJsRuntimeSource === CommonJsRuntimeSource,
   );
   assert.ok(helper, "authored helper must be loaded before preparing source");
   const [helperPath, helperModule] = helper;
@@ -84,5 +85,8 @@ export function test_commonjs_runtime_source_preserves_owned_require_bindings():
     );
   }
   if (failures.length)
-    throw new AggregateError(failures, "CommonJS bootstrap changed owned behavior");
+    throw new AggregateError(
+      failures,
+      "CommonJS bootstrap changed owned behavior",
+    );
 }

@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 /**
@@ -26,28 +26,28 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestAProjectRootThatIsALinkStillReadsItsDocuments(t *testing.T) {
-	workspace := t.TempDir()
-	real := filepath.Join(workspace, "real")
-	if err := os.MkdirAll(real, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	link := filepath.Join(workspace, "project")
-	if err := linkDirectory(t, real, link); err != nil {
-		t.Fatalf("this platform refused to create a link: %v", err)
-	}
-	messages := runIndexRuleAtRoot(t, link, map[string]string{
-		"docs/pricing.md": "## Discounts {#discounts}\n",
-		"src/sale.ts":     "export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  real := filepath.Join(workspace, "real")
+  if err := os.MkdirAll(real, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  link := filepath.Join(workspace, "project")
+  if err := linkDirectory(t, real, link); err != nil {
+    t.Fatalf("this platform refused to create a link: %v", err)
+  }
+  messages := runIndexRuleAtRoot(t, link, map[string]string{
+    "docs/pricing.md": "## Discounts {#discounts}\n",
+    "src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-	assertProblemContains(
-		t,
-		messages,
-		"Missing acknowledgement for 'docs/pricing.md#discounts'",
-	)
-	assertProblemContains(t, messages, "at docs/pricing.md:1")
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'docs/pricing.md#discounts'",
+  )
+  assertProblemContains(t, messages, "at docs/pricing.md:1")
 }

@@ -16,14 +16,12 @@ import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
  * physical source identity. Missing or ambiguous ownership is refused without
  * source-map or filename-precedence inference. Temp-directory removal in
  * `finally` is attempted after acquisition, including failure paths. Removal
- * failure propagates on success and
- * is aggregated with an earlier operation failure rather than replacing it.
+ * failure propagates on success and is aggregated with an earlier operation
+ * failure rather than replacing it.
  *
  * @returns The transformed JavaScript source text.
- *
  * @throws When the build exits non-zero, proves no JavaScript for the requested
  *   source or cannot establish unique ownership.
- *
  * @evidence contracts/common.md#principled-implementation Effective rootDir precedence and isolated project emission preserve the producing invocation; its emitted-source provenance and current physical source identity select the actual written output before optional caller-directed writing.
  * @evidence contracts/common.md#clear-and-simple-design One operation owns project emission and returned text, delegating option interpretation and source/output identity instead of duplicating those policies.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or ambiguous provenance cannot become ownership through basename, source-map presence or extension precedence; inferred-root pinning addresses the compiler's injected-outDir requirement.

@@ -8,9 +8,9 @@ import type { ViteHotChannelLike } from "./ViteHotChannelLike";
  * and a custom environment may carry a transport of its own, so each distinct
  * present environment channel is attempted once by object identity, even if
  * that attempt throws. A nonempty environment population suppresses server
- * `ws`/`hot` fallback even if no environment channel exists. Without environment
- * entries, the server channels are tried until one send returns without throwing.
- * That return does not prove client receipt or refetch.
+ * `ws`/`hot` fallback even if no environment channel exists. Without
+ * environment entries, the server channels are tried until one send returns
+ * without throwing. That return does not prove client receipt or refetch.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Environment attempts are deduplicated by object identity; servers without

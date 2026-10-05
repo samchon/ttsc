@@ -1,8 +1,8 @@
 import fs from "node:fs";
 
 /**
- * Whether native stat observes a regular input with multiple links.
- * A failed stat returns false; it does not prove the absence of hardlink aliases.
+ * Whether native stat observes a regular input with multiple links. A failed
+ * stat returns false; it does not prove the absence of hardlink aliases.
  *
  * @evidence contracts/common.md#principled-implementation An observed regular file with more than one native link has possible write aliases outside its watched spelling; false includes unavailable metadata and is not an alias-free content proof.
  * @evidence contracts/common.md#clear-and-simple-design A single stat inspects file kind and link count, leaving conservative validation and polling policy to the observer.

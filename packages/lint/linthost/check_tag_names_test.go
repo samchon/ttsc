@@ -9,9 +9,9 @@ import "testing"
 // on its own comment line without depending on which declaration the comment
 // attaches to.
 //
-// 1. Run the rule over a block whose third line is `@parm name description`
-//    and expect one finding on line 3.
-// 2. Run the rule over a block with `@param name description` and expect none.
+//  1. Run the rule over a block whose third line is `@parm name description`
+//     and expect one finding on line 3.
+//  2. Run the rule over a block with `@param name description` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/check-tag-names rule through NewEngine.Run over a parsed virtual TypeScript file. The misspelled @parm yields exactly one finding, with that rule at error severity, on line 3; the separately authored block with @param yields none.
 // @evidence contracts/testing.md#independent-expectations The supported parameter tag is @param, so @parm is unknown. The literal comment text and the expected line 3 are authored from that policy, not taken from the rule output. The Test does not assert the message text.

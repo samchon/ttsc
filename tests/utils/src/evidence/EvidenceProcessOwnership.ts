@@ -7,8 +7,8 @@ import { retainNativeLintProducer } from "../NativeLintProducer";
  * Records fixture inputs whose process readers have not been joined.
  *
  * Unknown closure is permanent for this test process: a later launcher exit
- * cannot establish that an earlier descendant released the same inputs.
- * Cleanup and phase writers use the same admission check.
+ * cannot establish that an earlier descendant released the same inputs. Cleanup
+ * and phase writers use the same admission check.
  *
  * @evidence contracts/common.md#principled-implementation An explicit unknown-reader transition refuses subsequent writes and removal of that exact fixture identity; signal delivery or parent closure cannot erase it.
  * @evidence contracts/common.md#clear-and-simple-design One process-local owner links each fixture to its actually used cache paths and native identities; the first unresolved-reader reason reaches fixture writers, cleanup and later shared-cache consumers.
@@ -23,11 +23,12 @@ export namespace EvidenceProcessOwnership {
   const shared = create(retainNativeLintProducer);
 
   /**
-   * Creates one isolated process-input owner with an explicit shared-input delegate.
+   * Creates one isolated process-input owner with an explicit shared-input
+   * delegate.
    *
-   * The callback transfers existing producer/cache retention and may throw;
-   * it cannot declare reader closure or clear this owner's sticky admission.
-   * The default owner passes the actual NativeLintProducer retention operation.
+   * The callback transfers existing producer/cache retention and may throw; it
+   * cannot declare reader closure or clear this owner's sticky admission. The
+   * default owner passes the actual NativeLintProducer retention operation.
    * Independently owned operations can use separate instances without resetting
    * a running owner's state or replacing filesystem and process methods.
    */
@@ -37,9 +38,10 @@ export namespace EvidenceProcessOwnership {
     const unresolvedCaches = new Map<string, unknown>();
     const owner = {
       /**
-       * Records one fixture's first unresolved reason and delegates retention once.
-       * Cache bindings become sticky before delegation, so a throwing delegate
-       * cannot reopen admission. Fixture refusal exposes both failures together.
+       * Records one fixture's first unresolved reason and delegates retention
+       * once. Cache bindings become sticky before delegation, so a throwing
+       * delegate cannot reopen admission. Fixture refusal exposes both failures
+       * together.
        */
       retain(directory: string, reason: unknown): void {
         if (unknown.has(directory)) return;
@@ -47,48 +49,62 @@ export namespace EvidenceProcessOwnership {
         for (const key of caches.get(directory) ?? [])
           if (!unresolvedCaches.has(key)) unresolvedCaches.set(key, reason);
         const failures: unknown[] = [reason];
-        const explanation = reason instanceof Error ? reason.message : "Unknown process closure.";
+        const explanation =
+          reason instanceof Error ? reason.message : "Unknown process closure.";
         try {
           retainSharedInputs(explanation);
         } catch (error) {
           failures.push(error);
         }
         if (failures.length > 1)
-          unknown.set(directory, new AggregateError(
-            failures,
-            "Unknown Evidence reader and shared input retention failures.",
-          ));
-        console.error("Retained Evidence fixture inputs: " + directory, unknown.get(directory));
+          unknown.set(
+            directory,
+            new AggregateError(
+              failures,
+              "Unknown Evidence reader and shared input retention failures.",
+            ),
+          );
+        console.error(
+          "Retained Evidence fixture inputs: " + directory,
+          unknown.get(directory),
+        );
       },
-      /** Refuses this fixture's writes or removal with its recorded failure cause. */
+      /**
+       * Refuses this fixture's writes or removal with its recorded failure
+       * cause.
+       */
       assertAvailable(directory: string): void {
         if (unknown.has(directory))
           throw new Error(
-            "Evidence fixture inputs are retained because process closure is unknown: " + directory,
+            "Evidence fixture inputs are retained because process closure is unknown: " +
+              directory,
             { cause: unknown.get(directory) },
           );
       },
       /**
-       * Refuses a previously used spelling or physical identity before cache IO.
-       * Retargeting a reader's spelling cannot make that same input available.
-       * This check grants no authority to remove an external directory.
+       * Refuses a previously used spelling or physical identity before cache
+       * IO. Retargeting a reader's spelling cannot make that same input
+       * available. This check grants no authority to remove an external
+       * directory.
        */
       assertCacheAvailable(location: string): void {
         for (const key of cacheKeys(location))
           if (unresolvedCaches.has(key))
-            throw new Error("Evidence cache has unresolved process readers: " + location,
-              { cause: unresolvedCaches.get(key) });
+            throw new Error(
+              "Evidence cache has unresolved process readers: " + location,
+              { cause: unresolvedCaches.get(key) },
+            );
       },
       /**
-       * Binds admitted cache spellings and native identities before reader startup.
-       * The caller passes the actual absolute cacheDir/environment value, not a
-       * different alias that the reader never received.
+       * Binds admitted cache spellings and native identities before reader
+       * startup. The caller passes the actual absolute cacheDir/environment
+       * value, not a different alias that the reader never received.
        */
       registerCache(directory: string, location: string): void {
         owner.assertAvailable(directory);
         owner.assertCacheAvailable(location);
         let keys = caches.get(directory);
-        if (keys === undefined) caches.set(directory, keys = new Set());
+        if (keys === undefined) caches.set(directory, (keys = new Set()));
         for (const key of cacheKeys(location)) keys.add(key);
       },
     };
@@ -124,14 +140,16 @@ function cacheKeys(location: string): string[] {
   while (!fs.existsSync(ancestor)) {
     missing.unshift(path.basename(ancestor));
     const parent = path.dirname(ancestor);
-    if (parent === ancestor) throw new Error("Evidence cache has no existing ancestor: " + location);
+    if (parent === ancestor)
+      throw new Error("Evidence cache has no existing ancestor: " + location);
     ancestor = parent;
   }
   const physical = path.join(fs.realpathSync.native(ancestor), ...missing);
   const keys = ["path:" + spelling, "path:" + physical];
   if (missing.length === 0) {
     const stat = fs.statSync(physical);
-    if (!stat.isDirectory()) throw new Error("Evidence cache must name a directory: " + location);
+    if (!stat.isDirectory())
+      throw new Error("Evidence cache must name a directory: " + location);
     keys.push("identity:" + stat.dev + ":" + stat.ino + ":" + stat.birthtimeMs);
   }
   return keys;

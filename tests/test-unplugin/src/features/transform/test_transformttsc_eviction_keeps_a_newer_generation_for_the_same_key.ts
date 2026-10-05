@@ -11,7 +11,8 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  * holds the exact failed generation. Replacing the failed generation after the
  * failing call began waiting, but before its eviction ran, pins that guard.
  *
- * 1. Supply a literal settled-pass generation and install a rejected generation under its key.
+ * 1. Supply a literal settled-pass generation and install a rejected generation
+ *    under its key.
  * 2. Start a delivery, then install a newer generation under the same key.
  * 3. Assert the delivery rejects and the newer generation survives.
  *
@@ -25,7 +26,9 @@ export async function test_transformttsc_eviction_keeps_a_newer_generation_for_t
   const { api, cache, key, good, file, source, options } = fixture;
 
   try {
-    const stale = Promise.reject<TtscCachedProjectTransform>(new Error("stale generation"));
+    const stale = Promise.reject<TtscCachedProjectTransform>(
+      new Error("stale generation"),
+    );
     stale.catch(() => undefined);
     cache.set(key, stale);
     const newer = Promise.resolve(good);

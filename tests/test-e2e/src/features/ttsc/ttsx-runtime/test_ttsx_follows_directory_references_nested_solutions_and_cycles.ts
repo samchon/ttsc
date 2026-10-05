@@ -22,6 +22,7 @@ import assert from "node:assert/strict";
  * 2. Run `packages/app/src/main.ts`, which requires `packages/dep/src/value.ts` by
  *    path.
  * 3. Assert both files ran with legacy decorators.
+ *
  * @evidence contracts/testing.md#behavioral-verification Ttsx runs a root solution with directory references, nested configs and a cycle, and the entry plus required sibling dependency must print entry=3 dependency=3.
  * @evidence contracts/testing.md#independent-expectations Legacy decorator arity three is an independent runtime witness for the referenced lib configs rather than the empty solution configs.
  * @evidence contracts/testing.md#distinguishing-cases Root-to-directory, nested lib config, backward root cycle and a separately required dependency solution all coexist; completion rejects looping, though no explicit per-config visit count is asserted.
@@ -32,61 +33,61 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage Original status and exact two decorator outputs remain. Reference-shape completion and both option owners are observed; no unasserted visit-count proof is claimed.
  */
 export function test_ttsx_follows_directory_references_nested_solutions_and_cycles() {
-    const probe = (name: string): string =>
-      [
-        `let observed: number = 0;`,
-        `function probe(...args: any[]): void {`,
-        `  observed = args.length;`,
-        `}`,
-        `class Box {`,
-        `  @probe`,
-        `  method(): void {}`,
-        `}`,
-        `new Box();`,
-        `export const ${name}: number = observed;`,
-        ``,
-      ].join("\n");
-    const lib = JSON.stringify({
-      compilerOptions: {
-        target: "ES2022",
-        module: "commonjs",
-        strict: true,
-        experimentalDecorators: true,
-        types: [],
-      },
-      include: ["src"],
-    });
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "nested", private: true }),
-      "tsconfig.json": JSON.stringify({
-        files: [],
-        references: [{ path: "./packages/app" }, { path: "./packages/dep" }],
-      }),
-      "packages/app/tsconfig.json": JSON.stringify({
-        files: [],
-        references: [{ path: "../.." }, { path: "./tsconfig.lib.json" }],
-      }),
-      "packages/app/tsconfig.lib.json": lib,
-      "packages/app/src/main.ts": [
-        probe("entry"),
-        `declare const require: (path: string) => { dependency: number };`,
-        `const { dependency } = require("../../dep/src/value.ts");`,
-        `console.log("entry=" + entry + " dependency=" + dependency);`,
-        ``,
-      ].join("\n"),
-      "packages/dep/tsconfig.json": JSON.stringify({
-        files: [],
-        references: [{ path: "./tsconfig.lib.json" }],
-      }),
-      "packages/dep/tsconfig.lib.json": lib,
-      "packages/dep/src/value.ts": probe("dependency"),
-    });
+  const probe = (name: string): string =>
+    [
+      `let observed: number = 0;`,
+      `function probe(...args: any[]): void {`,
+      `  observed = args.length;`,
+      `}`,
+      `class Box {`,
+      `  @probe`,
+      `  method(): void {}`,
+      `}`,
+      `new Box();`,
+      `export const ${name}: number = observed;`,
+      ``,
+    ].join("\n");
+  const lib = JSON.stringify({
+    compilerOptions: {
+      target: "ES2022",
+      module: "commonjs",
+      strict: true,
+      experimentalDecorators: true,
+      types: [],
+    },
+    include: ["src"],
+  });
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({ name: "nested", private: true }),
+    "tsconfig.json": JSON.stringify({
+      files: [],
+      references: [{ path: "./packages/app" }, { path: "./packages/dep" }],
+    }),
+    "packages/app/tsconfig.json": JSON.stringify({
+      files: [],
+      references: [{ path: "../.." }, { path: "./tsconfig.lib.json" }],
+    }),
+    "packages/app/tsconfig.lib.json": lib,
+    "packages/app/src/main.ts": [
+      probe("entry"),
+      `declare const require: (path: string) => { dependency: number };`,
+      `const { dependency } = require("../../dep/src/value.ts");`,
+      `console.log("entry=" + entry + " dependency=" + dependency);`,
+      ``,
+    ].join("\n"),
+    "packages/dep/tsconfig.json": JSON.stringify({
+      files: [],
+      references: [{ path: "./tsconfig.lib.json" }],
+    }),
+    "packages/dep/tsconfig.lib.json": lib,
+    "packages/dep/src/value.ts": probe("dependency"),
+  });
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "packages/app/src/main.ts"],
-      { cwd: root },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "entry=3 dependency=3");
-  }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "packages/app/src/main.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "entry=3 dependency=3");
+}

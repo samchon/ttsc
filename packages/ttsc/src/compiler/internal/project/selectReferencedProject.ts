@@ -3,9 +3,9 @@
  * traversal, retaining discovery when no positive membership was observed.
  *
  * The caller supplies current direct references, observed identity keys and
- * membership observations. Native reference resolution, compiler expansion
- * and retry policy remain with those owners. A fresh visited set belongs to
- * each lookup; matching keys terminate cycles without a cross-request cache.
+ * membership observations. Native reference resolution, compiler expansion and
+ * retry policy remain with those owners. A fresh visited set belongs to each
+ * lookup; matching keys terminate cycles without a cross-request cache.
  *
  * @evidence contracts/common.md#principled-implementation Discovery membership takes precedence; each unseen reference is checked before its children, so declaration-order DFS preserves the first observed owner and discovered fallback.
  * @evidence contracts/common.md#clear-and-simple-design One traversal owns ordering and lookup-local visited keys; supplied operations retain native reference and membership responsibilities.

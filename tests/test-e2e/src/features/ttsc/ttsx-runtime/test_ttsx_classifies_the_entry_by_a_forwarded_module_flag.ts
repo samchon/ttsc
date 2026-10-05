@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx serves the entry project in the module format a forwarded
@@ -36,7 +37,11 @@ import path from "node:path";
  * @evidence contracts/e2e.md#preserved-coverage All six original zero-status and exact output assertions remain; each request collects its labeled failure and the final AggregateError reports every still-executable profile rather than stopping at the first one.
  */
 export function test_ttsx_classifies_the_entry_by_a_forwarded_module_flag() {
-  const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_classifies_the_entry_by_a_forwarded_module_flag/inputs-1"));
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_classifies_the_entry_by_a_forwarded_module_flag/inputs-1",
+    ),
+  );
   const responseFile = path.join(root, "module.rsp");
   fs.writeFileSync(responseFile, "--module\nesnext\n", "utf8");
 
@@ -59,8 +64,11 @@ export function test_ttsx_classifies_the_entry_by_a_forwarded_module_flag() {
       try {
         assert.equal(result.status, 0, `${label}: ${result.stderr}`);
         assert.equal(result.stdout.trim(), expected, label);
-      } catch (error) { failures.push(new Error(label, { cause: error })); }
+      } catch (error) {
+        failures.push(new Error(label, { cause: error }));
+      }
     }
   }
-  if (failures.length) throw new AggregateError(failures, "forwarded module profiles failed");
+  if (failures.length)
+    throw new AggregateError(failures, "forwarded module profiles failed");
 }

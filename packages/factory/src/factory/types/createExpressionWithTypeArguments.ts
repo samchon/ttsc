@@ -16,9 +16,13 @@ import { make } from "../internal/make";
  * renders:
  *
  * ```ts
- * Foo<string>
+ * Foo<string>;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The base expression.
+ * @param typeArguments The generic type arguments, if any.
+ * @returns The created {@link ExpressionWithTypeArguments}.
  * @evidence contracts/common.md#principled-implementation
  *   The expression and optional type arguments remain separate children of the
  *   heritage expression, preserving its base and generic argument order.
@@ -34,11 +38,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   The example shows the expression itself without a statement terminator;
  *   JSDoc documents the base expression and optional argument list.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The base expression.
- * @param typeArguments The generic type arguments, if any.
- * @returns The created {@link ExpressionWithTypeArguments}.
  */
 export const createExpressionWithTypeArguments = (
   expression: Expression,

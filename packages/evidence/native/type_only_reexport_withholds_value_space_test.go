@@ -89,16 +89,6 @@ var typeReexportPopulation = []string{
   "Sale",
 }
 
-
-
-
-
-
-
-
-
-
-
 // reexportedFrom is the population one file layout publishes at one entry.
 //
 // The fixed layout above cannot express a barrel of barrels or two paths to one

@@ -4,9 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import type * as Fingerprint from "../../../../../../packages/metro/src/core/fingerprint";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "../../../../../utils/src/TestProject";
-import type * as Fingerprint from "../../../../../../packages/metro/src/core/fingerprint";
 
 /**
  * Verifies trusted snapshot reads retain completed records during compaction.
@@ -34,34 +34,61 @@ export async function case_metro_snapshot_reader_keeps_inputs_across_concurrent_
   moduleFile: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  assert.ok(path.isAbsolute(root) && path.isAbsolute(scratch) && path.isAbsolute(moduleFile));
-  assert.equal(path.extname(moduleFile), ".mjs", "prepared emitted Metro module");
+  assert.ok(
+    path.isAbsolute(root) &&
+      path.isAbsolute(scratch) &&
+      path.isAbsolute(moduleFile),
+  );
+  assert.equal(
+    path.extname(moduleFile),
+    ".mjs",
+    "prepared emitted Metro module",
+  );
   const progress = path.join(scratch, "progress.txt");
   const ready = path.join(scratch, "ready.txt");
   const done = path.join(scratch, "done.txt");
-  for (const file of [progress, ready, done]) assert.equal(fs.existsSync(file), false);
+  for (const file of [progress, ready, done])
+    assert.equal(fs.existsSync(file), false);
   assert.equal(signal?.aborted ?? false, false, "cancelled before admission");
-  const fingerprint = await import(pathToFileURL(moduleFile).href) as typeof Fingerprint;
+  const fingerprint = (await import(
+    pathToFileURL(moduleFile).href
+  )) as typeof Fingerprint;
   fingerprint.prepareSnapshot(root);
   const nonce = randomUUID();
-  const child = E2eProcessTrace.spawn(process.execPath, [
-    path.join(TestProject.WORKSPACE_ROOT,
-      "tests/test-e2e/fixtures/metro/concurrent-compaction/compactor.mjs"),
-    root, scratch, moduleFile, nonce,
-  ], { stdio: ["ignore", "inherit", "inherit"] });
+  const child = E2eProcessTrace.spawn(
+    process.execPath,
+    [
+      path.join(
+        TestProject.WORKSPACE_ROOT,
+        "tests/test-e2e/fixtures/metro/concurrent-compaction/compactor.mjs",
+      ),
+      root,
+      scratch,
+      moduleFile,
+      nonce,
+    ],
+    { stdio: ["ignore", "inherit", "inherit"] },
+  );
   let closed = false;
   let exit: { code: number | null; signal: NodeJS.Signals | null } | undefined;
   const failures: unknown[] = [];
-  child.on("error", error => failures.push(error));
-  child.once("exit", (code, exitSignal) => { exit = { code, signal: exitSignal }; });
-  const join = new Promise<void>(resolve => child.once("close", () => {
-    closed = true;
-    resolve();
-  }));
+  child.on("error", (error) => failures.push(error));
+  child.once("exit", (code, exitSignal) => {
+    exit = { code, signal: exitSignal };
+  });
+  const join = new Promise<void>((resolve) =>
+    child.once("close", () => {
+      closed = true;
+      resolve();
+    }),
+  );
   const stopOwnedChild = () => {
     if (closed) return;
-    try { child.kill(); }
-    catch (error) { failures.push(error); }
+    try {
+      child.kill();
+    } catch (error) {
+      failures.push(error);
+    }
   };
   const cancel = () => {
     failures.push(new Error("compactor cancelled"));
@@ -74,7 +101,8 @@ export async function case_metro_snapshot_reader_keeps_inputs_across_concurrent_
   }, 60_000);
   let trusted = 0;
   const lost: number[] = [];
-  const inputOf = (round: number) => path.resolve(scratch, `input-${round}.d.ts`);
+  const inputOf = (round: number) =>
+    path.resolve(scratch, `input-${round}.d.ts`);
   const completedRounds = () => {
     try {
       const text = fs.readFileSync(progress, "utf8");
@@ -99,9 +127,12 @@ export async function case_metro_snapshot_reader_keeps_inputs_across_concurrent_
       if (state !== undefined) {
         ++trusted;
         for (let round = 0; round < completed; ++round)
-          if (!state.files.includes(inputOf(round))) { lost.push(round); break; }
+          if (!state.files.includes(inputOf(round))) {
+            lost.push(round);
+            break;
+          }
       }
-      await new Promise<void>(resolve => setImmediate(resolve));
+      await new Promise<void>((resolve) => setImmediate(resolve));
     }
   } catch (error) {
     failures.push(error);
@@ -117,7 +148,11 @@ export async function case_metro_snapshot_reader_keeps_inputs_across_concurrent_
     assert.equal(fs.readFileSync(done, "utf8"), nonce);
     assert.equal(completedRounds(), 150);
     assert.ok(trusted > 0, "the reader must observe trusted states");
-    assert.deepEqual(lost, [], "trusted reads retain every earlier completed input");
+    assert.deepEqual(
+      lost,
+      [],
+      "trusted reads retain every earlier completed input",
+    );
     const final = fingerprint.readSnapshotState(root);
     assert.ok(final !== undefined, "final productive state must be trusted");
     for (let round = 0; round < 150; ++round)
@@ -125,5 +160,6 @@ export async function case_metro_snapshot_reader_keeps_inputs_across_concurrent_
   } catch (error) {
     failures.push(error);
   }
-  if (failures.length) throw new AggregateError(failures, "Metro concurrent compaction");
+  if (failures.length)
+    throw new AggregateError(failures, "Metro concurrent compaction");
 }

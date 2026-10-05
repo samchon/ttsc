@@ -8,10 +8,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  *
  * Some rules duplicate (and supersede) the regex-related rules in
  * {@link ITtscLintCoreRules}; both ids exist so projects can keep the legacy
- * ESLint names alongside the regexp-plugin variants.
- * Native automatic fixes and suggestions are withheld when the rewritten
- * literal fails the pinned compiler's diagnostic-free regexp admission gate;
- * that gate is not an independent proof of equivalent matching behavior.
+ * ESLint names alongside the regexp-plugin variants. Native automatic fixes and
+ * suggestions are withheld when the rewritten literal fails the pinned
+ * compiler's diagnostic-free regexp admission gate; that gate is not an
+ * independent proof of equivalent matching behavior.
  *
  * @reference https://github.com/ota-meshi/eslint-plugin-regexp
  *
@@ -31,10 +31,10 @@ export interface ITtscLintRegexpRules {
 
   /**
    * Reject duplicate literal characters inside simple regex character classes
-   * (`/[aa]/`). Whole escape atoms are decoded before comparison. Unicode
-   * modes (`u` and `v`) compare code points; legacy mode compares UTF-16 code
-   * units. Distinct accented characters do not become duplicates because
-   * their UTF-8 encodings share bytes.
+   * (`/[aa]/`). Whole escape atoms are decoded before comparison. Unicode modes
+   * (`u` and `v`) compare code points; legacy mode compares UTF-16 code units.
+   * Distinct accented characters do not become duplicates because their UTF-8
+   * encodings share bytes.
    *
    * Range overlap and `v`-mode set expressions remain outside this simple-class
    * subset. The rule reports a diagnostic without an automatic edit.
@@ -154,8 +154,8 @@ export interface ITtscLintRegexpRules {
   "regexp/no-useless-two-nums-quantifier"?: TtscLintRuleSetting;
 
   /**
-   * Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`) — the atom contributes
-   * no repetitions. The surrounding pattern can still match.
+   * Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`) — the atom
+   * contributes no repetitions. The surrounding pattern can still match.
    *
    * Diagnostic-only: the correction is to delete the atom or repair the bound,
    * and which one was meant is not recoverable from the source.

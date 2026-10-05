@@ -27,7 +27,6 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  *   re-route the file, whether an earlier project's `include` starts admitting
  *   it or a missing reference appears, so the caller registers them as watch
  *   inputs. When no project admits the file, that is every config searched.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Nearest-project root admission wins, then depth-first declaration-order
  *   references. A visited set cuts cycles; rejected and missing configs remain

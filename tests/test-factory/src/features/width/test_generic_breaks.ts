@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  SyntaxKind,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { kw } from "../../internal/helpers";
 
 /**
@@ -9,8 +12,10 @@ import { kw } from "../../internal/helpers";
  * `Map<string, number>` breaks under `printWidth: 10` exactly like an argument
  * list would.
  *
- * 1. A width10 Map type argument list breaks without a forbidden trailing type-argument comma.
- * 2. Explicit Map multiline source independently fixes string/number order and absent final comma.
+ * 1. A width10 Map type argument list breaks without a forbidden trailing
+ *    type-argument comma.
+ * 2. Explicit Map multiline source independently fixes string/number order and
+ *    absent final comma.
  *
  * @evidence contracts/testing.md#behavioral-verification A width10 Map type argument list breaks without a forbidden trailing type-argument comma.
  * @evidence contracts/testing.md#independent-expectations Explicit Map multiline source independently fixes string/number order and absent final comma.

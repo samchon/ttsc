@@ -31,4 +31,3 @@ func TestUnicornLengthCheckPreservesEscapedForEachResults(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/no-useless-length-check", source) })
   }
 }
-

@@ -12,17 +12,16 @@ import { createPrefixUnaryExpression } from "./createPrefixUnaryExpression";
  * Given operand `a`, the printer emits:
  *
  * ```ts
- * ~a
+ * ~a;
  * ```
- *
- * @evidence contracts/common.md#principled-implementation TildeToken before the retained operand represents bitwise complement syntax without evaluating its numeric conversion.
- * @evidence contracts/common.md#clear-and-simple-design One prefix-builder delegation selects complement while printer lexical boundaries remain shared.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The operator is fixed by the helper contract, not a precomputed complement for known operands.
- * @evidence contracts/common.md#meaningful-documentation Native prose identifies complement, delegation and operand purpose; the expression example and tags are separated following documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param operand The operand to complement.
  * @returns The created {@link PrefixUnaryExpression}.
+ * @evidence contracts/common.md#principled-implementation TildeToken before the retained operand represents bitwise complement syntax without evaluating its numeric conversion.
+ * @evidence contracts/common.md#clear-and-simple-design One prefix-builder delegation selects complement while printer lexical boundaries remain shared.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The operator is fixed by the helper contract, not a precomputed complement for known operands.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies complement, delegation and operand purpose; the expression example and tags are separated following documentation guidance.
  */
 export const createBitwiseNot = (operand: Expression): PrefixUnaryExpression =>
   createPrefixUnaryExpression(SyntaxKind.TildeToken, operand);

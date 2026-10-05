@@ -27,10 +27,11 @@ import { subscribeLinuxDirectoryWatch } from "../../../../../packages/unplugin/s
  *    then join and assert one sync and no second watch, with an event written
  *    before the answer reaching only the opener.
  * 2. Route the sync answer and the next event together and assert both subscribers
- *    hear that event and the joiner is ready, then join a watch whose opening is
- *    unanswered and assert the joiner hears only what follows its own sync.
+ *    hear that event and the joiner is ready, then join a watch whose opening
+ *    is unanswered and assert the joiner hears only what follows its own sync.
  * 3. Join once more and never answer the sync, and assert the joiner is not live,
- *    is told of the error once and hears nothing more while the others still do.
+ *    is told of the error once and hears nothing more while the others still
+ *    do.
  * 4. Close every subscriber and assert the watches are removed.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls subscribeLinuxDirectoryWatch and routeLinuxWatchHelperLine with a scripted helper; asserts one underlying watch, sync-gated joining, exact subscribers before/after sync, unanswered-join failure and final watch removal.

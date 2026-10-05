@@ -32,13 +32,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import type { ResolvedTtscMetroOptions } from "./core/TtscMetroOptions";
 import {
   computeProjectFingerprint,
   createSnapshotRecorder,
   resolveProjectView,
   stableStringify,
 } from "./core/fingerprint";
-import type { ResolvedTtscMetroOptions } from "./core/TtscMetroOptions";
 import { resolveOptionsFromEnv } from "./core/options";
 import { remapAstLocations } from "./core/remapAstLocations";
 import { resolveUpstreamTransformer } from "./core/upstream";
@@ -306,8 +306,8 @@ export async function transform(params: {
  * project-level granularity, forced by Metro's single static key, replacing the
  * former manual `--reset-cache` step. Resolving the upstream is deliberately
  * non-fatal here: a missing peer must not crash cache-key computation, but a
- * failed upstream key withdraws reuse with a nonce. See the
- * README "Caveats" and samchon/ttsc#721.
+ * failed upstream key withdraws reuse with a nonce. See the README "Caveats"
+ * and samchon/ttsc#721.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node sha256 combines package identity, stable resolved options, forwarded
@@ -408,9 +408,9 @@ function cacheKeyProjectRoot(args: unknown[]): string | undefined {
  * Fold the upstream transformer's cache key in, defensively. Forwards Metro's
  * own `getCacheKey` arguments so the upstream's babelrc-derived key is
  * preserved, and never throws: a missing peer or a throwing upstream
- * `getCacheKey` yields `undefined`, withdrawing cross-run reuse without
- * failing the whole build's cache keying. An absent optional callback still
- * contributes the empty string.
+ * `getCacheKey` yields `undefined`, withdrawing cross-run reuse without failing
+ * the whole build's cache keying. An absent optional callback still contributes
+ * the empty string.
  */
 function upstreamCacheKey(
   upstreamTransformer: string | undefined,

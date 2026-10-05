@@ -12,7 +12,6 @@ import (
 // Both files contain both candidate nodes; only their matching selector may
 // report, making an option leak observable as an exact wrong diagnostic.
 //
-//
 // 1. Write base and test-scoped JSON config fixtures with distinct selectors.
 // 2. Load the resolver and run both candidate node kinds in both files.
 // 3. Require exactly the intended file, severity and message for each finding.

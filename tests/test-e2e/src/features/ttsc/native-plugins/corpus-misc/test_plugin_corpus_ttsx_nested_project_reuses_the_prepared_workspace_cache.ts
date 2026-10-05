@@ -4,8 +4,8 @@ import {
   copyProject,
   fs,
   goPath,
-  path,
   nativePluginSource,
+  path,
   pluginCacheEntryDirs,
   spawn,
   ttscBin,
@@ -18,8 +18,8 @@ import {
  *
  * Cache-path equality is only useful if the real source-plugin builder consumes
  * it. This case warms a manifest-less fixture at its outer install root, then
- * enters through a nested tsconfig and observes no second source-build log.
- * The body does not count all actual Go builds or compare executable bytes.
+ * enters through a nested tsconfig and observes no second source-build log. The
+ * body does not count all actual Go builds or compare executable bytes.
  *
  * 1. Copy the source-plugin fixture and add a nested tsconfig.
  * 2. Prepare that project with an absent default cache and observe its build log.
@@ -35,69 +35,75 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Every original status, build diagnostic, stdout, absent nested directory and one-entry assertion remains.
  */
 export function test_plugin_corpus_ttsx_nested_project_reuses_the_prepared_workspace_cache(): void {
-    const root = copyProject("go-source-plugin");
-    fs.writeFileSync(path.join(root, "plugin.cjs"), `module.exports = () => ({
+  const root = copyProject("go-source-plugin");
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    `module.exports = () => ({
       name: "go-source-plugin",
       capabilities: { emitProvenance: true },
       source: ${JSON.stringify(nativePluginSource("runtime-source"))},
-    });`);
-    fs.mkdirSync(path.join(root, "node_modules"));
-    fs.mkdirSync(path.join(root, "test", "src"), { recursive: true });
-    fs.copyFileSync(
-      path.join(root, "src", "main.ts"),
-      path.join(root, "test", "src", "main.ts"),
-    );
-    fs.writeFileSync(
-      path.join(root, "test", "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          module: "commonjs",
-          outDir: "../dist",
-          plugins: [{ transform: "../plugin.cjs" }],
-          rootDir: "src",
-          strict: true,
-          target: "ES2022",
-        },
-        include: ["src"],
-      }),
-      "utf8",
-    );
-    // The Go objects are the suite's; the case observes the default plugin
-    // cache.
-    const env = {
-      PATH: goPath(),
-      TTSC_CACHE_DIR: "",
-      TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
-    };
+    });`,
+  );
+  fs.mkdirSync(path.join(root, "node_modules"));
+  fs.mkdirSync(path.join(root, "test", "src"), { recursive: true });
+  fs.copyFileSync(
+    path.join(root, "src", "main.ts"),
+    path.join(root, "test", "src", "main.ts"),
+  );
+  fs.writeFileSync(
+    path.join(root, "test", "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        module: "commonjs",
+        outDir: "../dist",
+        plugins: [{ transform: "../plugin.cjs" }],
+        rootDir: "src",
+        strict: true,
+        target: "ES2022",
+      },
+      include: ["src"],
+    }),
+    "utf8",
+  );
+  // The Go objects are the suite's; the case observes the default plugin
+  // cache.
+  const env = {
+    PATH: goPath(),
+    TTSC_CACHE_DIR: "",
+    TTSC_GO_CACHE_DIR: SHARED_GO_BUILD_CACHE_DIR,
+  };
 
-    assert.equal(fs.existsSync(path.join(root, "node_modules", ".cache", "ttsc")), false);
-    assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false);
+  assert.equal(
+    fs.existsSync(path.join(root, "node_modules", ".cache", "ttsc")),
+    false,
+  );
+  assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false);
 
-    const prepared = spawn(
-      ttscBin,
-      ["prepare", "--cwd", root, "--project", "test/tsconfig.json"],
-      { cwd: root, env },
-    );
-    assert.ifError(prepared.error);
-    assert.equal(prepared.signal, null);
-    assert.equal(prepared.status, 0, prepared.stderr);
-    assert.match(prepared.stderr, /building source plugin "go-source-plugin"/);
+  const prepared = spawn(
+    ttscBin,
+    ["prepare", "--cwd", root, "--project", "test/tsconfig.json"],
+    { cwd: root, env },
+  );
+  assert.ifError(prepared.error);
+  assert.equal(prepared.signal, null);
+  assert.equal(prepared.status, 0, prepared.stderr);
+  assert.match(prepared.stderr, /building source plugin "go-source-plugin"/);
 
-    const executed = spawn(
-      ttsxBin,
-      ["--cwd", root, "--project", "test/tsconfig.json", "test/src/main.ts"],
-      { cwd: root, env },
-    );
-    assert.ifError(executed.error);
-    assert.equal(executed.signal, null);
-    assert.equal(executed.status, 0, executed.stderr);
-    assert.equal(executed.stdout.trim(), "PLUGIN");
-    assert.doesNotMatch(executed.stderr, /building source plugin/);
-    assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false);
-    assert.equal(
-      pluginCacheEntryDirs(
-        path.join(root, "node_modules", ".cache", "ttsc", "plugins"),
-      ).length,
-      1,
-    );
-  }
+  const executed = spawn(
+    ttsxBin,
+    ["--cwd", root, "--project", "test/tsconfig.json", "test/src/main.ts"],
+    { cwd: root, env },
+  );
+  assert.ifError(executed.error);
+  assert.equal(executed.signal, null);
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.equal(executed.stdout.trim(), "PLUGIN");
+  assert.doesNotMatch(executed.stderr, /building source plugin/);
+  assert.equal(fs.existsSync(path.join(root, "test", "node_modules")), false);
+  assert.equal(
+    pluginCacheEntryDirs(
+      path.join(root, "node_modules", ".cache", "ttsc", "plugins"),
+    ).length,
+    1,
+  );
+}

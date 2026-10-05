@@ -1,16 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, num, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of a `switch` statement with a `case` and a `default` clause.
+ * Verifies printing of a `switch` statement with a `case` and a `default`
+ * clause.
  *
  * The case block indents each clause, and each clause indents its statements,
  * producing the canonical nested layout.
  *
- * 1. Switch printing preserves case and default clause ordering and nested indentation.
- * 2. The independent complete switch source fixes discriminator, case literal and statements.
+ * 1. Switch printing preserves case and default clause ordering and nested
+ *    indentation.
+ * 2. The independent complete switch source fixes discriminator, case literal and
+ *    statements.
  *
  * @evidence contracts/testing.md#behavioral-verification Switch printing preserves case and default clause ordering and nested indentation.
  * @evidence contracts/testing.md#independent-expectations The independent complete switch source fixes discriminator, case literal and statements.
@@ -25,9 +28,15 @@ export const test_switch = (): void => {
   );
   TestValidator.equals(
     "empty clause bodies",
-    print(factory.createSwitchStatement(id("x"), factory.createCaseBlock([
-      factory.createCaseClause(num("1"), []), factory.createDefaultClause([]),
-    ]))),
+    print(
+      factory.createSwitchStatement(
+        id("x"),
+        factory.createCaseBlock([
+          factory.createCaseClause(num("1"), []),
+          factory.createDefaultClause([]),
+        ]),
+      ),
+    ),
     "switch (x) {\n  case 1:\n  default:\n}",
   );
   TestValidator.equals(

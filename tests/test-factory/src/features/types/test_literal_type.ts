@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { print, str } from "../../internal/helpers";
 
 /**
@@ -9,7 +9,8 @@ import { print, str } from "../../internal/helpers";
  * A string literal type `"red"` and a boolean literal type `true`.
  *
  * 1. String and boolean literal types retain their literal spelling.
- * 2. Independent "red" and true sources specify the supplied values and string quoting.
+ * 2. Independent "red" and true sources specify the supplied values and string
+ *    quoting.
  *
  * @evidence contracts/testing.md#behavioral-verification String and boolean literal types retain their literal spelling.
  * @evidence contracts/testing.md#independent-expectations Independent "red" and true sources specify the supplied values and string quoting.

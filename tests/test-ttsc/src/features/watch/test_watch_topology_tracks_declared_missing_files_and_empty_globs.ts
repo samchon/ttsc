@@ -375,7 +375,11 @@ async function waitForQuiet(
   const count = changes.length;
   await delay();
   assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
-  assert.equal(changes.length, previous, JSON.stringify(changes.slice(previous)));
+  assert.equal(
+    changes.length,
+    previous,
+    JSON.stringify(changes.slice(previous)),
+  );
 }
 
 function delay(milliseconds = 250): Promise<void> {

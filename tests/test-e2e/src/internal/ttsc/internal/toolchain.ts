@@ -9,14 +9,15 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import nodeChildProcess from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-
-// This test-owned facade leaves Node's original module exports untouched.
-const child_process = { ...nodeChildProcess, ...E2eProcessTrace };
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+// This test-owned facade leaves Node's original module exports untouched.
+const child_process = { ...nodeChildProcess, ...E2eProcessTrace };
 
 const workspaceRoot = findWorkspaceRoot(process.cwd());
 const requireFromTest = createRequire(path.join(workspaceRoot, "package.json"));
@@ -191,11 +192,22 @@ function scriptLauncher(): string {
   // its package declaration changes; the original Cmd still runs once.
   const traceSource = path.join(directory, "trace.go");
   const maintainedTrace = fs.readFileSync(
-    path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "internal", "e2etrace", "e2etrace.go"),
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "internal",
+      "e2etrace",
+      "e2etrace.go",
+    ),
     "utf8",
   );
   assert.match(maintainedTrace, /^package e2etrace\r?$/m);
-  fs.writeFileSync(traceSource, maintainedTrace.replace(/^package e2etrace\r?$/m, "package main"), "utf8");
+  fs.writeFileSync(
+    traceSource,
+    maintainedTrace.replace(/^package e2etrace\r?$/m, "package main"),
+    "utf8",
+  );
   fs.writeFileSync(
     source,
     [

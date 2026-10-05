@@ -17,12 +17,12 @@ import (
 // created nearer the entry wins the next search, and a directory wearing a
 // candidate name is a different observation from an absent one.
 //
-// 1. Place strip.config.json at the project root and a directory named
-//    strip.config.ts beside the tsconfig two levels below.
-// 2. Load from the nested tsconfig with recording reporters.
-// 3. Assert one evaluated input with its content digest and physical path, the
-//    directory candidate with the directory digest and its physical path, and
-//    the nineteen absent candidates with nil hash and nil realpath.
+//  1. Place strip.config.json at the project root and a directory named
+//     strip.config.ts beside the tsconfig two levels below.
+//  2. Load from the nested tsconfig with recording reporters.
+//  3. Assert one evaluated input with its content digest and physical path, the
+//     directory candidate with the directory digest and its physical path, and
+//     the nineteen absent candidates with nil hash and nil realpath.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the real loader with recording reporters and asserts the single reported input, its hash and realpath, the directory candidate's hash and realpath, the nineteen nil-hash nil-realpath absent candidates and that the incomplete reporter never fires for a JSON config.
 // @evidence contracts/testing.md#independent-expectations The expected digests are SHA-256 values of the literal config bytes and of the literal "ttsc:host-input:directory" marker followed by a NUL byte, computed outside the implementation; physical paths come from filepath.EvalSymlinks and the candidate list from the seven documented filenames across the three searched directories.

@@ -35,8 +35,8 @@ class OverrideExample extends Base { constructor(override value: number) {} }`,
       name: "private constructor option stays private",
       source: `class PrivateExample { private constructor() {} }
 class PublicExample { constructor() {} }`,
-      allow: []string{"privateConstructors"},
-      want:  1,
+      allow:          []string{"privateConstructors"},
+      want:           1,
       wantBodyPrefix: "\nclass PublicExample { constructor() ",
     },
     {
@@ -46,8 +46,8 @@ class Example {
   @decorate decorated() {}
   ordinary() {}
 }`,
-      allow: []string{"decoratedFunctions"},
-      want:  1,
+      allow:          []string{"decoratedFunctions"},
+      want:           1,
       wantBodyPrefix: "\n  ordinary() ",
     },
     {
@@ -57,8 +57,8 @@ class Example extends Base {
   override method() {}
   ordinary() {}
 }`,
-      allow: []string{"overrideMethods"},
-      want:  1,
+      allow:          []string{"overrideMethods"},
+      want:           1,
       wantBodyPrefix: "\n  ordinary() ",
     },
     {

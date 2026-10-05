@@ -1,17 +1,23 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags, SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  NodeFlags,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { id, kw, mod, num, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of {@link factory.createVariableStatement|variable statements}.
+ * Verifies printing of
+ * {@link factory.createVariableStatement|variable statements}.
  *
  * The `const` / `let` / `var` keyword follows the declaration-list flags; a
  * typed `export const` and a `declare var x!: number` definite assignment are
  * also covered.
  *
- * 1. Const/let/var modes, export typing and declare definite-assignment markers retain their supplied tokens.
- * 2. Each explicit source literal independently specifies declaration flags, type annotation and initializer/definite marker.
+ * 1. Const/let/var modes, export typing and declare definite-assignment markers
+ *    retain their supplied tokens.
+ * 2. Each explicit source literal independently specifies declaration flags, type
+ *    annotation and initializer/definite marker.
  *
  * @evidence contracts/testing.md#behavioral-verification Const/let/var modes, export typing and declare definite-assignment markers retain their supplied tokens.
  * @evidence contracts/testing.md#independent-expectations Each explicit source literal independently specifies declaration flags, type annotation and initializer/definite marker.

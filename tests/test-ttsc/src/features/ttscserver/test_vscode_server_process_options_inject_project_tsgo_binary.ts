@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server process options inject the project tsgo binary.
@@ -24,52 +25,51 @@ import path from "node:path";
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls serverProcessOptions over package.json files and an empty binary written into a TestProject.tmpdir tree, never executing the binary, and starts no extension host or child process.
  */
 export function test_vscode_server_process_options_inject_project_tsgo_binary() {
-    const root = TestProject.WORKSPACE_ROOT;
-    const project = TestProject.physicalPath(
-      TestProject.tmpdir("vscode-server-process-options-"),
-    );
-    const nativePreview = path.join(project, "node_modules", "typescript");
-    const platformPackage = path.join(
-      project,
-      "node_modules",
-      "@typescript",
-      `typescript-${process.platform}-${process.arch}`,
-    );
-    const binary = path.join(
-      platformPackage,
-      "lib",
-      process.platform === "win32" ? "tsc.exe" : "tsc",
-    );
-    fs.mkdirSync(nativePreview, { recursive: true });
-    fs.mkdirSync(path.dirname(binary), { recursive: true });
-    fs.writeFileSync(
-      path.join(nativePreview, "package.json"),
-      JSON.stringify({ name: "typescript" }, null, 2),
-    );
-    fs.writeFileSync(
-      path.join(platformPackage, "package.json"),
-      JSON.stringify(
-        {
-          name: `@typescript/typescript-${process.platform}-${process.arch}`,
-        },
-        null,
-        2,
-      ),
-    );
-    fs.writeFileSync(binary, "");
+  const root = TestProject.WORKSPACE_ROOT;
+  const project = TestProject.physicalPath(
+    TestProject.tmpdir("vscode-server-process-options-"),
+  );
+  const nativePreview = path.join(project, "node_modules", "typescript");
+  const platformPackage = path.join(
+    project,
+    "node_modules",
+    "@typescript",
+    `typescript-${process.platform}-${process.arch}`,
+  );
+  const binary = path.join(
+    platformPackage,
+    "lib",
+    process.platform === "win32" ? "tsc.exe" : "tsc",
+  );
+  fs.mkdirSync(nativePreview, { recursive: true });
+  fs.mkdirSync(path.dirname(binary), { recursive: true });
+  fs.writeFileSync(
+    path.join(nativePreview, "package.json"),
+    JSON.stringify({ name: "typescript" }, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(platformPackage, "package.json"),
+    JSON.stringify(
+      {
+        name: `@typescript/typescript-${process.platform}-${process.arch}`,
+      },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(binary, "");
 
-    const observed = (() => {
-      const options = mod.serverProcessOptions((project));
-      return {
-        cwd: options?.cwd,
-        tsgo: options?.env?.TTSC_TSGO_BINARY,
-      };
-    
-  })();
-    const parsed = observed as {
-      cwd?: string;
-      tsgo?: string;
+  const observed = (() => {
+    const options = mod.serverProcessOptions(project);
+    return {
+      cwd: options?.cwd,
+      tsgo: options?.env?.TTSC_TSGO_BINARY,
     };
-    assert.equal(path.normalize(parsed.cwd ?? ""), path.normalize(project));
-    assert.equal(path.normalize(parsed.tsgo ?? ""), path.normalize(binary));
+  })();
+  const parsed = observed as {
+    cwd?: string;
+    tsgo?: string;
+  };
+  assert.equal(path.normalize(parsed.cwd ?? ""), path.normalize(project));
+  assert.equal(path.normalize(parsed.tsgo ?? ""), path.normalize(binary));
 }

@@ -7,8 +7,8 @@ import type { ResolutionCandidate } from "./ResolutionCandidate";
  * Retain the deepest physical project candidates in their original priority.
  *
  * The caller supplies one filesystem observation context for the plan. A
- * selected descendant suppresses its ancestor even when an alias has a
- * shorter lexical spelling than the ancestor. Inputs are not mutated.
+ * selected descendant suppresses its ancestor even when an alias has a shorter
+ * lexical spelling than the ancestor. Inputs are not mutated.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Depth ordering selects physical descendants before ancestors. Containment
@@ -74,7 +74,8 @@ export function filterCandidatesByPhysicalRoots(
 }
 
 /**
- * Plan unique nonoverlapping physical roots, retaining the first alias spelling.
+ * Plan unique nonoverlapping physical roots, retaining the first alias
+ * spelling.
  *
  * A supplied preferred root takes precedence over depth when it is one of the
  * roots; a preferred root absent from the list is not added. Otherwise

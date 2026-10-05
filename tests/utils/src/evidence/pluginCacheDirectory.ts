@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { suiteRoot } from "./suiteRoot";
 import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
+import { suiteRoot } from "./suiteRoot";
 
 /**
  * Pins the ttsc plugin build cache to one suite-owned directory.
@@ -34,10 +34,14 @@ import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
  */
 export const pluginCacheDirectory = (
   directory?: string,
-  ownership: Pick<ReturnType<typeof EvidenceProcessOwnership.create>, "assertAvailable" | "assertCacheAvailable" | "registerCache"> = EvidenceProcessOwnership,
+  ownership: Pick<
+    ReturnType<typeof EvidenceProcessOwnership.create>,
+    "assertAvailable" | "assertCacheAvailable" | "registerCache"
+  > = EvidenceProcessOwnership,
 ): string => {
-  const location: string =
-    path.resolve(process.env.TTSC_TEST_CACHE_DIR || path.join(suiteRoot, ".cache", "ttsc"));
+  const location: string = path.resolve(
+    process.env.TTSC_TEST_CACHE_DIR || path.join(suiteRoot, ".cache", "ttsc"),
+  );
   if (directory !== undefined) ownership.assertAvailable(directory);
   ownership.assertCacheAvailable(location);
   fs.mkdirSync(location, { recursive: true });

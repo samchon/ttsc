@@ -1,5 +1,6 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
 import assert from "node:assert/strict";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
 
 /**
  * Verifies VS Code client roots follow each Windows directory's identity.
@@ -48,8 +49,15 @@ export function test_vscode_server_resolution_keys_windows_roots_case_insensitiv
       "C:\\Sensitive\\project",
     ] as const;
     return {
-      sameKey: mod.rootKey(upper, "win32", identities) === mod.rootKey(lower, "win32", identities),
-      planned: mod.planNonOverlappingClientRoots([upper, lower], undefined, "win32", identities),
+      sameKey:
+        mod.rootKey(upper, "win32", identities) ===
+        mod.rootKey(lower, "win32", identities),
+      planned: mod.planNonOverlappingClientRoots(
+        [upper, lower],
+        undefined,
+        "win32",
+        identities,
+      ),
       ordinaryInjected:
         mod.rootKey("C:\\ORDINARY\\repo", "win32", identities) ===
         mod.rootKey("c:\\ordinary\\REPO", "win32", identities),
@@ -80,24 +88,11 @@ export function test_vscode_server_resolution_keys_windows_roots_case_insensitiv
           "win32",
           identities,
         ) !==
-        mod.rootKey(
-          "C:\\Sensitive\\Project\\future.ts",
-          "win32",
-          identities,
-        ),
+        mod.rootKey("C:\\Sensitive\\Project\\future.ts", "win32", identities),
       missingOrdinary:
-        mod.rootKey(
-          "C:\\Ordinary\\Repo\\Future.ts",
-          "win32",
-          identities,
-        ) ===
-        mod.rootKey(
-          "c:\\ordinary\\repo\\future.ts",
-          "win32",
-          identities,
-        ),
+        mod.rootKey("C:\\Ordinary\\Repo\\Future.ts", "win32", identities) ===
+        mod.rootKey("c:\\ordinary\\repo\\future.ts", "win32", identities),
     };
-  
   })();
   const actual = observed as {
     casePlanned: string[];
@@ -116,7 +111,10 @@ export function test_vscode_server_resolution_keys_windows_roots_case_insensitiv
   assert.equal(actual.ordinaryInjected, true);
   assert.equal(actual.distinctInjected, true);
   assert.equal(actual.casePlanned.length, 2);
-  assert.deepEqual([...actual.casePlanned].sort(), ["C:\\Sensitive\\Project", "C:\\Sensitive\\project"].sort());
+  assert.deepEqual(
+    [...actual.casePlanned].sort(),
+    ["C:\\Sensitive\\Project", "C:\\Sensitive\\project"].sort(),
+  );
   assert.equal(actual.firstSelected, "C:\\Sensitive\\Project");
   assert.equal(actual.secondSelected, "C:\\Sensitive\\project");
   assert.equal(actual.missingSensitive, true);

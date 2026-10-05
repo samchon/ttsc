@@ -32,7 +32,6 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * @param resolvedFile The file the resolution selected, a path or a file URL,
  *   or `undefined` when it failed.
  * @param extensions The extensions the evaluator's resolution probes.
- *
  * @evidence contracts/common.md#principled-implementation The shared recorder compares the completed resolver's selected path against canonical candidate file/directory spellings; selected-path canonicalization can fall back to native lexical spelling, and candidate canonicalization failure refuses that candidate.
  * @evidence contracts/common.md#clear-and-simple-design This typed adapter delegates one selection rule to the shared recorder instead of maintaining separate resolver guesses in each evaluator.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter invokes the recorder's exported query without replacing foreign methods or reconstructing a package resolver from guessed target paths.

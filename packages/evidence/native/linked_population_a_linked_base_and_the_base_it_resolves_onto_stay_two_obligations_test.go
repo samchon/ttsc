@@ -1,10 +1,10 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 /**
@@ -28,19 +28,19 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkedBaseAndTheBaseItResolvesOntoStayTwoObligations(t *testing.T) {
-	workspace := t.TempDir()
-	project := filepath.Join(workspace, "project")
-	if err := os.MkdirAll(project, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := linkDirectory(t, project, filepath.Join(workspace, "mirror")); err != nil {
-		t.Fatalf("this platform refused to create a link: %v", err)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/docs/pricing.md": "## Discounts {#discounts}\n",
-		"project/docs/policy.md":  "## Refunds {#refunds}\n",
-		"project/src/sale.ts":     "export interface ISale {}\n",
-	}, `{"claims":[
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkDirectory(t, project, filepath.Join(workspace, "mirror")); err != nil {
+    t.Fatalf("this platform refused to create a link: %v", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/docs/policy.md":  "## Refunds {#refunds}\n",
+    "project/src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[
     {
       "type":"typescript",
       "root":"../mirror",
@@ -55,15 +55,15 @@ func TestALinkedBaseAndTheBaseItResolvesOntoStayTwoObligations(t *testing.T) {
       "reference":{"type":"markdown","files":["docs/policy.md"],"symbol":"h2"}
     }
   ]}`)
-	if len(messages) != 2 {
-		t.Fatalf("two claims owe one acknowledgement each, got %d:\n%s", len(messages), strings.Join(messages, "\n"))
-	}
-	assertProblemContains(t, messages, "'docs/pricing.md#discounts'")
-	assertProblemContains(t, messages, "'docs/policy.md#refunds'")
-	if countProblemsContaining(messages, "Claim 1 reference 1") != 1 {
-		t.Fatalf("the linked claim reports once:\n%s", strings.Join(messages, "\n"))
-	}
-	if countProblemsContaining(messages, "Claim 2 reference 1") != 1 {
-		t.Fatalf("the default claim reports once:\n%s", strings.Join(messages, "\n"))
-	}
+  if len(messages) != 2 {
+    t.Fatalf("two claims owe one acknowledgement each, got %d:\n%s", len(messages), strings.Join(messages, "\n"))
+  }
+  assertProblemContains(t, messages, "'docs/pricing.md#discounts'")
+  assertProblemContains(t, messages, "'docs/policy.md#refunds'")
+  if countProblemsContaining(messages, "Claim 1 reference 1") != 1 {
+    t.Fatalf("the linked claim reports once:\n%s", strings.Join(messages, "\n"))
+  }
+  if countProblemsContaining(messages, "Claim 2 reference 1") != 1 {
+    t.Fatalf("the default claim reports once:\n%s", strings.Join(messages, "\n"))
+  }
 }

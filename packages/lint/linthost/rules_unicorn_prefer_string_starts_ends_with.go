@@ -115,8 +115,14 @@ func unicornPreferStringStartsEndsWithMatches(callSide, literalSide *shimast.Nod
   units := 0
   for len(text) > 0 {
     symbol, size := shimstringutil.DecodeJSStringRune(text)
-    if size <= 0 { return false }
-    if symbol > 0xffff { units += 2 } else { units++ }
+    if size <= 0 {
+      return false
+    }
+    if symbol > 0xffff {
+      units += 2
+    } else {
+      units++
+    }
     text = text[size:]
   }
   return units == wantLen

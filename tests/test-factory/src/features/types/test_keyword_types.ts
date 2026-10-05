@@ -1,16 +1,18 @@
 import { TestValidator } from "@nestia/e2e";
-import { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of every supported {@link factory.createKeywordTypeNode|keyword type}.
+ * Verifies printing of every supported
+ * {@link factory.createKeywordTypeNode|keyword type}.
  *
  * Each keyword (string, number, boolean, any, unknown, void, never, object,
  * undefined, null, bigint, symbol) renders to its source text.
  *
  * 1. All twelve supported keyword types print their source keywords.
- * 2. The explicit SyntaxKind-to-text table is an independent language spelling table rather than printer-derived output.
+ * 2. The explicit SyntaxKind-to-text table is an independent language spelling
+ *    table rather than printer-derived output.
  *
  * @evidence contracts/testing.md#behavioral-verification All twelve supported keyword types print their source keywords.
  * @evidence contracts/testing.md#independent-expectations The explicit SyntaxKind-to-text table is an independent language spelling table rather than printer-derived output.

@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server planning stops stale roots when no roots are planned.
@@ -26,13 +27,13 @@ export function test_vscode_server_resolution_stops_unplanned_roots_when_no_docu
   const root = path.join(parent, "repo");
   const nested = path.join(root, "packages", "demo");
   const unrelated = path.join(parent, "outside-tools");
-  for (const entry of [root, nested, unrelated]) assert.equal(fs.existsSync(entry), false);
+  for (const entry of [root, nested, unrelated])
+    assert.equal(fs.existsSync(entry), false);
   const observed = (() => {
     return {
-      empty: mod.rootsToStopForPlan([(nested), (unrelated)], []),
-      parent: mod.rootsToStopForPlan([(nested), (unrelated)], [(root)]),
+      empty: mod.rootsToStopForPlan([nested, unrelated], []),
+      parent: mod.rootsToStopForPlan([nested, unrelated], [root]),
     };
-  
   })();
   const actual = observed as {
     empty: string[];

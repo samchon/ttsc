@@ -4,11 +4,11 @@ import { createProjectInputPathIdentityContext } from "../../../internal/pathIde
 
 /**
  * Removes recursive roots already covered by an ancestor without rewriting the
- * declaration-specific roots retained by WatchTopology.
- * Coverage here means identity-key ancestry used for root selection, not proof
- * that a native watcher has been installed or delivers replacement events.
- * All spellings and an explicitly supplied identity context must use the host's
- * path grammar because ancestor walking uses native path.dirname.
+ * declaration-specific roots retained by WatchTopology. Coverage here means
+ * identity-key ancestry used for root selection, not proof that a native
+ * watcher has been installed or delivers replacement events. All spellings and
+ * an explicitly supplied identity context must use the host's path grammar
+ * because ancestor walking uses native path.dirname.
  *
  * @evidence contracts/common.md#principled-implementation A physical root is redundant exactly when another selected root is its ancestor; returned spellings remain the caller's declarations.
  * @evidence contracts/common.md#clear-and-simple-design One identity-keyed map separates deduplication and ancestor coverage from spelling preservation.

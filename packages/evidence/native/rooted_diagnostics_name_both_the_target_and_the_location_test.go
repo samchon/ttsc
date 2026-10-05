@@ -46,7 +46,7 @@ func TestRootedDiagnosticsNameBothTheTargetAndTheLocation(t *testing.T) {
   assertProblemContains(t, messages, "at ../docs/requirements/pricing.md:1")
   partial := runRootedGraph(t, map[string]string{
     "docs/requirements/pricing.md": "## Discount Policy {#discounts}\n\n## Refund Policy {#refunds}\n",
-    "project/src/sale.ts": "/** @evidence requirements/pricing.md#discounts Implements discounts. */\nexport interface ISale {}\n",
+    "project/src/sale.ts":          "/** @evidence requirements/pricing.md#discounts Implements discounts. */\nexport interface ISale {}\n",
   }, `{"claims":[{
     "type":"typescript","files":["src/**/*.ts"],"symbol":"type",
     "reference":{"type":"markdown","root":"../docs","files":["requirements/**"],"symbol":"h2"}

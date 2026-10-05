@@ -15,6 +15,7 @@ import { recoverTerminalCompilerWorker } from "../../../../packages/playground/s
  * 2. Recover a message-only tgrid error carrying the terminal marker.
  * 3. Consume an already-stale terminal result without touching the new Worker.
  * 4. Reject incidental marker text and ordinary compiler errors.
+ *
  * @evidence contracts/testing.md#behavioral-verification recoverTerminalCompilerWorker recognizes local/transported terminal identity, orders claim-reset-fail, preserves original error after reset rejection and consumes stale failures without resetting replacement state.
  * @evidence contracts/testing.md#independent-expectations Independent callback order arrays and error object identities pin recovery ownership; literal malformed/incidental markers and TS2322 are ordinary-error controls rather than expected classifications copied from the helper.
  * @evidence contracts/testing.md#distinguishing-cases Plain terminal record, framed message, refused stale claim, throwing reset, incidental middle marker, unframed string and ordinary compiler error preserve distinct positive/failure/negative outcomes.
@@ -114,6 +115,10 @@ export const test_playground_worker_recovery_replaces_terminal_generation =
       (error) => error === resetError,
     );
     assert.deepEqual(order, ["claim", "reset", "fail"]);
-    assert.equal(failures[2], terminal, "failed disposal must still publish the original terminal failure");
+    assert.equal(
+      failures[2],
+      terminal,
+      "failed disposal must still publish the original terminal failure",
+    );
     assert.equal(failures.length, 3);
   };

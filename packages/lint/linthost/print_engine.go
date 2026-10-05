@@ -88,25 +88,25 @@ import "strings"
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintOptions is a declaration of data shape; the code that holds its values owns their lifetime.
 type PrintOptions struct {
   // PrintWidth is the preferred line budget in display columns.
-  PrintWidth     int
+  PrintWidth int
 
   // TabWidth is the column increment for one indentation step.
-  TabWidth       int
+  TabWidth int
 
   // UseTabs emits tabs for full indentation steps and spaces for alignment remainder.
-  UseTabs        bool
+  UseTabs bool
 
   // EndOfLine selects generated line breaks; empty means LF.
-  EndOfLine      string
+  EndOfLine string
 
   // TrailingComma is all, es5 or none; empty retains the all default.
-  TrailingComma  string
+  TrailingComma string
 
   // StartingColumn accounts for text preceding the first printed character.
   StartingColumn int
 
   // BaseIndent anchors continuation lines independently from StartingColumn.
-  BaseIndent     int
+  BaseIndent int
 }
 
 // DefaultPrintOptions returns Prettier-aligned defaults: preferred width 80,

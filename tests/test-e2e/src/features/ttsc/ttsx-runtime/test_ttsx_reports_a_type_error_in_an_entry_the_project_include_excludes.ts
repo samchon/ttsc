@@ -1,6 +1,7 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies an entry outside the project's `include` is still type-checked
@@ -24,6 +25,7 @@ import assert from "node:assert/strict";
  * 2. Run ttsx against that script.
  * 3. Assert the run fails, reports the entry's own diagnostic, and never executes
  *    the script's side effect.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs excluded clear.ts containing number = null and requires failure, no must-not-run marker, clear.ts in output and no entry-not-found fallback.
  * @evidence contracts/testing.md#independent-expectations The source authors its filename and effect marker; the current oracle does not require the actual null assignability diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases An excluded invalid entry must fail before execution, but another failure naming clear.ts could also satisfy the present assertions.
@@ -34,16 +36,20 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage Every current failure/name/effect assertion remains here; exact diagnostic-cause coverage is an unresolved limitation.
  */
 export function test_ttsx_reports_a_type_error_in_an_entry_the_project_include_excludes() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_reports_a_type_error_in_an_entry_the_project_include_excludes/inputs-1"));
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_reports_a_type_error_in_an_entry_the_project_include_excludes/inputs-1",
+    ),
+  );
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "clear.ts"],
-      { cwd: root },
-    );
-    assert.notEqual(result.status, 0);
-    assert.equal(result.stdout.includes("must-not-run"), false);
-    const output = `${result.stderr}${result.stdout}`;
-    assert.equal(output.includes("clear.ts"), true, output);
-    assert.equal(output.includes("emitted entry not found"), false, output);
-  }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "clear.ts"],
+    { cwd: root },
+  );
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stdout.includes("must-not-run"), false);
+  const output = `${result.stderr}${result.stdout}`;
+  assert.equal(output.includes("clear.ts"), true, output);
+  assert.equal(output.includes("emitted entry not found"), false, output);
+}

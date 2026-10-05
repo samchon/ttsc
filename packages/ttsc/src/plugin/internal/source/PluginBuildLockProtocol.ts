@@ -9,12 +9,12 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  * lock operation shares.
  *
  * A cold source-plugin build delegates work to `go build`; its duration depends
- * on the selected inputs and toolchain cache. When a
- * program fans out into many processes (a `pnpm -r` running suites in parallel,
- * a benchmark, a worker pool), each inherits the same cold cache and would
- * otherwise build the same cache key at the same instant. Cooperating v3
- * consumers serialize build ownership while waiters observe publication or
- * fail their admission budget; this does not serialize old-protocol clients.
+ * on the selected inputs and toolchain cache. When a program fans out into many
+ * processes (a `pnpm -r` running suites in parallel, a benchmark, a worker
+ * pool), each inherits the same cold cache and would otherwise build the same
+ * cache key at the same instant. Cooperating v3 consumers serialize build
+ * ownership while waiters observe publication or fail their admission budget;
+ * this does not serialize old-protocol clients.
  *
  * V3 lives in `<lockDir>.v3`. A complete generation is published at `current/`
  * and retired by renaming it to `retired/<generation>`. Holder and observer
@@ -195,7 +195,8 @@ export namespace PluginBuildLockProtocol {
   /**
    * Whether a native rename failure is treated as destination contention.
    * EACCES/EPERM require an observed destination, but its existence does not
-   * prove it caused the failure; unrelated permissions can produce those codes.
+   * prove it caused the failure; unrelated permissions can produce those
+   * codes.
    *
    * @evidence contracts/common.md#principled-implementation Explicit occupied-destination codes select contention; ambiguous permission codes select the same policy only with observed destination existence. That extra observation is a contention policy rather than a causal permission diagnosis.
    * @evidence contracts/common.md#clear-and-simple-design One adapter distinguishes destination occupation from other rename failures for protocol initialization and observer publication.

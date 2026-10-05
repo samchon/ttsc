@@ -1,14 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
 import { PluginPackageResolution } from "./PluginPackageResolution";
 
 /**
  * Validate contributor records before native host compilation.
  *
- * The source preflight requires an immediate regular filename ending in .go
- * but not _test.go. It does not parse package syntax, build constraints or
- * platform suffixes; actual Go compilation owns buildability.
+ * The source preflight requires an immediate regular filename ending in .go but
+ * not _test.go. It does not parse package syntax, build constraints or platform
+ * suffixes; actual Go compilation owns buildability.
  *
  * @evidence contracts/common.md#principled-implementation Ordered record checks establish unique accepted names, absolute observed source directories and a regular non-test .go filename before best-effort physical normalization. These checks do not certify Go package buildability or freeze filesystem identity.
  * @evidence contracts/common.md#clear-and-simple-design One traversal owns contributor admission; a private directory predicate isolates regular non-test filename discovery.

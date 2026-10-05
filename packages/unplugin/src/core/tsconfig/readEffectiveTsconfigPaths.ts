@@ -8,13 +8,13 @@ import { findDeclaredPaths } from "./findDeclaredPaths";
  * `extends` chain, and absolutize every mapping target.
  *
  * TypeScript merges `compilerOptions` per option key, so the effective `paths`
- * is the whole usable record from the nearest config in the chain that declares one
- * (own config first, then `extends` entries in reverse priority order).
+ * is the whole usable record from the nearest config in the chain that declares
+ * one (own config first, then `extends` entries in reverse priority order).
  * Relative targets are anchored at the directory of the config that declares
  * them. TypeScript-Go resolves inherited relative `paths` against the declaring
- * file, not the extending one.
- * Alias names are own enumerable data properties, including names that coincide
- * with JavaScript prototype members, so serialization preserves the declared keys.
+ * file, not the extending one. Alias names are own enumerable data properties,
+ * including names that coincide with JavaScript prototype members, so
+ * serialization preserves the declared keys.
  *
  * The generated transform tsconfig replaces `paths` wholesale (standard
  * `extends` semantics), so the alias overlay must re-state these base mappings

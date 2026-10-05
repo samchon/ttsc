@@ -22,9 +22,9 @@ import { pluginSourceState } from "./source/pluginSourceState";
  * comparing those with the filesystem, so hashing the inputs again here would
  * pair an answer computed from one state with another state, and an input that
  * moved while the descriptors evaluated would bless the stale answer for as
- * long as it held still afterwards. An answer with an input
- * the load could not prove is not recorded at all: nothing could prove it later
- * either, and the next resolution walks again.
+ * long as it held still afterwards. An answer with an input the load could not
+ * prove is not recorded at all: nothing could prove it later either, and the
+ * next resolution walks again.
  *
  * A write failure is not reported. The cache is an optimization over a walk
  * that still works, and a read-only or full disk is a reason to be slower, not
@@ -34,10 +34,10 @@ import { pluginSourceState } from "./source/pluginSourceState";
  *
  * Returns the published entry, or null when no complete entry was written.
  * Publication is not a freshness assertion: the reader must still prove its
- * recorded observations before dependent results can reuse it.
- * Private opt-in tracing records the reached refusal branch or successful
- * rename. It neither retries persistence nor observes an unexecuted proof
- * comparison; failures inside the trace writer cannot replace this result.
+ * recorded observations before dependent results can reuse it. Private opt-in
+ * tracing records the reached refusal branch or successful rename. It neither
+ * retries persistence nor observes an unexecuted proof comparison; failures
+ * inside the trace writer cannot replace this result.
  *
  * Default workspace storage is marked before even the clock probe is written,
  * so a first answer cannot make a later root search choose a different
@@ -106,14 +106,19 @@ export function writeCapabilityResolution(
 ): ITtscCapabilityResolutionEntry | null {
   let file = CapabilityResolutionFormat.resolutionFile(options);
   if (file === null) {
-    E2ETrace.capabilityResolution("write-refused", { reason: "storage-authority-unavailable" });
+    E2ETrace.capabilityResolution("write-refused", {
+      reason: "storage-authority-unavailable",
+    });
     return null;
   }
   if (
     options.expectedAuthority !== undefined &&
     options.expectedAuthority !== file
   ) {
-    E2ETrace.capabilityResolution("write-refused", { file, reason: "authority-changed" });
+    E2ETrace.capabilityResolution("write-refused", {
+      file,
+      reason: "authority-changed",
+    });
     return null;
   }
   const hostInputs = [
@@ -124,21 +129,33 @@ export function writeCapabilityResolution(
     ),
   ].sort();
   if (hostInputs.length === 0) {
-    E2ETrace.capabilityResolution("write-refused", { file, reason: "empty-host-inputs" });
+    E2ETrace.capabilityResolution("write-refused", {
+      file,
+      reason: "empty-host-inputs",
+    });
     return null;
   }
   const hostInputHashes: Record<string, string | null> = {};
   const hostInputRealpaths: Record<string, string | null> = {};
   for (const input of hostInputs) {
-    const hashPresent = Object.prototype.hasOwnProperty.call(answer.hostInputHashes, input);
+    const hashPresent = Object.prototype.hasOwnProperty.call(
+      answer.hostInputHashes,
+      input,
+    );
     let realpathPresent: boolean | undefined;
     if (
       !hashPresent ||
-      !(realpathPresent = Object.prototype.hasOwnProperty.call(answer.hostInputRealpaths, input))
+      !(realpathPresent = Object.prototype.hasOwnProperty.call(
+        answer.hostInputRealpaths,
+        input,
+      ))
     ) {
       E2ETrace.capabilityResolution("write-refused", {
-        file, input, reason: "host-proof-missing",
-        hashPresent, realpathPresent,
+        file,
+        input,
+        reason: "host-proof-missing",
+        hashPresent,
+        realpathPresent,
       });
       return null;
     }
@@ -156,7 +173,10 @@ export function writeCapabilityResolution(
         path.basename(file),
       );
     } catch {
-      E2ETrace.capabilityResolution("write-refused", { file, reason: "default-root-unavailable" });
+      E2ETrace.capabilityResolution("write-refused", {
+        file,
+        reason: "default-root-unavailable",
+      });
       return null;
     }
   }
@@ -189,10 +209,16 @@ export function writeCapabilityResolution(
     // partially written one could parse and be believed.
     fs.writeFileSync(staging, JSON.stringify(entry), "utf8");
     fs.renameSync(staging, file);
-    E2ETrace.capabilityResolution("write-published", { file, hostInputs: hostInputs.length });
+    E2ETrace.capabilityResolution("write-published", {
+      file,
+      hostInputs: hostInputs.length,
+    });
     return entry;
   } catch {
-    E2ETrace.capabilityResolution("write-refused", { file, reason: "publication-exception" });
+    E2ETrace.capabilityResolution("write-refused", {
+      file,
+      reason: "publication-exception",
+    });
     return null;
   } finally {
     try {

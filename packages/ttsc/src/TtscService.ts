@@ -17,8 +17,8 @@ import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
  * compilation, transformed-text reuse and later generations; custom executable
  * hosts must honor that protocol rather than the wrapper proving their cache
  * behavior. One service instance can address many files. One host serves one
- * process; sharing it across separate worker processes (a Metro worker pool)
- * is not provided.
+ * process; sharing it across separate worker processes (a Metro worker pool) is
+ * not provided.
  *
  * The shape mirrors a legacy TypeScript `LanguageService`: construct it against
  * a project context, ask it to transform individual files, and dispose it when
@@ -30,9 +30,9 @@ import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
  * declare at least one transform-stage plugin; the constructor throws
  * otherwise. It does not run check-stage plugins (unlike
  * {@link TtscCompiler.transform}); program loading and transform-stage plugin
- * success gate an {@link updateFile} in the utility producer. A selected executable plugin host must implement the
- * resident serve protocol; the generated linked-plugin utility host supplies
- * that protocol itself.
+ * success gate an {@link updateFile} in the utility producer. A selected
+ * executable plugin host must implement the resident serve protocol; the
+ * generated linked-plugin utility host supplies that protocol itself.
  *
  * @evidence contracts/common.md#principled-implementation One resident host owns committed transform state and validated transform/update replies; fixed context selectors and captured JSON configuration preserve construction authority while later requests address the selected project's logical spelling. The utility producer retains printed text after closing each loaded Program.
  * @evidence contracts/common.md#clear-and-simple-design The class exposes transform, update and disposal around one resident client; private path adaptation handles the physical-versus-program spelling distinction without duplicating client protocol state.
@@ -105,8 +105,8 @@ export class TtscService {
    * Apply new in-memory content for one file and re-transform the project, so a
    * subsequent {@link transformFile} reflects the edit without restarting the
    * host. Returns whether the re-transform succeeded; `false` means the edit
-   * failed the host's rebuild and the previous transform is still in effect.
-   * In the utility producer this includes load/type-check or transform-plugin
+   * failed the host's rebuild and the previous transform is still in effect. In
+   * the utility producer this includes load/type-check or transform-plugin
    * failure; custom hosts must honor the same update protocol. A relative
    * `fileName` is resolved against the project root.
    *

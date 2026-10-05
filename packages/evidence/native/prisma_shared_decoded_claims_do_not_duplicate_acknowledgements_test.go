@@ -16,7 +16,7 @@ import (
  */
 func TestPrismaSharedDecodedClaimsDoNotDuplicateAcknowledgements(t *testing.T) {
   for _, scenario := range []struct {
-    name string
+    name   string
     schema string
     config string
   }{

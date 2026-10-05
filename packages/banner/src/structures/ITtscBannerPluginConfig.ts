@@ -1,9 +1,9 @@
 /**
  * Host registration and config-file selection for `@ttsc/banner`.
  *
- * This entry belongs in `compilerOptions.plugins[]`. Banner text belongs in
- * the separate `ITtscBannerConfig` value so discovery and config evaluation
- * have one supported home instead of an additional inline option surface.
+ * This entry belongs in `compilerOptions.plugins[]`. Banner text belongs in the
+ * separate `ITtscBannerConfig` value so discovery and config evaluation have
+ * one supported home instead of an additional inline option surface.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Optional enabled distinguishes omission from an explicit false host switch;
@@ -43,8 +43,8 @@ export interface ITtscBannerPluginConfig {
   /**
    * Module specifier the host resolves to the plugin factory.
    *
-   * Use `@ttsc/banner` to register this package through the transform key.
-   * This names the factory module, not the banner config file or Go binary.
+   * Use `@ttsc/banner` to register this package through the transform key. This
+   * names the factory module, not the banner config file or Go binary.
    */
   transform?: string;
 

@@ -38,7 +38,9 @@ const rollup = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("rollup").rollup;
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Standalone execution prepares a private type-edge project. A supplied shared project must restore the original V1 source and reader/graph configuration after preceding host closes. Each of these three bundles closes in finally; their Rollup caches belong only to this sequence, and tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: unchanged second build returns same code without another transform; type edit then cached build embeds AGE: NUMBER. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge(preparedRoot?: string): Promise<void> {
+export async function test_rollup_build_given_a_cache_rebuilds_through_a_type_only_edge(
+  preparedRoot?: string,
+): Promise<void> {
   const root = preparedRoot ?? createTypeEdgeProject(true);
   const main = TestUnpluginProject.mainFile(root);
   // Rollup runs no plugin's `transform` for a module it serves from its cache.

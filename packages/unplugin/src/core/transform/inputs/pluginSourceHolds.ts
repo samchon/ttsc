@@ -19,14 +19,13 @@ import { pluginSourceFilesDigest } from "./pluginSourceFilesDigest";
  * or environment observations return false rather than proving unchanged state.
  * Async generation and delivery owners can supply an environment they just
  * qualified through the shared reading owner. That path performs no cold native
- * fallback; unavailable authority returns false and its async owner prepares
- * a fresh reading before admitting a replacement.
+ * fallback; unavailable authority returns false and its async owner prepares a
+ * fresh reading before admitting a replacement.
  *
  * @param directory The source directory, as the envelope names it.
  * @param state The state the envelope, a record, or a capture recorded.
  * @param filesystem The operations whose clock reference the caller refreshed.
  * @param prepared Optional already-qualified native environment authority.
- *
  * @evidence contracts/common.md#principled-implementation Source-state equality uses ttsc's build-key composition. Synchronous clients retain mismatch-triggered environment refresh; async clients supply current native authority and own fresh preparation separately. Unavailable source or prepared environment rejects proof.
  * @evidence contracts/common.md#clear-and-simple-design This adapter supplies a proven source digest to the shared state comparator, keeping environment composition and refresh in ttsc's owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fresh environment comparison corrects an actual stale environment witness; unreadable source is not hidden by expected state exceptions or perpetual compensating retries.
@@ -45,10 +44,13 @@ export function pluginSourceHolds(
   try {
     const sourceDigest = pluginSourceFilesDigest(directory, filesystem);
     if (prepared !== undefined)
-      return prepared.environment !== undefined && pluginSourceState(directory, {
-        environment: prepared.environment,
-        sourceDigest,
-      }) === state;
+      return (
+        prepared.environment !== undefined &&
+        pluginSourceState(directory, {
+          environment: prepared.environment,
+          sourceDigest,
+        }) === state
+      );
     return pluginSourceStateHolds(directory, state, { sourceDigest });
   } catch {
     return false;

@@ -6,9 +6,9 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
  *
  * Delegates to {@link resolveSourceBuildCachePaths}; kept as a thin accessor for
  * callers that only need the plugin-binary root. Triggers the opportunistic
- * project-cache GC attempts as a side effect for the default location. Admission,
- * protected entries and tolerated failures can defer reclamation; this accessor
- * does not certify a storage ceiling or successful eviction.
+ * project-cache GC attempts as a side effect for the default location.
+ * Admission, protected entries and tolerated failures can defer reclamation;
+ * this accessor does not certify a storage ceiling or successful eviction.
  *
  * @evidence contracts/common.md#principled-implementation The binary root comes from the shared source layout and only ownership-admitted default caches are opportunistically pruned.
  * @evidence contracts/common.md#clear-and-simple-design One adapter delegates selection and maintenance before projecting pluginRoot.

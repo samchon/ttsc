@@ -1,15 +1,16 @@
 import { type ChildProcess } from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawn } = E2eProcessTrace;
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
-import type { IWatchSession } from "./IWatchSession";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
+import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
 import { pluginCacheDirectory } from "../../../../../utils/src/evidence/pluginCacheDirectory";
 import { resolveDependency } from "../../../../../utils/src/evidence/resolveDependency";
+import type { IWatchSession } from "./IWatchSession";
+
+const { spawn } = E2eProcessTrace;
 
 /** Terminates one rebuild, whichever way it ended. */
 const BUILD_MARKER = /\[ttsc\] watch build (complete|failed)\r?\n/g;
@@ -135,13 +136,24 @@ export const startWatch = (
   });
   child.on("close", (code, signal) => {
     closed = true;
-    const lastMarker = [...text.matchAll(/\[ttsc\] watch build (complete|failed)\r?\n/g)].at(-1);
-    const lastStatus = lastMarker === undefined ? undefined : lastMarker[1] === "failed" ? 2 : 0;
-    if (acknowledgedStopStatus === undefined || acknowledgedStopStatus !== lastStatus || code !== acknowledgedStopStatus || signal !== null)
-      EvidenceProcessOwnership.retain(directory, new Error(
-        "Watch launcher closure does not establish joined native descendants.",
-        { cause: { code, signal } },
-      ));
+    const lastMarker = [
+      ...text.matchAll(/\[ttsc\] watch build (complete|failed)\r?\n/g),
+    ].at(-1);
+    const lastStatus =
+      lastMarker === undefined ? undefined : lastMarker[1] === "failed" ? 2 : 0;
+    if (
+      acknowledgedStopStatus === undefined ||
+      acknowledgedStopStatus !== lastStatus ||
+      code !== acknowledgedStopStatus ||
+      signal !== null
+    )
+      EvidenceProcessOwnership.retain(
+        directory,
+        new Error(
+          "Watch launcher closure does not establish joined native descendants.",
+          { cause: { code, signal } },
+        ),
+      );
     notify();
   });
   child.on("exit", () => {
@@ -241,11 +253,17 @@ export const startWatch = (
         let deadline: NodeJS.Timeout | undefined;
         let settled = false;
         let atStop: string | undefined;
-        let recordedDescendants: ReturnType<typeof sampleShutdownDescendants> | undefined;
-        const sampleAtDeadline = (): string => sampleLauncher(child.pid) +
+        let recordedDescendants:
+          | ReturnType<typeof sampleShutdownDescendants>
+          | undefined;
+        const sampleAtDeadline = (): string =>
+          sampleLauncher(child.pid) +
           " Recorded shutdown process tree now: " +
           (recordedDescendants
-            ? sampleShutdownDescendants(child.pid, recordedDescendants.identities).snapshot
+            ? sampleShutdownDescendants(
+                child.pid,
+                recordedDescendants.identities,
+              ).snapshot
             : "(not sampled)");
         const settle = (success: boolean, error?: unknown): void => {
           if (settled) return;
@@ -270,9 +288,15 @@ export const startWatch = (
         const onMessage = (value: unknown): void => {
           if (typeof value !== "object" || value === null) return;
           const message = value as Record<string, unknown>;
-          if (message.type !== "ttsc.watch.stopped" || message.id !== id) return;
+          if (message.type !== "ttsc.watch.stopped" || message.id !== id)
+            return;
           if (message.status !== 0 && message.status !== 2) {
-            settle(false, new Error("The watcher returned an invalid joined shutdown status."));
+            settle(
+              false,
+              new Error(
+                "The watcher returned an invalid joined shutdown status.",
+              ),
+            );
             return;
           }
           acknowledgedStopStatus = message.status;
@@ -288,26 +312,46 @@ export const startWatch = (
         // Every success also joins launcher close;
         // every failure removes this shutdown owner's listener and timers.
         deadline = setTimeout(() => {
-          settle(false, new Error(
-            "The watch child did not close after termination.\n" +
-              describeUnstoppedLauncher(atStop, sampleAtDeadline(), text.slice(cursor)),
-          ));
+          settle(
+            false,
+            new Error(
+              "The watch child did not close after termination.\n" +
+                describeUnstoppedLauncher(
+                  atStop,
+                  sampleAtDeadline(),
+                  text.slice(cursor),
+                ),
+            ),
+          );
         }, 20_000);
         try {
           if (child.exitCode === null && child.signalCode === null) {
-            if (!child.connected) throw new Error("The watch child has no owning shutdown channel.");
+            if (!child.connected)
+              throw new Error(
+                "The watch child has no owning shutdown channel.",
+              );
             recordedDescendants = sampleShutdownDescendants(child.pid);
-            atStop = sampleLauncher(child.pid) + " Rooted shutdown process tree: " + recordedDescendants.snapshot;
+            atStop =
+              sampleLauncher(child.pid) +
+              " Rooted shutdown process tree: " +
+              recordedDescendants.snapshot;
             child.send({ type: "ttsc.watch.stop", id }, (error) => {
               if (error) settle(false, error);
             });
             if (!settled)
               force = setTimeout(() => {
                 if (closed) return;
-                EvidenceProcessOwnership.retain(directory, new Error(
-                  "Watch shutdown required forced launcher termination.\n" +
-                    describeUnstoppedLauncher(atStop, sampleAtDeadline(), text.slice(cursor)),
-                ));
+                EvidenceProcessOwnership.retain(
+                  directory,
+                  new Error(
+                    "Watch shutdown required forced launcher termination.\n" +
+                      describeUnstoppedLauncher(
+                        atStop,
+                        sampleAtDeadline(),
+                        text.slice(cursor),
+                      ),
+                  ),
+                );
                 try {
                   child.kill("SIGKILL");
                 } catch (error) {
@@ -370,7 +414,14 @@ function sampleLauncher(pid: number | undefined): string {
   const children = read("/proc/" + pid + "/task/" + pid + "/children")
     .split(" ")
     .filter((child) => child !== "")
-    .map((child) => child + "=" + read("/proc/" + child + "/cmdline").replaceAll("\0", " ").slice(0, 120));
+    .map(
+      (child) =>
+        child +
+        "=" +
+        read("/proc/" + child + "/cmdline")
+          .replaceAll("\0", " ")
+          .slice(0, 120),
+    );
   let descriptors: string[] = [];
   try {
     descriptors = fs.readdirSync("/proc/" + pid + "/fd").map((fd) => {
@@ -406,15 +457,21 @@ function sampleShutdownDescendants(
 ): { identities: Map<number, string>; snapshot: string } {
   const identities = new Map<number, string>();
   if (process.platform !== "linux" || pid === undefined)
-    return { identities, snapshot: "(Linux process-tree observation unavailable)" };
+    return {
+      identities,
+      snapshot: "(Linux process-tree observation unavailable)",
+    };
   const queue = recorded ? [...recorded.keys()] : [pid];
   const visited = new Set<number>();
   const records: Record<string, unknown>[] = [];
   let truncated = false;
   let retainedCharacters = 0;
   const read = (file: string): string => {
-    try { return fs.readFileSync(file, "utf8").trim(); }
-    catch (error) { return "unavailable: " + String(error); }
+    try {
+      return fs.readFileSync(file, "utf8").trim();
+    } catch (error) {
+      return "unavailable: " + String(error);
+    }
   };
   for (let index = 0; index < queue.length && visited.size < 64; ++index) {
     const current = queue[index];
@@ -426,8 +483,16 @@ function sampleShutdownDescendants(
     const startTicks = /^\d+$/.test(fields[19] ?? "") ? fields[19] : undefined;
     if (startTicks !== undefined) identities.set(current, startTicks);
     const expectedStartTicks = recorded?.get(current);
-    const sameIncarnation = expectedStartTicks === undefined ? null : startTicks === expectedStartTicks;
-    const descriptors: { fd: string; target?: string; targetTruncated?: boolean; error?: string }[] = [];
+    const sameIncarnation =
+      expectedStartTicks === undefined
+        ? null
+        : startTicks === expectedStartTicks;
+    const descriptors: {
+      fd: string;
+      target?: string;
+      targetTruncated?: boolean;
+      error?: string;
+    }[] = [];
     let descriptorError: string | undefined;
     try {
       const names = fs.readdirSync(root + "/fd").sort();
@@ -435,11 +500,18 @@ function sampleShutdownDescendants(
       for (const name of names.slice(0, 64)) {
         try {
           const target = fs.readlinkSync(root + "/fd/" + name);
-          descriptors.push({ fd: name, target: target.slice(0, 256), targetTruncated: target.length > 256 });
+          descriptors.push({
+            fd: name,
+            target: target.slice(0, 256),
+            targetTruncated: target.length > 256,
+          });
+        } catch (error) {
+          descriptors.push({ fd: name, error: String(error) });
         }
-        catch (error) { descriptors.push({ fd: name, error: String(error) }); }
       }
-    } catch (error) { descriptorError = String(error); }
+    } catch (error) {
+      descriptorError = String(error);
+    }
     let childDiscoveryError: string | undefined;
     if (!recorded && startTicks !== undefined) {
       try {
@@ -447,25 +519,44 @@ function sampleShutdownDescendants(
         if (tasks.length > 64) truncated = true;
         for (const task of tasks.slice(0, 64)) {
           const children = read(root + "/task/" + task + "/children");
-          if (children.startsWith("unavailable:")) { childDiscoveryError = children; continue; }
+          if (children.startsWith("unavailable:")) {
+            childDiscoveryError = children;
+            continue;
+          }
           for (const token of children.split(/\s+/)) {
             const childPid = Number(token);
-            if (!Number.isSafeInteger(childPid) || childPid <= 0 || visited.has(childPid) || queue.includes(childPid)) continue;
+            if (
+              !Number.isSafeInteger(childPid) ||
+              childPid <= 0 ||
+              visited.has(childPid) ||
+              queue.includes(childPid)
+            )
+              continue;
             if (queue.length < 64) queue.push(childPid);
             else truncated = true;
           }
         }
-      } catch (error) { childDiscoveryError = String(error); }
+      } catch (error) {
+        childDiscoveryError = String(error);
+      }
     }
     const afterStat = read(root + "/stat");
-    const afterFields = afterStat.slice(afterStat.lastIndexOf(")") + 2).split(" ");
+    const afterFields = afterStat
+      .slice(afterStat.lastIndexOf(")") + 2)
+      .split(" ");
     const record = {
-      pid: current, startTicks, expectedStartTicks, sameIncarnation,
-      identityStableDuringSample: startTicks !== undefined && afterFields[19] === startTicks,
+      pid: current,
+      startTicks,
+      expectedStartTicks,
+      sameIncarnation,
+      identityStableDuringSample:
+        startTicks !== undefined && afterFields[19] === startTicks,
       state: startTicks === undefined ? undefined : fields[0],
       ppid: startTicks === undefined ? undefined : fields[1],
       statError: startTicks === undefined ? stat.slice(0, 256) : undefined,
-      descriptors, descriptorError, childDiscoveryError,
+      descriptors,
+      descriptorError,
+      childDiscoveryError,
     };
     const serialized = JSON.stringify(record);
     if (retainedCharacters + serialized.length <= 60_000) {
@@ -473,11 +564,18 @@ function sampleShutdownDescendants(
       retainedCharacters += serialized.length;
     } else truncated = true;
   }
-  return { identities, snapshot: JSON.stringify({
-    records, truncated, processLimit: 64, taskLimitPerProcess: 64,
-    descriptorLimitPerProcess: 64, descriptorTargetCharacterLimit: 256,
-    snapshotCharacterLimit: 60_000,
-    discovery: recorded ? "recorded-pids-only" : "rooted-all-task-children",
-    descendantCompletenessCertified: false,
-  }) };
+  return {
+    identities,
+    snapshot: JSON.stringify({
+      records,
+      truncated,
+      processLimit: 64,
+      taskLimitPerProcess: 64,
+      descriptorLimitPerProcess: 64,
+      descriptorTargetCharacterLimit: 256,
+      snapshotCharacterLimit: 60_000,
+      discovery: recorded ? "recorded-pids-only" : "rooted-all-task-children",
+      descendantCompletenessCertified: false,
+    }),
+  };
 }

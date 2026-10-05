@@ -1,16 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, num, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of meta-properties, comma lists, computed names, regex, and `super`.
+ * Verifies printing of meta-properties, comma lists, computed names, regex, and
+ * `super`.
  *
  * `import.meta`, `new.target`, a comma-list expression, a computed object key,
  * a regular-expression literal, and a `super(...)` call.
  *
- * 1. Meta properties, comma lists, computed property names, regex literals and super calls retain their distinct syntax.
- * 2. Explicit import.meta/new.target, comma, computed key, regex and super literals specify the supplied source independently.
+ * 1. Meta properties, comma lists, computed property names, regex literals and
+ *    super calls retain their distinct syntax.
+ * 2. Explicit import.meta/new.target, comma, computed key, regex and super
+ *    literals specify the supplied source independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Meta properties, comma lists, computed property names, regex literals and super calls retain their distinct syntax.
  * @evidence contracts/testing.md#independent-expectations Explicit import.meta/new.target, comma, computed key, regex and super literals specify the supplied source independently.

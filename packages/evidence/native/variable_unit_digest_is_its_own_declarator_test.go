@@ -17,16 +17,6 @@ func variableDigestOf(t *testing.T, target string, content string) string {
   return ""
 }
 
-
-
-
-
-
-
-
-
-
-
 // innerDeclaratorReviewConfig cites a variable through a TypeScript reference
 // that requires a review, which is the only arrangement where the review and
 // the unit it fingerprints can share a file.

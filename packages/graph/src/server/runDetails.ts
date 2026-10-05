@@ -314,7 +314,11 @@ function refs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    retainRanked(ranked, { ref, rank: refRank(ref, edge), order: order++ }, limit);
+    retainRanked(
+      ranked,
+      { ref, rank: refRank(ref, edge), order: order++ },
+      limit,
+    );
   }
   return ranked.map((item) => item.ref);
 }

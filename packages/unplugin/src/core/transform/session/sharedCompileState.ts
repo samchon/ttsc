@@ -7,14 +7,15 @@ import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirecto
  * takes before compiling (samchon/ttsc#1390).
  *
  * It encodes supplied file hash entries, relevant directory path/signature
- * records and the caller's tsconfig-state signature. Capture supplies a complete
- * before-walk snapshot before making a shared claim. Irrelevant directory
- * records are omitted by their recorded relevance flag, not by an output name.
- * This truncated key does not establish snapshot completeness or stability
- * itself: publication and adoption retain those proof responsibilities. Inputs outside the walk,
- * such as the reference graph's and the plugins' own inputs, are not in the
- * digest: the envelope records their compile-time state, and the adopter proves
- * it against the filesystem as it would its own compile's.
+ * records and the caller's tsconfig-state signature. Capture supplies a
+ * complete before-walk snapshot before making a shared claim. Irrelevant
+ * directory records are omitted by their recorded relevance flag, not by an
+ * output name. This truncated key does not establish snapshot completeness or
+ * stability itself: publication and adoption retain those proof
+ * responsibilities. Inputs outside the walk, such as the reference graph's and
+ * the plugins' own inputs, are not in the digest: the envelope records their
+ * compile-time state, and the adopter proves it against the filesystem as it
+ * would its own compile's.
  *
  * @evidence contracts/common.md#principled-implementation Sorted file keys and relevant directory addresses stream distinct file/directory records with their recorded hash/signature values after the config signature. The actual producer supplies native names without NUL and scalar hashes/signatures; this is a projection key, not standalone completeness or current-state proof. External inputs retain separate adoption validation.
  * @evidence contracts/common.md#clear-and-simple-design The digest streams the three existing snapshot components and filters only directories the membership policy already classified as irrelevant.

@@ -7,11 +7,11 @@ import { pluginSourceState } from "../../../../../packages/unplugin/src/core/tra
 import { createClockRollbackUnitFixture } from "../../internal/transform-project-cache/createClockRollbackUnitFixture";
 
 /**
- * Verifies projectRecordMoved stops reusing held plugin-source metadata
- * when the current filesystem clock reference falls behind those stamps.
+ * Verifies projectRecordMoved stops reusing held plugin-source metadata when
+ * the current filesystem clock reference falls behind those stamps.
  *
- * The bytes change while the supported filesystem view holds source metadata.
- * A newly minted probe under the authored rollback must withdraw the old
+ * The bytes change while the supported filesystem view holds source metadata. A
+ * newly minted probe under the authored rollback must withdraw the old
  * separability premise. Real Go environment inputs are preserved, not mocked.
  *
  * 1. Record real source state and require the unchanged proof's first verdict.
@@ -28,7 +28,10 @@ export function test_project_record_proof_reads_a_plugin_source_after_a_clock_ro
   fixture.settle();
   fixture.mintEarlier();
   const recordedState = pluginSourceState(fixture.source);
-  assert.ok(recordedState, "actual source and native environment must be readable");
+  assert.ok(
+    recordedState,
+    "actual source and native environment must be readable",
+  );
   const record: TtscProjectRecord = {
     inputs: {
       [fixture.source]: {

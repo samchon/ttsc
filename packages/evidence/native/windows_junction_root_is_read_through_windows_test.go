@@ -3,9 +3,9 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 /**
@@ -27,25 +27,25 @@ import (
  * @evidence contracts/testing.md#execution-ownership TestAWindowsJunctionRootIsReadThrough is a Windows-only Go unit entry of package evidence, run by go test on a Windows host. It creates real NTFS directory junctions through linkWindowsPopulationDirectory and drives the rule in-process; it starts no ttsc check, lint sidecar or installed consumer.
  */
 func TestAWindowsJunctionRootIsReadThrough(t *testing.T) {
-	workspace := t.TempDir()
-	target := filepath.Join(workspace, "target", "requirements")
-	if err := os.MkdirAll(target, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(target, "pricing.md"),
-		[]byte("## Discounts {#discounts}\n"),
-		0o644,
-	); err != nil {
-		t.Fatal(err)
-	}
-	if err := linkWindowsPopulationDirectory(filepath.Join(workspace, "target"), filepath.Join(workspace, "documents")); err != nil {
-		t.Fatal(err)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/src/sale.ts": "/** @evidence requirements/pricing.md#discounts Discount rules follow this section. */\n" +
-			"export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  target := filepath.Join(workspace, "target", "requirements")
+  if err := os.MkdirAll(target, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(
+    filepath.Join(target, "pricing.md"),
+    []byte("## Discounts {#discounts}\n"),
+    0o644,
+  ); err != nil {
+    t.Fatal(err)
+  }
+  if err := linkWindowsPopulationDirectory(filepath.Join(workspace, "target"), filepath.Join(workspace, "documents")); err != nil {
+    t.Fatal(err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "/** @evidence requirements/pricing.md#discounts Discount rules follow this section. */\n" +
+      "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
@@ -56,5 +56,5 @@ func TestAWindowsJunctionRootIsReadThrough(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	assertNoProblems(t, messages)
+  assertNoProblems(t, messages)
 }

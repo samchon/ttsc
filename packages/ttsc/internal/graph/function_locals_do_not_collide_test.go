@@ -13,10 +13,10 @@ import (
 // identity would merge unrelated call targets; these assertions permit separately
 // scope-qualified callable facts.
 //
-// 1. Load outerA and outerB, each with its own inner declaration.
-// 2. Build declarations and their relations from the real compiler.
-// 3. Require each scoped inner and its owner's call, then reject the unqualified
-//    inner node and edges to that shared identity.
+//  1. Load outerA and outerB, each with its own inner declaration.
+//  2. Build declarations and their relations from the real compiler.
+//  3. Require each scoped inner and its owner's call, then reject the unqualified
+//     inner node and edges to that shared identity.
 //
 // @evidence contracts/testing.md#behavioral-verification Build must retain outerA.inner and outerB.inner with their respective outer-to-inner call edges, while creating neither an unqualified inner node nor an edge to an unqualified inner target. Empty or dropped-local graphs cannot satisfy the positive counterpart.
 // @evidence contracts/testing.md#independent-expectations The two literal named outer functions define separate lexical inner declarations. Literal scoped names and owner/target pairs follow that nesting; the shared ID formatter selects their coordinates rather than supplying an independent ID-grammar oracle. An unqualified inner identity would erase the tested scope distinction.

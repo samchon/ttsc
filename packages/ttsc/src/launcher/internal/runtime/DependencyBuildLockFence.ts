@@ -4,8 +4,8 @@
  * Returned by {@link inspectDependencyBuildLock} and consumed by
  * {@link reclaimDependencyBuildLock}, so a waiter retires exactly the generation
  * it judged abandoned. Successor protection relies on the protocol's stable
- * cooperative namespace and noncolliding generation identities; this
- * structural value is not an authenticated ownership credential.
+ * cooperative namespace and noncolliding generation identities; this structural
+ * value is not an authenticated ownership credential.
  *
  * @evidence contracts/common.md#principled-implementation The observed generation is the retirement fence, so an abandoned observation identifies one historical holder rather than authorizing removal of whatever holds current later.
  * @evidence contracts/common.md#clear-and-simple-design One generation member carries the only identity the reclaim operation needs; observation labels and ownership authority stay outside the fence.

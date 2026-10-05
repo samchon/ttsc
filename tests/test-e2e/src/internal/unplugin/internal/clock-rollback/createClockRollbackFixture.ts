@@ -1,4 +1,3 @@
-import { FixtureFiles } from "../../../FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +5,7 @@ import path from "node:path";
 import { refreshFilesystemClockReference } from "../../../../../../../packages/unplugin/lib/core/transform/clock/refreshFilesystemClockReference.mjs";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
 import type { TtscTransformFilesystemOperations } from "../../../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.mjs";
+import { FixtureFiles } from "../../../FixtureFiles";
 import type { IClockRollbackFixture } from "./IClockRollbackFixture";
 
 /**
@@ -26,11 +26,17 @@ export function createClockRollbackFixture(): IClockRollbackFixture {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-clock-rollback-"),
   );
-  TestProject.writeFiles(root, FixtureFiles.read("createClockRollbackFixture/inputs-1", "unplugin"));
+  TestProject.writeFiles(
+    root,
+    FixtureFiles.read("createClockRollbackFixture/inputs-1", "unplugin"),
+  );
   const project = path.join(root, "project");
   const source = path.join(root, "plugin");
   TestProject.copyDirectory(
-    path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/plugin-source-baseline"),
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/unplugin/test/fixtures/plugin-source-baseline",
+    ),
     source,
   );
   const files = () =>

@@ -19,7 +19,6 @@ import { startsWithConfigDirTemplate } from "./startsWithConfigDirTemplate";
  * @param configDir The directory `${configDir}` stands for: that of the final
  *   consumer as its reader spells it, which for the compiler is the physical
  *   one (samchon/ttsc#1456). Defaults to the config's own directory as named.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Only template-bearing inherited options are materialized at the final
  *   consumer directory. Mixed lists preserve ordinary entries; a paths overlay

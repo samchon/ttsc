@@ -104,10 +104,20 @@ export const test_project_input_membership_classifies_program_topology =
       true,
       "filename-less membership changes must invalidate conservatively",
     );
-    assert.equal(projectInputMembershipInvalidatesProgram({ previous: empty, next: empty }), false);
-    assert.equal(projectInputMembershipInvalidatesProgram({
-      changed: markdown,
-      previous: population(typescript),
-      next: population(markdown),
-    }), true, "a named data event cannot hide a removed compiler source elsewhere in the population");
+    assert.equal(
+      projectInputMembershipInvalidatesProgram({
+        previous: empty,
+        next: empty,
+      }),
+      false,
+    );
+    assert.equal(
+      projectInputMembershipInvalidatesProgram({
+        changed: markdown,
+        previous: population(typescript),
+        next: population(markdown),
+      }),
+      true,
+      "a named data event cannot hide a removed compiler source elsewhere in the population",
+    );
   };

@@ -12,11 +12,11 @@ import (
 // visible even under inline disables, while sibling rules and later files keep
 // running normally.
 //
-// 1. Register a panicking rule and a healthy sibling, then parse two files with
-//    specific and blanket inline disables.
-// 2. Run serial dispatch over both files to observe deterministic visit counts.
-// 3. Require one visible failure per file with its original cause and source,
-//    and all six healthy sibling visits; clean up both owned registrations.
+//  1. Register a panicking rule and a healthy sibling, then parse two files with
+//     specific and blanket inline disables.
+//  2. Run serial dispatch over both files to observe deterministic visit counts.
+//  3. Require one visible failure per file with its original cause and source,
+//     and all six healthy sibling visits; clean up both owned registrations.
 //
 // @evidence contracts/testing.md#behavioral-verification Real Engine executes a panicking rule only once per file, emits two unsuppressed engine failures with original panic causes and corresponding source identities, while a healthy sibling receives all six visits in each file.
 // @evidence contracts/testing.md#independent-expectations Authored two-file sources contain six requested identifier/numeric visits each; literal one panic visit and six sibling visits independently specify per-file quarantine, alongside two error findings and the original throw text.

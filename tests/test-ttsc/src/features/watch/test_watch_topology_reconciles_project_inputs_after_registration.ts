@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +5,7 @@ import path from "node:path";
 import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
 import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies project-input publication closes the snapshot-to-watcher handoff.
@@ -28,69 +28,71 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it drives the real WatchTopology.setProjectInputs and its recovery scheduling over TestProject.tmpdir files, with fake fs.watch subscriptions that record callbacks and close counts. No compiler refresh, native build, product host or real OS watcher is involved.
  */
 export async function test_watch_topology_reconciles_project_inputs_after_registration() {
-    const root = TestProject.tmpdir("ttsc-project-input-registration-");
-    fs.mkdirSync(path.join(root, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, "src", "main.ts"),
-      "export const value = 1;\n",
-      "utf8",
-    );
-    fs.writeFileSync(
-      path.join(root, "tsconfig.json"),
-      JSON.stringify({ files: ["src/main.ts"] }),
-      "utf8",
-    );
-    const callbacks: fs.WatchListener<string>[] = [];
-    const watchers: FakeWatcher[] = [];
+  const root = TestProject.tmpdir("ttsc-project-input-registration-");
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    "export const value = 1;\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({ files: ["src/main.ts"] }),
+    "utf8",
+  );
+  const callbacks: fs.WatchListener<string>[] = [];
+  const watchers: FakeWatcher[] = [];
 
-    const openFileWatch = ((
-        _location: fs.PathLike,
-        _options: fs.WatchOptions,
-        listener: fs.WatchListener<string>,
-      ) => {
-        callbacks.push(listener);
-        const watcher = new FakeWatcher();
-        watchers.push(watcher);
-        return watcher as unknown as fs.FSWatcher;
-      }) as typeof fs.watch;
+  const openFileWatch = ((
+    _location: fs.PathLike,
+    _options: fs.WatchOptions,
+    listener: fs.WatchListener<string>,
+  ) => {
+    callbacks.push(listener);
+    const watcher = new FakeWatcher();
+    watchers.push(watcher);
+    return watcher as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
-    const failures: Error[] = [];
-    for (const [name, run] of [
-      [
-        "swallowed startup",
-        () => verifySwallowedStartupEvent(root, callbacks, watchers, openFileWatch),
-      ],
-      [
-        "backend event wins",
-        () => verifyBackendEventWins(root, callbacks, openFileWatch),
-      ],
-      [
-        "close cancellation",
-        () => verifyCloseCancelsReconciliation(root, openFileWatch),
-      ],
-      [
-        "uncovered and healthy roots",
-        verifyUncoveredRootDoesNotDisableHealthyReconciliation,
-      ],
-      ["new physical owner", verifyReconciliationRegistersNewPhysicalOwner],
-    ] as const) {
-      try {
-        await run();
-      } catch (cause) {
-        failures.push(new Error(name, { cause }));
-      }
+  const failures: Error[] = [];
+  for (const [name, run] of [
+    [
+      "swallowed startup",
+      () =>
+        verifySwallowedStartupEvent(root, callbacks, watchers, openFileWatch),
+    ],
+    [
+      "backend event wins",
+      () => verifyBackendEventWins(root, callbacks, openFileWatch),
+    ],
+    [
+      "close cancellation",
+      () => verifyCloseCancelsReconciliation(root, openFileWatch),
+    ],
+    [
+      "uncovered and healthy roots",
+      verifyUncoveredRootDoesNotDisableHealthyReconciliation,
+    ],
+    ["new physical owner", verifyReconciliationRegistersNewPhysicalOwner],
+  ] as const) {
+    try {
+      await run();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
     }
-    if (failures.length !== 0)
-      throw new AggregateError(
-        failures,
-        "project-input registration scenarios failed",
-      );
+  }
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "project-input registration scenarios failed",
+    );
 }
 
 async function verifySwallowedStartupEvent(
   root: string,
   callbacks: readonly fs.WatchListener<string>[],
-  watchers: readonly FakeWatcher[], openFileWatch: typeof fs.watch = fs.watch,
+  watchers: readonly FakeWatcher[],
+  openFileWatch: typeof fs.watch = fs.watch,
 ): Promise<void> {
   const changes: WatchInputChange[] = [];
   const input = path.join(root, "swallowed.md");
@@ -128,7 +130,8 @@ async function verifySwallowedStartupEvent(
 
 async function verifyBackendEventWins(
   root: string,
-  callbacks: readonly fs.WatchListener<string>[], openFileWatch: typeof fs.watch = fs.watch,
+  callbacks: readonly fs.WatchListener<string>[],
+  openFileWatch: typeof fs.watch = fs.watch,
 ): Promise<void> {
   const changes: WatchInputChange[] = [];
   const input = path.join(root, "backend.md");
@@ -147,7 +150,10 @@ async function verifyBackendEventWins(
   }
 }
 
-async function verifyCloseCancelsReconciliation(root: string, openFileWatch: typeof fs.watch = fs.watch): Promise<void> {
+async function verifyCloseCancelsReconciliation(
+  root: string,
+  openFileWatch: typeof fs.watch = fs.watch,
+): Promise<void> {
   const changes: WatchInputChange[] = [];
   const input = path.join(root, "closed.md");
   const topology = createTopology(root, changes, openFileWatch);
@@ -175,18 +181,17 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
   const unavailable: string[][] = [];
 
   const openFileWatch = ((location: fs.PathLike) => {
-      if (
-        fs.realpathSync.native(location) ===
-        fs.realpathSync.native(externalRoot)
-      ) {
-        const error = new Error(
-          "project-input watcher unavailable",
-        ) as NodeJS.ErrnoException;
-        error.code = "ENOSPC";
-        throw error;
-      }
-      return new FakeWatcher() as unknown as fs.FSWatcher;
-    }) as typeof fs.watch;
+    if (
+      fs.realpathSync.native(location) === fs.realpathSync.native(externalRoot)
+    ) {
+      const error = new Error(
+        "project-input watcher unavailable",
+      ) as NodeJS.ErrnoException;
+      error.code = "ENOSPC";
+      throw error;
+    }
+    return new FakeWatcher() as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
   const topology = new WatchTopology(
     {
@@ -208,7 +213,13 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
         );
       },
     },
-    (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
     openFileWatch,
   );
   try {
@@ -232,7 +243,6 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
     assert.equal(unavailable[0]?.length, 1);
   } finally {
     topology.close();
-
   }
 }
 
@@ -252,18 +262,18 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
   }> = [];
 
   const openFileWatch = ((
-      location: fs.PathLike,
-      _options: fs.WatchOptions,
-      listener: fs.WatchListener<string>,
-    ) => {
-      const watcher = new FakeWatcher();
-      registrations.push({
-        listener,
-        location: fs.realpathSync.native(location),
-        watcher,
-      });
-      return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch;
+    location: fs.PathLike,
+    _options: fs.WatchOptions,
+    listener: fs.WatchListener<string>,
+  ) => {
+    const watcher = new FakeWatcher();
+    registrations.push({
+      listener,
+      location: fs.realpathSync.native(location),
+      watcher,
+    });
+    return watcher as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
   const topology = createTopology(root, changes, openFileWatch);
   try {
@@ -304,7 +314,6 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
     ]);
   } finally {
     topology.close();
-
   }
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
@@ -314,7 +323,9 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
 
 function createTopology(
   root: string,
-  changes: WatchInputChange[], openFileWatch: typeof fs.watch = fs.watch, readDirectory: typeof fs.readdirSync = fs.readdirSync,
+  changes: WatchInputChange[],
+  openFileWatch: typeof fs.watch = fs.watch,
+  readDirectory: typeof fs.readdirSync = fs.readdirSync,
 ): WatchTopology {
   return new WatchTopology(
     {
@@ -333,7 +344,13 @@ function createTopology(
       },
     },
     // Every directory watch goes through the explicitly supplied subscription operation.
-    (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
     openFileWatch,
     readDirectory,
   );

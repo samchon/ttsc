@@ -22,13 +22,19 @@ import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
  */
 export function runSupportedResolutionRecorderProfile(): void {
   const allocatedRoot = TestProject.tmpdir("ttsc-recorder-require-resolve-");
-  TestProject.retainTemporaryDirectory(allocatedRoot, "Resolution observer descendants are not joined");
+  TestProject.retainTemporaryDirectory(
+    allocatedRoot,
+    "Resolution observer descendants are not joined",
+  );
   const root = fs.realpathSync.native(allocatedRoot);
   const present = path.join(root, "present.js");
   const missing = path.join(root, "later.js");
   fs.writeFileSync(present, "module.exports = 1;\n");
   assert.equal(fs.existsSync(missing), false);
-  const recorderPath = path.resolve(import.meta.dirname, "../../../../../../packages/ttsc/driver/resolutioninputs/recorder.cjs");
+  const recorderPath = path.resolve(
+    import.meta.dirname,
+    "../../../../../../packages/ttsc/driver/resolutioninputs/recorder.cjs",
+  );
   const script = [
     `const Module = require("node:module");`,
     `const path = require("node:path");`,
@@ -50,7 +56,10 @@ export function runSupportedResolutionRecorderProfile(): void {
     `const { hashes, complete } = recorder.finish();`,
     `process.stdout.write(JSON.stringify({ hashes, complete, consulted, wrapped, resolved, missingCode }));`,
   ].join("\n");
-  const result = E2eProcessTrace.spawnSync(process.execPath, ["-e", script], { cwd: root, encoding: "utf8" });
+  const result = E2eProcessTrace.spawnSync(process.execPath, ["-e", script], {
+    cwd: root,
+    encoding: "utf8",
+  });
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);

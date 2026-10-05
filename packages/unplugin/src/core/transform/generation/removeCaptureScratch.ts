@@ -10,9 +10,9 @@ import fs from "node:fs";
  * the event loop during native removal and retry delays; synchronous removal
  * also supports recursive retry options. Node retries supported busy/resource/
  * permission errors with linear backoff, increasing delay by 100 ms per try,
- * with maxRetries=10. A failure that outlasts the policy
- * is a real failure and propagates to the caller, which decides whether it may
- * replace an earlier error.
+ * with maxRetries=10. A failure that outlasts the policy is a real failure and
+ * propagates to the caller, which decides whether it may replace an earlier
+ * error.
  *
  * The removal operation is a parameter so a caller can observe the retry
  * request without a real locked directory. It must behave as `fs.promises.rm`
@@ -21,7 +21,6 @@ import fs from "node:fs";
  *
  * @param directory The adapter-owned scratch directory the capture created.
  * @param remove The removal operation; the native one by default.
- *
  * @evidence contracts/common.md#principled-implementation An asynchronous recursive removal with Node's retry options is the supported way to outlast a transient Windows hold, while a persistent failure is propagated instead of being reported as removed.
  * @evidence contracts/common.md#clear-and-simple-design One awaited call states the scratch-removal policy; the supported operation parameter permits observation or alternate caller behavior, while capture owns cleanup timing/order and the supplied operation owns actual retry execution.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The default operation is the native removal and a failure is never swallowed; injection is a parameter at this boundary rather than a replaced fs method, and no error is retried beyond the bound or masked as success.

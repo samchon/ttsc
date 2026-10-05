@@ -25,16 +25,11 @@ import { createIdentifier } from "../names/createIdentifier";
  * prints:
  *
  * ```ts
- * src: dst
+ * src: dst;
  * ```
  *
- * Callers ensure rest, default and property mapping form a legal combination
- * in the enclosing pattern; the builder does not check those constraints.
- *
- * @evidence contracts/common.md#principled-implementation Optional source key and local BindingName stay distinct, strings normalize to names, and rest/default fields preserve supplied syntax; legal combinations remain caller-owned.
- * @evidence contracts/common.md#clear-and-simple-design Shared name adapters and make perform normalization once while enclosing patterns own position and punctuation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts String normalization creates explicit name nodes rather than invented bindings or a guessed source-property mapping.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains source/local mapping, rest and defaults plus combination limits; examples and parameter descriptions are separated from tags.
+ * Callers ensure rest, default and property mapping form a legal combination in
+ * the enclosing pattern; the builder does not check those constraints.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param dotDotDotToken The rest token, if this is a rest element.
@@ -42,6 +37,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @param name The local binding name.
  * @param initializer The default-value initializer, if any.
  * @returns The created {@link BindingElement}.
+ * @evidence contracts/common.md#principled-implementation Optional source key and local BindingName stay distinct, strings normalize to names, and rest/default fields preserve supplied syntax; legal combinations remain caller-owned.
+ * @evidence contracts/common.md#clear-and-simple-design Shared name adapters and make perform normalization once while enclosing patterns own position and punctuation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts String normalization creates explicit name nodes rather than invented bindings or a guessed source-property mapping.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains source/local mapping, rest and defaults plus combination limits; examples and parameter descriptions are separated from tags.
  */
 export const createBindingElement = (
   dotDotDotToken: Token | undefined,

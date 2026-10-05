@@ -5,21 +5,19 @@ import path from "node:path";
 
 /**
  * The initial Go executable candidate before build-facing lookup applies the
- * module directory (`GoToolResolution.resolveGoToolForBuild`): TTSC_GO_BINARY when
- * set, the toolchain bundled with ttsc's platform package or a local native
- * build, `~/go-sdk`, and `go` on the path last.
+ * module directory (`GoToolResolution.resolveGoToolForBuild`): TTSC_GO_BINARY
+ * when set, the toolchain bundled with ttsc's platform package or a local
+ * native build, `~/go-sdk`, and `go` on the path last.
  *
  * Both the build (`buildSourcePlugin`) and the environment a consumer proves
  * the build's output against (`pluginBuildEnvironment`) resolve the compiler
  * here. Nonexplicit layout candidates use resolution/existence checks, not
  * content or executable-kind validation; later lookup/permission/probe owners
- * handle that candidate. The bundled flag denotes selected install layout,
- * not immutable physical ownership.
+ * handle that candidate. The bundled flag denotes selected install layout, not
+ * immutable physical ownership.
  *
  * @param env The build's effective environment.
- *
  * @returns The compiler, and whether it is the one ttsc bundles.
- *
  * @evidence contracts/common.md#principled-implementation Selection follows explicit override, packaged/local SDK layout, home SDK and bare-name fallback precedence. The bundled-layout flag chooses the downstream permission policy, without certifying candidate kind, execute access or immutable ownership here.
  * @evidence contracts/common.md#clear-and-simple-design One resolver is shared by builds and environment proofs, with ordered early returns and executable resolution left to its separate owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Install layouts are product-defined fallbacks and the explicit environment belongs to the caller; no process global or foreign resolver is patched.

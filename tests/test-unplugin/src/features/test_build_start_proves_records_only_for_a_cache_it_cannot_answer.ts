@@ -1,5 +1,3 @@
-import { TestProject } from "../../../utils/src/TestProject";
-import { unplugin } from "../../../../packages/unplugin/src/core/unplugin";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,6 +15,8 @@ import { pathIdentityKey } from "../../../../packages/unplugin/src/core/transfor
 import { hostInputStateHash } from "../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
 import { walkProjectInputs } from "../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
 import { readProjectMembershipPolicy } from "../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { unplugin } from "../../../../packages/unplugin/src/core/unplugin";
+import { TestProject } from "../../../utils/src/TestProject";
 
 /**
  * Verifies a build start proves the project records of its tool directory only

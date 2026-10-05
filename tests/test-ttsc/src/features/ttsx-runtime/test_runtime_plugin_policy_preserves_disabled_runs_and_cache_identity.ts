@@ -4,16 +4,19 @@ import { dependencyCacheKey } from "../../../../../packages/ttsc/src/launcher/in
 import { selectRuntimePluginPolicy } from "../../../../../packages/ttsc/src/launcher/internal/runtime/selectRuntimePluginPolicy";
 
 /**
- * Verifies runtime builds retain disabled plugin policy across project boundaries
- * and cannot reuse a generation compiled with enabled discovery.
+ * Verifies runtime builds retain disabled plugin policy across project
+ * boundaries and cannot reuse a generation compiled with enabled discovery.
  *
- * The entry's no-plugins policy also governs dependency and isolated-root builds.
- * Descriptor evaluation independently disables loading to prevent self-hosting.
- * Their selected policy must distinguish otherwise identical cache requests.
+ * The entry's no-plugins policy also governs dependency and isolated-root
+ * builds. Descriptor evaluation independently disables loading to prevent
+ * self-hosting. Their selected policy must distinguish otherwise identical
+ * cache requests.
  *
- * 1. Select ordinary, disabled-run and descriptor policies without mutating manifests.
+ * 1. Select ordinary, disabled-run and descriptor policies without mutating
+ *    manifests.
  * 2. Compare equal-policy requests and requests that differ only in plugin policy.
- * 3. Preserve isolated-root and descriptor-generation distinctions under both policies.
+ * 3. Preserve isolated-root and descriptor-generation distinctions under both
+ *    policies.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual policy selector preserves disabled manifests regardless of position and descriptor selection without modifying supplied objects; the actual key distinguishes enabled and disabled compilation identities while preserving equivalent requests.
  * @evidence contracts/testing.md#independent-expectations A run disabling plugins must prevent later loading, while ordinary runs retain project discovery. Emission with and without transforms is not equivalent work, so literal false/undefined expectations and key inequality follow from those contracts rather than snapshots.
@@ -43,17 +46,53 @@ export function test_runtime_plugin_policy_preserves_disabled_runs_and_cache_ide
   }
 
   for (const plugins of [undefined, false] as const) {
-    const base = { compilerIdentity: "compiler-a", descriptorLoad: false, plugins };
+    const base = {
+      compilerIdentity: "compiler-a",
+      descriptorLoad: false,
+      plugins,
+    };
     const project = dependencyCacheKey("project/tsconfig.json", base);
-    assert.equal(project, dependencyCacheKey("project/tsconfig.json", { ...base }));
-    assert.notEqual(project, dependencyCacheKey("project/tsconfig.json", { ...base, plugins: plugins === false ? undefined : false }));
-    assert.notEqual(project, dependencyCacheKey("project/tsconfig.json", { ...base, compilerIdentity: "compiler-b" }));
+    assert.equal(
+      project,
+      dependencyCacheKey("project/tsconfig.json", { ...base }),
+    );
+    assert.notEqual(
+      project,
+      dependencyCacheKey("project/tsconfig.json", {
+        ...base,
+        plugins: plugins === false ? undefined : false,
+      }),
+    );
+    assert.notEqual(
+      project,
+      dependencyCacheKey("project/tsconfig.json", {
+        ...base,
+        compilerIdentity: "compiler-b",
+      }),
+    );
     assert.notEqual(project, dependencyCacheKey("other/tsconfig.json", base));
-    const root = dependencyCacheKey("project/tsconfig.json", { ...base, root: "root.ts\0content-a" });
+    const root = dependencyCacheKey("project/tsconfig.json", {
+      ...base,
+      root: "root.ts\0content-a",
+    });
     assert.notEqual(project, root);
-    assert.notEqual(root, dependencyCacheKey("project/tsconfig.json", { ...base, root: "root.ts\0content-b" }));
-    const descriptorA = dependencyCacheKey("project/tsconfig.json", { ...base, descriptorLoad: true, descriptorNonce: "evaluation-a" });
-    const descriptorB = dependencyCacheKey("project/tsconfig.json", { ...base, descriptorLoad: true, descriptorNonce: "evaluation-b" });
+    assert.notEqual(
+      root,
+      dependencyCacheKey("project/tsconfig.json", {
+        ...base,
+        root: "root.ts\0content-b",
+      }),
+    );
+    const descriptorA = dependencyCacheKey("project/tsconfig.json", {
+      ...base,
+      descriptorLoad: true,
+      descriptorNonce: "evaluation-a",
+    });
+    const descriptorB = dependencyCacheKey("project/tsconfig.json", {
+      ...base,
+      descriptorLoad: true,
+      descriptorNonce: "evaluation-b",
+    });
     assert.notEqual(descriptorA, descriptorB);
     assert.notEqual(descriptorA, project);
   }

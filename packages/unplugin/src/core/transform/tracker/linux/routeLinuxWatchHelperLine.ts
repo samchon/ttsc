@@ -16,8 +16,8 @@ import { referenceLinuxWatchHelper } from "./referenceLinuxWatchHelper";
  * - `synced` releases the sync waiting on that id.
  * - `ready` makes a subscription live, and `error` refuses it.
  * - `gone` ends a subscription whose directory went away.
- * - Another line with a live subscription id and string name is one named
- *   event. Only an explicit `change` type is content; other types are `rename`.
+ * - Another line with a live subscription id and string name is one named event.
+ *   Only an explicit `change` type is content; other types are `rename`.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Parsed protocol discriminants route live ids; overflow retains unknown

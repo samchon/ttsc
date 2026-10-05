@@ -16,8 +16,8 @@ import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
-import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import type { SourceBuildFilesystemOperations } from "./SourceBuildFilesystemOperations";
+import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
@@ -52,11 +52,11 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * intended inputs; metadata-based witnesses and sequential observations do not
  * pin files against concurrent changes. Detected differences fail publication.
  * Existing binary hits trust the cache producer and key rather than rehashing
- * executable bytes. Default caches are managed
- * locally, while explicit roots retain caller-managed pruning policy. Every
- * returned cache key registers a reader token retained by this process until exit;
- * registration shares the builder/collector lease, and other consumers register
- * independent readers. Failure to establish ownership propagates.
+ * executable bytes. Default caches are managed locally, while explicit roots
+ * retain caller-managed pruning policy. Every returned cache key registers a
+ * reader token retained by this process until exit; registration shares the
+ * builder/collector lease, and other consumers register independent readers.
+ * Failure to establish ownership propagates.
  *
  * @evidence contracts/common.md#principled-implementation Compilation compares materialized and external source digests and checks pre-read toolchain witnesses before publication. These checks use trusted supplied readings and the witness's metadata policy; they detect observed disagreement without providing an atomic input snapshot or validating existing executable bytes.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
@@ -530,9 +530,9 @@ function reportPluginLockSteal(
  *   plugin's actual module declaration.
  * - Contributors that ship their own `go.mod` are rejected — the design relies on
  *   the contributor living inside the host's module so that workspace overlay
- *   rules and the host's dependency declarations govern module resolution.
- *   This is a module-ownership rule, not a sandbox preventing arbitrary imports
- *   or proving dependency content from the manifest alone.
+ *   rules and the host's dependency declarations govern module resolution. This
+ *   is a module-ownership rule, not a sandbox preventing arbitrary imports or
+ *   proving dependency content from the manifest alone.
  */
 function mergeContributors(opts: {
   contributors: readonly ITtscBuildContributor[];
@@ -575,7 +575,10 @@ function mergeContributors(opts: {
   );
   const imports: string[] = [];
   for (const contributor of sortedContributors) {
-    SourcePluginAdmission.requireContributorPackage(opts.pluginName, contributor);
+    SourcePluginAdmission.requireContributorPackage(
+      opts.pluginName,
+      contributor,
+    );
     const target = path.join(contribRoot, contributor.name);
     if (fs.existsSync(target)) {
       // Defensive: validatePluginContributors already rejects duplicate
@@ -765,10 +768,10 @@ function snapshotExternalSources(
  *
  * The build runs in a scratch copy of the module, where `../dep` names a
  * sibling of the copy instead of the module's sibling that `go build` in the
- * module compiles, and an absolute target would be read in
- * place. The copy's `go.mod` is rewritten to the absolute
- * directory of the proven copy through `go mod edit`, Go's own editor of the
- * file. A target inside the module moved with the copy and is left as it is.
+ * module compiles, and an absolute target would be read in place. The copy's
+ * `go.mod` is rewritten to the absolute directory of the proven copy through
+ * `go mod edit`, Go's own editor of the file. A target inside the module moved
+ * with the copy and is left as it is.
  */
 function anchorReplaceDirectories(
   replacements: readonly IPluginModuleReplaceDirectory[],
@@ -808,8 +811,8 @@ function anchorReplaceDirectories(
  * and outside replace targets before Go starts. A source edited in between is
  * built into the binary, which would then be published, permanently, under the
  * key of the state before the edit, and served once the source returned to it.
- * The copy is digested by the rule the key used
- * (`pluginSourceDigest`), and a difference publishes nothing.
+ * The copy is digested by the rule the key used (`pluginSourceDigest`), and a
+ * difference publishes nothing.
  *
  * @param source The directory the key covers.
  * @param compiled What the build compiled from it: its copy, or itself.

@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { print } from "../../internal/helpers";
 
 /**
@@ -10,7 +10,8 @@ import { print } from "../../internal/helpers";
  * `createToken` each render to their keyword text.
  *
  * 1. Keyword tokens retain true, false, null, this and readonly spellings.
- * 2. The explicit keyword/token pairs derive from TypeScript source spellings, not a reverse lookup in the factory printer.
+ * 2. The explicit keyword/token pairs derive from TypeScript source spellings, not
+ *    a reverse lookup in the factory printer.
  *
  * @evidence contracts/testing.md#behavioral-verification Keyword tokens retain true, false, null, this and readonly spellings.
  * @evidence contracts/testing.md#independent-expectations The explicit keyword/token pairs derive from TypeScript source spellings, not a reverse lookup in the factory printer.

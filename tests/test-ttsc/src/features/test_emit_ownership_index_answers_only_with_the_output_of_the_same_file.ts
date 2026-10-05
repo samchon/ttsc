@@ -1,9 +1,9 @@
-import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/internal/EmitOwnershipIndex";
+import { TestProject } from "../../../utils/src/TestProject";
 
 /**
  * Verifies the emit ownership index answers only with output compiled from the
@@ -15,11 +15,12 @@ import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/inter
  * (samchon/ttsc#1382). The positive cases pin that no legitimate answer was
  * lost: an ordinary mirror, a directory the compiler saw through a link, a root
  * named through a link, and each extension mapping; native source-alias inputs
- * are owned by test_emit_ownership_index_pairs_a_source_alias_with_its_physical_target.
- * The negative twins pin that a same-named file elsewhere, a
- * declaration file, a file outside the root, and an output the record does not
- * list are never answers. Same-stem siblings receive only the output whose
- * producer record names them, independently of maps or extension precedence.
+ * are owned by
+ * test_emit_ownership_index_pairs_a_source_alias_with_its_physical_target. The
+ * negative twins pin that a same-named file elsewhere, a declaration file, a
+ * file outside the root, and an output the record does not list are never
+ * answers. Same-stem siblings receive only the output whose producer record
+ * names them, independently of maps or extension precedence.
  *
  * 1. Lay out sources under a root and outputs under an emit directory, with a
  *    directory link.
@@ -71,13 +72,22 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     ];
     for (const output of outputs) write(path.join(emit, output));
 
-    const emittedSources: Record<string, string[]> = Object.fromEntries([
-      ["a/index.ts", "a/index.js"], ["real/aliased.ts", "alias/aliased.js"],
-      ["modules/esm.mts", "modules/esm.mjs"], ["modules/cjs.cts", "modules/cjs.cjs"],
-      ["view/page.tsx", "view/page.jsx"], ["solo/widget.tsx", "solo/widget.js"],
-      ["both/twin.ts", "both/twin.js"],
-    ].map(([source, output]) => [path.join(emit, output!), [fs.realpathSync.native(path.join(root, source!))]]));
-    const createIndex = () => new EmitOwnershipIndex({ emitDir: emit, rootDir: root, emittedSources });
+    const emittedSources: Record<string, string[]> = Object.fromEntries(
+      [
+        ["a/index.ts", "a/index.js"],
+        ["real/aliased.ts", "alias/aliased.js"],
+        ["modules/esm.mts", "modules/esm.mjs"],
+        ["modules/cjs.cts", "modules/cjs.cjs"],
+        ["view/page.tsx", "view/page.jsx"],
+        ["solo/widget.tsx", "solo/widget.js"],
+        ["both/twin.ts", "both/twin.js"],
+      ].map(([source, output]) => [
+        path.join(emit, output!),
+        [fs.realpathSync.native(path.join(root, source!))],
+      ]),
+    );
+    const createIndex = () =>
+      new EmitOwnershipIndex({ emitDir: emit, rootDir: root, emittedSources });
     const index = createIndex();
     const found = (source: string): string | null =>
       index.find(path.join(root, source));
@@ -89,10 +99,18 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     const sourceOwner = fs.realpathSync.native(path.join(root, "a/index.ts"));
     const writerAliases = [path.join(linkedEmit, "a/index.js")];
     const caseAlias = emitted("a/INDEX.js");
-    if (fs.existsSync(caseAlias) && fs.realpathSync.native(caseAlias) === physicalOutput)
+    if (
+      fs.existsSync(caseAlias) &&
+      fs.realpathSync.native(caseAlias) === physicalOutput
+    )
       writerAliases.push(caseAlias);
-    const volumeAlias = physicalOutput.replace(/^[A-Z]:/, (root) => root.toLowerCase());
-    if (volumeAlias !== physicalOutput && fs.realpathSync.native(volumeAlias) === physicalOutput)
+    const volumeAlias = physicalOutput.replace(/^[A-Z]:/, (root) =>
+      root.toLowerCase(),
+    );
+    if (
+      volumeAlias !== physicalOutput &&
+      fs.realpathSync.native(volumeAlias) === physicalOutput
+    )
       writerAliases.push(volumeAlias);
     for (const writer of writerAliases) {
       assert.equal(fs.realpathSync.native(writer), physicalOutput);
@@ -114,7 +132,10 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
         [sharedWriter]: [sourceOwner],
       },
     });
-    assert.equal(repeatedOwner.find(path.join(root, "a/index.ts")), physicalOutput);
+    assert.equal(
+      repeatedOwner.find(path.join(root, "a/index.ts")),
+      physicalOutput,
+    );
     const contradictoryOwners = new EmitOwnershipIndex({
       emitDir: emit,
       rootDir: root,
@@ -125,32 +146,46 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
       },
     });
     for (const source of ["a/index.ts", "b/index.ts"])
-      assert.throws(() => contradictoryOwners.find(path.join(root, source)),
-        /multiple source owners|ownership is ambiguous/);
+      assert.throws(
+        () => contradictoryOwners.find(path.join(root, source)),
+        /multiple source owners|ownership is ambiguous/,
+      );
     const outsideOutput = path.join(base, "outside-output.js");
     write(outsideOutput);
-    assert.throws(() => new EmitOwnershipIndex({
-      emitDir: emit,
-      rootDir: root,
-      outputs: ["a/index.js"],
-      emittedSources: { [outsideOutput]: [sourceOwner] },
-    }), /provenance escapes its output directory/);
-    assert.throws(() => new EmitOwnershipIndex({
-      emitDir: emit,
-      rootDir: root,
-      outputs: ["a/index.js"],
-      emittedSources: { [emitted("modules/esm.mjs")]: [sourceOwner] },
-    }), /provenance names an unrecorded output/);
+    assert.throws(
+      () =>
+        new EmitOwnershipIndex({
+          emitDir: emit,
+          rootDir: root,
+          outputs: ["a/index.js"],
+          emittedSources: { [outsideOutput]: [sourceOwner] },
+        }),
+      /provenance escapes its output directory/,
+    );
+    assert.throws(
+      () =>
+        new EmitOwnershipIndex({
+          emitDir: emit,
+          rootDir: root,
+          outputs: ["a/index.js"],
+          emittedSources: { [emitted("modules/esm.mjs")]: [sourceOwner] },
+        }),
+      /provenance names an unrecorded output/,
+    );
     // A sensitive filesystem keeps this second writer distinct. The native
     // identity observation, rather than the host OS name, owns that premise.
     if (!fs.existsSync(caseAlias)) write(caseAlias, "// distinct writer\n");
     if (fs.realpathSync.native(caseAlias) !== physicalOutput) {
-      assert.throws(() => new EmitOwnershipIndex({
-        emitDir: emit,
-        rootDir: root,
-        outputs: ["a/index.js"],
-        emittedSources: { [caseAlias]: [sourceOwner] },
-      }), /provenance names an unrecorded output/);
+      assert.throws(
+        () =>
+          new EmitOwnershipIndex({
+            emitDir: emit,
+            rootDir: root,
+            outputs: ["a/index.js"],
+            emittedSources: { [caseAlias]: [sourceOwner] },
+          }),
+        /provenance names an unrecorded output/,
+      );
     }
 
     assert.equal(found("a/index.ts"), emitted("a/index.js"));
@@ -185,7 +220,9 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
         mappings: "",
       }),
     );
-    emittedSources[path.join(emit, "mapped/pair.js")] = [fs.realpathSync.native(path.join(root, "mapped/pair.tsx"))];
+    emittedSources[path.join(emit, "mapped/pair.js")] = [
+      fs.realpathSync.native(path.join(root, "mapped/pair.tsx")),
+    ];
     const mapped = createIndex();
     assert.equal(
       mapped.find(path.join(root, "mapped", "pair.tsx")),
@@ -198,8 +235,12 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     write(path.join(root, "preserved/doc.tsx"));
     write(path.join(emit, "preserved/doc.js"));
     write(path.join(emit, "preserved/doc.jsx"));
-    emittedSources[path.join(emit, "preserved/doc.js")] = [fs.realpathSync.native(path.join(root, "preserved/doc.ts"))];
-    emittedSources[path.join(emit, "preserved/doc.jsx")] = [fs.realpathSync.native(path.join(root, "preserved/doc.tsx"))];
+    emittedSources[path.join(emit, "preserved/doc.js")] = [
+      fs.realpathSync.native(path.join(root, "preserved/doc.ts")),
+    ];
+    emittedSources[path.join(emit, "preserved/doc.jsx")] = [
+      fs.realpathSync.native(path.join(root, "preserved/doc.tsx")),
+    ];
     const preserved = createIndex();
     assert.equal(
       preserved.find(path.join(root, "preserved", "doc.ts")),
@@ -234,7 +275,10 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     const recorded = new EmitOwnershipIndex({
       emitDir: emit,
       outputs: ["a/index.js"],
-      emittedSources: { [path.join(emit, "a/index.js")]: emittedSources[path.join(emit, "a/index.js")]! },
+      emittedSources: {
+        [path.join(emit, "a/index.js")]:
+          emittedSources[path.join(emit, "a/index.js")]!,
+      },
       rootDir: root,
     });
     write(path.join(root, "late.ts"));

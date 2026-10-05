@@ -22,24 +22,23 @@ import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
  *
  * Each subscriber admits protocol lines after its opening frontier
  * (samchon/ttsc#1486); this is not atomic timestamp classification of writes.
- * The subscriber that
- * opens the watch hears it from the helper's answer on, and the helper writes
- * no event of a watch before that answer. One that joins a watch another
- * subscriber opened would otherwise be handed every line the helper had already
- * written and Node had not yet read, the tail of writes made before it existed:
- * a tracker opened right after an edit heard the rest of that edit as a change
- * during its compile, and compiled the project again. So a joining subscriber
- * hears nothing until the helper answers a sync sent when it joined, which the
- * helper writes only after every event queued before the request, and hears
- * every line after it. Its `ready` resolves at that answer, and a sync the
- * helper does not answer leaves it not live, reported through `onError`, since
- * it cannot know what it missed.
+ * The subscriber that opens the watch hears it from the helper's answer on, and
+ * the helper writes no event of a watch before that answer. One that joins a
+ * watch another subscriber opened would otherwise be handed every line the
+ * helper had already written and Node had not yet read, the tail of writes made
+ * before it existed: a tracker opened right after an edit heard the rest of
+ * that edit as a change during its compile, and compiled the project again. So
+ * a joining subscriber hears nothing until the helper answers a sync sent when
+ * it joined, which the helper writes only after every event queued before the
+ * request, and hears every line after it. Its `ready` resolves at that answer,
+ * and a sync the helper does not answer leaves it not live, reported through
+ * `onError`, since it cannot know what it missed.
  *
  * Throws when there is no helper to serve the watch, which the caller treats as
- * a failed tracker, falling back to snapshot validation.
- * Readiness is not a continuing liveness certificate: a later error or explicit
- * close retires coverage. Callbacks must return normally to complete fanout and
- * terminal clearing; this adapter does not isolate arbitrary callback throws.
+ * a failed tracker, falling back to snapshot validation. Readiness is not a
+ * continuing liveness certificate: a later error or explicit close retires
+ * coverage. Callbacks must return normally to complete fanout and terminal
+ * clearing; this adapter does not isolate arbitrary callback throws.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A first subscriber waits for native opening; a joining subscriber waits for

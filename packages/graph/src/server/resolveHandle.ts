@@ -1,9 +1,8 @@
-import type { IResolvedGraphHandle } from "./IResolvedGraphHandle";
-
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { parseTtscGraphNodeId } from "../model/TtscGraphNodeId";
 import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
+import type { IResolvedGraphHandle } from "./IResolvedGraphHandle";
 import { exportFanIn } from "./exportSurface";
 import { isSupportPath } from "./pathPolicy";
 

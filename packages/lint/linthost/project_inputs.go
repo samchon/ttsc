@@ -26,16 +26,16 @@ import (
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputSnapshot is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectInputSnapshot struct {
   // Root is the normalized physical dependency root with forward-slash spelling.
-  Root              string   `json:"root"`
+  Root string `json:"root"`
 
   // Files contains exact dependencies, including currently missing paths.
-  Files             []string `json:"files"`
+  Files []string `json:"files"`
 
   // Globs contains changing dependency populations, including empty matches.
-  Globs             []string `json:"globs"`
+  Globs []string `json:"globs"`
 
   // ReloadFiles also trigger reconsideration of execution selection.
-  ReloadFiles       []string `json:"reloadFiles,omitempty"`
+  ReloadFiles []string `json:"reloadFiles,omitempty"`
 
   // ReloadDirectories observe changes that can introduce a nearer config.
   ReloadDirectories []string `json:"reloadDirectories,omitempty"`

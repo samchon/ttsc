@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
@@ -11,8 +11,10 @@ import { id, print } from "../../internal/helpers";
  * {@link factory.createElementAccessExpression|element access} with numeric and
  * expression indices.
  *
- * 1. Property and element access preserve their receiver, dot or brackets and literal/identifier index.
- * 2. Literal a.b, a[0] and a[k] expectations independently encode the chosen access form.
+ * 1. Property and element access preserve their receiver, dot or brackets and
+ *    literal/identifier index.
+ * 2. Literal a.b, a[0] and a[k] expectations independently encode the chosen
+ *    access form.
  *
  * @evidence contracts/testing.md#behavioral-verification Property and element access preserve their receiver, dot or brackets and literal/identifier index.
  * @evidence contracts/testing.md#independent-expectations Literal a.b, a[0] and a[k] expectations independently encode the chosen access form.

@@ -5,10 +5,10 @@ import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
  *
  * Validation lets a retained watcher's silence stand in for re-reading inputs.
  * When the host's watch policy stops justifying that, trackers are detached
- * before their close attempts, and later validation takes the path a
- * generation whose watchers never opened already takes: its recorded snapshot.
- * The clock reference and the generation itself stay, so an unchanged project
- * keeps its compile.
+ * before their close attempts, and later validation takes the path a generation
+ * whose watchers never opened already takes: its recorded snapshot. The clock
+ * reference and the generation itself stay, so an unchanged project keeps its
+ * compile.
  *
  * @evidence contracts/common.md#principled-implementation Detaching all tracker fields before closure removes their authority immediately, so subsequent validation cannot rely on a tracker whose cleanup failed.
  * @evidence contracts/common.md#clear-and-simple-design Withdrawal closes notification resources while preserving the generation and clock evidence needed by recorded-state validation.

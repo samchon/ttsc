@@ -14,12 +14,12 @@ import (
 // Missing structure must not panic or discard the original source when
 // the node still has a valid parsed range.
 //
-// 1. Parse any source file to obtain a valid PrintContext.
-// 2. Use NodeFactory to build an ArrayLiteralExpression with nil Elements.
-// 3. Call printArrayLiteral directly and assert the synthetic node prints
-//    empty without panicking.
-// 4. Repeat on a parsed `[a, b]` whose Elements list is cleared and assert
-//    the original `[a, b]` source is preserved.
+//  1. Parse any source file to obtain a valid PrintContext.
+//  2. Use NodeFactory to build an ArrayLiteralExpression with nil Elements.
+//  3. Call printArrayLiteral directly and assert the synthetic node prints
+//     empty without panicking.
+//  4. Repeat on a parsed `[a, b]` whose Elements list is cleared and assert
+//     the original `[a, b]` source is preserved.
 //
 // @evidence contracts/testing.md#behavioral-verification printArrayLiteral must preserve [a, b] when its parsed Elements list is nil, and return empty for the original synthetic range.
 // @evidence contracts/testing.md#independent-expectations The fixture source supplies independent verbatim bytes; an unconditional empty result would now fail the nonempty case.

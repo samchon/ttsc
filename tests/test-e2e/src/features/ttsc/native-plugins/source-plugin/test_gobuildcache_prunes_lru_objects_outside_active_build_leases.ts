@@ -32,6 +32,7 @@ import {
  *    external objects or JSON files.
  * 8. Resolve user and explicitly named cache layouts and assert their objects and
  *    maintenance metadata remain untouched at the exact resolved roots.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual lease/GC/layout operations preserve objects under an active lease, prune older objects to the literal budget, bound a recent cohort, recover stale/completed/future records and refuse link escapes without rewriting external data or metadata.
  * @evidence contracts/testing.md#independent-expectations Fixture object bytes and explicitly ordered mtimes define the independent LRU/budget results; hard-linked external contents/mtime and junction targets establish ownership boundaries. Literal callback/record assertions and a timed child mutation expose maintenance arbitration.
  * @evidence contracts/testing.md#distinguishing-cases Active/released lease, recent sizes, future marker, stale/completed/future records, fresh/expired synthetic-PID lease, hard links, junctions and cache layouts retain original controls. Synthetic PID is not OS-death proof; collection uses status/heartbeat age. Permission-supported Node hosts retain the original conditional IPC-heartbeat fallback input.
@@ -44,7 +45,10 @@ import {
 export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
   async (): Promise<void> => {
     const root = TestProject.tmpdir("ttsc-go-cache-gc-");
-    TestProject.retainTemporaryDirectory(root, "Go cache heartbeat/arbitration graph has unresolved descendant ownership");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "Go cache heartbeat/arbitration graph has unresolved descendant ownership",
+    );
     const goCache = path.join(root, "go-build");
     const now = Date.now();
     const files = [
@@ -222,10 +226,15 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
     );
     let futureDidClose = false;
     const futureClosed = new Promise<void>((resolve) => {
-      futureRelease.once("close", () => { futureDidClose = true; resolve(); });
+      futureRelease.once("close", () => {
+        futureDidClose = true;
+        resolve();
+      });
     });
     let futureProcessError: Error | undefined;
-    futureRelease.once("error", (error) => { futureProcessError = error; });
+    futureRelease.once("error", (error) => {
+      futureProcessError = error;
+    });
     let futureIntentYielded = false;
     const futureWaitStarted = Date.now();
     const arbitrationErrors: unknown[] = [];
@@ -242,13 +251,21 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
         arbitrationErrors.push(error);
       }
       try {
-        await waitForCondition(() => futureDidClose, "future-intent child actual close", 120_000);
+        await waitForCondition(
+          () => futureDidClose,
+          "future-intent child actual close",
+          120_000,
+        );
         await futureClosed;
       } catch (error) {
         arbitrationErrors.push(error);
       }
     }
-    if (arbitrationErrors.length) throw new AggregateError(arbitrationErrors, "future-intent arbitration or close failed");
+    if (arbitrationErrors.length)
+      throw new AggregateError(
+        arbitrationErrors,
+        "future-intent arbitration or close failed",
+      );
     assert.equal(futureProcessError, undefined);
     assert.equal(futureIntentYielded, true);
     assert.ok(
@@ -387,8 +404,16 @@ export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
         ],
         { encoding: "utf8" },
       );
-      assert.equal(permissionRun.error, undefined, "permission heartbeat child launch error");
-      assert.equal(permissionRun.signal, null, "permission heartbeat child terminated by signal");
+      assert.equal(
+        permissionRun.error,
+        undefined,
+        "permission heartbeat child launch error",
+      );
+      assert.equal(
+        permissionRun.signal,
+        null,
+        "permission heartbeat child terminated by signal",
+      );
       assert.equal(
         permissionRun.status,
         0,

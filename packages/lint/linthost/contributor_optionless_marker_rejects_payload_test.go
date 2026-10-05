@@ -48,7 +48,9 @@ func TestContributorOptionlessMarkerRejectsPayload(t *testing.T) {
     t.Fatalf("optionless contributor entered dispatch: %v", engine.EnabledRules())
   }
   valid := NewEngineWithResolver(InlineRuleResolver{Rules: RuleConfig{metadata.name: SeverityError}})
-  if err := valid.ConfigError(); err != nil || valid.EnabledRules()[metadata.name] != SeverityError { t.Fatalf("optionless contributor without payload should remain enabled: %v / %v", err, valid.EnabledRules()) }
+  if err := valid.ConfigError(); err != nil || valid.EnabledRules()[metadata.name] != SeverityError {
+    t.Fatalf("optionless contributor without payload should remain enabled: %v / %v", err, valid.EnabledRules())
+  }
 }
 
 type optionlessContributorRule struct{}

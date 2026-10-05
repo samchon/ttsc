@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +9,7 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/
 import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
 import type { TtscHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/TtscHostInputValidation";
 import { matchesUniversalHostInputTrees } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputTrees";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a silent source tracker cannot certify an external build environment
@@ -32,7 +32,13 @@ export async function test_silent_plugin_source_tracker_proves_nothing_once_the_
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-silent-tree-"),
   );
-  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/e2e/silent_plugin_source_tracker_proves_nothing_once_the_environment_moved/inputs-1"), root);
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/unplugin/test/fixtures/e2e/silent_plugin_source_tracker_proves_nothing_once_the_environment_moved/inputs-1",
+    ),
+    root,
+  );
   const source = path.join(root, "plugin");
   const result = { type: "success", typescript: {} };
   TRANSFORM_RESULT_FILESYSTEM.set(

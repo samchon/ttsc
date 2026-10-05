@@ -23,9 +23,9 @@ import { envelopeDerivation } from "./envelopeDerivation";
  * volatile keeps the baseline: the two declarations contradict, so the
  * conservative one wins.
  *
- * The derived list uses the envelope, fixed project/options and the generation's
- * observed native identity view, keyed by the delivered file's normalized
- * lexical spelling. Graph traversal uses its filesystem identity,
+ * The derived list uses the envelope, fixed project/options and the
+ * generation's observed native identity view, keyed by the delivered file's
+ * normalized lexical spelling. Graph traversal uses its filesystem identity,
  * but lexical inputs exclude only that exact spelling, so two aliases of one
  * source require distinct lists. Repeated deliveries of one spelling replay the
  * per-envelope memo ({@link envelopeDerivation}) instead of re-walking the

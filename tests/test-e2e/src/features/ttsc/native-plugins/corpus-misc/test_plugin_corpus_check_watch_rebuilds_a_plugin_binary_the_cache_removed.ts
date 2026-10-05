@@ -74,7 +74,11 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
       tsconfig: path.join(root, "tsconfig.json"),
     }).nativePlugins.find((plugin) => plugin.name === "@ttsc/lint")!.binary;
     fs.renameSync(binary, `${binary}.removed`);
-    assert.equal(fs.existsSync(binary), false, "the selected binary path is absent after rename");
+    assert.equal(
+      fs.existsSync(binary),
+      false,
+      "the selected binary path is absent after rename",
+    );
 
     // A cycle queued before the move may still run on the old binary; the
     // edit's own cycle is the one that must find it gone.
@@ -98,7 +102,10 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Resident check watch and shutdown failed");
+    throw new AggregateError(
+      failures,
+      "Resident check watch and shutdown failed",
+    );
 }
 
 async function waitFor(

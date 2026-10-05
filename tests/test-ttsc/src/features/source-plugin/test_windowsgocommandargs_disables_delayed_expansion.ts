@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import { windowsGoCommandArgs } from "../../../../../packages/ttsc/src/plugin/internal/source/windowsGoCommandArgs";
 
 /**
@@ -18,6 +19,10 @@ import { windowsGoCommandArgs } from "../../../../../packages/ttsc/src/plugin/in
  */
 export const test_windowsgocommandargs_disables_delayed_expansion = () => {
   assert.deepEqual(windowsGoCommandArgs("payload"), [
-    "/d", "/v:off", "/s", "/c", "payload",
+    "/d",
+    "/v:off",
+    "/s",
+    "/c",
+    "payload",
   ]);
 };

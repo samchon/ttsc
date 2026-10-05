@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   inspectPluginBuildLock,

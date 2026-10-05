@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx and positional `ttsc <file>` find the output of a build whose
@@ -20,6 +21,7 @@ import path from "node:path";
  * 2. Run it through ttsx with `--rootDir .`, and emit it with `ttsc src/main.ts
  *    --rootDir .` and with `--rootDir src`.
  * 3. Assert ttsx runs the entry and each emit writes the entry's own code.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs ttsx with --rootDir . and ttsc with rootDir . and src against main importing value; observes main:value and a main marker in each emitted file.
  * @evidence contracts/testing.md#independent-expectations The fixture authors main:value; emitted-file expectations require only the independently written main marker, not byte identity or execution of those two files.
  * @evidence contracts/testing.md#distinguishing-cases Two forwarded rootDir spellings exercise ttsc output lookup beside the ttsx run; emitted JavaScript equivalence is not asserted.
@@ -29,10 +31,17 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The standalone fixture has independent temporary ownership; the consolidated caller stages the same exact inputs on its borrowed root and supplies its guarded actual spawn; synchronous hosts finish before lib removal, and TestProject retains the project until process-exit cleanup.
  * @evidence contracts/e2e.md#preserved-coverage All three existing host results and emitted-file marker assertions remain in this same owning body for standalone and shared calls; no source-unit ownership is inferred from a similar parser case.
  */
-export function test_ttsx_and_ttsc_follow_a_forwarded_root_dir(
-  prepared?: { root: string; spawn: typeof TestProject.spawn },
-) {
-  const root = prepared?.root ?? TestProject.createProject(FixtureFiles.read("ttsc/ttsx_and_ttsc_follow_a_forwarded_root_dir/inputs-1"));
+export function test_ttsx_and_ttsc_follow_a_forwarded_root_dir(prepared?: {
+  root: string;
+  spawn: typeof TestProject.spawn;
+}) {
+  const root =
+    prepared?.root ??
+    TestProject.createProject(
+      FixtureFiles.read(
+        "ttsc/ttsx_and_ttsc_follow_a_forwarded_root_dir/inputs-1",
+      ),
+    );
 
   const run = (prepared?.spawn ?? TestProject.spawn)(
     TestProject.TTSX_BIN,

@@ -9,9 +9,11 @@ import { assertMetroAsksTheAdaptersPolicy } from "../../internal/metro-cache";
  * must invalidate without multiplying package-level test functions
  * (samchon/ttsc#1316, samchon/ttsc#1332).
  *
- * 1. Create config directory collisions, nested projects and missing extends candidates.
+ * 1. Create config directory collisions, nested projects and missing extends
+ *    candidates.
  * 2. Compare routed policies and captured fingerprint/recorder observations.
- * 3. Change config membership and overlays, asserting exact inclusion and output exclusions.
+ * 3. Change config membership and overlays, asserting exact inclusion and output
+ *    exclusions.
  *
  * @evidence contracts/testing.md#behavioral-verification Authored Metro and Unplugin policy operations agree on project routing, root/config membership, nested config appearance/removal, overlay source extensions and replacement output exclusions while recorded inputs retain their proper owners.
  * @evidence contracts/testing.md#independent-expectations Authored fixture config paths, allowJs controls and expected excluded/admitted directories independently specify the routed policy. Comparisons between the two owners prove agreement only; literal positive and negative membership assertions distinguish joint mistakes where supplied.

@@ -40,60 +40,68 @@ type plugin struct{}
 // only after output mapping.
 //
 // Principled implementation:
-//   Program source membership and the Program's Checker determine eligible
-//   module references. Helpers commit to the compiler's best paths pattern,
-//   preserve its substitution order and map recognized source extensions to
-//   emitted extensions. Only eligible string literals change; global ambient
-//   module names and locally bound require calls retain their meaning. Failed
-//   source or output mapping leaves the specifier unchanged.
+//
+//  Program source membership and the Program's Checker determine eligible
+//  module references. Helpers commit to the compiler's best paths pattern,
+//  preserve its substitution order and map recognized source extensions to
+//  emitted extensions. Only eligible string literals change; global ambient
+//  module names and locally bound require calls retain their meaning. Failed
+//  source or output mapping leaves the specifier unchanged.
 //
 // Clear and simple design:
-//   One rewriter owns the configuration snapshot and source index for this
-//   Program. Syntax eligibility, alias resolution and output mapping are
-//   separate helpers, so compiler path policy has one owner rather than a
-//   different implementation for each supported AST shape.
+//
+//  One rewriter owns the configuration snapshot and source index for this
+//  Program. Syntax eligibility, alias resolution and output mapping are
+//  separate helpers, so compiler path policy has one owner rather than a
+//  different implementation for each supported AST shape.
 //
 // Prohibited implementation shortcuts:
-//   Pattern keys and substitution targets come from compiler options, and
-//   source membership comes from the Program. Extension constants represent
-//   emitted language formats; they do not identify consumers or expected
-//   outputs. Mutating owned AST string literals is the host's transform
-//   protocol, not replacement of foreign methods or runtime globals.
+//
+//  Pattern keys and substitution targets come from compiler options, and
+//  source membership comes from the Program. Extension constants represent
+//  emitted language formats; they do not identify consumers or expected
+//  outputs. Mutating owned AST string literals is the host's transform
+//  protocol, not replacement of foreign methods or runtime globals.
 //
 // Meaningful documentation:
-//   Native comments explain why dependency completeness is withheld and how
-//   Checker facts delimit the rewrite. Helper documentation describes pattern
-//   precedence, source membership, root containment and extension semantics;
-//   member comments identify the stored configuration and source index. Each
-//   topic has its own paragraph, following the documentation skill.
+//
+//  Native comments explain why dependency completeness is withheld and how
+//  Checker facts delimit the rewrite. Helper documentation describes pattern
+//  precedence, source membership, root containment and extension semantics;
+//  member comments identify the stored configuration and source index. Each
+//  topic has its own paragraph, following the documentation skill.
 //
 // OS-neutral implementation:
-//   Native paths use filepath operations, while normalized keys use the
-//   Program filesystem's actual case policy. Root containment compares those
-//   keys and keeps the original suffix spelling. Common-root inference uses
-//   TypeScript-Go path components and rejects disjoint volumes; only the
-//   final relative module specifier uses protocol forward slashes.
+//
+//  Native paths use filepath operations, while normalized keys use the
+//  Program filesystem's actual case policy. Root containment compares those
+//  keys and keeps the original suffix spelling. Common-root inference uses
+//  TypeScript-Go path components and rejects disjoint volumes; only the
+//  final relative module specifier uses protocol forward slashes.
 //
 // Efficient algorithms:
-//   Construction indexes S source paths and orders P patterns once. Traversal
-//   visits N AST nodes once, with one recursive closure per file. Each eligible
-//   literal scans at most P patterns, then the selected pattern's T targets;
-//   each target performs a fixed number of hash lookups for recognized source
-//   extensions and index names. Pattern precedence requires finding the best
-//   match; sorted first-match resolution avoids sorting at every literal.
-//   Source indexing avoids scanning S files for each candidate.
+//
+//  Construction indexes S source paths and orders P patterns once. Traversal
+//  visits N AST nodes once, with one recursive closure per file. Each eligible
+//  literal scans at most P patterns, then the selected pattern's T targets;
+//  each target performs a fixed number of hash lookups for recognized source
+//  extensions and index names. Pattern precedence requires finding the best
+//  match; sorted first-match resolution avoids sorting at every literal.
+//  Source indexing avoids scanning S files for each candidate.
 //
 // Reuse equivalent work:
-//   All file walks share the source index, ordered paths and Checker of the
-//   same Program. Their validity is restricted to that invocation's source
-//   membership, options and semantic snapshot. A later Program constructs a
-//   new rewriter; the plugin does not reuse results across changed snapshots.
+//
+//  All file walks share the source index, ordered paths and Checker of the
+//  same Program. Their validity is restricted to that invocation's source
+//  membership, options and semantic snapshot. A later Program constructs a
+//  new rewriter; the plugin does not reuse results across changed snapshots.
 //
 // Bound retention and release resources:
-//   This synchronous invocation owns the rewriter. It retains one source
-//   entry per Program file and copied configuration targets, plus the active
-//   traversal stack. No global cache, handle or background task survives the
-//   call; those references become reclaimable when ApplyProgram returns.
+//
+//  This synchronous invocation owns the rewriter. It retains one source
+//  entry per Program file and copied configuration targets, plus the active
+//  traversal stack. No global cache, handle or background task survives the
+//  call; those references become reclaimable when ApplyProgram returns.
 func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
   rewriter := newRewriter(prog)
   for _, file := range prog.SourceFiles() {

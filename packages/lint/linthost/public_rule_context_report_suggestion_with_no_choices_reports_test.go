@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 // TestPublicRuleContextReportSuggestionWithNoChoicesReports pins that an empty
@@ -27,5 +27,7 @@ func TestPublicRuleContextReportSuggestionWithNoChoicesReports(t *testing.T) {
   if reporter.reports != 1 {
     t.Fatalf("no suggestions must fall back to a plain diagnostic once, got %d", reporter.reports)
   }
-  if reporter.ranges != 0 || reporter.rangeSuggest != 0 || reporter.lastNode != node || reporter.lastMessage != "msg" { t.Fatalf("empty suggestion diagnostic payload or route lost: %+v", reporter) }
+  if reporter.ranges != 0 || reporter.rangeSuggest != 0 || reporter.lastNode != node || reporter.lastMessage != "msg" {
+    t.Fatalf("empty suggestion diagnostic payload or route lost: %+v", reporter)
+  }
 }

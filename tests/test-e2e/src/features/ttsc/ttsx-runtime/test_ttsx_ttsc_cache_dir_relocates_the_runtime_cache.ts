@@ -19,6 +19,7 @@ import {
  * 1. Create a project and an external caller-owned cache root.
  * 2. Run ttsx with `TTSC_CACHE_DIR` and assert the program succeeds.
  * 3. Assert runtime and cache-path state use that root and touch no local cache.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual ttsx uses TTSC_CACHE_DIR, succeeds, leaves no local node_modules and no completed project run, then public cache paths reports the exact external root.
  * @evidence contracts/testing.md#independent-expectations The authored log, caller-selected cache path and empty completed-run directory determine expectations independently of path computation.
  * @evidence contracts/testing.md#distinguishing-cases External placement contrasts with absence of local cache; public inspection follows completed execution. Relative/local-boundary paths have other owners.
@@ -29,7 +30,11 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original success/log, no local node_modules, empty external project directory and exact public root remain.
  */
 export function test_ttsx_ttsc_cache_dir_relocates_the_runtime_cache() {
-  const root = createProject(FixtureFiles.read("ttsc/ttsx_ttsc_cache_dir_relocates_the_runtime_cache/inputs-1"));
+  const root = createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_ttsc_cache_dir_relocates_the_runtime_cache/inputs-1",
+    ),
+  );
   const cache = createProject({});
   const env = { TTSC_CACHE_DIR: cache };
 

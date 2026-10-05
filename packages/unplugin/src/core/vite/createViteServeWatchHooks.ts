@@ -5,9 +5,9 @@ import type { ViteServeInputWatch } from "./ViteServeInputWatch";
  * Select Vite's compiler-input channel without adding executable import edges.
  *
  * A watching serve delivery binds its readonly input batch to the existing
- * observer's replacement operation and requests membership. A watcherless
- * serve delivery supplies no input hooks. Other commands return undefined so
- * the caller can construct its build-project handoff at its original boundary.
+ * observer's replacement operation and requests membership. A watcherless serve
+ * delivery supplies no input hooks. Other commands return undefined so the
+ * caller can construct its build-project handoff at its original boundary.
  *
  * The binding preserves the delivered spelling, precompile sequence token,
  * input batch and failure flag. It does not acquire an observer or certify

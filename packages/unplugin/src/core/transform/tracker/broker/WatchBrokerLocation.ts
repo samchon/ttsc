@@ -2,9 +2,9 @@
  * One directory the watch broker watches for a registration.
  *
  * A location describes a native directory or, with `recursive`, its subtree.
- * Exact-input callers can also send requested names, but the current child
- * does not use that list as a basename filter: alternative native event names
- * must reach the parent's identity/uncertainty classifier. The shape does not
+ * Exact-input callers can also send requested names, but the current child does
+ * not use that list as a basename filter: alternative native event names must
+ * reach the parent's identity/uncertainty classifier. The shape does not
  * promise event traffic proportional to named input count.
  *
  * @evidence contracts/common.md#principled-implementation

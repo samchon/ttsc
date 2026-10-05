@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * ?
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param token The token.
+ * @returns The created {@link Token}.
  * @evidence contracts/common.md#principled-implementation
  *   Token stores the supplied SyntaxKind in token while kind remains Token.
  *   The generic retains its literal kind; callers must choose a token-spellable
@@ -32,10 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes outline kind from token spelling and explains generic
  *   propagation with an example and separated acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param token The token.
- * @returns The created {@link Token}.
  */
 export const createToken = <TKind extends SyntaxKind>(
   token: TKind,

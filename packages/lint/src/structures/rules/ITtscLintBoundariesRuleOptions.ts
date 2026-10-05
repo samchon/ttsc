@@ -87,13 +87,16 @@ export interface ITtscLintBoundariesElementsOptions {
  */
 export interface ITtscLintBoundariesElementTypesRuleOptions extends ITtscLintBoundariesElementsOptions {
   /**
-    * Fallback policy when no element-type policy produces a decision.
+   * Fallback policy when no element-type policy produces a decision.
    *
    * @default "allow"
    */
   default?: "allow" | "disallow";
 
-  /** Ordered policies. The first policy producing an allow/disallow decision wins. */
+  /**
+   * Ordered policies. The first policy producing an allow/disallow decision
+   * wins.
+   */
   rules?: readonly ITtscLintBoundariesElementTypesRule[];
 }
 
@@ -275,8 +278,8 @@ export interface ITtscLintBoundariesDependenciesPolicy {
 
   /**
    * Selectors whose matching dependencies are allowed. Entity shorthand selects
-   * the imported entity when from is present, or the importer when it is absent;
-   * full edge selectors retain their explicit from/to roles.
+   * the imported entity when from is present, or the importer when it is
+   * absent; full edge selectors retain their explicit from/to roles.
    */
   allow?: ITtscLintBoundariesDependenciesEffect;
 

@@ -3,13 +3,13 @@ package linthost
 import (
   "flag"
   "fmt"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   "path/filepath"
   "runtime"
   "sort"
   "strings"
   "sync"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // behavioralWitnessKind describes the production prerequisite exercised by a

@@ -31,7 +31,10 @@ import path from "node:path";
 export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
   (): void => {
     const root = TestProject.tmpdir("ttsc-descriptor-bound-");
-    TestProject.retainTemporaryDirectory(root, "Descriptor surface descendants are not joined");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "Descriptor surface descendants are not joined",
+    );
     const descriptorRoot = path.join(root, "descriptor");
     fs.mkdirSync(descriptorRoot, { recursive: true });
     fs.writeFileSync(
@@ -273,7 +276,10 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
       failures.push(new Error("Physical TEMP cleanup", { cause: error }));
     }
     if (failures.length)
-      throw new AggregateError(failures, "Descriptor failure surface profiles failed");
+      throw new AggregateError(
+        failures,
+        "Descriptor failure surface profiles failed",
+      );
   };
 
 /** Cleanup must not follow a TEMP/TMPDIR alias retargeted by the descriptor. */

@@ -42,8 +42,8 @@ function App({ name }: { name: string }) {
   })
   assertSolidFindings(t, "import { createEffect, createSignal } from \"solid-js\"; function App(props: { name: string }) { const [count] = createSignal(0); createEffect(() => count()); return <div>{props.name}{count()}</div>; }\n", RuleConfig{
     "solid/components-return-once": SeverityError,
-    "solid/jsx-no-undef": SeverityError,
-    "solid/no-destructure": SeverityError,
-    "solid/reactivity": SeverityError,
+    "solid/jsx-no-undef":           SeverityError,
+    "solid/no-destructure":         SeverityError,
+    "solid/reactivity":             SeverityError,
   }, nil)
 }

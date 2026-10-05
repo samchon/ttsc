@@ -1,9 +1,9 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import path from "node:path";
 
-import assert from "node:assert/strict";
-import { TtscGraphSourceReader } from "../../../../packages/graph/src/model/TtscGraphSourceReader";
 import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import { TtscGraphSourceReader } from "../../../../packages/graph/src/model/TtscGraphSourceReader";
 import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
 const digest = (value: string | Buffer): string =>
@@ -35,252 +35,252 @@ const digest = (value: string | Buffer): string =>
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored operations through the unit loader; no installed consumer, native build or product host is used.
  */
 export async function test_ttscgraph_source_reader_enforces_snapshot_identity_once(): Promise<void> {
-    const Reader = TtscGraphSourceReader;
+  const Reader = TtscGraphSourceReader;
 
-    const stable = "export const stable = 1;\n";
-    let stableReads = 0;
-    const stableReader = new Reader(
-      "C:/project",
-      {
-        capabilities: ["sourceDigests", "diskDigests"],
-        sources: [
-          {
-            file: "src/stable.ts",
-            checkerDigest: digest(stable),
-            diskDigest: digest(Buffer.from(stable, "utf8")),
-          },
-        ],
-      },
-      () => {
-        stableReads++;
-        return Buffer.from(stable, "utf8");
-      },
-    );
-    const first = stableReader.lines("src/stable.ts");
-    const second = stableReader.lines("src/stable.ts");
-    assert.deepEqual(first, ["export const stable = 1;", ""]);
-    assert.strictEqual(second, first, "the immutable snapshot array is reused");
-    assert.equal(stableReads, 1, "a successful file is read once per snapshot");
-    assert.ok(Object.isFrozen(first), "cached source lines are immutable");
-
-    const sibling = "export const sibling = true;\n";
-    let siblingPath = "";
-    const siblingReader = new Reader(
-      "/checkout/app",
-      {
-        capabilities: ["sourceDigests", "diskDigests"],
-        sources: [
-          {
-            file: "../shared/sibling.ts",
-            checkerDigest: digest(sibling),
-            diskDigest: digest(Buffer.from(sibling, "utf8")),
-          },
-        ],
-      },
-      (file) => {
-        siblingPath = file;
-        return Buffer.from(sibling, "utf8");
-      },
-    );
-    assert.deepEqual(siblingReader.lines("../shared/sibling.ts"), [
-      "export const sibling = true;",
-      "",
-    ]);
-    assert.equal(
-      siblingPath,
-      path.resolve("/checkout/app", "../shared/sibling.ts"),
-      "sibling coordinates resolve against the project locator",
-    );
-
-    const before = "export const before = 1;\n";
-    let current = "export const after = 2;\n";
-    let mutationReads = 0;
-    const mutatedReader = new Reader(
-      "C:/project",
-      {
-        capabilities: ["sourceDigests", "diskDigests"],
-        sources: [
-          {
-            file: "src/mutated.ts",
-            checkerDigest: digest(before),
-            diskDigest: digest(Buffer.from(before, "utf8")),
-          },
-        ],
-      },
-      () => {
-        mutationReads++;
-        return Buffer.from(current, "utf8");
-      },
-    );
-    assert.equal(
-      mutatedReader.lines("src/mutated.ts"),
-      undefined,
-      "post-snapshot bytes cannot be mixed with the older graph",
-    );
-    current = before;
-    assert.equal(
-      mutatedReader.lines("src/mutated.ts"),
-      undefined,
-      "a failed snapshot adjudication is stable, not timing-dependent",
-    );
-    assert.equal(mutationReads, 1, "digest mismatches are cached as failures");
-
-    const reencoded = "export const reencoded = true;\n";
-    let reencodedReads = 0;
-    const reencodedReader = new Reader(
-      "C:/project",
-      {
-        capabilities: ["sourceDigests", "diskDigests"],
-        sources: [
-          {
-            file: "src/reencoded.ts",
-            checkerDigest: digest(reencoded),
-            diskDigest: digest(Buffer.from(reencoded, "utf8")),
-          },
-        ],
-      },
-      () => {
-        reencodedReads++;
-        return Buffer.concat([
-          Buffer.from([0xef, 0xbb, 0xbf]),
-          Buffer.from(reencoded, "utf8"),
-        ]);
-      },
-    );
-    assert.equal(
-      reencodedReader.lines("src/reencoded.ts"),
-      undefined,
-      "same decoded text with different raw bytes is not this snapshot",
-    );
-    assert.equal(reencodedReads, 1, "raw-byte mismatches are not retried");
-
-    const disk = "export const disk = true;\n";
-    const checker = "declare const injected: number;\n" + disk;
-    let preambleReads = 0;
-    const preambleReader = new Reader(
-      "C:/project",
-      {
-        capabilities: ["sourceDigests", "diskDigests"],
-        sources: [
-          {
-            file: "src/preamble.ts",
-            checkerDigest: digest(checker),
-            diskDigest: digest(Buffer.from(disk, "utf8")),
-          },
-        ],
-      },
-      () => {
-        preambleReads++;
-        return Buffer.from(disk, "utf8");
-      },
-    );
-    assert.equal(
-      preambleReader.lines("src/preamble.ts"),
-      undefined,
-      "disk-identical preamble sources are not checker-identical sources",
-    );
-    assert.equal(preambleReads, 1);
-
-    let missingCapabilityReads = 0;
-    const missingCapabilityReader = new Reader(
-      "C:/project",
-      {
-        capabilities: ["sourceDigests"],
-        sources: [
-          {
-            file: "src/missing.ts",
-            checkerDigest: digest("missing"),
-            diskDigest: "",
-          },
-        ],
-      },
-      () => {
-        missingCapabilityReads++;
-        return Buffer.from("missing", "utf8");
-      },
-    );
-    assert.equal(
-      missingCapabilityReader.lines("src/missing.ts"),
-      undefined,
-      "a snapshot without disk digests stays conservative",
-    );
-    assert.equal(
-      missingCapabilityReads,
-      0,
-      "a missing disk-digest capability fails closed before disk I/O",
-    );
-
-    let virtualReads = 0;
-    const virtualReader = new Reader(
-      "C:/project",
-      {
-        capabilities: ["sourceDigests", "diskDigests"],
-        sources: [
-          {
-            file: "bundled:///lib.d.ts",
-            checkerDigest: digest("declare const bundled: true;\n"),
-            diskDigest: "",
-          },
-        ],
-      },
-      () => {
-        virtualReads++;
-        return Buffer.from("declare const bundled: true;\n", "utf8");
-      },
-    );
-    assert.equal(
-      virtualReader.lines("bundled:///lib.d.ts"),
-      undefined,
-      "virtual sources without a disk digest remain unverifiable",
-    );
-    assert.equal(
-      virtualReads,
-      0,
-      "an empty disk digest fails closed before disk I/O",
-    );
-
-    let failureReads = 0;
-    const failureReader = new Reader(
-      "C:/project",
-      {
-        capabilities: ["sourceDigests", "diskDigests"],
-        sources: [
-          {
-            file: "src/missing.ts",
-            checkerDigest: digest("missing"),
-            diskDigest: digest(Buffer.from("missing", "utf8")),
-          },
-        ],
-      },
-      () => {
-        failureReads++;
-        throw new Error("missing");
-      },
-    );
-    assert.equal(failureReader.lines("src/missing.ts"), undefined);
-    assert.equal(failureReader.lines("src/missing.ts"), undefined);
-    assert.equal(failureReads, 1, "I/O failures are cached per snapshot");
-
-    let absentReads = 0;
-    const absentReader = new Reader("C:/project", undefined, () => {
-      absentReads++;
+  const stable = "export const stable = 1;\n";
+  let stableReads = 0;
+  const stableReader = new Reader(
+    "C:/project",
+    {
+      capabilities: ["sourceDigests", "diskDigests"],
+      sources: [
+        {
+          file: "src/stable.ts",
+          checkerDigest: digest(stable),
+          diskDigest: digest(Buffer.from(stable, "utf8")),
+        },
+      ],
+    },
+    () => {
+      stableReads++;
       return Buffer.from(stable, "utf8");
-    });
-    assert.equal(absentReader.lines("src/stable.ts"), undefined);
-    assert.equal(
-      absentReads,
-      0,
-      "synthetic graph memories without provenance fail closed before disk I/O",
-    );
+    },
+  );
+  const first = stableReader.lines("src/stable.ts");
+  const second = stableReader.lines("src/stable.ts");
+  assert.deepEqual(first, ["export const stable = 1;", ""]);
+  assert.strictEqual(second, first, "the immutable snapshot array is reused");
+  assert.equal(stableReads, 1, "a successful file is read once per snapshot");
+  assert.ok(Object.isFrozen(first), "cached source lines are immutable");
 
-    const synthetic = TtscGraphMemory.from({
-      project: "C:/project",
-      nodes: [],
-      edges: [],
-    } as unknown as ITtscGraphDump);
-    assert.equal(
-      synthetic.source.lines("src/stable.ts"),
-      undefined,
-      "a no-manifest synthetic memory remains usable and source-free",
-    );
+  const sibling = "export const sibling = true;\n";
+  let siblingPath = "";
+  const siblingReader = new Reader(
+    "/checkout/app",
+    {
+      capabilities: ["sourceDigests", "diskDigests"],
+      sources: [
+        {
+          file: "../shared/sibling.ts",
+          checkerDigest: digest(sibling),
+          diskDigest: digest(Buffer.from(sibling, "utf8")),
+        },
+      ],
+    },
+    (file) => {
+      siblingPath = file;
+      return Buffer.from(sibling, "utf8");
+    },
+  );
+  assert.deepEqual(siblingReader.lines("../shared/sibling.ts"), [
+    "export const sibling = true;",
+    "",
+  ]);
+  assert.equal(
+    siblingPath,
+    path.resolve("/checkout/app", "../shared/sibling.ts"),
+    "sibling coordinates resolve against the project locator",
+  );
+
+  const before = "export const before = 1;\n";
+  let current = "export const after = 2;\n";
+  let mutationReads = 0;
+  const mutatedReader = new Reader(
+    "C:/project",
+    {
+      capabilities: ["sourceDigests", "diskDigests"],
+      sources: [
+        {
+          file: "src/mutated.ts",
+          checkerDigest: digest(before),
+          diskDigest: digest(Buffer.from(before, "utf8")),
+        },
+      ],
+    },
+    () => {
+      mutationReads++;
+      return Buffer.from(current, "utf8");
+    },
+  );
+  assert.equal(
+    mutatedReader.lines("src/mutated.ts"),
+    undefined,
+    "post-snapshot bytes cannot be mixed with the older graph",
+  );
+  current = before;
+  assert.equal(
+    mutatedReader.lines("src/mutated.ts"),
+    undefined,
+    "a failed snapshot adjudication is stable, not timing-dependent",
+  );
+  assert.equal(mutationReads, 1, "digest mismatches are cached as failures");
+
+  const reencoded = "export const reencoded = true;\n";
+  let reencodedReads = 0;
+  const reencodedReader = new Reader(
+    "C:/project",
+    {
+      capabilities: ["sourceDigests", "diskDigests"],
+      sources: [
+        {
+          file: "src/reencoded.ts",
+          checkerDigest: digest(reencoded),
+          diskDigest: digest(Buffer.from(reencoded, "utf8")),
+        },
+      ],
+    },
+    () => {
+      reencodedReads++;
+      return Buffer.concat([
+        Buffer.from([0xef, 0xbb, 0xbf]),
+        Buffer.from(reencoded, "utf8"),
+      ]);
+    },
+  );
+  assert.equal(
+    reencodedReader.lines("src/reencoded.ts"),
+    undefined,
+    "same decoded text with different raw bytes is not this snapshot",
+  );
+  assert.equal(reencodedReads, 1, "raw-byte mismatches are not retried");
+
+  const disk = "export const disk = true;\n";
+  const checker = "declare const injected: number;\n" + disk;
+  let preambleReads = 0;
+  const preambleReader = new Reader(
+    "C:/project",
+    {
+      capabilities: ["sourceDigests", "diskDigests"],
+      sources: [
+        {
+          file: "src/preamble.ts",
+          checkerDigest: digest(checker),
+          diskDigest: digest(Buffer.from(disk, "utf8")),
+        },
+      ],
+    },
+    () => {
+      preambleReads++;
+      return Buffer.from(disk, "utf8");
+    },
+  );
+  assert.equal(
+    preambleReader.lines("src/preamble.ts"),
+    undefined,
+    "disk-identical preamble sources are not checker-identical sources",
+  );
+  assert.equal(preambleReads, 1);
+
+  let missingCapabilityReads = 0;
+  const missingCapabilityReader = new Reader(
+    "C:/project",
+    {
+      capabilities: ["sourceDigests"],
+      sources: [
+        {
+          file: "src/missing.ts",
+          checkerDigest: digest("missing"),
+          diskDigest: "",
+        },
+      ],
+    },
+    () => {
+      missingCapabilityReads++;
+      return Buffer.from("missing", "utf8");
+    },
+  );
+  assert.equal(
+    missingCapabilityReader.lines("src/missing.ts"),
+    undefined,
+    "a snapshot without disk digests stays conservative",
+  );
+  assert.equal(
+    missingCapabilityReads,
+    0,
+    "a missing disk-digest capability fails closed before disk I/O",
+  );
+
+  let virtualReads = 0;
+  const virtualReader = new Reader(
+    "C:/project",
+    {
+      capabilities: ["sourceDigests", "diskDigests"],
+      sources: [
+        {
+          file: "bundled:///lib.d.ts",
+          checkerDigest: digest("declare const bundled: true;\n"),
+          diskDigest: "",
+        },
+      ],
+    },
+    () => {
+      virtualReads++;
+      return Buffer.from("declare const bundled: true;\n", "utf8");
+    },
+  );
+  assert.equal(
+    virtualReader.lines("bundled:///lib.d.ts"),
+    undefined,
+    "virtual sources without a disk digest remain unverifiable",
+  );
+  assert.equal(
+    virtualReads,
+    0,
+    "an empty disk digest fails closed before disk I/O",
+  );
+
+  let failureReads = 0;
+  const failureReader = new Reader(
+    "C:/project",
+    {
+      capabilities: ["sourceDigests", "diskDigests"],
+      sources: [
+        {
+          file: "src/missing.ts",
+          checkerDigest: digest("missing"),
+          diskDigest: digest(Buffer.from("missing", "utf8")),
+        },
+      ],
+    },
+    () => {
+      failureReads++;
+      throw new Error("missing");
+    },
+  );
+  assert.equal(failureReader.lines("src/missing.ts"), undefined);
+  assert.equal(failureReader.lines("src/missing.ts"), undefined);
+  assert.equal(failureReads, 1, "I/O failures are cached per snapshot");
+
+  let absentReads = 0;
+  const absentReader = new Reader("C:/project", undefined, () => {
+    absentReads++;
+    return Buffer.from(stable, "utf8");
+  });
+  assert.equal(absentReader.lines("src/stable.ts"), undefined);
+  assert.equal(
+    absentReads,
+    0,
+    "synthetic graph memories without provenance fail closed before disk I/O",
+  );
+
+  const synthetic = TtscGraphMemory.from({
+    project: "C:/project",
+    nodes: [],
+    edges: [],
+  } as unknown as ITtscGraphDump);
+  assert.equal(
+    synthetic.source.lines("src/stable.ts"),
+    undefined,
+    "a no-manifest synthetic memory remains usable and source-free",
+  );
 }

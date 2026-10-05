@@ -8,8 +8,8 @@ import { remapAstLocations } from "../../../../../packages/metro/src/core/remapA
  * without a variadic expansion.
  *
  * A node shared by many parents must be remapped exactly once, however many
- * references the array holds, and a node whose map names another source must stay
- * untouched.
+ * references the array holds, and a node whose map names another source must
+ * stay untouched.
  *
  * 1. Remap an AST whose body holds zero, one and 200000 references to one shared
  *    node and require the node to be shifted exactly once.

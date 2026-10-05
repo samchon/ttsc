@@ -5,12 +5,12 @@ import type { WatchScope } from "./WatchScope";
  * One compiler-input path an input observer (`createInputObserver`) is
  * responsible for.
  *
- * Holds observed spelling keys (`aliases`), the ancestors
- * whose rename can move it (`renameAliases`), the scopes and links observing
- * it, and the recorded conditions that decide whether an event really changed
- * it. `fallback` marks an entry the bounded poll checks instead of a native
- * scope. These indexes do not enumerate every native event alias; a reporting
- * scope rechecks its covered entries against their recorded conditions.
+ * Holds observed spelling keys (`aliases`), the ancestors whose rename can move
+ * it (`renameAliases`), the scopes and links observing it, and the recorded
+ * conditions that decide whether an event really changed it. `fallback` marks
+ * an entry the bounded poll checks instead of a native scope. These indexes do
+ * not enumerate every native event alias; a reporting scope rechecks its
+ * covered entries against their recorded conditions.
  *
  * @evidence contracts/common.md#principled-implementation A watched spelling keeps its recorded conditions separate from event aliases, link topology, and scope coverage, so notifications can select an entry before checking what its compile observed.
  * @evidence contracts/common.md#clear-and-simple-design One entry holds shared path observation state while conditions own per-generation evidence and owners; native handles remain with scopes.
@@ -30,8 +30,8 @@ import type { WatchScope } from "./WatchScope";
  */
 export interface InputEntry {
   /**
-   * Observed event keys: its own spelling, its physical target,
-   * and linked components.
+   * Observed event keys: its own spelling, its physical target, and linked
+   * components.
    */
   aliases: Set<string>;
 
@@ -55,9 +55,8 @@ export interface InputEntry {
   /**
    * The physical spelling of a project root registered for its membership, when
    * the root is named through a link: a backend that reports the physical path
-   * of what changed can name the
-   * root this way, and the event is placed under the root's own name before its
-   * policy is asked (samchon/ttsc#1461).
+   * of what changed can name the root this way, and the event is placed under
+   * the root's own name before its policy is asked (samchon/ttsc#1461).
    */
   physical?: string;
 

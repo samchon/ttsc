@@ -1,15 +1,16 @@
-import { TsgoArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/TsgoArguments";
 import assert from "node:assert/strict";
+
+import { TsgoArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/TsgoArguments";
 
 /**
  * Verifies a native host's tsgo payload drops only well-formed timing flags.
  *
  * A native host reports timing through its own channel, so ttsc removes
  * `--diagnostics` and `--extendedDiagnostics` from the payload it forwards. The
- * removal must preserve the unknown inline `--diagnostics=false` token and
- * the uppercase `TRUE` token. The native parser does not consume `TRUE` as a
- * boolean operand: it enables diagnostics and treats `TRUE` as a filename.
- * This unit observes token preservation, not native filename acceptance.
+ * removal must preserve the unknown inline `--diagnostics=false` token and the
+ * uppercase `TRUE` token. The native parser does not consume `TRUE` as a
+ * boolean operand: it enables diagnostics and treats `TRUE` as a filename. This
+ * unit observes token preservation, not native filename acceptance.
  *
  * 1. Build payloads for well-formed occurrences in any flag casing, with a
  *    `true`/`false`/`null` value or none.

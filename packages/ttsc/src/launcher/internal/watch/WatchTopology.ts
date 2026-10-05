@@ -153,9 +153,9 @@ export class WatchTopology {
 
   /**
    * Re-resolve compiler inputs and notify when the resolved topology changes,
-   * including membership, output/configuration or analysis-mode changes.
-   * Errors propagate to the caller; native watcher registration failures are
-   * reported through onError while previous coverage remains live.
+   * including membership, output/configuration or analysis-mode changes. Errors
+   * propagate to the caller; native watcher registration failures are reported
+   * through onError while previous coverage remains live.
    *
    * @evidence contracts/common.md#principled-implementation The compiler-input operation defines membership and its native default reads the actual compiler list; new coverage is registered before stale coverage retires, and registration reconciliation compares against pre-registration baselines.
    * @evidence contracts/common.md#clear-and-simple-design One refresh delegates compiler population resolution, watcher synchronization and notification classification to separate private owners.
@@ -321,8 +321,9 @@ export class WatchTopology {
   /**
    * Add Go plugin source trees discovered by the real build lane. Existing
    * input fingerprints retain their baseline; new inputs are captured before
-   * the caller builds them, so later notifications can compare that observation.
-   * This does not freeze the source tree or prove every transient edit was seen.
+   * the caller builds them, so later notifications can compare that
+   * observation. This does not freeze the source tree or prove every transient
+   * edit was seen.
    *
    * @evidence contracts/common.md#principled-implementation Published plugin inputs define the source corpus, and retaining existing pre-build baselines keeps unreported edits visible.
    * @evidence contracts/common.md#clear-and-simple-design Deduplication, baseline retention and compiler/watch reconciliation remain ordered phases.
@@ -399,9 +400,9 @@ export class WatchTopology {
   /**
    * Invoke close on owned watchers so their backends can retire. Scheduled
    * reconciliation callbacks observe the closed state and retire without
-   * creating replacement subscriptions.
-   * A thrown close propagates and interrupts remaining cleanup; this void
-   * method does not await native/backend shutdown or guarantee event-loop drain.
+   * creating replacement subscriptions. A thrown close propagates and
+   * interrupts remaining cleanup; this void method does not await
+   * native/backend shutdown or guarantee event-loop drain.
    *
    * @evidence contracts/common.md#principled-implementation Marking the owner closed before retiring subscriptions prevents queued reconciliations from reopening native handles.
    * @evidence contracts/common.md#clear-and-simple-design One shutdown operation closes and clears each distinct watcher population through a shared helper.
@@ -1635,9 +1636,9 @@ export class WatchTopology {
    * A delivery can name a directory created below an input: while it is empty
    * it moves nothing a build reads, yet it needs a watcher of its own before a
    * file lands in it, or on a platform whose watcher reports a directory's
-   * direct entries alone that file reaches no watcher. So
-   * the watchers are synced first, and what a directory they start watching
-   * already holds is noted into this same decision (`syncExtraWatchers`).
+   * direct entries alone that file reaches no watcher. So the watchers are
+   * synced first, and what a directory they start watching already holds is
+   * noted into this same decision (`syncExtraWatchers`).
    */
   private decidePluginNotifications(): void {
     if (this.closed) {
@@ -1671,8 +1672,8 @@ export class WatchTopology {
   /**
    * Whether a path is one a plugin build keys on: the plugin input itself, or a
    * path below it outside every directory the build passes over
-   * (`pluginSourceCovers`). A write in a plugin module's
-   * `node_modules` or `.git` is not one, whatever watcher heard it.
+   * (`pluginSourceCovers`). A write in a plugin module's `node_modules` or
+   * `.git` is not one, whatever watcher heard it.
    *
    * Nor is such a directory's own entry. Windows reports every write inside a
    * directory as a change of that directory's entry to a watch on its parent,
@@ -2243,10 +2244,10 @@ function collectTopologyDirectories(
 /**
  * Every directory of a plugin input a watch observes: the input and the
  * directories below it, except those the plugin build passes over and all below
- * them (`prunesPluginSourceDirectory`). The input is a
- * plugin's whole Go module, which can be a repository with its own
- * `node_modules` and `.git`; watching those would rebuild for every package
- * install and commit without the build reading any of it.
+ * them (`prunesPluginSourceDirectory`). The input is a plugin's whole Go
+ * module, which can be a repository with its own `node_modules` and `.git`;
+ * watching those would rebuild for every package install and commit without the
+ * build reading any of it.
  */
 function collectInputDirectories(input: string): string[] {
   return collectPluginSourceDirectories(input);

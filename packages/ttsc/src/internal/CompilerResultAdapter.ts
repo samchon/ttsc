@@ -4,22 +4,31 @@ import type { ITtscCompilerResult } from "../structures/ITtscCompilerResult";
 import type { ITtscCompilerTransformation } from "../structures/ITtscCompilerTransformation";
 import type { TtscBuildResult } from "../structures/internal/TtscBuildResult";
 import { serializeCompilerError } from "./serializeCompilerError";
-/** The compile producer's actual output and build outcome, before API adaptation.
- * Common: Principled implementation: This input retains output and build outcome as separate producer-owned values.
- * Common: Clear and simple design: Two named fields carry the existing compile adapter boundary without a second output representation.
- * Common: Prohibited implementation shortcuts: The type does not supply native output or certify an authored record as a compiler product.
- * Common: Meaningful documentation: The native sentence distinguishes the producer boundary from API result adaptation.
+
+/**
+ * The compile producer's actual output and build outcome, before API
+ * adaptation. Common: Principled implementation: This input retains output and
+ * build outcome as separate producer-owned values. Common: Clear and simple
+ * design: Two named fields carry the existing compile adapter boundary without
+ * a second output representation. Common: Prohibited implementation shortcuts:
+ * The type does not supply native output or certify an authored record as a
+ * compiler product. Common: Meaningful documentation: The native sentence
+ * distinguishes the producer boundary from API result adaptation.
  */
 interface ProjectResult {
   output: Record<string, string>;
   result: TtscBuildResult;
 }
 
-/** The transform producer's source records and optional advisory observations.
- * Common: Principled implementation: Optional fields retain the producer's absent-versus-present observations independently of build status.
- * Common: Clear and simple design: One input shape carries source, build and advisory values to the same result adapter.
- * Common: Prohibited implementation shortcuts: The representation does not invent host reads, graph membership or compiler completeness.
- * Common: Meaningful documentation: The native sentence identifies the actual producer-owned fields and optionality.
+/**
+ * The transform producer's source records and optional advisory observations.
+ * Common: Principled implementation: Optional fields retain the producer's
+ * absent-versus-present observations independently of build status. Common:
+ * Clear and simple design: One input shape carries source, build and advisory
+ * values to the same result adapter. Common: Prohibited implementation
+ * shortcuts: The representation does not invent host reads, graph membership or
+ * compiler completeness. Common: Meaningful documentation: The native sentence
+ * identifies the actual producer-owned fields and optionality.
  */
 interface ProjectTransformation {
   dependencies?: Record<string, string[]>;
@@ -37,7 +46,9 @@ interface ProjectTransformation {
   volatile?: string[];
 }
 
-/** Run the selected compile task once and adapt its returned or thrown outcome.
+/**
+ * Run the selected compile task once and adapt its returned or thrown outcome.
+ *
  * @evidence contracts/common.md#principled-implementation The original task runs once; its output/status/diagnostics or thrown error determine the public result kind.
  * @evidence contracts/common.md#clear-and-simple-design One try/catch joins the task owner with the existing compile and exception adapters.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No native task, output or error is substituted; caught values retain the existing serialization and classification policy.
@@ -59,7 +70,9 @@ export function runProject(task: () => ProjectResult): ITtscCompilerResult {
   }
 }
 
-/** Run the selected transform task once, preserving its optional observations.
+/**
+ * Run the selected transform task once, preserving its optional observations.
+ *
  * @evidence contracts/common.md#principled-implementation Successful and failed build outcomes retain source/advisory values while thrown outcomes use the existing exception policy.
  * @evidence contracts/common.md#clear-and-simple-design One try/catch invokes the selected task and delegates to the transform result adapter.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter neither reconstructs native observations nor replaces the actual task with a result certificate.
@@ -103,7 +116,9 @@ export function runTransformation(
  * Order matters: plugin patterns must run before the generic `ttsc:` test
  * because every plugin message also starts with `ttsc:`.
  */
-/** Classify the observed message using the existing plugin-before-host patterns.
+/**
+ * Classify the observed message using the existing plugin-before-host patterns.
+ *
  * @evidence contracts/common.md#principled-implementation Original plugin-prefix precedence and host fallback are retained; unreadable message inspection yields unknown.
  * @evidence contracts/common.md#clear-and-simple-design One guarded message extraction precedes the two existing pattern groups.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification is best-effort message policy, not a certificate of exception origin or native process ownership.
@@ -113,7 +128,9 @@ export function runTransformation(
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Classification coordinates no reusable operation or outcome cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned kind is retained by callers; this operation acquires no resource or registry.
  */
-export function classifyException(error: unknown): "plugin" | "host" | "unknown" {
+export function classifyException(
+  error: unknown,
+): "plugin" | "host" | "unknown" {
   let message: string;
   try {
     const description =
@@ -159,15 +176,24 @@ export function classifyException(error: unknown): "plugin" | "host" | "unknown"
   return "unknown";
 }
 
-/** Adapt a compile producer outcome, preserving its output record reference.
- * Common: Principled implementation: Status zero without error diagnostics succeeds; every other result fails and an empty diagnostic list receives the original process diagnostic.
- * Common: Clear and simple design: One status/diagnostic guard constructs success or failure while preserving output identity.
- * Common: Prohibited implementation shortcuts: Warning diagnostics are not converted to errors and nonzero process outcomes are not promoted to success.
- * Common: Meaningful documentation: The native sentence identifies output-reference preservation rather than copied or certified output.
- * Applicability: Native platform boundary: This is result-data policy; the process diagnostic owner formats already reported outcome values.
- * Performance: Computation cost: Diagnostic classification scans until an error; otherwise a fixed envelope retains output/diagnostic references, with delegated process-diagnostic text work on empty failures.
- * Applicability: Work reuse: No producer or previous result is reused by this adapter.
- * Applicability: Resource ownership: Output/diagnostic references transfer through the return value and no independent cache or resource is acquired.
+/**
+ * Adapt a compile producer outcome, preserving its output record reference.
+ * Common: Principled implementation: Status zero without error diagnostics
+ * succeeds; every other result fails and an empty diagnostic list receives the
+ * original process diagnostic. Common: Clear and simple design: One
+ * status/diagnostic guard constructs success or failure while preserving output
+ * identity. Common: Prohibited implementation shortcuts: Warning diagnostics
+ * are not converted to errors and nonzero process outcomes are not promoted to
+ * success. Common: Meaningful documentation: The native sentence identifies
+ * output-reference preservation rather than copied or certified output.
+ * Applicability: Native platform boundary: This is result-data policy; the
+ * process diagnostic owner formats already reported outcome values.
+ * Performance: Computation cost: Diagnostic classification scans until an
+ * error; otherwise a fixed envelope retains output/diagnostic references, with
+ * delegated process-diagnostic text work on empty failures. Applicability: Work
+ * reuse: No producer or previous result is reused by this adapter.
+ * Applicability: Resource ownership: Output/diagnostic references transfer
+ * through the return value and no independent cache or resource is acquired.
  */
 function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
   const { output, result } = project;
@@ -190,7 +216,10 @@ function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
   };
 }
 
-/** Adapt source/build outcome and copy optional advisory references only when present.
+/**
+ * Adapt source/build outcome and copy optional advisory references only when
+ * present.
+ *
  * @evidence contracts/common.md#principled-implementation Undefined advisory fields are omitted; present empty/false values and references survive both success and failure, alongside the existing diagnostic decision.
  * @evidence contracts/common.md#clear-and-simple-design One optional-field projection is shared by the two result branches.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter does not manufacture graph, host-read or completeness proof and does not discard it solely because the build failed.
@@ -252,15 +281,21 @@ export function toCompilerTransformation(
   };
 }
 
-/** Report whether the supplied diagnostics contain an error category.
- * Common: Principled implementation: Only the literal error category changes this outcome; other diagnostic categories remain advisory.
- * Common: Clear and simple design: A short-circuiting predicate expresses the existing success guard directly.
- * Common: Prohibited implementation shortcuts: Status and message text are not guessed as substitutes for diagnostic category.
- * Common: Meaningful documentation: The native sentence identifies the supplied diagnostic population and category decision.
- * Applicability: Native platform boundary: Category comparison accesses no native platform boundary.
- * Performance: Computation cost: The scan visits at most the supplied diagnostic count and stops at the first error.
- * Applicability: Work reuse: This predicate coordinates no cached or in-flight result.
- * Applicability: Resource ownership: A boolean is returned without retaining diagnostic history or acquiring a resource.
+/**
+ * Report whether the supplied diagnostics contain an error category. Common:
+ * Principled implementation: Only the literal error category changes this
+ * outcome; other diagnostic categories remain advisory. Common: Clear and
+ * simple design: A short-circuiting predicate expresses the existing success
+ * guard directly. Common: Prohibited implementation shortcuts: Status and
+ * message text are not guessed as substitutes for diagnostic category. Common:
+ * Meaningful documentation: The native sentence identifies the supplied
+ * diagnostic population and category decision. Applicability: Native platform
+ * boundary: Category comparison accesses no native platform boundary.
+ * Performance: Computation cost: The scan visits at most the supplied
+ * diagnostic count and stops at the first error. Applicability: Work reuse:
+ * This predicate coordinates no cached or in-flight result. Applicability:
+ * Resource ownership: A boolean is returned without retaining diagnostic
+ * history or acquiring a resource.
  */
 function hasErrorDiagnostics(
   diagnostics: readonly ITtscCompilerDiagnostic[],
@@ -268,7 +303,9 @@ function hasErrorDiagnostics(
   return diagnostics.some((diagnostic) => diagnostic.category === "error");
 }
 
-/** Serialize the actual thrown value through the existing compiler error owner.
+/**
+ * Serialize the actual thrown value through the existing compiler error owner.
+ *
  * @evidence contracts/common.md#principled-implementation The original serializer receives the exact thrown value rather than a guessed error message.
  * @evidence contracts/common.md#clear-and-simple-design One delegation shares the compiler error representation with synchronous and worker result adapters.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Serialization does not manufacture a native exception or replace the task that threw it.

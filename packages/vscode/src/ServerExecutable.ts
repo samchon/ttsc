@@ -26,22 +26,22 @@ import type { ServerProcessOptions } from "./ServerProcessOptions";
  *   environment ownership. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
-  *
-  * @evidence contracts/portability.md#os-neutral-implementation
-  *   The command and argument vector retain the selected native launcher or
-  *   command processor. Prepared options carry the project cwd, environment
-  *   and Windows verbatim payload mode to the language-client spawn boundary;
-  *   absent options preserve that client's defaults.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   ServerExecutable is a type definition with no computation to cost.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   ServerExecutable is a type definition and coordinates no work across
-  *   requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   ServerExecutable is a type definition and owns no state, handle or task.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The command and argument vector retain the selected native launcher or
+ *   command processor. Prepared options carry the project cwd, environment
+ *   and Windows verbatim payload mode to the language-client spawn boundary;
+ *   absent options preserve that client's defaults.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ServerExecutable is a type definition with no computation to cost.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ServerExecutable is a type definition and coordinates no work across
+ *   requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ServerExecutable is a type definition and owns no state, handle or task.
  */
 export type ServerExecutable = {
   /** Arguments forwarded to the selected launcher. */

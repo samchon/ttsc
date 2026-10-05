@@ -32,4 +32,3 @@ func TestUnicornBigintLiteralRequiresAnExactIntegerValue(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/prefer-bigint-literals", source) })
   }
 }
-

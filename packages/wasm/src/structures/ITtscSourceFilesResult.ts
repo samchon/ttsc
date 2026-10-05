@@ -18,6 +18,9 @@
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscSourceFilesResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscSourceFilesResult {
-  /** Non-declaration source paths: project-relative inside cwd, absolute outside. */
+  /**
+   * Non-declaration source paths: project-relative inside cwd, absolute
+   * outside.
+   */
   files: string[];
 }

@@ -1,10 +1,10 @@
 import { TestProject } from "@ttsc/testing";
-import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TtscService } from "../../../../../../../packages/ttsc/lib/index.js";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
@@ -36,7 +36,8 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  */
 export async function test_ttscservice_rejects_when_the_project_does_not_compile(): Promise<void> {
   const root = ProjectFixtures.copy("ttsc-utility-plugins");
-  const retentionReason = "failed resident startup has no awaited disposal acknowledgement";
+  const retentionReason =
+    "failed resident startup has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
   TestProject.retainSharedPluginCache(retentionReason);
   TestUtilityPlugins.seedPackages(root);
@@ -59,8 +60,15 @@ export async function test_ttscservice_rejects_when_the_project_does_not_compile
   } catch (error) {
     failures.push(error);
   } finally {
-    try { service.dispose(); }
-    catch (error) { failures.push(error); }
+    try {
+      service.dispose();
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "failed-startup rejection or disposal assertion failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "failed-startup rejection or disposal assertion failed",
+    );
 }

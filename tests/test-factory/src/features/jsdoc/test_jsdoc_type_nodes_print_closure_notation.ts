@@ -8,8 +8,8 @@ import { kw, print, ref } from "../../internal/helpers";
  * prefix and postfix forms of nullable and non-nullable types.
  *
  * Closure types are written `*`, `?`, `?T`, `T?`, `!T`, `T!`, `T=` and `...T`.
- * The prefix or postfix position is a caller choice recorded on the node, so the
- * same operand prints on either side of the marker.
+ * The prefix or postfix position is a caller choice recorded on the node, so
+ * the same operand prints on either side of the marker.
  *
  * 1. Print the all and unknown types.
  * 2. Print nullable and non-nullable types in prefix and postfix position.

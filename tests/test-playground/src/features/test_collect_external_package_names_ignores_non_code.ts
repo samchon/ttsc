@@ -4,8 +4,8 @@ import { collectExternalPackageNames } from "../../../../packages/playground/src
 import { installPlaygroundDependencies } from "../../../../packages/playground/src/npm/installPlaygroundDependencies";
 
 /**
- * Verifies npm dependency discovery originates only from executable module-loading
- * syntax.
+ * Verifies npm dependency discovery originates only from executable
+ * module-loading syntax.
  *
  * Npm dependency discovery must originate only from executable module-loading
  * syntax. Import/export/require lookalikes inside comments, string and template

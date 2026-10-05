@@ -101,8 +101,11 @@ export const test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouch
           `${entry} wrote build information into the project`,
         );
       } catch (error) {
-        errors.push(new Error(`ttsx isolation entry ${entry}`, { cause: error }));
+        errors.push(
+          new Error(`ttsx isolation entry ${entry}`, { cause: error }),
+        );
       }
     }
-    if (errors.length) throw new AggregateError(errors, "ttsx build-info isolation entries");
+    if (errors.length)
+      throw new AggregateError(errors, "ttsx build-info isolation entries");
   };

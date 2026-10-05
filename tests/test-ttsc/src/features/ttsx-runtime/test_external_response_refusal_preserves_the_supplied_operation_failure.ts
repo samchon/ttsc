@@ -1,22 +1,22 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
 import { runExternalEmitProvenance } from "../../../../../packages/ttsc/src/compiler/internal/build/runExternalEmitProvenance";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies refusal delegates original arguments and preserves caller failure.
  *
- * When provenance inspection is refused, the callback must still run the original
- * producer exactly once with the original arguments, and a failure it throws
- * belongs to the caller and must escape unchanged.
+ * When provenance inspection is refused, the callback must still run the
+ * original producer exactly once with the original arguments, and a failure it
+ * throws belongs to the caller and must escape unchanged.
  *
  * 1. Author cyclic, plain, missing-operand and unknown-option response files;
  *    independently require the selected compiler path to be absent.
- * 2. Call the adapter for those four frames plus plain module, missing rootDir
- *    and composite option records with a callback that records argv and throws.
+ * 2. Call the adapter for those four frames plus plain module, missing rootDir and
+ *    composite option records with a callback that records argv and throws.
  * 3. Require one producer call with unchanged arguments, the same error identity
  *    and an unmodified caller argument array.
  *
@@ -72,5 +72,8 @@ export function test_external_response_refusal_preserves_the_supplied_operation_
     }
   }
   if (failures.length)
-    throw new AggregateError(failures, "external refusal argument matrix failed");
+    throw new AggregateError(
+      failures,
+      "external refusal argument matrix failed",
+    );
 }

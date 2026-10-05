@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, num, param, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, kw, num, param, print } from "../../internal/helpers";
  * A concise-body arrow `(x: number): number => x * 2` and a block-body arrow
  * whose body always breaks onto its own lines.
  *
- * 1. Typed concise and block-bodied arrows preserve parameter type, multiplication result and return statement.
- * 2. Exact arrow literals specify the =>, typed parameter and block indentation independently.
+ * 1. Typed concise and block-bodied arrows preserve parameter type, multiplication
+ *    result and return statement.
+ * 2. Exact arrow literals specify the =>, typed parameter and block indentation
+ *    independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Typed concise and block-bodied arrows preserve parameter type, multiplication result and return statement.
  * @evidence contracts/testing.md#independent-expectations Exact arrow literals specify the =>, typed parameter and block indentation independently.

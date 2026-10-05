@@ -84,9 +84,13 @@ const ( Alpha Mode = iota; Beta; Delta )
       t.Fatal(err)
     }
     family, err := scanShimEnumExports(root, true)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     findings, _ := analyze(reachable, upstream(expanded), exports, family)
-    if err := runFix(findings, root); err != nil { t.Fatal(err) }
+    if err := runFix(findings, root); err != nil {
+      t.Fatal(err)
+    }
     output, err := os.ReadFile(filepath.Join(root, "ast", "enums_gen.go"))
     if err != nil {
       t.Fatal(err)
@@ -155,13 +159,21 @@ const (
 `)
   for iteration := range 2 {
     reachable, err := scanShimReachable(root)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     exports, err := scanShimEnumExports(root, false)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     family, err := scanShimEnumExports(root, true)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     findings, _ := analyze(reachable, upstream(true), exports, family)
-    if err := runFix(findings, root); err != nil { t.Fatal(err) }
+    if err := runFix(findings, root); err != nil {
+      t.Fatal(err)
+    }
     if _, err := os.Stat(filepath.Join(root, "ast", "enums_gen.go")); !os.IsNotExist(err) {
       t.Fatalf("authored handoff %d retained duplicate generated members: %v", iteration, err)
     }

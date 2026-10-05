@@ -6,8 +6,8 @@ import type { ITtscLintReactPerfRuleOptions } from "./ITtscLintReactPerfRuleOpti
  *
  * Detects supported allocation-expression forms (arrays, objects, functions,
  * JSX elements) passed as JSX props. The checks inspect syntax, including
- * selected conditional and logical branches; they do not measure renders,
- * prove an identifier resolves to a built-in constructor, or inspect consumers'
+ * selected conditional and logical branches; they do not measure renders, prove
+ * an identifier resolves to a built-in constructor, or inspect consumers'
  * memoization behavior.
  *
  * Diagnostics only fire on `.tsx` source files — JSX heuristics rely on the

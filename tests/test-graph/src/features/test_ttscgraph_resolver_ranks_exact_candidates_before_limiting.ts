@@ -22,19 +22,16 @@ import {
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
 export function test_ttscgraph_resolver_ranks_exact_candidates_before_limiting(): void {
-    const nodes: ResolverGraphNode[] = Array.from(
-      { length: 13 },
-      (_, index) => ({
-        id: `src/exact-${String(index).padStart(2, "0")}.ts#Shared:class`,
-        kind: "class",
-        name: "Shared",
-        file: `src/exact-${String(index).padStart(2, "0")}.ts`,
-        external: false,
-        ...(index === 12 ? { exported: true } : {}),
-      }),
-    );
+  const nodes: ResolverGraphNode[] = Array.from({ length: 13 }, (_, index) => ({
+    id: `src/exact-${String(index).padStart(2, "0")}.ts#Shared:class`,
+    kind: "class",
+    name: "Shared",
+    file: `src/exact-${String(index).padStart(2, "0")}.ts`,
+    external: false,
+    ...(index === 12 ? { exported: true } : {}),
+  }));
 
-    const resolved = resolveSyntheticGraph(nodes, "Shared");
-    assert.strictEqual(resolved.candidates?.length, 12);
-    assert.strictEqual(resolved.candidates?.[0]?.id, nodes[12]!.id);
+  const resolved = resolveSyntheticGraph(nodes, "Shared");
+  assert.strictEqual(resolved.candidates?.length, 12);
+  assert.strictEqual(resolved.candidates?.[0]?.id, nodes[12]!.id);
 }

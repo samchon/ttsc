@@ -1,5 +1,6 @@
-import { TestLint } from "../../../../utils/src/lint/TestLint";
 import assert from "node:assert/strict";
+
+import { TestLint } from "../../../../utils/src/lint/TestLint";
 
 /**
  * Verifies the lint diagnostic parser accepts every TypeScript source suffix.
@@ -18,81 +19,81 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#execution-ownership Calls the authored diagnostic parser on an in-memory stderr string, with no process needed to generate that string.
  */
 export function test_lint_diagnostic_parser_accepts_tsx_source_paths(): void {
-    const expected: TestLint.ILintDiagnostic[] = [
-      {
-        file: "src/main.tsx",
-        line: 6,
-        column: 12,
+  const expected: TestLint.ILintDiagnostic[] = [
+    {
+      file: "src/main.tsx",
+      line: 6,
+      column: 12,
+      severity: "error",
+      rule: "react/jsx-key",
+      message: "Missing key.",
+    },
+    {
+      file: "src/my fixture.ts",
+      line: 2,
+      column: 3,
+      severity: "warn",
+      rule: "no-console",
+      message: "Unexpected console.",
+    },
+    {
+      file: "C:\\project with spaces\\src\\main.tsx",
+      line: 1,
+      column: 1,
+      severity: "warn",
+      rule: "fixture/empty-message",
+      message: "",
+    },
+    ...[
+      "src/component fixture.mts",
+      "src/main.cts",
+      "src/main.d.ts",
+      "src/main.d.mts",
+      "src/main.d.cts",
+    ].map(
+      (file, index): TestLint.ILintDiagnostic => ({
+        file,
+        line: index + 10,
+        column: 2,
         severity: "error",
-        rule: "react/jsx-key",
-        message: "Missing key.",
-      },
-      {
-        file: "src/my fixture.ts",
-        line: 2,
-        column: 3,
-        severity: "warn",
-        rule: "no-console",
-        message: "Unexpected console.",
-      },
-      {
-        file: "C:\\project with spaces\\src\\main.tsx",
-        line: 1,
-        column: 1,
-        severity: "warn",
-        rule: "fixture/empty-message",
-        message: "",
-      },
-      ...[
-        "src/component fixture.mts",
-        "src/main.cts",
-        "src/main.d.ts",
-        "src/main.d.mts",
-        "src/main.d.cts",
-      ].map(
-        (file, index): TestLint.ILintDiagnostic => ({
-          file,
-          line: index + 10,
-          column: 2,
-          severity: "error",
-          rule: "fixture/rule",
-          message: `Message ${index}.`,
-        }),
-      ),
-    ];
-    const stderr = [
-      ...expected.map(
-        ({ file, line, column, severity, rule, message }) =>
-          `${file}:${line}:${column} - ${
-            severity === "warn" ? "warning" : "error"
-          } TS9001: [${rule}] ${message}`,
-      ),
-      "src/main.js:1:1 - error TS9003: [no-debugger] Unexpected debugger.",
-      "src/uppercase.TS:1:1 - error TS9003: [fixture/rule] Ignored.",
-      "src/uppercase.TSX:1:1 - error TS9003: [fixture/rule] Ignored.",
-      "src/uppercase.D.TS:1:1 - error TS9003: [fixture/rule] Ignored.",
-    ].join("\n");
+        rule: "fixture/rule",
+        message: `Message ${index}.`,
+      }),
+    ),
+  ];
+  const stderr = [
+    ...expected.map(
+      ({ file, line, column, severity, rule, message }) =>
+        `${file}:${line}:${column} - ${
+          severity === "warn" ? "warning" : "error"
+        } TS9001: [${rule}] ${message}`,
+    ),
+    "src/main.js:1:1 - error TS9003: [no-debugger] Unexpected debugger.",
+    "src/uppercase.TS:1:1 - error TS9003: [fixture/rule] Ignored.",
+    "src/uppercase.TSX:1:1 - error TS9003: [fixture/rule] Ignored.",
+    "src/uppercase.D.TS:1:1 - error TS9003: [fixture/rule] Ignored.",
+  ].join("\n");
 
-    assert.deepEqual(TestLint.parseDiagnostics(stderr), expected);
+  assert.deepEqual(TestLint.parseDiagnostics(stderr), expected);
 
-    // A colored TTY run wraps the banner in ANSI escapes and a Windows child
-    // ends its lines with CRLF; both must still yield the plain record, with
-    // the trailing message whitespace trimmed.
-    assert.deepEqual(
-      TestLint.parseDiagnostics(
-        "\u001b[96msrc/color.ts\u001b[0m:3:4 - \u001b[91merror\u001b[0m TS9001: [no-var] Unexpected var.  \r\n",
-      ),
-      [
-        {
-          file: "src/color.ts",
-          line: 3,
-          column: 4,
-          severity: "error",
-          rule: "no-var",
-          message: "Unexpected var.",
-        },
-      ],
-    );
-    assert.deepEqual(TestLint.parseDiagnostics("not a diagnostic line\n"), []);
-    assert.deepEqual(TestLint.parseDiagnostics(""), []);
+  // A colored TTY run wraps the banner in ANSI escapes and a Windows child
+  // ends its lines with CRLF; both must still yield the plain record, with
+  // the trailing message whitespace trimmed.
+  assert.deepEqual(
+    TestLint.parseDiagnostics(
+      "\u001b[96msrc/color.ts\u001b[0m:3:4 - \u001b[91merror\u001b[0m TS9001: [no-var] Unexpected var.  \r\n",
+    ),
+    [
+      {
+        file: "src/color.ts",
+        line: 3,
+        column: 4,
+        severity: "error",
+        rule: "no-var",
+        message: "Unexpected var.",
+      },
+    ],
+  );
+  assert.deepEqual(TestLint.parseDiagnostics("not a diagnostic line\n"), []);
+  assert.deepEqual(TestLint.parseDiagnostics(""), []);
 }

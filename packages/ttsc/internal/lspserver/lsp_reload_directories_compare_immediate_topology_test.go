@@ -36,7 +36,7 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
       t.Fatal(err)
     }
     for _, row := range []struct {
-      directory string
+      directory     string
       topologyInput string
     }{
       {existing, ""},
@@ -50,8 +50,8 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
         t.Fatalf("directory %q frame = %s, want %s", row.directory, got, digest)
       }
       snapshot, err := normalizeLSPProjectInputSnapshot(LSPProjectInputSnapshot{
-        Root: root,
-        ReloadDirectories: []string{row.directory},
+        Root:                   root,
+        ReloadDirectories:      []string{row.directory},
         ReloadDirectoryDigests: map[string]string{row.directory: digest},
       }, root)
       if err != nil {
@@ -215,7 +215,7 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
       t.Fatalf("create owned symlink: %v", err)
     }
     linkSnapshot, err := normalizeLSPProjectInputSnapshot(LSPProjectInputSnapshot{
-      Root: root,
+      Root:              root,
       ReloadDirectories: []string{reloadDirectory},
     }, root)
     if err != nil {

@@ -31,33 +31,54 @@ import (
 func TestRuntimeConstEnumExportValues(t *testing.T) {
   t.Setenv(driver.LinkedPluginsEnv, "")
   fixtureBytes, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "tests", "test-ttsc", "src", "internal", "runtime-decorator-fixture.json"))
-  if err != nil { t.Fatal(err) }
-  var fixture struct { Source string `json:"source"`; Expected string `json:"expected"` }
-  if err := json.Unmarshal(fixtureBytes, &fixture); err != nil { t.Fatal(err) }
-  if fixture.Source == "" || fixture.Expected == "" { t.Fatal("missing authored decorator source or expectation") }
+  if err != nil {
+    t.Fatal(err)
+  }
+  var fixture struct {
+    Source   string `json:"source"`
+    Expected string `json:"expected"`
+  }
+  if err := json.Unmarshal(fixtureBytes, &fixture); err != nil {
+    t.Fatal(err)
+  }
+  if fixture.Source == "" || fixture.Expected == "" {
+    t.Fatal("missing authored decorator source or expectation")
+  }
   root := t.TempDir()
   sources := map[string]string{
-    "direct.ts": fixture.Source + "\nexport const enum Value { Entry = 42 }\nexport interface OnlyType { value: number }\n",
-    "barrel.ts": fixture.Source + "\nexport * from './values';\n",
-    "values.ts": "console.log('values-loaded'); export const enum Value { Entry = 42 } export interface OnlyType { value: number } export const actual = 17; export let live = 42; export function change() { live = 43; }\n",
+    "direct.ts":   fixture.Source + "\nexport const enum Value { Entry = 42 }\nexport interface OnlyType { value: number }\n",
+    "barrel.ts":   fixture.Source + "\nexport * from './values';\n",
+    "values.ts":   "console.log('values-loaded'); export const enum Value { Entry = 42 } export interface OnlyType { value: number } export const actual = 17; export let live = 42; export function change() { live = 43; }\n",
     "importer.ts": fixture.Source + "\nimport { Value } from './enum-1'; export const answer = Value.Entry;\n",
-    "enum-1.ts": "export const enum Value { Entry = 1 }\n",
-    "enum-2.ts": "export const enum Value { Entry = 2 }\n",
-    "enum-3.ts": "export const enum Value { Entry = 3 }\n",
-    "enum-4.ts": "export const enum Value { Entry = 4 }\n",
+    "enum-1.ts":   "export const enum Value { Entry = 1 }\n",
+    "enum-2.ts":   "export const enum Value { Entry = 2 }\n",
+    "enum-3.ts":   "export const enum Value { Entry = 3 }\n",
+    "enum-4.ts":   "export const enum Value { Entry = 4 }\n",
   }
   names := []string{"direct.ts", "barrel.ts", "values.ts", "importer.ts", "enum-1.ts", "enum-2.ts", "enum-3.ts", "enum-4.ts"}
   config, err := json.Marshal(map[string]any{
     "compilerOptions": map[string]any{"target": "es2022", "module": "commonjs", "outDir": "dist", "preserveConstEnums": false},
-    "files": names,
+    "files":           names,
   })
-  if err != nil { t.Fatal(err) }
-  if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), config, 0o644); err != nil { t.Fatal(err) }
-  for _, name := range names {
-    if err := os.WriteFile(filepath.Join(root, name), []byte(sources[name]), 0o644); err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
   }
-  type emittedProfile struct { Name string `json:"name"`; Modules map[string]string `json:"modules"` }
-  profiles := []struct { name string; args []string }{
+  if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), config, 0o644); err != nil {
+    t.Fatal(err)
+  }
+  for _, name := range names {
+    if err := os.WriteFile(filepath.Join(root, name), []byte(sources[name]), 0o644); err != nil {
+      t.Fatal(err)
+    }
+  }
+  type emittedProfile struct {
+    Name    string            `json:"name"`
+    Modules map[string]string `json:"modules"`
+  }
+  profiles := []struct {
+    name string
+    args []string
+  }{
     {"erased", []string{}},
     {"preserved", []string{"--preserveConstEnums", "true"}},
     {"isolated", []string{"--isolatedModules", "--preserveConstEnums", "true", "--noCheck", "--noResolve"}},
@@ -65,28 +86,46 @@ func TestRuntimeConstEnumExportValues(t *testing.T) {
   emitted := make([]emittedProfile, 0, len(profiles))
   for _, profile := range profiles {
     prog, diagnostics, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true, TsgoArgs: profile.args})
-    if err != nil { t.Fatal(err) }
-    if prog == nil { t.Fatal("missing compiler Program") }
+    if err != nil {
+      t.Fatal(err)
+    }
+    if prog == nil {
+      t.Fatal("missing compiler Program")
+    }
     func() {
       defer prog.Close()
-      if len(diagnostics) != 0 { t.Fatalf("%s config diagnostics: %#v", profile.name, diagnostics) }
-      if diagnostics := prog.Diagnostics(); len(diagnostics) != 0 { t.Fatalf("%s program diagnostics: %#v", profile.name, diagnostics) }
+      if len(diagnostics) != 0 {
+        t.Fatalf("%s config diagnostics: %#v", profile.name, diagnostics)
+      }
+      if diagnostics := prog.Diagnostics(); len(diagnostics) != 0 {
+        t.Fatalf("%s program diagnostics: %#v", profile.name, diagnostics)
+      }
       modules := map[string]string{}
       _, diagnostics, err := prog.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
-        if filepath.Ext(name) == ".js" { modules[filepath.Base(name)] = text }
+        if filepath.Ext(name) == ".js" {
+          modules[filepath.Base(name)] = text
+        }
         return nil
       })
-      if err != nil { t.Fatal(err) }
-      if len(diagnostics) != 0 { t.Fatalf("%s emit diagnostics: %#v", profile.name, diagnostics) }
+      if err != nil {
+        t.Fatal(err)
+      }
+      if len(diagnostics) != 0 {
+        t.Fatalf("%s emit diagnostics: %#v", profile.name, diagnostics)
+      }
       for _, name := range names {
         output := strings.TrimSuffix(name, ".ts") + ".js"
-        if modules[output] == "" { t.Fatalf("%s missing %s", profile.name, output) }
+        if modules[output] == "" {
+          t.Fatalf("%s missing %s", profile.name, output)
+        }
       }
       emitted = append(emitted, emittedProfile{profile.name, modules})
     }()
   }
   input, err := json.Marshal(emitted)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   const oracle = `const fs = require('node:fs');
 const vm = require('node:vm');
 const util = require('node:util');
@@ -130,36 +169,48 @@ process.stdout.write(JSON.stringify(results));`
   observation := e2etrace.BeginCommand(cmd, "CombinedOutput")
   output, err := cmd.CombinedOutput()
   observation.Result(err)
-  if err != nil { t.Fatalf("independent enum evaluation failed: %v\n%s", err, output) }
-  var got []struct {
-    Name string `json:"name"`
-    DirectEnum bool `json:"directEnum"`
-    DirectValue string `json:"directValue"`
-    DirectType bool `json:"directType"`
-    DirectLines string `json:"directLines"`
-    BarrelEnum bool `json:"barrelEnum"`
-    BarrelValue string `json:"barrelValue"`
-    BarrelType bool `json:"barrelType"`
-    EnumIdentity bool `json:"enumIdentity"`
-    Actual int `json:"actual"`
-    LiveBefore int `json:"liveBefore"`
-    LiveAfter int `json:"liveAfter"`
-    RepeatedIdentity bool `json:"repeatedIdentity"`
-    ValuesLoads int `json:"valuesLoads"`
-    DecoratorLines string `json:"decoratorLines"`
-    Answers []int `json:"answers"`
+  if err != nil {
+    t.Fatalf("independent enum evaluation failed: %v\n%s", err, output)
   }
-  if err := json.Unmarshal(output, &got); err != nil { t.Fatalf("invalid oracle result: %v\n%s", err, output) }
-  if len(got) != 3 { t.Fatalf("oracle profiles = %d, want 3", len(got)) }
+  var got []struct {
+    Name             string `json:"name"`
+    DirectEnum       bool   `json:"directEnum"`
+    DirectValue      string `json:"directValue"`
+    DirectType       bool   `json:"directType"`
+    DirectLines      string `json:"directLines"`
+    BarrelEnum       bool   `json:"barrelEnum"`
+    BarrelValue      string `json:"barrelValue"`
+    BarrelType       bool   `json:"barrelType"`
+    EnumIdentity     bool   `json:"enumIdentity"`
+    Actual           int    `json:"actual"`
+    LiveBefore       int    `json:"liveBefore"`
+    LiveAfter        int    `json:"liveAfter"`
+    RepeatedIdentity bool   `json:"repeatedIdentity"`
+    ValuesLoads      int    `json:"valuesLoads"`
+    DecoratorLines   string `json:"decoratorLines"`
+    Answers          []int  `json:"answers"`
+  }
+  if err := json.Unmarshal(output, &got); err != nil {
+    t.Fatalf("invalid oracle result: %v\n%s", err, output)
+  }
+  if len(got) != 3 {
+    t.Fatalf("oracle profiles = %d, want 3", len(got))
+  }
   for index, result := range got {
     preserved := index != 0
     enumValue := "missing"
-    if preserved { enumValue = "42" }
+    if preserved {
+      enumValue = "42"
+    }
     if result.Name != profiles[index].name || result.DirectEnum != preserved || result.DirectValue != enumValue || result.DirectType || result.DirectLines != fixture.Expected || result.BarrelEnum != preserved || result.BarrelValue != enumValue || result.BarrelType || !result.EnumIdentity || result.Actual != 17 || result.LiveBefore != 42 || result.LiveAfter != 43 || !result.RepeatedIdentity || result.ValuesLoads != 1 || result.DecoratorLines != fixture.Expected {
       t.Errorf("%s enum/barrel/effects result: %#v", profiles[index].name, result)
     }
     wantAnswers := []int{}
-    if index == 2 { wantAnswers = []int{1, 2, 3, 4} }
-    if !reflect.DeepEqual(result.Answers, wantAnswers) { t.Errorf("%s deferred answers = %v, want %v", result.Name, result.Answers, wantAnswers) }
+    if index == 2 {
+      wantAnswers = []int{1, 2, 3, 4}
+    }
+    if !reflect.DeepEqual(result.Answers, wantAnswers) {
+      t.Errorf("%s deferred answers = %v, want %v", result.Name, result.Answers, wantAnswers)
+    }
   }
 }

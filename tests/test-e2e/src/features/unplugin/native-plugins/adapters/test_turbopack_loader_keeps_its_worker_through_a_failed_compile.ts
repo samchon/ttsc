@@ -46,14 +46,20 @@ import { runTurbopackLoaderWithContext } from "../../../../internal/unplugin/int
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The development-mode premise is explicit NODE_ENV=development throughout the loader calls, with the exact previous value or absence restored in finally even on failure. Prior Vite builds cannot select the one-shot production branch. Private fixture paths separate mutable inputs; this environment restoration does not certify closure of global loader observers or retained roots.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: compile failure emits one helper.ts error and executable throw module with the same message; lacking emitError rejects, and absent config rejects before compilation. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_turbopack_loader_keeps_its_worker_through_a_failed_compile(preparedRoot?: string): Promise<void> {
+export async function test_turbopack_loader_keeps_its_worker_through_a_failed_compile(
+  preparedRoot?: string,
+): Promise<void> {
   const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "development";
   try {
     const plugins = [{ transform: "./plugin.cjs", operation: "read-helper" }];
     const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins });
     if (preparedRoot) {
-      assert.equal(fs.existsSync(path.join(root, "src", "helper.ts")), false, "original missing helper input");
+      assert.equal(
+        fs.existsSync(path.join(root, "src", "helper.ts")),
+        false,
+        "original missing helper input",
+      );
       const filename = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(filename, "utf8"));
       config.compilerOptions.plugins = plugins;

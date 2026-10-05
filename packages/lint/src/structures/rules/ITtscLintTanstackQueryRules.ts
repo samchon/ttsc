@@ -16,9 +16,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  */
 export interface ITtscLintTanstackQueryRules {
   /**
-   * Require direct `queryKey` arrays to include the free lexical names collected
-   * from direct `queryFn` function literals. Parameters, local declarations,
-   * imports, known stable names, and property-access names are excluded.
+   * Require direct `queryKey` arrays to include the free lexical names
+   * collected from direct `queryFn` function literals. Parameters, local
+   * declarations, imports, known stable names, and property-access names are
+   * excluded.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/exhaustive-deps
    */
@@ -58,8 +59,8 @@ export interface ITtscLintTanstackQueryRules {
    * Reject passing entire TanStack Query hook results into React dependency
    * arrays.
    *
-   * The check tracks recognized result variables in direct dependency arrays
-   * of syntactically named `useEffect`, `useMemo`, and `useCallback` calls.
+   * The check tracks recognized result variables in direct dependency arrays of
+   * syntactically named `useEffect`, `useMemo`, and `useCallback` calls.
    * Combined `useQueries` results are exempt; render identity is not measured.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/no-unstable-deps
@@ -68,9 +69,9 @@ export interface ITtscLintTanstackQueryRules {
 
   /**
    * Reject direct `queryFn` function literals whose syntax has no value return,
-   * or whose concise body is `undefined` or a `void` expression. Nested-function
-   * returns do not supply the callback's return. This is not a checker-based
-   * proof of `void`, resolved values, or cache contents.
+   * or whose concise body is `undefined` or a `void` expression.
+   * Nested-function returns do not supply the callback's return. This is not a
+   * checker-based proof of `void`, resolved values, or cache contents.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/no-void-query-fn
    */

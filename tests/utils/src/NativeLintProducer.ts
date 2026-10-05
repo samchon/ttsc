@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
-import { E2eProcessTrace } from "./E2eProcessTrace";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2eProcessTrace } from "./E2eProcessTrace";
 import { TestProject } from "./TestProject";
 
 export interface INativeLintProducer {
@@ -33,8 +33,8 @@ let sharedProducerRetentionReason: string | undefined;
  * Preserve existing shared inputs when descendant completion is unknown.
  *
  * No snapshot or cache is created here. The exact allocation owner validates
- * retention and subsequent consumers cannot reuse this unresolved producer.
- * The caller must establish descendant closure before reclaiming these roots.
+ * retention and subsequent consumers cannot reuse this unresolved producer. The
+ * caller must establish descendant closure before reclaiming these roots.
  *
  * @evidence contracts/common.md#principled-implementation Retains only the recorded snapshot allocation and already owned cache; sticky refusal prevents another consumer from using inputs with unresolved process ownership.
  * @evidence contracts/common.md#clear-and-simple-design One lifecycle operation delegates filesystem identity checks to TestProject and leaves capture and content validation unchanged.
@@ -43,18 +43,28 @@ let sharedProducerRetentionReason: string | undefined;
  * @evidence contracts/performance.md#bound-retention-and-release-resources At most the existing snapshot and internally allocated cache transfer out of exit cleanup; unresolved readers forbid further capture/reuse in this process. Later reclamation remains blocked until its caller establishes closure.
  */
 export function retainNativeLintProducer(reason: string): void {
-  if (!reason.trim()) throw new Error("Native input retention requires a reason");
+  if (!reason.trim())
+    throw new Error("Native input retention requires a reason");
   sharedProducerRetentionReason ??= reason;
   const failures: unknown[] = [];
   if (sharedProducerRoot !== undefined) {
-    try { TestProject.retainTemporaryDirectory(sharedProducerRoot, reason); }
-    catch (error) { failures.push(error); }
+    try {
+      TestProject.retainTemporaryDirectory(sharedProducerRoot, reason);
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  try { TestProject.retainSharedPluginCache(reason); }
-  catch (error) { failures.push(error); }
+  try {
+    TestProject.retainSharedPluginCache(reason);
+  } catch (error) {
+    failures.push(error);
+  }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Shared native inputs could not all be retained");
+    throw new AggregateError(
+      failures,
+      "Shared native inputs could not all be retained",
+    );
 }
 
 /**
@@ -78,26 +88,57 @@ export function retainNativeLintProducer(reason: string): void {
  */
 export function getNativeLintProducer(): INativeLintProducer {
   if (sharedProducerRetentionReason !== undefined)
-    throw new Error("Shared native lint producer has unresolved process ownership: " + sharedProducerRetentionReason);
+    throw new Error(
+      "Shared native lint producer has unresolved process ownership: " +
+        sharedProducerRetentionReason,
+    );
   if (!sharedProducer) {
-    const sourceRoot = path.join(TestProject.WORKSPACE_ROOT, "packages", "lint");
+    const sourceRoot = path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "lint",
+    );
     const destinationRoot = TestProject.tmpdir("ttsc-native-lint-producer-");
     sharedProducerRoot = destinationRoot;
     const selection = readGoSelection(sourceRoot);
-    sharedProducer = captureNativeLintProducer({ sourceRoot, destinationRoot, selection });
+    sharedProducer = captureNativeLintProducer({
+      sourceRoot,
+      destinationRoot,
+      selection,
+    });
   }
   const manifest = fs.readFileSync(sharedProducer.manifestPath);
   const saved = JSON.parse(manifest.toString());
-  if (saved.selection?.environment && JSON.stringify(saved.selection.environment) !== JSON.stringify(readSelectionEnvironment()))
-    throw new Error("Shared native lint producer selection environment was modified");
+  if (
+    saved.selection?.environment &&
+    JSON.stringify(saved.selection.environment) !==
+      JSON.stringify(readSelectionEnvironment())
+  )
+    throw new Error(
+      "Shared native lint producer selection environment was modified",
+    );
   const installed = path.join(sharedProducer.packageRoot, "node_modules");
-  if (saved.installation === null && fs.lstatSync(installed, { throwIfNoEntry: false }))
-    throw new Error("Shared native lint producer installation link was modified");
-  if (saved.installation !== null && (!fs.lstatSync(installed).isSymbolicLink() ||
-      fs.realpathSync.native(installed) !== saved.installation))
-    throw new Error("Shared native lint producer installation link was modified");
-  if (crypto.createHash("sha256").update(manifest).digest("hex") !== sharedProducer.manifestSha256 ||
-      JSON.stringify(readPackage(sharedProducer.packageRoot)) !== JSON.stringify(JSON.parse(manifest.toString()).files))
+  if (
+    saved.installation === null &&
+    fs.lstatSync(installed, { throwIfNoEntry: false })
+  )
+    throw new Error(
+      "Shared native lint producer installation link was modified",
+    );
+  if (
+    saved.installation !== null &&
+    (!fs.lstatSync(installed).isSymbolicLink() ||
+      fs.realpathSync.native(installed) !== saved.installation)
+  )
+    throw new Error(
+      "Shared native lint producer installation link was modified",
+    );
+  if (
+    crypto.createHash("sha256").update(manifest).digest("hex") !==
+      sharedProducer.manifestSha256 ||
+    JSON.stringify(readPackage(sharedProducer.packageRoot)) !==
+      JSON.stringify(JSON.parse(manifest.toString()).files)
+  )
     throw new Error("Shared native lint producer snapshot was modified");
   return sharedProducer;
 }
@@ -109,10 +150,11 @@ export function getNativeLintProducer(): INativeLintProducer {
  * Every package file is copied except installation/cache/repository boundaries
  * and compiler-proven Go test declarations that are not embedded assets.
  * Unexpected source symlinks are refused; `node_modules` alone is a linked
- * installation whose validity remains the native build's responsibility.
- * The optional file copier is the explicit byte-copy boundary, allowing its
- * caller to verify corruption and concurrent-edit refusals without replacing
- * filesystem globals. Private enumeration and hashing implement this operation.
+ * installation whose validity remains the native build's responsibility. The
+ * optional file copier is the explicit byte-copy boundary, allowing its caller
+ * to verify corruption and concurrent-edit refusals without replacing
+ * filesystem globals. Private enumeration and hashing implement this
+ * operation.
  *
  * @evidence contracts/common.md#principled-implementation A sorted path/length/mode/SHA population must agree before capture, in the actual copy and after capture; package metadata must name the real lint package and a failed capture returns no producer.
  * @evidence contracts/common.md#clear-and-simple-design Enumeration, copying and proof comparison are sequential and call-local, with a sibling manifest outside the compiled package input tree.
@@ -128,11 +170,23 @@ export function captureNativeLintProducer(props: {
   const sourceRoot = fs.realpathSync.native(props.sourceRoot);
   const destinationRoot = fs.realpathSync.native(props.destinationRoot);
   if (fs.readdirSync(destinationRoot).length !== 0)
-    throw new Error("Native lint producer capture requires an empty destination");
-  const selection = props.selection ? selectNativeLintSourceFiles(sourceRoot,
-    props.selection.metadata as IGoPackageSelection[]) : undefined;
-  if (selection && JSON.stringify(selection.excludedGoTestFiles) !== JSON.stringify(props.selection!.excludedGoTestFiles))
-    throw new Error("Native lint producer selection proof does not match its excluded files");
+    throw new Error(
+      "Native lint producer capture requires an empty destination",
+    );
+  const selection = props.selection
+    ? selectNativeLintSourceFiles(
+        sourceRoot,
+        props.selection.metadata as IGoPackageSelection[],
+      )
+    : undefined;
+  if (
+    selection &&
+    JSON.stringify(selection.excludedGoTestFiles) !==
+      JSON.stringify(props.selection!.excludedGoTestFiles)
+  )
+    throw new Error(
+      "Native lint producer selection proof does not match its excluded files",
+    );
   const omitted = new Set(selection?.excludedGoTestFiles ?? []);
   const before = readPackage(sourceRoot, omitted);
   const packageRoot = path.join(destinationRoot, "lint");
@@ -140,58 +194,98 @@ export function captureNativeLintProducer(props: {
   for (const file of before) {
     const target = path.join(packageRoot, ...file.name.split("/"));
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    (props.copyFile ?? fs.copyFileSync)(path.join(sourceRoot, ...file.name.split("/")), target);
+    (props.copyFile ?? fs.copyFileSync)(
+      path.join(sourceRoot, ...file.name.split("/")),
+      target,
+    );
     fs.chmodSync(target, file.mode);
   }
   const copied = readPackage(packageRoot);
   const after = readPackage(sourceRoot, omitted);
   const expected = JSON.stringify(before);
   if (JSON.stringify(after) !== expected || JSON.stringify(copied) !== expected)
-    throw new Error("Native lint producer changed during capture or its copied bytes differ");
-  const metadata = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
+    throw new Error(
+      "Native lint producer changed during capture or its copied bytes differ",
+    );
+  const metadata = JSON.parse(
+    fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+  );
   if (metadata.name !== "@ttsc/lint")
-    throw new Error("Native lint producer capture requires the authored @ttsc/lint package");
+    throw new Error(
+      "Native lint producer capture requires the authored @ttsc/lint package",
+    );
   const installation = path.join(sourceRoot, "node_modules");
   if (fs.existsSync(installation))
-    fs.symlinkSync(fs.realpathSync.native(installation), path.join(packageRoot, "node_modules"),
-      process.platform === "win32" ? "junction" : "dir");
-  const manifest = JSON.stringify({
-    sourceRoot,
-    installation: fs.existsSync(installation) ? fs.realpathSync.native(installation) : null,
-    files: before,
-    selection: selection ? { ...selection, environment: props.selection?.environment } : null,
-  }, null, 2) + "\n";
+    fs.symlinkSync(
+      fs.realpathSync.native(installation),
+      path.join(packageRoot, "node_modules"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  const manifest =
+    JSON.stringify(
+      {
+        sourceRoot,
+        installation: fs.existsSync(installation)
+          ? fs.realpathSync.native(installation)
+          : null,
+        files: before,
+        selection: selection
+          ? { ...selection, environment: props.selection?.environment }
+          : null,
+      },
+      null,
+      2,
+    ) + "\n";
   const manifestPath = path.join(destinationRoot, "manifest.json");
   fs.writeFileSync(manifestPath, manifest);
-  return Object.freeze({ packageRoot, sourceRoot, manifestPath,
-    manifestSha256: crypto.createHash("sha256").update(manifest).digest("hex") });
+  return Object.freeze({
+    packageRoot,
+    sourceRoot,
+    manifestPath,
+    manifestSha256: crypto.createHash("sha256").update(manifest).digest("hex"),
+  });
 }
 
-function readPackage(root: string, omitted: ReadonlySet<string> = new Set()): IFileReading[] {
+function readPackage(
+  root: string,
+  omitted: ReadonlySet<string> = new Set(),
+): IFileReading[] {
   const files: IFileReading[] = [];
   const visit = (directory: string): void => {
     for (const name of fs.readdirSync(directory).sort()) {
       // Installation, repository and cache boundaries are not package source. A
       // nested workspace member (the lint contributor demo) carries its own
       // node_modules link, which is installation too, so it is skipped at any depth.
-      if (name === "node_modules" || (directory === root && [".git", ".cache", ".ttsc"].includes(name))) continue;
+      if (
+        name === "node_modules" ||
+        (directory === root && [".git", ".cache", ".ttsc"].includes(name))
+      )
+        continue;
       const file = path.join(directory, name);
       const stat = fs.lstatSync(file);
       if (stat.isSymbolicLink())
-        throw new Error(`Native lint producer has an unaccounted source link: ${file}`);
+        throw new Error(
+          `Native lint producer has an unaccounted source link: ${file}`,
+        );
       if (stat.isDirectory()) visit(file);
       else if (stat.isFile()) {
         const relative = path.relative(root, file).split(path.sep).join("/");
         if (omitted.has(relative)) continue;
         const content = fs.readFileSync(file);
-        files.push({ name: path.relative(root, file).split(path.sep).join("/"),
-          bytes: content.length, mode: stat.mode & 0o777,
-          sha256: crypto.createHash("sha256").update(content).digest("hex") });
-      } else throw new Error(`Native lint producer has an unsupported source entry: ${file}`);
+        files.push({
+          name: path.relative(root, file).split(path.sep).join("/"),
+          bytes: content.length,
+          mode: stat.mode & 0o777,
+          sha256: crypto.createHash("sha256").update(content).digest("hex"),
+        });
+      } else
+        throw new Error(
+          `Native lint producer has an unsupported source entry: ${file}`,
+        );
     }
   };
   visit(root);
-  return files.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  return files.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 interface IGoPackageSelection {
@@ -215,47 +309,98 @@ interface IGoPackageSelection {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not classify names by suffix or erase Go, Cgo or embedded inputs; package discovery failures cannot authorize a smaller source tree.
  * @evidence contracts/common.md#meaningful-documentation Describes the compile-input projection and leaves dependency/build validation with the real native builder.
  */
-export function selectNativeLintSourceFiles(sourceRoot: string, records: readonly IGoPackageSelection[]): INativeLintSourceSelection {
-  if (records.length === 0) throw new Error("Native lint producer selection has no packages");
+export function selectNativeLintSourceFiles(
+  sourceRoot: string,
+  records: readonly IGoPackageSelection[],
+): INativeLintSourceSelection {
+  if (records.length === 0)
+    throw new Error("Native lint producer selection has no packages");
   const excluded = new Set<string>();
   for (const record of records) {
-    if (!record || typeof record.Dir !== "string" || record.Error || record.Incomplete ||
-        (record.DepsErrors?.length ?? 0) || (record.InvalidGoFiles?.length ?? 0))
+    if (
+      !record ||
+      typeof record.Dir !== "string" ||
+      record.Error ||
+      record.Incomplete ||
+      (record.DepsErrors?.length ?? 0) ||
+      (record.InvalidGoFiles?.length ?? 0)
+    )
       throw new Error("Native lint producer selection is incomplete");
-    const directory = path.relative(fs.realpathSync.native(sourceRoot), fs.realpathSync.native(record.Dir));
-    if (path.isAbsolute(directory) || directory === ".." || directory.startsWith(".." + path.sep))
+    const directory = path.relative(
+      fs.realpathSync.native(sourceRoot),
+      fs.realpathSync.native(record.Dir),
+    );
+    if (
+      path.isAbsolute(directory) ||
+      directory === ".." ||
+      directory.startsWith(".." + path.sep)
+    )
       throw new Error("Native lint producer selection escapes its package");
     const names = (field: keyof IGoPackageSelection): string[] => {
       const value = record[field];
       if (value === undefined) return [];
-      if (!Array.isArray(value) || value.some((name) => typeof name !== "string" ||
-          !name || path.isAbsolute(name) || name.split(/[\\/]/).some((part) => part === ".." || part === ".")))
-        throw new Error("Native lint producer selection has an invalid source name");
+      if (
+        !Array.isArray(value) ||
+        value.some(
+          (name) =>
+            typeof name !== "string" ||
+            !name ||
+            path.isAbsolute(name) ||
+            name.split(/[\\/]/).some((part) => part === ".." || part === "."),
+        )
+      )
+        throw new Error(
+          "Native lint producer selection has an invalid source name",
+        );
       return value as string[];
     };
-    const protectedFiles = new Set([...names("GoFiles"), ...names("CgoFiles"), ...names("EmbedFiles")]);
+    const protectedFiles = new Set([
+      ...names("GoFiles"),
+      ...names("CgoFiles"),
+      ...names("EmbedFiles"),
+    ]);
     for (const name of [...names("TestGoFiles"), ...names("XTestGoFiles")])
-      if (!protectedFiles.has(name)) excluded.add(path.join(directory, name).split(path.sep).join("/"));
+      if (!protectedFiles.has(name))
+        excluded.add(path.join(directory, name).split(path.sep).join("/"));
   }
-  return { excludedGoTestFiles: [...excluded].sort(), metadata: JSON.parse(JSON.stringify(records)) };
+  return {
+    excludedGoTestFiles: [...excluded].sort(),
+    metadata: JSON.parse(JSON.stringify(records)),
+  };
 }
 
 function readGoSelection(sourceRoot: string): INativeLintSourceSelection {
-  const { resolveGoCompiler } = TestProject.REQUIRE_FROM_TEST(path.join(TestProject.WORKSPACE_ROOT,
-    "packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js")) as {
-      resolveGoCompiler: (env: NodeJS.ProcessEnv) => { binary: string };
-    };
+  const { resolveGoCompiler } = TestProject.REQUIRE_FROM_TEST(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js",
+    ),
+  ) as {
+    resolveGoCompiler: (env: NodeJS.ProcessEnv) => { binary: string };
+  };
   const binary = resolveGoCompiler(process.env).binary;
   const collect = (env: NodeJS.ProcessEnv): IGoPackageSelection[] => {
     // -find asks Go to select package files without resolving imports. Dependency
     // availability is subsequently proved by the actual native compiler build.
-    const result = E2eProcessTrace.spawnSync(binary, ["list", "-find", "-e", "-json", "./..."], {
-      cwd: sourceRoot, env, encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
-    });
+    const result = E2eProcessTrace.spawnSync(
+      binary,
+      ["list", "-find", "-e", "-json", "./..."],
+      {
+        cwd: sourceRoot,
+        env,
+        encoding: "utf8",
+        maxBuffer: 32 * 1024 * 1024,
+      },
+    );
     if (result.error || result.status !== 0 || result.stderr.trim())
-      throw new Error(`Native lint producer Go selection failed: ${result.error?.message ?? result.stderr}`);
+      throw new Error(
+        `Native lint producer Go selection failed: ${result.error?.message ?? result.stderr}`,
+      );
     const records: IGoPackageSelection[] = [];
-    let depth = 0, quoted = false, escaped = false, start = 0;
+    let depth = 0,
+      quoted = false,
+      escaped = false,
+      start = 0;
     for (let index = 0; index < result.stdout.length; ++index) {
       const character = result.stdout[index]!;
       if (quoted) {
@@ -263,34 +408,64 @@ function readGoSelection(sourceRoot: string): INativeLintSourceSelection {
         else if (character === "\\") escaped = true;
         else if (character === '"') quoted = false;
       } else if (character === '"') quoted = true;
-      else if (character === "{") { if (depth++ === 0) start = index; }
-      else if (character === "}") {
-        if (--depth < 0) throw new Error("Native lint producer Go selection returned malformed JSON");
-        if (depth === 0) records.push(JSON.parse(result.stdout.slice(start, index + 1)));
+      else if (character === "{") {
+        if (depth++ === 0) start = index;
+      } else if (character === "}") {
+        if (--depth < 0)
+          throw new Error(
+            "Native lint producer Go selection returned malformed JSON",
+          );
+        if (depth === 0)
+          records.push(JSON.parse(result.stdout.slice(start, index + 1)));
       } else if (depth === 0 && !/\s/.test(character))
-        throw new Error("Native lint producer Go selection returned malformed JSON");
+        throw new Error(
+          "Native lint producer Go selection returned malformed JSON",
+        );
     }
-    if (depth || quoted) throw new Error("Native lint producer Go selection returned truncated JSON");
+    if (depth || quoted)
+      throw new Error(
+        "Native lint producer Go selection returned truncated JSON",
+      );
     return records;
   };
   const inherited = collect(process.env);
   const isolated = collect({ ...process.env, GOWORK: "off", GOPROXY: "off" });
-  const project = (records: IGoPackageSelection[]) => records.map((record) => ({
-    Dir: record.Dir, GoFiles: record.GoFiles, CgoFiles: record.CgoFiles,
-    TestGoFiles: record.TestGoFiles, XTestGoFiles: record.XTestGoFiles, EmbedFiles: record.EmbedFiles,
-    Error: record.Error, DepsErrors: record.DepsErrors, Incomplete: record.Incomplete,
-    InvalidGoFiles: record.InvalidGoFiles,
-  }));
+  const project = (records: IGoPackageSelection[]) =>
+    records.map((record) => ({
+      Dir: record.Dir,
+      GoFiles: record.GoFiles,
+      CgoFiles: record.CgoFiles,
+      TestGoFiles: record.TestGoFiles,
+      XTestGoFiles: record.XTestGoFiles,
+      EmbedFiles: record.EmbedFiles,
+      Error: record.Error,
+      DepsErrors: record.DepsErrors,
+      Incomplete: record.Incomplete,
+      InvalidGoFiles: record.InvalidGoFiles,
+    }));
   const selected = selectNativeLintSourceFiles(sourceRoot, project(inherited));
   selectNativeLintSourceFiles(sourceRoot, project(isolated));
   if (JSON.stringify(project(inherited)) !== JSON.stringify(project(isolated)))
-    throw new Error("Native lint producer selection differs across workspace/proxy environments");
+    throw new Error(
+      "Native lint producer selection differs across workspace/proxy environments",
+    );
   return { ...selected, environment: readSelectionEnvironment() };
 }
 
 function readSelectionEnvironment(): Record<string, string | null> {
-  return Object.fromEntries(["GOOS", "GOARCH", "CGO_ENABLED", "GOFLAGS", "GOWORK", "GOTOOLCHAIN", "GOROOT",
-    "GOPROXY", "TTSC_GO_BINARY"].map((name) => [name, process.env[name] ?? null]));
+  return Object.fromEntries(
+    [
+      "GOOS",
+      "GOARCH",
+      "CGO_ENABLED",
+      "GOFLAGS",
+      "GOWORK",
+      "GOTOOLCHAIN",
+      "GOROOT",
+      "GOPROXY",
+      "TTSC_GO_BINARY",
+    ].map((name) => [name, process.env[name] ?? null]),
+  );
 }
 
 /**
@@ -303,10 +478,19 @@ function readSelectionEnvironment(): Record<string, string | null> {
  */
 export function linkNativeLintPackage(packageRoot: string, link: string): void {
   try {
-    fs.symlinkSync(packageRoot, link, process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(
+      packageRoot,
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    );
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    if (!fs.lstatSync(link).isSymbolicLink() || fs.realpathSync.native(link) !== fs.realpathSync.native(packageRoot))
-      throw new Error("Existing native lint package link does not identify the requested producer");
+    if (
+      !fs.lstatSync(link).isSymbolicLink() ||
+      fs.realpathSync.native(link) !== fs.realpathSync.native(packageRoot)
+    )
+      throw new Error(
+        "Existing native lint package link does not identify the requested producer",
+      );
   }
 }

@@ -41,7 +41,10 @@ export async function test_typia_source_pack_mount_follows_the_work_dir_and_rest
   const trailing = createMemFS();
   const mount = createTypiaSourcePackMount({ url, fetch: fetchPack });
   await mount(trailing, "/proj/");
-  assert.equal(trailing.readFileText("/proj/node_modules/typia/lib/index.js"), "T");
+  assert.equal(
+    trailing.readFileText("/proj/node_modules/typia/lib/index.js"),
+    "T",
+  );
   assert.equal(
     trailing.readFileText("/proj/node_modules/@typia/core/index.js"),
     "C",
@@ -50,7 +53,10 @@ export async function test_typia_source_pack_mount_follows_the_work_dir_and_rest
 
   const absent = createMemFS();
   await mount(absent);
-  assert.equal(absent.readFileText("/work/node_modules/typia/lib/index.js"), "T");
+  assert.equal(
+    absent.readFileText("/work/node_modules/typia/lib/index.js"),
+    "T",
+  );
 
   const pinned = createMemFS();
   await createTypiaSourcePackMount({
@@ -69,7 +75,10 @@ export async function test_typia_source_pack_mount_follows_the_work_dir_and_rest
   );
   assert.equal(trailing.exists("/proj/node_modules/typia/lib/index.js"), false);
   await mount(trailing, "/proj/");
-  assert.equal(trailing.readFileText("/proj/node_modules/typia/lib/index.js"), "T");
+  assert.equal(
+    trailing.readFileText("/proj/node_modules/typia/lib/index.js"),
+    "T",
+  );
   assert.equal(calls, 1, "the remount used the loaded records");
 
   await installTypiaSourcePack(createMemFS(), { url, fetch: fetchPack });
@@ -84,12 +93,28 @@ export async function test_typia_source_pack_mount_follows_the_work_dir_and_rest
   ];
   const flaky = async (): Promise<Response> => responses[attempts++]!;
   const flakyUrl = "https://pack.invalid/mount-flaky.json";
-  const flakyMount = createTypiaSourcePackMount({ url: flakyUrl, fetch: flaky });
+  const flakyMount = createTypiaSourcePackMount({
+    url: flakyUrl,
+    fetch: flaky,
+  });
   const target = createMemFS();
-  await assert.rejects(flakyMount(target, "/w"), /failed to fetch .*mount-flaky\.json: 404/);
-  await assert.rejects(flakyMount(target, "/w"), /expected a source-text record map/);
-  await assert.rejects(flakyMount(target, "/w"), /expected a source-text record map/);
-  assert.equal(target.exists("/w/node_modules"), false, "a refused pack writes nothing");
+  await assert.rejects(
+    flakyMount(target, "/w"),
+    /failed to fetch .*mount-flaky\.json: 404/,
+  );
+  await assert.rejects(
+    flakyMount(target, "/w"),
+    /expected a source-text record map/,
+  );
+  await assert.rejects(
+    flakyMount(target, "/w"),
+    /expected a source-text record map/,
+  );
+  assert.equal(
+    target.exists("/w/node_modules"),
+    false,
+    "a refused pack writes nothing",
+  );
   await flakyMount(target, "/w");
   assert.equal(attempts, 4, "each failure was evicted and refetched");
   assert.equal(target.readFileText("/w/node_modules/typia/index.js"), "R");

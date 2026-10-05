@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { resolveWithDirectoryMemo } from "../../../../../packages/vscode/src/resolveWithDirectoryMemo";
 
 /**
- * Verifies the per-reconciliation memo resolves each directory once however many
- * documents ask for it, including when the answer is undefined, and keeps
+ * Verifies the per-reconciliation memo resolves each directory once however
+ * many documents ask for it, including when the answer is undefined, and keeps
  * different directories apart.
  *
  * Every open document in a directory resolves to the same project, so a
@@ -31,7 +31,10 @@ export function test_vscode_directory_resolution_runs_once_per_directory_in_a_me
     return "project-a";
   };
   for (let document = 0; document < 12; ++document)
-    assert.equal(resolveWithDirectoryMemo("/work/a", memo, project), "project-a");
+    assert.equal(
+      resolveWithDirectoryMemo("/work/a", memo, project),
+      "project-a",
+    );
   assert.equal(calls, 1, "twelve documents of one directory resolve once");
 
   let missing = 0;
@@ -40,7 +43,10 @@ export function test_vscode_directory_resolution_runs_once_per_directory_in_a_me
     return undefined;
   };
   for (let document = 0; document < 5; ++document)
-    assert.equal(resolveWithDirectoryMemo("/work/empty", memo, none), undefined);
+    assert.equal(
+      resolveWithDirectoryMemo("/work/empty", memo, none),
+      undefined,
+    );
   assert.equal(missing, 1, "an undefined answer is memoized too");
 
   assert.equal(

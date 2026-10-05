@@ -13,9 +13,9 @@ import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonO
  * schema, so a question is decided by the flag's identity (any case, one or two
  * dashes) and, for a boolean flag, by the value TypeScript-Go gives it.
  *
- * Classification observes this unexpanded argv frame. It does not read
- * response files; their contents and effects remain owned by the native
- * compiler and cannot be certified by these predicates.
+ * Classification observes this unexpanded argv frame. It does not read response
+ * files; their contents and effects remain owned by the native compiler and
+ * cannot be certified by these predicates.
  *
  * @evidence contracts/common.md#principled-implementation Schema identities and compiler-compatible boolean occurrence parsing distinguish effective flags from mere user-owned presence.
  * @evidence contracts/common.md#clear-and-simple-design The grouping centralizes forwarding classification and preservation policy so higher build layers do not maintain parallel literal flag sets.
@@ -52,10 +52,9 @@ export namespace PassthroughFlags {
 
   /**
    * Report whether this unexpanded argv frame includes an enabled
-   * print-and-exit tsgo flag
-   * (`--showConfig`, `--listFilesOnly`, `--all`, `--init`, `-?`) that is in
-   * effect, so ttsc can avoid adding compile-only flags to a command that is
-   * not going to compile.
+   * print-and-exit tsgo flag (`--showConfig`, `--listFilesOnly`, `--all`,
+   * `--init`, `-?`) that is in effect, so ttsc can avoid adding compile-only
+   * flags to a command that is not going to compile.
    *
    * Schema-derived, and resolved by flag identity rather than by exact
    * spelling: adding a new terminal flag means editing `FLAG_SCHEMA.ts` and
@@ -108,11 +107,11 @@ export namespace PassthroughFlags {
   }
 
   /**
-   * Report whether this unexpanded frame visibly names a flag ttsc adds internally —
-   * e.g. `--listEmittedFiles` (ttsc adds it to learn emitted paths) or
-   * `--noEmit` (ttsc adds it for the pre-emit type-check). When the user also
-   * forwards the same flag, post-processing must keep the user-visible effect
-   * intact instead of stripping it as ttsc-internal noise.
+   * Report whether this unexpanded frame visibly names a flag ttsc adds
+   * internally — e.g. `--listEmittedFiles` (ttsc adds it to learn emitted
+   * paths) or `--noEmit` (ttsc adds it for the pre-emit type-check). When the
+   * user also forwards the same flag, post-processing must keep the
+   * user-visible effect intact instead of stripping it as ttsc-internal noise.
    *
    * Schema-derived: `FLAG_SCHEMA[*].internalShadow === true`.
    *
@@ -140,7 +139,7 @@ export namespace PassthroughFlags {
     // Resolution covers the bare form (`--pretty`), the inline-value form
     // (`--pretty=true`), and case variants (`--PRETTY`). This is identity
     // recognition, not acceptance of an inline boolean value by tsgo.
-    for (let index = 0; index < passthrough.length;) {
+    for (let index = 0; index < passthrough.length; ) {
       const spec = resolveFlagSpec(passthrough[index]!);
       if (spec?.internalShadow === true && spec.name === flag) return true;
       index += readCompilerOptionOccurrence(passthrough, index).width;
@@ -150,7 +149,8 @@ export namespace PassthroughFlags {
 
   /**
    * This unexpanded argv frame without visible occurrences of the named boolean
-   * flags, each removed with the value token TypeScript-Go would consume for it.
+   * flags, each removed with the value token TypeScript-Go would consume for
+   * it.
    *
    * Only an occurrence TypeScript-Go itself accepts is removed. An inline
    * spelling it rejects (`--diagnostics=false`) stays for native diagnosis.
@@ -180,16 +180,22 @@ export namespace PassthroughFlags {
   ): string[] {
     const out: string[] = [];
     let previousNeedsFence = false;
-    for (let i = 0; i < passthrough.length;) {
+    for (let i = 0; i < passthrough.length; ) {
       const occurrence = readCompilerOptionOccurrence(passthrough, i);
       const flag = resolveFlagSpec(passthrough[i]!);
-      if (occurrence.booleanValue !== undefined && flag !== undefined &&
-        names.includes(flag.name)) {
+      if (
+        occurrence.booleanValue !== undefined &&
+        flag !== undefined &&
+        names.includes(flag.name)
+      ) {
         // Native ignores an empty positional token. It also prevents a
         // retained boolean/list/config-only option from consuming newly
         // adjacent data after the removed option disappears.
         const next = passthrough[i + occurrence.width];
-        if (previousNeedsFence && (next === undefined || !next.startsWith("-"))) {
+        if (
+          previousNeedsFence &&
+          (next === undefined || !next.startsWith("-"))
+        ) {
           out.push("");
           previousNeedsFence = false;
         }
@@ -210,7 +216,7 @@ export namespace PassthroughFlags {
   function effectiveBooleanFlags(options: TtscCommonOptions): FlagSpec[] {
     const passthrough = options.passthrough ?? [];
     const values = new Map<FlagSpec, boolean>();
-    for (let i = 0; i < passthrough.length;) {
+    for (let i = 0; i < passthrough.length; ) {
       const occurrence = readCompilerOptionOccurrence(passthrough, i);
       if (occurrence.booleanValue !== undefined) {
         const flag = resolveFlagSpec(passthrough[i]!);
@@ -220,5 +226,4 @@ export namespace PassthroughFlags {
     }
     return [...values].filter(([, value]) => value).map(([flag]) => flag);
   }
-
 }

@@ -14,9 +14,7 @@
  * a supported record for this classifier.
  *
  * @param error What the rename threw.
- *
  * @returns Whether the refusal is eligible for the caller's contention path.
- *
  * @evidence contracts/common.md#principled-implementation The protocol's accepted codes include access refusals under the just-created candidate premise. A later destination lookup cannot identify a disappeared race, and the code itself does not prove that another process caused the refusal.
  * @evidence contracts/common.md#clear-and-simple-design One classifier serves the two lock protocols while each caller owns candidate creation, polling and its retry deadline.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The access-error allowance is tied to the real lock-publication premise, not a blanket suppression of unrelated permissions or expected fixture outcomes.

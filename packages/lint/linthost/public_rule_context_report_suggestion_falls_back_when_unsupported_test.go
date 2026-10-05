@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 // TestPublicRuleContextReportSuggestionFallsBackWhenUnsupported is the negative
@@ -35,5 +35,7 @@ func TestPublicRuleContextReportSuggestionFallsBackWhenUnsupported(t *testing.T)
   if reporter.fixCalls != 0 {
     t.Fatalf("the fix path must not fire for a suggestion call, got %d", reporter.fixCalls)
   }
-  if reporter.ranges != 0 || reporter.rangeFixCall != 0 || reporter.lastNode != node || reporter.lastMessage != "msg" { t.Fatalf("unsupported suggestion diagnostic payload or route lost: %+v", reporter) }
+  if reporter.ranges != 0 || reporter.rangeFixCall != 0 || reporter.lastNode != node || reporter.lastMessage != "msg" {
+    t.Fatalf("unsupported suggestion diagnostic payload or route lost: %+v", reporter)
+  }
 }

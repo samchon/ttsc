@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  SyntaxKind,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { kw } from "../../internal/helpers";
 
 /**
@@ -9,8 +12,10 @@ import { kw } from "../../internal/helpers";
  * Under `printWidth: 20` the alias body moves to the next line and each member
  * gets a leading pipe.
  *
- * 1. A width20 union alias moves members to separate lines with leading | operators.
- * 2. Explicit type U multiline source independently specifies leading operators, member order and final semicolon.
+ * 1. A width20 union alias moves members to separate lines with leading |
+ *    operators.
+ * 2. Explicit type U multiline source independently specifies leading operators,
+ *    member order and final semicolon.
  *
  * @evidence contracts/testing.md#behavioral-verification A width20 union alias moves members to separate lines with leading | operators.
  * @evidence contracts/testing.md#independent-expectations Explicit type U multiline source independently specifies leading operators, member order and final semicolon.

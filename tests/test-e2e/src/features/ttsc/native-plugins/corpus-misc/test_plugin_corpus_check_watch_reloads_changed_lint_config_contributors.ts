@@ -28,7 +28,8 @@ type ResidentSample = {
  * 1. Start check watch with contributor A selected by a helper outside the project
  *    and record its resident PID/finding.
  * 2. Change only that helper to select contributor B.
- * 3. Require a distinct PID, cold-load telemetry, and only B's behavior in that cycle.
+ * 3. Require a distinct PID, cold-load telemetry, and only B's behavior in that
+ *    cycle.
  *
  * @evidence contracts/testing.md#behavioral-verification Real watch replaces alpha with beta after only the imported selection helper changes, requires distinct positive telemetry PIDs, fresh-load counters and native ESRCH for the old PID. These counters do not count total Program constructions.
  * @evidence contracts/testing.md#independent-expectations Literal alpha/beta finding markers and distinct contributor sources independently identify behavior; complete fresh-counter checks and old-PID liveness checks establish replacement rather than stale config reuse.
@@ -87,13 +88,23 @@ export async function test_plugin_corpus_check_watch_reloads_changed_lint_config
     failures.push(error);
   } finally {
     let joined = session === undefined;
-    try { await session?.close(); joined = true; } catch (error) { failures.push(error); }
+    try {
+      await session?.close();
+      joined = true;
+    } catch (error) {
+      failures.push(error);
+    }
     if (joined) {
-      try { fs.rmSync(shared, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+      try {
+        fs.rmSync(shared, { recursive: true, force: true });
+      } catch (error) {
+        failures.push(error);
+      }
     }
   }
   if (failures.length === 1) throw failures[0];
-  if (failures.length > 1) throw new AggregateError(failures, "Contributor reload and cleanup failed");
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Contributor reload and cleanup failed");
 }
 
 function writeContributor(directory: string, namespace: string): void {
@@ -150,7 +161,11 @@ function assertFreshSample(
   sample: ResidentSample,
   previousPid: number | undefined,
 ): void {
-  assert.ok(Number.isSafeInteger(sample.pid) && sample.pid > 0 && sample.pid !== process.pid);
+  assert.ok(
+    Number.isSafeInteger(sample.pid) &&
+      sample.pid > 0 &&
+      sample.pid !== process.pid,
+  );
   if (previousPid !== undefined) assert.notEqual(sample.pid, previousPid);
   assert.equal(sample.programLoads, 1);
   assert.equal(sample.programUpdates, 0);

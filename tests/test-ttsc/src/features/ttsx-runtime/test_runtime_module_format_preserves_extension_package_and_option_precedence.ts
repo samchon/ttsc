@@ -1,8 +1,8 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
 import { RuntimeModuleFormat } from "../../../../../packages/ttsc/src/launcher/internal/runtime/RuntimeModuleFormat";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies module format follows extension, dependency scope and emit options.
@@ -24,34 +24,89 @@ export function test_runtime_module_format_preserves_extension_package_and_optio
   const root = TestProject.createProject({
     "module/package.json": '{"type":"module"}',
     "commonjs/package.json": '{"type":"commonjs"}',
-    "silent/package.json": '{}',
-    "malformed/package.json": '{',
+    "silent/package.json": "{}",
+    "malformed/package.json": "{",
     "node_modules/cjs/package.json": '{"type":"commonjs"}',
     "node_modules/esm/package.json": '{"type":"module"}',
-    "node_modules/silent/package.json": '{}',
+    "node_modules/silent/package.json": "{}",
     "Node_Modules/cjs/package.json": '{"type":"commonjs"}',
   });
-  const format = (scope: string, filename: string, options: { module?: string; target?: string } | null) => RuntimeModuleFormat.moduleFormat(path.join(root, scope, filename), options);
+  const format = (
+    scope: string,
+    filename: string,
+    options: { module?: string; target?: string } | null,
+  ) =>
+    RuntimeModuleFormat.moduleFormat(path.join(root, scope, filename), options);
   for (const scope of ["module", "commonjs", "silent", "malformed"]) {
-    assert.equal(format(scope, "main.mts", { module: "commonjs" }), "module", scope);
-    assert.equal(format(scope, "main.cts", { module: "esnext" }), "commonjs", scope);
+    assert.equal(
+      format(scope, "main.mts", { module: "commonjs" }),
+      "module",
+      scope,
+    );
+    assert.equal(
+      format(scope, "main.cts", { module: "esnext" }),
+      "commonjs",
+      scope,
+    );
     assert.equal(format(scope, "main.mjs", null), "module", scope);
     assert.equal(format(scope, "main.cjs", null), "commonjs", scope);
-    assert.equal(format(scope, "main.ts", { module: "preserve" }), "module", scope);
-    assert.equal(format(scope, "main.ts", { module: "commonjs" }), "commonjs", scope);
+    assert.equal(
+      format(scope, "main.ts", { module: "preserve" }),
+      "module",
+      scope,
+    );
+    assert.equal(
+      format(scope, "main.ts", { module: "commonjs" }),
+      "commonjs",
+      scope,
+    );
     for (const target of [undefined, "es6", "ES2019", "es2022", "ESNext"]) {
-      assert.equal(format(scope, "main.ts", { target }), "module", scope + String(target));
-      assert.equal(format(scope, "main.ts", { module: "none", target }), "module", scope + String(target));
+      assert.equal(
+        format(scope, "main.ts", { target }),
+        "module",
+        scope + String(target),
+      );
+      assert.equal(
+        format(scope, "main.ts", { module: "none", target }),
+        "module",
+        scope + String(target),
+      );
     }
     for (const module of ["node16", "node18", "node20", "nodenext"]) {
-      assert.equal(format(scope, "main.ts", { module }), scope === "module" ? "module" : "commonjs", scope + module);
+      assert.equal(
+        format(scope, "main.ts", { module }),
+        scope === "module" ? "module" : "commonjs",
+        scope + module,
+      );
     }
-    assert.equal(format(scope, "main.ts", null), scope === "module" ? "module" : "commonjs", scope);
+    assert.equal(
+      format(scope, "main.ts", null),
+      scope === "module" ? "module" : "commonjs",
+      scope,
+    );
   }
-  assert.equal(format("node_modules/cjs", "main.ts", { module: "esnext" }), "commonjs");
-  assert.equal(format("node_modules/esm", "main.ts", { module: "commonjs" }), "module");
-  assert.equal(format("node_modules/silent", "main.ts", { module: "esnext" }), "module");
-  assert.equal(format("Node_Modules/cjs", "main.ts", { module: "esnext" }), "module");
-  assert.equal(format("node_modules/cjs", "main.mts", { module: "commonjs" }), "module");
-  assert.equal(format("node_modules/esm", "main.cts", { module: "esnext" }), "commonjs");
+  assert.equal(
+    format("node_modules/cjs", "main.ts", { module: "esnext" }),
+    "commonjs",
+  );
+  assert.equal(
+    format("node_modules/esm", "main.ts", { module: "commonjs" }),
+    "module",
+  );
+  assert.equal(
+    format("node_modules/silent", "main.ts", { module: "esnext" }),
+    "module",
+  );
+  assert.equal(
+    format("Node_Modules/cjs", "main.ts", { module: "esnext" }),
+    "module",
+  );
+  assert.equal(
+    format("node_modules/cjs", "main.mts", { module: "commonjs" }),
+    "module",
+  );
+  assert.equal(
+    format("node_modules/esm", "main.cts", { module: "esnext" }),
+    "commonjs",
+  );
 }

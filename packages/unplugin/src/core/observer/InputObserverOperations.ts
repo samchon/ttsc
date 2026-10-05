@@ -5,8 +5,8 @@
  * `watch` opens one recursive observer and `poll` opens the shared fallback
  * timer. The optional overrides let a test simulate another platform's path and
  * case inputs without changing global defaults. They do not replace the
- * observer's content/metadata filesystem reads; a supplied view must keep
- * event names, native corpus and comparison inputs coherent.
+ * observer's content/metadata filesystem reads; a supplied view must keep event
+ * names, native corpus and comparison inputs coherent.
  *
  * @evidence contracts/common.md#principled-implementation Watch, poll, platform, and directory-case capabilities describe the observer's native boundary without changing unrelated hosts' operations.
  * @evidence contracts/common.md#clear-and-simple-design A structural operation table exposes observation capabilities; input evidence and consumer actions remain outside the seam.

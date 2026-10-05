@@ -10,8 +10,8 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  *   returned fence permits an attempt to retire that observed generation.
  * - `released`: observation found a released or unavailable handoff and carries
  *   no fence. V3 coordination roots persist independently of `current`; these
- *   sequential observations do not guarantee that no successor exists by return.
- *   This is never an infinitely old abandoned lock.
+ *   sequential observations do not guarantee that no successor exists by
+ *   return. This is never an infinitely old abandoned lock.
  *
  * A v3 active or abandoned result records the observer before returning its
  * fence. Reclamation is still a separate action that may lose a retirement

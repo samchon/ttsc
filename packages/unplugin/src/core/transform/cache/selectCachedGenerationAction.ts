@@ -12,7 +12,8 @@ import { evictGeneration } from "./evictGeneration";
  * notification settling. A volatile or mismatching generation is evicted by
  * identity; if eviction exposed a sibling replacement, the caller retries it.
  * Otherwise the caller must capture a new generation. A serving decision does
- * not perform output selection or host notification, which remain with delivery.
+ * not perform output selection or host notification, which remain with
+ * delivery.
  *
  * @evidence contracts/common.md#principled-implementation The actual generation's volatility and recorded source proof decide serving; identity-guarded eviction then distinguishes a sibling's current replacement from an empty capture slot.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous operation selects serve/retry/capture and owns mismatch eviction, while its production caller owns awaiting, notification settling, native capture and output delivery.

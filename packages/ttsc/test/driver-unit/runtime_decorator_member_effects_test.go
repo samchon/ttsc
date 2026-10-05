@@ -31,7 +31,7 @@ func TestRuntimeDecoratorMemberEffects(t *testing.T) {
     t.Fatal(err)
   }
   var fixture struct {
-    MemberSource string `json:"memberSource"`
+    MemberSource   string `json:"memberSource"`
     MemberExpected string `json:"memberExpected"`
   }
   if err := json.Unmarshal(fixtureBytes, &fixture); err != nil {

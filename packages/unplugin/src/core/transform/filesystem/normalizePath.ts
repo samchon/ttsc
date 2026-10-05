@@ -2,8 +2,8 @@
  * Convert Windows separators to forward slashes.
  *
  * Project keys, alias targets, and generated tsconfig paths all use one
- * separator spelling. This conversion does not establish filesystem identity
- * or make paths from different native filesystems equivalent.
+ * separator spelling. This conversion does not establish filesystem identity or
+ * make paths from different native filesystems equivalent.
  *
  * @evidence contracts/common.md#principled-implementation The helper converts path separators into the forward-slash representation consumed by project keys and generated compiler paths, without changing case or resolving identity.
  * @evidence contracts/common.md#clear-and-simple-design One separator conversion owns protocol spelling while native path resolution and physical equivalence remain separate operations.

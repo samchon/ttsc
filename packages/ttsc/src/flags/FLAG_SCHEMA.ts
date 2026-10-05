@@ -2,8 +2,8 @@ import type { FlagSpec } from "./FlagSpec";
 
 /**
  * Shared routing schema for flags ttsc / ttsx consumes, classifies or shadows.
- * Unknown compiler options can still be forwarded without a schema row.
- * Runtime parsing reads this table; generation emits native allow-lists and
+ * Unknown compiler options can still be forwarded without a schema row. Runtime
+ * parsing reads this table; generation emits native allow-lists and
  * documentation, while pinned native declarations supply compiler grammar.
  *
  * One declaration per flag, consumed by every layer that needs to know about

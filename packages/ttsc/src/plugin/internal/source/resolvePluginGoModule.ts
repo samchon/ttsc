@@ -18,12 +18,10 @@ import { findNearestGoMod } from "../../../compiler/internal/findNearestGoMod";
  *
  * @param source The source, absolute, which the caller has found to exist.
  * @param pluginName The plugin's label in an error.
- *
  * @throws When the source is neither a directory nor a `go.mod` file, or no
  *   `go.mod` lies within reach above it. Native stat failures also propagate.
  *   Selection observes current file kinds and ancestry; it neither parses the
  *   module contents nor pins that filesystem identity against later changes.
- *
  * @evidence contracts/common.md#principled-implementation The source must denote a package directory or go.mod; the bounded nearest-module search and relative package entry make copying/keying the entire owning module consistent with Go compilation.
  * @evidence contracts/common.md#clear-and-simple-design Input classification and module discovery are visible in one small adapter; the nearest-manifest operation is shared with compiler code.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The three-parent reach is an explicit current source-plugin contract, with a descriptive failure rather than a guessed module or consumer-specific escape.

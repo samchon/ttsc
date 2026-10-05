@@ -14,9 +14,9 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
  * `ttscserver` resolves its plugin selection before the Go LSP host starts and
  * hands both the selection and these fingerprints to the host, which recomputes
  * them to notice a change that landed in between. The two sides must therefore
- * use compatible byte framing. The Windows parity test in
- * `internal/lspserver` checks one existing directory and one missing descendant;
- * it does not establish agreement for every native entry or failure state.
+ * use compatible byte framing. The Windows parity test in `internal/lspserver`
+ * checks one existing directory and one missing descendant; it does not
+ * establish agreement for every native entry or failure state.
  *
  * @evidence contracts/common.md#principled-implementation Domain-framed content, link and topology records encode the same selection distinctions as the Go validator; physical directory identity is distinct from leaf-link identity and ordinary child content.
  * @evidence contracts/common.md#clear-and-simple-design JavaScript capture and validation share these digest helpers; the Go peer independently implements the startup framing and must remain compatible.
@@ -218,10 +218,11 @@ export namespace LSPProjectInputDigest {
 
   /**
    * Digest of the available observations of one entry. A symlink frame combines
-   * its raw target and reached content; failed target/content reads use markers.
-   * Regular files hash their bytes, while classification or regular-file read
-   * failure hashes the stable `missing` marker. Other entry kinds hash as
-   * `other`. The reads are sequential and do not pin the entry against change.
+   * its raw target and reached content; failed target/content reads use
+   * markers. Regular files hash their bytes, while classification or
+   * regular-file read failure hashes the stable `missing` marker. Other entry
+   * kinds hash as `other`. The reads are sequential and do not pin the entry
+   * against change.
    *
    * @evidence contracts/common.md#principled-implementation File, symlink and other frames distinguish available entry observations; a symlink includes the observed target and reached bytes. Unavailable observations collapse into markers, so unchanged digests do not prove native state was unchanged.
    * @evidence contracts/common.md#clear-and-simple-design One lstat-driven dispatch owns entry-kind framing and keeps dangling or unreadable symlink content distinct from a missing link itself.
@@ -306,9 +307,9 @@ export namespace LSPProjectInputDigest {
 
   /**
    * Best-effort resolved spelling of an entry's parent joined with its own
-   * basename, preserving the leaf link rather than resolving its target.
-   * Failed parent probes retain unresolved suffixes; if every probe fails,
-   * the normalized lexical spelling is returned. This does not pin identity.
+   * basename, preserving the leaf link rather than resolving its target. Failed
+   * parent probes retain unresolved suffixes; if every probe fails, the
+   * normalized lexical spelling is returned. This does not pin identity.
    *
    * @evidence contracts/common.md#principled-implementation Resolving available parent ancestors and reattaching the basename preserves the leaf coordinate used by exact reload-file fingerprints. Failed resolution falls back to lexical spelling rather than certifying a physical identity.
    * @evidence contracts/common.md#clear-and-simple-design Parent canonicalization stays with one private resolver; this public adapter expresses the leaf-preserving operation in one native join.

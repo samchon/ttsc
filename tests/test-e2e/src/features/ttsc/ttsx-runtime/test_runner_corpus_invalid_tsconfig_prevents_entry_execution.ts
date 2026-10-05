@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies runner corpus: invalid tsconfig prevents entry execution.
@@ -26,23 +27,27 @@ import path from "node:path";
  * @evidence contracts/e2e.md#preserved-coverage All original nonzero status, closing-brace/location diagnostic, absent stdout marker and absent filesystem effect remain in this rejection case.
  */
 export function test_runner_corpus_invalid_tsconfig_prevents_entry_execution() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/runner_corpus_invalid_tsconfig_prevents_entry_execution/inputs-1"));
-    const marker = path.join(root, "invalid-config-marker.txt");
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/runner_corpus_invalid_tsconfig_prevents_entry_execution/inputs-1",
+    ),
+  );
+  const marker = path.join(root, "invalid-config-marker.txt");
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      {
-        cwd: root,
-        env: {
-          TTSX_MARKER: marker,
-        },
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    {
+      cwd: root,
+      env: {
+        TTSX_MARKER: marker,
       },
-    );
-    assert.notEqual(result.status, 0);
-    // The reader reports a truncated config with the compiler's own TS1005
-    // wording, at the line and column where the text ended.
-    assert.match(result.stderr, /'\}' expected \(line 1 column \d+\)/);
-    assert.doesNotMatch(result.stdout, /invalid-config-should-not-run/);
-    assert.equal(fs.existsSync(marker), false);
-  }
+    },
+  );
+  assert.notEqual(result.status, 0);
+  // The reader reports a truncated config with the compiler's own TS1005
+  // wording, at the line and column where the text ended.
+  assert.match(result.stderr, /'\}' expected \(line 1 column \d+\)/);
+  assert.doesNotMatch(result.stdout, /invalid-config-should-not-run/);
+  assert.equal(fs.existsSync(marker), false);
+}

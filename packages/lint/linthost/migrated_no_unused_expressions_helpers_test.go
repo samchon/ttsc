@@ -21,7 +21,7 @@ func assertMigratedNoUnusedExpressionRendering(t *testing.T, mainSource, jsxSour
   rendered := ansiControlSequencePattern.ReplaceAllString(stderr, "")
   pattern := regexp.MustCompile(`(?m)(main\.ts|default-jsx\.tsx):(\d+):\d+\s+-\s+(error|warning)\s+TS\d+:\s*\[([@\w/-]+)\]`)
   actual := map[string][]ruleExpectation{
-    "main.ts": {},
+    "main.ts":         {},
     "default-jsx.tsx": {},
   }
   for _, match := range pattern.FindAllStringSubmatch(rendered, -1) {
@@ -36,7 +36,7 @@ func assertMigratedNoUnusedExpressionRendering(t *testing.T, mainSource, jsxSour
     actual[match[1]] = append(actual[match[1]], ruleExpectation{Rule: match[4], Severity: severity, Line: line})
   }
   expected := map[string][]ruleExpectation{
-    "main.ts": parseRuleExpectations(t, mainSource),
+    "main.ts":         parseRuleExpectations(t, mainSource),
     "default-jsx.tsx": parseRuleExpectations(t, jsxSource),
   }
   codes := []string{}

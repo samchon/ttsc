@@ -6,8 +6,7 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
 
 /**
  * Observe `root` recursively through Linux helper directory watches, applying
- * caller admission before acquiring descendant coverage
- * (samchon/ttsc#1389).
+ * caller admission before acquiring descendant coverage (samchon/ttsc#1389).
  *
  * This observer opens one non-recursive subscription per admitted directory,
  * shared through the loaded helper directory registry, and never one per file.
@@ -21,10 +20,10 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  * The watches live in the Linux watch helper (samchon/ttsc#1426), which answers
  * each one asynchronously. A directory is read only once its watch is live, so
  * the opening interval can be covered by enumeration or delivered events.
- * Successful initial readiness requires admitted directories to be watched
- * and enumerated. This is not an atomic tree snapshot; native loss still
- * arrives as a conservative unnamed event. Failure resolves false, and later
- * failure does not change an already resolved readiness Promise.
+ * Successful initial readiness requires admitted directories to be watched and
+ * enumerated. This is not an atomic tree snapshot; native loss still arrives as
+ * a conservative unnamed event. Failure resolves false, and later failure does
+ * not change an already resolved readiness Promise.
  *
  * Events reach `listener` as a recursive watch reports them: the event type and
  * the changed path relative to `root`, or `null` when the backend could not
@@ -46,9 +45,9 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  *   (samchon/ttsc#1419). Once every watch a `track` opened is live, the path is
  *   reported changed when that pending batch completes, since it may have
  *   changed before they were. A track with no pending opening emits no such
- *   batch callback. `prune`
- *   releases non-root directories that current admission no longer needs; call
- *   it after an atomic registration update, once per observer.
+ *   batch callback. `prune` releases non-root directories that current
+ *   admission no longer needs; call it after an atomic registration update,
+ *   once per observer.
  * @evidence contracts/common.md#principled-implementation
  *   Watches go live before enumeration; newly admitted directories announce
  *   existing entries; failed enumeration or unknown topology withdraws coverage

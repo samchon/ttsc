@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
@@ -8,6 +7,7 @@ import path from "node:path";
 import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/src/internal/resolveSafeCacheCleanupTargets";
 import { ProcessOwnedDirectory } from "../../../../../packages/ttsc/src/launcher/internal/runtime/ProcessOwnedDirectory";
 import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/src/launcher/internal/runtime/resolveRuntimeCleanTargets";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies runtime cleanup keeps one physical run index through a link change.
@@ -105,7 +105,10 @@ export function test_runtime_cleanup_pins_a_retargeted_run_index(): void {
     );
   });
   if (failures.length)
-    throw new AggregateError(failures, "runtime index retarget assertions failed");
+    throw new AggregateError(
+      failures,
+      "runtime index retarget assertions failed",
+    );
 }
 
 function recordOwner(directory: string, pid: number): void {

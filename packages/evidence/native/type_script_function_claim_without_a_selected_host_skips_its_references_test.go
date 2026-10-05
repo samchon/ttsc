@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 /**
@@ -23,32 +23,32 @@ import (
  * @evidence contracts/testing.md#execution-ownership A selectable native Go unit calls the owning project rule with actual parsed TypeScript and temporary resolver files. No consumer installation, native artifact, Node bridge or product host runs.
  */
 func TestTypeScriptFunctionClaimWithoutASelectedHostSkipsItsReferences(t *testing.T) {
-	const config = `{"claims":[{
+  const config = `{"claims":[{
 		"type":"typescript",
 		"files":["src/**/*.ts"],
 		"symbol":"function",
 		"reference":{"type":"markdown","root":"missing-typescript-docs","files":["**/*.md"],"symbol":"h2"}
 	}]}`
-	for _, scenario := range []struct {
-		name   string
-		source string
-		active bool
-	}{
-		{"data-only", "export const value = 1;\n", false},
-		{"function-added", "export const value = 1;\nexport function selected(): void {}\n", true},
-	} {
-		t.Run(scenario.name, func(t *testing.T) {
-			result := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{
-				"src/claim.ts": scenario.source,
-			}, config, rule.SeverityError)
-			if result.failed != scenario.active {
-				t.Errorf("active=%v must produce failed=%v, got %v: %v", scenario.active, scenario.active, result.failed, result.messages)
-			}
-			if scenario.active {
-				assertProblemContains(t, result.messages, "missing-typescript-docs")
-			} else {
-				assertNoProblems(t, result.messages)
-			}
-		})
-	}
+  for _, scenario := range []struct {
+    name   string
+    source string
+    active bool
+  }{
+    {"data-only", "export const value = 1;\n", false},
+    {"function-added", "export const value = 1;\nexport function selected(): void {}\n", true},
+  } {
+    t.Run(scenario.name, func(t *testing.T) {
+      result := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{
+        "src/claim.ts": scenario.source,
+      }, config, rule.SeverityError)
+      if result.failed != scenario.active {
+        t.Errorf("active=%v must produce failed=%v, got %v: %v", scenario.active, scenario.active, result.failed, result.messages)
+      }
+      if scenario.active {
+        assertProblemContains(t, result.messages, "missing-typescript-docs")
+      } else {
+        assertNoProblems(t, result.messages)
+      }
+    })
+  }
 }

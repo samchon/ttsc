@@ -10,8 +10,8 @@ import { fileURLToPath } from "node:url";
  * Retains fresh manifest-less dependency-cache legacy sweep assembly.
  *
  * The fresh process owns the module's temp parent, private root and exit
- * callback. Local legacy owner records distinguish an actually exited PID
- * from this still-running process, without a compiler or installed runtime.
+ * callback. Local legacy owner records distinguish an actually exited PID from
+ * this still-running process, without a compiler or installed runtime.
  *
  * @evidence contracts/testing.md#behavioral-verification A fresh Node process loads actual dependencyCacheRoot source through the existing unit loader, deletes TTSX_RUNTIME_MANIFEST and invokes dependencyCacheRoot({}). Original zero-exit, legacy dead-root absence and legacy live-root existence observations remain independent named assertions.
  * @evidence contracts/testing.md#independent-expectations Native seed completion status zero, null signal, positive PID and ESRCH-only signal-zero observation establish the departed input independently of the sweep; current PID is observed live. Literal hostname/PID owner.json records and process-PID-nonce directory names preserve the original legacy grammar. PID reuse remains a limitation, not process-incarnation proof.
@@ -94,7 +94,8 @@ export function test_dependency_cache_sweeps_a_dead_prior_owner_record(): void {
     if (
       sweep.error !== undefined ||
       (sweep.status === null && sweep.signal === null)
-    ) retainRoot = true;
+    )
+      retainRoot = true;
     observe("fresh sweep launch", () => {
       assert.equal(sweep.error, undefined);
     });
@@ -138,7 +139,8 @@ export function test_dependency_cache_sweeps_a_dead_prior_owner_record(): void {
       if (
         child.error !== undefined ||
         (child.status === null && child.signal === null)
-      ) retainRoot = true;
+      )
+        retainRoot = true;
       assert.equal(child.error, undefined);
       assert.equal(child.signal, null, child.stderr?.toString());
       assert.equal(child.status, 0, child.stderr?.toString());

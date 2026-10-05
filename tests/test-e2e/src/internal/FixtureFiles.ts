@@ -1,14 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 
-/** Reads authored text fixtures without evaluating their source or configuration. */
+/**
+ * Reads authored text fixtures without evaluating their source or
+ * configuration.
+ */
 export namespace FixtureFiles {
   /**
    * Read a package's scenario tree as relative paths and exact UTF-8 contents.
    *
    * This reader owns text inputs only. Go input sets live under their product
-   * package's test fixtures. Native fixture copies retain their own byte-preserving
-   * copier, and links are created explicitly by their scenarios.
+   * package's test fixtures. Native fixture copies retain their own
+   * byte-preserving copier, and links are created explicitly by their
+   * scenarios.
    *
    * @evidence contracts/common.md#principled-implementation Each regular fixture file contributes its actual UTF-8 contents under the path relative to its scenario root; source/configuration text is never evaluated by the reader.
    * @evidence contracts/common.md#clear-and-simple-design One directory traversal replaces authored file maps; scenario identity selects the checked-in inputs and callers retain project and process ownership.
@@ -19,10 +23,19 @@ export namespace FixtureFiles {
    * @evidence contracts/performance.md#reuse-equivalent-work Reads current committed inputs at assembly without caching mutable filesystem contents or compiler verdicts. Shared expensive product preparation remains with the owning experiment.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous filesystem operations retain no open handles after returning; the resulting finite file map belongs to the caller and creates no temporary root or process.
    */
-  export function read(scenario: string, owner?: "ttsc" | "unplugin"): Record<string, string> {
-    const fixtures = owner === undefined
-      ? path.resolve(import.meta.dirname, "../../fixtures")
-      : path.resolve(import.meta.dirname, "../../../../packages", owner, "test/fixtures/e2e");
+  export function read(
+    scenario: string,
+    owner?: "ttsc" | "unplugin",
+  ): Record<string, string> {
+    const fixtures =
+      owner === undefined
+        ? path.resolve(import.meta.dirname, "../../fixtures")
+        : path.resolve(
+            import.meta.dirname,
+            "../../../../packages",
+            owner,
+            "test/fixtures/e2e",
+          );
     const root = path.resolve(fixtures, scenario);
     const relative = path.relative(fixtures, root);
     if (relative.startsWith("..") || path.isAbsolute(relative))

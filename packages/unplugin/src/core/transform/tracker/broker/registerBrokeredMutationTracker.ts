@@ -9,15 +9,15 @@ import { openBrokeredWatch } from "./openBrokeredWatch";
  * when the broker registration's opening wait ends.
  *
  * The watches report to the tracker's own sink (`brokeredTrackerSink`), which
- * applies the tracker's shared exact-input classifier or project membership
- * and content filters (samchon/ttsc#1384). Authority withdrawal is distinct
- * from recording a structural or content witness.
- * The registration transfers its drain and closer to the tracker before this
- * awaits readiness. Probe-dependent streams need a delivered probe for drain
- * authority (samchon/ttsc#1453); the sink keeps unproven scopes separately.
- * The opening wait can also end after failure, timeout or explicit closure, so
- * resolution alone does not certify coverage. Closing first fails the tracker
- * and then attempts broker retirement; cleanup failure can still escape.
+ * applies the tracker's shared exact-input classifier or project membership and
+ * content filters (samchon/ttsc#1384). Authority withdrawal is distinct from
+ * recording a structural or content witness. The registration transfers its
+ * drain and closer to the tracker before this awaits readiness. Probe-dependent
+ * streams need a delivered probe for drain authority (samchon/ttsc#1453); the
+ * sink keeps unproven scopes separately. The opening wait can also end after
+ * failure, timeout or explicit closure, so resolution alone does not certify
+ * coverage. Closing first fails the tracker and then attempts broker
+ * retirement; cleanup failure can still escape.
  *
  * @param tracker The tracker the watches serve.
  * @param locations The directories to watch, in the tracker's spelling.

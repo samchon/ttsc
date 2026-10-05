@@ -4,8 +4,8 @@
  * Both readers must report a failure the same way, and both accept a leading
  * byte-order mark, or a `package.json` and a `tsconfig.json` saved by the same
  * editor would be accepted by one reader and rejected by the other. The JSONC
- * reader counts a byte-order mark as whitespace at trivia positions, as the compiler does,
- * so only the strict JSON reader needs {@link stripLeadingBom}.
+ * reader counts a byte-order mark as whitespace at trivia positions, as the
+ * compiler does, so only the strict JSON reader needs {@link stripLeadingBom}.
  *
  * @evidence contracts/common.md#principled-implementation Shared error rendering and leading-BOM replacement express the two readers' common text concerns without claiming their distinct JSON and compiler JSONC grammars are interchangeable.
  * @evidence contracts/common.md#clear-and-simple-design The namespace groups two stateless text operations used by both file readers; parsing, root validation and filename attribution remain with their actual owners.

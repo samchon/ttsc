@@ -1,6 +1,7 @@
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx runs a JavaScript entry as Node's main module, hands it the
@@ -30,7 +31,11 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
 export function test_ttsx_runs_a_javascript_entry_with_its_own_argv() {
-  const root = TestProject.commonJsProject(FixtureFiles.read("ttsc/ttsx_runs_a_javascript_entry_with_its_own_argv/inputs-1"));
+  const root = TestProject.commonJsProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_runs_a_javascript_entry_with_its_own_argv/inputs-1",
+    ),
+  );
 
   const result = TestProject.spawn(
     TestProject.TTSX_BIN,

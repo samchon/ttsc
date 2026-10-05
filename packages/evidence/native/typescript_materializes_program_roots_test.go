@@ -2,13 +2,13 @@ package evidence
 
 import (
   "encoding/json"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
   "os"
   "path/filepath"
   "strings"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-  shimcore "github.com/microsoft/typescript-go/shim/core"
-  shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
 func rootedTypeScriptProgram(

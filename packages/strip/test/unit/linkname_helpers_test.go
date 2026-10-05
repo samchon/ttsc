@@ -9,8 +9,8 @@ import (
   "os/exec"
   _ "unsafe"
 
-  _ "github.com/samchon/ttsc/packages/strip/driver"
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  _ "github.com/samchon/ttsc/packages/strip/driver"
 )
 
 //go:linkname stripLoadStripConfigMapWithReporters github.com/samchon/ttsc/packages/strip/driver.loadStripConfigMapWithReporters

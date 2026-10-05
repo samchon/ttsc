@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { print, ref } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { print, ref } from "../../internal/helpers";
  * Composed from a {@link factory.createTemplateHead|head} and a span pairing a
  * type with a {@link factory.createTemplateTail|tail}.
  *
- * 1. Template literal type output preserves prefix-, the T substitution and -suffix.
- * 2. Literal `prefix-${T}-suffix` independently specifies segment ordering and substitution delimiters.
+ * 1. Template literal type output preserves prefix-, the T substitution and
+ *    -suffix.
+ * 2. Literal `prefix-${T}-suffix` independently specifies segment ordering and
+ *    substitution delimiters.
  *
  * @evidence contracts/testing.md#behavioral-verification Template literal type output preserves prefix-, the T substitution and -suffix.
  * @evidence contracts/testing.md#independent-expectations Literal `prefix-${T}-suffix` independently specifies segment ordering and substitution delimiters.

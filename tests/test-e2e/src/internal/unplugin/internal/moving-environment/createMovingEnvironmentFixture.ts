@@ -1,4 +1,3 @@
-import { FixtureFiles } from "../../../FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
@@ -9,6 +8,7 @@ import {
 
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
 import type { TtscTransformFilesystemOperations } from "../../../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.mjs";
+import { FixtureFiles } from "../../../FixtureFiles";
 import type { IMovingEnvironmentFixture } from "./IMovingEnvironmentFixture";
 
 /**
@@ -31,7 +31,10 @@ export function createMovingEnvironmentFixture(): IMovingEnvironmentFixture {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-unplugin-moving-environment-"),
   );
-  TestProject.writeFiles(root, FixtureFiles.read("createMovingEnvironmentFixture/inputs-1", "unplugin"));
+  TestProject.writeFiles(
+    root,
+    FixtureFiles.read("createMovingEnvironmentFixture/inputs-1", "unplugin"),
+  );
   const project = path.join(root, "project");
   const source = path.join(root, "plugin");
   const environmentFile = path.join(root, "go.env");

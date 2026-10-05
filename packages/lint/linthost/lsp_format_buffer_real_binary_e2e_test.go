@@ -192,4 +192,3 @@ func runLintSidecarFormatBuffer(t *testing.T, bin, root, tsconfig, uri, buffer s
   }
   return code, stdout.String(), stderr.String()
 }
-

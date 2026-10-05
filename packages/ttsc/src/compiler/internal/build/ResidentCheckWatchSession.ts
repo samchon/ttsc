@@ -185,9 +185,10 @@ export class ResidentCheckWatchSession {
 
   /**
    * Request termination of every retained sidecar and discard session state.
-   * This initiates retirement synchronously; a later run awaits actual child close
-   * before selecting a fresh session. Use close for terminal, awaitable release.
-   * Child termination and queued-request rejection belong to the process owner.
+   * This initiates retirement synchronously; a later run awaits actual child
+   * close before selecting a fresh session. Use close for terminal, awaitable
+   * release. Child termination and queued-request rejection belong to the
+   * process owner.
    *
    * @evidence contracts/common.md#principled-implementation Reset visits each owned process before clearing its map and discards pending changes, dependency snapshot and selected execution together.
    * @evidence contracts/common.md#clear-and-simple-design Disposal uses the same reset boundary as topology transitions, keeping resource and cached-selection release in one place.
@@ -227,7 +228,8 @@ export class ResidentCheckWatchSession {
   }
 
   private assertOpen(generation = this.generation): void {
-    if (this.closed) throw new Error("ttsc: resident check watch session closed");
+    if (this.closed)
+      throw new Error("ttsc: resident check watch session closed");
     if (generation !== this.generation)
       throw new Error("ttsc: resident check watch cycle retired");
   }
@@ -254,19 +256,25 @@ export class ResidentCheckWatchSession {
     }
     const previous = this.retirement;
     const children = new Set([
-      ...this.processes.values(), ...this.retiringProcesses,
+      ...this.processes.values(),
+      ...this.retiringProcesses,
     ]);
     const retiring = [...children].map((child) => {
       const joined = this.trackRetirement(child);
       return this.closed ? child.close() : joined;
     });
-    this.retirement = Promise.allSettled([previous, ...retiring]).then((results) => {
-      const errors = results.flatMap((result) =>
-        result.status === "rejected" ? [result.reason] : [],
-      );
-      if (errors.length !== 0)
-        throw new AggregateError(errors, "ttsc: resident check retirement failed");
-    });
+    this.retirement = Promise.allSettled([previous, ...retiring]).then(
+      (results) => {
+        const errors = results.flatMap((result) =>
+          result.status === "rejected" ? [result.reason] : [],
+        );
+        if (errors.length !== 0)
+          throw new AggregateError(
+            errors,
+            "ttsc: resident check retirement failed",
+          );
+      },
+    );
     void this.retirement.catch(() => {});
     this.processes.clear();
     this.pendingChanges.clear();
@@ -405,9 +413,12 @@ export class ResidentCheckWatchSession {
           this.processes.delete(key);
           const previousRetirement = this.retirement;
           this.retirement = Promise.allSettled([
-            previousRetirement, this.trackRetirement(resident),
+            previousRetirement,
+            this.trackRetirement(resident),
           ]).then((results) => {
-            const failed = results.find((result) => result.status === "rejected");
+            const failed = results.find(
+              (result) => result.status === "rejected",
+            );
             if (failed?.status === "rejected") throw failed.reason;
           });
           void this.retirement.catch(() => {});

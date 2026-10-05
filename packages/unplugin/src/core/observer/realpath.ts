@@ -3,8 +3,8 @@ import fs from "node:fs";
 /**
  * Resolve a path's physical target, or `undefined` when it cannot be resolved.
  *
- * Native resolution expands existing alternate names and linked targets.
- * Its returned spelling does not guarantee the spelling of a native event.
+ * Native resolution expands existing alternate names and linked targets. Its
+ * returned spelling does not guarantee the spelling of a native event.
  *
  * @evidence contracts/common.md#principled-implementation Native realpath supplies an observed physical target, not a guarantee of event naming; unresolved topology remains undefined.
  * @evidence contracts/common.md#clear-and-simple-design One guarded resolver provides the target without another identity cache or platform rewrite.

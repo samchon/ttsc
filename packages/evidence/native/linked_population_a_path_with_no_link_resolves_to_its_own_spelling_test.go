@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"path/filepath"
-	"runtime"
-	"testing"
+  "path/filepath"
+  "runtime"
+  "testing"
 )
 
 /**
@@ -31,33 +31,33 @@ import (
  * @evidence contracts/testing.md#execution-ownership TestAPathWithNoLinkResolvesToItsOwnSpelling calls resolveLinkedPath with hypothetical native path strings and actual Lstat probes in one Go process. It creates no fixture or symbolic link; Linux selects POSIX shapes, while Windows drive and UNC probes use the real native filesystem policy. No consumer, compiler or product host is started.
  */
 func TestAPathWithNoLinkResolvesToItsOwnSpelling(t *testing.T) {
-	shapes := []string{}
-	if runtime.GOOS == "windows" {
-		shapes = append(
-			shapes,
-			`C:\`,
-			`C:\ttsc-evidence-sales`,
-			`C:\ttsc-evidence-sales\schema`,
-			`\\ttsc-evidence-server\share`,
-			`\\ttsc-evidence-server\share\sales`,
-			`//ttsc-evidence-server/share`,
-			`\\?\C:\ttsc-evidence-sales`,
-		)
-	} else {
-		shapes = append(
-			shapes,
-			"/",
-			"/ttsc-evidence-sales",
-			"/ttsc-evidence-sales/schema",
-		)
-	}
-	for _, shape := range shapes {
-		resolved, ok := resolveLinkedPath(shape)
-		if !ok {
-			t.Fatalf("resolving '%s' must settle when no link is on it", shape)
-		}
-		if want := filepath.Clean(shape); resolved != want {
-			t.Fatalf("resolving '%s' gave '%s'; want '%s'", shape, resolved, want)
-		}
-	}
+  shapes := []string{}
+  if runtime.GOOS == "windows" {
+    shapes = append(
+      shapes,
+      `C:\`,
+      `C:\ttsc-evidence-sales`,
+      `C:\ttsc-evidence-sales\schema`,
+      `\\ttsc-evidence-server\share`,
+      `\\ttsc-evidence-server\share\sales`,
+      `//ttsc-evidence-server/share`,
+      `\\?\C:\ttsc-evidence-sales`,
+    )
+  } else {
+    shapes = append(
+      shapes,
+      "/",
+      "/ttsc-evidence-sales",
+      "/ttsc-evidence-sales/schema",
+    )
+  }
+  for _, shape := range shapes {
+    resolved, ok := resolveLinkedPath(shape)
+    if !ok {
+      t.Fatalf("resolving '%s' must settle when no link is on it", shape)
+    }
+    if want := filepath.Clean(shape); resolved != want {
+      t.Fatalf("resolving '%s' gave '%s'; want '%s'", shape, resolved, want)
+    }
+  }
 }

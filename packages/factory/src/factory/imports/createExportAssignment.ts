@@ -15,6 +15,12 @@ import { make } from "../internal/make";
  * export default foo;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param isExportEquals When `true`, emit `export =`; otherwise `export
+ *   default`.
+ * @param expression The expression.
+ * @returns The created {@link ExportAssignment}.
  * @evidence contracts/common.md#principled-implementation
  *   isExportEquals distinguishes export-assignment syntax from export default;
  *   expression is retained as a tree, so the printer owns required parentheses.
@@ -28,13 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains the boolean's two source forms and exported expression,
  *   with an example and acknowledgment tags in separated paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param isExportEquals When `true`, emit `export =`; otherwise `export
- *   default`.
- * @param expression The expression.
- * @returns The created {@link ExportAssignment}.
  */
 export const createExportAssignment = (
   modifiers: readonly ModifierLike[] | undefined,

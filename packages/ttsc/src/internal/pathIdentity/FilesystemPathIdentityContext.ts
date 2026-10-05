@@ -158,14 +158,16 @@ export type FilesystemPathIdentityContext = {
    * comparison key.
    *
    * Successfully observed ancestors are resolved natively. Unresolved suffix
-   * ASCII letters fold only for observed insensitivity, retaining exact case for sensitivity or
-   * unknown policy. Repeated normalized keys reuse the context's earlier
-   * observation; realpath error handling follows the creator's configured
-   * policy. Best-effort policy can preserve unreadable existing suffix entries;
-   * if no prefix resolves, the returned path stays lexically normalized.
+   * ASCII letters fold only for observed insensitivity, retaining exact case
+   * for sensitivity or unknown policy. Repeated normalized keys reuse the
+   * context's earlier observation; realpath error handling follows the
+   * creator's configured policy. Best-effort policy can preserve unreadable
+   * existing suffix entries; if no prefix resolves, the returned path stays
+   * lexically normalized.
    *
    * Non-ASCII letters in unresolved names preserve spelling because native
-   * Unicode case equivalence was not established by the ASCII capability probe.
+   * Unicode case equivalence was not established by the ASCII capability
+   * probe.
    *
    * @evidence contracts/common.md#principled-implementation Physical ancestor resolution and ASCII-only folding under observed insensitivity avoid merging unknown or unproved Unicode suffixes; normalized queries reuse captured premises, while preserved spellings do not prove distinct physical entries.
    * @evidence contracts/common.md#clear-and-simple-design One identity result groups path spelling and comparison key while native probing and memoization stay private to the creator.

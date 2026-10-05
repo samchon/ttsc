@@ -27,8 +27,8 @@ func TestConfigDiscoversFileWalkingUpward(t *testing.T) {
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", "")
   root := shared.SeedProject(t, map[string]string{
     "nested/src/tsconfig.json": `{"compilerOptions":{"target":"ES2022"}}`,
-    "empty/tsconfig.json": `{"compilerOptions":{"target":"ES2022"}}`,
-    "empty/strip.config.json": `{}`,
+    "empty/tsconfig.json":      `{"compilerOptions":{"target":"ES2022"}}`,
+    "empty/strip.config.json":  `{}`,
   })
   missing, err := stripLoadStripConfigMap(
     map[string]any{"transform": "@ttsc/strip"},

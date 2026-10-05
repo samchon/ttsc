@@ -48,13 +48,19 @@ export namespace TtscGraphLauncherArguments {
    * @evidenceExclude contracts/performance.md#efficient-algorithms one parseLauncherOptions pass over argv plus a path.resolve.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work parses argv once per process start.
    */
-  export function dump(argv: readonly string[]): IProjectOptions & { artifactsSpecified: boolean } {
+  export function dump(
+    argv: readonly string[],
+  ): IProjectOptions & { artifactsSpecified: boolean } {
     const values = parseLauncherOptions(argv, DUMP_OPTIONS);
-    return { ...projectOptions(values), artifactsSpecified: values.has("artifacts") };
+    return {
+      ...projectOptions(values),
+      artifactsSpecified: values.has("artifacts"),
+    };
   }
 
   /**
-   * Parse viewer coordinates and bounded numeric options with existing defaults.
+   * Parse viewer coordinates and bounded numeric options with existing
+   * defaults.
    *
    * @evidence contracts/common.md#principled-implementation The original viewer grammar plus safe integer validators retains port zero through 65,535 and positive maxNodes through Number.MAX_SAFE_INTEGER before graph work.
    * @evidence contracts/common.md#clear-and-simple-design Project defaults and numeric policy share existing owners; the viewer retains build, reduction and HTTP lifetime.
@@ -75,9 +81,15 @@ export namespace TtscGraphLauncherArguments {
     ]);
     return {
       ...projectOptions(values),
-      port: values.has("port") === true ? nonNegativeIntegerOption(values, "port", 65_535) : 0,
+      port:
+        values.has("port") === true
+          ? nonNegativeIntegerOption(values, "port", 65_535)
+          : 0,
       open: values.get("open") !== true,
-      maxNodes: values.has("max_nodes") === true ? positiveIntegerOption(values, "max_nodes", Number.MAX_SAFE_INTEGER) : 1200,
+      maxNodes:
+        values.has("max_nodes") === true
+          ? positiveIntegerOption(values, "max_nodes", Number.MAX_SAFE_INTEGER)
+          : 1200,
     };
   }
 
@@ -93,9 +105,18 @@ export namespace TtscGraphLauncherArguments {
    * @evidenceExclude contracts/performance.md#efficient-algorithms one parse pass over argv and a copy of it with at most two appended entries.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work builds one argv per spawn.
    */
-  export function dumpVector(argv: readonly string[], artifacts: string | null): string[] {
+  export function dumpVector(
+    argv: readonly string[],
+    artifacts: string | null,
+  ): string[] {
     const values = parseLauncherOptions(argv, DUMP_OPTIONS);
-    return ["dump", ...argv, ...(artifacts === null || values.has("artifacts") ? [] : ["--artifacts", artifacts])];
+    return [
+      "dump",
+      ...argv,
+      ...(artifacts === null || values.has("artifacts")
+        ? []
+        : ["--artifacts", artifacts]),
+    ];
   }
 
   /**
@@ -110,15 +131,20 @@ export namespace TtscGraphLauncherArguments {
    * @evidenceExclude contracts/performance.md#efficient-algorithms reads two fields of the spawn result in constant time.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work maps one spawn result once.
    */
-  export function dumpCompletion(result: { error?: Error; status: number | null }): { code: number; diagnostic?: string } {
-    if (result.error) return { code: 1, diagnostic: `@ttsc/graph: ${result.error.message}\n` };
+  export function dumpCompletion(result: {
+    error?: Error;
+    status: number | null;
+  }): { code: number; diagnostic?: string } {
+    if (result.error)
+      return { code: 1, diagnostic: `@ttsc/graph: ${result.error.message}\n` };
     return { code: result.status ?? 1 };
   }
 
   /**
    * Answer help without a producer, or retain the missing-installation failure.
    *
-   * This summary is a fallback: installed native dump still owns its exact flags.
+   * This summary is a fallback: installed native dump still owns its exact
+   * flags.
    *
    * @evidence contracts/common.md#principled-implementation Only the three existing help spellings qualify a missing-producer success; ordinary dump remains code one with the owned installation diagnostic.
    * @evidence contracts/common.md#clear-and-simple-design The actual unresolved-binary facade writes these channels and returns their code; this operation decides neither resolution nor child execution.
@@ -129,17 +155,21 @@ export namespace TtscGraphLauncherArguments {
    * @evidenceExclude contracts/performance.md#efficient-algorithms tests argv against three help spellings and returns a constant summary or message.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work answers once per failed binary resolution.
    */
-  export function missingDump(argv: readonly string[]): { code: 0 | 1; stdout?: string; stderr?: string } {
+  export function missingDump(argv: readonly string[]): {
+    code: 0 | 1;
+    stdout?: string;
+    stderr?: string;
+  } {
     if (argv.some((argument) => DUMP_HELP_FLAGS.has(argument)))
       return { code: 0, stdout: DUMP_HELP_SUMMARY };
     return {
       code: 1,
-      stderr: "@ttsc/graph: could not resolve the ttscgraph binary. " +
+      stderr:
+        "@ttsc/graph: could not resolve the ttscgraph binary. " +
         "Install `ttsc` so its platform package is present, " +
         "or set TTSC_GRAPH_BINARY to an absolute path.\n",
     };
   }
-
 }
 
 interface IViewOptions extends IProjectOptions {
@@ -161,17 +191,17 @@ const DUMP_HELP_FLAGS = new Set(["--help", "-help", "-h"]);
 
 /** Short fallback summary pointing to the native command's authoritative help. */
 const DUMP_HELP_SUMMARY = [
-      "Usage: ttsc-graph dump [options]",
-      "",
-      "Write the whole compiler graph as JSON to stdout: every node and edge,",
-      "none of the MCP response caps.",
-      "",
-      "Options:",
-      "  --cwd <dir>        Project root (default: current directory).",
-      "  --tsconfig <path>  Project tsconfig path (default: tsconfig.json).",
-      "  --pretty           Indent the JSON output.",
-      "",
-      "The native `ttscgraph` binary owns these flags and is not installed here,",
-      "so this summary may lag it. Install `ttsc` and rerun for the exact list.",
-      "",
-    ].join("\n");
+  "Usage: ttsc-graph dump [options]",
+  "",
+  "Write the whole compiler graph as JSON to stdout: every node and edge,",
+  "none of the MCP response caps.",
+  "",
+  "Options:",
+  "  --cwd <dir>        Project root (default: current directory).",
+  "  --tsconfig <path>  Project tsconfig path (default: tsconfig.json).",
+  "  --pretty           Indent the JSON output.",
+  "",
+  "The native `ttscgraph` binary owns these flags and is not installed here,",
+  "so this summary may lag it. Install `ttsc` and rerun for the exact list.",
+  "",
+].join("\n");

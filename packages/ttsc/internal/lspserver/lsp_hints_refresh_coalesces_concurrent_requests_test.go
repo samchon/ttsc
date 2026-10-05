@@ -27,11 +27,11 @@ func TestLSPHintsRefreshCoalescesConcurrentRequests(t *testing.T) {
   started := make(chan struct{}, 8)
   release := make(chan struct{})
   defer func() {
-    refresh.close();
+    refresh.close()
     select {
     case <-release:
     default:
-      close(release);
+      close(release)
     }
   }()
 

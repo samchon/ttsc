@@ -16,11 +16,11 @@ import (
 // seconds to answer. The proxy must continue forwarding unrelated editor
 // notifications to upstream while that request is pending.
 //
-// 1. Block the plugin CodeActions callback.
-// 2. Send a plugin-only codeAction request.
-// 3. Send didOpen while CodeActions is blocked.
-// 4. Assert a non-empty frame reaches upstream while the plugin callback is
-//    still blocked (the frame's content is not inspected), then release it.
+//  1. Block the plugin CodeActions callback.
+//  2. Send a plugin-only codeAction request.
+//  3. Send didOpen while CodeActions is blocked.
+//  4. Assert a non-empty frame reaches upstream while the plugin callback is
+//     still blocked (the frame's content is not inspected), then release it.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run starts the blocked plugin action callback and forwards a nonempty upstream frame before that callback is released.
 // @evidence contracts/testing.md#independent-expectations Plugin action computation must leave the editor pump available; the channel barrier proves forwarding occurs during callback work.

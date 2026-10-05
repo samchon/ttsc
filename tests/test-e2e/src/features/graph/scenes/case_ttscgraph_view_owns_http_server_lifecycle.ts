@@ -1,12 +1,11 @@
 import { TestProject } from "@ttsc/testing";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { installedTargetBoundary } from "../../../internal/graph/internal/installedTargetBoundary";
 import {
@@ -14,6 +13,8 @@ import {
   resolveGraphLauncher,
   resolveTtscgraphBinary,
 } from "../../../internal/graph/internal/ttsgraph";
+
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies the graph viewer owns its asynchronous HTTP server lifecycle.

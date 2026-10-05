@@ -9,7 +9,6 @@ import (
 // the host slice the current source at another file's otherwise-valid node
 // position. Normalization must happen before SkipTrivia, not only afterward.
 //
-//
 //  1. Parse a short current source and a genuine foreign node beyond its length.
 //  2. Report that node and require current-source EOF bounds, identity and original message without a trivia-scanning panic.
 //
@@ -39,5 +38,7 @@ func TestNodeReportBoundsBeforeSkippingTrivia(t *testing.T) {
   if got, want := [2]int{finding.Pos, finding.End}, [2]int{len(current.Text()), len(current.Text())}; got != want {
     t.Fatalf("foreign node range = %v, want EOF %v", got, want)
   }
-  if finding.File != current || finding.Message != "foreign node" { t.Fatalf("foreign node replaced the current diagnostic source or message: %+v", finding) }
+  if finding.File != current || finding.Message != "foreign node" {
+    t.Fatalf("foreign node replaced the current diagnostic source or message: %+v", finding)
+  }
 }

@@ -1,14 +1,15 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies watch topology preserves case-sensitive project inputs.

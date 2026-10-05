@@ -1,11 +1,12 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 import type { PackedUnpluginPackage } from "./PackedUnpluginPackage";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Pack `@ttsc/unplugin` exactly as it would be published and extract it.

@@ -1,5 +1,5 @@
+import { type ITtscResult, parseResult } from "@ttsc/wasm";
 import assert from "node:assert/strict";
-import { parseResult, type ITtscResult } from "@ttsc/wasm";
 
 /**
  * Verifies result decoding follows JSON values without interpreting exit status
@@ -48,5 +48,8 @@ export const test_parse_result_preserves_json_values_and_rejects_invalid_payload
       parseResult<{ accepted: boolean }>(envelope('{"accepted":true}', 3)),
       { accepted: true },
     );
-    assert.equal(parseResult<{ required: string }>(envelope("7")) as unknown, 7);
+    assert.equal(
+      parseResult<{ required: string }>(envelope("7")) as unknown,
+      7,
+    );
   };

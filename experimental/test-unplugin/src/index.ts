@@ -1,22 +1,22 @@
-import { test_packed_installed_compiler } from "./contracts/builds/test_packed_installed_compiler.mjs";
-import { test_packed_entrypoints } from "./contracts/builds/test_packed_entrypoints.mjs";
-import { test_packed_vite } from "./contracts/builds/test_packed_vite.mjs";
-import { test_packed_rollup } from "./contracts/builds/test_packed_rollup.mjs";
-import { test_packed_esbuild } from "./contracts/builds/test_packed_esbuild.mjs";
-import { test_packed_rolldown } from "./contracts/builds/test_packed_rolldown.mjs";
-import { test_packed_webpack } from "./contracts/builds/test_packed_webpack.mjs";
-import { test_packed_rspack } from "./contracts/builds/test_packed_rspack.mjs";
-import { test_packed_farm } from "./contracts/builds/test_packed_farm.mjs";
-import { test_packed_next } from "./contracts/builds/test_packed_next.mjs";
-import { test_packed_turbopack_globs } from "./contracts/builds/test_packed_turbopack_globs.mjs";
-import { test_packed_bun_build } from "./contracts/builds/test_packed_bun_build.mjs";
-import { test_packed_bun_runtime } from "./contracts/builds/test_packed_bun_runtime.mjs";
-
 import cp from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+
+import { test_packed_bun_build } from "./contracts/builds/test_packed_bun_build.mjs";
+import { test_packed_bun_runtime } from "./contracts/builds/test_packed_bun_runtime.mjs";
+import { test_packed_entrypoints } from "./contracts/builds/test_packed_entrypoints.mjs";
+import { test_packed_esbuild } from "./contracts/builds/test_packed_esbuild.mjs";
+import { test_packed_farm } from "./contracts/builds/test_packed_farm.mjs";
+import { test_packed_installed_compiler } from "./contracts/builds/test_packed_installed_compiler.mjs";
+import { test_packed_next } from "./contracts/builds/test_packed_next.mjs";
+import { test_packed_rolldown } from "./contracts/builds/test_packed_rolldown.mjs";
+import { test_packed_rollup } from "./contracts/builds/test_packed_rollup.mjs";
+import { test_packed_rspack } from "./contracts/builds/test_packed_rspack.mjs";
+import { test_packed_turbopack_globs } from "./contracts/builds/test_packed_turbopack_globs.mjs";
+import { test_packed_vite } from "./contracts/builds/test_packed_vite.mjs";
+import { test_packed_webpack } from "./contracts/builds/test_packed_webpack.mjs";
 
 const experimentRoot = path.resolve(import.meta.dirname, "..");
 const root = path.resolve(experimentRoot, "../..");
@@ -224,8 +224,7 @@ function executeBuildPhase(phase: string): Promise<number> {
 }
 
 function prepareCurrentTarballs() {
-  if (process.env.TTSC_UNPLUGIN_SKIP_BUILD !== "1")
-    run("pnpm run build", root);
+  if (process.env.TTSC_UNPLUGIN_SKIP_BUILD !== "1") run("pnpm run build", root);
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of [
@@ -873,7 +872,13 @@ function installTarballs() {
 
 /** Preserve the complete shipped-compiler contract in this consumer install. */
 function verifyInstalledCompilerContracts() {
-  return test_packed_installed_compiler({ workspace, root, experimentRoot, pluginCache, assert });
+  return test_packed_installed_compiler({
+    workspace,
+    root,
+    experimentRoot,
+    pluginCache,
+    assert,
+  });
 }
 
 function verifyEntrypoints() {
@@ -914,11 +919,22 @@ function verifyRspackBuild() {
 }
 
 function verifyFarmBuild() {
-  return test_packed_farm({ workspace, run, assertBuiltOutput, findSingleBuiltFile });
+  return test_packed_farm({
+    workspace,
+    run,
+    assertBuiltOutput,
+    findSingleBuiltFile,
+  });
 }
 
 function verifyNextBuild() {
-  return test_packed_next({ workspace, runIndependent, run, assertBuiltTreeContains, assert });
+  return test_packed_next({
+    workspace,
+    runIndependent,
+    run,
+    assertBuiltTreeContains,
+    assert,
+  });
 }
 
 /**
@@ -942,7 +958,15 @@ function verifyNextBuild() {
  * our matcher thinks.
  */
 function verifyTurbopackRecognisedGlobs() {
-  return test_packed_turbopack_globs({ workspace, experimentRoot, TURBOPACK_SCOPED_GLOBS, run, installedTurbopackProjectWideGlobCoverage, writeNextConfig, assert });
+  return test_packed_turbopack_globs({
+    workspace,
+    experimentRoot,
+    TURBOPACK_SCOPED_GLOBS,
+    run,
+    installedTurbopackProjectWideGlobCoverage,
+    writeNextConfig,
+    assert,
+  });
 }
 
 /** Read the immutable allowlist from the installed package under test. */
@@ -960,7 +984,12 @@ function installedTurbopackProjectWideGlobCoverage() {
 }
 
 function verifyBunBuild() {
-  return test_packed_bun_build({ workspace, run, assertBuiltOutput, findSingleBuiltFile });
+  return test_packed_bun_build({
+    workspace,
+    run,
+    assertBuiltOutput,
+    findSingleBuiltFile,
+  });
 }
 
 // Bun RUNTIME preload smoke (typia #1534): `@ttsc/unplugin/bun-register`

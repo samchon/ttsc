@@ -2,8 +2,8 @@
  * Open the shared fallback poll that checks inputs no native scope can cover.
  *
  * One unreferenced interval serves an observer's fallback inputs. Its listener
- * chooses per-tick probe slices; bounded probe counts do not bound native query,
- * content-byte or affected-owner work per tick.
+ * chooses per-tick probe slices; bounded probe counts do not bound native
+ * query, content-byte or affected-owner work per tick.
  *
  * @evidence contracts/common.md#principled-implementation One interval invokes fallback checks for inputs lacking native coverage, with an explicit returned close handle.
  * @evidence contracts/common.md#clear-and-simple-design The provider owns timing only; bounded sampling and changed-condition decisions remain in its listener.

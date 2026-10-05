@@ -32,10 +32,10 @@ import (
 // @evidence contracts/testing.md#execution-ownership This named test/unit entry joins the shared utility Go process. Two noLib single-threaded Programs use the documented LoadProgramOptions.FS seam and actual registered paths implementation, capture emitted bytes in memory and release checker leases with Close. The temporary authored fixture is t-owned; no product host, native build, installer, subprocess, private linkname or registry replacement is involved.
 func TestLinkedProgramRewritesCaseOnlyTargetsByHostPolicy(t *testing.T) {
   files := map[string]string{
-    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"CommonJS","noLib":true,"forceConsistentCasingInFileNames":false,"paths":{"@exact":["./SRC/EXACT.ts"],"@extensionless":["./SRC/EXTENSIONLESS"],"@explicit":["./SRC/EXPLICIT.ts"],"@directory":["./SRC/DIRECTORY"]},"outDir":"dist","rootDir":"src"},"files":["src/main.ts","src/exact.ts","src/extensionless.ts","src/explicit.ts","src/directory/index.ts"]}`,
-    "src/exact.ts": `export const exact = "exact";`,
-    "src/extensionless.ts": `export const extensionless = "extensionless";`,
-    "src/explicit.ts": `export const explicit = "explicit";`,
+    "tsconfig.json":          `{"compilerOptions":{"target":"ES2022","module":"CommonJS","noLib":true,"forceConsistentCasingInFileNames":false,"paths":{"@exact":["./SRC/EXACT.ts"],"@extensionless":["./SRC/EXTENSIONLESS"],"@explicit":["./SRC/EXPLICIT.ts"],"@directory":["./SRC/DIRECTORY"]},"outDir":"dist","rootDir":"src"},"files":["src/main.ts","src/exact.ts","src/extensionless.ts","src/explicit.ts","src/directory/index.ts"]}`,
+    "src/exact.ts":           `export const exact = "exact";`,
+    "src/extensionless.ts":   `export const extensionless = "extensionless";`,
+    "src/explicit.ts":        `export const explicit = "explicit";`,
     "src/directory/index.ts": `export const directory = "directory";`,
     "src/main.ts": `import { exact } from "@exact";
 import { extensionless } from "@extensionless";
@@ -99,9 +99,9 @@ export const value = exact + extensionless + explicit + directory;`,
 // retain the borrowed default filesystem. Program emission uses its own writer.
 type pathsCaseFixtureFS struct {
   shimvfs.FS
-  root string
+  root      string
   sensitive bool
-  files map[string]string
+  files     map[string]string
 }
 
 func (fs *pathsCaseFixtureFS) UseCaseSensitiveFileNames() bool { return fs.sensitive }
@@ -138,7 +138,9 @@ func (fs *pathsCaseFixtureFS) ReadFile(name string) (string, bool) {
 }
 
 func (fs *pathsCaseFixtureFS) DirectoryExists(name string) bool {
-  if !fs.owns(name) { return fs.FS.DirectoryExists(name) }
+  if !fs.owns(name) {
+    return fs.FS.DirectoryExists(name)
+  }
   _, ok := fs.fixtureDirectory(name)
   return ok
 }
@@ -147,30 +149,48 @@ func (fs *pathsCaseFixtureFS) fixtureDirectory(name string) (string, bool) {
   name = filepath.ToSlash(filepath.Clean(name))
   for file := range fs.files {
     for directory := filepath.ToSlash(filepath.Dir(file)); fs.owns(directory); directory = filepath.ToSlash(filepath.Dir(directory)) {
-      if directory == name || !fs.sensitive && strings.EqualFold(directory, name) { return directory, true }
-      if directory == fs.root { break }
+      if directory == name || !fs.sensitive && strings.EqualFold(directory, name) {
+        return directory, true
+      }
+      if directory == fs.root {
+        break
+      }
     }
   }
   return "", false
 }
 
 func (fs *pathsCaseFixtureFS) GetAccessibleEntries(name string) shimvfs.Entries {
-  if !fs.owns(name) { return fs.FS.GetAccessibleEntries(name) }
-  if directory, ok := fs.fixtureDirectory(name); ok { return fs.FS.GetAccessibleEntries(directory) }
+  if !fs.owns(name) {
+    return fs.FS.GetAccessibleEntries(name)
+  }
+  if directory, ok := fs.fixtureDirectory(name); ok {
+    return fs.FS.GetAccessibleEntries(directory)
+  }
   return shimvfs.Entries{}
 }
 
 func (fs *pathsCaseFixtureFS) Stat(name string) shimvfs.FileInfo {
-  if !fs.owns(name) { return fs.FS.Stat(name) }
-  if file, ok := fs.fixturePath(name); ok { return fs.FS.Stat(file) }
-  if directory, ok := fs.fixtureDirectory(name); ok { return fs.FS.Stat(directory) }
+  if !fs.owns(name) {
+    return fs.FS.Stat(name)
+  }
+  if file, ok := fs.fixturePath(name); ok {
+    return fs.FS.Stat(file)
+  }
+  if directory, ok := fs.fixtureDirectory(name); ok {
+    return fs.FS.Stat(directory)
+  }
   return nil
 }
 
 func (fs *pathsCaseFixtureFS) Realpath(name string) string {
   if fs.owns(name) {
-    if file, ok := fs.fixturePath(name); ok { return file }
-    if directory, ok := fs.fixtureDirectory(name); ok { return fs.FS.Realpath(directory) }
+    if file, ok := fs.fixturePath(name); ok {
+      return file
+    }
+    if directory, ok := fs.fixtureDirectory(name); ok {
+      return fs.FS.Realpath(directory)
+    }
     return ""
   }
   return fs.FS.Realpath(name)

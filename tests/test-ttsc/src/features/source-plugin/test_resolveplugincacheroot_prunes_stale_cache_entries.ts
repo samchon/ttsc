@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   fs,
@@ -130,10 +129,22 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
       true,
       "plugin cache GC escaped through its root junction",
     );
-    assert.equal(fs.readFileSync(path.join(outsideEntry, "plugin"), "utf8"), "outside\n");
-    assert.equal(fs.readFileSync(path.join(outsideEntry, ".last-used"), "utf8"), `${now - 31 * 24 * 60 * 60 * 1000}\n`);
+    assert.equal(
+      fs.readFileSync(path.join(outsideEntry, "plugin"), "utf8"),
+      "outside\n",
+    );
+    assert.equal(
+      fs.readFileSync(path.join(outsideEntry, ".last-used"), "utf8"),
+      `${now - 31 * 24 * 60 * 60 * 1000}\n`,
+    );
     assert.equal(fs.statSync(outsidePluginCache).mtimeMs, outsideMtime);
-    assert.equal(fs.existsSync(path.join(outsidePluginCache, ".gc-last-run")), false);
-    assert.equal(fs.lstatSync(path.join(linkedParent, "plugins")).isSymbolicLink(), true);
+    assert.equal(
+      fs.existsSync(path.join(outsidePluginCache, ".gc-last-run")),
+      false,
+    );
+    assert.equal(
+      fs.lstatSync(path.join(linkedParent, "plugins")).isSymbolicLink(),
+      true,
+    );
   }
 };

@@ -2,8 +2,8 @@ import { getBoolean } from "../../flags/getBoolean";
 import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { getStringList } from "../../flags/getStringList";
-import { readCompilerOptionOccurrence } from "../../flags/readCompilerOptionOccurrence";
 import { parseFlags } from "../../flags/parseFlags";
+import { readCompilerOptionOccurrence } from "../../flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 
@@ -19,7 +19,6 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  *
  * @param argv Command tokens as received from the launcher.
  * @returns A terminal request or the launcher's typed option record.
- *
  * @evidence contracts/common.md#principled-implementation The shared schema owns option arity and first-positional/tail boundaries; terminal requests use that same flag resolution, with a schema-derived prefix scan only when parsing itself fails.
  * @evidence contracts/common.md#clear-and-simple-design One pure launcher option boundary owns value projection, repeatable preloads and build/watch rejection, delegating schema mechanics rather than rescanning entry extensions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted spellings follow the actual flag schema/compiler option kinds, not source extensions or consumer-specific rewrites; unsupported modes throw their supported diagnostics.
@@ -72,8 +71,14 @@ export function parseTtsxCLI(argv: readonly string[]) {
   // here, so joining it to the next key would invent an operand boundary.
   let terminal: "help" | "version" | null = null;
   for (const key of result.values.keys()) {
-    if (key === "--help") { terminal = "help"; break; }
-    if (key === "--version") { terminal = "version"; break; }
+    if (key === "--help") {
+      terminal = "help";
+      break;
+    }
+    if (key === "--version") {
+      terminal = "version";
+      break;
+    }
   }
   terminal ??= terminalRequest(result.passthrough);
   if (terminal !== null) return terminal;
@@ -125,7 +130,7 @@ export function parseTtsxCLI(argv: readonly string[]) {
  * `--target all` must not read as `--all`.
  */
 function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
-  for (let index = 0; index < tokens.length;) {
+  for (let index = 0; index < tokens.length; ) {
     const token = tokens[index]!;
     const flag = resolveFlagSpec(token)?.name;
     if (flag === "--help") return "help";
@@ -137,8 +142,8 @@ function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
 
 /**
  * Index of the first nonempty, non-response bare token that is no option's
- * value, or the length. Used only where the parser itself failed, to still
- * find the options before the entry.
+ * value, or the length. Used only where the parser itself failed, to still find
+ * the options before the entry.
  */
 function firstPositionalIndex(argv: readonly string[]): number {
   for (let index = 0; index < argv.length; index += 1) {
@@ -156,15 +161,15 @@ function firstPositionalIndex(argv: readonly string[]): number {
  * Refuse `--watch` (or `-w`) given to ttsx itself, before any compiler starts.
  *
  * Forwarded to the type-check, it turned the check into a process that never
- * returns, so the entry never ran and the command hung with no output.
- * ttsx runs the entry once after one check, and a watch
- * that restarts the program is a different feature; the message names the two
- * tools that already provide the halves. A `--watch` after the entry is the
- * program's own flag and never reaches here.
+ * returns, so the entry never ran and the command hung with no output. ttsx
+ * runs the entry once after one check, and a watch that restarts the program is
+ * a different feature; the message names the two tools that already provide the
+ * halves. A `--watch` after the entry is the program's own flag and never
+ * reaches here.
  */
 function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
   let watching = result.values.has("--watch");
-  for (let index = 0; !watching && index < result.passthrough.length;) {
+  for (let index = 0; !watching && index < result.passthrough.length; ) {
     watching = resolveFlagSpec(result.passthrough[index]!)?.name === "--watch";
     index += readCompilerOptionOccurrence(result.passthrough, index).width;
   }
@@ -174,16 +179,22 @@ function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
   );
 }
 
-/** Launcher values keep their missing-value policy; forwarded options use native grammar. */
+/**
+ * Launcher values keep their missing-value policy; forwarded options use native
+ * grammar.
+ */
 function ttsxOptionWidth(argv: readonly string[], index: number): 1 | 2 {
   const token = argv[index]!;
   if (token.includes("=")) return 1;
   const flag = resolveFlagSpec(token);
-  if (flag?.consumedBy.includes("launcher") === true &&
-    flag.subcommands.includes("ttsx")) {
+  if (
+    flag?.consumedBy.includes("launcher") === true &&
+    flag.subcommands.includes("ttsx")
+  ) {
     const next = argv[index + 1];
     if (next === undefined) return 1;
-    if (flag.kind === "boolean") return next === "true" || next === "false" ? 2 : 1;
+    if (flag.kind === "boolean")
+      return next === "true" || next === "false" ? 2 : 1;
     return next.startsWith("-") ? 1 : 2;
   }
   return readCompilerOptionOccurrence(argv, index).width;

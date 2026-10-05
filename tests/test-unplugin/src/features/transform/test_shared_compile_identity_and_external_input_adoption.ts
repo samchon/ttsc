@@ -1,13 +1,14 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
 import type { TtscSharedCompilePublication } from "../../../../../packages/unplugin/src/core/transform/session/TtscSharedCompilePublication";
 import { adoptedExternalInputMismatch } from "../../../../../packages/unplugin/src/core/transform/session/adoptedExternalInputMismatch";
 import { sharedCompileIdentity } from "../../../../../packages/unplugin/src/core/transform/session/sharedCompileIdentity";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies compile configuration identity and publisher/adopter input agreement.
+ * Verifies compile configuration identity and publisher/adopter input
+ * agreement.
  *
  * Compile identity must separate option and resolved-compiler changes before
  * any worker shares output. Adoption additionally requires the same external
@@ -46,7 +47,8 @@ export function test_shared_compile_identity_and_external_input_adoption(): void
   const otherCompiler = TestProject.tmpdir("ttsc-unplugin-shared-compiler-");
   TestProject.writeFiles(otherCompiler, {
     "package.json": '{"private":true}',
-    "node_modules/typescript/package.json": '{"name":"typescript","version":"0.0.0-other"}',
+    "node_modules/typescript/package.json":
+      '{"name":"typescript","version":"0.0.0-other"}',
   });
   const id = sharedCompileIdentity(compile);
   assert.match(id, /^[0-9a-f]{32}$/);

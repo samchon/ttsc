@@ -1,15 +1,21 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind, addSyntheticLeadingComment } from "../../../../../packages/factory/src/index";
-import { kw, print } from "../../internal/helpers";
+
+import factory, {
+  SyntaxKind,
+  addSyntheticLeadingComment,
+} from "../../../../../packages/factory/src/index";
 import { alias } from "../../internal/commentFixtures";
+import { kw, print } from "../../internal/helpers";
 
 /**
  * Verifies multiple leading comments stack in attachment order.
  *
- * Successive attachments must preserve their insertion order and retain both lines.
+ * Successive attachments must preserve their insertion order and retain both
+ * lines.
  *
  * 1. Two SingleLine comments print in attachment order before the ID alias.
- * 2. Independent first/second literal lines distinguish preservation of both comments from reversal or overwrite.
+ * 2. Independent first/second literal lines distinguish preservation of both
+ *    comments from reversal or overwrite.
  *
  * @evidence contracts/testing.md#behavioral-verification Two SingleLine comments print in attachment order before the ID alias.
  * @evidence contracts/testing.md#independent-expectations Independent first/second literal lines distinguish preservation of both comments from reversal or overwrite.

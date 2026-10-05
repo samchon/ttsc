@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, num, print, str } from "../../internal/helpers";
 
 /**
@@ -8,8 +8,10 @@ import { id, num, print, str } from "../../internal/helpers";
  *
  * `run();`, `return;`, `return 1;`, and `throw new Error("boom");`.
  *
- * 1. Expression, bare/value return and throw statements retain call/value payload and semicolons.
- * 2. Literal run();, return;, return value and throw-new Error sources specify the requested syntax independently.
+ * 1. Expression, bare/value return and throw statements retain call/value payload
+ *    and semicolons.
+ * 2. Literal run();, return;, return value and throw-new Error sources specify the
+ *    requested syntax independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Expression, bare/value return and throw statements retain call/value payload and semicolons.
  * @evidence contracts/testing.md#independent-expectations Literal run();, return;, return value and throw-new Error sources specify the requested syntax independently.

@@ -17,11 +17,11 @@ import (
 // place. The trailing clean-EOF assertion checks ErrFrameClosed for this
 // finite byte stream, without executing proxy goroutine shutdown.
 //
-// 1. Concatenate two well-formed frames with extra Content-Type headers.
-// 2. Drain the stream until ErrFrameClosed.
-// 3. Assert both bodies are returned exactly, the first header block still
-//    contains its Content-Type and Content-Length lines, and the third read
-//    reports ErrFrameClosed.
+//  1. Concatenate two well-formed frames with extra Content-Type headers.
+//  2. Drain the stream until ErrFrameClosed.
+//  3. Assert both bodies are returned exactly, the first header block still
+//     contains its Content-Type and Content-Length lines, and the third read
+//     reports ErrFrameClosed.
 //
 // @evidence contracts/testing.md#behavioral-verification FrameReader.Read returns two literal bodies, retains the exact first header block including vendor value, then reports ErrFrameClosed.
 // @evidence contracts/testing.md#independent-expectations Authored Content-Length-framed bytes establish both body contents and the clean end-of-stream expectation without using WriteFrame to generate the oracle.

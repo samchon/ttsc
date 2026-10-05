@@ -143,7 +143,9 @@ func writeGraphdumpFile(t *testing.T, path, content string) {
 // over the fixture's explicit empty ignore membership, without acquiring Git.
 func runSourceProjection(args []string) int {
   prepared, code := prepareCommand(args)
-  if prepared == nil { return code }
+  if prepared == nil {
+    return code
+  }
   defer func() { _ = prepared.program.Close() }()
   return prepared.encode(nil)
 }

@@ -34,20 +34,22 @@ func main() {
 // preparedCommand owns one loaded Program and the sibling command's deliberately
 // limited producer claims. Ignore acquisition remains at the default adapter.
 type preparedCommand struct {
-  program *driver.Program
-  built *graph.Graph
-  root string
+  program  *driver.Program
+  built    *graph.Graph
+  root     string
   tsconfig string
-  texts map[string]string
-  origin graph.DumpOrigin
-  pretty bool
+  texts    map[string]string
+  origin   graph.DumpOrigin
+  pretty   bool
 }
 
 // run joins actual Git membership with this command's prepared graph and owns
 // its Program until streaming serialization has completed or failed.
 func run(args []string) int {
   prepared, code := prepareCommand(args)
-  if prepared == nil { return code }
+  if prepared == nil {
+    return code
+  }
   defer func() { _ = prepared.program.Close() }()
   return prepared.encode(graph.GitIgnoredFiles(prepared.root, prepared.built))
 }

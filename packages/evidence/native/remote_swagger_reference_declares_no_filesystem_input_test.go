@@ -1,8 +1,8 @@
 package evidence
 
 import (
-  "testing"
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 /**

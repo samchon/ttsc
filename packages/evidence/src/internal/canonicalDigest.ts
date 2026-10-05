@@ -41,17 +41,17 @@ export const canonicalJson = (value: unknown): string =>
  * above it.
  *
  * A YAML anchor can create an object cycle that parsing and conversion retain.
- * This renderer terminates such values with the string marker "[circular]".
- * The marker aliases an authored literal string, and identifies the position
- * where traversal stopped rather than which ancestor was reached. It is not
- * an injective encoding of cyclic object graphs.
+ * This renderer terminates such values with the string marker "[circular]". The
+ * marker aliases an authored literal string, and identifies the position where
+ * traversal stopped rather than which ancestor was reached. It is not an
+ * injective encoding of cyclic object graphs.
  *
  * Swagger currently resolves references before invoking this renderer. A
  * reachable schema object cycle still fails before a declaration digest is
  * emitted, while reference-shaped literal data is copied without dereferencing
  * and an object cycle there is explicitly refused. This marker does not make
- * the loader accept either kind of cycle. Finite recursive $ref strings use
- * its separate reference guard.
+ * the loader accept either kind of cycle. Finite recursive $ref strings use its
+ * separate reference guard.
  */
 const render = (value: unknown, seen: Set<object>): string => {
   if (value === null || typeof value !== "object") return stringify(value);

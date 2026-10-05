@@ -13,10 +13,10 @@ import (
 // directory consumes it. Otherwise the marker would recreate the silent-drop
 // path under a different name.
 //
-// 1. Write malformed, duplicate, conflicting, orphan and ambiguous companion
-//    layouts, each to its own corpus root.
-// 2. Load each root.
-// 3. Assert every layout fails for its own structural reason.
+//  1. Write malformed, duplicate, conflicting, orphan and ambiguous companion
+//     layouts, each to its own corpus root.
+//  2. Load each root.
+//  3. Assert every layout fails for its own structural reason.
 //
 // @evidence contracts/testing.md#behavioral-verification loadLintCorpus is run on nine layouts, each written to its own t.TempDir tree, and each must fail with the message of the companion contract it breaks. This test has no loading control; a companion with exactly one owner is covered by the companions-belong-to-their-own-case test.
 // @evidence contracts/testing.md#independent-expectations The companion contract (exact marker, no expectations, skip, clean or entry directives, exactly one owning positive entry under its src/) is the specification; every expected message is a literal written from it.

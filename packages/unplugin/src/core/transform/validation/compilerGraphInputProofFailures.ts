@@ -19,7 +19,8 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
  * also supplied, checks producer consistency. Adapter-owned scratch inputs are
  * excluded from every proof population: a published envelope retains its
  * publisher's scratch address after that temporary tree has been disposed.
- * Legacy envelopes without sidecar populations keep the existing snapshot policy.
+ * Legacy envelopes without sidecar populations keep the existing snapshot
+ * policy.
  *
  * @evidence contracts/common.md#principled-implementation Persistent predicate replay and legacy projection consistency distinguish a changed environment from conflicting or missing producer authority. Every proof population excludes the actual adapter-owned scratch tree retained by the generation, so disposing the publisher's wrapper does not refute its adopted output.
  * @evidence contracts/common.md#clear-and-simple-design One validator accumulates classified failures while envelope indexing and native codecs own normalization and observation semantics.

@@ -13,6 +13,9 @@ import { make } from "../internal/make";
  * ...string[]
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param type The rest element type.
+ * @returns The created {@link RestTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   RestTypeNode retains the operand as a type child so postfix grouping stays
  *   meaningful; the caller supplies a legal rest position and operand type.
@@ -28,10 +31,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains the tuple-rest role and operand, with a distinct
  *   paragraph for the example and spacing before the acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param type The rest element type.
- * @returns The created {@link RestTypeNode}.
  */
 export const createRestTypeNode = (type: TypeNode): RestTypeNode =>
   make("RestTypeNode", { type });

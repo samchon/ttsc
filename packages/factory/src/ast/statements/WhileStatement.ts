@@ -6,12 +6,11 @@ import type { Statement } from "./Statement";
  *
  * Built by {@link factory.createWhileStatement}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Condition Expression and body Statement preserve pre-tested loop syntax without evaluating truth or tracking iterations.
  * @evidence contracts/common.md#clear-and-simple-design Two named fields distinguish condition and body while sharing existing nodes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Loop operands are supplied syntax, without hardcoded termination results.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies while syntax and labels the header condition and loop body; member separation follows the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface WhileStatement {
   /** Discriminant tag; always `"WhileStatement"`. */

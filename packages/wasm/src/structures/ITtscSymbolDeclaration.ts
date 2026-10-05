@@ -21,7 +21,10 @@ export interface ITtscSymbolDeclaration {
   /** Project-relative or absolute path; null when no source file is associated. */
   file: string | null;
 
-  /** Inclusive start offset of the declaration's first token in the source's UTF-8 bytes, after leading whitespace, comments and JSDoc. */
+  /**
+   * Inclusive start offset of the declaration's first token in the source's
+   * UTF-8 bytes, after leading whitespace, comments and JSDoc.
+   */
   pos: number;
 
   /** Exclusive end offset in the source's UTF-8 bytes. */

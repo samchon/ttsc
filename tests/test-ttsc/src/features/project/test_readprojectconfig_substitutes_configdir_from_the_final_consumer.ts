@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies `${configDir}` in an inherited preset uses the final consumer.

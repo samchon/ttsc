@@ -40,15 +40,17 @@ func TestContributorPanicsPreserveOtherRulesInProcess(t *testing.T) {
   for _, bombSeverity := range []Severity{SeverityError, SeverityOff} {
     engine := NewEngine(RuleConfig{
       "broken/check-panic": bombSeverity,
-      "broken/healthy": SeverityError,
-      "no-var": SeverityError,
+      "broken/healthy":     SeverityError,
+      "no-var":             SeverityError,
     })
     if err := engine.ConfigError(); err != nil {
       t.Fatalf("contributor binding: %v", err)
     }
     findings := engine.Run(prog.userSourceFiles(), prog.checker)
     wantCount := 3
-    if bombSeverity == SeverityOff { wantCount = 2 }
+    if bombSeverity == SeverityOff {
+      wantCount = 2
+    }
     if len(findings) != wantCount {
       t.Fatalf("bomb severity %v findings=%+v, want %d", bombSeverity, findings, wantCount)
     }
@@ -57,7 +59,9 @@ func TestContributorPanicsPreserveOtherRulesInProcess(t *testing.T) {
       if finding.Severity != SeverityError {
         t.Fatalf("original fixture must report error: %+v", finding)
       }
-      if seen[finding.Rule] != nil { t.Fatalf("duplicate finding for %s", finding.Rule) }
+      if seen[finding.Rule] != nil {
+        t.Fatalf("duplicate finding for %s", finding.Rule)
+      }
       seen[finding.Rule] = finding
     }
     if seen["broken/healthy"] == nil || seen["broken/healthy"].Message != "healthy contributor ran" || seen["no-var"] == nil {
@@ -81,16 +85,27 @@ func init() {
 }
 
 type originalMetadataPanicContributor struct{}
+
 func (originalMetadataPanicContributor) Name() string { panic("metadata boom") }
-func (originalMetadataPanicContributor) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindVariableStatement} }
+func (originalMetadataPanicContributor) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindVariableStatement}
+}
 func (originalMetadataPanicContributor) Check(*publicrule.Context, *shimast.Node) {}
 
 type originalCheckPanicContributor struct{}
+
 func (originalCheckPanicContributor) Name() string { return "broken/check-panic" }
-func (originalCheckPanicContributor) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindVariableStatement} }
+func (originalCheckPanicContributor) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindVariableStatement}
+}
 func (originalCheckPanicContributor) Check(*publicrule.Context, *shimast.Node) { panic("check boom") }
 
 type originalHealthyContributor struct{}
+
 func (originalHealthyContributor) Name() string { return "broken/healthy" }
-func (originalHealthyContributor) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindVariableStatement} }
-func (originalHealthyContributor) Check(ctx *publicrule.Context, node *shimast.Node) { ctx.Report(node, "healthy contributor ran") }
+func (originalHealthyContributor) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindVariableStatement}
+}
+func (originalHealthyContributor) Check(ctx *publicrule.Context, node *shimast.Node) {
+  ctx.Report(node, "healthy contributor ran")
+}

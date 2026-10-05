@@ -10,14 +10,14 @@ import { trackedInputScope } from "../../../../../packages/unplugin/src/core/tra
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies combined compiler observations keep every relevant notification
- * and acquire directory watches only for actual directories.
+ * Verifies combined compiler observations keep every relevant notification and
+ * acquire directory watches only for actual directories.
  *
  * Empty entry lists do not establish directory kind. A successful file read
  * still depends on its contents; a failed read beside a real directory list
- * retains the list's direct-child dependency. An unknown mixed observation
- * must preserve uncertainty through actual watch admission, including when
- * supplied kind classification fails.
+ * retains the list's direct-child dependency. An unknown mixed observation must
+ * preserve uncertainty through actual watch admission, including when supplied
+ * kind classification fails.
  *
  * 1. Normalize four compatible literal predicate combinations over real files.
  * 2. Construct the owning tracker with the derived scope and supplied watches.
@@ -30,19 +30,27 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership This discoverable source unit owns four sequential rows through existing normalization, scope and filesystem/watch capabilities. Real temporary files support independent metadata; callbacks are authored and no native watcher, compiler, process or host is started. Finally closes each acquired handle.
  */
 export async function test_combined_input_observations_preserve_watch_dependencies(): Promise<void> {
-  const root = fs.realpathSync.native(TestProject.createProject({
-    "input.txt": "observed bytes\n",
-    "listed/child.txt": "child\n",
-    "unknown/child.txt": "child\n",
-    "uncertain/deep/child.txt": "child\n",
-  }));
+  const root = fs.realpathSync.native(
+    TestProject.createProject({
+      "input.txt": "observed bytes\n",
+      "listed/child.txt": "child\n",
+      "unknown/child.txt": "child\n",
+      "uncertain/deep/child.txt": "child\n",
+    }),
+  );
   const file = path.join(root, "input.txt");
   const rows = [
     {
       name: "successful read and empty listing",
       input: file,
       observation: {
-        readFile: { ok: true, hash: crypto.createHash("sha256").update("observed bytes\n").digest("hex") },
+        readFile: {
+          ok: true,
+          hash: crypto
+            .createHash("sha256")
+            .update("observed bytes\n")
+            .digest("hex"),
+        },
         accessibleEntries: { directories: [], files: [] },
       },
       directory: root,
@@ -91,9 +99,13 @@ export async function test_combined_input_observations_preserve_watch_dependenci
   for (const row of rows) {
     const observation = normalizeGraphInputObservation(row.observation);
     assert.ok(observation, `${row.name}: compatible protocol observation`);
-    const listeners = new Map<string, (event: string, filename: string | null) => void>();
+    const listeners = new Map<
+      string,
+      (event: string, filename: string | null) => void
+    >();
     const recursiveSubscriptions = new Set<string>();
-    const failKind = row.name === "failed native kind preserves external subtree coverage";
+    const failKind =
+      row.name === "failed native kind preserves external subtree coverage";
     let opened = 0;
     let closed = 0;
     const filesystem = {
@@ -101,21 +113,40 @@ export async function test_combined_input_observations_preserve_watch_dependenci
       caseSensitive: () => true,
       stat: (location: string) => {
         if (failKind && location === row.input) {
-          throw Object.assign(new Error("authored kind observation failure"), { code: "EIO" });
+          throw Object.assign(new Error("authored kind observation failure"), {
+            code: "EIO",
+          });
         }
         return DEFAULT_FILESYSTEM_OPERATIONS.stat(location);
       },
-      watch: (directory: string, listener: (event: string, filename: string | null) => void, _onError?: () => void, recursive?: boolean) => {
-        assert.equal(fs.statSync(directory).isDirectory(), true, `${row.name}: watch requires directory`);
+      watch: (
+        directory: string,
+        listener: (event: string, filename: string | null) => void,
+        _onError?: () => void,
+        recursive?: boolean,
+      ) => {
+        assert.equal(
+          fs.statSync(directory).isDirectory(),
+          true,
+          `${row.name}: watch requires directory`,
+        );
         listeners.set(directory, listener);
         if (recursive === true) recursiveSubscriptions.add(directory);
         ++opened;
-        return { close: () => { ++closed; } };
+        return {
+          close: () => {
+            ++closed;
+          },
+        };
       },
     };
     const scope = trackedInputScope(row.input, observation, filesystem);
     const tracker = await createHostInputMutationTracker(
-      [row.input], filesystem, new Set([row.input]), "all", undefined,
+      [row.input],
+      filesystem,
+      new Set([row.input]),
+      "all",
+      undefined,
       new Map([[row.input, scope]]),
     );
     try {
@@ -125,16 +156,28 @@ export async function test_combined_input_observations_preserve_watch_dependenci
         const parent = listeners.get(root);
         assert.ok(parent, "directory replacement subscription");
         parent("change", "listed");
-        assert.deepEqual([...tracker.changes], [], "listing is unchanged by directory own-content event");
+        assert.deepEqual(
+          [...tracker.changes],
+          [],
+          "listing is unchanged by directory own-content event",
+        );
         assert.equal(tracker.membershipChanged, false);
       }
       const notify = listeners.get(row.directory);
       assert.ok(notify, `${row.name}: actual notification coverage`);
       if (failKind) {
-        assert.equal(recursiveSubscriptions.has(row.directory), true, "nested event requires actual recursive subscription");
+        assert.equal(
+          recursiveSubscriptions.has(row.directory),
+          true,
+          "nested event requires actual recursive subscription",
+        );
       }
       notify(row.event, row.filename);
-      assert.deepEqual([...tracker.changes], [path.join(row.directory, row.filename)], row.name);
+      assert.deepEqual(
+        [...tracker.changes],
+        [path.join(row.directory, row.filename)],
+        row.name,
+      );
       assert.equal(tracker.membershipChanged, row.mutation, row.name);
     } finally {
       tracker.close();

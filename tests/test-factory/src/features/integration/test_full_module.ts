@@ -1,17 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, mod, printer } from "../../internal/helpers";
 
 /**
  * Verifies printing of a whole module via {@link TsPrinter.printFile}.
  *
- * An import plus an exported class with a private field and a public method —
- * a source-unit check that statements, members, and blocks compose with correct
+ * An import plus an exported class with a private field and a public method — a
+ * source-unit check that statements, members, and blocks compose with correct
  * indentation and a trailing newline.
  *
- * 1. printFile retains the import and exported Point class with typed private field and returning method.
- * 2. The complete independent module literal fixes order, member syntax, indentation and final newline.
+ * 1. PrintFile retains the import and exported Point class with typed private
+ *    field and returning method.
+ * 2. The complete independent module literal fixes order, member syntax,
+ *    indentation and final newline.
  *
  * @evidence contracts/testing.md#behavioral-verification printFile retains the import and exported Point class with typed private field and returning method.
  * @evidence contracts/testing.md#independent-expectations The complete independent module literal fixes order, member syntax, indentation and final newline.

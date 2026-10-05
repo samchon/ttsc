@@ -1,5 +1,8 @@
 import { findEdge } from "../../../internal/graph/internal/graphDump";
-import { getIdentityDump, withIdentityBoundary } from "../../../internal/graph/internal/identityBoundary";
+import {
+  getIdentityDump,
+  withIdentityBoundary,
+} from "../../../internal/graph/internal/identityBoundary";
 import { assert } from "../../../internal/graph/internal/ttsgraph";
 
 interface ToolResult {
@@ -27,9 +30,10 @@ const traceOf = (result: ToolResult): TraceResult => {
  * tracing then promoted that false structural edge to dispatches and reached
  * code the interface call could never invoke.
  *
- * 1. Build one valid and one signature-incompatible CheckedPipeline implementation.
- * 2. Require the selected real native binary dump to retain TS2416 and only the valid member
- *    edge.
+ * 1. Build one valid and one signature-incompatible CheckedPipeline
+ *    implementation.
+ * 2. Require the selected real native binary dump to retain TS2416 and only the
+ *    valid member edge.
  * 3. Trace an interface call and require dispatch into Good/accepted while Bad and
  *    rejected remain unreachable.
  *
@@ -45,40 +49,41 @@ const traceOf = (result: ToolResult): TraceResult => {
 export const case_ttscgraph_member_relations_follow_checker_dispatch =
   async () => {
     await withIdentityBoundary(async (client, root) => {
-    const dump = await getIdentityDump();
-    assert.ok(
-      dump.diagnostics.some((diagnostic) => diagnostic.code === 2416),
-      "the same dump retains TS2416: " + JSON.stringify(dump.diagnostics),
-    );
-    const implementations = dump.nodes.filter(
-      (node) =>
-        node.file === "src/checked-dispatch.ts" &&
-        node.name === "execute" &&
-        node.kind === "method",
-    );
-    const goodExecute = implementations.find(
-      (node) => node.qualifiedName === "Good.execute",
-    );
-    const badExecute = implementations.find(
-      (node) => node.qualifiedName === "Bad.execute",
-    );
-    const contractExecute = implementations.find(
-      (node) => node.qualifiedName === "CheckedPipeline.execute",
-    );
-    assert.ok(
-      goodExecute !== undefined &&
-        badExecute !== undefined &&
-        contractExecute !== undefined,
-      "all member nodes are dumped: " + JSON.stringify(implementations),
-    );
-    assert.ok(
-      findEdge(dump, goodExecute, contractExecute, "implements") !== undefined,
-      "the checker-valid member pair is serialized",
-    );
-    assert.ok(
-      findEdge(dump, badExecute, contractExecute, "implements") === undefined,
-      "the checker-rejected member pair is absent",
-    );
+      const dump = await getIdentityDump();
+      assert.ok(
+        dump.diagnostics.some((diagnostic) => diagnostic.code === 2416),
+        "the same dump retains TS2416: " + JSON.stringify(dump.diagnostics),
+      );
+      const implementations = dump.nodes.filter(
+        (node) =>
+          node.file === "src/checked-dispatch.ts" &&
+          node.name === "execute" &&
+          node.kind === "method",
+      );
+      const goodExecute = implementations.find(
+        (node) => node.qualifiedName === "Good.execute",
+      );
+      const badExecute = implementations.find(
+        (node) => node.qualifiedName === "Bad.execute",
+      );
+      const contractExecute = implementations.find(
+        (node) => node.qualifiedName === "CheckedPipeline.execute",
+      );
+      assert.ok(
+        goodExecute !== undefined &&
+          badExecute !== undefined &&
+          contractExecute !== undefined,
+        "all member nodes are dumped: " + JSON.stringify(implementations),
+      );
+      assert.ok(
+        findEdge(dump, goodExecute, contractExecute, "implements") !==
+          undefined,
+        "the checker-valid member pair is serialized",
+      );
+      assert.ok(
+        findEdge(dump, badExecute, contractExecute, "implements") === undefined,
+        "the checker-rejected member pair is absent",
+      );
 
       const result = (await client.request("tools/call", {
         name: "inspect_typescript_graph",

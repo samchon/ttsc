@@ -15,9 +15,13 @@ import { make } from "../internal/make";
  * renders:
  *
  * ```ts
- * Array<string>
+ * Array<string>;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param typeName The referenced type name.
+ * @param typeArguments The generic type arguments, if any.
+ * @returns The created {@link TypeReferenceNode}.
  * @evidence contracts/common.md#principled-implementation
  *   EntityName nodes are retained and strings become identifiers; ordered type
  *   arguments remain child types. Strings are not parsed into qualified-name trees.
@@ -33,11 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose now states the string shorthand's actual limitation and points
  *   to QualifiedName; the example shows an unqualified generic reference.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param typeName The referenced type name.
- * @param typeArguments The generic type arguments, if any.
- * @returns The created {@link TypeReferenceNode}.
  */
 export const createTypeReferenceNode = (
   typeName: string | EntityName,

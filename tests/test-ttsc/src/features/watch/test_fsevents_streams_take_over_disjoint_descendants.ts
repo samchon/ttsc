@@ -47,8 +47,14 @@ export const test_fsevents_streams_take_over_disjoint_descendants =
     binding.emit(2, path.join(right, "b.ts"), 0x1000);
     assert.deepEqual(leftEvents.at(-1), ["change", "a.ts"]);
     assert.deepEqual(rightEvents.at(-1), ["change", "b.ts"]);
-    assert.deepEqual(leftEvents, [["rename", null], ["change", "a.ts"]]);
-    assert.deepEqual(rightEvents, [["rename", null], ["change", "b.ts"]]);
+    assert.deepEqual(leftEvents, [
+      ["rename", null],
+      ["change", "a.ts"],
+    ]);
+    assert.deepEqual(rightEvents, [
+      ["rename", null],
+      ["change", "b.ts"],
+    ]);
     ancestor.close();
     leftWatch.close();
     rightWatch.close();

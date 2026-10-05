@@ -16,16 +16,19 @@ export interface ICreateProjectProps {
   readonly name: string;
 
   /**
-   * Immutable authored lint package for shared non-mutating consumers.
-   * Defaults to the live workspace package so cold/source-mutation boundaries
-   * continue to observe their original producer inputs.
+   * Immutable authored lint package for shared non-mutating consumers. Defaults
+   * to the live workspace package so cold/source-mutation boundaries continue
+   * to observe their original producer inputs.
    */
   readonly nativeProducer?: "snapshot" | "workspace";
 
   /** Caller-prepared compatible dependency tree; never removed by this project. */
   readonly preparedModules?: string;
 
-  /** Common manifest-free owner beneath which this private ancestor workspace lives. */
+  /**
+   * Common manifest-free owner beneath which this private ancestor workspace
+   * lives.
+   */
   readonly workspaceParent?: string;
 
   /** File map, project-relative. Values are written verbatim. */

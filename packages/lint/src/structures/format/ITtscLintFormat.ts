@@ -14,8 +14,8 @@ import type { ITtscLintFormatSortImports } from "./ITtscLintFormatSortImports";
  * Once present, the block configures a curated set of format rules at
  * Prettier-aligned defaults. `ttsc format` uses these rules to rewrite source.
  * `ttsc check` does not report format findings unless `severity` is set to a
- * non-off value. Formatter options belong exclusively to this block;
- * `format/*` entries in the `rules` map are ignored.
+ * non-off value. Formatter options belong exclusively to this block; `format/*`
+ * entries in the `rules` map are ignored.
  *
  * @evidence contracts/common.md#principled-implementation Optional formatter fields encode presence-based activation and constrained public values; nested import and JSDoc settings preserve their distinct semantics.
  * @evidence contracts/common.md#clear-and-simple-design A flat record handles ordinary options and delegates the two structured options to dedicated types.

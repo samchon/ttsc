@@ -2,13 +2,13 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { E2ETrace } from "../../internal/E2ETrace";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
-import { getCompilerVersionText } from "./getCompilerVersionText";
-import { prepareExecution } from "./prepareExecution";
-import { parseTtsxCLI } from "./parseTtsxCLI";
-import { resolveCacheDir } from "./resolveCacheDir";
+import { E2ETrace } from "../../internal/E2ETrace";
 import { TtsxEntryOptions } from "./TtsxEntryOptions";
+import { getCompilerVersionText } from "./getCompilerVersionText";
+import { parseTtsxCLI } from "./parseTtsxCLI";
+import { prepareExecution } from "./prepareExecution";
+import { resolveCacheDir } from "./resolveCacheDir";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { checkNodeRuntimeSupport } from "./runtime/checkNodeRuntimeSupport";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
@@ -26,20 +26,18 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  * the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or container
  * runtime can send to the launcher's pid alone, are forwarded to that child;
  * `SIGINT` from a terminal already reaches the whole process group, so it is
- * not delivered a second time. Runtime-directory removal is attempted only
- * when the cooperative ownership record is abandoned or unowned; unknown or
- * live ownership defers it. A reported child signal is re-raised on the
- * launcher under the platform's signal behavior, with failure to self-signal
- * exiting as status 1. This is not recursive process-tree termination or a
+ * not delivered a second time. Runtime-directory removal is attempted only when
+ * the cooperative ownership record is abandoned or unowned; unknown or live
+ * ownership defers it. A reported child signal is re-raised on the launcher
+ * under the platform's signal behavior, with failure to self-signal exiting as
+ * status 1. This is not recursive process-tree termination or a
  * descendant-close receipt.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
- *
  * @returns The program's reported exit code, or `2` on a launcher-level error.
  *   A reported asynchronous spawn error returns `1`. A child signal initiates
  *   self-signalling instead of certifying a normally settled promise or
  *   descendant termination.
- *
  * @evidence contracts/common.md#principled-implementation The shared flag parser separates compiler options from entry argv; TypeScript entries use a checked emit manifest and JavaScript entries install the runtime preload, then Node loads the original entry as its main module.
  * @evidence contracts/common.md#clear-and-simple-design Parsing, preparation, child execution and signal ownership have separate helpers; launcher finally removes its listeners while prepared-entry cleanup attempts relinquishment/removal. Program execution observes error or exit, not an awaited child-close or descendant join.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported build/watch modes and JavaScript-only configuration flags are rejected explicitly; supported Node preloads carry runtime hooks without replacing foreign globals or fabricating a successful child exit.
@@ -226,7 +224,8 @@ async function runJavaScriptEntry(
   entry: string,
   signals: LauncherSignals,
 ): Promise<number> {
-  const unsupported = TtsxEntryOptions.unsupportedJavaScriptBuildOptions(parsed);
+  const unsupported =
+    TtsxEntryOptions.unsupportedJavaScriptBuildOptions(parsed);
   if (unsupported.length !== 0) {
     process.stderr.write(
       `ttsx: ${unsupported.join(", ")} configure${unsupported.length === 1 ? "s" : ""} the up-front build of a TypeScript entry, and ${path.basename(entry)} is JavaScript; set compiler options in the tsconfig.json that owns the TypeScript it loads\n`,
@@ -265,10 +264,10 @@ async function runJavaScriptEntry(
  * is Node's own main module, exactly as under `node <entry>` or `node -r
  * ttsc/register <entry>`: `require.main === module` and `import.meta.main` hold
  * in it, `process.argv` is Node's own, and an error thrown while it evaluates
- * reaches `process.on("uncaughtException")` and Node's exit status,
- * never a bootstrap module that loads it. A runtime manifest pins the
- * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
- * find tsgo without re-resolving it from inside the hook.
+ * reaches `process.on("uncaughtException")` and Node's exit status, never a
+ * bootstrap module that loads it. A runtime manifest pins the entry project's
+ * emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds find tsgo
+ * without re-resolving it from inside the hook.
  */
 async function runPreparedEntry(
   parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">,

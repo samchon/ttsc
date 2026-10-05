@@ -3,27 +3,30 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
-import { sharedBuildTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/sharedBuildTransformCache";
-import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import {
+  resolveConfiguredHostRoot,
+  selectBuildHostRoot,
+} from "../../../../../packages/unplugin/src/core/bridge/buildHostRoot";
 import { createBuildWatchFile } from "../../../../../packages/unplugin/src/core/bridge/createBuildWatchFile";
 import { hostToolDirectory } from "../../../../../packages/unplugin/src/core/bridge/hostToolDirectory";
-import { resolveConfiguredHostRoot, selectBuildHostRoot } from "../../../../../packages/unplugin/src/core/bridge/buildHostRoot";
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { registerProjectRecord } from "../../../../../packages/unplugin/src/core/bridge/registerProjectRecord";
-import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
+import { sharedBuildTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/sharedBuildTransformCache";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { selectExternalInputPaths } from "../../../../../packages/unplugin/src/core/transform/envelope/selectExternalInputPaths";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
-import { compilerGraphInputProofFailures } from "../../../../../packages/unplugin/src/core/transform/validation/compilerGraphInputProofFailures";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
+import { compilerGraphInputProofFailures } from "../../../../../packages/unplugin/src/core/transform/validation/compilerGraphInputProofFailures";
 import { notifyWatchInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyWatchInputs";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
-import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
+import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
 import { TestProject } from "../../../../utils/src/TestProject";
+import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
+import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
  * Verifies build loader callbacks receive the project record alone.
@@ -43,22 +46,34 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     const root = path.dirname(path.dirname(fixture.file));
     const config = path.join(root, "tsconfig.json");
     const declaration = path.join(root, "node_modules", "typed", "index.d.ts");
-    const candidate = path.join(root, "node_modules", "typed", "preferred.d.ts");
+    const candidate = path.join(
+      root,
+      "node_modules",
+      "typed",
+      "preferred.d.ts",
+    );
     const listed = path.join(root, "node_modules", "@types", "empty");
     fs.mkdirSync(path.dirname(declaration), { recursive: true });
     fs.mkdirSync(listed, { recursive: true });
-    fs.writeFileSync(declaration, "export interface Shared { value: number }\n");
+    fs.writeFileSync(
+      declaration,
+      "export interface Shared { value: number }\n",
+    );
     assert.equal(fs.existsSync(candidate), false);
     assert.equal(fs.statSync(listed).isDirectory(), true);
     assert.deepEqual(fs.readdirSync(listed), []);
-    const digest = (file: string) => createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+    const digest = (file: string) =>
+      createHash("sha256").update(fs.readFileSync(file)).digest("hex");
     const declarationHash = digest(declaration);
-    const directoryHash = createHash("sha256").update("ttsc:host-input:directory\0").digest("hex");
+    const directoryHash = createHash("sha256")
+      .update("ttsc:host-input:directory\0")
+      .digest("hex");
     const result = {
       ...fixture.good.result,
       graph: {
         edges: { "src/main.ts": ["node_modules/typed/index.d.ts"] },
-        globals: ["node_modules/@types/empty"], configs: [],
+        globals: ["node_modules/@types/empty"],
+        configs: [],
         candidates: { "src/main.ts": ["node_modules/typed/preferred.d.ts"] },
         resolutionInputs: ["node_modules/@types/empty"],
         inputHashes: {
@@ -76,35 +91,61 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
           "node_modules/@types/empty": {
             stat: "directory" as const,
             accessibleEntries: { directories: [], files: [] },
-            realpath: { ok: true as const, path: fs.realpathSync.native(listed) },
+            realpath: {
+              ok: true as const,
+              path: fs.realpathSync.native(listed),
+            },
           },
         },
       },
-      hostInputs: [config], hostInputHashes: { [config]: digest(config) },
+      hostInputs: [config],
+      hostInputHashes: { [config]: digest(config) },
       hostInputRealpaths: { [config]: fs.realpathSync.native(config) },
     };
     const observed = { ...fixture.good, result };
     const state = envelopeDerivation(observed);
-    const snapshot = collectProjectInputSnapshot(root, state.identityContext, DEFAULT_FILESYSTEM_OPERATIONS,
-      undefined, { policy: observed.membershipPolicy });
+    const snapshot = collectProjectInputSnapshot(
+      root,
+      state.identityContext,
+      DEFAULT_FILESYSTEM_OPERATIONS,
+      undefined,
+      { policy: observed.membershipPolicy },
+    );
     assert.equal(snapshot.complete, true);
     observed.inputHashes = snapshot.hashes;
     observed.projectDirectories = snapshot.projectDirectories;
-    assert.deepEqual(compilerGraphInputProofFailures(observed).entries, [],
-      "native empty-directory predicates and the graph kind proof must agree");
-    const externalPaths = selectExternalInputPaths({ projectRoot: root, result,
-      membershipPolicy: observed.membershipPolicy, filesystem: DEFAULT_FILESYSTEM_OPERATIONS });
-    const external = captureExternalInputSnapshot(observed, externalPaths, undefined);
+    assert.deepEqual(
+      compilerGraphInputProofFailures(observed).entries,
+      [],
+      "native empty-directory predicates and the graph kind proof must agree",
+    );
+    const externalPaths = selectExternalInputPaths({
+      projectRoot: root,
+      result,
+      membershipPolicy: observed.membershipPolicy,
+      filesystem: DEFAULT_FILESYSTEM_OPERATIONS,
+    });
+    const external = captureExternalInputSnapshot(
+      observed,
+      externalPaths,
+      undefined,
+    );
     assert.equal(external.complete, true);
     observed.externalInputPaths = externalPaths;
     observed.externalInputHashes = external.hashes;
     observed.externalInputRealpaths = external.realpaths;
     observed.externalInputObservations = external.observations;
-    const universal = captureUniversalHostInputValidation(observed, fixture.file);
+    const universal = captureUniversalHostInputValidation(
+      observed,
+      fixture.file,
+    );
     assert.ok(universal.validation);
     observed.hostInputValidation = universal.validation;
     const previous = process.cwd();
-    const raw = unplugin.raw(fixture.options, { framework, [framework]: { compiler: {} } } as never);
+    const raw = unplugin.raw(fixture.options, {
+      framework,
+      [framework]: { compiler: {} },
+    } as never);
     const shared = sharedBuildTransformCache(JSON.stringify(fixture.options));
     const generation = Promise.resolve(observed);
     shared.cache.set(fixture.key, generation);
@@ -117,15 +158,21 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
       options: { module: { rules: [] } },
       hooks: {
         done: { tap: () => undefined },
-        shutdown: { tap: (_name: string, callback: () => void) => { shutdown = callback; } },
+        shutdown: {
+          tap: (_name: string, callback: () => void) => {
+            shutdown = callback;
+          },
+        },
       },
     };
     const register = raw.webpack ?? raw.rspack;
     (register as (compiler: unknown) => void)(compiler);
     const context = {
-      addWatchFile: () => assert.fail("build loader must use its module dependency channel"),
+      addWatchFile: () =>
+        assert.fail("build loader must use its module dependency channel"),
       getNativeBuildContext: () => ({
-        framework, compiler,
+        framework,
+        compiler,
         loaderContext: {
           addDependency: (file: string) => dependencies.push(file),
           addMissingDependency: (file: string) => missing.push(file),
@@ -135,8 +182,16 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     };
     try {
       process.chdir(root);
-      const transform = raw.transform as (this: unknown, source: string, id: string) => Promise<{ code: string } | undefined>;
-      const output = await transform.call(context, fixture.source, fixture.file);
+      const transform = raw.transform as (
+        this: unknown,
+        source: string,
+        id: string,
+      ) => Promise<{ code: string } | undefined>;
+      const output = await transform.call(
+        context,
+        fixture.source,
+        fixture.file,
+      );
       assert.equal(output?.code, fixture.code);
       assert.equal(shared.cache.get(fixture.key), generation);
       assert.equal(dependencies.length, 1);
@@ -149,17 +204,34 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
       assert.ok(record);
       assert.equal(record.root, root);
       assert.equal(record.tsconfig, path.join(root, "tsconfig.json"));
-      assert.ok(Object.prototype.hasOwnProperty.call(record.inputs, path.join(root, "tsconfig.json")));
-      assert.deepEqual(record.inputs[declaration]!.state, { codec: "graph", hash: declarationHash,
-        realpath: fs.realpathSync.native(declaration) });
+      assert.ok(
+        Object.prototype.hasOwnProperty.call(
+          record.inputs,
+          path.join(root, "tsconfig.json"),
+        ),
+      );
+      assert.deepEqual(record.inputs[declaration]!.state, {
+        codec: "graph",
+        hash: declarationHash,
+        realpath: fs.realpathSync.native(declaration),
+      });
       assert.equal(record.inputs[candidate]!.missing, true);
-      assert.deepEqual(record.inputs[candidate]!.state, { codec: "predicates", observation: { fileExists: false } });
-      assert.deepEqual(record.inputs[listed]!.state, { codec: "graph", hash: directoryHash,
-        realpath: fs.realpathSync.native(listed) });
+      assert.deepEqual(record.inputs[candidate]!.state, {
+        codec: "predicates",
+        observation: { fileExists: false },
+      });
+      assert.deepEqual(record.inputs[listed]!.state, {
+        codec: "graph",
+        hash: directoryHash,
+        realpath: fs.realpathSync.native(listed),
+      });
       assert.ok(record.membership);
       assert.ok(record.membership.directories.includes(root));
       const recordBytes = fs.readFileSync(dependencies[0]!, "utf8");
-      assert.equal((await transform.call(context, fixture.source, fixture.file))?.code, fixture.code);
+      assert.equal(
+        (await transform.call(context, fixture.source, fixture.file))?.code,
+        fixture.code,
+      );
       assert.deepEqual(dependencies, [dependencies[0], dependencies[0]]);
       assert.deepEqual(missing, []);
       assert.deepEqual(directories, []);
@@ -181,59 +253,116 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
         assert.equal(this, loader);
         calls.push(["original", file]);
       },
-      addMissingDependency: () => assert.fail("missing channel is not module registration"),
-      addContextDependency: () => assert.fail("directory channel is not module registration"),
+      addMissingDependency: () =>
+        assert.fail("missing channel is not module registration"),
+      addContextDependency: () =>
+        assert.fail("directory channel is not module registration"),
     };
     let currentLoader = loader;
     let loaderLookups = 0;
-    const native = { framework, compiler: {}, compilation: {}, get loaderContext() {
-      loaderLookups++;
-      return currentLoader;
-    } };
-    const context = { addWatchFile: () => assert.fail("present loader must own registration") };
-    const selected = createBuildWatchFile(context, native as unknown as Parameters<typeof createBuildWatchFile>[1], delivered);
+    const native = {
+      framework,
+      compiler: {},
+      compilation: {},
+      get loaderContext() {
+        loaderLookups++;
+        return currentLoader;
+      },
+    };
+    const context = {
+      addWatchFile: () => assert.fail("present loader must own registration"),
+    };
+    const selected = createBuildWatchFile(
+      context,
+      native as unknown as Parameters<typeof createBuildWatchFile>[1],
+      delivered,
+    );
     assert.equal(selected.loaderContext, loader);
     assert.equal(loaderLookups, 1);
     selected.addWatchFile(input);
-    currentLoader = { ...loader, addDependency: () => assert.fail("factory must retain its selected loader") };
+    currentLoader = {
+      ...loader,
+      addDependency: () =>
+        assert.fail("factory must retain its selected loader"),
+    };
     selected.addWatchFile(input);
     loader.addDependency = function (this: unknown, file: string): void {
       assert.equal(this, loader);
       calls.push(["changed-method", file]);
     };
     selected.addWatchFile(input);
-    assert.deepEqual(calls, [["original", input], ["original", input], ["changed-method", input]]);
+    assert.deepEqual(calls, [
+      ["original", input],
+      ["original", input],
+      ["changed-method", input],
+    ]);
     const failure = new Error(framework + " registration failure");
-    loader.addDependency = () => { throw failure; };
-    assert.throws(() => selected.addWatchFile(input), (error) => error === failure);
-    assert.equal(loaderLookups, 1, "registration does not reselect the loader context");
+    loader.addDependency = () => {
+      throw failure;
+    };
+    assert.throws(
+      () => selected.addWatchFile(input),
+      (error) => error === failure,
+    );
+    assert.equal(
+      loaderLookups,
+      1,
+      "registration does not reselect the loader context",
+    );
   }
   const farmCalls: [string, string][] = [];
   const farmContext = {
-    addWatchFile: function (this: unknown, file: string, watched: string): void {
+    addWatchFile: function (
+      this: unknown,
+      file: string,
+      watched: string,
+    ): void {
       assert.equal(this, farmContext);
       farmCalls.push([file, watched]);
     },
   };
   const farmNative = { framework: "farm" as const, context: farmContext };
-  const farm = createBuildWatchFile({ addWatchFile: () => assert.fail("Farm must associate its module") }, farmNative as unknown as Parameters<typeof createBuildWatchFile>[1], delivered);
+  const farm = createBuildWatchFile(
+    { addWatchFile: () => assert.fail("Farm must associate its module") },
+    farmNative as unknown as Parameters<typeof createBuildWatchFile>[1],
+    delivered,
+  );
   assert.equal(farm.loaderContext, undefined);
   farm.addWatchFile(input);
   assert.deepEqual(farmCalls, [[delivered, input]]);
   const farmFailure = new Error("Farm registration failure");
-  farmNative.context = { addWatchFile: function (this: unknown): void {
-    assert.equal(this, farmNative.context);
-    throw farmFailure;
-  } };
-  assert.throws(() => farm.addWatchFile(input), (error) => error === farmFailure);
+  farmNative.context = {
+    addWatchFile: function (this: unknown): void {
+      assert.equal(this, farmNative.context);
+      throw farmFailure;
+    },
+  };
+  assert.throws(
+    () => farm.addWatchFile(input),
+    (error) => error === farmFailure,
+  );
   for (const framework of ["rollup-fallback", "webpack", "rspack"] as const) {
     const calls: string[] = [];
-    const context = { addWatchFile: function (this: unknown, file: string): void {
-      assert.equal(this, context);
-      calls.push(file);
-    } };
-    const native = framework === "rollup-fallback" ? undefined : { framework, compiler: {}, compilation: {}, loaderContext: undefined };
-    const fallback = createBuildWatchFile(context, native as unknown as Parameters<typeof createBuildWatchFile>[1], delivered);
+    const context = {
+      addWatchFile: function (this: unknown, file: string): void {
+        assert.equal(this, context);
+        calls.push(file);
+      },
+    };
+    const native =
+      framework === "rollup-fallback"
+        ? undefined
+        : {
+            framework,
+            compiler: {},
+            compilation: {},
+            loaderContext: undefined,
+          };
+    const fallback = createBuildWatchFile(
+      context,
+      native as unknown as Parameters<typeof createBuildWatchFile>[1],
+      delivered,
+    );
     assert.equal(fallback.loaderContext, undefined);
     fallback.addWatchFile(input);
     fallback.addWatchFile(input);
@@ -243,18 +372,32 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
       assert.equal(this, context);
       throw failure;
     };
-    assert.throws(() => fallback.addWatchFile(input), (error) => error === failure);
+    assert.throws(
+      () => fallback.addWatchFile(input),
+      (error) => error === failure,
+    );
   }
   const linkedFixture = createCachedDeliveryUnitFixture();
-  const physicalRoot = fs.realpathSync.native(path.dirname(path.dirname(linkedFixture.file)));
-  const aliasParent = fs.realpathSync.native(TestProject.tmpdir("ttsc-farm-record-alias-"));
+  const physicalRoot = fs.realpathSync.native(
+    path.dirname(path.dirname(linkedFixture.file)),
+  );
+  const aliasParent = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-farm-record-alias-"),
+  );
   const configuredRoot = path.join(aliasParent, "configured-root");
   const linkedConfig = path.join(configuredRoot, "tsconfig.json");
   try {
-    fs.symlinkSync(physicalRoot, configuredRoot, process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(
+      physicalRoot,
+      configuredRoot,
+      process.platform === "win32" ? "junction" : "dir",
+    );
     assert.equal(fs.lstatSync(configuredRoot).isSymbolicLink(), true);
     assert.equal(fs.realpathSync.native(configuredRoot), physicalRoot);
-    assert.equal(fs.realpathSync.native(linkedConfig), fs.realpathSync.native(path.join(physicalRoot, "tsconfig.json")));
+    assert.equal(
+      fs.realpathSync.native(linkedConfig),
+      fs.realpathSync.native(path.join(physicalRoot, "tsconfig.json")),
+    );
     const priorCwd = process.cwd();
     let selectedRoot = configuredRoot;
     try {
@@ -269,48 +412,129 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
       assert.equal(selectBuildHostRoot(undefined), aliasParent);
       assert.equal(selectBuildHostRoot(resolved), configuredRoot);
       process.chdir(physicalRoot);
-      assert.equal(selectBuildHostRoot(undefined), physicalRoot, "unset root observes the invocation's current cwd");
-      assert.equal(selectBuildHostRoot(emptyRoot), aliasParent, "an explicit empty root is fixed at configuration time");
-      assert.equal(selectBuildHostRoot(resolved), configuredRoot, "configured root was fixed before the cwd moved");
-      assert.notEqual(selectBuildHostRoot(resolved), physicalRoot, "native alias spelling is not canonicalized");
+      assert.equal(
+        selectBuildHostRoot(undefined),
+        physicalRoot,
+        "unset root observes the invocation's current cwd",
+      );
+      assert.equal(
+        selectBuildHostRoot(emptyRoot),
+        aliasParent,
+        "an explicit empty root is fixed at configuration time",
+      );
+      assert.equal(
+        selectBuildHostRoot(resolved),
+        configuredRoot,
+        "configured root was fixed before the cwd moved",
+      );
+      assert.notEqual(
+        selectBuildHostRoot(resolved),
+        physicalRoot,
+        "native alias spelling is not canonicalized",
+      );
       selectedRoot = selectBuildHostRoot(resolved);
     } finally {
       process.chdir(priorCwd);
     }
     assert.equal(process.cwd(), priorCwd);
-    const result = { ...linkedFixture.good.result,
+    const result = {
+      ...linkedFixture.good.result,
       hostInputs: [linkedConfig],
-      hostInputHashes: { [linkedConfig]: createHash("sha256").update(fs.readFileSync(linkedConfig)).digest("hex") },
-      hostInputRealpaths: { [linkedConfig]: fs.realpathSync.native(linkedConfig) },
+      hostInputHashes: {
+        [linkedConfig]: createHash("sha256")
+          .update(fs.readFileSync(linkedConfig))
+          .digest("hex"),
+      },
+      hostInputRealpaths: {
+        [linkedConfig]: fs.realpathSync.native(linkedConfig),
+      },
     };
-    const cached = { ...observeValidationUnitGeneration(physicalRoot, result),
-      tsconfig: linkedConfig, membershipPolicy: readProjectMembershipPolicy(linkedConfig) };
+    const cached = {
+      ...observeValidationUnitGeneration(physicalRoot, result),
+      tsconfig: linkedConfig,
+      membershipPolicy: readProjectMembershipPolicy(linkedConfig),
+    };
     const tool = hostToolDirectory(selectedRoot);
     assert.equal(tool, path.join(configuredRoot, ".ttsc"));
-    const expectedRecord = path.join(configuredRoot, ".ttsc", "records", createHash("sha256").update(path.resolve(linkedConfig)).digest("hex").slice(0, 32) + ".json");
+    const expectedRecord = path.join(
+      configuredRoot,
+      ".ttsc",
+      "records",
+      createHash("sha256")
+        .update(path.resolve(linkedConfig))
+        .digest("hex")
+        .slice(0, 32) + ".json",
+    );
     assert.equal(projectRecordFile(tool, linkedConfig), expectedRecord);
     const calls: [string, string][] = [];
-    const context = { addWatchFile: function (this: unknown, file: string, watched: string): void {
-      assert.equal(this, context);
-      calls.push([file, watched]);
-    } };
-    const channel = createBuildWatchFile({ addWatchFile: () => assert.fail("Farm's module channel owns this record") },
-      { framework: "farm", context } as unknown as Parameters<typeof createBuildWatchFile>[1], linkedFixture.file);
-    const handoff = () => notifyWatchInputs({ project: {
-      toolDirectory: tool, watching: false,
-      register: (registration) => registerProjectRecord({ addWatchFile: channel.addWatchFile, registration }),
-    } }, cached, linkedFixture.file, { consulted: [], filesystem: DEFAULT_FILESYSTEM_OPERATIONS, tsconfig: linkedConfig });
+    const context = {
+      addWatchFile: function (
+        this: unknown,
+        file: string,
+        watched: string,
+      ): void {
+        assert.equal(this, context);
+        calls.push([file, watched]);
+      },
+    };
+    const channel = createBuildWatchFile(
+      {
+        addWatchFile: () =>
+          assert.fail("Farm's module channel owns this record"),
+      },
+      { framework: "farm", context } as unknown as Parameters<
+        typeof createBuildWatchFile
+      >[1],
+      linkedFixture.file,
+    );
+    const handoff = () =>
+      notifyWatchInputs(
+        {
+          project: {
+            toolDirectory: tool,
+            watching: false,
+            register: (registration) =>
+              registerProjectRecord({
+                addWatchFile: channel.addWatchFile,
+                registration,
+              }),
+          },
+        },
+        cached,
+        linkedFixture.file,
+        {
+          consulted: [],
+          filesystem: DEFAULT_FILESYSTEM_OPERATIONS,
+          tsconfig: linkedConfig,
+        },
+      );
     handoff();
     assert.deepEqual(calls, [[linkedFixture.file, expectedRecord]]);
     const written = readProjectRecordFile(expectedRecord);
     assert.ok(written);
     assert.equal(written.tsconfig, linkedConfig);
-    assert.ok(Object.prototype.hasOwnProperty.call(written.inputs, linkedConfig));
-    assert.equal(path.relative(configuredRoot, expectedRecord).split(path.sep)[0], ".ttsc");
-    assert.equal(fs.realpathSync.native(expectedRecord), path.join(physicalRoot, ".ttsc", "records", path.basename(expectedRecord)));
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(written.inputs, linkedConfig),
+    );
+    assert.equal(
+      path.relative(configuredRoot, expectedRecord).split(path.sep)[0],
+      ".ttsc",
+    );
+    assert.equal(
+      fs.realpathSync.native(expectedRecord),
+      path.join(
+        physicalRoot,
+        ".ttsc",
+        "records",
+        path.basename(expectedRecord),
+      ),
+    );
     const bytes = fs.readFileSync(expectedRecord);
     handoff();
-    assert.deepEqual(calls, [[linkedFixture.file, expectedRecord], [linkedFixture.file, expectedRecord]]);
+    assert.deepEqual(calls, [
+      [linkedFixture.file, expectedRecord],
+      [linkedFixture.file, expectedRecord],
+    ]);
     assert.deepEqual(fs.readFileSync(expectedRecord), bytes);
   } finally {
     fs.rmSync(configuredRoot, { recursive: true, force: true });

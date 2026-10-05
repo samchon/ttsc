@@ -12,9 +12,13 @@ import { make } from "../internal/make";
  * Given a `T` object type and a `"key"` index, the printer renders:
  *
  * ```ts
- * T["key"]
+ * T["key"];
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param objectType The object type being indexed.
+ * @param indexType The index type.
+ * @returns The created {@link IndexedAccessTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Object and index types occupy different fields, preserving a type-level
  *   lookup; postfix operand grouping belongs to the printer.
@@ -30,11 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes object and index roles and explains why grouping is
  *   needed, using a standalone lookup type in its example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param objectType The object type being indexed.
- * @param indexType The index type.
- * @returns The created {@link IndexedAccessTypeNode}.
  */
 export const createIndexedAccessTypeNode = (
   objectType: TypeNode,

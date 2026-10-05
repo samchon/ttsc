@@ -12,8 +12,8 @@ import type { ITtscEvidenceGraphReference } from "./ITtscEvidenceGraphReference"
  * kinds are a property of the language rather than of the claim.
  *
  * Swagger is deliberately absent. An API operation grounds a claim but cannot
- * host `@evidence`, so it belongs to {@link ITtscEvidenceGraphReference}
- * instead and never this one.
+ * host `@evidence`, so it belongs to {@link ITtscEvidenceGraphReference} instead
+ * and never this one.
  *
  * @evidence contracts/common.md#principled-implementation The generic artifact discriminator preserves each derived claim's kind while shared fields express population ownership, diagnostic inheritance and independently complete references.
  * @evidence contracts/common.md#clear-and-simple-design Fields common to all claiming artifacts have one owner here; each derived interface supplies only its artifact-specific selection semantics.

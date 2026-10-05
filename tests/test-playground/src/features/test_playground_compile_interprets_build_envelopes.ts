@@ -12,16 +12,16 @@ import {
  * success, failure or error result with the right JavaScript and diagnostics.
  *
  * The worker interprets three independent facts: the process exit code, whether
- * a result payload exists and parses, and whether any diagnostic is an error.
- * A result with only warnings is a success, a result with an error diagnostic is
+ * a result payload exists and parses, and whether any diagnostic is an error. A
+ * result with only warnings is a success, a result with an error diagnostic is
  * a failure that still carries the emitted JavaScript, and an envelope that
  * cannot be read or that crashed is an error whose message names the cause.
  *
  * 1. Return an error diagnostic with emitted JavaScript, with no emit, and with a
  *    nonzero exit code that still has a payload.
  * 2. Return only a warning, an empty payload and a payload without output.
- * 3. Return a nonzero exit code without a payload (with and without stderr),
- *    an unparseable payload, and a rejected build, for both compile and bundle.
+ * 3. Return a nonzero exit code without a payload (with and without stderr), an
+ *    unparseable payload, and a rejected build, for both compile and bundle.
  *
  * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService.compile and bundle return a failure with mapped diagnostics and the emitted JavaScript for an error diagnostic, a success for warnings or an empty payload, and an error carrying stderr, a fixed sentence or the rejection for an unreadable or crashed build. Complete deep-equal results reject a swapped type, a lost emit or a mapped diagnostic with the wrong coordinates.
  * @evidence contracts/testing.md#independent-expectations The expected diagnostics are hand-written from the authored source: the literal 'a' starts at byte 25 of `export const x: number = 'a';`, so the one-based column is 26 and the code is TS2322. The exit-code and payload conventions come from the documented compile result contract, not from the service.
@@ -89,7 +89,8 @@ export const test_playground_compile_interprets_build_envelopes =
       },
       {
         name: "error diagnostic without any emit",
-        build: () => envelope({ code: 1, result: compilePayload({}, [typeError]) }),
+        build: () =>
+          envelope({ code: 1, result: compilePayload({}, [typeError]) }),
         expected: {
           type: "failure",
           target: "javascript",
@@ -116,7 +117,9 @@ export const test_playground_compile_interprets_build_envelopes =
         name: "a payload without a JavaScript file emits nothing",
         build: () =>
           envelope({
-            result: compilePayload({ "dist/src/playground.d.ts": "export {};" }),
+            result: compilePayload({
+              "dist/src/playground.d.ts": "export {};",
+            }),
           }),
         expected: { type: "success", target: "javascript", value: "" },
       },
@@ -158,7 +161,11 @@ export const test_playground_compile_interprets_build_envelopes =
           });
           const result = await service[verb]({ source });
           assert.deepEqual(result, row.expected, `${verb}: ${row.name}`);
-          assert.equal(record.build.length, 1, `${verb}: ${row.name} builds once`);
+          assert.equal(
+            record.build.length,
+            1,
+            `${verb}: ${row.name} builds once`,
+          );
         } catch (error) {
           failures.push(error);
         }

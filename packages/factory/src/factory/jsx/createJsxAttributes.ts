@@ -15,9 +15,12 @@ import { make } from "../internal/make";
  * leading space):
  *
  * ```tsx
- *  bar="x"
+ * bar = "x";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param properties The attribute properties.
+ * @returns The created {@link JsxAttributes}.
  * @evidence contracts/common.md#principled-implementation
  *   Attribute and spread entries remain ordered, preserving JSX's override and
  *   evaluation sequence. The empty list emits no attribute separator.
@@ -33,10 +36,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains empty output and the standalone leading space; the
  *   example now includes that space and the actual = spelling.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param properties The attribute properties.
- * @returns The created {@link JsxAttributes}.
  */
 export const createJsxAttributes = (
   properties: readonly JsxAttributeLike[],

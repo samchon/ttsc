@@ -60,7 +60,14 @@ export const test_memfs_write_honors_explicit_positions =
       },
     );
 
-    for (const position of [-1, 0.5, NaN, Infinity, 2 ** 53, Number.MAX_SAFE_INTEGER])
+    for (const position of [
+      -1,
+      0.5,
+      NaN,
+      Infinity,
+      2 ** 53,
+      Number.MAX_SAFE_INTEGER,
+    ])
       TestValidator.equals(
         `invalid positioned write ${position}`,
         await writeFdText(host.fs, fd, "!", position),

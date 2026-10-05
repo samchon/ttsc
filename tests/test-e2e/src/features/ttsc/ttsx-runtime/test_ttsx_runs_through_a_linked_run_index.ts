@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies a run reached through a linked index can claim and clean its output.
@@ -29,7 +30,10 @@ export function test_ttsx_runs_through_a_linked_run_index(): void {
   const project = path.join(root, "project");
   const cache = path.join(root, "cache");
   const physicalRuns = path.join(root, "physical-runs");
-  TestProject.writeFiles(project, FixtureFiles.read("ttsc/ttsx_runs_through_a_linked_run_index/inputs-1"));
+  TestProject.writeFiles(
+    project,
+    FixtureFiles.read("ttsc/ttsx_runs_through_a_linked_run_index/inputs-1"),
+  );
   fs.mkdirSync(cache);
   fs.mkdirSync(physicalRuns);
   fs.symlinkSync(

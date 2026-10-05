@@ -17,6 +17,9 @@
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscReleaseSnapshotResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscReleaseSnapshotResult {
-  /** `false` when the handle was absent, whether never created or already released. */
+  /**
+   * `false` when the handle was absent, whether never created or already
+   * released.
+   */
   released: boolean;
 }

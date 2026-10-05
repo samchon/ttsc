@@ -9,10 +9,10 @@ import "testing"
 // edit list. Omitting an unusable action must preserve its diagnostic without
 // silently converting any suggestion to an automatic fix.
 //
-// 1. Report a single action and a combined fix with ordered valid/empty choices.
-// 2. Mutate retained caller inputs and require the original collected payloads.
-// 3. Report empty actions and guarded inputs; require diagnostics only for the
-//    former and no additional collection for off severity or nil nodes.
+//  1. Report a single action and a combined fix with ordered valid/empty choices.
+//  2. Mutate retained caller inputs and require the original collected payloads.
+//  3. Report empty actions and guarded inputs; require diagnostics only for the
+//     former and no additional collection for off severity or nil nodes.
 //
 // @evidence contracts/testing.md#behavioral-verification Real Context node reporting preserves literal [2,4) source bounds, diagnostic identity and copied edits while separating automatic fixes from ordered opt-in choices; empty actions retain diagnostics and guarded calls collect nothing.
 // @evidence contracts/testing.md#independent-expectations Authored source two spaces followed by x semicolon independently locates the token at byte 2 and statement end at byte 4. Literal titles, ranges, replacements and four reports define the expected payloads without calling cloning helpers for the oracle.
@@ -26,7 +26,7 @@ func TestNodeSuggestionsPreserveOwnedEditChannels(t *testing.T) {
     File:     file,
     Severity: SeverityError,
     rule:     reportRangeSuggestionTestRule{},
-    collect: func(finding *Finding) { findings = append(findings, finding) },
+    collect:  func(finding *Finding) { findings = append(findings, finding) },
   }
   single := []TextEdit{{Pos: 2, End: 3, Text: "single"}}
   ctx.ReportSuggestion(node, "single message", "single title", single...)

@@ -16,8 +16,8 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * does not guarantee dequeue order or establish when notification completion
  * becomes observable relative to a write and IPC request.
  *
- * On macOS the watches go through the `fsevents` binding, one FSEventStream
- * per location, instead of relying on `fs.watch` for stream and loss authority
+ * On macOS the watches go through the `fsevents` binding, one FSEventStream per
+ * location, instead of relying on `fs.watch` for stream and loss authority
  * (samchon/ttsc#1418, samchon/ttsc#1425). The binding supplies a stream closer
  * and native flags to this callback boundary, so the child:
  *
@@ -31,22 +31,21 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * and a stream created now can still deliver events of writes made just before,
  * which the service had not yet logged (samchon/ttsc#1453, samchon/ttsc#1454).
  * Ordered delivery within one stream is the probe frontier's premise. A
- * location naming a probe
- * directory below the stream's root writes there and waits for clean delivery
- * on that stream; loss flags still withdraw authority. This delivered frontier
- * is not an atomic timestamp classification of every write. Such a stream is
- * opened at the probe's root, not at the location, and its events
- * are placed against the location. The child writes one probe when the stream
- * opens, and reports `ready` only once it is heard, discarding what arrived
- * before it as the past; and one per `drain`, answering once it is heard. A
- * probe that is not heard within the timeout withdraws authority: delayed
- * scheduling/delivery also expires it, without proving permanent inability.
- * The child closes the registration and reports failure. A stream
+ * location naming a probe directory below the stream's root writes there and
+ * waits for clean delivery on that stream; loss flags still withdraw authority.
+ * This delivered frontier is not an atomic timestamp classification of every
+ * write. Such a stream is opened at the probe's root, not at the location, and
+ * its events are placed against the location. The child writes one probe when
+ * the stream opens, and reports `ready` only once it is heard, discarding what
+ * arrived before it as the past; and one per `drain`, answering once it is
+ * heard. A probe that is not heard within the timeout withdraws authority:
+ * delayed scheduling/delivery also expires it, without proving permanent
+ * inability. The child closes the registration and reports failure. A stream
  * with no probe cannot be proven, and the drain names its location as
  * unproven.
  *
- * When the requested macOS binding is unresolved or cannot be loaded, the
- * child reports the registration failed instead of substituting fs.watch.
+ * When the requested macOS binding is unresolved or cannot be loaded, the child
+ * reports the registration failed instead of substituting fs.watch.
  *
  * Native event names reach the parent without a basename prefilter: neither
  * backend supplies an alias-free name capability here. Parent classifiers own
@@ -54,8 +53,8 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * content independently of native name equivalence.
  *
  * @param fsevents The resolved binding path for the macOS backend. `null` means
- *   the parent could not resolve it; loading a supplied path can fail separately.
- *   `undefined` selects the fs.watch backend.
+ *   the parent could not resolve it; loading a supplied path can fail
+ *   separately. `undefined` selects the fs.watch backend.
  * @evidence contracts/common.md#principled-implementation
  *   The child protocol keeps per-registration streams and ordered drains;
  *   macOS proof requires clean probe delivery. Loss flags withdraw coverage

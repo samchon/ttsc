@@ -32,5 +32,7 @@ func TestPublicRuleContextReportRangeFixFallsBackWhenNoEdits(t *testing.T) {
   if reporter.rangeFixCall != 0 || reporter.reports != 0 || reporter.fixCalls != 0 {
     t.Fatalf("FixReporter.ReportRangeFix should not fire for zero-edit calls, got %d", reporter.rangeFixCall)
   }
-  if reporter.lastPos != 1 || reporter.lastEnd != 4 || reporter.lastMessage != "msg" { t.Fatalf("range fallback payload lost: %+v", reporter) }
+  if reporter.lastPos != 1 || reporter.lastEnd != 4 || reporter.lastMessage != "msg" {
+    t.Fatalf("range fallback payload lost: %+v", reporter)
+  }
 }

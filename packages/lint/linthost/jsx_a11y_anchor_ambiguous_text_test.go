@@ -9,10 +9,10 @@ import "testing"
 // Screen-reader users navigate by listing links, where "click here" or "more"
 // carry no information about the destination.
 //
-// 1. Run only `jsx-a11y/anchor-ambiguous-text` over
-//    `<a href="/docs">click here</a>` and expect one finding whose message
-//    contains "ambiguous".
-// 2. Run it over `<a href="/docs">Documentation</a>` and expect none.
+//  1. Run only `jsx-a11y/anchor-ambiguous-text` over
+//     `<a href="/docs">click here</a>` and expect one finding whose message
+//     contains "ambiguous".
+//  2. Run it over `<a href="/docs">Documentation</a>` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/anchor-ambiguous-text enabled. The "click here" anchor yields exactly one ordinary SeverityError finding from that rule whose message contains "ambiguous"; assertJsxA11yRuleSkips requires zero findings for the Documentation anchor.
 // @evidence contracts/testing.md#independent-expectations Descriptive link text identifies the destination for assistive navigation, while "click here" does not. The two literal sources and the "ambiguous" message fragment are authored from that policy.

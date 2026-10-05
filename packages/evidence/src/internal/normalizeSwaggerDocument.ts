@@ -76,12 +76,15 @@ export const normalizeSwaggerDocument = (
     prepared = copy(input);
     // YAML anchors can share one object between a schema and literal data.
     // Detach every data holder before any reference is rewritten.
-    const detachLiterals = swaggerSchemaVisitor(() => {}, (value, holder, key) => {
-      if (Object.hasOwn(holder, key)) holder[key] = copy(value);
-    });
+    const detachLiterals = swaggerSchemaVisitor(
+      () => {},
+      (value, holder, key) => {
+        if (Object.hasOwn(holder, key)) holder[key] = copy(value);
+      },
+    );
     detachLiterals.document(prepared);
-    const components = prepared.components ??= {};
-    const schemas = components.schemas ??= {};
+    const components = (prepared.components ??= {});
+    const schemas = (components.schemas ??= {});
     const targets = new Map<string, string>();
     const convertedTargets = new Map<string, string>();
     let sequence = 0;
@@ -110,9 +113,10 @@ export const normalizeSwaggerDocument = (
           const token = target.pointer.startsWith(prefix)
             ? target.pointer.slice(prefix.length)
             : undefined;
-          const originalKey = token !== undefined && !token.includes("/")
-            ? token.replaceAll("~1", "/").replaceAll("~0", "~")
-            : undefined;
+          const originalKey =
+            token !== undefined && !token.includes("/")
+              ? token.replaceAll("~1", "/").replaceAll("~0", "~")
+              : undefined;
           targetKey =
             originalKey !== undefined && Object.hasOwn(schemas, originalKey)
               ? originalKey
@@ -149,7 +153,8 @@ export const normalizeSwaggerDocument = (
     const walk = swaggerSchemaVisitor(
       (value) => {
         for (const key of ["$ref", "$recursiveRef"])
-          if (typeof value[key] === "string") value[key] = reference(value[key]);
+          if (typeof value[key] === "string")
+            value[key] = reference(value[key]);
       },
       () => {},
     );
@@ -157,17 +162,21 @@ export const normalizeSwaggerDocument = (
     // newly added alias itself, so additions never invalidate this iteration.
     walk.document(prepared);
   }
-  const document: OpenApi.IDocument = OpenApiConverter.upgradeDocument(prepared);
+  const document: OpenApi.IDocument =
+    OpenApiConverter.upgradeDocument(prepared);
   const literals = new WeakMap<object, Set<string>>();
-  swaggerSchemaVisitor(() => {}, (_value, holder, key) => {
-    if (!Object.hasOwn(holder, key)) return;
-    let keys = literals.get(holder);
-    if (keys === undefined) {
-      keys = new Set<string>();
-      literals.set(holder, keys);
-    }
-    keys.add(key);
-  }).document(document);
+  swaggerSchemaVisitor(
+    () => {},
+    (_value, holder, key) => {
+      if (!Object.hasOwn(holder, key)) return;
+      let keys = literals.get(holder);
+      if (keys === undefined) {
+        keys = new Set<string>();
+        literals.set(holder, keys);
+      }
+      keys.add(key);
+    },
+  ).document(document);
   return {
     document,
     isLiteral: (holder: object, key: string): boolean =>
@@ -201,9 +210,9 @@ export const normalizeSwaggerDocument = (
  * Visits schema holders once per object and reports literal holder slots.
  *
  * Literalness belongs to a position: one YAML object can also be a schema at
- * another position. Retaining holder/key pairs preserves that distinction.
- * This visitor does not rewrite data, expand references or load documents;
- * its callbacks own those operations and each walk owns its identity sets.
+ * another position. Retaining holder/key pairs preserves that distinction. This
+ * visitor does not rewrite data, expand references or load documents; its
+ * callbacks own those operations and each walk owns its identity sets.
  */
 const swaggerSchemaVisitor = (
   visitSchema: (value: any) => void,
@@ -219,21 +228,32 @@ const swaggerSchemaVisitor = (
         visitLiteral(child, value, key);
   };
   const schema = (value: any): void => {
-    if (value === null || typeof value !== "object" || visited.has(value)) return;
+    if (value === null || typeof value !== "object" || visited.has(value))
+      return;
     visited.add(value);
     visitSchema(value);
     for (const key of ["example", "examples", "default", "const", "enum"])
       visitLiteral(value[key], value, key);
     extensions(value);
     for (const key of [
-      "properties", "patternProperties", "$defs", "definitions",
+      "properties",
+      "patternProperties",
+      "$defs",
+      "definitions",
     ])
       for (const child of Object.values(value[key] ?? {})) schema(child);
     for (const key of ["oneOf", "anyOf", "allOf", "prefixItems"])
       if (Array.isArray(value[key])) value[key].forEach(schema);
     for (const key of [
-      "items", "additionalItems", "additionalProperties", "not", "contains",
-      "if", "then", "else", "propertyNames",
+      "items",
+      "additionalItems",
+      "additionalProperties",
+      "not",
+      "contains",
+      "if",
+      "then",
+      "else",
+      "propertyNames",
     ])
       if (Array.isArray(value[key])) value[key].forEach(schema);
       else schema(value[key]);
@@ -279,7 +299,15 @@ const swaggerSchemaVisitor = (
     if (Array.isArray(value.parameters)) value.parameters.forEach(parameter);
     const operations = [
       ...[
-        "get", "put", "post", "delete", "options", "head", "patch", "trace", "query",
+        "get",
+        "put",
+        "post",
+        "delete",
+        "options",
+        "head",
+        "patch",
+        "trace",
+        "query",
       ].map((key) => value[key]),
       ...Object.values(value.additionalOperations ?? {}),
       ...Object.values(value["x-additionalOperations"] ?? {}),

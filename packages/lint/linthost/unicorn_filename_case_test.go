@@ -2,8 +2,8 @@ package linthost
 
 import (
   "encoding/json"
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 const unicornFilenameCaseRuleName = "unicorn/filename-case"

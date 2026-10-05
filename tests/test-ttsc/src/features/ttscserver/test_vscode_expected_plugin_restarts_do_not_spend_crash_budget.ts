@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import * as mod from "../../../../../packages/vscode/src/expectedServerRestart";
 
 /**
@@ -22,20 +23,33 @@ import * as mod from "../../../../../packages/vscode/src/expectedServerRestart";
 export async function test_vscode_expected_plugin_restarts_do_not_spend_crash_budget() {
   let closes = 0;
   let errors = 0;
-  const closeResult: Awaited<ReturnType<Parameters<typeof mod.createExpectedServerRestartHandler>[0]["closed"]>> = { action: 1, message: "fallback-close" };
-  const errorResult: Awaited<ReturnType<Parameters<typeof mod.createExpectedServerRestartHandler>[0]["error"]>> = { action: 1, message: "fallback-error" };
-  const restart: Parameters<typeof mod.createExpectedServerRestartHandler>[1] = { action: 2, handled: true };
+  const closeResult: Awaited<
+    ReturnType<
+      Parameters<typeof mod.createExpectedServerRestartHandler>[0]["closed"]
+    >
+  > = { action: 1, message: "fallback-close" };
+  const errorResult: Awaited<
+    ReturnType<
+      Parameters<typeof mod.createExpectedServerRestartHandler>[0]["error"]
+    >
+  > = { action: 1, message: "fallback-error" };
+  const restart: Parameters<typeof mod.createExpectedServerRestartHandler>[1] =
+    { action: 2, handled: true };
   const transportError = new Error("transport");
-  const fallback: Parameters<typeof mod.createExpectedServerRestartHandler>[0] = {
-    closed() { closes++; return closeResult; },
-    error(error, message, count) {
-      errors++;
-      assert.equal(error, transportError);
-      assert.equal(message, undefined);
-      assert.equal(count, 1);
-      return errorResult;
-    },
-  };
+  const fallback: Parameters<typeof mod.createExpectedServerRestartHandler>[0] =
+    {
+      closed() {
+        closes++;
+        return closeResult;
+      },
+      error(error, message, count) {
+        errors++;
+        assert.equal(error, transportError);
+        assert.equal(message, undefined);
+        assert.equal(count, 1);
+        return errorResult;
+      },
+    };
   const controller = mod.createExpectedServerRestartHandler(fallback, restart);
   for (let index = 0; index < 6; index++) {
     controller.expectRestart();
@@ -44,6 +58,9 @@ export async function test_vscode_expected_plugin_restarts_do_not_spend_crash_bu
   assert.equal(closes, 0);
   assert.equal(await controller.errorHandler.closed(), closeResult);
   assert.equal(closes, 1);
-  assert.equal(await controller.errorHandler.error(transportError, undefined, 1), errorResult);
+  assert.equal(
+    await controller.errorHandler.error(transportError, undefined, 1),
+    errorResult,
+  );
   assert.equal(errors, 1);
 }

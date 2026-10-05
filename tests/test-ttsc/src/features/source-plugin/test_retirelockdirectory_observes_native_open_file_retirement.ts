@@ -1,17 +1,17 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { retireLockDirectory } from "../../../../../packages/ttsc/src/internal/retireLockDirectory";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies retirement observes an actual open owner file on its native host.
  *
  * The supported yield closes the fixture's read descriptor. Windows refusal
- * requires that one yield before retirement; POSIX permits the rename while
- * the descriptor remains open. Supplied error codes in the probe-removal unit
- * own policy contrasts, not this native descriptor/rename connection.
+ * requires that one yield before retirement; POSIX permits the rename while the
+ * descriptor remains open. Supplied error codes in the probe-removal unit own
+ * policy contrasts, not this native descriptor/rename connection.
  *
  * 1. Open current/owner.json and retire with the default filesystem operations.
  * 2. Require preserved owner bytes, the native yield count and no probe names.
@@ -59,7 +59,10 @@ export function test_retirelockdirectory_observes_native_open_file_retirement():
   check("native held generation retired", () => assert.equal(retiredNow, true));
   check("current removed", () => assert.equal(fs.existsSync(current), false));
   check("owner bytes preserved", () =>
-    assert.equal(fs.readFileSync(path.join(tombstone, "owner.json"), "utf8"), "{}\n"),
+    assert.equal(
+      fs.readFileSync(path.join(tombstone, "owner.json"), "utf8"),
+      "{}\n",
+    ),
   );
   check("native yield count", () =>
     assert.equal(yields, process.platform === "win32" ? 1 : 0),

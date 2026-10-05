@@ -4,10 +4,10 @@ import path from "node:path";
 import ts from "ts-legacy";
 
 import { CompilerArgumentsInspection } from "../../../../../packages/ttsc/src/compiler/internal/CompilerArgumentsInspection";
-import { readCompilerOptionOccurrence } from "../../../../../packages/ttsc/src/flags/readCompilerOptionOccurrence";
 import { CompilerDiagnostics } from "../../../../../packages/ttsc/src/compiler/internal/build/CompilerDiagnostics";
 import { PassthroughFlags } from "../../../../../packages/ttsc/src/compiler/internal/build/PassthroughFlags";
 import type { runExternalEmitProvenance } from "../../../../../packages/ttsc/src/compiler/internal/build/runExternalEmitProvenance";
+import { readCompilerOptionOccurrence } from "../../../../../packages/ttsc/src/flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../../../../packages/ttsc/src/flags/resolveFlagSpec";
 import { TestProject } from "../../../../utils/src/TestProject";
 

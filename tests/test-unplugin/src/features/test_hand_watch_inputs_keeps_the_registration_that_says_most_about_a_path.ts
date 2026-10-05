@@ -17,12 +17,13 @@ import { handWatchInputs } from "../../../../packages/unplugin/src/core/transfor
  * deleted and recreated. The order the inputs were derived in must decide
  * nothing but ties.
  *
- * 1. Hand a plain root, a plain file, ordinary root evidence, membership, the same file with
- *    evidence, and a second evidence for that file, through a batching hook.
+ * 1. Hand a plain root, a plain file, ordinary root evidence, membership, the same
+ *    file with evidence, and a second evidence for that file, through a
+ *    batching hook.
  * 2. Assert the root kept its membership, the file kept its first evidence, and
  *    the derived order survived.
- * 3. Repeat through a per-file hook and assert the same registrations; when
- *    both hooks exist, require only the batch and its failed-generation flag.
+ * 3. Repeat through a per-file hook and assert the same registrations; when both
+ *    hooks exist, require only the batch and its failed-generation flag.
  *
  * @evidence contracts/testing.md#behavioral-verification handWatchInputs hands membership over a plain root and the first evidence over a plain file, preserving first-seen path order through both host hooks.
  * @evidence contracts/testing.md#independent-expectations The independently authored root/membership and file/first pairs pin the precedence and tie contract exactly; second evidence must not replace the first.
@@ -39,10 +40,18 @@ export async function test_hand_watch_inputs_keeps_the_registration_that_says_mo
       codec: "membership",
       digest: "d",
       directories: [root],
-      policy: { excludedDirectories: [], inputExtensions: [".ts"], sources: [] },
+      policy: {
+        excludedDirectories: [],
+        inputExtensions: [".ts"],
+        sources: [],
+      },
     },
   };
-  const first: NonNullable<TtscWatchInput["evidence"]> = { identity: "file", missing: false, state: { codec: "host", hash: "first" } };
+  const first: NonNullable<TtscWatchInput["evidence"]> = {
+    identity: "file",
+    missing: false,
+    state: { codec: "host", hash: "first" },
+  };
   const second: NonNullable<TtscWatchInput["evidence"]> = {
     identity: "file",
     missing: false,
@@ -80,13 +89,32 @@ export async function test_hand_watch_inputs_keeps_the_registration_that_says_mo
   ]);
   let failed: boolean | undefined;
   let singleCalls = 0;
-  handWatchInputs({
-    addWatchFile: () => { ++singleCalls; },
-    addWatchFiles: (handed, failure) => { batched = handed; failed = failure; },
-  }, inputs, true);
+  handWatchInputs(
+    {
+      addWatchFile: () => {
+        ++singleCalls;
+      },
+      addWatchFiles: (handed, failure) => {
+        batched = handed;
+        failed = failure;
+      },
+    },
+    inputs,
+    true,
+  );
   assert.equal(singleCalls, 0);
   assert.equal(failed, true);
-  assert.deepEqual(batched?.map((input) => [input.file, input.evidence]), single);
-  handWatchInputs({ addWatchFiles: (handed) => { batched = handed; } }, []);
+  assert.deepEqual(
+    batched?.map((input) => [input.file, input.evidence]),
+    single,
+  );
+  handWatchInputs(
+    {
+      addWatchFiles: (handed) => {
+        batched = handed;
+      },
+    },
+    [],
+  );
   assert.deepEqual(batched, []);
 }

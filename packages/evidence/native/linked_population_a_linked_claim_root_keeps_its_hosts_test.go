@@ -1,7 +1,7 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 )
 
 /**
@@ -21,18 +21,18 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkedClaimRootKeepsItsHosts(t *testing.T) {
-	workspace := t.TempDir()
-	writeLinkedDocuments(t, workspace, map[string]string{
-		"requirements/pricing.md": "## Discounts {#discounts}\n",
-	})
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/docs/policy.md": "### Refunds {#refunds}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  writeLinkedDocuments(t, workspace, map[string]string{
+    "requirements/pricing.md": "## Discounts {#discounts}\n",
+  })
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/policy.md": "### Refunds {#refunds}\n",
+  }, `{"claims":[{
     "type":"markdown",
     "root":"../documents",
     "files":["requirements/**/*.md"],
     "symbol":"h2",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h3"}
   }]}`)
-	assertProblemContains(t, messages, "Missing acknowledgement for 'docs/policy.md#refunds'")
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/policy.md#refunds'")
 }

@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, print } from "../../internal/helpers";
  * A multi-substitution template must retain its head, middle and tail around
  * both substitutions; zero and single spans exercise the adjacent boundaries.
  *
- * 1. Single/multiple spans, tagged templates and no-substitution templates preserve text, substitutions and tag identity.
- * 2. Exact independent template-source literals define backticks, ${} delimiters and segment order.
+ * 1. Single/multiple spans, tagged templates and no-substitution templates
+ *    preserve text, substitutions and tag identity.
+ * 2. Exact independent template-source literals define backticks, ${} delimiters
+ *    and segment order.
  *
  * @evidence contracts/testing.md#behavioral-verification Single/multiple spans, tagged templates and no-substitution templates preserve text, substitutions and tag identity.
  * @evidence contracts/testing.md#independent-expectations Exact independent template-source literals define backticks, ${} delimiters and segment order.

@@ -15,11 +15,11 @@ import (
 // A deeper repeated-component chain checks complete output without asserting
 // timing, allocation counts or an implementation-specific traversal strategy.
 //
-// 1. Construct A.B then ((A.B).C) via NewQualifiedName.
-// 2. Call NodeText on the outer node.
-// 3. Assert the result is "A.B.C".
-// 4. Build 2,000 X components followed by Tail and compare the complete text
-//    against the independent repeated literal spelling.
+//  1. Construct A.B then ((A.B).C) via NewQualifiedName.
+//  2. Call NodeText on the outer node.
+//  3. Assert the result is "A.B.C".
+//  4. Build 2,000 X components followed by Tail and compare the complete text
+//     against the independent repeated literal spelling.
 //
 // @evidence contracts/testing.md#behavioral-verification NodeText joins nested factory-built qualified names into A.B.C and preserves every component of a 2,001-name chain.
 // @evidence contracts/testing.md#independent-expectations Literal A.B.C and 2,000 repetitions of X. followed by Tail specify source spelling without using NodeText as an oracle.

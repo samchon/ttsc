@@ -31,4 +31,3 @@ func TestUnicornSpliceCountPreservesBoundsAndInsertions(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/no-unnecessary-array-splice-count", source) })
   }
 }
-

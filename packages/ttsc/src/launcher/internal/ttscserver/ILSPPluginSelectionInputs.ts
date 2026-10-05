@@ -9,12 +9,11 @@
  * files in it and the digest each had
  * (`LSPProjectInputDigest.lspProjectInputFileDigest`). The descriptors' inputs
  * can include many missing resolution candidates, and plugin sources can span
- * many files. At construction the host indexes resolved directory identity
- * once per directory rather than separately for every recorded basename;
- * later checks still perform native identity and file observations. A source
- * directory's listing is an input too, counted by the build's
- * own rule: a residue file or a directory the build passes over changes
- * nothing.
+ * many files. At construction the host indexes resolved directory identity once
+ * per directory rather than separately for every recorded basename; later
+ * checks still perform native identity and file observations. A source
+ * directory's listing is an input too, counted by the build's own rule: a
+ * residue file or a directory the build passes over changes nothing.
  *
  * @evidence contracts/common.md#principled-implementation Separate descriptor candidates and source-directory listings encode different invalidation meaning; digests preserve missing candidates while shared builder omission rules define which source entries can change selection.
  * @evidence contracts/common.md#clear-and-simple-design Directory-to-basename maps match the native observer's unit of identity resolution; omission vocabulary travels as data rather than becoming a second independently maintained source policy.
@@ -27,8 +26,8 @@
  */
 export interface ILSPPluginSelectionInputs {
   /**
-   * Every directory holding a non-deferred input the plugin load reported,
-   * with each recorded basename and digest: the project's config chain, the
+   * Every directory holding a non-deferred input the plugin load reported, with
+   * each recorded basename and digest: the project's config chain, the
    * manifests plugin discovery reads, the descriptors, and what they resolved.
    * Only those reported files count; the record does not discover undeclared
    * external reads.

@@ -35,9 +35,9 @@ export interface TtscHostInputValidation {
 
       /**
        * Whether the recorded host state qualified content or native kind.
-       * Capture sets it for a nonnull byte hash or directory marker; a
-       * strict blocker carries separate kind authority even without a byte read.
-       * A current module supplied from an editor buffer can earn it later after
+       * Capture sets it for a nonnull byte hash or directory marker; a strict
+       * blocker carries separate kind authority even without a byte read. A
+       * current module supplied from an editor buffer can earn it later after
        * its disk bytes match the recorded source.
        *
        * An unreadable nondirectory input can record a missing state, so no
@@ -73,14 +73,15 @@ export interface TtscHostInputValidation {
 
   /**
    * Original child-name candidates grouped by their nearest directory. Native
-   * stat of each joined spelling, not directory-entry inequality, proves absence.
+   * stat of each joined spelling, not directory-entry inequality, proves
+   * absence.
    */
   readonly missing: Map<string, Set<string>>;
 
   /**
    * Exact absent paths checked through native stat when a directory's case
-   * policy is unknown. Only ENOENT or ENOTDIR proves
-   * continued absence; permission and other observation failures reject reuse.
+   * policy is unknown. Only ENOENT or ENOTDIR proves continued absence;
+   * permission and other observation failures reject reuse.
    */
   readonly directMissing?: Set<string>;
 
@@ -90,8 +91,8 @@ export interface TtscHostInputValidation {
    * samchon/ttsc#1493). No one path's metadata stands for a directory's files,
    * so each is proven by ttsc's rule (`pluginSourceHolds`) unless its tracker
    * proves it unchanged; the proof reads the files' bytes again only when the
-   * population, metadata or fresh clock evidence cannot qualify the digest last read
-   * (`pluginSourceFilesDigest`).
+   * population, metadata or fresh clock evidence cannot qualify the digest last
+   * read (`pluginSourceFilesDigest`).
    */
   readonly trees: Map<string, string>;
 

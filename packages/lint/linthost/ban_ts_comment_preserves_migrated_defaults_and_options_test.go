@@ -22,6 +22,8 @@ func TestBanTsCommentPreservesMigratedDefaultsAndOptions(t *testing.T) {
   const config = "{\"compilerOptions\":{\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"strict\":true,\"noEmit\":true,\"rootDir\":\"src\"},\"include\":[\"src\"]}"
   assertMigratedTypedRuleCase(t, "// @ts-nocheck\nconst unchecked: string = 1;\n// @ts-expect-error: intentional mismatch\nconst described: string = 1;\n", config, "{\"private\":true,\"type\":\"module\",\"dependencies\":{\"@ttsc/lint\":\"*\"}}", "typescript/ban-ts-comment", "error", []ruleExpectation{{Rule: "typescript/ban-ts-comment", Severity: SeverityError, Line: 1}})
   var options map[string]any
-  if err := json.Unmarshal([]byte("{\"minimumDescriptionLength\":10,\"ts-check\":true,\"ts-nocheck\":\"allow-with-description\",\"ts-ignore\":false,\"ts-expect-error\":{\"descriptionFormat\":\"^: TS\\\\d+ because .+$\"}}"), &options); err != nil { t.Fatal(err) }
+  if err := json.Unmarshal([]byte("{\"minimumDescriptionLength\":10,\"ts-check\":true,\"ts-nocheck\":\"allow-with-description\",\"ts-ignore\":false,\"ts-expect-error\":{\"descriptionFormat\":\"^: TS\\\\d+ because .+$\"}}"), &options); err != nil {
+    t.Fatal(err)
+  }
   assertMigratedTypedRuleCase(t, "// @ts-check\n// @ts-nocheck: short\nconst marker = 1;\n// @ts-expect-error: TS2322 because assignment is intentionally invalid\nconst described: string = 1;\n// @ts-expect-error: wrong format but long enough\nconst malformed: string = 1;\n// @ts-ignore\nconst ignored: string = 1;\nvoid marker;\n", config, "{\"private\":true,\"type\":\"module\",\"dependencies\":{\"@ttsc/lint\":\"*\"}}", "typescript/ban-ts-comment", []any{"error", options}, []ruleExpectation{{Rule: "typescript/ban-ts-comment", Severity: SeverityError, Line: 1}, {Rule: "typescript/ban-ts-comment", Severity: SeverityError, Line: 2}, {Rule: "typescript/ban-ts-comment", Severity: SeverityError, Line: 6}})
 }

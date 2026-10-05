@@ -20,14 +20,12 @@ import { farmRecordFallback } from "./farmRecordFallback";
  * will exist: below its root (`hostToolDirectory`), or in the fallback it
  * accepts (`farmRecordFallback`), each tested by a current write. This does not
  * promise later write capability. Where neither can be written persistent cache
- * use is disabled in the returned configuration, and
- * the user is told once why, as a Node process warning, code
- * `TTSC_PROJECT_RECORD_UNWRITABLE`.
+ * use is disabled in the returned configuration, and the user is told once why,
+ * as a Node process warning, code `TTSC_PROJECT_RECORD_UNWRITABLE`.
  *
  * @param config Farm's user configuration, as its `config` hook receives it.
  * @param cwd The directory Farm runs in, the root when the configuration names
  *   none.
- *
  * @evidence contracts/common.md#principled-implementation Current record-directory probes select whether Farm is asked to retain persistent modules; when both fail the returned config disables that cache. Later writes still need delivery-time failure handling, so a successful probe is not lifetime invalidation authority.
  * @evidence contracts/common.md#clear-and-simple-design The configuration hook probes the two existing record locations and returns a shallow config/compilation copy changing persistentCache when needed. Other own enumerable fields and shared nested values are preserved.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This is a host capability boundary with a stated invalidation reason, rather than a test-only bypass, patched cache implementation, or assumed writable directory.

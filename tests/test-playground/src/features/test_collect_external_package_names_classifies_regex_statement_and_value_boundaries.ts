@@ -3,16 +3,16 @@ import assert from "node:assert/strict";
 import { collectExternalPackageNames } from "../../../../packages/playground/src/npm/collectExternalPackageNames";
 
 /**
- * Verifies package discovery tells a regex literal from division at statement and
- * value boundaries.
+ * Verifies package discovery tells a regex literal from division at statement
+ * and value boundaries.
  *
  * A slash after a control header or statement block starts a regex literal,
  * while a slash after an object, function, or class expression is division.
  * Both rules apply again inside executable template substitutions.
  *
  * 1. Write regex literals containing a require after control headers, statement
- *    blocks and declarations, and division expressions containing a real require
- *    after object, function, class and member values.
+ *    blocks and declarations, and division expressions containing a real
+ *    require after object, function, class and member values.
  * 2. Repeat both rules inside an executable template substitution.
  * 3. Require exactly the specifiers outside regex literals, in sorted order.
  *

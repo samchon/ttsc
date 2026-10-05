@@ -8,13 +8,12 @@ import type { ITtscProjectMembershipPolicy } from "./ITtscProjectMembershipPolic
  * A supplied compiler answer wins, including false. Before a report is
  * available, compilerUsesCaseSensitiveFileNames approximates the answer from
  * the policy root's plugin-cache location, or the current directory when that
- * root is unknown. That physical-root proxy does not observe the executable
- * and can disagree under different directory capabilities or native spelling
+ * root is unknown. That physical-root proxy does not observe the executable and
+ * can disagree under different directory capabilities or native spelling
  * mappings. Capture replaces it with an available report and refuses a walk
  * primed under a different answer before retrying.
  *
  * @param policy The membership policy.
- *
  * @evidence contracts/common.md#principled-implementation
  *   A supplied policy wins; an absent answer delegates to the shared native
  *   cache-root approximation. The wrapper does not certify that proxy as the

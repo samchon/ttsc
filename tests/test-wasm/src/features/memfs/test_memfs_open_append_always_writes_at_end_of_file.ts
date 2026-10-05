@@ -15,8 +15,8 @@ const O_APPEND = 1024;
  * The descriptor table never recorded the append flag, so appending was only a
  * coincidence of an implementation that could do nothing else. Once writes
  * honor the cursor, `O_APPEND` has to be retained or Go's `os.OpenFile` with
- * `O_APPEND` (which typescript-go's `AppendFile` uses) would start
- * overwriting from byte 0.
+ * `O_APPEND` (which typescript-go's `AppendFile` uses) would start overwriting
+ * from byte 0.
  *
  * 1. Open `abc` with `O_APPEND` and write with `position: null` and then with an
  *    explicit in-bounds position.

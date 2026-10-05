@@ -4,8 +4,8 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 
+import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { TestMetroRuntime } from "./metro-runtime";
 
 /**
@@ -163,7 +163,10 @@ async function cacheKeyForRun(
   options: Record<string, unknown> = {},
 ): Promise<string> {
   return TestMetroRuntime.withTransformerEnv(
-    { upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(), ...options },
+    {
+      upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
+      ...options,
+    },
     (mod) => mod.getCacheKey({ projectRoot: root }),
   );
 }
@@ -228,12 +231,17 @@ export async function assertCacheKeyCoversRootSpecsUnderTheCompilerCaseRule(): P
     );
     const pluginRoot = resolveSourceBuildCachePaths(root).pluginRoot;
     fs.mkdirSync(pluginRoot, { recursive: true });
-    const executable = path.join(fs.realpathSync.native(pluginRoot), "case-probe");
+    const executable = path.join(
+      fs.realpathSync.native(pluginRoot),
+      "case-probe",
+    );
     fs.writeFileSync(executable, "compiler case-policy witness\n", "utf8");
     // Independent filesystem witness for the pinned osvfs rule: Windows is
     // explicitly insensitive; other hosts stat the swapped executable spelling.
     const swapped = executable.replace(/[a-zA-Z]/g, (letter) =>
-      letter === letter.toUpperCase() ? letter.toLowerCase() : letter.toUpperCase(),
+      letter === letter.toUpperCase()
+        ? letter.toLowerCase()
+        : letter.toUpperCase(),
     );
     const insensitive = process.platform === "win32" || fs.existsSync(swapped);
     await prepareSnapshot(root);
@@ -345,8 +353,8 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
 /**
  * Asserts a failed main-snapshot rewrite follows the same durable degradation:
  * the obstructed compaction leaves its recovery document, the old readable main
- * cannot authorize reuse once it is reachable again, and the recovery
- * compacts the pending worker file under a new id.
+ * cannot authorize reuse once it is reachable again, and the recovery compacts
+ * the pending worker file under a new id.
  */
 export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): Promise<void> {
   const root = createBareProject();
@@ -397,11 +405,11 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
 }
 
 /**
- * Asserts snapshot maintenance fails closed when neither the snapshot
- * directory nor its parent recovery location can accept a write. The parent
- * cache directory is obstructed, which removes both. A reusable worker throws,
- * while preparation transports a non-reusable run token so a later process
- * cannot trust an old main file that becomes readable again.
+ * Asserts snapshot maintenance fails closed when neither the snapshot directory
+ * nor its parent recovery location can accept a write. The parent cache
+ * directory is obstructed, which removes both. A reusable worker throws, while
+ * preparation transports a non-reusable run token so a later process cannot
+ * trust an old main file that becomes readable again.
  */
 export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): Promise<void> {
   const root = createBareProject();
@@ -490,18 +498,26 @@ export async function assertCompactionDoesNotMergeALeftoverClaimedFileAgain(): P
   const claimed = "graph-inputs.worker-claimed-retained.json";
   // Model the published state after main commit and before successful unlink.
   // Both readers must honor the compacted identity rather than replay taint.
-  fs.writeFileSync(mainSnapshotPath(root), JSON.stringify({
-    ...mergedMain,
-    compacted: [claimed],
-  }), "utf8");
-  fs.writeFileSync(path.join(snapshotDirectory(root), claimed), JSON.stringify({
-    accessibleEntries: [],
-    files: [],
-    tainted: true,
-    trees: [],
-    version: 4,
-    volatile: false,
-  }), "utf8");
+  fs.writeFileSync(
+    mainSnapshotPath(root),
+    JSON.stringify({
+      ...mergedMain,
+      compacted: [claimed],
+    }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(snapshotDirectory(root), claimed),
+    JSON.stringify({
+      accessibleEntries: [],
+      files: [],
+      tainted: true,
+      trees: [],
+      version: 4,
+      volatile: false,
+    }),
+    "utf8",
+  );
   const merged = readMainSnapshot(root).id;
   assert.equal(
     listWorkerSnapshots(root).length,
@@ -1988,14 +2004,14 @@ export async function assertCacheKeyFollowsSolutionReferences(): Promise<void> {
  * Asserts a reader never loses an input to a concurrent compaction.
  *
  * A compactor claims each worker file by renaming it before the merged main
- * file replaces the old one. A real second process publishes an input through
- * a recorder and then compacts, round after round, and each round writes a
- * progress marker once its input is recorded. The reader here, concurrently
- * and in this process, calls `readSnapshotState` and requires every state it
- * is given to hold each input whose round the marker had already completed
- * before the read began; `undefined` (untrusted state) is the only other
- * permitted answer. A reader that skipped a listed name which vanished
- * between its listing and its read would return a state missing an input.
+ * file replaces the old one. A real second process publishes an input through a
+ * recorder and then compacts, round after round, and each round writes a
+ * progress marker once its input is recorded. The reader here, concurrently and
+ * in this process, calls `readSnapshotState` and requires every state it is
+ * given to hold each input whose round the marker had already completed before
+ * the read began; `undefined` (untrusted state) is the only other permitted
+ * answer. A reader that skipped a listed name which vanished between its
+ * listing and its read would return a state missing an input.
  */
 export async function assertSnapshotReaderKeepsInputsAcrossConcurrentCompaction(): Promise<void> {
   const rounds = 150;
@@ -2111,8 +2127,8 @@ export async function assertSnapshotReaderKeepsInputsAcrossConcurrentCompaction(
  * claimed worker file under neither its original nor its claimed name, with its
  * input not yet in the main file. The three reads the reader makes are driven
  * through injected operations over a real project, so each interleaving is
- * scripted rather than raced: the first pass lists no worker file while the lock
- * appears after it, the first pass lists none while the main text changes
+ * scripted rather than raced: the first pass lists no worker file while the
+ * lock appears after it, the first pass lists none while the main text changes
  * between its two reads, and a lock that never clears. No second process runs.
  */
 export async function assertSnapshotReaderRejectsAPassInterleavedWithCompaction(): Promise<void> {
@@ -2194,7 +2210,11 @@ export async function assertSnapshotReaderRejectsAPassInterleavedWithCompaction(
       },
     });
     assert.equal(listings, 2, "a changed main text discards the pass");
-    assert.equal(mainReads, 6, "each accepted or rejected pass reads it thrice");
+    assert.equal(
+      mainReads,
+      6,
+      "each accepted or rejected pass reads it thrice",
+    );
     assert.ok(state?.files.includes(external));
   }
 

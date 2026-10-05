@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx serves a `files`-listed source that lives outside the tsconfig
@@ -23,6 +24,7 @@ import path from "node:path";
  * 2. Run ttsx on the loader; it dynamically imports the config and prints it.
  * 3. Assert the config's value round-tripped (it was served, not mis-loaded as
  *    CommonJS where its `export default` would throw).
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual ttsx loads an absolute files-listed config outside the tsconfig directory and prints its exact default token, detecting incorrect emit ownership or module classification.
  * @evidence contracts/testing.md#independent-expectations The authored config exports literal config-served-from-emit; parsed JSON must equal that literal object independently of emitted paths.
  * @evidence contracts/testing.md#distinguishing-cases The files list crosses the config-directory boundary under the actual volume root, with ESM and rewritten .ts imports. Same-name and twin-extension ownership have separate tests.
@@ -33,44 +35,48 @@ import path from "node:path";
  * @evidence contracts/e2e.md#preserved-coverage Original zero status and complete parsed default-config object remain here; direct ownership units complement this real emission/loading connection.
  */
 export function test_ttsx_serves_a_files_listed_source_outside_the_tsconfig_directory() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_serves_a_files_listed_source_outside_the_tsconfig_directory/inputs-1"));
-    fs.writeFileSync(
-      path.join(root, "loader", "tsconfig.json"),
-      JSON.stringify({
-        compilerOptions: {
-          allowImportingTsExtensions: true,
-          module: "ESNext",
-          moduleResolution: "bundler",
-          outDir: path.join(root, "loader", "out"),
-          rewriteRelativeImportExtensions: true,
-          rootDir: path.parse(root).root.replace(/\\/g, "/"),
-          skipLibCheck: true,
-          strict: false,
-          target: "ES2022",
-        },
-        files: [
-          path.join(root, "loader", "run.ts"),
-          path.join(root, "config", "app.config.ts"),
-        ],
-      }),
-      "utf8",
-    );
-
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      [
-        "--project",
-        path.join(root, "loader", "tsconfig.json"),
-        "--cwd",
-        path.join(root, "loader"),
-        "--no-plugins",
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_serves_a_files_listed_source_outside_the_tsconfig_directory/inputs-1",
+    ),
+  );
+  fs.writeFileSync(
+    path.join(root, "loader", "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        allowImportingTsExtensions: true,
+        module: "ESNext",
+        moduleResolution: "bundler",
+        outDir: path.join(root, "loader", "out"),
+        rewriteRelativeImportExtensions: true,
+        rootDir: path.parse(root).root.replace(/\\/g, "/"),
+        skipLibCheck: true,
+        strict: false,
+        target: "ES2022",
+      },
+      files: [
         path.join(root, "loader", "run.ts"),
+        path.join(root, "config", "app.config.ts"),
       ],
-      { cwd: path.join(root, "loader") },
-    );
+    }),
+    "utf8",
+  );
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout.trim()), {
-      token: "config-served-from-emit",
-    });
-  }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    [
+      "--project",
+      path.join(root, "loader", "tsconfig.json"),
+      "--cwd",
+      path.join(root, "loader"),
+      "--no-plugins",
+      path.join(root, "loader", "run.ts"),
+    ],
+    { cwd: path.join(root, "loader") },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), {
+    token: "config-served-from-emit",
+  });
+}

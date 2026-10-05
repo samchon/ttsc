@@ -43,7 +43,9 @@ func TestFilesSelectorScopesRulesAwayFromAnImportedSibling(t *testing.T) {
     !diagnosticOutputContains(stderr, "index.ts") {
     t.Fatalf("unscoped config did not report both files: code=%d stderr=%q", code, stderr)
   }
-  if strings.Count(stderr, "[no-var]") != 2 { t.Fatalf("unscoped source population should produce two exact rule diagnostics: %q", stderr) }
+  if strings.Count(stderr, "[no-var]") != 2 {
+    t.Fatalf("unscoped source population should produce two exact rule diagnostics: %q", stderr)
+  }
 
   seedLintConfig(t, consumer, map[string]any{
     "files": []any{"src/**/*.ts"},
@@ -62,5 +64,7 @@ func TestFilesSelectorScopesRulesAwayFromAnImportedSibling(t *testing.T) {
   if diagnosticOutputContains(stderr, "index.ts") {
     t.Fatalf("scoped config still reported the sibling: %q", stderr)
   }
-  if strings.Count(stderr, "[no-var]") != 1 { t.Fatalf("scoped source population should retain only one exact consumer rule diagnostic: %q", stderr) }
+  if strings.Count(stderr, "[no-var]") != 1 {
+    t.Fatalf("scoped source population should retain only one exact consumer rule diagnostic: %q", stderr)
+  }
 }

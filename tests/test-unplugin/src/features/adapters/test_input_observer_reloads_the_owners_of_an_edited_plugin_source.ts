@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +5,7 @@ import path from "node:path";
 import { createInputObserver } from "../../../../../packages/unplugin/src/core/observer/createInputObserver";
 import { pluginSourceState } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the input observer hears a plugin's Go source as a whole subtree,
@@ -25,6 +25,7 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/t
  *    reloaded.
  * 4. Register the new state, add a Go file, and assert the owner is reloaded
  *    again.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored createInputObserver observes a source-tree proof; fixture edits and injected notifications assert nested Go edits and additions reload the owner while unchanged and pruned directories remain quiet.
  * @evidence contracts/testing.md#independent-expectations
@@ -40,7 +41,10 @@ export async function test_input_observer_reloads_the_owners_of_an_edited_plugin
   );
   const source = path.join(root, "plugin");
   TestProject.copyDirectory(
-    path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/plugin-source-baseline"),
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/unplugin/test/fixtures/plugin-source-baseline",
+    ),
     source,
   );
   const owner = path.join(root, "owner");

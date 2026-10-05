@@ -12,10 +12,10 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
  * with the map of the text it delivered. The two are the same text only when
  * the generation compiled the module from exactly the bytes the bundler holds.
  * A delivery that diverged from the disk, such as the output of an earlier
- * plugin that the generation still accepted, would compose
- * into a map that points at the wrong lines. So the map is kept only when its
- * `sourcesContent` entry for the module equals the delivered source. A map
- * without that entry cannot be checked and is dropped too.
+ * plugin that the generation still accepted, would compose into a map that
+ * points at the wrong lines. So the map is kept only when its `sourcesContent`
+ * entry for the module equals the delivered source. A map without that entry
+ * cannot be checked and is dropped too.
  *
  * `sources` become absolute, forward-slash paths. Each bundler resolves a
  * relative source against something different: Rollup and Vite against the
@@ -27,7 +27,6 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
  * @param source Text the bundler delivered for the module.
  * @param map The envelope's map for the module.
  * @returns The map to hand the bundler, or `undefined` to hand it none.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Relative sources resolve from the emitted module and sourceRoot; filesystem
  *   identity finds the map's actual module before sourcesContent is compared.

@@ -1,18 +1,25 @@
 import assert from "node:assert/strict";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies a transaction with a wrong shard digest retires the peer before recovery.
+ * Verifies a transaction with a wrong shard digest retires the peer before
+ * recovery.
  *
  * A shard whose declared digest does not match its content must be rejected
- * rather than committed as a partially accepted generation, and the next request
- * must be served from a fresh peer.
+ * rather than committed as a partially accepted generation, and the next
+ * request must be served from a fresh peer.
  *
  * 1. Start a graph request on a recorded line port, then deliver a typed initial
  *    transaction whose first upsert digest is "wrong-digest".
- * 2. Require the rejection to name that digest and the port to be retired
- *    (reader detached, then stdio joined).
+ * 2. Require the rejection to name that digest and the port to be retired (reader
+ *    detached, then stdio joined).
  * 3. Request again, answer the second port with an empty full-dump response, and
  *    require an empty node list and exactly two opened ports.
  *
@@ -30,7 +37,14 @@ export async function test_ttscgraph_bad_native_shard_digest_restarts_session():
     const port = await admitted(ports);
     const snapshot = sessionTransaction();
     snapshot.upserts[0]!.digest = "wrong-digest";
-    session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
+    session.receive(port.peer, {
+      id: Number(port.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot,
+    });
     await assert.rejects(active, /digest wrong-digest does not match/);
     assertRetired(port);
 
@@ -40,5 +54,7 @@ export async function test_ttscgraph_bad_native_shard_digest_restarts_session():
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

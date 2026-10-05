@@ -41,15 +41,14 @@ const TURBOPACK_RULE_GLOBS = TYPESCRIPT_TURBOPACK_RULE_GLOBS;
  *
  * Both halves are additive. An existing `webpack` hook is preserved and called
  * after the plugin is injected, with its returned object forwarded. Own
- * enumerable Turbopack settings/rules are copied and nested caller values remain
- * shared unless a source rule needs augmentation. Optional session storage lets
- * workers adopt an equivalent proven publication; rejection or unavailable
- * storage can require independent compilation.
+ * enumerable Turbopack settings/rules are copied and nested caller values
+ * remain shared unless a source rule needs augmentation. Optional session
+ * storage lets workers adopt an equivalent proven publication; rejection or
+ * unavailable storage can require independent compilation.
  *
  * @param nextConfig - The caller's existing Next.js config (spread into the
  *   returned object unchanged, except for `webpack` and `turbopack`).
  * @param options - Ttsc plugin options forwarded to both bundlers.
- *
  * @evidence contracts/common.md#principled-implementation
  *   The wrapper preserves caller settings and webpack-hook results while adding
  *   both supported bundler integrations. Turbopack rule helpers preserve loader

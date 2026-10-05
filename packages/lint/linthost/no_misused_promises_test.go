@@ -43,7 +43,11 @@ void main();
     t.Fatalf("no-misused-promises diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   matches := noMisusedPromisesRenderedDiagnostic.FindAllStringSubmatch(noMisusedPromisesANSI.ReplaceAllString(stderr, ""), -1)
-  if len(matches) != 1 || matches[0][1] != "3" { t.Fatalf("condition rule diagnostics = %v, want one error at line 3", matches) }
+  if len(matches) != 1 || matches[0][1] != "3" {
+    t.Fatalf("condition rule diagnostics = %v, want one error at line 3", matches)
+  }
   lines, cleanCode, cleanStdout, cleanStderr := runNoMisusedPromisesCase(t, "main.ts", "declare const condition: boolean;\nif (condition) { JSON.stringify(\"hit\"); }\n", nil)
-  if cleanCode != 0 || cleanStdout != "" || len(lines) != 0 { t.Fatalf("synchronous condition = code %d lines %v stderr %s", cleanCode, lines, cleanStderr) }
+  if cleanCode != 0 || cleanStdout != "" || len(lines) != 0 {
+    t.Fatalf("synchronous condition = code %d lines %v stderr %s", cleanCode, lines, cleanStderr)
+  }
 }

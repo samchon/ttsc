@@ -19,7 +19,6 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
  * @param fallbackRoot The selected project root every snapshot must share.
  * @param identities Identity resolver for this merge; one is created when
  *   omitted.
- *
  * @evidence contracts/common.md#principled-implementation Identity keys merge physical targets while separate declared spellings retain every alias a watcher must observe; incompatible project roots throw.
  * @evidence contracts/common.md#clear-and-simple-design Four parallel identity maps represent the four snapshot categories; one spelling helper handles alias membership without changing their distinct meanings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Alias retention follows filesystem identity and the watch contract, rather than replacing filesystem methods or recognizing particular projects.

@@ -44,6 +44,8 @@ func TestProjectIdentityMintsDistinctProgramLifecycles(t *testing.T) {
   }
   for _, normalized := range []publicrule.ProjectIdentity{first, second} {
     normalized.LifecycleID = input.LifecycleID
-    if normalized != input { t.Fatalf("normalization changed a caller identity channel: got %#v want %#v", normalized, input) }
+    if normalized != input {
+      t.Fatalf("normalization changed a caller identity channel: got %#v want %#v", normalized, input)
+    }
   }
 }

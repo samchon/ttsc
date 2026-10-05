@@ -3,9 +3,9 @@ import fs from "node:fs";
 /**
  * Whether a path currently resolves to a regular file.
  *
- * Any failure to stat returns false, meaning the candidate is not proven to
- * be a regular file. Nested project-reference selection skips such candidates
- * but keeps them consulted; a successful stat does not prove config readability.
+ * Any failure to stat returns false, meaning the candidate is not proven to be
+ * a regular file. Nested project-reference selection skips such candidates but
+ * keeps them consulted; a successful stat does not prove config readability.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Link-following stat must prove a regular file; an unobservable candidate

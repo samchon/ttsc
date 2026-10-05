@@ -18,10 +18,9 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * regular-file paths currently eligible for the project walk and the disposable
  * transform scratch tree. Eligibility is not a certificate that an earlier
  * selected or incomplete snapshot actually read a file; capture and admission
- * retain responsibility for that proof.
- * Resolution candidates that are still missing remain in this set even under
- * the project root: the first walk cannot hash a file that has not been created
- * yet.
+ * retain responsibility for that proof. Resolution candidates that are still
+ * missing remain in this set even under the project root: the first walk cannot
+ * hash a file that has not been created yet.
  *
  * A `dependenciesComplete` declaration deliberately does not narrow the stored
  * set: other files in the same whole-project result can still own the omitted
@@ -80,7 +79,8 @@ export function selectExternalInputPaths(props: {
   // Every transform output key names the source file whose transformed text it
   // carries. Keep an out-of-walk source in the external snapshot instead of
   // injecting it into the project-walk key universe (samchon/ttsc#252).
-  for (const entryToAppend of Object.keys(props.result.typescript)) members.push(entryToAppend);
+  for (const entryToAppend of Object.keys(props.result.typescript))
+    members.push(entryToAppend);
   if (graph !== undefined) {
     for (const [source, targets] of Object.entries(graph.edges ?? {})) {
       members.push(source);

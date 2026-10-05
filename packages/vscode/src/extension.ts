@@ -20,6 +20,7 @@ import {
   ServerOptions,
 } from "vscode-languageclient/node";
 
+import type { ResolutionCandidate } from "./ResolutionCandidate";
 import {
   type NormalizedTextEdit,
   collectWorkspaceEditChanges,
@@ -31,7 +32,6 @@ import {
   type ExpectedServerRestartHandler,
   createExpectedServerRestartHandler,
 } from "./expectedServerRestart";
-import type { ResolutionCandidate } from "./ResolutionCandidate";
 import { findClientEntryByRoot } from "./findClientEntryByRoot";
 import { resolveWithDirectoryMemo } from "./resolveWithDirectoryMemo";
 import {
@@ -114,11 +114,11 @@ const warnedRelativeServerPaths = new Set<string>();
  *    `bin.ttscserver`.
  *
  * No bare-module fallback: the VSIX bundle ships nothing under
- * `node_modules/ttsc` (the extension declares ttsc as a devDependency for
- * types and for the `ttsc/path-identity` source that esbuild bundles into
- * `lib/extension.js`), so the fallback would always fail with an opaque
- * "Cannot find module" inside vscode-languageclient. An empty result lets
- * `activate` surface a clean, actionable message.
+ * `node_modules/ttsc` (the extension declares ttsc as a devDependency for types
+ * and for the `ttsc/path-identity` source that esbuild bundles into
+ * `lib/extension.js`), so the fallback would always fail with an opaque "Cannot
+ * find module" inside vscode-languageclient. An empty result lets `activate`
+ * surface a clean, actionable message.
  */
 function resolveServerLaunchSpecs(): ServerLaunchSpec[] {
   const candidates = filterNonOverlappingCandidates(

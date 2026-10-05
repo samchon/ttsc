@@ -13,7 +13,8 @@ import { removeCaptureScratch } from "./removeCaptureScratch";
  *
  * The caller releases its shared claim first and registers the returned clock
  * ownership only after this operation succeeds. Native close/removal failures
- * can leave underlying resources; attempting every owner does not prove release.
+ * can leave underlying resources; attempting every owner does not prove
+ * release.
  *
  * @evidence contracts/common.md#principled-implementation Nested finally attempts all unretained resources even after a tracker close throws. Failed local cleanup rolls back every waiting retained owner; the existing capture-error flag controls whether cleanup may replace the earlier exception.
  * @evidence contracts/common.md#clear-and-simple-design One effectful release operation owns local cleanup and failed-transfer rollback; acquisition, retention admission, shared claim release and final clock registration remain with capture.

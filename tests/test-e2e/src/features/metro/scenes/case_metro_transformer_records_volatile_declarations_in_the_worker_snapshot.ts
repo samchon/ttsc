@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, listWorkerSnapshots } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  listWorkerSnapshots,
+  prepareSnapshot,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies a plugin-declared volatile transform marks the worker snapshot

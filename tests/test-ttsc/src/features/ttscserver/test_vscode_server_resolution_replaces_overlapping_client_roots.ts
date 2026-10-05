@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code dynamic client planning replaces overlapping roots.
@@ -23,16 +24,19 @@ import path from "node:path";
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
 export function test_vscode_server_resolution_replaces_overlapping_client_roots() {
-  const root = path.join(TestProject.tmpdir("vscode-stop-missing-roots-"), "repo");
+  const root = path.join(
+    TestProject.tmpdir("vscode-stop-missing-roots-"),
+    "repo",
+  );
   const nested = path.join(root, "packages", "demo");
   const sibling = path.join(root, "tools");
-  for (const entry of [root, nested, sibling]) assert.equal(fs.existsSync(entry), false);
+  for (const entry of [root, nested, sibling])
+    assert.equal(fs.existsSync(entry), false);
   const observed = (() => {
     return {
-      parent: mod.rootsToStopForTarget([(nested)], (root)),
-      child: mod.rootsToStopForTarget([(root), (sibling)], (nested)),
+      parent: mod.rootsToStopForTarget([nested], root),
+      child: mod.rootsToStopForTarget([root, sibling], nested),
     };
-  
   })();
   const actual = observed as {
     child: string[];

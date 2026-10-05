@@ -1,13 +1,17 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig accepts a UTF-8 BOM at the start of tsconfig.
  *
  * TypeScript accepts UTF-8 BOM-prefixed config files. `readProjectConfig` must
- * accept that marker as JSONC whitespace while parsing comments and trailing commas so ttsc
- * does not reject projects that the native compiler accepts.
+ * accept that marker as JSONC whitespace while parsing comments and trailing
+ * commas so ttsc does not reject projects that the native compiler accepts.
  *
  * 1. Write a BOM-prefixed `tsconfig.json` that also uses JSONC syntax.
  * 2. Invoke `readProjectConfig`.

@@ -45,7 +45,9 @@ func TestPublicRuleContextReportFixForwardsToFixReporter(t *testing.T) {
   if !reflect.DeepEqual(reporter.lastEdits, edits) {
     t.Fatalf("edits round-trip mismatch: want %+v, got %+v", edits, reporter.lastEdits)
   }
-  if reporter.lastNode != node || reporter.lastMessage != "msg" { t.Fatalf("fix diagnostic payload lost: %+v", reporter) }
+  if reporter.lastNode != node || reporter.lastMessage != "msg" {
+    t.Fatalf("fix diagnostic payload lost: %+v", reporter)
+  }
 }
 
 // captureReporter implements both the legacy `rule.Reporter` surface and the

@@ -42,13 +42,15 @@ func TestLSPServerDefaultRunnerConstructsRealServer(t *testing.T) {
     editorOutW.Close()
     select {
     case err := <-done:
-      if err != nil { t.Errorf("RunLSPServer should shut down cleanly, got %v", err) }
-    case <-time.After(10*time.Second):
+      if err != nil {
+        t.Errorf("RunLSPServer should shut down cleanly, got %v", err)
+      }
+    case <-time.After(10 * time.Second):
       t.Error("RunLSPServer did not return after cancel")
     }
     select {
     case <-readerDone:
-    case <-time.After(10*time.Second):
+    case <-time.After(10 * time.Second):
       t.Error("editor reader did not return after pipes closed")
     }
   })
@@ -74,7 +76,8 @@ func TestLSPServerDefaultRunnerConstructsRealServer(t *testing.T) {
       _, body, err := reader.Read()
       select {
       case resultCh <- readResult{body, err}:
-      case <-ctx.Done(): return
+      case <-ctx.Done():
+        return
       }
       if err != nil {
         return
@@ -83,7 +86,9 @@ func TestLSPServerDefaultRunnerConstructsRealServer(t *testing.T) {
   }()
 
   initialize := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":null,"capabilities":{}}}`)
-  if err := driver.WriteFrame(editorInW, initialize); err != nil { t.Fatal(err) }
+  if err := driver.WriteFrame(editorInW, initialize); err != nil {
+    t.Fatal(err)
+  }
 
   deadline := time.After(10 * time.Second)
   initialized := false

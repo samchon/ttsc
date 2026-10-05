@@ -17,7 +17,6 @@ import type { TtscSharedCompilePublication } from "./TtscSharedCompilePublicatio
  *
  * @param publication The adopted publication.
  * @param current This worker's external input snapshot of the same envelope.
- *
  * @evidence contracts/common.md#principled-implementation Both recorded and current key sets and values must agree for content and physical identity; a missing input on either side refutes adoption.
  * @evidence contracts/common.md#clear-and-simple-design The same union-of-keys comparison handles the two proof dimensions and returns the first mismatched path without another snapshot layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An adopter's later reading is never treated as the publisher's compile-time state, and inherited object properties cannot masquerade as recorded inputs.

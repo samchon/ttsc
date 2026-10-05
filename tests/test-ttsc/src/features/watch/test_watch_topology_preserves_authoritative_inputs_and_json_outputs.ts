@@ -21,8 +21,8 @@ const membership = new Map<string, string[]>();
  * every copied compiler product remains excluded from the project-input lane.
  *
  * 1. Preserve declaration and JavaScript inputs despite predicted collisions.
- * 2. Contrast copied products, removed `outFile`, and execution-root outputs
- *    with independently authored non-product twins.
+ * 2. Contrast copied products, removed `outFile`, and execution-root outputs with
+ *    independently authored non-product twins.
  * 3. Suppress out-of-root TS/JS recovery products while retaining adjacent JSON.
  * 4. Keep the last of 1,000 compiler inputs selectable for 1,000 declared JSON
  *    paths, then distinguish product-only and adjacent-input controls.

@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies a symlinked entry's module format comes from the package that
@@ -33,47 +34,53 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the consumer and external target trees; only the fixture file is linked, synchronous execution ends before tracked cleanup, and the account capability limitation is explicit.
  * @evidence contracts/e2e.md#preserved-coverage Zero status, marker output and both negative syntax-error patterns remain; actual link divergence is not claimed on hosts that cannot create the original symlink.
  */
-export function test_ttsx_classifies_a_symlinked_entry_from_the_target_package_type(): void | false {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_classifies_a_symlinked_entry_from_the_target_package_type/inputs-1"));
-    const outside = TestProject.tmpdir("ttsc-esm-package-");
-    fs.writeFileSync(
-      path.join(outside, "package.json"),
-      JSON.stringify({ name: "esm-tools", type: "module", version: "1.0.0" }),
-      "utf8",
-    );
-    fs.writeFileSync(
-      path.join(outside, "tool.ts"),
-      [
-        // An `export` is what makes the emit ESM syntax rather than merely ESM
-        // by declaration, so loading it through `require` cannot silently work.
-        `export const marker: string = "loaded-as-esm";`,
-        `console.log(marker);`,
-        "",
-      ].join("\n"),
-      "utf8",
-    );
+export function test_ttsx_classifies_a_symlinked_entry_from_the_target_package_type():
+  | void
+  | false {
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_classifies_a_symlinked_entry_from_the_target_package_type/inputs-1",
+    ),
+  );
+  const outside = TestProject.tmpdir("ttsc-esm-package-");
+  fs.writeFileSync(
+    path.join(outside, "package.json"),
+    JSON.stringify({ name: "esm-tools", type: "module", version: "1.0.0" }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(outside, "tool.ts"),
+    [
+      // An `export` is what makes the emit ESM syntax rather than merely ESM
+      // by declaration, so loading it through `require` cannot silently work.
+      `export const marker: string = "loaded-as-esm";`,
+      `console.log(marker);`,
+      "",
+    ].join("\n"),
+    "utf8",
+  );
 
-    try {
-      fs.symlinkSync(
-        path.join(outside, "tool.ts"),
-        path.join(root, "tool.ts"),
-        "file",
-      );
-    } catch {
-      // Without symlink permission the link and its target share a directory,
-      // and the contract this pins cannot be exercised.
-      return false;
-    }
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "tool.ts"],
-      { cwd: root },
+  try {
+    fs.symlinkSync(
+      path.join(outside, "tool.ts"),
+      path.join(root, "tool.ts"),
+      "file",
     );
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /loaded-as-esm/);
-    assert.doesNotMatch(
-      result.stderr,
-      /Unexpected token 'export'|Cannot use import statement/,
-      "the entry was classified from the link's package scope, not the target's",
-    );
+  } catch {
+    // Without symlink permission the link and its target share a directory,
+    // and the contract this pins cannot be exercised.
+    return false;
   }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "tool.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /loaded-as-esm/);
+  assert.doesNotMatch(
+    result.stderr,
+    /Unexpected token 'export'|Cannot use import statement/,
+    "the entry was classified from the link's package scope, not the target's",
+  );
+}

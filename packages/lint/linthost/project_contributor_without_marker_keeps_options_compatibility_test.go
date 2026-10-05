@@ -48,14 +48,23 @@ func TestProjectContributorWithoutMarkerKeepsOptionsCompatibility(t *testing.T) 
     t.Fatalf("unmarked project contributor lost options compatibility: %v", err)
   }
   engine.Run(nil, nil)
-  if contributor.calls != 1 || contributor.mode != "strict" { t.Fatalf("unmarked contributor did not receive original options: calls=%d mode=%q", contributor.calls, contributor.mode) }
+  if contributor.calls != 1 || contributor.mode != "strict" {
+    t.Fatalf("unmarked contributor did not receive original options: calls=%d mode=%q", contributor.calls, contributor.mode)
+  }
 }
 
-type compatibleProjectContributor struct { calls int; mode string }
+type compatibleProjectContributor struct {
+  calls int
+  mode  string
+}
 
 func (*compatibleProjectContributor) Name() string { return "project-test/options-compatible" }
 func (c *compatibleProjectContributor) Check(ctx *publicrule.ProjectContext) {
   c.calls++
-  var options struct { Mode string `json:"mode"` }
-  if err := ctx.DecodeOptions(&options); err == nil { c.mode = options.Mode }
+  var options struct {
+    Mode string `json:"mode"`
+  }
+  if err := ctx.DecodeOptions(&options); err == nil {
+    c.mode = options.Mode
+  }
 }

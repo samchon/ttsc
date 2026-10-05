@@ -93,13 +93,13 @@ export interface ITtscLintTypeScriptRules {
   "typescript/ban-tslint-comment"?: TtscLintRuleSetting;
 
   /**
-   * Prefer a `readonly` field over a `get` accessor whose body is a
-   * single `return <literal>;`. The getter form re-runs the body on every read
-   * and obscures that the value is fixed; a readonly field is shorter, narrows
-   * to the literal type, and signals "this is a constant" at the call site.
-   * Retain the getter's instance or static ownership when choosing the field.
-   * Skipped when the class also declares a `set` accessor for the same member
-   * name — the setter's side effects cannot be reproduced by a field.
+   * Prefer a `readonly` field over a `get` accessor whose body is a single
+   * `return <literal>;`. The getter form re-runs the body on every read and
+   * obscures that the value is fixed; a readonly field is shorter, narrows to
+   * the literal type, and signals "this is a constant" at the call site. Retain
+   * the getter's instance or static ownership when choosing the field. Skipped
+   * when the class also declares a `set` accessor for the same member name —
+   * the setter's side effects cannot be reproduced by a field.
    *
    * @reference https://typescript-eslint.io/rules/class-literal-property-style
    */
@@ -161,9 +161,9 @@ export interface ITtscLintTypeScriptRules {
 
   /**
    * Require function and method declarations with bodies to carry an explicit
-   * return-type annotation, including non-exported declarations. Implicit return types let downstream consumers
-   * depend on inference details that can shift with future edits; the explicit
-   * annotation pins the contract.
+   * return-type annotation, including non-exported declarations. Implicit
+   * return types let downstream consumers depend on inference details that can
+   * shift with future edits; the explicit annotation pins the contract.
    *
    * @reference https://typescript-eslint.io/rules/explicit-function-return-type
    */
@@ -851,9 +851,9 @@ export interface ITtscLintTypeScriptRules {
    * Type-aware via the Checker. Fires only when the receiver of `filter` is
    * provably an array or tuple. `find` short-circuits on the first match
    * instead of materializing the whole filtered array, so it expresses the "get
-   * me the first match" intent more directly. This rule does not measure runtime
-   * performance. Non-zero index accesses (`[1]`, `.at(1)`, ...) are intentionally
-   * skipped because `find` cannot express them.
+   * me the first match" intent more directly. This rule does not measure
+   * runtime performance. Non-zero index accesses (`[1]`, `.at(1)`, ...) are
+   * intentionally skipped because `find` cannot express them.
    *
    * @reference https://typescript-eslint.io/rules/prefer-find
    */
@@ -948,8 +948,8 @@ export interface ITtscLintTypeScriptRules {
    * Requires the Checker. Reports initialized `private` or `#name` fields
    * without resolved reassignment in their source file. Assignments, updates,
    * destructuring and nested callbacks use member declaration identity, so
-   * aliases and equally named fields of other classes remain distinct.
-   * Mutating an object stored in a field does not replace that field.
+   * aliases and equally named fields of other classes remain distinct. Mutating
+   * an object stored in a field does not replace that field.
    *
    * Dynamic indexed writes conservatively retain the receiver's resolved
    * properties. Reflective and `any`-typed mutation are outside this analysis;
@@ -983,9 +983,9 @@ export interface ITtscLintTypeScriptRules {
    * "every match" the moment the regex gains the `g` flag — a typo at the regex
    * literal changes the call's return shape from `[fullMatch, ...captures]` to
    * a flat `string[]` of matches. The native check requires a checker-confirmed
-   * string receiver and reads flags from a regex literal; non-literal arguments (a `new
-   * RegExp(...)`, a variable holding `/.../`) are conservatively skipped
-   * because static flag tracking would explode in scope.
+   * string receiver and reads flags from a regex literal; non-literal arguments
+   * (a `new RegExp(...)`, a variable holding `/.../`) are conservatively
+   * skipped because static flag tracking would explode in scope.
    *
    * @reference https://typescript-eslint.io/rules/prefer-regexp-exec
    */
@@ -1000,10 +1000,10 @@ export interface ITtscLintTypeScriptRules {
    * non-`this` return-type annotation and every normal completion returns
    * exactly `this`. Bare returns and reachable fallthrough prevent a finding;
    * throws do not introduce another return value. Nested functions have their
-   * own return boundary. Methods with no annotation,
-   * methods with at least one non-`this` return, `async` methods, generators,
-   * constructors, accessors, and static methods are skipped — each has
-   * return-shape semantics the `this` rewrite does not preserve.
+   * own return boundary. Methods with no annotation, methods with at least one
+   * non-`this` return, `async` methods, generators, constructors, accessors,
+   * and static methods are skipped — each has return-shape semantics the `this`
+   * rewrite does not preserve.
    *
    * @reference https://typescript-eslint.io/rules/prefer-return-this-type
    */
@@ -1147,9 +1147,9 @@ export interface ITtscLintTypeScriptRules {
    * Reject non-boolean values used in a boolean context.
    *
    * Type-aware via the Checker. Fires when the test of an `if`, `while`, `do`,
-   * `for`, or ternary, the operand of `!`, or the tested left side of `&&` / `||`
-   * carries a type whose flags are not pure boolean. Numbers (`if (count)` is
-   * truthy for any non-zero), strings (`""` is falsy), and nullable objects
+   * `for`, or ternary, the operand of `!`, or the tested left side of `&&` /
+   * `||` carries a type whose flags are not pure boolean. Numbers (`if (count)`
+   * is truthy for any non-zero), strings (`""` is falsy), and nullable objects
    * (`if (obj)` conflates `null` / `undefined` with a present object) all
    * silently coerce in boolean position; an explicit comparison (`count !== 0`,
    * `str.length > 0`, `obj != null`) names the intent. A logical expression in

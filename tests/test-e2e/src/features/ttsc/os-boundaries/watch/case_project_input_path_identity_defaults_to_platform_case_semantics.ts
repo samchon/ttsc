@@ -30,27 +30,27 @@ import { createProjectInputPathIdentityContext as installedOperation } from "../
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original native roots and fresh contexts remain unchanged without global fs/flag replacement. Historical raw roots lack cleanup in this donor; the exact direct counterpart owns per-root cleanup/failure aggregation, whose actual execution is still unverified.
  * @evidence contracts/e2e.md#preserved-coverage Both original directory inputs, tsconfig.json/TSCONFIG.json operations and old OS-name assertions remain pending actual survivor execution/removal. Wrong premise disposition is recorded rather than silently deleting meaningful native inputs; exact counterpart source/body exists, actual selection/runtime/survival does not.
  */
-export function case_project_input_path_identity_defaults_to_platform_case_semantics(createProjectInputPathIdentityContext: typeof installedOperation = installedOperation) {
-    const insensitive =
-      process.platform === "win32" || process.platform === "darwin";
+export function case_project_input_path_identity_defaults_to_platform_case_semantics(
+  createProjectInputPathIdentityContext: typeof installedOperation = installedOperation,
+) {
+  const insensitive =
+    process.platform === "win32" || process.platform === "darwin";
 
-    const absent = path.join(
-      fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-identity-default-")),
-      "never-created",
-    );
-    const empty = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-identity-empty-"),
-    );
+  const absent = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-identity-default-")),
+    "never-created",
+  );
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-identity-empty-"));
 
-    for (const directory of [absent, empty]) {
-      const context = createProjectInputPathIdentityContext();
-      const lower = context.resolve(path.join(directory, "tsconfig.json"));
-      const upper = context.resolve(path.join(directory, "TSCONFIG.json"));
-      const converged = lower.key === upper.key;
-      assert.equal(
-        converged,
-        insensitive,
-        `${directory} answered ${converged ? "insensitive" : "sensitive"} where ${process.platform} is ${insensitive ? "insensitive" : "sensitive"}`,
-      );
-    }
+  for (const directory of [absent, empty]) {
+    const context = createProjectInputPathIdentityContext();
+    const lower = context.resolve(path.join(directory, "tsconfig.json"));
+    const upper = context.resolve(path.join(directory, "TSCONFIG.json"));
+    const converged = lower.key === upper.key;
+    assert.equal(
+      converged,
+      insensitive,
+      `${directory} answered ${converged ? "insensitive" : "sensitive"} where ${process.platform} is ${insensitive ? "insensitive" : "sensitive"}`,
+    );
+  }
 }

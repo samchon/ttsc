@@ -3,17 +3,17 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
-import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
-import { createViteBuildLifecycle } from "../../../../../packages/unplugin/src/core/vite/createViteBuildLifecycle";
 import { createEsbuildBuildLifecycle } from "../../../../../packages/unplugin/src/core/esbuild/createEsbuildBuildLifecycle";
-import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
 import { resolveOptions } from "../../../../../packages/unplugin/src/core/options/resolveOptions";
+import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
 import { beginTtscTransformBuild } from "../../../../../packages/unplugin/src/core/transform/cache/beginTtscTransformBuild";
 import { createTransformCacheLease } from "../../../../../packages/unplugin/src/core/transform/cache/createTransformCacheLease";
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { sharedBuildTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/sharedBuildTransformCache";
-import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import { unplugin } from "../../../../../packages/unplugin/src/core/unplugin";
+import { createViteBuildLifecycle } from "../../../../../packages/unplugin/src/core/vite/createViteBuildLifecycle";
+import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
+import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
  * Verifies compiler callbacks and the shared session lease preserve ownership.
@@ -30,7 +30,8 @@ import type { TtscCachedProjectTransform } from "../../../../../packages/unplugi
  * 2. Release the final owner, cancel that grace through reacquisition, and then
  *    execute the final idle callback to require eviction.
  * 3. Register actual raw webpack/Rspack hooks against captured compiler inputs;
- *    equal options share a pair, one shutdown preserves it and the last drops it.
+ *    equal options share a pair, one shutdown preserves it and the last drops
+ *    it.
  * 4. Contrast Vite owner overlap, final serve reset, ordinary build grace and
  *    watch retention, including mode values and an end arriving after close.
  *
@@ -40,8 +41,14 @@ import type { TtscCachedProjectTransform } from "../../../../../packages/unplugi
  * @evidence contracts/testing.md#execution-ownership This exported source unit calls real owners in process. It replaces only controlled testbody global timer descriptors, joins the two ready coordinator deliveries, and restores exact descriptors in finally; no Go peer, host, artifact or wall-clock wait is used.
  */
 export async function test_build_cache_leases_follow_compiler_and_session_ownership(): Promise<void> {
-  const timerDescriptor = Object.getOwnPropertyDescriptor(globalThis, "setTimeout")!;
-  const clearDescriptor = Object.getOwnPropertyDescriptor(globalThis, "clearTimeout")!;
+  const timerDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "setTimeout",
+  )!;
+  const clearDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "clearTimeout",
+  )!;
   const scheduled = new Map<object, () => void>();
   const delays: number[] = [];
   let unrefs = 0;
@@ -54,7 +61,11 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
   Object.defineProperty(globalThis, "setTimeout", {
     ...timerDescriptor,
     value: (callback: () => void, delay: number) => {
-      const handle = { unref: () => { unrefs += 1; } };
+      const handle = {
+        unref: () => {
+          unrefs += 1;
+        },
+      };
       delays.push(delay);
       scheduled.set(handle, callback);
       return handle;
@@ -62,7 +73,9 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
   });
   Object.defineProperty(globalThis, "clearTimeout", {
     ...clearDescriptor,
-    value: (handle: object) => { scheduled.delete(handle); },
+    value: (handle: object) => {
+      scheduled.delete(handle);
+    },
   });
   const shutdowns: (() => void)[] = [];
   try {
@@ -92,7 +105,10 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
 
     const options = { project: "ownership-only-never-compiled.tsconfig.json" };
     const plugins = (["webpack", "rspack"] as const).map((framework) =>
-      unplugin.raw(options, { framework, [framework]: { compiler: {} } } as never),
+      unplugin.raw(options, {
+        framework,
+        [framework]: { compiler: {} },
+      } as never),
     );
     const key = JSON.stringify(resolveOptions(options));
     const shared = sharedBuildTransformCache(key);
@@ -108,11 +124,17 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
       const compiler = {
         options: { module: { rules } },
         hooks: {
-          done: { tap: (name: string) => { names.push(name); } },
-          shutdown: { tap: (name: string, callback: () => void) => {
-            names.push(name);
-            shutdown = callback;
-          } },
+          done: {
+            tap: (name: string) => {
+              names.push(name);
+            },
+          },
+          shutdown: {
+            tap: (name: string, callback: () => void) => {
+              names.push(name);
+              shutdown = callback;
+            },
+          },
         },
       };
       const register = plugin.webpack ?? plugin.rspack;
@@ -128,7 +150,11 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
     assert.equal(shared.cache.get("consumer"), pending);
     assert.equal(sharedBuildTransformCache(key), shared);
     shutdowns[1]!();
-    assert.equal(shared.cache.get("consumer"), pending, "last shutdown starts grace");
+    assert.equal(
+      shared.cache.get("consumer"),
+      pending,
+      "last shutdown starts grace",
+    );
     runIdle();
     assert.equal(shared.cache.size, 0);
     const fresh = sharedBuildTransformCache(key);
@@ -140,30 +166,60 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
     const lifecycle = createViteBuildLifecycle(fixture.cache);
     const first = {};
     const replacement = {};
-    const seed = (): void => { fixture.cache.set(fixture.key, ready); };
+    const seed = (): void => {
+      fixture.cache.set(fixture.key, ready);
+    };
     try {
       assert.equal(lifecycle.command, undefined);
       assert.equal(lifecycle.watching, true);
       assert.equal(lifecycle.buildWatching, false);
       lifecycle.start(first);
-      lifecycle.configure({ command: "serve", server: { watch: null }, build: { watch: undefined } });
+      lifecycle.configure({
+        command: "serve",
+        server: { watch: null },
+        build: { watch: undefined },
+      });
       assert.equal(lifecycle.watching, false);
       assert.equal(lifecycle.buildWatching, false);
       seed();
-      assert.equal(lifecycle.end(first), true, "an unconfigured start did not register an owner");
+      assert.equal(
+        lifecycle.end(first),
+        true,
+        "an unconfigured start did not register an owner",
+      );
       assert.equal(fixture.cache.size, 0);
-      lifecycle.configure({ command: "serve", server: { watch: undefined }, build: { watch: null } });
+      lifecycle.configure({
+        command: "serve",
+        server: { watch: undefined },
+        build: { watch: null },
+      });
       assert.equal(lifecycle.watching, true);
       assert.equal(lifecycle.buildWatching, false);
       seed();
       lifecycle.start(first);
       lifecycle.start(first);
       lifecycle.start(replacement);
-      assert.equal(lifecycle.end({}), false, "an unstarted identity cannot decrement active owners");
-      assert.equal(lifecycle.end(first), false, "replacement starts before its predecessor ends");
+      assert.equal(
+        lifecycle.end({}),
+        false,
+        "an unstarted identity cannot decrement active owners",
+      );
+      assert.equal(
+        lifecycle.end(first),
+        false,
+        "replacement starts before its predecessor ends",
+      );
       assert.equal(fixture.cache.get(fixture.key), ready);
-      assert.equal(lifecycle.end(replacement), true, "duplicate start did not add ownership");
-      assert.equal(fixture.cache.size, 0, "last serve end resets the ready consumer owner");
+      assert.equal(
+        lifecycle.end(replacement),
+        true,
+        "duplicate start did not add ownership",
+      );
+      assert.equal(
+        fixture.cache.size,
+        0,
+        "last serve end resets the ready consumer owner",
+      );
 
       lifecycle.configure({ command: "build" });
       seed();
@@ -173,9 +229,17 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
       assert.equal(scheduled.size, 0);
       assert.equal(lifecycle.end(replacement), true);
       assert.equal(scheduled.size, 1);
-      assert.equal(fixture.cache.get(fixture.key), ready, "ordinary build releases through grace");
+      assert.equal(
+        fixture.cache.get(fixture.key),
+        ready,
+        "ordinary build releases through grace",
+      );
       lifecycle.start(first);
-      assert.equal(scheduled.size, 0, "a new ordinary build cancels the idle release");
+      assert.equal(
+        scheduled.size,
+        0,
+        "a new ordinary build cancels the idle release",
+      );
       runIdle();
       assert.equal(fixture.cache.get(fixture.key), ready);
       assert.equal(lifecycle.end(first), true);
@@ -183,7 +247,11 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
       assert.equal(fixture.cache.size, 0);
 
       lifecycle.configure({ command: "build", build: { watch: false } });
-      assert.equal(lifecycle.buildWatching, true, "any non-nullish build watch value enables watch mode");
+      assert.equal(
+        lifecycle.buildWatching,
+        true,
+        "any non-nullish build watch value enables watch mode",
+      );
       seed();
       lifecycle.start(first);
       assert.equal(lifecycle.end(first), true);
@@ -192,11 +260,19 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
       lifecycle.start(replacement);
       lifecycle.close();
       assert.equal(fixture.cache.size, 0);
-      assert.equal(lifecycle.end(replacement), true, "late end after close cannot decrement below zero");
+      assert.equal(
+        lifecycle.end(replacement),
+        true,
+        "late end after close cannot decrement below zero",
+      );
       seed();
       lifecycle.start(first);
       assert.equal(lifecycle.end(first), true);
-      assert.equal(fixture.cache.get(fixture.key), ready, "a fresh watch owner still uses the reset identity set");
+      assert.equal(
+        fixture.cache.get(fixture.key),
+        ready,
+        "a fresh watch owner still uses the reset identity set",
+      );
       lifecycle.close();
 
       const projectRoot = path.dirname(path.dirname(fixture.file));
@@ -204,35 +280,82 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
       const observed = observeValidationUnitGeneration(projectRoot, {
         ...fixture.good.result,
         hostInputs: [tsconfig],
-        hostInputHashes: { [tsconfig]: createHash("sha256").update(fs.readFileSync(tsconfig)).digest("hex") },
+        hostInputHashes: {
+          [tsconfig]: createHash("sha256")
+            .update(fs.readFileSync(tsconfig))
+            .digest("hex"),
+        },
         hostInputRealpaths: { [tsconfig]: fs.realpathSync.native(tsconfig) },
       });
       const esbuildOwner = Promise.resolve(observed);
       const esbuildLifecycle = createEsbuildBuildLifecycle(fixture.cache);
       fixture.cache.set(fixture.key, esbuildOwner);
-      assert.equal(esbuildLifecycle.dispose(first), false, "setup without start cannot release another owner");
+      assert.equal(
+        esbuildLifecycle.dispose(first),
+        false,
+        "setup without start cannot release another owner",
+      );
       assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
       esbuildLifecycle.start(first);
-      assert.equal((await fixture.api.transformTtsc(fixture.file, fixture.source,
-        fixture.options, undefined, fixture.cache))?.code, fixture.code);
+      assert.equal(
+        (
+          await fixture.api.transformTtsc(
+            fixture.file,
+            fixture.source,
+            fixture.options,
+            undefined,
+            fixture.cache,
+          )
+        )?.code,
+        fixture.code,
+      );
       const firstEpoch = observed.deliveryEpoch;
       assert.equal(typeof firstEpoch, "number");
       esbuildLifecycle.start(first);
-      assert.equal((await fixture.api.transformTtsc(fixture.file, fixture.source,
-        fixture.options, undefined, fixture.cache))?.code, fixture.code);
-      assert.notEqual(observed.deliveryEpoch, firstEpoch,
-        "even a duplicate owner's start opens another actual delivery pass");
+      assert.equal(
+        (
+          await fixture.api.transformTtsc(
+            fixture.file,
+            fixture.source,
+            fixture.options,
+            undefined,
+            fixture.cache,
+          )
+        )?.code,
+        fixture.code,
+      );
+      assert.notEqual(
+        observed.deliveryEpoch,
+        firstEpoch,
+        "even a duplicate owner's start opens another actual delivery pass",
+      );
       assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
       esbuildLifecycle.start(replacement);
       assert.equal(esbuildLifecycle.dispose({}), false);
-      assert.equal(esbuildLifecycle.dispose(first), false, "replacement is active before the old owner disposes");
-      assert.equal(esbuildLifecycle.dispose(first), false, "duplicate start did not add ownership");
+      assert.equal(
+        esbuildLifecycle.dispose(first),
+        false,
+        "replacement is active before the old owner disposes",
+      );
+      assert.equal(
+        esbuildLifecycle.dispose(first),
+        false,
+        "duplicate start did not add ownership",
+      );
       assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
       assert.equal(esbuildLifecycle.dispose(replacement), true);
-      assert.equal(fixture.cache.size, 0, "last started owner resets the cache immediately");
+      assert.equal(
+        fixture.cache.size,
+        0,
+        "last started owner resets the cache immediately",
+      );
       fixture.cache.set(fixture.key, esbuildOwner);
       esbuildLifecycle.start(replacement);
-      assert.equal(esbuildLifecycle.dispose(first), false, "late disposal cannot release a newly started owner");
+      assert.equal(
+        esbuildLifecycle.dispose(first),
+        false,
+        "late disposal cannot release a newly started owner",
+      );
       assert.equal(fixture.cache.get(fixture.key), esbuildOwner);
       assert.equal(esbuildLifecycle.dispose(replacement), true);
       assert.equal(fixture.cache.size, 0);

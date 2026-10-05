@@ -98,8 +98,8 @@ func TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument(t *
     t.Fatalf("first project publication = %#v", first)
   }
   var finding struct {
-    Code string `json:"code"`
-    Source string `json:"source"`
+    Code    string `json:"code"`
+    Source  string `json:"source"`
     Message string `json:"message"`
   }
   if err := json.Unmarshal(first.Diagnostics[0], &finding); err != nil {

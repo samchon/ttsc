@@ -27,6 +27,7 @@ import (
 //  6. A junction node_modules → expect the realpath of its .cache (the ESM
 //     runtime realpaths the loader at import time, so a link-form base breaks
 //     the relative config import).
+//
 // @evidence contracts/testing.md#behavioral-verification The strip temp-base selector returns empty for same-volume/relative paths; drive-letter cases require a created physical .cache, blocked-cache and absent-modules fallbacks, and junction canonicalization.
 // @evidence contracts/testing.md#independent-expectations Authored drive letters and blocked file layouts define choices; filepath.EvalSymlinks supplies the expected physical cache path independently of loaderTempBase.
 // @evidence contracts/testing.md#distinguishing-cases Same/relative paths run everywhere. Cross-volume, blocked-cache, absent-node_modules and junction branches run only on drive-letter platforms; absent ancestry is conditional on no ambient installation.

@@ -23,7 +23,7 @@ func TestUnicornImportStyleReportsNoAutomaticFixes(t *testing.T) {
   assertUnicornImportStyleFindings(t,
     runUnicornImportStyleFindings(t, "import util from \"util\";\nvoid util;\n", ""),
     unicornImportStyleFinding{
-      target: `import util from "util";`,
+      target:  `import util from "util";`,
       message: "Use named import for module `util`.",
     },
   )

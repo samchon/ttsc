@@ -8,9 +8,9 @@ import "testing"
 // The rule is attribute-local and checks the aria-* name against the ARIA
 // vocabulary before any role compatibility rule applies.
 //
-// 1. Run only `jsx-a11y/aria-props` over `<div aria-labeledby="title" />` and
-//    expect one finding whose message contains "Unknown ARIA".
-// 2. Run it over `<div aria-labelledby="title" />` and expect none.
+//  1. Run only `jsx-a11y/aria-props` over `<div aria-labeledby="title" />` and
+//     expect one finding whose message contains "Unknown ARIA".
+//  2. Run it over `<div aria-labelledby="title" />` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-props enabled. The attribute aria-labeledby yields exactly one ordinary SeverityError finding from that rule whose message contains "Unknown ARIA"; assertJsxA11yRuleSkips requires zero findings for aria-labelledby.
 // @evidence contracts/testing.md#independent-expectations The ARIA vocabulary spells the reference attribute aria-labelledby with two l characters, so the one-l spelling is unknown. The two literal sources and the "Unknown ARIA" fragment are authored from the ARIA specification.

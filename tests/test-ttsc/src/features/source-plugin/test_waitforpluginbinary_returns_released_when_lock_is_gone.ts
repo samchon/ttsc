@@ -1,6 +1,9 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
-import { assert, path, waitForPluginBinary } from "../../internal/source-build-unit";
+import {
+  assert,
+  path,
+  waitForPluginBinary,
+} from "../../internal/source-build-unit";
 
 /**
  * Verifies waitForPluginBinary returns `released` when the lock is gone and no

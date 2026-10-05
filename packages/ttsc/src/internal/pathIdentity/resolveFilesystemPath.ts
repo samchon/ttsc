@@ -7,12 +7,11 @@ import path from "node:path";
  * prefixes a native API can return (`\\?\C:\...` and `\\?\UNC\server\share`)
  * are removed, so one location spelled by Node, by `fs.realpathSync.native`,
  * and by a user compares equal before any identity is taken. POSIX paths are
- * only resolved.
- * Relative spellings also depend on the selected path API's current-directory
- * resolution; `platform` chooses path syntax, not an independent filesystem.
+ * only resolved. Relative spellings also depend on the selected path API's
+ * current-directory resolution; `platform` chooses path syntax, not an
+ * independent filesystem.
  *
  * @param platform Path semantics; defaults to the host platform.
- *
  * @evidence contracts/common.md#principled-implementation Native path resolution removes only recognized drive and UNC extended-length aliases; it normalizes lexical spelling without pretending to establish filesystem identity.
  * @evidence contracts/common.md#clear-and-simple-design One Windows normalization branch precedes the selected path API, keeping lexical syntax separate from physical realpath and case-policy decisions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recognized Windows path prefixes are native syntax, not consumer exceptions; no filesystem method or global state is replaced.

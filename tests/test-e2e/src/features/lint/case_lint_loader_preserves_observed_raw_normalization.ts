@@ -34,8 +34,14 @@ export function case_lint_loader_preserves_observed_raw_normalization(
     label: string;
     evaluations: readonly {
       value: unknown;
-      rawDependencies: readonly { path: string; fields: Readonly<Record<string, unknown>> }[];
-      normalizedDependencies: readonly { path: string; fields: Readonly<Record<string, unknown>> }[];
+      rawDependencies: readonly {
+        path: string;
+        fields: Readonly<Record<string, unknown>>;
+      }[];
+      normalizedDependencies: readonly {
+        path: string;
+        fields: Readonly<Record<string, unknown>>;
+      }[];
       absentRawPaths: readonly string[];
       absentNormalizedPaths: readonly string[];
       cacheOutcomes: readonly string[];
@@ -44,22 +50,40 @@ export function case_lint_loader_preserves_observed_raw_normalization(
   },
 ): void {
   assert.deepEqual(traces.integrityProblems, []);
-  assert.ok(expected.evaluations.length > 0, "real loader connection requires evaluation");
-  const results = traces.writerObservations.map(row => row.observation).filter(row =>
-    row.writerPid === expected.writerPid && row.event === "config-loader-result" &&
-    row.data?.location === expected.location && row.data?.label === expected.label)
+  assert.ok(
+    expected.evaluations.length > 0,
+    "real loader connection requires evaluation",
+  );
+  const results = traces.writerObservations
+    .map((row) => row.observation)
+    .filter(
+      (row) =>
+        row.writerPid === expected.writerPid &&
+        row.event === "config-loader-result" &&
+        row.data?.location === expected.location &&
+        row.data?.label === expected.label,
+    )
     .sort((left, right) => left.sequence - right.sequence);
   assert.equal(results.length, expected.evaluations.length);
   for (const [index, result] of results.entries()) {
     const oracle = expected.evaluations[index]!;
-    const paired = traces.writerObservations.map(row => row.observation).filter(row =>
-      row.writerPid === result.writerPid && row.instance === result.instance && row.invocation === result.invocation);
-    const attempts = paired.filter(row => row.event === "process-attempt");
-    const processes = paired.filter(row => row.event === "process-result");
+    const paired = traces.writerObservations
+      .map((row) => row.observation)
+      .filter(
+        (row) =>
+          row.writerPid === result.writerPid &&
+          row.instance === result.instance &&
+          row.invocation === result.invocation,
+      );
+    const attempts = paired.filter((row) => row.event === "process-attempt");
+    const processes = paired.filter((row) => row.event === "process-result");
     assert.equal(attempts.length, 1);
     assert.equal(processes.length, 1);
     const process = processes[0]!;
-    assert.ok(attempts[0]!.sequence < process.sequence && process.sequence < result.sequence);
+    assert.ok(
+      attempts[0]!.sequence < process.sequence &&
+        process.sequence < result.sequence,
+    );
     assert.equal(process.data?.owner, "lint-config-loader");
     assert.ok(typeof process.pid === "number" && process.pid > 0);
     assert.equal(process.data?.started, true);
@@ -72,33 +96,59 @@ export function case_lint_loader_preserves_observed_raw_normalization(
     assert.equal(result.data?.dependenciesTracked, true);
     assert.equal(result.data?.success, true);
     const capture = readE2eTracePayload(traceRoot, result, result.data?.raw);
-    const envelope = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(capture.bytes)) as {
+    const envelope = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(capture.bytes),
+    ) as {
       value: unknown;
       dependencies: unknown[];
     };
     assert.deepEqual(envelope.value, oracle.value);
     for (const [actual, required, absent] of [
       [envelope.dependencies, oracle.rawDependencies, oracle.absentRawPaths],
-      [result.data?.dependencies, oracle.normalizedDependencies, oracle.absentNormalizedPaths],
+      [
+        result.data?.dependencies,
+        oracle.normalizedDependencies,
+        oracle.absentNormalizedPaths,
+      ],
     ] as const) {
       assert.ok(Array.isArray(actual));
       for (const dependency of required) {
-        const selected = actual.filter(item => item !== null && typeof item === "object" &&
-          (item as Record<string, unknown>).path === dependency.path);
+        const selected = actual.filter(
+          (item) =>
+            item !== null &&
+            typeof item === "object" &&
+            (item as Record<string, unknown>).path === dependency.path,
+        );
         assert.equal(selected.length, 1, `dependency ${dependency.path}`);
         const item = selected[0] as Record<string, unknown>;
         for (const [field, value] of Object.entries(dependency.fields)) {
-          assert.equal(Object.hasOwn(item, field), true, `dependency field ${field}`);
+          assert.equal(
+            Object.hasOwn(item, field),
+            true,
+            `dependency field ${field}`,
+          );
           assert.deepEqual(item[field], value);
         }
       }
       for (const file of absent)
-        assert.equal(actual.some(item => item !== null && typeof item === "object" &&
-          (item as Record<string, unknown>).path === file), false, `excluded dependency ${file}`);
+        assert.equal(
+          actual.some(
+            (item) =>
+              item !== null &&
+              typeof item === "object" &&
+              (item as Record<string, unknown>).path === file,
+          ),
+          false,
+          `excluded dependency ${file}`,
+        );
     }
-    const caches = paired.filter(row => row.event === "config-cache-outcome")
+    const caches = paired
+      .filter((row) => row.event === "config-cache-outcome")
       .sort((left, right) => left.sequence - right.sequence);
-    assert.deepEqual(caches.map(row => row.data?.outcome), oracle.cacheOutcomes);
+    assert.deepEqual(
+      caches.map((row) => row.data?.outcome),
+      oracle.cacheOutcomes,
+    );
     for (const cache of caches) {
       assert.ok(cache.sequence > result.sequence);
       assert.equal(cache.data?.location, expected.location);

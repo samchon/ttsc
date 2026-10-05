@@ -41,7 +41,10 @@ import {
 export const test_buildsourceplugin_waiter_reuses_binary_published_during_release =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-publish-");
-    TestProject.retainTemporaryDirectory(root, "publication worker graph may outlive its close deadline");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "publication worker graph may outlive its close deadline",
+    );
     const plugin = path.join(root, "plugin");
     writePluginSource(plugin);
     const fakeGo = createFakeGoBinary(root);
@@ -98,7 +101,10 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
       const holderBinary = holderResult.stdout.trim();
       const waiterBinary = waiterResult.stdout.trim();
       assert.equal(waiterBinary, holderBinary);
-      assert.equal(fs.readFileSync(waiterBinary, "utf8"), "fake plugin binary\n");
+      assert.equal(
+        fs.readFileSync(waiterBinary, "utf8"),
+        "fake plugin binary\n",
+      );
       assert.doesNotMatch(fs.readFileSync(waiterLog, "utf8"), /^build /m);
       assert.doesNotMatch(waiterResult.stderr, /building source plugin/);
       assert.doesNotMatch(waiterResult.stderr, /reclaiming abandoned/);
@@ -118,7 +124,11 @@ export const test_buildsourceplugin_waiter_reuses_binary_published_during_releas
           failures.push(outcome.reason);
       }
     }
-    if (failures.length) throw new AggregateError(failures, "publication handoff or worker cleanup failed");
+    if (failures.length)
+      throw new AggregateError(
+        failures,
+        "publication handoff or worker cleanup failed",
+      );
   };
 
 function writePluginSource(root: string): void {

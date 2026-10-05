@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  type Expression,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { id, print, ref } from "../../internal/helpers";
 
 const arrow = (): Expression =>

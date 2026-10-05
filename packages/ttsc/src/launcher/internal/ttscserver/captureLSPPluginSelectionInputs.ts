@@ -18,16 +18,15 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  * resolved at startup. The load read the descriptors and the files they
  * resolved (`hostInputs`), and it built each binary from the Go sources of its
  * `pluginSources`; a change to any of them selects other plugins, or builds
- * another binary, which only a new session loads. The host
- * ends the session through its reload path when one changes, and the editor
- * starts the next. The shape each travels in is `ILSPPluginSelectionInputs`.
+ * another binary, which only a new session loads. The host ends the session
+ * through its reload path when one changes, and the editor starts the next. The
+ * shape each travels in is `ILSPPluginSelectionInputs`.
  *
  * What selects the plugins is among them: the project's config chain, whose
  * `compilerOptions.plugins` names them, and the manifests plugin discovery
  * reads. A change there is a selection change, as `ttsc --watch` treats it,
- * rather than only a Program refresh. Left out is a
- * plugin's `configFile` that no descriptor read, which its plugin declares
- * among its own project inputs.
+ * rather than only a Program refresh. Left out is a plugin's `configFile` that
+ * no descriptor read, which its plugin declares among its own project inputs.
  *
  * Non-deferred inputs are fingerprinted, then recorded content/target proofs
  * and plugin-source states are checked again. Only paths with a recorded proof
@@ -36,10 +35,8 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  * that the complete filesystem stayed fixed throughout capture.
  *
  * @param loaded The plugin load of the session.
- *
  * @returns The inputs, or `undefined` when the load no longer describes the
  *   filesystem and the selection has to be loaded again.
- *
  * @evidence contracts/common.md#principled-implementation The manifest groups candidate/source-file digests by directory. Recorded content and physical-target proofs and all plugin-source states are compared again before return; a detected mismatch rejects capture, while sequential reads and unproven paths do not certify every post-load change.
  * @evidence contracts/common.md#clear-and-simple-design Candidate filtering, source enumeration and proof comparison remain separate; the private recorder owns basename insertion into prototype-free maps, including names such as __proto__.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source omission rules come from the binary builder's shared constants; stale proofs return undefined instead of replacing a loaded selection with guessed current evidence.

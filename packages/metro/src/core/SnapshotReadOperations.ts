@@ -61,7 +61,8 @@ export interface SnapshotReadOperations {
   existsSync: (file: string) => boolean;
 
   /**
-   * Text of a file, as `fs.readFileSync`; throws a missing-file error when absent.
+   * Text of a file, as `fs.readFileSync`; throws a missing-file error when
+   * absent.
    *
    * @evidence contracts/common.md#principled-implementation
    *   Signature of the Node call it replaces; the default delegates to it.

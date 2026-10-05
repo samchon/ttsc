@@ -9,10 +9,12 @@ import { assertWithTtscPublishesWorkerEnv } from "../../internal/metro-config";
  * withTtsc failed to publish them, worker-side overrides (project, plugins,
  * include/exclude) would be silently lost.
  *
- * 1. Call withTtsc with `project` and `exclude` options and assert the env
- *    JSON carries them plus a 32-hex `__snapshotRunId` that resolveOptionsFromEnv reads back.
+ * 1. Call withTtsc with `project` and `exclude` options and assert the env JSON
+ *    carries them plus a 32-hex `__snapshotRunId` that resolveOptionsFromEnv
+ *    reads back.
  * 2. Call withTtsc again with no options.
- * 3. Assert the env JSON then has exactly one key, `__snapshotRunId`, holding a 32-hex id.
+ * 3. Assert the env JSON then has exactly one key, `__snapshotRunId`, holding a
+ *    32-hex id.
  *
  * @evidence contracts/testing.md#behavioral-verification withTtsc with project and exclude options leaves TTSC_METRO_OPTIONS holding those values and a 32-hex __snapshotRunId that resolveOptionsFromEnv returns as snapshotRunId; a following call with no options replaces it with a payload whose only key is __snapshotRunId.
  * @evidence contracts/testing.md#independent-expectations The authored option values are compared literally against the parsed JSON, the run id against the documented 32-hex pattern, and the default payload against the exact key list ["__snapshotRunId"]; resolveOptionsFromEnv is used only to confirm the worker side reads the same id.

@@ -53,7 +53,7 @@ func TestMarkdownReadsNoTagFromCode(t *testing.T) {
     })
   }
   reals := map[string]string{
-    "after a code span":          "## Pricing\n\nUse `code` <!-- @evidence docs/spec.md#x Example. -->\n",
+    "after a code span":           "## Pricing\n\nUse `code` <!-- @evidence docs/spec.md#x Example. -->\n",
     "after an unmatched backtick": "## Pricing\n\nIt's 5` of cap <!-- @evidence docs/spec.md#x Example. -->\n",
   }
   for name, content := range reals {

@@ -9,8 +9,8 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
 
 /**
  * Open the watch bridge for one watching build session: the adapter's own
- * observer of registered generation inputs, which requests host invalidation
- * by moving the project's record (samchon/ttsc#1388).
+ * observer of registered generation inputs, which requests host invalidation by
+ * moving the project's record (samchon/ttsc#1388).
  *
  * A host's own watcher observes the compiler's inputs imprecisely, or not at
  * all, and each host differently: one never reports a created path or a
@@ -33,13 +33,12 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * again, with a delay that grows fourfold up to Node's timer maximum, until a
  * registration answers: however late the host takes its baseline, a later move
  * lands after it, and a record the host never registers again costs a number of
- * moves reduced by exponential backoff before that maximum. A host
- * that heard the first move runs the project's modules before the second is
- * due when scheduling and the host permit it, and their registrations end it;
- * a pool worker that never sees the
- * registration keeps moving the record after another worker delivered, and the
- * host then runs the modules once more, from its cache, which registers and
- * ends it there.
+ * moves reduced by exponential backoff before that maximum. A host that heard
+ * the first move runs the project's modules before the second is due when
+ * scheduling and the host permit it, and their registrations end it; a pool
+ * worker that never sees the registration keeps moving the record after another
+ * worker delivered, and the host then runs the modules once more, from its
+ * cache, which registers and ends it there.
  *
  * The later moves defend the host's watcher, so a host that reports what each
  * compile depended on (`HostWatchBridge.compiled`) has them only for the
@@ -57,7 +56,6 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * @param root The directory whose pinned scope observes the project.
  * @param operations Observer watch/poll/case capabilities, which do not replace
  *   native record writes or the filesystem used to recheck input conditions.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Each record owns generation input evidence. A change remains owed until a
  *   registration replaces that evidence; replacement immediately signals again

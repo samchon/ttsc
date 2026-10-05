@@ -2,9 +2,9 @@ import type { ResidentReplyKind } from "./ResidentReplyKind";
 import { ResidentTransformReply } from "./ResidentTransformReply";
 
 /**
- * FIFO promise slots and terminal rejection for one resident reply stream.
- * The transport owns framing, writing, error construction and child shutdown;
- * this state owner releases settled callbacks and abort listeners.
+ * FIFO promise slots and terminal rejection for one resident reply stream. The
+ * transport owns framing, writing, error construction and child shutdown; this
+ * state owner releases settled callbacks and abort listeners.
  *
  * @evidence contracts/common.md#principled-implementation Each admitted slot settles once, head advancement preserves FIFO reply ownership, and retirement becomes terminal before all remaining slots are rejected.
  * @evidence contracts/common.md#clear-and-simple-design One state owner holds slots, cursor and terminal error; native transport actions remain with ResidentTransformProcess.
@@ -40,8 +40,8 @@ export class ResidentTransformRequests {
 
   /**
    * Admit one already framed line to its FIFO owner. Malformed or unsolicited
-   * replies retire the stream; an invalid operation shape rejects only its
-   * own slot. Return whether native transport teardown is now required.
+   * replies retire the stream; an invalid operation shape rejects only its own
+   * slot. Return whether native transport teardown is now required.
    *
    * @evidence contracts/common.md#principled-implementation Terminal tails and blank lines are ignored, malformed JSON retires all live slots to prevent shifted ownership, and valid JSON with the wrong operation shape consumes only the current slot.
    * @evidence contracts/common.md#clear-and-simple-design Existing reply parsing and admission feed the same settlement and retirement owner without taking over native line framing.
@@ -84,8 +84,8 @@ export class ResidentTransformRequests {
   }
 
   /**
-   * Register one slot and its optional abort listener before enqueueing it.
-   * The transport performs its original post-enqueue aborted check and write.
+   * Register one slot and its optional abort listener before enqueueing it. The
+   * transport performs its original post-enqueue aborted check and write.
    *
    * @evidence contracts/common.md#principled-implementation Resolver identity and expected reply kind stay with one slot; the standard signal listener invokes the owning transport's cancellation operation.
    * @evidence contracts/common.md#clear-and-simple-design Admission creates the slot, installs its listener and appends it in that order, while write and cancellation policy remain with the transport.
@@ -153,7 +153,8 @@ export class ResidentTransformRequests {
 
   /**
    * Preserve the first failure and reject all remaining slots before the
-   * transport tears down its reader and child. Return whether this call retired.
+   * transport tears down its reader and child. Return whether this call
+   * retired.
    *
    * @evidence contracts/common.md#principled-implementation Terminal error assignment precedes queue detachment and rejection, so reentrant callers observe failure and later retirement cannot replace the original error.
    * @evidence contracts/common.md#clear-and-simple-design State retirement returns a transition indicator; the actual transport alone owns reader, pipe and child termination.

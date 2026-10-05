@@ -18,6 +18,10 @@ import { make } from "../internal/make";
  * keyof T
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param operator The operator token.
+ * @param type The operand type.
+ * @returns The created {@link TypeOperatorNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Operator and operand retain prefix-type roles; the broad SyntaxKind input
  *   still requires an operator and operand legal in the caller's type context.
@@ -33,11 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   The native description now distinguishes typeof queries from type operators
  *   and explains their grouping behavior before the concrete keyof example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param operator The operator token.
- * @param type The operand type.
- * @returns The created {@link TypeOperatorNode}.
  */
 export const createTypeOperatorNode = (
   operator: SyntaxKind,

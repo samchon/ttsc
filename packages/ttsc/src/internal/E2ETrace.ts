@@ -1,4 +1,8 @@
-import type { ChildProcess, SpawnSyncOptions, SpawnSyncReturns } from "node:child_process";
+import type {
+  ChildProcess,
+  SpawnSyncOptions,
+  SpawnSyncReturns,
+} from "node:child_process";
 import crypto from "node:crypto";
 import { errorMonitor } from "node:events";
 import fs from "node:fs";
@@ -11,11 +15,11 @@ import path from "node:path";
  *
  * TTSC_E2E_TRACE selects coordinator-owned scratch. Each writer owns one JSONL
  * and its raw returned-buffer payloads. Returned strings are recorded as text,
- * without claiming their encoding reconstructs original process bytes.
- * Missing or invalid evidence is a
- * measurement failure, never permission to change a product result. Times are
- * call bounds; a synchronous return does not reveal an exact OS start time or
- * descendant close. No trace output is written to product streams.
+ * without claiming their encoding reconstructs original process bytes. Missing
+ * or invalid evidence is a measurement failure, never permission to change a
+ * product result. Times are call bounds; a synchronous return does not reveal
+ * an exact OS start time or descendant close. No trace output is written to
+ * product streams.
  *
  * @evidence contracts/common.md#principled-implementation Actual primitive call bounds and returned PID/status/signal/error/output remain separate from source-preparation inputs and caller-observed shutdown phases; failed admission or sink writes do not synthesize success or replace product results.
  * @evidence contracts/common.md#clear-and-simple-design A private token connects one attempt and returned result; per-process writer state owns serialization, payload budget and append-close IO.
@@ -44,7 +48,9 @@ export namespace E2ETrace {
    */
   export function capabilityResolution(
     phase: string,
-    data: Readonly<Record<string, string | number | boolean | null | undefined>>,
+    data: Readonly<
+      Record<string, string | number | boolean | null | undefined>
+    >,
   ): void {
     const selected = process.env.TTSC_E2E_TRACE;
     if (!selected) return;
@@ -59,17 +65,21 @@ export namespace E2ETrace {
         argv0: null,
       };
       event(token, "capability-resolution", process.pid, {
-        ...data, phase, origin: token.origin,
+        ...data,
+        phase,
+        origin: token.origin,
       });
-    } catch { failed = true; }
+    } catch {
+      failed = true;
+    }
   }
 
   /**
-   * Record a watch-shutdown phase as a non-process observation.
-   * Callers report actual promise/callback outcomes and the received stop ID;
-   * observation time is not an OS exit time or proof of descendant termination.
-   * Disabled tracing performs no sink IO or metadata copying. Sink failures
-   * never replace the caller's promise, result, exception or protocol message.
+   * Record a watch-shutdown phase as a non-process observation. Callers report
+   * actual promise/callback outcomes and the received stop ID; observation time
+   * is not an OS exit time or proof of descendant termination. Disabled tracing
+   * performs no sink IO or metadata copying. Sink failures never replace the
+   * caller's promise, result, exception or protocol message.
    *
    * @evidence contracts/common.md#principled-implementation Actual caller-supplied phase metadata is recorded without treating observation as a join authority or synthesizing settlement.
    * @evidence contracts/common.md#clear-and-simple-design One non-process event uses the existing private writer, invocation schema, budget and integrity path.
@@ -82,7 +92,9 @@ export namespace E2ETrace {
    */
   export function watchShutdown(
     phase: string,
-    data: Readonly<Record<string, string | number | boolean | null | undefined>>,
+    data: Readonly<
+      Record<string, string | number | boolean | null | undefined>
+    >,
   ): void {
     const selected = process.env.TTSC_E2E_TRACE;
     if (!selected) return;
@@ -97,9 +109,13 @@ export namespace E2ETrace {
         argv0: null,
       };
       event(token, "watch-shutdown-phase", process.pid, {
-        ...data, phase, origin: token.origin,
+        ...data,
+        phase,
+        origin: token.origin,
       });
-    } catch { failed = true; }
+    } catch {
+      failed = true;
+    }
   }
 
   /**
@@ -107,9 +123,9 @@ export namespace E2ETrace {
    * UTF-16LE preserves JavaScript code units, including unpaired surrogates;
    * these bytes represent the consumed string, not original disk or emit bytes.
    * Optional served-emit coordinates report the caller's selected ownership
-   * metadata, not current artifact identity or successful preparation.
-   * Disabled tracing performs no sink IO or source conversion. Observer failure
-   * leaves the caller's preparation and exception behavior untouched.
+   * metadata, not current artifact identity or successful preparation. Disabled
+   * tracing performs no sink IO or source conversion. Observer failure leaves
+   * the caller's preparation and exception behavior untouched.
    *
    * @evidence contracts/common.md#principled-implementation The caller supplies its already-read source, filename and selected format; the observation precedes the unchanged preparation without certifying parsing success or executable identity.
    * @evidence contracts/common.md#clear-and-simple-design One non-process event and bounded raw-string payload use the existing private writer, invocation schema and integrity policy.
@@ -147,14 +163,24 @@ export namespace E2ETrace {
         integrity(token, "payload-budget-exceeded");
         return;
       }
-      const sourcePayload = payload(token, "runtime-source", Buffer.from(source, "utf16le"));
+      const sourcePayload = payload(
+        token,
+        "runtime-source",
+        Buffer.from(source, "utf16le"),
+      );
       event(token, "runtime-source-preparation", process.pid, {
-        origin, filename, selectedFormat, source: sourcePayload,
+        origin,
+        filename,
+        selectedFormat,
+        source: sourcePayload,
         emitAttribution: emitAttribution ?? null,
-        sourceEncoding: "utf16le", sourceCodeUnits: source.length,
+        sourceEncoding: "utf16le",
+        sourceCodeUnits: source.length,
         representation: "consumed-javascript-string",
       });
-    } catch { failed = true; }
+    } catch {
+      failed = true;
+    }
   }
 
   /**
@@ -171,21 +197,35 @@ export namespace E2ETrace {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work One actual child's lifecycle cannot certify an equivalent second launch.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Observation callbacks retain the token/child until actual close and then remove remaining listeners. No deadline or child termination is introduced; a caller's release of event-loop reference does not prove close.
    */
-  export function asynchronous(token: Token | undefined, child: ChildProcess): void {
+  export function asynchronous(
+    token: Token | undefined,
+    child: ChildProcess,
+  ): void {
     if (token === undefined || failed) return;
     const upper = new Date().toISOString();
     const observe = (kind: string, data: Record<string, unknown>) => {
       try {
         event(token, kind, child.pid ?? null, data, upper);
-      } catch { failed = true; }
+      } catch {
+        failed = true;
+      }
     };
-    const onSpawn = () => observe("process-start", { origin: token.origin, started: true });
+    const onSpawn = () =>
+      observe("process-start", { origin: token.origin, started: true });
     const onExit = (status: number | null, signal: NodeJS.Signals | null) =>
-      observe("process-exit", { origin: token.origin, status, signal, exitObserved: true });
-    const onError = (error: Error) => observe("process-result", {
-      origin: token.origin, started: child.pid !== undefined,
-      outcome: "async-error", error: { name: error.name, message: error.message },
-    });
+      observe("process-exit", {
+        origin: token.origin,
+        status,
+        signal,
+        exitObserved: true,
+      });
+    const onError = (error: Error) =>
+      observe("process-result", {
+        origin: token.origin,
+        started: child.pid !== undefined,
+        outcome: "async-error",
+        error: { name: error.name, message: error.message },
+      });
     const onClose = (status: number | null, signal: NodeJS.Signals | null) => {
       child.removeListener("spawn", onSpawn);
       child.removeListener("exit", onExit);
@@ -242,7 +282,10 @@ export namespace E2ETrace {
     /** Writer-local ordinal; writer pid and nonce complete its identity. */
     invocation: string;
 
-    /** Selected process inputs, or actual writer argv for a non-process observation. */
+    /**
+     * Selected process inputs, or actual writer argv for a non-process
+     * observation.
+     */
     argv: string[];
 
     /** Explicit cwd representation, or null for inherited cwd intent. */
@@ -259,9 +302,10 @@ export namespace E2ETrace {
   }
 
   /**
-   * Observe before one actual synchronous primitive, with disabled sink IO zero.
-   * The generated private broker can pass the same coordinator root through
-   * its internal arguments without changing the target's supplied environment.
+   * Observe before one actual synchronous primitive, with disabled sink IO
+   * zero. The generated private broker can pass the same coordinator root
+   * through its internal arguments without changing the target's supplied
+   * environment.
    *
    * @evidence contracts/common.md#principled-implementation Empty opt-in returns undefined before sink work; native call execution remains entirely with the caller.
    * @evidence contracts/common.md#clear-and-simple-design Admission and one attempt event return a small token for the same call.
@@ -291,7 +335,9 @@ export namespace E2ETrace {
         argv0: options.argv0 ?? null,
       };
       event(token, "process-attempt", null, {
-        origin, cwdInherited: options.cwd === undefined, argv0: token.argv0,
+        origin,
+        cwdInherited: options.cwd === undefined,
+        argv0: token.argv0,
       });
       return token;
     } catch {
@@ -322,22 +368,31 @@ export namespace E2ETrace {
       const error = returned.error as NodeJS.ErrnoException | undefined;
       const stdout = payload(token, "stdout", returned.stdout);
       const stderr = payload(token, "stderr", returned.stderr);
-      event(token, "process-result", returned.pid > 0 ? returned.pid : null, {
-        origin: token.origin,
-        started: returned.pid > 0,
-        exitObserved: returned.status !== null || returned.signal !== null,
-        status: returned.status,
-        signal: returned.signal,
-        error: error === undefined ? null : {
-          name: error.name,
-          message: error.message,
-          code: error.code,
-          errno: error.errno,
-          syscall: error.syscall,
+      event(
+        token,
+        "process-result",
+        returned.pid > 0 ? returned.pid : null,
+        {
+          origin: token.origin,
+          started: returned.pid > 0,
+          exitObserved: returned.status !== null || returned.signal !== null,
+          status: returned.status,
+          signal: returned.signal,
+          error:
+            error === undefined
+              ? null
+              : {
+                  name: error.name,
+                  message: error.message,
+                  code: error.code,
+                  errno: error.errno,
+                  syscall: error.syscall,
+                },
+          stdout,
+          stderr,
         },
-        stdout,
-        stderr,
-      }, upper);
+        upper,
+      );
     } catch {
       failed = true;
     }
@@ -364,7 +419,11 @@ function admit(selected: string): boolean {
 }
 
 function append(value: Buffer): void {
-  const fd = fs.openSync(path.join(root!, `${process.pid}-${instance}.jsonl`), "a", 0o600);
+  const fd = fs.openSync(
+    path.join(root!, `${process.pid}-${instance}.jsonl`),
+    "a",
+    0o600,
+  );
   try {
     let offset = 0;
     while (offset < value.length) {
@@ -387,10 +446,18 @@ function event(
 ): void {
   if (failed) return;
   const record = {
-    schema: 1, event: kind, writerPid: process.pid, instance,
-    sequence: ++sequence, at: new Date().toISOString(),
-    invocation: `${instance}:${token.invocation}`, pid, argv: token.argv, cwd: token.cwd,
-    startLowerBound: token.lower, startUpperBound: upper,
+    schema: 1,
+    event: kind,
+    writerPid: process.pid,
+    instance,
+    sequence: ++sequence,
+    at: new Date().toISOString(),
+    invocation: `${instance}:${token.invocation}`,
+    pid,
+    argv: token.argv,
+    cwd: token.cwd,
+    startLowerBound: token.lower,
+    startUpperBound: upper,
     data: { writerRuntime: process.version, ...data },
   };
   const encoded = Buffer.from(JSON.stringify(record) + "\n");
@@ -398,11 +465,18 @@ function event(
     integrity(token, "writer-budget-exceeded");
     return;
   }
-  try { append(encoded); }
-  catch { integrity(token, "sink-io-failed"); }
+  try {
+    append(encoded);
+  } catch {
+    integrity(token, "sink-io-failed");
+  }
 }
 
-function payload(token: E2ETrace.Token, label: string, value: string | Buffer | null) {
+function payload(
+  token: E2ETrace.Token,
+  label: string,
+  value: string | Buffer | null,
+) {
   if (value === null || failed) return null;
   if (typeof value === "string") {
     if (Buffer.byteLength(value) > PAYLOAD_LIMIT) {
@@ -412,13 +486,19 @@ function payload(token: E2ETrace.Token, label: string, value: string | Buffer | 
     return { text: value, representation: "returned-string" };
   }
   const content = value;
-  if (content.length > PAYLOAD_LIMIT || bytes + content.length > WRITER_LIMIT - FAILURE_RESERVE) {
+  if (
+    content.length > PAYLOAD_LIMIT ||
+    bytes + content.length > WRITER_LIMIT - FAILURE_RESERVE
+  ) {
     integrity(token, "payload-budget-exceeded");
     return null;
   }
   const filename = `${process.pid}-${instance}-${token.invocation}-${label}.bin`;
   try {
-    fs.writeFileSync(path.join(root!, filename), content, { flag: "wx", mode: 0o600 });
+    fs.writeFileSync(path.join(root!, filename), content, {
+      flag: "wx",
+      mode: 0o600,
+    });
     bytes += content.length;
     return { path: filename, bytes: content.length };
   } catch {
@@ -433,12 +513,25 @@ function payload(token: E2ETrace.Token, label: string, value: string | Buffer | 
 function integrity(token: E2ETrace.Token, reason: string): void {
   failed = true;
   try {
-    const encoded = Buffer.from("\n" + JSON.stringify({
-      schema: 1, event: "integrity-failure", writerPid: process.pid,
-      instance, sequence: ++sequence, at: new Date().toISOString(),
-      invocation: `${instance}:${token.invocation}`, pid: null, argv: [], cwd: null,
-      data: { outcome: reason, writerRuntime: process.version },
-    }) + "\n");
+    const encoded = Buffer.from(
+      "\n" +
+        JSON.stringify({
+          schema: 1,
+          event: "integrity-failure",
+          writerPid: process.pid,
+          instance,
+          sequence: ++sequence,
+          at: new Date().toISOString(),
+          invocation: `${instance}:${token.invocation}`,
+          pid: null,
+          argv: [],
+          cwd: null,
+          data: { outcome: reason, writerRuntime: process.version },
+        }) +
+        "\n",
+    );
     if (bytes + encoded.length <= WRITER_LIMIT) append(encoded);
-  } catch { /* Missing/invalid sink remains a measurement failure. */ }
+  } catch {
+    /* Missing/invalid sink remains a measurement failure. */
+  }
 }

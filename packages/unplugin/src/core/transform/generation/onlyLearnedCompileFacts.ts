@@ -17,12 +17,11 @@ const LEARNED_FACTS = new Set([
  * The retry owner carries learned dependencies and compiler case policy into
  * the next attempt, without spending its movement budget for this
  * classification. This predicate classifies recorded failures, not independent
- * disk stability; producers must record other failed proofs. An omitted
- * witness could be anything, so it prevents that exemption. The retry owner
- * separately enforces the absolute attempt cap and handles refuted adoptions.
+ * disk stability; producers must record other failed proofs. An omitted witness
+ * could be anything, so it prevents that exemption. The retry owner separately
+ * enforces the absolute attempt cap and handles refuted adoptions.
  *
  * @param failures The attempt's recorded proof failures.
- *
  * @evidence contracts/common.md#principled-implementation A nonempty aggregate with omitted=0 and only dependency-unwitnessed or case-policy-learned qualifies for the retry owner's learned-fact exemption. This is classification of supplied witnesses, not a separate proof of project stability; omitted or other recorded failures prevent the exemption.
  * @evidence contracts/common.md#clear-and-simple-design One predicate centralizes which proof classes consume the retry movement budget, leaving actual attempts and the absolute cap to transformProject.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The recognized kinds express real compile facts learned after pre-witnessing, and no omitted or mixed failure is excused by a fixture-specific retry exception.

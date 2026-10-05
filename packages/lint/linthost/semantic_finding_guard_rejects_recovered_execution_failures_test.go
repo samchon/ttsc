@@ -10,8 +10,12 @@ import (
 type semanticFindingGuardPanickingRule struct{}
 
 func (semanticFindingGuardPanickingRule) Name() string { return "test/semantic-finding-guard-panic" }
-func (semanticFindingGuardPanickingRule) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
-func (semanticFindingGuardPanickingRule) Check(*Context, *shimast.Node) { panic("semantic guard panic") }
+func (semanticFindingGuardPanickingRule) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile}
+}
+func (semanticFindingGuardPanickingRule) Check(*Context, *shimast.Node) {
+  panic("semantic guard panic")
+}
 
 // TestSemanticFindingGuardRejectsRecoveredExecutionFailures protects semantic
 // corpus and snapshot harnesses from blessing recovered failures as findings.
@@ -27,7 +31,9 @@ func TestSemanticFindingGuardRejectsRecoveredExecutionFailures(t *testing.T) {
   Register(panicRule)
   t.Cleanup(func() { delete(registered.rules, panicRule.Name()) })
   panicEngine, err := newRuleSnapshotEngine(panicRule.Name(), nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   panicFindings := panicEngine.Run([]*shimast.SourceFile{parseTS(t, "var value = 1;\n")}, nil)
   if len(panicFindings) != 1 || !panicFindings[0].engineFailure || panicFindings[0].Rule != panicRule.Name() || panicFindings[0].Severity != SeverityError {
     t.Fatalf("real recovery did not produce the configured failure: %+v", panicFindings)
@@ -37,21 +43,33 @@ func TestSemanticFindingGuardRejectsRecoveredExecutionFailures(t *testing.T) {
   }
   rules := RuleConfig{"no-var": SeverityError}
   engine, err := newRuleSnapshotEngine("no-var", nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   findings := engine.Run([]*shimast.SourceFile{parseTS(t, "var value = 1;\n")}, nil)
   if len(findings) != 1 || findings[0].Rule != "no-var" || findings[0].Severity != SeverityError || findings[0].engineFailure {
     t.Fatalf("ordinary positive control failed: %+v", findings)
   }
-  if err := validateSemanticRuleFindings(rules, findings); err != nil { t.Fatalf("ordinary finding rejected: %v", err) }
-  if err := validateSemanticRuleFindings(rules, nil); err != nil { t.Fatalf("empty successful findings rejected: %v", err) }
+  if err := validateSemanticRuleFindings(rules, findings); err != nil {
+    t.Fatalf("ordinary finding rejected: %v", err)
+  }
+  if err := validateSemanticRuleFindings(rules, nil); err != nil {
+    t.Fatalf("empty successful findings rejected: %v", err)
+  }
   for _, mutate := range []func(*Finding){
     func(f *Finding) { f.Rule = "test/unconfigured-semantic-rule" },
     func(f *Finding) { f.Severity = SeverityWarn },
   } {
     invalid := *findings[0]
     mutate(&invalid)
-    if err := validateSemanticRuleFindings(rules, []*Finding{&invalid}); err == nil || !strings.Contains(err.Error(), "unexpected rule/severity") { t.Fatalf("invalid ordinary finding accepted: %v", err) }
+    if err := validateSemanticRuleFindings(rules, []*Finding{&invalid}); err == nil || !strings.Contains(err.Error(), "unexpected rule/severity") {
+      t.Fatalf("invalid ordinary finding accepted: %v", err)
+    }
   }
-  if err := validateSemanticRuleFindings(RuleConfig{"no-var": SeverityOff}, findings); err == nil { t.Fatal("disabled rule finding accepted") }
-  if err := validateSemanticRuleFindings(rules, []*Finding{nil}); err == nil || !strings.Contains(err.Error(), "is nil") { t.Fatalf("nil finding accepted: %v", err) }
+  if err := validateSemanticRuleFindings(RuleConfig{"no-var": SeverityOff}, findings); err == nil {
+    t.Fatal("disabled rule finding accepted")
+  }
+  if err := validateSemanticRuleFindings(rules, []*Finding{nil}); err == nil || !strings.Contains(err.Error(), "is nil") {
+    t.Fatalf("nil finding accepted: %v", err)
+  }
 }

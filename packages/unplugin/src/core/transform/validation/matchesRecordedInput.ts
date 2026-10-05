@@ -35,7 +35,10 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work matchesProvenInput and complete admission decide when this comparison can be shared or omitted; this primitive establishes one requested verdict.
  */
 export function matchesRecordedInput(
-  /** Generation owning the distinct predicate, graph-text and host-byte snapshots. */
+  /**
+   * Generation owning the distinct predicate, graph-text and host-byte
+   * snapshots.
+   */
   cached: TtscCachedProjectTransform,
   /** Native spelling replayed against its owning recorded authority. */
   input: string,

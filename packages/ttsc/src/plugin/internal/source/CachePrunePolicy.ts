@@ -1,6 +1,6 @@
 /**
- * Default retention thresholds for plugin binaries (`prunePluginCacheRoot`)
- * and single-file descriptor, capability and orphan-lowering answers
+ * Default retention thresholds for plugin binaries (`prunePluginCacheRoot`) and
+ * single-file descriptor, capability and orphan-lowering answers
  * (`pruneCacheFileRoot`).
  *
  * The caches are content-keyed, so a project that bumps tsgo or a plugin many
@@ -11,8 +11,8 @@
  * without a finite size or age bound. An over-budget marker makes a retry
  * eligible after the protection window; collection still depends on a later
  * invocation. Collectors stay within their selected cache part rather than
- * discovering global cache locations. The Go object cache has its own policy
- * in `pruneGoBuildCacheRoot`.
+ * discovering global cache locations. The Go object cache has its own policy in
+ * `pruneGoBuildCacheRoot`.
  *
  * @evidence contracts/common.md#principled-implementation Age, size and protection thresholds describe reclaimable cache storage, not the semantic validity of an answer.
  * @evidence contracts/common.md#clear-and-simple-design One policy namespace keeps binary and single-file collectors on the same units and defaults.

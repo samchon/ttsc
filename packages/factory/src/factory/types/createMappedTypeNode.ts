@@ -12,9 +12,10 @@ import { make } from "../internal/make";
  *
  * The type parameter supplies the key variable and its `in` constraint. When
  * `nameType` is present it adds an `as` key remap, and when `type` is present
- * it adds the `: ValueType` value. Additional `members` are retained and printed
- * after the mapped member, separated by semicolons. The caller is responsible
- * for whether that supplied outline is legal in the target TypeScript context.
+ * it adds the `: ValueType` value. Additional `members` are retained and
+ * printed after the mapped member, separated by semicolons. The caller is
+ * responsible for whether that supplied outline is legal in the target
+ * TypeScript context.
  *
  * The `readonlyToken` and `questionToken` carry optional modifier polarity. A
  * plain `readonly` or `?` token prints as `readonly ` and `?`; a `+` or `-`
@@ -28,6 +29,16 @@ import { make } from "../internal/make";
  * { [K in keyof T]: T[K] }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param readonlyToken The `readonly` modifier with optional `+`/`-` polarity,
+ *   if any.
+ * @param typeParameter The key type parameter holding the `in` constraint.
+ * @param nameType The `as` key remap type, if any.
+ * @param questionToken The optional-marker `?` with optional `+`/`-` polarity,
+ *   if any.
+ * @param type The mapped value type, if any.
+ * @param members The members, if any.
+ * @returns The created {@link MappedTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Key constraint, remapping, modifier polarity, value and additional members
  *   retain distinct AST slots. Additional members are preserved rather than
@@ -44,17 +55,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish modifier polarity, key/value structure and
  *   additional members; the example represents the ordinary member-free form.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param readonlyToken The `readonly` modifier with optional `+`/`-` polarity,
- *   if any.
- * @param typeParameter The key type parameter holding the `in` constraint.
- * @param nameType The `as` key remap type, if any.
- * @param questionToken The optional-marker `?` with optional `+`/`-` polarity,
- *   if any.
- * @param type The mapped value type, if any.
- * @param members The members, if any.
- * @returns The created {@link MappedTypeNode}.
  */
 export const createMappedTypeNode = (
   readonlyToken: Token | undefined,

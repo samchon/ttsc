@@ -2,9 +2,9 @@ package evidence
 
 import (
   "encoding/json"
+  "github.com/samchon/ttsc/packages/lint/rule"
   "strings"
   "testing"
-  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 /**

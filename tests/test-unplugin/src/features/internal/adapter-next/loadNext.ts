@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../../utils/src/TestProject";
-
 import type { INextLikeConfig } from "./INextLikeConfig";
 import { loadNextModule } from "./loadNextModule";
 

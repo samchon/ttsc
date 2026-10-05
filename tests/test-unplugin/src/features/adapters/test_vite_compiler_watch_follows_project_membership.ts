@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,6 +7,7 @@ import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/tra
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 
 /**
@@ -30,6 +30,7 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    invalidates the importer, with no reload and no message.
  * 3. Re-register, create an empty subdirectory and assert nothing happens, then
  *    create a source inside it and assert the importer is invalidated again.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls watcher registration and injected rename/change events; asserts unchanged, emitted, excluded, edited and empty-directory inputs stay quiet, while new admitted files invalidate client and SSR.
  * @evidence contracts/testing.md#independent-expectations

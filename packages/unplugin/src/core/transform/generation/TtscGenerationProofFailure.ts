@@ -1,7 +1,8 @@
 /**
  * One failed proof that prevents a whole-project transform becoming reusable.
  * Domain identifies the evidence family, while kind remains open to that
- * producer's failure classes and optional path/detail supply diagnostic context.
+ * producer's failure classes and optional path/detail supply diagnostic
+ * context.
  *
  * @evidence contracts/common.md#principled-implementation The closed evidence-family union distinguishes project, graph, host and external failures; an open kind preserves producer-specific causes without conflating them with domain.
  * @evidence contracts/common.md#clear-and-simple-design One witness carries classification and optional attribution; bounded aggregation and rendering remain separate responsibilities.

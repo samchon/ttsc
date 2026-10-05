@@ -24,11 +24,6 @@ import { make } from "../internal/make";
  * function f() {}
  * ```
  *
- * @evidence contracts/common.md#principled-implementation Optional name normalizes only when present, retaining anonymous and named forms; the generator marker, signature and required Block remain syntax, with grammar validity supplied by the caller.
- * @evidence contracts/common.md#clear-and-simple-design Shared name normalization and one make call retain the header/body organization without invocation or compiler state.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Absent names are not replaced by invented identifiers, and marker presence records requested generator syntax rather than patching runtime behavior.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains anonymous naming, optional signature fields and required block body; example, parameters and tags use distinct blocks.
- *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
  * @param asteriskToken The generator marker (`*`), if any.
@@ -38,6 +33,10 @@ import { make } from "../internal/make";
  * @param type The return type, if any.
  * @param body The block body.
  * @returns The created {@link FunctionExpression}.
+ * @evidence contracts/common.md#principled-implementation Optional name normalizes only when present, retaining anonymous and named forms; the generator marker, signature and required Block remain syntax, with grammar validity supplied by the caller.
+ * @evidence contracts/common.md#clear-and-simple-design Shared name normalization and one make call retain the header/body organization without invocation or compiler state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Absent names are not replaced by invented identifiers, and marker presence records requested generator syntax rather than patching runtime behavior.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains anonymous naming, optional signature fields and required block body; example, parameters and tags use distinct blocks.
  */
 export const createFunctionExpression = (
   modifiers: readonly ModifierLike[] | undefined,

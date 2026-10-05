@@ -1,10 +1,12 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Verifies process exit removes an ordinary tracked temporary root.
@@ -30,19 +32,38 @@ export const test_testproject_exit_removes_joined_temporary_roots = () => {
   const outer = TestProject.tmpdir("ttsc-exit-cleanup-normal-");
   const failures: unknown[] = [];
   try {
-    const helper = pathToFileURL(path.join(TestProject.TEST_PACKAGE_ROOT,
-      "src", "TestProject.ts")).href;
-    const child = spawnSync(process.execPath, ["--experimental-strip-types",
-      "--import", pathToFileURL(path.join(TestProject.WORKSPACE_ROOT,
-        "config", "register-typescript-loader.mjs")).href,
-      "--input-type=module", "-e", [
-        "import fs from 'node:fs'; import path from 'node:path';",
-        `const { TestProject } = await import(${JSON.stringify(helper)});`,
-        `const root = TestProject.tmpdir('child-', ${JSON.stringify(outer)});`,
-        "fs.writeFileSync(path.join(root, 'input.txt'), 'actual input');",
-        "console.log(JSON.stringify(path.basename(root)));",
-      ].join("\n")], { cwd: TestProject.WORKSPACE_ROOT, encoding: "utf8",
-      timeout: 30_000, windowsHide: true });
+    const helper = pathToFileURL(
+      path.join(TestProject.TEST_PACKAGE_ROOT, "src", "TestProject.ts"),
+    ).href;
+    const child = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--import",
+        pathToFileURL(
+          path.join(
+            TestProject.WORKSPACE_ROOT,
+            "config",
+            "register-typescript-loader.mjs",
+          ),
+        ).href,
+        "--input-type=module",
+        "-e",
+        [
+          "import fs from 'node:fs'; import path from 'node:path';",
+          `const { TestProject } = await import(${JSON.stringify(helper)});`,
+          `const root = TestProject.tmpdir('child-', ${JSON.stringify(outer)});`,
+          "fs.writeFileSync(path.join(root, 'input.txt'), 'actual input');",
+          "console.log(JSON.stringify(path.basename(root)));",
+        ].join("\n"),
+      ],
+      {
+        cwd: TestProject.WORKSPACE_ROOT,
+        encoding: "utf8",
+        timeout: 30_000,
+        windowsHide: true,
+      },
+    );
     assert.ifError(child.error);
     assert.equal(child.signal, null);
     assert.equal(child.status, 0, child.stderr);

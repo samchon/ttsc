@@ -1,7 +1,10 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
-import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsc/internal/ttsx-register";
+import {
+  TTSX_REGISTER,
+  linkTtscPackage,
+} from "../../../internal/ttsc/internal/ttsx-register";
 
 /**
  * Verifies ttsx runs each file of a solution-style layout with the options of
@@ -24,6 +27,7 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsc/internal/
  *    and `scripts/loose.ts` through ttsx.
  * 3. Assert the entry sees three arguments in both lanes, the config sees two, and
  *    the loose script still runs.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs an app source through ttsx and register, a standard-decorator vite source and an uncontained loose source, requiring 3, 3, 2 and loose ran.
  * @evidence contracts/testing.md#independent-expectations The authored decorator callback argument counts distinguish legacy app options from standard node-project options; loose source has its own marker.
  * @evidence contracts/testing.md#distinguishing-cases Referenced ownership must select opposite decorator modes, and an uncontained source must still execute; all four observations are explicit.
@@ -34,77 +38,77 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsc/internal/
  * @evidence contracts/e2e.md#preserved-coverage All four exact outputs remain here; parser-only selection assertions do not establish those native transformations.
  */
 export function test_ttsx_runs_an_entry_with_the_referenced_project_that_owns_it() {
-    const probe = [
-      `let observed: number = 0;`,
-      `function probe(...args: any[]): void {`,
-      `  observed = args.length;`,
-      `}`,
-      `class Box {`,
-      `  @probe`,
-      `  method(): void {}`,
-      `}`,
-      `new Box();`,
-      `console.log("arguments=" + observed);`,
-      `export {};`,
-      ``,
-    ].join("\n");
-    const options = {
-      target: "ES2022",
-      module: "commonjs",
-      strict: true,
-      types: [],
-    };
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "solution", private: true }),
-      "tsconfig.json": JSON.stringify({
-        files: [],
-        references: [
-          { path: "./tsconfig.app.json" },
-          { path: "./tsconfig.node.json" },
-        ],
-      }),
-      "tsconfig.app.json": JSON.stringify({
-        compilerOptions: { ...options, experimentalDecorators: true },
-        include: ["src"],
-      }),
-      "tsconfig.node.json": JSON.stringify({
-        compilerOptions: options,
-        include: ["vite.config.ts"],
-      }),
-      "src/main.ts": probe,
-      "vite.config.ts": probe,
-      "scripts/loose.ts": `console.log("loose ran");\nexport {};\n`,
-    });
-    linkTtscPackage(root);
+  const probe = [
+    `let observed: number = 0;`,
+    `function probe(...args: any[]): void {`,
+    `  observed = args.length;`,
+    `}`,
+    `class Box {`,
+    `  @probe`,
+    `  method(): void {}`,
+    `}`,
+    `new Box();`,
+    `console.log("arguments=" + observed);`,
+    `export {};`,
+    ``,
+  ].join("\n");
+  const options = {
+    target: "ES2022",
+    module: "commonjs",
+    strict: true,
+    types: [],
+  };
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({ name: "solution", private: true }),
+    "tsconfig.json": JSON.stringify({
+      files: [],
+      references: [
+        { path: "./tsconfig.app.json" },
+        { path: "./tsconfig.node.json" },
+      ],
+    }),
+    "tsconfig.app.json": JSON.stringify({
+      compilerOptions: { ...options, experimentalDecorators: true },
+      include: ["src"],
+    }),
+    "tsconfig.node.json": JSON.stringify({
+      compilerOptions: options,
+      include: ["vite.config.ts"],
+    }),
+    "src/main.ts": probe,
+    "vite.config.ts": probe,
+    "scripts/loose.ts": `console.log("loose ran");\nexport {};\n`,
+  });
+  linkTtscPackage(root);
 
-    for (const [label, command, args, expected] of [
-      [
-        "entry",
-        TestProject.TTSX_BIN,
-        ["--cwd", root, "src/main.ts"],
-        "arguments=3",
-      ],
-      [
-        "register",
-        process.execPath,
-        ["--require", TTSX_REGISTER, "src/main.ts"],
-        "arguments=3",
-      ],
-      [
-        "node config",
-        TestProject.TTSX_BIN,
-        ["--cwd", root, "vite.config.ts"],
-        "arguments=2",
-      ],
-      [
-        "uncontained",
-        TestProject.TTSX_BIN,
-        ["--cwd", root, "scripts/loose.ts"],
-        "loose ran",
-      ],
-    ] as const) {
-      const result = TestProject.spawn(command, [...args], { cwd: root });
-      assert.equal(result.status, 0, `${label}: ${result.stderr}`);
-      assert.equal(result.stdout.trim(), expected, label);
-    }
+  for (const [label, command, args, expected] of [
+    [
+      "entry",
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      "arguments=3",
+    ],
+    [
+      "register",
+      process.execPath,
+      ["--require", TTSX_REGISTER, "src/main.ts"],
+      "arguments=3",
+    ],
+    [
+      "node config",
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "vite.config.ts"],
+      "arguments=2",
+    ],
+    [
+      "uncontained",
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "scripts/loose.ts"],
+      "loose ran",
+    ],
+  ] as const) {
+    const result = TestProject.spawn(command, [...args], { cwd: root });
+    assert.equal(result.status, 0, `${label}: ${result.stderr}`);
+    assert.equal(result.stdout.trim(), expected, label);
   }
+}

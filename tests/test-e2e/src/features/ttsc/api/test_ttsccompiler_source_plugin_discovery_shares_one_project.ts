@@ -45,7 +45,9 @@ import {
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Before each input state the test removes its own descriptors, asset and temp paths, then the workspace resets source, package discovery trees, outputs and configuration from baseline plus overlay. Requested asynchronous outcomes are awaited, changed temp variables and timers are restored in finally, and body/close causes are retained. Standalone cleanup verifies root absence; a borrowed slot remains with the shared owner for observation. The directory helper itself joins no worker/process; direct outcomes do not prove arbitrary descendant closure or forced-interruption cleanup. Scenarios collects failures so one state does not hide subsequent cases.
  * @evidence contracts/e2e.md#preserved-coverage Retains configured and discovered compile/transform records, ancestor positive and nearest-manifest negative, the original exact host-input list, scoped-temp exception text and physical path, ambient success, sync/async envelope equality, 500ms stall bound, call-time environment mutation and missing-config exception kind/message/name equality. The three removed additional entries now share these executable scenarios and the existing discovery workspace.
  */
-export async function test_ttsccompiler_source_plugin_discovery_shares_one_project(preparedWorkspace?: CompilerApiWorkspace.IWorkspace): Promise<void> {
+export async function test_ttsccompiler_source_plugin_discovery_shares_one_project(
+  preparedWorkspace?: CompilerApiWorkspace.IWorkspace,
+): Promise<void> {
   const workspace = preparedWorkspace ?? CompilerApiWorkspace.open();
   const failures: unknown[] = [];
   try {

@@ -9,7 +9,8 @@ import { make } from "../internal/make";
  *
  * When leading synthetic comments would put a line break between `return` and
  * the expression's first token, the printer groups the expression in
- * parentheses so automatic semicolon insertion does not change the returned value.
+ * parentheses so automatic semicolon insertion does not change the returned
+ * value.
  *
  * With no expression the result is:
  *
@@ -23,6 +24,9 @@ import { make } from "../internal/make";
  * return value;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @returns The created {@link ReturnStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Optional expression distinguishes bare return from returning a value;
  *   keeping the expression tree leaves grammar-safe parenthesization to printing.
@@ -36,10 +40,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains bare-return undefined semantics and value return with two
  *   separate examples before the acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @returns The created {@link ReturnStatement}.
  */
 export const createReturnStatement = (
   expression?: Expression,

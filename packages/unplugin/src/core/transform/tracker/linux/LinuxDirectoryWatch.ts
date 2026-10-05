@@ -34,7 +34,8 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
 export interface LinuxDirectoryWatch {
   /**
    * Retire the shared helper subscription after the last subscriber leaves or
-   * the native watch fails. Failure is then reported to all attached observers.
+   * the native watch fails. Failure is then reported to all attached
+   * observers.
    *
    * @evidence contracts/common.md#principled-implementation
    *   This operation retires the shared native subscription, not one observer.

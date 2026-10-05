@@ -39,10 +39,11 @@ export interface ITtscCapabilityPlugin {
  * A capability lookup and an opaque proof of its continued validity.
  *
  * A resolved empty list means no admitted sidecar matches the requested
- * capability. An unavailable lookup also has no entries, but must be retried rather than
- * retained as proof of absence. Even a resolved lookup can lack reusable proof,
- * for example when a descriptor does not declare its external reads or config
- * inheritance uses module resolution with unobserved selection authority.
+ * capability. An unavailable lookup also has no entries, but must be retried
+ * rather than retained as proof of absence. Even a resolved lookup can lack
+ * reusable proof, for example when a descriptor does not declare its external
+ * reads or config inheritance uses module resolution with unobserved selection
+ * authority.
  *
  * @evidence contracts/common.md#principled-implementation Status distinguishes completed lookup from degraded failure; the selected array contains only admitted nonempty-binary sidecars with the requested capability declared true. The owning freshness predicate separately decides reuse under its recorded premises, rather than an independently reconstructed consumer inventory.
  * @evidence contracts/common.md#clear-and-simple-design Plugins, outcome and one opaque validity query expose the consumer's decisions without leaking persistent-cache format or requiring a second package resolver.

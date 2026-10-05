@@ -1,7 +1,7 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 )
 
 /**
@@ -24,13 +24,13 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkedRootNamesItsDocumentsThroughTheDeclaredSpelling(t *testing.T) {
-	workspace := t.TempDir()
-	writeLinkedDocuments(t, workspace, map[string]string{
-		"requirements/pricing.md": "## Discounts {#discounts}\n",
-	})
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/src/sale.ts": "export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  writeLinkedDocuments(t, workspace, map[string]string{
+    "requirements/pricing.md": "## Discounts {#discounts}\n",
+  })
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/src/sale.ts": "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
@@ -41,15 +41,15 @@ func TestALinkedRootNamesItsDocumentsThroughTheDeclaredSpelling(t *testing.T) {
       "symbol":"h2"
     }
   }]}`)
-	assertProblemContains(
-		t,
-		messages,
-		"Missing acknowledgement for 'requirements/pricing.md#discounts'",
-	)
-	assertProblemContains(t, messages, "at ../documents/requirements/pricing.md:1")
-	if countProblemsContaining(messages, "/target/") != 0 {
-		t.Fatalf(
-			"a document behind a link is named through the root, not through the link's own target",
-		)
-	}
+  assertProblemContains(
+    t,
+    messages,
+    "Missing acknowledgement for 'requirements/pricing.md#discounts'",
+  )
+  assertProblemContains(t, messages, "at ../documents/requirements/pricing.md:1")
+  if countProblemsContaining(messages, "/target/") != 0 {
+    t.Fatalf(
+      "a document behind a link is named through the root, not through the link's own target",
+    )
+  }
 }

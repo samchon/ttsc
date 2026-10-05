@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * { name: string }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param members The type members.
+ * @returns The created {@link TypeLiteralNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered TypeElement children define the anonymous shape, and the empty
  *   default creates an empty member list rather than a fabricated property.
@@ -31,10 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc describes empty/nonempty shapes and member-list layout, with
  *   the default and return type recorded separately from the example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param members The type members.
- * @returns The created {@link TypeLiteralNode}.
  */
 export const createTypeLiteralNode = (
   members: readonly TypeElement[] = [],

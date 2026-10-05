@@ -19,7 +19,8 @@ export function lineColumnOf(
   for (let index = 0; index < end; ++index) {
     const code = source.charCodeAt(index);
     if (code === 13 || code === 10 || code === 0x2028 || code === 0x2029) {
-      if (code === 13 && source.charCodeAt(index + 1) === 10 && index + 1 < end) ++index;
+      if (code === 13 && source.charCodeAt(index + 1) === 10 && index + 1 < end)
+        ++index;
       ++line;
       lastNewline = index;
     }

@@ -1,6 +1,8 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  type Expression,
+} from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 const a = () => id("a");
@@ -13,8 +15,10 @@ const b = () => id("b");
  * delegates to the right operator token — full structural coverage of the alias
  * surface.
  *
- * 1. All binary, prefix and postfix convenience aliases emit the operator assigned to that alias while retaining a/b operands.
- * 2. The explicit alias-to-source table specifies operator tokens independently; no expected text is obtained by printing a generic binary node.
+ * 1. All binary, prefix and postfix convenience aliases emit the operator assigned
+ *    to that alias while retaining a/b operands.
+ * 2. The explicit alias-to-source table specifies operator tokens independently;
+ *    no expected text is obtained by printing a generic binary node.
  *
  * @evidence contracts/testing.md#behavioral-verification All binary, prefix and postfix convenience aliases emit the operator assigned to that alias while retaining a/b operands.
  * @evidence contracts/testing.md#independent-expectations The explicit alias-to-source table specifies operator tokens independently; no expected text is obtained by printing a generic binary node.

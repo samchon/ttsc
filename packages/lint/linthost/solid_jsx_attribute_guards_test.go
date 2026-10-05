@@ -58,12 +58,12 @@ function App() {
     {Rule: "solid/jsx-no-duplicate-props", Severity: SeverityError, Line: 16},
   })
   assertSolidFindings(t, "import { createSignal } from \"solid-js\"; const view = <a onClick={() => {}} class=\"primary\" for=\"field\" href=\"/safe\" id=\"a\" />; void createSignal;\n", RuleConfig{
-    "solid/event-handlers": SeverityError,
-    "solid/jsx-no-duplicate-props": SeverityError,
-    "solid/jsx-no-script-url": SeverityError,
-    "solid/no-array-handlers": SeverityError,
-    "solid/no-innerhtml": SeverityError,
+    "solid/event-handlers":          SeverityError,
+    "solid/jsx-no-duplicate-props":  SeverityError,
+    "solid/jsx-no-script-url":       SeverityError,
+    "solid/no-array-handlers":       SeverityError,
+    "solid/no-innerhtml":            SeverityError,
     "solid/no-react-specific-props": SeverityError,
-    "solid/no-unknown-namespaces": SeverityError,
+    "solid/no-unknown-namespaces":   SeverityError,
   }, nil)
 }

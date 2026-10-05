@@ -1,7 +1,10 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, SyntaxKind } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
+import factory, {
+  type Expression,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { id } from "../../internal/helpers";
 import { assertOracle, parseDiagnostics, wide } from "../../internal/oracle";
 

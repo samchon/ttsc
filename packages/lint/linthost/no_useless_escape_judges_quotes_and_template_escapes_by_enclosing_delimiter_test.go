@@ -29,7 +29,7 @@ func TestNoUselessEscapeJudgesQuotesAndTemplateEscapesByEnclosingDelimiter(t *te
   }
   cases := []struct {
     source string
-    want []int
+    want   []int
   }{
     {"const a = 'say \\\"hi\\\"';\nJSON.stringify(a);\n", []int{15, 19}},
     {"const a = \"it\\'s\";\nJSON.stringify(a);\n", []int{13}},

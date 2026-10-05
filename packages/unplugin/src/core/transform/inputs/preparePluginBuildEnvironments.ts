@@ -33,7 +33,11 @@ export async function preparePluginBuildEnvironments(
   for (const [directory, state] of selectPluginSourceInputs(result)) {
     try {
       await PluginBuildEnvironmentReadings.prepare(directory);
-      if (!pluginSourceHolds(directory, state, filesystem, { environment: PluginBuildEnvironmentReadings.cached(directory) }))
+      if (
+        !pluginSourceHolds(directory, state, filesystem, {
+          environment: PluginBuildEnvironmentReadings.cached(directory),
+        })
+      )
         await PluginBuildEnvironmentReadings.prepare(directory, true);
     } catch {
       // Admission and terminal recovery interpret unavailable proof in their
@@ -43,8 +47,8 @@ export async function preparePluginBuildEnvironments(
 }
 
 /**
- * Whether this result's owner attempted asynchronous native preparation.
- * This records execution ownership, never successful observation authority.
+ * Whether this result's owner attempted asynchronous native preparation. This
+ * records execution ownership, never successful observation authority.
  *
  * @evidence contracts/common.md#principled-implementation Result identity distinguishes async-owned proof from a standalone synchronous observation; membership does not certify any environment reading.
  * @evidence contracts/common.md#clear-and-simple-design One identity query selects which execution owner may prepare missing native authority.

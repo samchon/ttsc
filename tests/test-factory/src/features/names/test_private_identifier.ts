@@ -1,17 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { print } from "../../internal/helpers";
 
 /**
- * Verifies printing of a {@link factory.createPrivateIdentifier|private identifier}.
+ * Verifies printing of a
+ * {@link factory.createPrivateIdentifier|private identifier}.
  *
  * A leading `#` is added when missing and preserved when already present, so
  * both `createPrivateIdentifier("secret")` and `("#kept")` round-trip
  * correctly.
  *
  * 1. Private identifier printing adds # when absent and preserves an existing #.
- * 2. The independent #secret and #kept expectations require exactly one private prefix.
+ * 2. The independent #secret and #kept expectations require exactly one private
+ *    prefix.
  *
  * @evidence contracts/testing.md#behavioral-verification Private identifier printing adds # when absent and preserves an existing #.
  * @evidence contracts/testing.md#independent-expectations The independent #secret and #kept expectations require exactly one private prefix.

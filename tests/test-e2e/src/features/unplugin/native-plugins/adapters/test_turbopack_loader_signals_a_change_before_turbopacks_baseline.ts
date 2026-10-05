@@ -39,7 +39,8 @@ export async function test_turbopack_loader_signals_a_change_before_turbopacks_b
   const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "development";
   try {
-    const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
+    const root =
+      preparedRoot ?? TestUnpluginProject.createProject({ plugins: [] });
     const declaration = path.join(root, "src", "types.d.ts");
     fs.writeFileSync(declaration, "export type Before = string;\n");
     const run = () =>

@@ -1,13 +1,13 @@
 import type { NativeBuildContext, UnpluginBuildContext } from "unplugin";
 
 /**
- * Select the build host's module-level file registration channel.
- * Farm associates the input with the delivered module. Webpack and Rspack use
- * their available loader context; without one, registration uses the generic
- * context. The selected loader is also returned for the caller's cacheability
- * decision, so its native property is read only once. The returned callback
- * preserves each method's receiver and errors.
- * Selecting a channel does not certify host receipt or watch coverage.
+ * Select the build host's module-level file registration channel. Farm
+ * associates the input with the delivered module. Webpack and Rspack use their
+ * available loader context; without one, registration uses the generic context.
+ * The selected loader is also returned for the caller's cacheability decision,
+ * so its native property is read only once. The returned callback preserves
+ * each method's receiver and errors. Selecting a channel does not certify host
+ * receipt or watch coverage.
  *
  * @evidence contracts/common.md#principled-implementation Farm receives the delivered module and input; a present webpack/Rspack loader receives only the input through addDependency; other contexts use addWatchFile. No compilation-level, missing-file or directory channel substitutes for module registration.
  * @evidence contracts/common.md#clear-and-simple-design One production-used factory owns channel selection, while registerProjectRecord owns record handoff and the host owns invalidation.

@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx mirrors a project-root entry that is a file symlink.
@@ -19,6 +20,7 @@ import path from "node:path";
  *    project.
  * 2. Run ttsx against the entry.
  * 3. Assert the virtual-layout mirror completes and the entry executes.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual ttsx mirrors a root file symlink and executes file-symlink-ok when native fixture link creation is permitted.
  * @evidence contracts/testing.md#independent-expectations Authored output and lstat proof of a real file link establish expectations independently of mirror logic.
  * @evidence contracts/testing.md#distinguishing-cases External file target contrasts with the directory-link case; forced mirror rejection/copy bytes belong to the direct unit.
@@ -30,31 +32,37 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Immutable tracked target/root survive synchronous completion. The setup-only catch distinguishes native fixture denial from a product mirror failure.
  * @evidence contracts/e2e.md#preserved-coverage Original link, zero status and exact output remain on capable hosts. Incapable hosts cannot execute this boundary; the forced-rejection unit preserves fallback assertions without claiming equivalent assembly.
  */
-export function test_ttsx_virtual_layout_mirrors_a_file_symlink_project_entry(): void | false {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_virtual_layout_mirrors_a_file_symlink_project_entry/inputs-1"));
-    const linkedFile = path.join(
-      TestProject.tmpdir("ttsx-linked-file-"),
-      "linked.txt",
-    );
-    fs.writeFileSync(linkedFile, "linked", "utf8");
-    const entry = path.join(root, "linked.txt");
-    try {
-      fs.symlinkSync(linkedFile, entry, "file");
-    } catch {
-      // Creating the fixture needs the symlink privilege this contract is
-      // about, so without it there is no file-symlink entry to mirror. The
-      // fallback taken when the mirror itself is refused is pinned by
-      // test_linkvirtualentry_copies_a_file_symlink_entry_when_symlink_creation_fails.
-      return false;
-    }
-    assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
-
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      { cwd: root },
-    );
-
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "file-symlink-ok");
+export function test_ttsx_virtual_layout_mirrors_a_file_symlink_project_entry():
+  | void
+  | false {
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_virtual_layout_mirrors_a_file_symlink_project_entry/inputs-1",
+    ),
+  );
+  const linkedFile = path.join(
+    TestProject.tmpdir("ttsx-linked-file-"),
+    "linked.txt",
+  );
+  fs.writeFileSync(linkedFile, "linked", "utf8");
+  const entry = path.join(root, "linked.txt");
+  try {
+    fs.symlinkSync(linkedFile, entry, "file");
+  } catch {
+    // Creating the fixture needs the symlink privilege this contract is
+    // about, so without it there is no file-symlink entry to mirror. The
+    // fallback taken when the mirror itself is refused is pinned by
+    // test_linkvirtualentry_copies_a_file_symlink_entry_when_symlink_creation_fails.
+    return false;
   }
+  assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
+
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "file-symlink-ok");
+}

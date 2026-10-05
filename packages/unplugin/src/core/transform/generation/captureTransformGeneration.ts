@@ -3,10 +3,10 @@ import { type ITtscCompilerTransformation, TtscCompiler } from "ttsc";
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
+import { traceInvocation } from "../../tracing/traceInvocation";
 import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMembershipPolicy";
 import { mergeMembershipPolicyOverlay } from "../../tsconfig/mergeMembershipPolicyOverlay";
 import { readTsconfigSourceSnapshot } from "../../tsconfig/readTsconfigSourceSnapshot";
-import { traceInvocation } from "../../tracing/traceInvocation";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTEM";
 import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
@@ -18,6 +18,7 @@ import { selectNotifiableAbsentInputs } from "../envelope/selectNotifiableAbsent
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
 import { createHostPathIdentityContext } from "../filesystem/createHostPathIdentityContext";
+import { preparePluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { collectProjectInputSnapshot } from "../project/collectProjectInputSnapshot";
 import { toProjectKey } from "../project/toProjectKey";
 import { TRANSFORM_ADOPTED_RESULTS } from "../session/TRANSFORM_ADOPTED_RESULTS";
@@ -37,7 +38,6 @@ import { createTransformTsconfig } from "../tsconfig/createTransformTsconfig";
 import { readTransformTsconfigState } from "../tsconfig/readTransformTsconfigState";
 import { transformScratchEnvironment } from "../tsconfig/transformScratchEnvironment";
 import { hashText } from "../utils/hashText";
-import { preparePluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { captureExternalInputSnapshot } from "../validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../validation/captureUniversalHostInputValidation";
 import { compilerGraphInputProofFailures } from "../validation/compilerGraphInputProofFailures";
@@ -53,9 +53,12 @@ import { mergeGenerationProofFailures } from "./mergeGenerationProofFailures";
 import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
 import { projectWalkStable } from "./projectWalkStable";
 import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
-import { generationNotificationsAvailable, retainGenerationNotifications } from "./retainGenerationNotifications";
-import { releaseCaptureResources } from "./releaseCaptureResources";
 import { recordProjectSnapshotFailures } from "./recordProjectSnapshotFailures";
+import { releaseCaptureResources } from "./releaseCaptureResources";
+import {
+  generationNotificationsAvailable,
+  retainGenerationNotifications,
+} from "./retainGenerationNotifications";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 import { selectReportedMembershipPolicy } from "./selectReportedMembershipPolicy";
 import { transferCaptureClockReference } from "./transferCaptureClockReference";
@@ -69,12 +72,12 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  *
- * Project walks bracket the compiler; an available compile-time tracker adds
- * an independent mutation witness. Reported graph/external/host proofs must
- * agree before a successful generation can be published. Retained observers
- * and the clock probe transfer only with a returned capture; the finally chain
- * attempts cleanup of other resources and always releases claim ownership.
- * Native removal failures can leave storage even after ownership ends.
+ * Project walks bracket the compiler; an available compile-time tracker adds an
+ * independent mutation witness. Reported graph/external/host proofs must agree
+ * before a successful generation can be published. Retained observers and the
+ * clock probe transfer only with a returned capture; the finally chain attempts
+ * cleanup of other resources and always releases claim ownership. Native
+ * removal failures can leave storage even after ownership ends.
  *
  * @evidence contracts/common.md#principled-implementation Before/after walk agreement, compiler graph read proofs, external dependency witnesses and host validation jointly establish the captured generation's supported reuse premises; adopted publications are validated against their recorded external state on this worker's disk.
  * @evidence contracts/common.md#clear-and-simple-design One capture owns the compile window and final resource handoff, delegating config overlays, shared compile claiming, input selection, proof composition and tracker operations to their owning helpers.
@@ -360,13 +363,19 @@ export async function captureTransformGeneration(props: {
       compileTrace?.("bridge-cache-hit", {
         pid: process.pid,
         cwd: projectRoot,
-        data: { operation: "shared-compile-adoption", tsconfig: configured.path },
+        data: {
+          operation: "shared-compile-adoption",
+          tsconfig: configured.path,
+        },
       });
     } else {
       compileTrace?.("bridge-lookup", {
         pid: process.pid,
         cwd: projectRoot,
-        data: { operation: "TtscCompiler.transformAsync", tsconfig: configured.path },
+        data: {
+          operation: "TtscCompiler.transformAsync",
+          tsconfig: configured.path,
+        },
       });
       try {
         result = await new TtscCompiler({
@@ -596,7 +605,9 @@ export async function captureTransformGeneration(props: {
         tracker,
       });
     const notificationsAvailable = generationNotificationsAvailable(
-      tracker, hostInputTracker, candidateTracker,
+      tracker,
+      hostInputTracker,
+      candidateTracker,
     );
     // The compile read this file from disk, so the disk's bytes are its state in
     // this generation. A delivered text that differs, because a plugin ordered
@@ -809,7 +820,9 @@ export async function captureTransformGeneration(props: {
         stableProjectSnapshot,
         resultType: result.type,
         producerObservationsComplete:
-          result.type === "exception" ? null : result.observationsComplete ?? null,
+          result.type === "exception"
+            ? null
+            : (result.observationsComplete ?? null),
         hostInputProofFailureKeys:
           result.type === "exception"
             ? null

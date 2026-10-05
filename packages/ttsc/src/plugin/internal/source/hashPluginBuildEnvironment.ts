@@ -173,7 +173,12 @@ function resolveGoCompilerIdentity(
   cwd: string = process.cwd(),
   witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
-  const selected = GoToolResolution.resolveGoToolForBuild(goBinary, env, cwd, witness);
+  const selected = GoToolResolution.resolveGoToolForBuild(
+    goBinary,
+    env,
+    cwd,
+    witness,
+  );
   const resolved =
     process.platform === "win32"
       ? resolveRealPath(selected)
@@ -487,11 +492,10 @@ function normalizeGoBuildEnvValue(
  * Go runs the value as a command and its arguments (`cmd/internal/quoted`), so
  * a launcher such as `ccache gcc` or a wrapper followed by the compiler it
  * delegates to names more than one program the build runs. Hashing only the
- * first token would keep the key when the delegated compiler is replaced.
- * A token that names no executable file, a flag, is part
- * of the command's text, which the key carries beside this identity. A program
- * a launcher finds by its own means, not named in the command, is outside what
- * the command can show.
+ * first token would keep the key when the delegated compiler is replaced. A
+ * token that names no executable file, a flag, is part of the command's text,
+ * which the key carries beside this identity. A program a launcher finds by its
+ * own means, not named in the command, is outside what the command can show.
  */
 function resolveCommandCacheIdentity(
   command: string,
@@ -506,7 +510,12 @@ function resolveCommandCacheIdentity(
   if (executable === undefined) {
     return "command:empty";
   }
-  const resolved = resolveExecutableIdentityPath(executable, env, process.cwd(), witness);
+  const resolved = resolveExecutableIdentityPath(
+    executable,
+    env,
+    process.cwd(),
+    witness,
+  );
   PluginBuildEnvironmentWitness.add(witness, resolved);
   if (!fs.existsSync(resolved)) {
     return `command:missing:${executable}`;
@@ -518,7 +527,12 @@ function resolveCommandCacheIdentity(
     return `command:unreadable:${resolved}`;
   }
   args.forEach((arg, index) => {
-    const operand = resolveExecutableIdentityPath(arg, env, process.cwd(), witness);
+    const operand = resolveExecutableIdentityPath(
+      arg,
+      env,
+      process.cwd(),
+      witness,
+    );
     if (!GoToolResolution.isExecutableFile(operand)) return;
     PluginBuildEnvironmentWitness.add(witness, operand);
     try {

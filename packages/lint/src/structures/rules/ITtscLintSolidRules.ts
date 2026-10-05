@@ -35,10 +35,11 @@ export interface ITtscLintSolidRules {
   "solid/event-handlers"?: TtscLintRuleSetting;
 
   /**
-   * Route recognized named Solid exports to the correct entry point (`solid-js`,
-   * `solid-js/web`, or `solid-js/store`) and relocate a misrouted one to where
-   * it belongs, joining an existing import from that entry when the file
-   * already has one. The diagnostic names the symbol and its entry point.
+   * Route recognized named Solid exports to the correct entry point
+   * (`solid-js`, `solid-js/web`, or `solid-js/store`) and relocate a misrouted
+   * one to where it belongs, joining an existing import from that entry when
+   * the file already has one. The diagnostic names the symbol and its entry
+   * point.
    *
    * Autofixable. A specifier that stands alone has its declaration's module
    * specifier rewritten; one with siblings, or one beside a default binding, is
@@ -68,8 +69,9 @@ export interface ITtscLintSolidRules {
   "solid/jsx-no-script-url"?: TtscLintRuleSetting;
 
   /**
-   * Reject bare JSX component names absent from the file's collected declaration
-   * and import names. Member tags are skipped; this is not lexical resolution.
+   * Reject bare JSX component names absent from the file's collected
+   * declaration and import names. Member tags are skipped; this is not lexical
+   * resolution.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/jsx-no-undef.md
    */
@@ -104,8 +106,8 @@ export interface ITtscLintSolidRules {
   /**
    * Reject Solid APIs that rely on ES6 `Proxy` (including `new Proxy`,
    * `Proxy.revocable`, imports from `solid-js/store`, and recognized
-   * `mergeProps` calls regardless of their argument shape). For shipping to runtimes without `Proxy` support;
-   * off by default.
+   * `mergeProps` calls regardless of their argument shape). For shipping to
+   * runtimes without `Proxy` support; off by default.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-proxy-apis.md
    */
@@ -115,8 +117,8 @@ export interface ITtscLintSolidRules {
    * Reject React-style dependency arrays in Solid tracked scopes
    * (`createEffect(() => ..., [deps])`).
    *
-   * Type-aware via the Checker: the callee has to resolve to the Solid primitive
-   * rather than a same-named local or a shadowing parameter. Enabling
+   * Type-aware via the Checker: the callee has to resolve to the Solid
+   * primitive rather than a same-named local or a shadowing parameter. Enabling
    * this rule therefore puts the whole run on the checker path.
    *
    * The native check requires two arguments, a parameterless function and an

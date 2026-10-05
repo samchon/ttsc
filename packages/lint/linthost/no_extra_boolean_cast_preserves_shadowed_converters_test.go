@@ -12,10 +12,10 @@ import (
 // argument. Replacing its call by that argument changes which branch executes;
 // the conversion is therefore neither redundant nor eligible for a fix.
 //
-// 1. Run the owning Engine on parameter, block, module and hoisted shadows,
-//    including double negation passed to custom calls and constructors.
-// 2. Require each shadowed call to produce no redundant-conversion finding.
-// 3. Apply real fixes to an unshadowed Boolean call and double negation.
+//  1. Run the owning Engine on parameter, block, module and hoisted shadows,
+//     including double negation passed to custom calls and constructors.
+//  2. Require each shadowed call to produce no redundant-conversion finding.
+//  3. Apply real fixes to an unshadowed Boolean call and double negation.
 //
 // @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot executes no-extra-boolean-cast, compares zero findings and applies actual fixes to require unchanged source for lexical and script-global converter bindings; assertFixSnapshot applies the real edits to built-in, type-only augmentation and double-negation controls and compares complete output text.
 // @evidence contracts/testing.md#independent-expectations A supplied converter can return false for 1, while built-in Boolean yields truthiness. A custom call or constructor can also retain the difference between true and 1, so removing its argument's double negation changes independently observable data. Whole source literals must remain unchanged for these bindings.
@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership The discoverable Go Test and its named subtests call the owning Engine through runRuleFindingsSnapshot and assertFixSnapshot in one unit process. The helper loads the real Program/checker required to resolve converter bindings; no consumer installation, native build or real product host is used.
 func TestNoExtraBooleanCastPreservesShadowedConverters(t *testing.T) {
   shadows := []struct {
-    name string
+    name   string
     source string
   }{
     {"parameter", "function f(Boolean: (x: number) => boolean) { if (Boolean(1)) return 1; return 0; }\n"},

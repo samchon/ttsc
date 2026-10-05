@@ -25,7 +25,8 @@ export interface ITtscLintReactOnlyExportComponentsRuleOptions {
 
   /**
    * Export names exempted by caller policy, such as framework route metadata.
-   * The rule does not verify that the active framework handles them at runtime.
+   * The rule does not verify that the active framework handles them at
+   * runtime.
    *
    * @default [ ]
    */
@@ -40,9 +41,9 @@ export interface ITtscLintReactOnlyExportComponentsRuleOptions {
   allowConstantExport?: boolean;
 
   /**
-   * Also scan `.js` files that import React. `.tsx` and `.jsx` files are eligible
-   * without this switch; names containing `.test.`, `.spec.`, `.cy.`, or
-   * `.stories.` remain excluded for every supported extension.
+   * Also scan `.js` files that import React. `.tsx` and `.jsx` files are
+   * eligible without this switch; names containing `.test.`, `.spec.`, `.cy.`,
+   * or `.stories.` remain excluded for every supported extension.
    *
    * @default false
    */

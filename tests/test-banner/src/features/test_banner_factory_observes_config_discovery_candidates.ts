@@ -24,10 +24,10 @@ import type createBanner from "../../../../packages/banner/src/index";
  *    `banner.config.ts` and whose parent holds `banner.config.json`.
  * 2. Discover from the nested tsconfig and assert the fourteen probed paths in
  *    native order, the file digest, the directory marker digest and nulls.
- * 3. Re-anchor through `pluginConfigDir` and an absolute `configFile`, and
- *    assert the walk then starts at, or stops on, the named location.
- * 4. Create a nearer config, change its bytes without changing their length,
- *    and add a sibling candidate; assert each observation reflects that state.
+ * 3. Re-anchor through `pluginConfigDir` and an absolute `configFile`, and assert
+ *    the walk then starts at, or stops on, the named location.
+ * 4. Create a nearer config, change its bytes without changing their length, and
+ *    add a sibling candidate; assert each observation reflects that state.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls createBanner without configFile and asserts hostInputs, hostInputHashes and hostInputRealpaths for a two-level walk; the descriptor must stop at the first directory that holds a real config file and must treat the directory-shaped candidate as unread bytes with a marker digest. Repeated calls after creating and editing a nearer config and adding a sibling must observe the new bytes and retain every sibling candidate.
  * @evidence contracts/testing.md#independent-expectations Digests are computed with node:crypto over literal bytes and the documented marker string, the candidate order is the authored seven-name list, and the physical target of the directory candidate is the junction target the test created, none of it read back from the factory.
@@ -100,9 +100,8 @@ export function test_banner_factory_observes_config_discovery_candidates(): void
       "ttsc:host-input:directory\0",
     );
     realpaths[path.join(nested, "banner.config.ts")] = decoyTarget;
-    hashes[path.join(project, "banner.config.json")] = sha256(
-      '{"text":"parent"}',
-    );
+    hashes[path.join(project, "banner.config.json")] =
+      sha256('{"text":"parent"}');
     realpaths[path.join(project, "banner.config.json")] = path.join(
       project,
       "banner.config.json",

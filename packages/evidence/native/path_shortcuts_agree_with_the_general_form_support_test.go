@@ -22,8 +22,6 @@ func generalRelativeProjectPath(root string, absolute string) (string, bool) {
   return strings.TrimPrefix(relative, "./"), true
 }
 
-
-
 func generalProjectPath(root string, relative string) string {
   local := filepath.FromSlash(relative)
   absolute := local

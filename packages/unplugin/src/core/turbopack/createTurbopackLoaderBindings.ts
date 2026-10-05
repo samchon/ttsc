@@ -2,7 +2,8 @@ import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
 import type { TtscTurbopackLoaderOptions } from "./TtscTurbopackLoaderOptions";
 
 /**
- * Bind a delivery's optional host channels without reading its rule options yet.
+ * Bind a delivery's optional host channels without reading its rule options
+ * yet.
  *
  * Dependency, cacheability and error methods are captured with their original
  * context. Rule options are read through that context when the caller reaches

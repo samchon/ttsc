@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -9,6 +8,7 @@ import { refreshProcessClockReference } from "../../../../../packages/unplugin/s
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
 import { userStateDirectory } from "../../../../../packages/unplugin/src/core/transform/filesystem/userStateDirectory";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a proof that holds no generation mints its clock reference in the
@@ -78,19 +78,41 @@ export function test_process_clock_reference_mints_in_one_kept_directory(): void
   );
 
   // 3. A different lexical spelling reaches the same physical state parent.
-  const alias = path.join(TestProject.tmpdir("ttsc-unplugin-clock-root-alias-"), "root");
-  fs.symlinkSync(path.dirname(kept), alias, process.platform === "win32" ? "junction" : "dir");
+  const alias = path.join(
+    TestProject.tmpdir("ttsc-unplugin-clock-root-alias-"),
+    "root",
+  );
+  fs.symlinkSync(
+    path.dirname(kept),
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
   assert.equal(fs.lstatSync(alias).isSymbolicLink(), true);
-  assert.equal(fs.realpathSync.native(alias), fs.realpathSync.native(path.dirname(kept)));
+  assert.equal(
+    fs.realpathSync.native(alias),
+    fs.realpathSync.native(path.dirname(kept)),
+  );
   refreshProcessClockReference(project, filesystem);
   assert.equal(filesystemClockReferences(filesystem).size, 1);
   const probe = stated[stated.length - 1]!;
   const originalProbe = fs.readFileSync(probe);
   const beforeAlias = stated.length;
   refreshProcessClockReference(alias, filesystem);
-  assert.equal(filesystemClockReferences(filesystem).size, 0, "a native alias cannot conceal an enclosing observed root");
-  assert.equal(stated.length, beforeAlias, "refused physical containment never observes a new probe");
-  assert.deepEqual(fs.readFileSync(probe), originalProbe, "refusal leaves actual probe bytes untouched");
+  assert.equal(
+    filesystemClockReferences(filesystem).size,
+    0,
+    "a native alias cannot conceal an enclosing observed root",
+  );
+  assert.equal(
+    stated.length,
+    beforeAlias,
+    "refused physical containment never observes a new probe",
+  );
+  assert.deepEqual(
+    fs.readFileSync(probe),
+    originalProbe,
+    "refusal leaves actual probe bytes untouched",
+  );
 
   // 4. Unknown root identity cannot prove that a probe lies outside it.
   for (const code of ["EIO", "EACCES"]) {
@@ -103,7 +125,9 @@ export function test_process_clock_reference_mints_in_one_kept_directory(): void
       realpath: (location) => {
         if (path.resolve(location) === deniedRoot) {
           rootResolutions++;
-          throw Object.assign(new Error("authored root identity unavailable"), { code });
+          throw Object.assign(new Error("authored root identity unavailable"), {
+            code,
+          });
         }
         return DEFAULT_FILESYSTEM_OPERATIONS.realpath(location);
       },
@@ -113,9 +137,25 @@ export function test_process_clock_reference_mints_in_one_kept_directory(): void
     const original = fs.readFileSync(probe);
     const beforeDenied = stated.length;
     refreshProcessClockReference(deniedRoot, deniedFilesystem);
-    assert.equal(rootResolutions > 0, true, "the supplied root identity was actually consulted");
-    assert.equal(filesystemClockReferences(deniedFilesystem).size, 0, `${code}: unknown root withdraws prior reference`);
-    assert.equal(stated.length, beforeDenied, `${code}: unknown root never observes a new probe`);
-    assert.deepEqual(fs.readFileSync(probe), original, `${code}: refusal leaves actual probe bytes untouched`);
+    assert.equal(
+      rootResolutions > 0,
+      true,
+      "the supplied root identity was actually consulted",
+    );
+    assert.equal(
+      filesystemClockReferences(deniedFilesystem).size,
+      0,
+      `${code}: unknown root withdraws prior reference`,
+    );
+    assert.equal(
+      stated.length,
+      beforeDenied,
+      `${code}: unknown root never observes a new probe`,
+    );
+    assert.deepEqual(
+      fs.readFileSync(probe),
+      original,
+      `${code}: refusal leaves actual probe bytes untouched`,
+    );
   }
 }

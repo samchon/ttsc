@@ -1,12 +1,13 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { readCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/readCapabilityResolution";
-import { writeCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/writeCapabilityResolution";
+
 import { hashHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/hashHostInputPaths";
 import { realpathHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/realpathHostInputPaths";
+import { readCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/readCapabilityResolution";
 import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceState";
+import { writeCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/writeCapabilityResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a cached capability answer is refused once a plugin source it was
@@ -22,8 +23,8 @@ import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/inter
  *    directory, and require it to hit.
  * 2. Edit the module's Go source and require the entry to be refused although the
  *    recorded binary still exists.
- * 3. Restore the original bytes and require the entry to hit again, then record
- *    an entry with a state different from the observed one and require refusal.
+ * 3. Restore the original bytes and require the entry to hit again, then record an
+ *    entry with a state different from the observed one and require refusal.
  *
  * @evidence contracts/testing.md#behavioral-verification writeCapabilityResolution and readCapabilityResolution run over a real Go module directory and a real binary file: the unchanged source hits, an edited main.go makes the reader return null while the binary file remains, the restored bytes hit again, and an entry recording an all-zero source state returns null.
  * @evidence contracts/testing.md#independent-expectations Authored edits, restoration and a recorded all-zero state established as different from the observed state decide hit or miss under the cache contract. Positive controls use pluginSourceState to record the state, so this test verifies cache invalidation rather than independently certifying the digest value.
@@ -37,7 +38,19 @@ export function test_capabilityresolutioncache_refuses_a_plugin_source_whose_sta
   const binary = path.join(cwd, "plugin.exe");
   const tsconfig = path.join(cwd, "tsconfig.json");
   const manifest = path.join(cwd, "package.json");
-  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "capabilityresolutioncache_refuses_a_plugin_source_whose_state_no_longer_holds", "inputs-1"), source);
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "unit",
+      "capabilityresolutioncache_refuses_a_plugin_source_whose_state_no_longer_holds",
+      "inputs-1",
+    ),
+    source,
+  );
   fs.renameSync(path.join(source, "main.go.txt"), path.join(source, "main.go"));
   const original = fs.readFileSync(path.join(source, "main.go"), "utf8");
   fs.writeFileSync(tsconfig, JSON.stringify({ compilerOptions: {} }));

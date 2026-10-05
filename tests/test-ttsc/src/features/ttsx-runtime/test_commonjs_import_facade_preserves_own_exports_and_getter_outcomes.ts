@@ -12,9 +12,10 @@ import { commonJsImportFacade } from "../../../../../packages/ttsc/src/launcher/
  *
  * Supplied static names deliberately include duplicates, missing and inherited
  * properties, declared in fixtures before their exports object is replaced.
- * Static-name discovery itself is not executed. Own getters are evaluated once per facade; a thrown getter must
- * leave its binding undefined without aborting import. Explicit marker modes
- * own the Node-version distinction without inferring it from the current host.
+ * Static-name discovery itself is not executed. Own getters are evaluated once
+ * per facade; a thrown getter must leave its binding undefined without aborting
+ * import. Explicit marker modes own the Node-version distinction without
+ * inferring it from the current host.
  *
  * @evidence contracts/testing.md#behavioral-verification Writes the actual returned commonJsImportFacade source as mjs and imports it natively. Observes own values, missing/inherited undefined bindings, getter counts and caught getter failure, explicit module.exports marker behavior, default identity and repeated import/cache behavior.
  * @evidence contracts/testing.md#independent-expectations Literal values and counters belong to authored CJS fixtures. Node22.15 translators.js requires own properties and tolerates throwing getters while reserving default; Node24.18 additionally reserves module.exports. Explicit false/true modes require the literal own marker versus default-object alias independently of generated source text.
@@ -27,9 +28,13 @@ export async function test_commonjs_import_facade_preserves_own_exports_and_gett
   const filename = path.join(root, "module.cjs");
   const failures: Error[] = [];
   try {
-    fs.writeFileSync(countsFile,
-      "module.exports = { evaluations: 0, good: 0, throwing: 0, inherited: 0 };\n");
-    fs.writeFileSync(filename, `
+    fs.writeFileSync(
+      countsFile,
+      "module.exports = { evaluations: 0, good: 0, throwing: 0, inherited: 0 };\n",
+    );
+    fs.writeFileSync(
+      filename,
+      `
 exports.value = 0;
 exports.good = 0;
 exports.missing = 0;
@@ -53,41 +58,76 @@ Object.defineProperties(value, {
   "module.exports": { value: "own marker field", enumerable: true }
 });
 module.exports = value;
-`);
+`,
+    );
     const require = createRequire(filename);
-    const counts: { evaluations: number; good: number; throwing: number; inherited: number } = require(countsFile);
+    const counts: {
+      evaluations: number;
+      good: number;
+      throwing: number;
+      inherited: number;
+    } = require(countsFile);
     const names = [
-      "value", "good", "good", "missing", "inheritedValue", "inheritedGetter",
-      "throwing", "throwing", "default", "module.exports", "value",
+      "value",
+      "good",
+      "good",
+      "missing",
+      "inheritedValue",
+      "inheritedGetter",
+      "throwing",
+      "throwing",
+      "default",
+      "module.exports",
+      "value",
     ];
     const originalNames = [...names];
     const namespaces: Record<string, unknown>[] = [];
     for (const [index, marker] of [false, true].entries()) {
       try {
         const facadeFile = path.join(root, `facade-${marker}.mjs`);
-        fs.writeFileSync(facadeFile, commonJsImportFacade(
-          pathToFileURL(filename).href, filename, names, marker,
-        ));
+        fs.writeFileSync(
+          facadeFile,
+          commonJsImportFacade(
+            pathToFileURL(filename).href,
+            filename,
+            names,
+            marker,
+          ),
+        );
         const namespace = await import(pathToFileURL(facadeFile).href);
         namespaces.push(namespace);
         assert.deepEqual(names, originalNames);
         assert.equal(namespace.value, 11);
         assert.equal(namespace.good, 7);
-        for (const name of ["missing", "inheritedValue", "inheritedGetter", "throwing"]) {
+        for (const name of [
+          "missing",
+          "inheritedValue",
+          "inheritedGetter",
+          "throwing",
+        ]) {
           assert.equal(Object.hasOwn(namespace, name), true, name);
           assert.equal(namespace[name], undefined, name);
         }
         const exported: { default: string; value: number } = require(filename);
         assert.equal(exported.default, "own default field");
         assert.equal(namespace.default, exported);
-        assert.equal(namespace["module.exports"], marker ? namespace.default : "own marker field");
+        assert.equal(
+          namespace["module.exports"],
+          marker ? namespace.default : "own marker field",
+        );
         assert.deepEqual(counts, {
-          evaluations: 1, good: index + 1, throwing: index + 1, inherited: 0,
+          evaluations: 1,
+          good: index + 1,
+          throwing: index + 1,
+          inherited: 0,
         });
         const repeated = await import(pathToFileURL(facadeFile).href);
         assert.equal(repeated, namespace);
         assert.deepEqual(counts, {
-          evaluations: 1, good: index + 1, throwing: index + 1, inherited: 0,
+          evaluations: 1,
+          good: index + 1,
+          throwing: index + 1,
+          inherited: 0,
         });
       } catch (cause) {
         failures.push(new Error(`facade marker=${marker}`, { cause }));
@@ -99,23 +139,43 @@ module.exports = value;
       exported.value = 101;
       assert.equal(require(filename).value, 101);
       assert.equal(namespaces[1]!.default, exported);
-      assert.deepEqual(namespaces.map(namespace => namespace.value), [11, 11]);
-      assert.deepEqual(counts, { evaluations: 1, good: 2, throwing: 2, inherited: 0 });
+      assert.deepEqual(
+        namespaces.map((namespace) => namespace.value),
+        [11, 11],
+      );
+      assert.deepEqual(counts, {
+        evaluations: 1,
+        good: 2,
+        throwing: 2,
+        inherited: 0,
+      });
     }
     const nullFile = path.join(root, "null.cjs");
-    fs.writeFileSync(nullFile, 'exports.default = "discarded";\nmodule.exports = null;\n');
+    fs.writeFileSync(
+      nullFile,
+      'exports.default = "discarded";\nmodule.exports = null;\n',
+    );
     for (const marker of [false, true]) {
       try {
         const facadeFile = path.join(root, `null-${marker}.mjs`);
-        fs.writeFileSync(facadeFile, commonJsImportFacade(
-          pathToFileURL(nullFile).href, nullFile, ["default"], marker,
-        ));
+        fs.writeFileSync(
+          facadeFile,
+          commonJsImportFacade(
+            pathToFileURL(nullFile).href,
+            nullFile,
+            ["default"],
+            marker,
+          ),
+        );
         if (marker) {
           const namespace = await import(pathToFileURL(facadeFile).href);
           assert.equal(namespace.default, null);
           assert.equal(namespace["module.exports"], null);
         } else {
-          await assert.rejects(import(pathToFileURL(facadeFile).href), TypeError);
+          await assert.rejects(
+            import(pathToFileURL(facadeFile).href),
+            TypeError,
+          );
         }
       } catch (cause) {
         failures.push(new Error(`null facade marker=${marker}`, { cause }));
@@ -131,5 +191,8 @@ module.exports = value;
     }
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "CommonJS facade namespace observations");
+    throw new AggregateError(
+      failures,
+      "CommonJS facade namespace observations",
+    );
 }

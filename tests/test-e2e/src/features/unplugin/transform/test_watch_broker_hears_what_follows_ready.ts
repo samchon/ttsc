@@ -1,12 +1,13 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawn } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
 import { fseventsBindingPath } from "../../../../../../packages/unplugin/lib/core/transform/tracker/broker/fseventsBindingPath.mjs";
 import { watchBrokerSource } from "../../../../../../packages/unplugin/lib/core/transform/tracker/broker/watchBrokerSource.mjs";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const { spawn } = E2eProcessTrace;
 
 /**
  * Verifies readiness, native drain frontiers and root-change gaps through one

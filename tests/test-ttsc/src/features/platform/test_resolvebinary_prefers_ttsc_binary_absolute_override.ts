@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+
 import { resolveBinary } from "../../../../../packages/ttsc/src/compiler/internal/resolveBinary";
 
 /**

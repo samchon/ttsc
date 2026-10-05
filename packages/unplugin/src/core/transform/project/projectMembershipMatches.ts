@@ -16,7 +16,6 @@ import { walkProjectInputs } from "./walkProjectInputs";
  * @param root The project root the membership belongs to.
  * @param state The recorded membership.
  * @param filesystem The filesystem to walk.
- *
  * @evidence contracts/common.md#principled-implementation Re-enumeration under the recorded policy must be complete before its membership digest may equal the captured value; an incomplete walk cannot authorize reuse.
  * @evidence contracts/common.md#clear-and-simple-design The operation delegates enumeration and digest construction to their existing owners and combines only completeness with identity comparison.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A matching partial directory set or quiet watcher is not substituted for a coherent membership observation.

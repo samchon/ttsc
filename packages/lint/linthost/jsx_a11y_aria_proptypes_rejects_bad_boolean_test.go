@@ -9,9 +9,9 @@ import "testing"
 // The rule checks known string literals against the attribute's value shape and
 // leaves dynamic expressions alone.
 //
-// 1. Run only `jsx-a11y/aria-proptypes` over `<div aria-hidden="maybe" />` and
-//    expect one finding whose message contains "true or false".
-// 2. Run it over `<div aria-hidden="false" />` and expect none.
+//  1. Run only `jsx-a11y/aria-proptypes` over `<div aria-hidden="maybe" />` and
+//     expect one finding whose message contains "true or false".
+//  2. Run it over `<div aria-hidden="false" />` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-proptypes enabled. aria-hidden="maybe" yields exactly one ordinary SeverityError finding from that rule whose message contains "true or false"; assertJsxA11yRuleSkips requires zero findings for aria-hidden="false".
 // @evidence contracts/testing.md#independent-expectations The ARIA boolean attributes accept the tokens true and false, so "maybe" is invalid and "false" is valid. The two literal sources and the message fragment are authored from that vocabulary.

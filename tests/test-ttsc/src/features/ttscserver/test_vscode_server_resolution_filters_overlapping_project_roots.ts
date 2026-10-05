@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server planning rejects overlapping project roots.
@@ -33,17 +34,16 @@ export function test_vscode_server_resolution_filters_overlapping_project_roots(
 
   const observed = (() => {
     const candidates = mod.createResolutionCandidates({
-      activeFile: (path.join(nested, "src", "main.ts")),
-      activeWorkspaceRoot: (root),
-      workspaceRoots: [(root)],
+      activeFile: path.join(nested, "src", "main.ts"),
+      activeWorkspaceRoot: root,
+      workspaceRoots: [root],
     });
-    return mod.filterNonOverlappingCandidates(candidates).map((entry) => entry.cwd);
-  
+    return mod
+      .filterNonOverlappingCandidates(candidates)
+      .map((entry) => entry.cwd);
   })();
   assert.deepEqual(
-    (observed as string[]).map((entry) =>
-      path.normalize(entry),
-    ),
+    (observed as string[]).map((entry) => path.normalize(entry)),
     [path.normalize(nested)],
   );
 }

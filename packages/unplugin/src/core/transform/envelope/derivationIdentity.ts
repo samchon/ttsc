@@ -2,10 +2,10 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
 import type { TtscEnvelopeDerivation } from "./TtscEnvelopeDerivation";
 
 /**
- * {@link pathIdentityKey} memoized inside one envelope's derivation state.
- * Pass an already-resolved native absolute spelling. The raw input string is
- * the memo key; a relative spelling would introduce current-directory state
- * which is not represented in that key.
+ * {@link pathIdentityKey} memoized inside one envelope's derivation state. Pass
+ * an already-resolved native absolute spelling. The raw input string is the
+ * memo key; a relative spelling would introduce current-directory state which
+ * is not represented in that key.
  *
  * @evidence contracts/common.md#principled-implementation The context computes filesystem identity, and memoization preserves that result for an already-resolved absolute spelling within one stable generation snapshot.
  * @evidence contracts/common.md#clear-and-simple-design A lookup-compute-store adapter centralizes identity reuse for all envelope selectors without giving each selector its own filesystem policy.

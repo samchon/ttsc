@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestFixPreferTemplatePreservesTemplateOperandGroup verifies that
-// `a + `x${y}` + "s"` keeps `a + `x${y}`` as one interpolation.
+// `a + `x${y}` + "s"` keeps `a + `x${y}“ as one interpolation.
 //
 // An effectful right template must finish before the left object is coerced.
 // The fix preserves the complete a + template addition in one interpolation,

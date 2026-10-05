@@ -36,9 +36,9 @@ export interface BunRuntimeGlobal {
    * Install one plugin on the runtime's module loader.
    *
    * Bun uses the first matching `onLoad` hook and does not fall through, so the
-   * registration state avoids duplicate accepted or in-flight installation.
-   * A synchronous installation failure resets the guard and permits retry;
-   * this void boundary does not await an asynchronous installation outcome.
+   * registration state avoids duplicate accepted or in-flight installation. A
+   * synchronous installation failure resets the guard and permits retry; this
+   * void boundary does not await an asynchronous installation outcome.
    *
    * @evidence contracts/common.md#principled-implementation
    *   A plugin descriptor is the value Bun consumes to install loader hooks;

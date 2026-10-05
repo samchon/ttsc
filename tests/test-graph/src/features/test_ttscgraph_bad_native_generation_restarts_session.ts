@@ -1,13 +1,20 @@
 import assert from "node:assert/strict";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies a transaction with a wrong generation hash retires the peer before recovery.
+ * Verifies a transaction with a wrong generation hash retires the peer before
+ * recovery.
  *
  * The shard digests and manifest in the transaction are valid, so only the
- * generation hash is wrong. The session must reject the request, retire the peer
- * that sent it, and serve the next request from a fresh peer.
+ * generation hash is wrong. The session must reject the request, retire the
+ * peer that sent it, and serve the next request from a fresh peer.
  *
  * 1. Start a graph request on a recorded line port, then deliver a typed initial
  *    transaction whose generation is "wrong-generation".
@@ -30,7 +37,14 @@ export async function test_ttscgraph_bad_native_generation_restarts_session(): P
     const port = await admitted(ports);
     const snapshot = sessionTransaction();
     snapshot.generation = "wrong-generation";
-    session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
+    session.receive(port.peer, {
+      id: Number(port.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot,
+    });
     await assert.rejects(active, /native generation wrong-generation/);
     assertRetired(port);
 
@@ -40,5 +54,7 @@ export async function test_ttscgraph_bad_native_generation_restarts_session(): P
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

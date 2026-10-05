@@ -23,9 +23,10 @@ export function readCompilerOptionOccurrence(
   index: number,
 ): CompilerOptionOccurrence {
   const token = argv[index];
-  const option = token?.startsWith("-") === true && !token.includes("=")
-    ? COMPILER_OPTIONS.get(normalizeFlagToken(token))
-    : undefined;
+  const option =
+    token?.startsWith("-") === true && !token.includes("=")
+      ? COMPILER_OPTIONS.get(normalizeFlagToken(token))
+      : undefined;
   if (option === undefined) return { width: 1, needsFence: false };
   const next = argv[index + 1];
   if (next === undefined)
@@ -33,22 +34,30 @@ export function readCompilerOptionOccurrence(
       option,
       width: 1,
       needsFence: false,
-      booleanValue: option.kind === "boolean" && !option.configOnly ? true : undefined,
+      booleanValue:
+        option.kind === "boolean" && !option.configOnly ? true : undefined,
     };
   if (next === "null")
-    return { option, width: 2, needsFence: false,
-      booleanValue: option.kind === "boolean" ? false : undefined };
+    return {
+      option,
+      width: 2,
+      needsFence: false,
+      booleanValue: option.kind === "boolean" ? false : undefined,
+    };
   if (option.kind === "boolean")
     return {
       option,
       width: next === "true" || next === "false" ? 2 : 1,
-      booleanValue: option.configOnly && next !== "false"
-        ? undefined : next !== "false",
+      booleanValue:
+        option.configOnly && next !== "false" ? undefined : next !== "false",
       needsFence: next.startsWith("-"),
     };
   if (option.configOnly)
-    return { option, width: next !== "" && !next.startsWith("-") ? 2 : 1,
-      needsFence: next.startsWith("-") };
+    return {
+      option,
+      width: next !== "" && !next.startsWith("-") ? 2 : 1,
+      needsFence: next.startsWith("-"),
+    };
   if (option.kind === "list") {
     // Go strings.TrimSpace follows Unicode White_Space, which excludes FEFF
     // and includes U+0085; JavaScript trim uses a different character set.
@@ -60,10 +69,18 @@ export function readCompilerOptionOccurrence(
     const trimmed = next.slice(start, end);
     // Enum members undergo the compiler's IsWhiteSpaceLike trim as well;
     // FEFF and zero-width space can therefore make every member empty.
-    const empty = trimmed === "" || trimmed.startsWith("-") ||
-      trimmed.split(",").every((part) => option.element === "string"
-        ? part === ""
-        : [...part].every((character) => COMPILER_ENUM_WHITESPACE.has(character)));
+    const empty =
+      trimmed === "" ||
+      trimmed.startsWith("-") ||
+      trimmed
+        .split(",")
+        .every((part) =>
+          option.element === "string"
+            ? part === ""
+            : [...part].every((character) =>
+                COMPILER_ENUM_WHITESPACE.has(character),
+              ),
+        );
     return { option, width: empty ? 1 : 2, needsFence: next.startsWith("-") };
   }
   return { option, width: 2, needsFence: false };
@@ -72,9 +89,8 @@ export function readCompilerOptionOccurrence(
 /**
  * One native argv occurrence and the lookahead boundary it establishes.
  * Undefined metadata denotes a positional token or an unknown option. An
- * undefined boolean value denotes a nonboolean option or a config-only
- * boolean request the native compiler rejects without assigning a value.
- *
+ * undefined boolean value denotes a nonboolean option or a config-only boolean
+ * request the native compiler rejects without assigning a value.
  */
 interface CompilerOptionOccurrence {
   /** Native declaration, absent for non-options and unknown spellings. */
@@ -89,4 +105,3 @@ interface CompilerOptionOccurrence {
   /** Whether removing the following option requires an empty lookahead fence. */
   readonly needsFence: boolean;
 }
-

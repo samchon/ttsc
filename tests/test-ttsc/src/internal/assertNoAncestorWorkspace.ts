@@ -8,7 +8,8 @@ import path from "node:path";
  * A workspace marker or nonempty package list outranks installation boundaries;
  * disabled or empty declarations do not. Preparation checks native inputs,
  * never asks the cache resolver for the expected answer. A malformed ancestor
- * manifest is a preparation failure, not product rejection or execution success.
+ * manifest is a preparation failure, not product rejection or execution
+ * success.
  */
 export function assertNoAncestorWorkspace(root: string): void {
   for (let ancestor = path.dirname(root); ; ) {
@@ -21,7 +22,8 @@ export function assertNoAncestorWorkspace(root: string): void {
     if (fs.existsSync(manifest)) {
       const ambient: unknown = JSON.parse(fs.readFileSync(manifest, "utf8"));
       if (typeof ambient === "object" && ambient !== null) {
-        const workspace: unknown = (ambient as { workspaces?: unknown }).workspaces;
+        const workspace: unknown = (ambient as { workspaces?: unknown })
+          .workspaces;
         const packages: unknown = Array.isArray(workspace)
           ? workspace
           : typeof workspace === "object" && workspace !== null

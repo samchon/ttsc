@@ -63,8 +63,8 @@ export interface ViteDevServerLike {
 
   /**
    * Run Vite's own update propagation for one mixed-graph module (Vite 5), as
-   * an explicit HMR request (samchon/ttsc#1393). Its Promise represents the host
-   * operation, not a native edit or client update acknowledgment.
+   * an explicit HMR request (samchon/ttsc#1393). Its Promise represents the
+   * host operation, not a native edit or client update acknowledgment.
    *
    * @evidence contracts/common.md#principled-implementation
    *   A mixed-graph node is handed to the owning server's asynchronous propagation

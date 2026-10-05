@@ -2,8 +2,8 @@ package evidence
 
 import (
   "encoding/json"
-  "testing"
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 // The host discovers this contract by type assertion and skips a rule that

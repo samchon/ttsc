@@ -1,4 +1,3 @@
-import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
   assert,
   copyProject,
@@ -10,6 +9,7 @@ import {
   spawn,
   ttscBin,
 } from "../../../../internal/ttsc/internal/native-transformer";
+import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
  * Verifies the native transformer project: a Go sidecar handles a full project
@@ -17,8 +17,8 @@ import {
  *
  * The copied consumer selects canonical Go transformer source through its
  * descriptor environment. One public emit produces the transformed JavaScript;
- * a separate direct Node command consumes it. This is not one child process
- * or a cold-build assertion.
+ * a separate direct Node command consumes it. This is not one child process or
+ * a cold-build assertion.
  *
  * 1. Copy the `go-native-transformer` fixture into a temp directory.
  * 2. Run `ttsc --emit` with the Go SDK on PATH and the transformer source in env.
@@ -35,25 +35,25 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage All original CLI status, emitted literal, Node status and exact Node stdout assertions remain.
  */
 export function test_native_transformer_project_go_sidecar_handles_project_build(): void {
-    const root = copyProject("go-native-transformer");
-    const out = path.join(root, "dist", "main.js");
-    assert.equal(fs.existsSync(out), false);
-    const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
-      cwd: root,
-      env: {
-        PATH: goPath(),
-        TTSC_GO_TRANSFORMER_SOURCE: goTransformerSource(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
-    assert.equal(result.error, undefined);
-    assert.equal(result.signal, null);
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    const js = fs.readFileSync(out, "utf8");
-    assert.match(js, /GO NATIVE TRANSFORMER/);
-    const run = runNode(out, { cwd: root });
-    assert.equal(run.error, undefined);
-    assert.equal(run.signal, null);
-    assert.equal(run.status, 0, run.stderr);
-    assert.equal(run.stdout.trim(), "GO NATIVE TRANSFORMER");
-  }
+  const root = copyProject("go-native-transformer");
+  const out = path.join(root, "dist", "main.js");
+  assert.equal(fs.existsSync(out), false);
+  const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
+    cwd: root,
+    env: {
+      PATH: goPath(),
+      TTSC_GO_TRANSFORMER_SOURCE: goTransformerSource(),
+      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+    },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const js = fs.readFileSync(out, "utf8");
+  assert.match(js, /GO NATIVE TRANSFORMER/);
+  const run = runNode(out, { cwd: root });
+  assert.equal(run.error, undefined);
+  assert.equal(run.signal, null);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(run.stdout.trim(), "GO NATIVE TRANSFORMER");
+}

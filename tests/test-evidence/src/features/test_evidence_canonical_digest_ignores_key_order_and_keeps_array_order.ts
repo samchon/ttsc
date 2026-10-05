@@ -5,8 +5,8 @@ import { createHash } from "node:crypto";
  * Verifies the canonical digest serializes parsed declarations independently of
  * how they were written, while keeping everything a reviewer could see change.
  *
- * Swagger and Prisma review fingerprints are hashes of parsed values. Object key
- * order is an artifact of the input dialect, so it must not reach the hash;
+ * Swagger and Prisma review fingerprints are hashes of parsed values. Object
+ * key order is an artifact of the input dialect, so it must not reach the hash;
  * array order and values are content, so they must.
  *
  * 1. Digest literal values whose canonical JSON text is written out by hand.
@@ -66,7 +66,10 @@ export async function test_evidence_canonical_digest_ignores_key_order_and_keeps
     assert.notEqual(canonicalDigest({ a: [] }), canonicalDigest({ a: {} }));
   });
   check("undefined members", () => {
-    assert.equal(canonicalDigest({ a: 1, b: undefined }), canonicalDigest({ a: 1 }));
+    assert.equal(
+      canonicalDigest({ a: 1, b: undefined }),
+      canonicalDigest({ a: 1 }),
+    );
     assert.equal(canonicalJson([1, undefined, 3]), "[1,null,3]");
   });
   check("cyclic value terminates", () => {
@@ -95,7 +98,13 @@ export async function test_evidence_canonical_digest_ignores_key_order_and_keeps
       name: "Sale",
     });
     assert.equal(
-      canonicalDigest(withoutKeys({ ...original, documentation: "other" }, "documentation", "fields")),
+      canonicalDigest(
+        withoutKeys(
+          { ...original, documentation: "other" },
+          "documentation",
+          "fields",
+        ),
+      ),
       canonicalDigest(reduced),
     );
   });

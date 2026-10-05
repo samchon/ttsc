@@ -8,9 +8,9 @@ import "testing"
 //
 // The rule reads the parsed tag content, including any continuation text.
 //
-// 1. Run the rule over a block whose third line is `@returns {number}` and
-//    expect one finding on line 3.
-// 2. Run the rule over a block with `@returns {number} Rounded total.` and expect none.
+//  1. Run the rule over a block whose third line is `@returns {number}` and
+//     expect one finding on line 3.
+//  2. Run the rule over a block with `@returns {number} Rounded total.` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-returns-description rule through NewEngine.Run over a parsed virtual TypeScript file. `@returns {number}` yields exactly one finding, with that rule at error severity, on line 3; `@returns {number} Rounded total.` yields none.
 // @evidence contracts/testing.md#independent-expectations A result type does not explain the returned value, so a description is required after the type. The literal sources and expected line 3 follow from that policy; the message text is not asserted.

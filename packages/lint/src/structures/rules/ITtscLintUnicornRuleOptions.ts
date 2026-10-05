@@ -28,8 +28,8 @@ export type TtscLintUnicornFilenameCaseName =
  */
 export type ITtscLintUnicornFilenameCaseRuleOptions = {
   /**
-   * Go regular-expression strings; a file is exempt when any pattern matches
-   * a segment of its project-relative path. Files outside the project directory
+   * Go regular-expression strings; a file is exempt when any pattern matches a
+   * segment of its project-relative path. Files outside the project directory
    * contribute only their basename.
    */
   ignore?: readonly string[];
@@ -78,9 +78,9 @@ export type ITtscLintUnicornFilenameCaseRuleOptions = {
  */
 export interface ITtscLintUnicornBetterRegexRuleOptions {
   /**
-   * Sort and merge adjacent character-class ranges in regex literals
-   * (e.g. `[d-ea-c]` -> `[a-e]`). Defaults to `true`; set `false` to disable
-   * this range-sorting and merging transform while retaining the other regex
+   * Sort and merge adjacent character-class ranges in regex literals (e.g.
+   * `[d-ea-c]` -> `[a-e]`). Defaults to `true`; set `false` to disable this
+   * range-sorting and merging transform while retaining the other regex
    * optimizations.
    */
   sortCharacterClasses?: boolean;
@@ -90,8 +90,8 @@ export interface ITtscLintUnicornBetterRegexRuleOptions {
  * Options for `unicorn/template-indent`.
  *
  * Each selection list replaces the corresponding default list. `indent` is
- * either a positive integer number of spaces or the exact non-empty whitespace string
- * added after the opening template's source-line margin.
+ * either a positive integer number of spaces or the exact non-empty whitespace
+ * string added after the opening template's source-line margin.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/template-indent.md
  * @evidence contracts/common.md#principled-implementation Selection lists identify template contexts and indentation represents a positive space count or exact whitespace unit; runtime validation rejects invalid units.

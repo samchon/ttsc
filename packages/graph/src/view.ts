@@ -1,10 +1,10 @@
-import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
 import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
 import { TtscGraphViewSnapshot } from "./TtscGraphViewSnapshot";
+import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 import { publishArtifacts } from "./model/publishedArtifacts";
 import { captureProcessOutput, ensureExecutable } from "./nativeExecutable";
 import { reduce } from "./reduce";
@@ -176,11 +176,17 @@ function openBrowser(url: string): void {
         .on("error", () => undefined)
         .unref();
     else if (process.platform === "darwin")
-      GraphProcessTrace.spawn("open", [url], { stdio: "ignore", detached: true })
+      GraphProcessTrace.spawn("open", [url], {
+        stdio: "ignore",
+        detached: true,
+      })
         .on("error", () => undefined)
         .unref();
     else
-      GraphProcessTrace.spawn("xdg-open", [url], { stdio: "ignore", detached: true })
+      GraphProcessTrace.spawn("xdg-open", [url], {
+        stdio: "ignore",
+        detached: true,
+      })
         .on("error", () => undefined)
         .unref();
   } catch {

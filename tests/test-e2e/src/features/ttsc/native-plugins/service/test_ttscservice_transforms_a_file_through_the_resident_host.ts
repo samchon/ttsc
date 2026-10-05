@@ -1,10 +1,10 @@
 import { TestProject } from "@ttsc/testing";
-import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TtscService } from "../../../../../../../packages/ttsc/lib/index.js";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
@@ -16,9 +16,8 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * the project per call, `TtscService` keeps a `serve` host warm and answers
  * per-file requests from it (samchon/ttsc#255). This is the path a Metro worker
  * pool or an editor session reuses, so it must (1) run the linked transform
- * plugins inside the resident host, (2) serve equal returned text across
- * calls, and (3) report a file outside the program as absent rather than
- * error.
+ * plugins inside the resident host, (2) serve equal returned text across calls,
+ * and (3) report a file outside the program as absent rather than error.
  *
  * Uses the shared utility-plugins fixture (banner/paths/strip share one linked
  * host; lint is a check plugin the resident transform path ignores). Exercises
@@ -27,9 +26,12 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * 1. Copy the fixture project and seed its `@ttsc/*` plugin packages.
  * 2. Transform `src/main.ts` and assert the banner plugin ran in the host.
  * 3. Re-transform the same file and assert equal text, without a cache-hit oracle.
- * 4. Ask for a file outside the program and assert `undefined`; verify concurrent replies.
- * 5. Update the file in the same host and verify edited output and reapplied plugins.
- * 6. Transform and update through a nested directory link, and reject an external linked source.
+ * 4. Ask for a file outside the program and assert `undefined`; verify concurrent
+ *    replies.
+ * 5. Update the file in the same host and verify edited output and reapplied
+ *    plugins.
+ * 6. Transform and update through a nested directory link, and reject an external
+ *    linked source.
  * 7. Dispose the host and require later requests to reject.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual resident transforms preserve the banner, repeated/concurrent text equality and outside-program absence, then apply edited files through physical/nested linked paths, retain external-link absence and reject requests after disposal.
@@ -43,7 +45,8 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  */
 export async function test_ttscservice_transforms_a_file_through_the_resident_host(): Promise<void> {
   const root = ProjectFixtures.copy("ttsc-utility-plugins");
-  const retentionReason = "healthy resident service has no awaited disposal acknowledgement";
+  const retentionReason =
+    "healthy resident service has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
   TestProject.retainSharedPluginCache(retentionReason);
   TestUtilityPlugins.seedPackages(root);
@@ -58,7 +61,6 @@ export async function test_ttscservice_transforms_a_file_through_the_resident_ho
   );
   const externalAlias = path.join(root, "external-src");
   fs.symlinkSync(outside, externalAlias, "junction");
-
 
   const service = new TtscService({
     binary: tsgo,
@@ -115,21 +117,13 @@ export async function test_ttscservice_transforms_a_file_through_the_resident_ho
     const before = first;
     assert.ok(before, "resident host returned no output before the update");
     TestUtilityPlugins.assertSingleBanner(before, "utility combo");
-    assert.match(
-      before,
-      /join\(/,
-      "fixture should call join before the edit",
-    );
+    assert.match(before, /join\(/, "fixture should call join before the edit");
 
     const updated = await service.updateFile(
       path.join(root, "src", "main.ts"),
       'export const marker: string = "RESIDENT_EDIT";\n',
     );
-    assert.equal(
-      updated,
-      true,
-      "the resident host failed to apply the update",
-    );
+    assert.equal(updated, true, "the resident host failed to apply the update");
 
     const after = await service.transformFile("src/main.ts");
     assert.ok(after, "resident host returned no output after the update");
@@ -174,8 +168,15 @@ export async function test_ttscservice_transforms_a_file_through_the_resident_ho
   } catch (error) {
     failures.push(error);
   } finally {
-    try { service.dispose(); }
-    catch (error) { failures.push(error); }
+    try {
+      service.dispose();
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "healthy resident observations or disposal failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "healthy resident observations or disposal failed",
+    );
 }

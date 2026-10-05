@@ -17,12 +17,12 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual parser, engine and no-fix application functions run in the shared process with isolated fixture files, without installation, native producer or product child host.
 func TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves(t *testing.T) {
   cases := []struct {
-    name   string
-    source string
+    name    string
+    source  string
     keyword string
   }{
     {
-      name: "comment between block and break",
+      name:    "comment between block and break",
       keyword: "break",
       source: `switch (key) {
   case "first": {
@@ -34,7 +34,7 @@ func TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves(t *testing.
 `,
     },
     {
-      name: "trailing line comment on break",
+      name:    "trailing line comment on break",
       keyword: "break",
       source: `switch (key) {
   case "first": {
@@ -45,7 +45,7 @@ func TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves(t *testing.
 `,
     },
     {
-      name: "trailing block comment on continue",
+      name:    "trailing block comment on continue",
       keyword: "continue",
       source: `for (const key of ["first"]) {
   switch (key) {
@@ -58,7 +58,7 @@ func TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves(t *testing.
 `,
     },
     {
-      name: "single-line block",
+      name:    "single-line block",
       keyword: "break",
       source: `switch (key) {
   case "first": { use(key); }
@@ -67,7 +67,7 @@ func TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves(t *testing.
 `,
     },
     {
-      name: "return may change block binding",
+      name:    "return may change block binding",
       keyword: "return",
       source: `function choose(key: string): string {
   switch (key) {
@@ -80,7 +80,7 @@ func TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves(t *testing.
 `,
     },
     {
-      name: "throw may change block binding",
+      name:    "throw may change block binding",
       keyword: "throw",
       source: `switch (key) {
   case "first": {
@@ -102,7 +102,7 @@ func TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves(t *testing.
       }
       finding := findings[0]
       if finding.engineFailure || finding.Severity != SeverityError || finding.Rule != switchCaseBreakPositionRule ||
-        finding.Message != "Move `" + test.keyword + "` inside the block statement." || len(finding.Fix) != 0 {
+        finding.Message != "Move `"+test.keyword+"` inside the block statement." || len(finding.Fix) != 0 {
         t.Fatalf("unsafe move must report the terminator without an automatic edit, got %+v", finding)
       }
       assertNoFixSnapshot(t, switchCaseBreakPositionRule, source)

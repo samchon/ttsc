@@ -36,11 +36,10 @@ export type TtscLintRuleSetting =
  * options object. Rules with canonical positional option lists expose a
  * dedicated setting type instead.
  *
- * The `[severity, options]` tuple keeps the options strongly typed through
- * the rule's dedicated interface beside its family under `structures/rules`.
- * The bare {@link TtscLintRuleSetting} forms remain
- * accepted; omitting the options object means "use the rule's default
- * options".
+ * The `[severity, options]` tuple keeps the options strongly typed through the
+ * rule's dedicated interface beside its family under `structures/rules`. The
+ * bare {@link TtscLintRuleSetting} forms remain accepted; omitting the options
+ * object means "use the rule's default options".
  *
  * @example
  *   const config: ITtscLintConfig = {
@@ -52,7 +51,6 @@ export type TtscLintRuleSetting =
  * @typeParam TOptions - The rule's options shape. Each rule supplies its own
  *   interface from its family's `*RuleOptions.ts` file (for example
  *   `ITtscLintBoundariesElementTypesRuleOptions`).
- *
  * @evidence contracts/common.md#principled-implementation The generic tuple preserves the rule's options type while accepting severity-only forms for default options.
  * @evidence contracts/common.md#clear-and-simple-design The alias composes the severity setting and one options slot, leaving positional rule variants to dedicated aliases.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Typed options remain tied to their rule rather than an untyped payload added to satisfy particular callers.

@@ -3,17 +3,27 @@ import ts from "ts-legacy";
 
 import factory, {
   SyntaxKind,
-  type TypeElement,
   TsPrinter,
+  type TypeElement,
 } from "../../../../../packages/factory/src/index";
 import { print } from "../../internal/helpers";
 import { parseClean } from "../../internal/oracle";
 
 const f = factory;
 const member = (name: string, kind: SyntaxKind) =>
-  f.createPropertySignature(undefined, name, undefined, f.createKeywordTypeNode(kind));
+  f.createPropertySignature(
+    undefined,
+    name,
+    undefined,
+    f.createKeywordTypeNode(kind),
+  );
 const alias = (...members: TypeElement[]) =>
-  f.createTypeAliasDeclaration(undefined, "A", undefined, f.createTypeLiteralNode(members));
+  f.createTypeAliasDeclaration(
+    undefined,
+    "A",
+    undefined,
+    f.createTypeLiteralNode(members),
+  );
 
 /**
  * Verifies the three stateless name generators print exactly their documented
@@ -22,9 +32,9 @@ const alias = (...members: TypeElement[]) =>
  *
  * `createTempVariable`, `createUniqueName` and `createUniquePrivateName` do not
  * track scopes, so equal arguments give equal names and the optional affixes
- * wrap a fixed or caller base; the private form strips one leading `#` and falls
- * back to `_unique`. A not-emitted element contributes no syntax, so no `;`
- * remains where it sits and the neighbors still parse as members.
+ * wrap a fixed or caller base; the private form strips one leading `#` and
+ * falls back to `_unique`. A not-emitted element contributes no syntax, so no
+ * `;` remains where it sits and the neighbors still parse as members.
  *
  * 1. Print each generator with no arguments, with affixes and, for the private
  *    form, with a leading `#`, an empty base and a plain base.
@@ -40,7 +50,11 @@ const alias = (...members: TypeElement[]) =>
  */
 export const test_name_generator_placeholders_and_not_emitted_type_elements =
   (): void => {
-    TestValidator.equals("temp variable", print(f.createTempVariable()), "_temp");
+    TestValidator.equals(
+      "temp variable",
+      print(f.createTempVariable()),
+      "_temp",
+    );
     TestValidator.equals(
       "temp variable with affixes",
       print(f.createTempVariable(undefined, false, "a", "z")),
@@ -51,7 +65,11 @@ export const test_name_generator_placeholders_and_not_emitted_type_elements =
       print(f.createTempVariable()) === print(f.createTempVariable()),
       true,
     );
-    TestValidator.equals("unique name", print(f.createUniqueName("base")), "base");
+    TestValidator.equals(
+      "unique name",
+      print(f.createUniqueName("base")),
+      "base",
+    );
     TestValidator.equals(
       "unique name with affixes",
       print(f.createUniqueName("base", 0, "p_", "_s")),
@@ -83,12 +101,19 @@ export const test_name_generator_placeholders_and_not_emitted_type_elements =
     const slot = () => f.createNotEmittedTypeElement();
     const memberNames = (text: string): string[] => {
       const declaration = parseClean(text).statements[0]!;
-      const members: readonly ts.TypeElement[] = ts.isTypeAliasDeclaration(declaration)
+      const members: readonly ts.TypeElement[] = ts.isTypeAliasDeclaration(
+        declaration,
+      )
         ? (declaration.type as ts.TypeLiteralNode).members
         : (declaration as ts.InterfaceDeclaration).members;
       return members.map((element) => (element.name as ts.Identifier).text);
     };
-    const cases: { name: string; text: string; expected: string; names: string[] }[] = [
+    const cases: {
+      name: string;
+      text: string;
+      expected: string;
+      names: string[];
+    }[] = [
       {
         name: "placeholder between members",
         text: print(alias(a, slot(), b)),
@@ -122,7 +147,9 @@ export const test_name_generator_placeholders_and_not_emitted_type_elements =
       {
         name: "interface holding only the placeholder",
         text: print(
-          f.createInterfaceDeclaration(undefined, "I", undefined, undefined, [slot()]),
+          f.createInterfaceDeclaration(undefined, "I", undefined, undefined, [
+            slot(),
+          ]),
         ),
         expected: "interface I {}",
         names: [],
@@ -130,7 +157,11 @@ export const test_name_generator_placeholders_and_not_emitted_type_elements =
       {
         name: "interface with the placeholder between members",
         text: print(
-          f.createInterfaceDeclaration(undefined, "I", undefined, undefined, [a, slot(), b]),
+          f.createInterfaceDeclaration(undefined, "I", undefined, undefined, [
+            a,
+            slot(),
+            b,
+          ]),
         ),
         expected: "interface I {\n  a: string;\n  b: number;\n}",
         names: ["a", "b"],
@@ -138,7 +169,11 @@ export const test_name_generator_placeholders_and_not_emitted_type_elements =
     ];
     for (const c of cases) {
       TestValidator.equals(c.name, c.text, c.expected);
-      TestValidator.equals(`${c.name}: legacy members`, memberNames(c.text), c.names);
+      TestValidator.equals(
+        `${c.name}: legacy members`,
+        memberNames(c.text),
+        c.names,
+      );
     }
 
     const long = (length: number, kind: SyntaxKind) =>
@@ -146,7 +181,11 @@ export const test_name_generator_placeholders_and_not_emitted_type_elements =
     TestValidator.equals(
       "a long literal breaks without leaving a blank line",
       new TsPrinter().print(
-        alias(long(31, SyntaxKind.StringKeyword), slot(), member("b".repeat(45), SyntaxKind.NumberKeyword)),
+        alias(
+          long(31, SyntaxKind.StringKeyword),
+          slot(),
+          member("b".repeat(45), SyntaxKind.NumberKeyword),
+        ),
       ),
       `type A = {\n  ${"a".repeat(31)}: string;\n  ${"b".repeat(45)}: number;\n};`,
     );

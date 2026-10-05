@@ -1,14 +1,13 @@
 package linthost
 
 import (
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestInvalidContributorRangeCannotPanicInlineDirectiveFiltering pins the
 // pre-render path: directive matching must receive the normalized EOF span,
 // suppress it normally, and never pass an out-of-bounds offset to the scanner.
-//
 //
 //  1. Run the beyond-end reporting contributor with and without an authored inline disable directive.
 //  2. Require zero disabled findings and one original-message canonical EOF finding in the control.
@@ -38,6 +37,10 @@ const value = 1;
   }
   plain := parseTSFile(t, "/virtual/directive.ts", "const value = 1;\n")
   control := NewEngine(RuleConfig{contributor.Name(): SeverityError}).Run([]*shimast.SourceFile{plain}, nil)
-  if err := validateSemanticRuleFindings(RuleConfig{contributor.Name(): SeverityError}, control); err != nil { t.Fatal(err) }
-  if len(control) != 1 || control[0].Pos != len(plain.Text()) || control[0].End != len(plain.Text()) || control[0].Message != "explicit contributor range" { t.Fatalf("same contributor without directive did not report bounded EOF: %+v", control) }
+  if err := validateSemanticRuleFindings(RuleConfig{contributor.Name(): SeverityError}, control); err != nil {
+    t.Fatal(err)
+  }
+  if len(control) != 1 || control[0].Pos != len(plain.Text()) || control[0].End != len(plain.Text()) || control[0].Message != "explicit contributor range" {
+    t.Fatalf("same contributor without directive did not report bounded EOF: %+v", control)
+  }
 }

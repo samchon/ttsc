@@ -11,16 +11,16 @@ import { make } from "../internal/make";
  * With a `number` type, the printer emits:
  *
  * ```ts
- * number
+ * number;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param type The wrapped type.
+ * @returns The created {@link JSDocNamepathType}.
  * @evidence contracts/common.md#principled-implementation The child is retained under the namepath classification, but this wrapper supplies no module-prefix grammar or resolution and the printer emits only the child.
  * @evidence contracts/common.md#clear-and-simple-design One child assignment preserves the classification without duplicating the type spelling or adding unused module-lookup state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed module prefix or known-name lookup compensates for the representation's limited namepath payload.
  * @evidence contracts/common.md#meaningful-documentation Native prose explicitly states that no prefix or suffix is added and shows the child-only output, with separate paragraphs following the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
- * @param type The wrapped type.
- * @returns The created {@link JSDocNamepathType}.
  */
 export const createJSDocNamepathType = (type: TypeNode): JSDocNamepathType =>
   make("JSDocNamepathType", {

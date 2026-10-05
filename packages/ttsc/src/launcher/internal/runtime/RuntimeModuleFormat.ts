@@ -16,7 +16,8 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
  * answer comes from the extension, the owning project's options, and the
  * package `type`, in the supported emit order. Unreadable or malformed present
  * manifests use CommonJS/no-declaration here rather than reporting a package
- * parse error; cached scope observations are not invalidated by later mutation.
+ * parse error; cached scope observations are not invalidated by later
+ * mutation.
  *
  * @evidence contracts/common.md#principled-implementation Extension, dependency package declaration and effective module/target determine supported checked-emit format in pinned upstream order; unowned sources use the runtime's nearest-scope CommonJS fallback policy without claiming full Node loader equivalence.
  * @evidence contracts/common.md#clear-and-simple-design One classifier owns format policy with private option normalization and package-scope lookup helpers, keeping hooks from independently guessing authored syntax.
@@ -29,8 +30,8 @@ import { RuntimeFilesystem } from "./RuntimeFilesystem";
  */
 export namespace RuntimeModuleFormat {
   /**
-   * Classify supported checked emit from configuration and package scope,
-   * never by sniffing emitted text or validating the full Node loader contract.
+   * Classify supported checked emit from configuration and package scope, never
+   * by sniffing emitted text or validating the full Node loader contract.
    *
    * The file extension is authoritative first (`.mts`/`.mjs` → module,
    * `.cts`/`.cjs` → commonjs): tsgo records these in
@@ -48,8 +49,8 @@ export namespace RuntimeModuleFormat {
    *
    * `options` is `null` when the caller has no recorded checked preparation for
    * the file, as in the orphan-source lane. The runtime's package-scope policy
-   * applies: supported `type` decides, otherwise
-   * CommonJS is returned, including a present unreadable/malformed manifest.
+   * applies: supported `type` decides, otherwise CommonJS is returned,
+   * including a present unreadable/malformed manifest.
    *
    * @evidence contracts/common.md#principled-implementation Authoritative extension wins, then a node_modules package's explicit declaration, then the owning compiler's effective kind and node-family scope rule; this preserves the format of checked emit instead of treating absent module as an unowned file.
    * @evidence contracts/common.md#clear-and-simple-design The ordered classifier delegates package lookup and option defaulting to focused private helpers while keeping precedence visible in one function.

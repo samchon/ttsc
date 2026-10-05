@@ -13,10 +13,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * This entry creates no native short name and supplies no polling tick.
  *
  * 1. Register one real ordinary input through explicit watcher and case seams.
- * 2. Emit an unrelated named event while the input is unchanged and require
- *    no reload.
- * 3. Edit the registered file, emit its differently named alias content event
- *    and require exactly its owner to reload, then dispose the observer.
+ * 2. Emit an unrelated named event while the input is unchanged and require no
+ *    reload.
+ * 3. Edit the registered file, emit its differently named alias content event and
+ *    require exactly its owner to reload, then dispose the observer.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual createInputObserver registration and checks compare real before/after input bytes after an alias-named change callback. The owner must reload without relying on a fallback polling tick.
  * @evidence contracts/testing.md#independent-expectations Literal before/after bytes and the authored alias notification describe the required state transition; literal empty and single-owner report lists define expectations independently of path-key or observer selection code.
@@ -24,19 +24,24 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership A source unit calls the actual input observer with supported watch/poll/case capabilities over real temporary files and waits for its flush. No real watcher, short-name tool, Go process, compiler or host runs; finally disposal owns every handle.
  */
 export async function test_input_observer_rechecks_alias_named_content_events(): Promise<void> {
-  const root = TestProject.createProject({ "LongConfig.ts": "export const value = 1;\n" });
+  const root = TestProject.createProject({
+    "LongConfig.ts": "export const value = 1;\n",
+  });
   const file = path.join(root, "LongConfig.ts");
   const owner = path.join(root, "owner");
   const reports: string[][] = [];
   let emit: ((eventType: string, file: string | null) => void) | undefined;
-  const observer = createInputObserver(({ reload }) => reports.push([...reload]), {
-    caseSensitive: () => false,
-    poll: () => ({ close: () => undefined }),
-    watch: (_root, listener) => {
-      emit = listener;
-      return { close: () => undefined };
+  const observer = createInputObserver(
+    ({ reload }) => reports.push([...reload]),
+    {
+      caseSensitive: () => false,
+      poll: () => ({ close: () => undefined }),
+      watch: (_root, listener) => {
+        emit = listener;
+        return { close: () => undefined };
+      },
     },
-  });
+  );
   const settled = async (): Promise<string[][]> => {
     await new Promise((resolve) => setTimeout(resolve, 30));
     return reports.splice(0);
@@ -50,7 +55,11 @@ export async function test_input_observer_rechecks_alias_named_content_events():
     assert.deepEqual(await settled(), [], "unchanged input remains quiet");
     fs.writeFileSync(file, "export const value = 2;\n");
     emit("change", path.join(root, "SHORT~1.TS"));
-    assert.deepEqual(await settled(), [[owner]], "alias event rechecks the changed input");
+    assert.deepEqual(
+      await settled(),
+      [[owner]],
+      "alias event rechecks the changed input",
+    );
   } finally {
     await observer.dispose();
   }

@@ -8,32 +8,30 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * on, as absolute paths in sorted order.
  *
  * Every regular file below the directory counts, except those in a directory
- * excluded by the snapshot policy (`node_modules`, `.git`, `.ttsc`), files
- * with excluded workspace, archive or sidecar names,
- * and editor backups ending in `~`. The one reading of that rule: the cache key
- * hashes these files (`computeCacheKey`), and the transform envelope reports
- * their digest (`pluginSourceDigest`) within each directory's state
- * (`pluginSourceState`), so the two cannot disagree about what a plugin's
- * source is. A consumer that keeps a digest while the
- * metadata of these files holds still, rather than reading their bytes on every
- * proof, stats exactly this list, through the `ttsc/plugin-source` entry.
+ * excluded by the snapshot policy (`node_modules`, `.git`, `.ttsc`), files with
+ * excluded workspace, archive or sidecar names, and editor backups ending in
+ * `~`. The one reading of that rule: the cache key hashes these files
+ * (`computeCacheKey`), and the transform envelope reports their digest
+ * (`pluginSourceDigest`) within each directory's state (`pluginSourceState`),
+ * so the two cannot disagree about what a plugin's source is. A consumer that
+ * keeps a digest while the metadata of these files holds still, rather than
+ * reading their bytes on every proof, stats exactly this list, through the
+ * `ttsc/plugin-source` entry.
  *
  * Selection follows ttsc's declared naming policy, not Go's EmbedFiles. Data
- * under excluded names or directories is omitted even when a raw Go package
- * can embed it. The returned population describes the materialized source
- * snapshot, not every input the original package could use.
+ * under excluded names or directories is omitted even when a raw Go package can
+ * embed it. The returned population describes the materialized source snapshot,
+ * not every input the original package could use.
  *
  * A link (a symbolic link or a Windows junction) outside those directories is
  * refused rather than skipped. The build would compile what it names, which
- * neither this list nor anything keyed on it covers; a Go
- * module zip excludes links from a module's content for the same reason.
+ * neither this list nor anything keyed on it covers; a Go module zip excludes
+ * links from a module's content for the same reason.
  *
  * @param root The source directory: a plugin's Go module root, an overlay
  *   module, a contributor's source, or a `replace` target outside the module.
- *
  * @throws When the directory holds a link the build would read.
  * @throws When enumeration fails for a reason other than a vanished entry.
- *
  * @evidence contracts/common.md#principled-implementation The recursive Dirent walk selects reported regular files under the shared prune/omit policy and refuses contributing links observed during enumeration. The returned path list is not an atomic snapshot or a retained handle pinning each entry against later replacement; copying/content readers own their subsequent observations.
  * @evidence contracts/common.md#clear-and-simple-design One private traversal owns enumeration and one final sort establishes deterministic file order for every downstream digest.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Shared source rules apply the declared kind/name exclusions instead of adapting the key to observed fixtures or inferring Go dependency membership from names.

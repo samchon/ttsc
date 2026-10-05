@@ -9,10 +9,10 @@ import { make } from "../internal/make";
  * `if`; to build an `else if` chain, pass another `IfStatement` as
  * `elseStatement`.
  *
- * Branches are retained as supplied. When the then branch prints as ending in an
- * `if` with no `else` and this statement has an `else`, the printer wraps the
- * then branch in a block, so the printed `else` binds to this condition rather
- * than to the nested one.
+ * Branches are retained as supplied. When the then branch prints as ending in
+ * an `if` with no `else` and this statement has an `else`, the printer wraps
+ * the then branch in a block, so the printed `else` binds to this condition
+ * rather than to the nested one.
  *
  * With an `expression` of `x`, a `thenStatement` block calling `a()`, and an
  * `elseStatement` block calling `b()`, the result is:
@@ -25,6 +25,11 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @param thenStatement The statement run when the condition holds.
+ * @param elseStatement The statement run otherwise, if any.
+ * @returns The created {@link IfStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Condition, then branch and optional else branch retain their syntax roles;
  *   a nested IfStatement in else represents an else-if chain without flattening it.
@@ -39,12 +44,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains omitted else and nested else-if use, followed by a
  *   two-branch example and separated acknowledgment paragraphs. The paragraph on the printer block that keeps an else bound to its own if is part of the described behavior.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @param thenStatement The statement run when the condition holds.
- * @param elseStatement The statement run otherwise, if any.
- * @returns The created {@link IfStatement}.
  */
 export const createIfStatement = (
   expression: Expression,

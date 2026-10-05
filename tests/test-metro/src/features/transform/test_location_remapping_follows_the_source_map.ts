@@ -5,7 +5,8 @@ import { remapAstLocations } from "../../../../../packages/metro/src/core/remapA
 
 /**
  * Verifies Metro's AST location remapper moves each Babel position back to the
- * authored text the source map names, and withdraws a position it cannot place.
+ * authored text the source map names, and withdraws a position it cannot
+ * place.
  *
  * Metro derives the module's source map from the AST's `loc` values, so a
  * position left pointing into the ttsc-printed text puts breakpoints and stack
@@ -15,8 +16,8 @@ import { remapAstLocations } from "../../../../../packages/metro/src/core/remapA
  *
  * 1. Remap nodes whose endpoints fall on the first, between and after the two
  *    segments of one generated line, and on a later generated line.
- * 2. Remap nodes starting on an unmapped segment, a segment of another source
- *    and a line the map does not have.
+ * 2. Remap nodes starting on an unmapped segment, a segment of another source and
+ *    a line the map does not have.
  * 3. Remap a node whose mapped end precedes its start and a cyclic AST.
  *
  * @evidence contracts/testing.md#behavioral-verification remapAstLocations is called on in-memory ASTs against the map "AAAA,KAAK;AAEL;A;ACAA" (generated line 1: columns 0 and 5 to authored line 1 columns 0 and 5; line 2 to authored line 3; line 3 an unmapped segment; line 4 a segment of a second source) and the resulting loc of each node is compared with a literal.

@@ -15,9 +15,9 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * The compiler is resolved as the build resolves it (`resolveGoCompiler`, then
  * the toolchain `directory` selects), so for a plugin's own module root this is
  * the selected identity used by its binary key; it does not certify arbitrary
- * unobserved tool/launcher inputs. A normal reading probes `go
- * env` and walks GOROOT metadata. Witnessing a newly selected environment file
- * can repeat the probe to observe it before reading. Compiler identity reuses a
+ * unobserved tool/launcher inputs. A normal reading probes `go env` and walks
+ * GOROOT metadata. Witnessing a newly selected environment file can repeat the
+ * probe to observe it before reading. Compiler identity reuses a
  * metadata-and-context memo; a changed SDK manifest rehashes all contributing
  * content rather than only edited files.
  *
@@ -25,7 +25,6 @@ import { resolveGoCompiler } from "./resolveGoCompiler";
  * @param env The effective environment, `process.env` by default.
  * @param witness Receives the paths the reading depends on and no variable
  *   carries (`hashPluginBuildEnvironment`).
- *
  * @evidence contracts/common.md#principled-implementation The digest uses the same resolved compiler and environment serializer as the binary key, so reported toolchain state denotes the inputs actually used by the build.
  * @evidence contracts/common.md#clear-and-simple-design Compiler selection, executable resolution and hashing each stay with their owning helper; this function only composes one environment reading.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The result comes from real Go/environment inputs, not a fixed compiler version or a caller-specific substitute.

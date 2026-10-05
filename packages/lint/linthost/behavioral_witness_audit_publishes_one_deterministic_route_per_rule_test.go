@@ -31,9 +31,15 @@ func TestBehavioralWitnessAuditPublishesOneDeterministicRoutePerRule(t *testing.
     t.Fatalf("canonical route was not deterministic: %+v", canonical)
   }
   want := behavioralWitness{Rule: "fixture/rule", Route: "TestAlpha", Kind: behavioralWitnessEngine, Sources: []string{"alpha_test.go"}}
-  if !reflect.DeepEqual(canonical["fixture/rule"], want) { t.Fatalf("canonical record: got %+v, want %+v", canonical, want) }
-  if candidates["fixture/rule"][0].Route != "TestZulu" { t.Fatalf("caller candidate order changed: %+v", candidates) }
+  if !reflect.DeepEqual(canonical["fixture/rule"], want) {
+    t.Fatalf("canonical record: got %+v, want %+v", canonical, want)
+  }
+  if candidates["fixture/rule"][0].Route != "TestZulu" {
+    t.Fatalf("caller candidate order changed: %+v", candidates)
+  }
   candidates["fixture/rule"][0], candidates["fixture/rule"][1] = candidates["fixture/rule"][1], candidates["fixture/rule"][0]
   reversed, err := auditBehavioralWitnesses(public, candidates)
-  if err != nil || len(reversed) != 1 || !reflect.DeepEqual(reversed["fixture/rule"], want) { t.Fatalf("reversed candidates: %+v %v", reversed, err) }
+  if err != nil || len(reversed) != 1 || !reflect.DeepEqual(reversed["fixture/rule"], want) {
+    t.Fatalf("reversed candidates: %+v %v", reversed, err)
+  }
 }

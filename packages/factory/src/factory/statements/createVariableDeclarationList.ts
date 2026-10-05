@@ -14,9 +14,13 @@ import { make } from "../internal/make";
  * of `x = 1` and the `const` flag, it prints as:
  *
  * ```ts
- * const x = 1
+ * const x = 1;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param declarations The declarations.
+ * @param flags The declaration flags (`const` / `let` / `var`).
+ * @returns The created {@link VariableDeclarationList}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered declarators and NodeFlags preserve variable-declaration grouping;
  *   no flags selects var while supported flags select the corresponding keyword.
@@ -31,11 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains keyword selection and header reuse, with a corrected
  *   semicolon-free list example and separate acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param declarations The declarations.
- * @param flags The declaration flags (`const` / `let` / `var`).
- * @returns The created {@link VariableDeclarationList}.
  */
 export const createVariableDeclarationList = (
   declarations: readonly VariableDeclaration[],

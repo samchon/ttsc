@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigPaths";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the alias overlay resolves an `extends` specifier as a config file,
@@ -19,6 +19,7 @@ import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/src
  * 2. Assert the effective paths come from `config.json`.
  * 3. Remove `config.json` and assert the directory contributes nothing.
  * 4. Assert an explicit `.json` spelling is not given a second suffix.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored effective-paths reader resolves extensionless extends to config.json, refuses the same-named directory and never adds .json twice to an explicit suffix.
  * @evidence contracts/testing.md#independent-expectations Literal file/* versus directory/* declarations and empty negative expectations distinguish the supported file resolution rule independently of runtime output.
  * @evidence contracts/testing.md#distinguishing-cases Three assertions: an extensionless extends with both a config.json file and a same-named config directory (the file wins), the same extends after config.json is removed (the directory contributes nothing), and an explicit .json extends where only a double-suffixed explicit.json.json exists (nothing is read).

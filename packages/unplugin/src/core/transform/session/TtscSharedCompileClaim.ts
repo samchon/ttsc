@@ -6,10 +6,10 @@ import type { TtscSharedCompilePublication } from "./TtscSharedCompilePublicatio
  *
  * `adopt` hands over another worker's publication for the same project state,
  * which the caller must still prove against its own filesystem. `compile` means
- * the caller now holds the session's lock for that state: it compiles,
- * offers only a compile whose snapshot it proved stable for publication, and
- * releases the lock in every case, so the workers waiting on it proceed. An
- * oversized publication is not stored.
+ * the caller now holds the session's lock for that state: it compiles, offers
+ * only a compile whose snapshot it proved stable for publication, and releases
+ * the lock in every case, so the workers waiting on it proceed. An oversized
+ * publication is not stored.
  *
  * @evidence contracts/common.md#principled-implementation The discriminated union distinguishes borrowed output requiring adoption proof from an exclusive compile claim requiring publication and release.
  * @evidence contracts/common.md#clear-and-simple-design Each branch exposes only the operations its owner needs, without an optional lock field that callers could confuse with an adopted result.
@@ -43,8 +43,6 @@ export type TtscSharedCompileClaim =
        */
       publish(publication: TtscSharedCompilePublication): Promise<void>;
 
-      /**
-       * Release the lock. Never throws, and a second call does nothing.
-       */
+      /** Release the lock. Never throws, and a second call does nothing. */
       release(): void;
     };

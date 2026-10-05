@@ -2,9 +2,9 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
 
 /**
  * Playwright end-to-end test rules from `eslint-plugin-playwright`, applied to
- * TypeScript source patterns associated with the `@playwright/test` runner.
- * The native family matches source call-chain names without resolving imports
- * or receiver types and does not execute a runner.
+ * TypeScript source patterns associated with the `@playwright/test` runner. The
+ * native family matches source call-chain names without resolving imports or
+ * receiver types and does not execute a runner.
  *
  * Guard Playwright-specific patterns — locator usage, web-first assertions,
  * focused/slowed tests — that would otherwise compile and run silently.
@@ -63,8 +63,8 @@ export interface ITtscLintPlaywrightRules {
 
   /**
    * Reject duplicate Playwright setup/teardown hook calls
-   * (`test.beforeEach`/`test.afterEach`/etc.) by hook name across the whole file,
-   * including different test.describe blocks.
+   * (`test.beforeEach`/`test.afterEach`/etc.) by hook name across the whole
+   * file, including different test.describe blocks.
    *
    * Playwright runs both copies in declaration order, almost always a
    * copy-paste mistake.
@@ -278,9 +278,9 @@ export interface ITtscLintPlaywrightRules {
   "playwright/prefer-to-have-count"?: TtscLintRuleSetting;
 
   /**
-   * Prefer toHaveLength for the native-recognized shape
-   * `expect(await value.length()).toBe(n)`. Ordinary `.length` property reads
-   * are not recognized by this implementation.
+   * Prefer toHaveLength for the native-recognized shape `expect(await
+   * value.length()).toBe(n)`. Ordinary `.length` property reads are not
+   * recognized by this implementation.
    *
    * The dedicated matcher reports the actual length on failure instead of a
    * bare number mismatch.
@@ -323,8 +323,8 @@ export interface ITtscLintPlaywrightRules {
   /**
    * Validate the shape of Playwright `test.describe` callbacks.
    *
-   * The native check requires a function callback without an async modifier.
-   * It does not validate parameter count or infer returned Promise types.
+   * The native check requires a function callback without an async modifier. It
+   * does not validate parameter count or infer returned Promise types.
    *
    * @reference https://github.com/playwright-community/eslint-plugin-playwright/blob/main/docs/rules/valid-describe-callback.md
    */

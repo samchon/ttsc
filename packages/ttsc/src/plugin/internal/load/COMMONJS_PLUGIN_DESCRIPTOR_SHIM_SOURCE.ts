@@ -11,11 +11,11 @@ import {
  * hooks see. The process starts with recording active, so user --import
  * preloads retain their observed inputs. The runtime hooks bypass only this
  * generated entry; its synchronous bootstrap imports suspend recording until
- * descriptor loading starts. The recorder is read and evaluated as a module
- * of its own, as a Go config loader
- * evaluates the copy it embeds: nothing resolves it, so nothing records it.
- * Running this CommonJS entry as a file keeps its CommonJS bindings local;
- * Node's -e global bindings must not become ambient values in ESM descriptors.
+ * descriptor loading starts. The recorder is read and evaluated as a module of
+ * its own, as a Go config loader evaluates the copy it embeds: nothing resolves
+ * it, so nothing records it. Running this CommonJS entry as a file keeps its
+ * CommonJS bindings local; Node's -e global bindings must not become ambient
+ * values in ESM descriptors.
  */
 export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE = "0";`,

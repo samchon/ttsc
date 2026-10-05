@@ -1,14 +1,15 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
 import assert from "node:assert/strict";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
 
 /**
  * Verifies VS Code server root selection is case-insensitive on Windows paths.
  *
  * VS Code can report workspace roots and document paths with different drive or
  * segment casing. Command routing should still choose the deepest matching
- * language client on Windows, using the injected directory case authority rather
- * than the host operating system.
+ * language client on Windows, using the injected directory case authority
+ * rather than the host operating system.
  *
  * 1. Build a Windows identity context from an injected realpath map that reports
  *    case-insensitive directories.
@@ -31,7 +32,9 @@ export function test_vscode_server_resolution_selects_windows_root_case_insensit
   const identities = mod.createServerRootPathIdentityContext("win32", {
     caseSensitive: () => false,
     realpath: (location) => {
-      const directory = ordinaryDirectories.get(path.win32.normalize(location).toLowerCase());
+      const directory = ordinaryDirectories.get(
+        path.win32.normalize(location).toLowerCase(),
+      );
       if (directory !== undefined) return directory;
       throw Object.assign(new Error("missing"), { code: "ENOENT" });
     },
@@ -43,8 +46,15 @@ export function test_vscode_server_resolution_selects_windows_root_case_insensit
       "win32",
       identities,
     );
-  
   })();
   assert.equal(observed, "C:\\Repo\\Packages\\Demo");
-  assert.equal(mod.selectDeepestRootForPath("C:\\Other\\main.ts", ["C:\\Repo"], "win32", identities), undefined);
+  assert.equal(
+    mod.selectDeepestRootForPath(
+      "C:\\Other\\main.ts",
+      ["C:\\Repo"],
+      "win32",
+      identities,
+    ),
+    undefined,
+  );
 }

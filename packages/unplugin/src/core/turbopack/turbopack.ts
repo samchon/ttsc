@@ -12,8 +12,8 @@ import { shareTtscTransformCache } from "../transform/session/shareTtscTransform
 import { transformTtsc } from "../transform/transformTtsc";
 import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
-import { createTurbopackLoaderBindings } from "./createTurbopackLoaderBindings";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
+import { createTurbopackLoaderBindings } from "./createTurbopackLoaderBindings";
 import { failedModuleSource } from "./failedModuleSource";
 
 /**
@@ -36,8 +36,8 @@ shareTtscTransformCache(transformCache, readTtscTransformSession());
 let bridge: HostWatchBridge | undefined;
 
 /**
- * The tool directories whose record inventory this worker has attempted
- * for a one-shot build, for a loader wired by hand, without `withTtsc`.
+ * The tool directories whose record inventory this worker has attempted for a
+ * one-shot build, for a loader wired by hand, without `withTtsc`.
  */
 const refreshed = new Set<string>();
 

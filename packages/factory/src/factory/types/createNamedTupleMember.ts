@@ -13,9 +13,15 @@ import { make } from "../internal/make";
  * Given the label `name` and a `string` type, the printer renders:
  *
  * ```ts
- * name: string
+ * name: string;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param dotDotDotToken The rest marker (`...`), if any.
+ * @param name The element label.
+ * @param questionToken The optional marker (`?`), if any.
+ * @param type The element type.
+ * @returns The created {@link NamedTupleMember}.
  * @evidence contracts/common.md#principled-implementation
  *   The label becomes an Identifier while rest, optionality and element type
  *   remain independent fields. Tuple-position legality is a caller responsibility.
@@ -31,13 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the named tuple element and marker order, using the element
  *   itself rather than an unrelated statement as the example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param dotDotDotToken The rest marker (`...`), if any.
- * @param name The element label.
- * @param questionToken The optional marker (`?`), if any.
- * @param type The element type.
- * @returns The created {@link NamedTupleMember}.
  */
 export const createNamedTupleMember = (
   dotDotDotToken: Token | undefined,

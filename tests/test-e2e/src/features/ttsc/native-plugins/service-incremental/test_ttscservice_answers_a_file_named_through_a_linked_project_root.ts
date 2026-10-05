@@ -1,10 +1,10 @@
 import { TestProject } from "@ttsc/testing";
-import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TtscService } from "../../../../../../../packages/ttsc/lib/index.js";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
@@ -35,7 +35,8 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  */
 export async function test_ttscservice_answers_a_file_named_through_a_linked_project_root(): Promise<void> {
   const root = ProjectFixtures.copy("ttsc-utility-plugins");
-  const retentionReason = "linked-root service has no awaited disposal acknowledgement";
+  const retentionReason =
+    "linked-root service has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
   TestProject.retainSharedPluginCache(retentionReason);
   TestUtilityPlugins.seedPackages(root);
@@ -71,8 +72,15 @@ export async function test_ttscservice_answers_a_file_named_through_a_linked_pro
   } catch (error) {
     failures.push(error);
   } finally {
-    try { service.dispose(); }
-    catch (error) { failures.push(error); }
+    try {
+      service.dispose();
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "linked-root resident observation or disposal failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "linked-root resident observation or disposal failed",
+    );
 }

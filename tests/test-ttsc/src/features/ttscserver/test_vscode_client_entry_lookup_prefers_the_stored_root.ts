@@ -10,11 +10,11 @@ import { findClientEntryByRoot } from "../../../../../packages/vscode/src/findCl
  * A client's key is observed from the filesystem when the entry is created and
  * can differ when computed again, for example after the directory behind a link
  * is removed. Looking up only by the recomputed key would then find nothing and
- * a stop request would silently leave the client running. The stored root is the
- * stable spelling, so it is matched first.
+ * a stop request would silently leave the client running. The stored root is
+ * the stable spelling, so it is matched first.
  *
- * 1. Store an entry under one key while the recomputed key of its root is
- *    another, and look it up by its root.
+ * 1. Store an entry under one key while the recomputed key of its root is another,
+ *    and look it up by its root.
  * 2. Look up a root that no entry stores but whose recomputed key is indexed.
  * 3. Look up a root with neither a stored match nor an indexed key.
  *
@@ -43,7 +43,12 @@ export function test_vscode_client_entry_lookup_prefers_the_stored_root(): void 
     "the stored root is found when its recomputed key no longer indexes anything",
   );
   assert.equal(
-    findClientEntryByRoot(entries, byKey, "/work/alias-of-other", () => second.id),
+    findClientEntryByRoot(
+      entries,
+      byKey,
+      "/work/alias-of-other",
+      () => second.id,
+    ),
     second,
     "a root no entry stores falls back to the recomputed key",
   );
@@ -52,5 +57,8 @@ export function test_vscode_client_entry_lookup_prefers_the_stored_root(): void 
     undefined,
     "a root with no stored match and no indexed key finds nothing",
   );
-  assert.equal(findClientEntryByRoot([], new Map(), first.root, () => first.id), undefined);
+  assert.equal(
+    findClientEntryByRoot([], new Map(), first.root, () => first.id),
+    undefined,
+  );
 }

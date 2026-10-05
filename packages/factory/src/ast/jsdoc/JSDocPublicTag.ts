@@ -9,11 +9,11 @@ import type { JSDocComment } from "./JSDocComment";
  * This records documentation visibility, not a TypeScript access modifier.
  * Omitting the description emits a bare visibility tag.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The public-tag kind preserves a documentation visibility annotation with an explicit name and optional prose, without claiming to change access control.
  * @evidence contracts/common.md#clear-and-simple-design Visibility intent is carried by the kind while comment text remains optional; declaration modifiers are not duplicated here.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public visibility is supplied through a supported annotation node rather than patched declarations or consumer-specific export exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes documentation visibility from access control and states omission behavior, with paragraph and member separation under the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocPublicTag {
   /** Discriminant tag; always `"JSDocPublicTag"`. */

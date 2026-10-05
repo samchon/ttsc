@@ -102,10 +102,7 @@ const LINT_CONFIG_FILENAMES = [
  * `config`, `plugins`) surfaces as a clear migration error instead of being
  * silently ignored. Mirrors `@ttsc/banner` and `@ttsc/strip`.
  */
-const FRAMEWORK_KEYS = new Set<string>([
-  "enabled",
-  "transform",
-]);
+const FRAMEWORK_KEYS = new Set<string>(["enabled", "transform"]);
 
 /**
  * Plugin descriptor factory consumed by ttsc package discovery.
@@ -122,9 +119,9 @@ const FRAMEWORK_KEYS = new Set<string>([
  * in an isolated ttsx process. JSON without plugins or an extends chain needs
  * no evaluator. The extractor reads plugin maps from the resolved config and
  * its bases and forwards contributor Go sources to the descriptor's
- * `contributors` field.
- * Its dependency envelope owns config observations; the child's bootstrap
- * does not inherit the parent descriptor's observation channel.
+ * `contributors` field. Its dependency envelope owns config observations; the
+ * child's bootstrap does not inherit the parent descriptor's observation
+ * channel.
  *
  * @evidence contracts/common.md#principled-implementation Entry validation and config-origin discovery resolve registered contributor sources and observed inputs before constructing the check-stage descriptor with supported capabilities.
  * @evidence contracts/common.md#clear-and-simple-design The exported factory composes validation, discovery and descriptor construction; helpers own module loading and dependency fingerprints separately.
@@ -1922,11 +1919,10 @@ function extractPluginSource(value: unknown, location: string): string | undefin
  * Evaluating such a config spawns a full `ttsx` subprocess. A monorepo build
  * runs one `ttsc` process per package. A completed cache entry avoids another
  * evaluation of the same unchanged config; simultaneous cold processes may
- * still evaluate it independently.
- * The cache key covers the entry's path and exact contents; the payload also
- * fingerprints every local module reached from that entry. An entry or helper
- * edit therefore re-evaluates cleanly without treating installed packages as
- * project watch inputs.
+ * still evaluate it independently. The cache key covers the entry's path and
+ * exact contents; the payload also fingerprints every local module reached from
+ * that entry. An entry or helper edit therefore re-evaluates cleanly without
+ * treating installed packages as project watch inputs.
  */
 function readTtsxConfigPlugins(
   configPath: string,
@@ -2254,7 +2250,8 @@ function createCanonicalTempDirectory(prefix: string, parent: string): string {
 
 /**
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
- * `configCacheVersion`; bump both when the shape or evaluator semantics change.
+ * `configCacheVersion`; bump both when the shape or evaluator semantics
+ * change.
  */
 const CONFIG_CACHE_VERSION = "v11";
 
@@ -2824,8 +2821,8 @@ function ttsxLauncherFrom(anchor: string): string | undefined {
  *
  * A descriptor can run under Bun, while a JavaScript ttsx launcher requires
  * Node's synchronous module hooks. Probe candidates in the evaluator's actual
- * environment and directory; a host executable or a command name alone does
- * not prove that capability. Native launcher overrides retain their own entry.
+ * environment and directory; a host executable or a command name alone does not
+ * prove that capability. Native launcher overrides retain their own entry.
  * Candidate observations are invocation-local, without stale runtime caching.
  */
 function ttsxThroughNodeIfNeeded(

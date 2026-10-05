@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param statements The statements.
+ * @returns The created {@link ModuleBlock}.
  * @evidence contracts/common.md#principled-implementation
  *   ModuleBlock retains ordered statements as a namespace/module body rather
  *   than introducing a second named declaration or module-loading operation.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc identifies enclosing module ownership and ordered body layout, with
  *   a separate block example and acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param statements The statements.
- * @returns The created {@link ModuleBlock}.
  */
 export const createModuleBlock = (
   statements: readonly Statement[],

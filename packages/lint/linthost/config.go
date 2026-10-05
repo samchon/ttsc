@@ -1893,7 +1893,7 @@ type evaluatedConfigFile struct {
   dependencyDigests     []configDependencyFingerprint
   dependenciesTracked   bool
   // Private correlation only; cachedConfigEvaluation serializes none of it.
-  traceInvocation       *lintTraceInvocation
+  traceInvocation *lintTraceInvocation
 }
 
 type cachedConfigEvaluation struct {
@@ -2462,15 +2462,15 @@ func runConfigLoaderCommand(
   if observation != nil {
     defer func() {
       data := map[string]any{
-        "location": location,
-        "label": label,
-        "raw": rawCapture,
-        "readOutcome": readOutcome,
+        "location":               location,
+        "label":                  label,
+        "raw":                    rawCapture,
+        "readOutcome":            readOutcome,
         "normalizationAttempted": normalizationAttempted,
-        "normalizationAccepted": normalizationAccepted,
-        "dependencies": evaluated.dependencyDigests,
-        "dependenciesTracked": evaluated.dependenciesTracked,
-        "success": resultErr == nil,
+        "normalizationAccepted":  normalizationAccepted,
+        "dependencies":           evaluated.dependencyDigests,
+        "dependenciesTracked":    evaluated.dependenciesTracked,
+        "success":                resultErr == nil,
       }
       if resultErr != nil {
         data["error"] = resultErr.Error()

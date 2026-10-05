@@ -4,8 +4,8 @@ import type { ResidentReplyKind } from "./ResidentReplyKind";
  * Decode resident reply objects and validate their operation-specific fields.
  *
  * Parsing distinguishes malformed JSON or a non-object value from an object
- * with the wrong reply shape. The transport owns how either failure settles
- * its FIFO; these operations do not read pipes or manage a resident child.
+ * with the wrong reply shape. The transport owns how either failure settles its
+ * FIFO; these operations do not read pipes or manage a resident child.
  *
  * @evidence contracts/common.md#principled-implementation Separate object decoding and operation admission preserve the distinction the transport uses for framing failure versus one invalid reply.
  * @evidence contracts/common.md#clear-and-simple-design One internal namespace owns the two reply-data operations used by the resident transport without acquiring its queue or process state.
@@ -38,7 +38,11 @@ export namespace ResidentTransformReply {
     } catch {
       return undefined;
     }
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
       return parsed as Record<string, unknown>;
     }
     return undefined;

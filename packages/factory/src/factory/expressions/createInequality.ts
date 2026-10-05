@@ -12,18 +12,17 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * Given operands `a` and `b`, the printer emits:
  *
  * ```ts
- * a != b
+ * a != b;
  * ```
- *
- * @evidence contracts/common.md#principled-implementation ExclamationEqualsToken preserves loose inequality and both operands without replacing coercive language semantics with strict comparison.
- * @evidence contracts/common.md#clear-and-simple-design Operator selection is the wrapper's only addition to shared binary construction.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The loose-inequality choice follows the named helper contract rather than known inputs or a fabricated boolean result.
- * @evidence contracts/common.md#meaningful-documentation Native prose states coercion and the operation, with ordered parameter descriptions and separate example and tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.
  * @param right The right-hand operand.
  * @returns The created {@link BinaryExpression}.
+ * @evidence contracts/common.md#principled-implementation ExclamationEqualsToken preserves loose inequality and both operands without replacing coercive language semantics with strict comparison.
+ * @evidence contracts/common.md#clear-and-simple-design Operator selection is the wrapper's only addition to shared binary construction.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The loose-inequality choice follows the named helper contract rather than known inputs or a fabricated boolean result.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states coercion and the operation, with ordered parameter descriptions and separate example and tags.
  */
 export const createInequality = (
   left: Expression,

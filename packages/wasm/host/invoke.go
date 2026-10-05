@@ -30,20 +30,18 @@ type PluginInvocation struct {
   Command string
 
   // Args is the invocation-owned copy of forwarded CLI arguments.
-  Args    []string
+  Args []string
 
   // Stdout accepts writes until all registered work completes.
-  Stdout  io.Writer
+  Stdout io.Writer
 
   // Stderr has the same ownership boundary as Stdout.
-  Stderr  io.Writer
+  Stderr io.Writer
 
   childrenMu     sync.Mutex
   children       sync.WaitGroup
   acceptingChild bool
 }
-
-
 
 // Go registers and starts invocation-owned asynchronous work. It returns false
 // when Run has already returned and the ownership boundary is closed.

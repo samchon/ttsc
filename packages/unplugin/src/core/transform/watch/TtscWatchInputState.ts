@@ -70,7 +70,8 @@ export type TtscWatchInputState =
 
       /**
        * `projectMembershipDigest` of the walk: the policy and each directory
-       * whose subtree contains an admitted file, with its membership signature.
+       * whose subtree contains an admitted file, with its membership
+       * signature.
        */
       digest: string;
 

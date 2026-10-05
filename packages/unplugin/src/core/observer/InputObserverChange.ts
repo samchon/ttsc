@@ -25,10 +25,10 @@
  */
 export interface InputObserverChange {
   /**
-   * Owners whose only failed comparison concerns root-file membership, including
-   * changed or unavailable membership proof, with no failed content state, so a
-   * host that can tell the two apart re-runs them without an update of their
-   * own (samchon/ttsc#1419).
+   * Owners whose only failed comparison concerns root-file membership,
+   * including changed or unavailable membership proof, with no failed content
+   * state, so a host that can tell the two apart re-runs them without an update
+   * of their own (samchon/ttsc#1419).
    */
   invalidate: ReadonlySet<string>;
 

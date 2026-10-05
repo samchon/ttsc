@@ -1,6 +1,6 @@
-import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import typia from "typia";
 
+import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import { captureProcessOutput, ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";

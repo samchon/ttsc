@@ -347,9 +347,13 @@ func (s *graphSession) Close() error {
 
 func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
   prepared, mode, changed, err := s.prepareDumpSnapshot()
-  if err != nil || prepared == nil { return nil, mode, changed, err }
+  if err != nil || prepared == nil {
+    return nil, mode, changed, err
+  }
   dump, err := prepared.publish(graph.GitIgnoredFiles(s.cwd, prepared.built))
-  if err != nil { return nil, "", false, err }
+  if err != nil {
+    return nil, "", false, err
+  }
   return dump, mode, true, nil
 }
 
@@ -357,13 +361,20 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
 // Completing it consumes evaluated membership and owns pending retry state.
 func (s *graphSession) prepareDumpSnapshot() (*preparedDumpProjection, string, bool, error) {
   change, err := s.nextChange(false)
-  if err != nil { return nil, "", false, err }
-  if change == nil { return nil, serveModeUnchanged, false, nil }
+  if err != nil {
+    return nil, "", false, err
+  }
+  if change == nil {
+    return nil, serveModeUnchanged, false, nil
+  }
   prepared := s.prepareDumpProjection()
   publish := prepared.publish
   prepared.publish = func(ignored map[string]bool) (*graph.Dump, error) {
     dump, err := publish(ignored)
-    if err != nil { s.pending = change; return nil, err }
+    if err != nil {
+      s.pending = change
+      return nil, err
+    }
     s.pending = nil
     return dump, nil
   }
@@ -637,19 +648,21 @@ func (s *graphSession) prepareDumpProjection() *preparedDumpProjection {
   // span points into are provably the bytes the manifest attests to.
   texts := graph.SourceTexts(program)
   return &preparedDumpProjection{built: built, publish: func(ignored map[string]bool) (*graph.Dump, error) {
-  dump, err := graph.NewDump(
-    built,
-    s.cwd,
-    s.tsconfig,
-    ignored,
-    texts,
-    graph.DumpOrigin{
-      Provenance:  s.provenance(texts),
-      Diagnostics: graph.NewDiagnostics(program),
-    },
-  )
-  if err != nil { return nil, err }
-  return &dump, nil
+    dump, err := graph.NewDump(
+      built,
+      s.cwd,
+      s.tsconfig,
+      ignored,
+      texts,
+      graph.DumpOrigin{
+        Provenance:  s.provenance(texts),
+        Diagnostics: graph.NewDiagnostics(program),
+      },
+    )
+    if err != nil {
+      return nil, err
+    }
+    return &dump, nil
   }}
 }
 

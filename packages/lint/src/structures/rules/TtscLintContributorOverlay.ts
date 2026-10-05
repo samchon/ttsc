@@ -28,7 +28,6 @@ import type {
  *
  * @typeParam TMap - Rule name to options object, or to `void` for a
  *   severity-only rule.
- *
  * @evidence contracts/common.md#principled-implementation Mapping keyof the contributor interface keeps each rule's own options type, and the void check selects the severity-only form for rules that take no options.
  * @evidence contracts/common.md#clear-and-simple-design One mapped alias derives the typed settings from a plain exported interface, so a contributor declares each rule once and no module augmentation is needed.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The overlay uses TypeScript's supported keyof and conditional-type semantics and an ordinary generic argument rather than casts, ambient module declarations or a widened unknown slot for listed rules.

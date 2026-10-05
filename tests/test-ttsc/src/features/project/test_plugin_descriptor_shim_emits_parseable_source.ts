@@ -43,7 +43,11 @@ export const test_plugin_descriptor_shim_emits_parseable_source = (): void => {
         target: ts.ScriptTarget.ESNext,
       },
     });
-    assert.deepEqual(parsed.diagnostics, [], "complete emitted shim must parse");
+    assert.deepEqual(
+      parsed.diagnostics,
+      [],
+      "complete emitted shim must parse",
+    );
     for (const line of source.split("\n")) {
       assert.equal(
         quotesPair(line),
@@ -61,7 +65,10 @@ export const test_plugin_descriptor_shim_emits_parseable_source = (): void => {
       );
     }
   }
-  for (const malformed of ['process.stderr.write("broken\n");', "const incomplete = ;"]) {
+  for (const malformed of [
+    'process.stderr.write("broken\n");',
+    "const incomplete = ;",
+  ]) {
     const parsed = ts.transpileModule(malformed, {
       fileName: "malformed-shim.mts",
       reportDiagnostics: true,
@@ -70,7 +77,10 @@ export const test_plugin_descriptor_shim_emits_parseable_source = (): void => {
         target: ts.ScriptTarget.ESNext,
       },
     });
-    assert.ok(parsed.diagnostics!.length > 0, "language oracle must reject invalid source");
+    assert.ok(
+      parsed.diagnostics!.length > 0,
+      "language oracle must reject invalid source",
+    );
   }
 };
 

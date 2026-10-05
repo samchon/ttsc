@@ -82,11 +82,17 @@ func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
   }
   for _, artifact := range []string{"index.js", "index.d.ts"} {
     output, err := os.ReadFile(filepath.Join(root, "bin", artifact))
-    if err != nil { t.Fatal(err) }
-    mapBytes, err := os.ReadFile(filepath.Join(root, "bin", artifact + ".map"))
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
+    mapBytes, err := os.ReadFile(filepath.Join(root, "bin", artifact+".map"))
+    if err != nil {
+      t.Fatal(err)
+    }
     var mapping utilitySourceMap
-    if err := json.Unmarshal(mapBytes, &mapping); err != nil { t.Fatal(err) }
+    if err := json.Unmarshal(mapBytes, &mapping); err != nil {
+      t.Fatal(err)
+    }
     found := false
     lines := strings.Split(string(output), "\n")
     for _, segment := range decodeSourceMapMappings(t, mapping.Mappings) {
@@ -104,6 +110,8 @@ func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
         }
       }
     }
-    if !found { t.Fatalf("%s has no generated assignment or declaration name mapped to authored value 0:13: %q", artifact, mapping.Mappings) }
+    if !found {
+      t.Fatalf("%s has no generated assignment or declaration name mapped to authored value 0:13: %q", artifact, mapping.Mappings)
+    }
   }
 }

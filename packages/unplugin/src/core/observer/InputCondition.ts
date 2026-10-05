@@ -8,8 +8,8 @@ import type { TtscWatchInputEvidence } from "../transform/watch/TtscWatchInputEv
  * Either the generation's own evidence for the input, or a baseline this
  * watcher attempted to capture itself. A failed baseline attempt stays
  * undefined, and later comparison cannot certify it. The owners are told when
- * the state no longer holds or cannot be proven. Conditions coexist when different
- * generations recorded different states for it.
+ * the state no longer holds or cannot be proven. Conditions coexist when
+ * different generations recorded different states for it.
  *
  * @evidence contracts/common.md#principled-implementation Evidence or an observer baseline belongs to one condition, allowing different generations to share a path without overwriting each other's recorded state.
  * @evidence contracts/common.md#clear-and-simple-design The condition combines one state representation and its owner set; path aliases and watch resources remain in the entry and scope.

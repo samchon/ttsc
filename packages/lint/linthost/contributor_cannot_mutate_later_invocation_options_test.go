@@ -2,8 +2,8 @@ package linthost
 
 import (
   "encoding/json"
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestContributorCannotMutateLaterInvocationOptions exercises the host adapter,

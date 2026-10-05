@@ -19,6 +19,7 @@ import (
 //  1. Parse a project and use its options as a configless Program input.
 //  2. Load a package subpath from a mixed-case cwd and replay its resolution.
 //  3. Assert exact context and successful replay, including the empty control.
+//
 // @evidence contracts/testing.md#behavioral-verification Builds a configless Program and asserts one universal resolved task with exact cwd spelling and successful unchanged replay, or no tasks for empty types.
 // @evidence contracts/testing.md#independent-expectations The authored ConfiglessProject path and client-pkg/client directive establish the synthetic containing filename and task count; expectations do not use production resolution output.
 // @evidence contracts/testing.md#distinguishing-cases Populated automatic types versus explicit empty types distinguishes a configless resolution from accidental task creation; the sibling case owns explicit config spelling.

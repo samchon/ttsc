@@ -5,7 +5,8 @@ import type { ITtscCompilerTransformation } from "ttsc";
  *
  * Physical identities coalesce reachability vertices, while lexical spellings
  * retain separate compiler predicate observations and alias-sensitive inputs.
- * The builder validates observations; this interface only represents the result.
+ * The builder validates observations; this interface only represents the
+ * result.
  *
  * @evidence contracts/common.md#principled-implementation Identity-keyed edges represent reachability independently of lexical proof keys; separate conflict sets retain contradictory observations instead of choosing an arbitrary usable proof.
  * @evidence contracts/common.md#clear-and-simple-design Adjacency, universal inputs and predicate proof maps remain separate fields because their consumers ask different questions about the same generation.

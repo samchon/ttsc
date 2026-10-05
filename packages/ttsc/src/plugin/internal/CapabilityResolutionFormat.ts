@@ -30,15 +30,14 @@ export namespace CapabilityResolutionFormat {
    * Moves when the entry shape or the validation rule changes, so an older
    * entry is discarded rather than read under new rules. The current format
    * proves the directories the binaries were keyed on by the build's own rule
-   * and records only the answer of a load whose
-   * descriptors supplied the explicit external-read declaration. This is a
-   * producer premise, not detection of every omitted read. Its key
-   * includes the complete descriptor environment and runtime content identity,
-   * since either can change a factory's capability declarations. It requires
-   * an explicit completed runtime observation envelope, so a partial side
-   * channel cannot authorize an answer for reuse, and the shared module
-   * recorder's independent completion proof, including its public
-   * require.resolve hook capability.
+   * and records only the answer of a load whose descriptors supplied the
+   * explicit external-read declaration. This is a producer premise, not
+   * detection of every omitted read. Its key includes the complete descriptor
+   * environment and runtime content identity, since either can change a
+   * factory's capability declarations. It requires an explicit completed
+   * runtime observation envelope, so a partial side channel cannot authorize an
+   * answer for reuse, and the shared module recorder's independent completion
+   * proof, including its public require.resolve hook capability.
    */
   const FORMAT = "ttsc-capability-resolution-v6";
 
@@ -82,9 +81,9 @@ export namespace CapabilityResolutionFormat {
    * Keyed on the project rather than on the capability: the walk it replaces
    * discovers every configured plugin, so one entry answers for all of them and
    * a second consumer can reuse that entry for another capability, while still
-   * paying its authority and freshness checks. The
-   * complete environment and runtime content proof distinguish evaluation
-   * authorities even when project file content stays unchanged.
+   * paying its authority and freshness checks. The complete environment and
+   * runtime content proof distinguish evaluation authorities even when project
+   * file content stays unchanged.
    *
    * @evidence contracts/common.md#principled-implementation SHA-256 over project/config identity, canonical descriptor environment and actual executable content/lexical/physical proof selects an authority-specific entry; unproved runtime/storage returns null rather than trusting restored metadata.
    * @evidence contracts/common.md#clear-and-simple-design Cache-root policy is delegated once and this function adds only the capability-entry key and layout.
@@ -161,13 +160,12 @@ export namespace CapabilityResolutionFormat {
    * this cache's separation policy. Reuse still assumes the filesystem's
    * reported metadata reflects writes; the comparison cannot certify arbitrary
    * timestamp restoration or future clock behavior. The probe is the cache's
-   * own file, named for this call, and removal is attempted
-   * at once, so concurrent readers never lend each other a reference. A failed
-   * write, or a plugin source on another device, leaves nothing separable, and
-   * the proof reads the files.
+   * own file, named for this call, and removal is attempted at once, so
+   * concurrent readers never lend each other a reference. A failed write, or a
+   * plugin source on another device, leaves nothing separable, and the proof
+   * reads the files.
    *
    * @param entry The entry file, whose directory the probe is written in.
-   *
    * @evidence contracts/common.md#principled-implementation A unique freshly-written file supplies its native device/mtime reference; acquisition failure clears the witness, and the source observer requires a matching device and strictly older reported stamp under the metadata policy.
    * @evidence contracts/common.md#clear-and-simple-design The function returns only device-to-stamp evidence and owns its transient probe from creation through cleanup.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Random probe identity avoids borrowing a concurrent call's witness; failed acquisition does not substitute wall-clock guesses for device evidence.
@@ -212,7 +210,6 @@ export namespace CapabilityResolutionFormat {
    * itself a content hash or proof against arbitrary timestamp restoration.
    *
    * @param reference The clock reference minted for this proof.
-   *
    * @evidence contracts/common.md#principled-implementation lstat device/inode/link/mode/size/timestamps form the regular-file metadata signature; strict mtime-before-reference marks separation for a matching device under the cache's native metadata policy, without observing content.
    * @evidence contracts/common.md#clear-and-simple-design A closure carries one proof's device references and maps each requested file to signature/separation together.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable files return no witness, and unmatched device or same/newer stamps cannot authorize digest reuse.

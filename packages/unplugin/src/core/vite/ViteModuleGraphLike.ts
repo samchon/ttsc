@@ -68,7 +68,8 @@ export interface ViteModuleGraphLike {
 
   /**
    * Request the owning graph to invalidate an opaque node's cached transform.
-   * The optional operation does not itself certify the next request's behavior.
+   * The optional operation does not itself certify the next request's
+   * behavior.
    *
    * @evidence contracts/common.md#principled-implementation
    *   The opaque node is returned to its owning graph, which owns transform

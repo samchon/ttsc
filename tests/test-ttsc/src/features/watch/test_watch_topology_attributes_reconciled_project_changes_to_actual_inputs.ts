@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import type { WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -28,75 +28,179 @@ import { TestProject } from "../../../../utils/src/TestProject";
  */
 export async function test_watch_topology_attributes_reconciled_project_changes_to_actual_inputs(): Promise<void> {
   const failures: unknown[] = [];
-  for (const scenario of ["content", "creation", "selection", "multiple", "directory", "unselected", "unrelated-directories", "mixed"] as const) {
+  for (const scenario of [
+    "content",
+    "creation",
+    "selection",
+    "multiple",
+    "directory",
+    "unselected",
+    "unrelated-directories",
+    "mixed",
+  ] as const) {
     try {
       await verifyScenario(scenario);
     } catch (error) {
       failures.push(new Error(scenario, { cause: error }));
     }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "project-input attribution scenarios failed");
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "project-input attribution scenarios failed",
+    );
 }
 
-async function verifyScenario(scenario: "content" | "creation" | "selection" | "multiple" | "directory" | "unselected" | "unrelated-directories" | "mixed"): Promise<void> {
-  const directoryOnly = scenario === "unselected" || scenario === "unrelated-directories";
-  const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-project-input-attribution-"));
+async function verifyScenario(
+  scenario:
+    | "content"
+    | "creation"
+    | "selection"
+    | "multiple"
+    | "directory"
+    | "unselected"
+    | "unrelated-directories"
+    | "mixed",
+): Promise<void> {
+  const directoryOnly =
+    scenario === "unselected" || scenario === "unrelated-directories";
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-project-input-attribution-"),
+  );
   const attention = path.join(root, "attention.md");
   const dataRoot = path.join(root, "data");
-  const first = directoryOnly ? path.join(root, "untracked.md") : path.join(dataRoot, "first.md");
+  const first = directoryOnly
+    ? path.join(root, "untracked.md")
+    : path.join(dataRoot, "first.md");
   const second = path.join(dataRoot, "second.md");
   const resolutionRoot = path.join(root, "resolution");
   fs.writeFileSync(attention, "already admitted\n");
   if (scenario !== "directory") fs.mkdirSync(dataRoot);
-  if (scenario !== "creation" && scenario !== "directory" && !directoryOnly) fs.writeFileSync(first, "before\n");
+  if (scenario !== "creation" && scenario !== "directory" && !directoryOnly)
+    fs.writeFileSync(first, "before\n");
   if (scenario === "multiple") fs.writeFileSync(second, "before\n");
   if (scenario === "mixed") fs.mkdirSync(resolutionRoot);
   const changes: WatchInputChange[] = [];
-  const watchers: { location: string; listener: fs.WatchListener<string>; closed: boolean }[] = [];
-  const openFileWatch = ((location: fs.PathLike, _options: fs.WatchOptions, listener: fs.WatchListener<string>) => {
+  const watchers: {
+    location: string;
+    listener: fs.WatchListener<string>;
+    closed: boolean;
+  }[] = [];
+  const openFileWatch = ((
+    location: fs.PathLike,
+    _options: fs.WatchOptions,
+    listener: fs.WatchListener<string>,
+  ) => {
     const entry = { location: String(location), listener, closed: false };
     watchers.push(entry);
-    return { close: () => { entry.closed = true; }, on() { return this; } } as unknown as fs.FSWatcher;
+    return {
+      close: () => {
+        entry.closed = true;
+      },
+      on() {
+        return this;
+      },
+    } as unknown as fs.FSWatcher;
   }) as typeof fs.watch;
   const topology = new WatchTopology(
-    { cwd: root, files: [], projectRoot: root, tsconfig: path.join(root, "tsconfig.json") },
     {
-      onError: (_location, error) => { throw error; },
-      onInputChange: (change) => changes.push(change),
-      onTopologyChange: () => { throw new Error("unexpected compiler refresh"); },
+      cwd: root,
+      files: [],
+      projectRoot: root,
+      tsconfig: path.join(root, "tsconfig.json"),
     },
-    (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
+    {
+      onError: (_location, error) => {
+        throw error;
+      },
+      onInputChange: (change) => changes.push(change),
+      onTopologyChange: () => {
+        throw new Error("unexpected compiler refresh");
+      },
+    },
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
     openFileWatch,
   );
   const deliver = (location: string): void => {
-    const watcher = watchers.find((entry) => !entry.closed && entry.location === root);
+    const watcher = watchers.find(
+      (entry) => !entry.closed && entry.location === root,
+    );
     assert.ok(watcher, "the authored root has no live subscription");
     watcher.listener("change", path.relative(root, location));
   };
   try {
     topology.setProjectInputs({
       root,
-      files: scenario === "directory" || directoryOnly ? [attention] : [attention, first, ...(scenario === "multiple" ? [second] : [])],
-      globs: scenario === "directory" ? [path.join(dataRoot, "**", "*.md")] : [],
+      files:
+        scenario === "directory" || directoryOnly
+          ? [attention]
+          : [attention, first, ...(scenario === "multiple" ? [second] : [])],
+      globs:
+        scenario === "directory" ? [path.join(dataRoot, "**", "*.md")] : [],
       reloadFiles: scenario === "selection" ? [attention] : [],
-      reloadDirectories: scenario === "mixed" ? [resolutionRoot] : directoryOnly ? [root, dataRoot] : scenario === "directory" ? [root] : [],
+      reloadDirectories:
+        scenario === "mixed"
+          ? [resolutionRoot]
+          : directoryOnly
+            ? [root, dataRoot]
+            : scenario === "directory"
+              ? [root]
+              : [],
     });
     await Promise.resolve();
     assert.deepEqual(changes, []);
     if (scenario === "directory") fs.mkdirSync(dataRoot);
     fs.writeFileSync(first, "after\n");
-    if (scenario === "multiple" || scenario === "directory" || scenario === "unrelated-directories") fs.writeFileSync(second, "after\n");
-    if (scenario === "mixed") fs.writeFileSync(path.join(resolutionRoot, "unselected.md"), "after\n");
-    deliver(directoryOnly || scenario === "mixed" ? first : scenario === "directory" ? dataRoot : attention);
-    const expectedPath = scenario === "multiple" || scenario === "unrelated-directories" || scenario === "mixed" ? undefined : scenario === "directory" ? dataRoot : first;
-    const expectedKind = directoryOnly || scenario === "mixed" ? "config" : "project";
+    if (
+      scenario === "multiple" ||
+      scenario === "directory" ||
+      scenario === "unrelated-directories"
+    )
+      fs.writeFileSync(second, "after\n");
+    if (scenario === "mixed")
+      fs.writeFileSync(path.join(resolutionRoot, "unselected.md"), "after\n");
+    deliver(
+      directoryOnly || scenario === "mixed"
+        ? first
+        : scenario === "directory"
+          ? dataRoot
+          : attention,
+    );
+    const expectedPath =
+      scenario === "multiple" ||
+      scenario === "unrelated-directories" ||
+      scenario === "mixed"
+        ? undefined
+        : scenario === "directory"
+          ? dataRoot
+          : first;
+    const expectedKind =
+      directoryOnly || scenario === "mixed" ? "config" : "project";
     assert.deepEqual(changes, [{ kind: expectedKind, path: expectedPath }]);
     deliver(first);
-    if (scenario === "multiple" || scenario === "directory" || scenario === "unrelated-directories") deliver(second);
+    if (
+      scenario === "multiple" ||
+      scenario === "directory" ||
+      scenario === "unrelated-directories"
+    )
+      deliver(second);
     await Promise.resolve();
-    assert.deepEqual(changes, [{ kind: expectedKind, path: expectedPath }], "later member notifications must not repeat admitted bytes");
+    assert.deepEqual(
+      changes,
+      [{ kind: expectedKind, path: expectedPath }],
+      "later member notifications must not repeat admitted bytes",
+    );
   } finally {
     topology.close();
   }
-  assert.ok(watchers.every((entry) => entry.closed), "owner close left a subscription live");
+  assert.ok(
+    watchers.every((entry) => entry.closed),
+    "owner close left a subscription live",
+  );
 }

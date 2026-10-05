@@ -3,8 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, fakeUpstreamOptions } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  fakeUpstreamOptions,
+  prepareSnapshot,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies a file outside the tsconfig program passes through untransformed.
@@ -36,7 +39,11 @@ export async function case_metro_transformer_passes_files_outside_the_project_th
   workspace: MetroWorkspace.IWorkspace,
 ): Promise<void> {
   const root = MetroWorkspace.enterBare(workspace);
-  const externalProject = MetroWorkspace.enterProject(workspace, {}, "external-project");
+  const externalProject = MetroWorkspace.enterProject(
+    workspace,
+    {},
+    "external-project",
+  );
   const src = "export const value: number = 1;\n";
   const stray = path.join(externalProject, "scripts", "stray.ts");
   fs.mkdirSync(path.dirname(stray), { recursive: true });
@@ -47,7 +54,11 @@ export async function case_metro_transformer_passes_files_outside_the_project_th
     options,
     (mod) => {
       const key = mod.getCacheKey({ projectRoot: root });
-      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "fixed initial run/input must retain its key");
+      assert.equal(
+        mod.getCacheKey({ projectRoot: root }),
+        key,
+        "fixed initial run/input must retain its key",
+      );
       return key;
     },
     runId,
@@ -100,7 +111,11 @@ export async function case_metro_transformer_passes_files_outside_the_project_th
     options,
     (mod) => {
       const key = mod.getCacheKey({ projectRoot: root });
-      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "fixed guarded run/input must retain its key");
+      assert.equal(
+        mod.getCacheKey({ projectRoot: root }),
+        key,
+        "fixed guarded run/input must retain its key",
+      );
       return key;
     },
     guardedRunId,
@@ -121,7 +136,11 @@ export async function case_metro_transformer_passes_files_outside_the_project_th
     options,
     (mod) => {
       const key = mod.getCacheKey({ projectRoot: root });
-      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "fixed included run/input must retain its key");
+      assert.equal(
+        mod.getCacheKey({ projectRoot: root }),
+        key,
+        "fixed included run/input must retain its key",
+      );
       return key;
     },
     nextRunId,

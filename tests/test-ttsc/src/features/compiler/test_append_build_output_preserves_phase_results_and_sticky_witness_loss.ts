@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 
-import { appendBuildOutput } from "../../../../../packages/ttsc/src/compiler/internal/build/appendBuildOutput";
 import { PluginFailureDiagnostics } from "../../../../../packages/ttsc/src/compiler/internal/build/PluginFailureDiagnostics";
 import type { RunBuildOptions } from "../../../../../packages/ttsc/src/compiler/internal/build/RunBuildOptions";
+import { appendBuildOutput } from "../../../../../packages/ttsc/src/compiler/internal/build/appendBuildOutput";
 import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structures/internal/TtscBuildResult";
 
 /**
@@ -10,7 +10,8 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  *
  * Content and physical witnesses have independent authority. An input declared
  * by both phases needs agreement in each dimension; an undeclared phase cannot
- * revoke it. Later emission owns provenance even when its answer is unavailable.
+ * revoke it. Later emission owns provenance even when its answer is
+ * unavailable.
  *
  * 1. Merge successful and failing phases and inspect ordered reports and streams.
  * 2. Contrast absent and explicitly empty later emission metadata.
@@ -26,19 +27,46 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
 export function test_append_build_output_preserves_phase_results_and_sticky_witness_loss(): void {
   const failures: Error[] = [];
   const check = (name: string, run: () => void): void => {
-    try { run(); }
-    catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      run();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
   const phase = (fields: Partial<TtscBuildResult> = {}): TtscBuildResult => ({
-    diagnostics: [], status: 0, stdout: "", stderr: "", ...fields,
+    diagnostics: [],
+    status: 0,
+    stdout: "",
+    stderr: "",
+    ...fields,
   });
 
   check("status, diagnostics and streams", () => {
-    const leftDiagnostic = { file: null, category: "error" as const, code: 101, messageText: "first" };
-    const rightDiagnostic = { file: null, category: "warning" as const, code: 202, messageText: "second" };
+    const leftDiagnostic = {
+      file: null,
+      category: "error" as const,
+      code: 101,
+      messageText: "first",
+    };
+    const rightDiagnostic = {
+      file: null,
+      category: "warning" as const,
+      code: 202,
+      messageText: "second",
+    };
     const combined = appendBuildOutput(
-      phase({ status: 3, stdout: "left-out", stderr: "left-error", diagnostics: [leftDiagnostic] }),
-      phase({ status: 7, stdout: "/right-out", stderr: "/right-error", diagnostics: [rightDiagnostic] }),
+      phase({
+        status: 3,
+        stdout: "left-out",
+        stderr: "left-error",
+        diagnostics: [leftDiagnostic],
+      }),
+      phase({
+        status: 7,
+        stdout: "/right-out",
+        stderr: "/right-error",
+        diagnostics: [rightDiagnostic],
+      }),
     );
     assert.equal(combined.status, 7);
     assert.deepEqual(combined.diagnostics, [leftDiagnostic, rightDiagnostic]);
@@ -48,7 +76,10 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
     assert.equal(combined.stderr, "left-error/right-error");
     assert.equal(appendBuildOutput(phase({ status: 3 }), phase()).status, 3);
     assert.equal(appendBuildOutput(phase(), phase()).status, 0);
-    const failure = appendBuildOutput(phase({ stdout: "visible" }), phase({ status: 7, stdout: "-failure" }));
+    const failure = appendBuildOutput(
+      phase({ stdout: "visible" }),
+      phase({ status: 7, stdout: "-failure" }),
+    );
     assert.equal(failure.stdout, "");
     assert.equal(failure.stderr, "visible-failure");
     const success = appendBuildOutput(phase({ stdout: "visible" }), phase());
@@ -57,39 +88,157 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
   });
 
   check("later emission ownership", () => {
-    const earlier = phase({ emittedFiles: ["early.js"], emittedSources: { "early.js": ["source.ts"] }, emittedSourceProofFailures: { "early.js": "earlier refusal" }, processCompletedNormally: true });
+    const earlier = phase({
+      emittedFiles: ["early.js"],
+      emittedSources: { "early.js": ["source.ts"] },
+      emittedSourceProofFailures: { "early.js": "earlier refusal" },
+      processCompletedNormally: true,
+    });
     const unavailable = appendBuildOutput(earlier, phase());
     assert.deepEqual(unavailable.emittedFiles, ["early.js"]);
     assert.equal(unavailable.emittedSources, undefined);
     assert.equal(unavailable.emittedSourceProofFailures, undefined);
     assert.equal(unavailable.processCompletedNormally, undefined);
-    const empty = appendBuildOutput(earlier, phase({ emittedFiles: [], emittedSources: {}, processCompletedNormally: false }));
+    const empty = appendBuildOutput(
+      earlier,
+      phase({
+        emittedFiles: [],
+        emittedSources: {},
+        processCompletedNormally: false,
+      }),
+    );
     assert.deepEqual(empty.emittedFiles, []);
     assert.deepEqual(empty.emittedSources, {});
     assert.equal(empty.processCompletedNormally, false);
-    const later = appendBuildOutput(earlier, phase({ emittedFiles: ["late.js"], emittedSources: { "late.js": [] }, emittedSourceProofFailures: { "late.js": "unknown producer" }, processCompletedNormally: true }));
+    const later = appendBuildOutput(
+      earlier,
+      phase({
+        emittedFiles: ["late.js"],
+        emittedSources: { "late.js": [] },
+        emittedSourceProofFailures: { "late.js": "unknown producer" },
+        processCompletedNormally: true,
+      }),
+    );
     assert.deepEqual(later.emittedFiles, ["late.js"]);
     assert.deepEqual(later.emittedSources, { "late.js": [] });
-    assert.deepEqual(later.emittedSourceProofFailures, { "late.js": "unknown producer" });
+    assert.deepEqual(later.emittedSourceProofFailures, {
+      "late.js": "unknown producer",
+    });
     assert.equal(later.processCompletedNormally, true);
   });
 
-  const left = phase({ hostInputs: ["equal", "content-conflict", "physical-conflict", "missing", "absent", "left-only"], hostInputHashes: { equal: "same", "content-conflict": "old", "physical-conflict": "same", missing: "known", absent: null, "left-only": "left" }, hostInputRealpaths: { equal: "/same", "content-conflict": "/same", "physical-conflict": "/old", missing: "/known", absent: null, "left-only": "/left" } });
-  const right = phase({ hostInputs: ["equal", "content-conflict", "physical-conflict", "missing", "absent", "right-only"], hostInputHashes: { equal: "same", "content-conflict": "new", "physical-conflict": "same", absent: null, "right-only": "right" }, hostInputRealpaths: { equal: "/same", "content-conflict": "/same", "physical-conflict": "/new", absent: null, "right-only": "/right" }, observationsComplete: false });
+  const left = phase({
+    hostInputs: [
+      "equal",
+      "content-conflict",
+      "physical-conflict",
+      "missing",
+      "absent",
+      "left-only",
+    ],
+    hostInputHashes: {
+      equal: "same",
+      "content-conflict": "old",
+      "physical-conflict": "same",
+      missing: "known",
+      absent: null,
+      "left-only": "left",
+    },
+    hostInputRealpaths: {
+      equal: "/same",
+      "content-conflict": "/same",
+      "physical-conflict": "/old",
+      missing: "/known",
+      absent: null,
+      "left-only": "/left",
+    },
+  });
+  const right = phase({
+    hostInputs: [
+      "equal",
+      "content-conflict",
+      "physical-conflict",
+      "missing",
+      "absent",
+      "right-only",
+    ],
+    hostInputHashes: {
+      equal: "same",
+      "content-conflict": "new",
+      "physical-conflict": "same",
+      absent: null,
+      "right-only": "right",
+    },
+    hostInputRealpaths: {
+      equal: "/same",
+      "content-conflict": "/same",
+      "physical-conflict": "/new",
+      absent: null,
+      "right-only": "/right",
+    },
+    observationsComplete: false,
+  });
   check("union and independent witnesses", () => {
     const merged = appendBuildOutput(left, right);
-    assert.deepEqual(merged.hostInputs, ["equal", "content-conflict", "physical-conflict", "missing", "absent", "left-only", "right-only"]);
-    assert.deepEqual({ ...merged.hostInputHashes }, { equal: "same", "physical-conflict": "same", absent: null, "left-only": "left", "right-only": "right" });
-    assert.deepEqual({ ...merged.hostInputRealpaths }, { equal: "/same", "content-conflict": "/same", absent: null, "left-only": "/left", "right-only": "/right" });
+    assert.deepEqual(merged.hostInputs, [
+      "equal",
+      "content-conflict",
+      "physical-conflict",
+      "missing",
+      "absent",
+      "left-only",
+      "right-only",
+    ]);
+    assert.deepEqual(
+      { ...merged.hostInputHashes },
+      {
+        equal: "same",
+        "physical-conflict": "same",
+        absent: null,
+        "left-only": "left",
+        "right-only": "right",
+      },
+    );
+    assert.deepEqual(
+      { ...merged.hostInputRealpaths },
+      {
+        equal: "/same",
+        "content-conflict": "/same",
+        absent: null,
+        "left-only": "/left",
+        "right-only": "/right",
+      },
+    );
     assert.equal(Object.hasOwn(merged.hostInputHashes!, "absent"), true);
     assert.equal(Object.hasOwn(merged.hostInputHashes!, "missing"), false);
     assert.equal(merged.observationsComplete, false);
   });
   check("third phase cannot restore loss", () => {
     const merged = appendBuildOutput(left, right);
-    const third = appendBuildOutput(merged, phase({ hostInputs: ["content-conflict", "physical-conflict", "missing"], hostInputHashes: { "content-conflict": "new", "physical-conflict": "same", missing: "known" }, hostInputRealpaths: { "content-conflict": "/same", "physical-conflict": "/new", missing: "/known" } }));
-    assert.equal(Object.hasOwn(third.hostInputHashes!, "content-conflict"), false);
-    assert.equal(Object.hasOwn(third.hostInputRealpaths!, "physical-conflict"), false);
+    const third = appendBuildOutput(
+      merged,
+      phase({
+        hostInputs: ["content-conflict", "physical-conflict", "missing"],
+        hostInputHashes: {
+          "content-conflict": "new",
+          "physical-conflict": "same",
+          missing: "known",
+        },
+        hostInputRealpaths: {
+          "content-conflict": "/same",
+          "physical-conflict": "/new",
+          missing: "/known",
+        },
+      }),
+    );
+    assert.equal(
+      Object.hasOwn(third.hostInputHashes!, "content-conflict"),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(third.hostInputRealpaths!, "physical-conflict"),
+      false,
+    );
     assert.equal(Object.hasOwn(third.hostInputHashes!, "missing"), false);
     assert.equal(Object.hasOwn(third.hostInputRealpaths!, "missing"), false);
     assert.equal(third.hostInputHashes!["physical-conflict"], "same");
@@ -99,7 +248,10 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
   check("undeclared and empty phases", () => {
     const unchanged = appendBuildOutput(left, phase());
     assert.deepEqual({ ...unchanged.hostInputHashes }, left.hostInputHashes);
-    assert.deepEqual({ ...unchanged.hostInputRealpaths }, left.hostInputRealpaths);
+    assert.deepEqual(
+      { ...unchanged.hostInputRealpaths },
+      left.hostInputRealpaths,
+    );
     assert.equal(unchanged.observationsComplete, undefined);
     const undeclared = appendBuildOutput(phase(), phase());
     assert.equal(Object.hasOwn(undeclared, "hostInputs"), false);
@@ -119,49 +271,107 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
     ["emit", { emit: true }, true],
     ["no emit", { emit: false }, true],
   ];
-  for (const [name, options, expected] of recoveryModes) check(`recovery gate/${name}`, () => {
-    const before = structuredClone(options);
-    assert.equal(PluginFailureDiagnostics.shouldCollect(options), expected);
-    assert.deepEqual(options, before);
-  });
+  for (const [name, options, expected] of recoveryModes)
+    check(`recovery gate/${name}`, () => {
+      const before = structuredClone(options);
+      assert.equal(PluginFailureDiagnostics.shouldCollect(options), expected);
+      assert.deepEqual(options, before);
+    });
   check("null recovery retains exact failure", () => {
     const failure = phase({ status: 3, stderr: "plugin failure" });
     assert.equal(PluginFailureDiagnostics.append(failure, null), failure);
     assert.deepEqual(failure.diagnostics, []);
   });
-  const recovered = { file: null, category: "error" as const, code: 2322, messageText: "recovered type error" };
-  const fallback = phase({ status: 7, diagnostics: [recovered], stdout: "fallback-out", stderr: "fallback-error" });
-  for (const [name, stdout, stderr, message, expectedOut, expectedError] of [
-    ["stderr precedence", "ignored", "  crash  ", "crash", "ignoredfallback-out", "  crash  fallback-error"],
-    ["stdout fallback", "  crash-out  ", "", "crash-out", "  crash-out  fallback-out", "fallback-error"],
-    ["whitespace stderr selects exit fallback", "not-selected", " \n ", "ttsc exited with status 3", "not-selectedfallback-out", " \n fallback-error"],
-    ["empty streams", "", "", "ttsc exited with status 3", "fallback-out", "fallback-error"],
-  ] as const) check(`recovery seed/${name}`, () => {
-    const failure = phase({ status: 3, stdout, stderr });
-    const before = structuredClone({ failure, fallback });
-    const result = PluginFailureDiagnostics.append(failure, fallback);
-    assert.deepEqual(result.diagnostics, [
-      { category: "error", code: "TTSC_PROCESS", file: null, messageText: message },
-      recovered,
-    ]);
-    assert.equal(result.diagnostics[1], recovered);
-    assert.equal(result.status, 3);
-    assert.equal(result.stdout, expectedOut);
-    assert.equal(result.stderr, expectedError);
-    assert.deepEqual({ failure, fallback }, before);
+  const recovered = {
+    file: null,
+    category: "error" as const,
+    code: 2322,
+    messageText: "recovered type error",
+  };
+  const fallback = phase({
+    status: 7,
+    diagnostics: [recovered],
+    stdout: "fallback-out",
+    stderr: "fallback-error",
   });
+  for (const [name, stdout, stderr, message, expectedOut, expectedError] of [
+    [
+      "stderr precedence",
+      "ignored",
+      "  crash  ",
+      "crash",
+      "ignoredfallback-out",
+      "  crash  fallback-error",
+    ],
+    [
+      "stdout fallback",
+      "  crash-out  ",
+      "",
+      "crash-out",
+      "  crash-out  fallback-out",
+      "fallback-error",
+    ],
+    [
+      "whitespace stderr selects exit fallback",
+      "not-selected",
+      " \n ",
+      "ttsc exited with status 3",
+      "not-selectedfallback-out",
+      " \n fallback-error",
+    ],
+    [
+      "empty streams",
+      "",
+      "",
+      "ttsc exited with status 3",
+      "fallback-out",
+      "fallback-error",
+    ],
+  ] as const)
+    check(`recovery seed/${name}`, () => {
+      const failure = phase({ status: 3, stdout, stderr });
+      const before = structuredClone({ failure, fallback });
+      const result = PluginFailureDiagnostics.append(failure, fallback);
+      assert.deepEqual(result.diagnostics, [
+        {
+          category: "error",
+          code: "TTSC_PROCESS",
+          file: null,
+          messageText: message,
+        },
+        recovered,
+      ]);
+      assert.equal(result.diagnostics[1], recovered);
+      assert.equal(result.status, 3);
+      assert.equal(result.stdout, expectedOut);
+      assert.equal(result.stderr, expectedError);
+      assert.deepEqual({ failure, fallback }, before);
+    });
   check("existing reports need no seed and retain recovery witnesses", () => {
-    const original = { file: null, category: "error" as const, code: 2322, messageText: "original type error" };
+    const original = {
+      file: null,
+      category: "error" as const,
+      code: 2322,
+      messageText: "original type error",
+    };
     const failure = phase({
-      status: 3, diagnostics: [original], stderr: "first-error/",
-      hostInputs: ["policy-input"], hostInputHashes: { "policy-input": "old" },
+      status: 3,
+      diagnostics: [original],
+      stderr: "first-error/",
+      hostInputs: ["policy-input"],
+      hostInputHashes: { "policy-input": "old" },
       hostInputRealpaths: { "policy-input": "/same" },
     });
     const batch = phase({
-      status: 7, diagnostics: [recovered], stderr: "second-error",
-      hostInputs: ["policy-input"], hostInputHashes: { "policy-input": "new" },
-      hostInputRealpaths: { "policy-input": "/same" }, observationsComplete: false,
-      emittedFiles: ["recovered.js"], emittedSources: { "recovered.js": [] },
+      status: 7,
+      diagnostics: [recovered],
+      stderr: "second-error",
+      hostInputs: ["policy-input"],
+      hostInputHashes: { "policy-input": "new" },
+      hostInputRealpaths: { "policy-input": "/same" },
+      observationsComplete: false,
+      emittedFiles: ["recovered.js"],
+      emittedSources: { "recovered.js": [] },
     });
     const before = structuredClone({ failure, batch });
     const result = PluginFailureDiagnostics.append(failure, batch);
@@ -179,5 +389,6 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
     assert.deepEqual(result.emittedSources, { "recovered.js": [] });
     assert.deepEqual({ failure, batch }, before);
   });
-  if (failures.length) throw new AggregateError(failures, "Build phase merge distinctions failed");
+  if (failures.length)
+    throw new AggregateError(failures, "Build phase merge distinctions failed");
 }

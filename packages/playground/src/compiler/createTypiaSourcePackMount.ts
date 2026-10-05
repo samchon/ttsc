@@ -7,10 +7,10 @@ import { installTypiaSourcePack } from "./installTypiaSourcePack";
  * Build a `mount` callback for the `typiaPlugin` config of
  * {@link createWorkerCompiler}.
  *
- * The returned function shares loading by URL and fetch function identity through
- * {@link loadTypiaSourcePack}, then writes every entry to the MemFS on each
- * invocation. Network records are cached, but mounting repeats so a
- * caller can restore files removed from the virtual host.
+ * The returned function shares loading by URL and fetch function identity
+ * through {@link loadTypiaSourcePack}, then writes every entry to the MemFS on
+ * each invocation. Network records are cached, but mounting repeats so a caller
+ * can restore files removed from the virtual host.
  *
  * @evidence contracts/common.md#principled-implementation Explicit mountRoot overrides the actual worker workDir; absent both, installation uses its documented virtual root.
  * @evidence contracts/common.md#clear-and-simple-design One adapter derives the root and delegates transport and writes to their owning operations.

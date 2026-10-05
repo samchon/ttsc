@@ -13,6 +13,8 @@ import { make } from "../internal/make";
  * debugger;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link DebuggerStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   DebuggerStatement is a zero-field syntax kind; execution of generated source,
  *   not constructing this outline, reaches a debugger breakpoint.
@@ -26,9 +28,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies the no-input statement and execution condition, with
  *   a source example separate from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link DebuggerStatement}.
  */
 export const createDebuggerStatement = (): DebuggerStatement =>
   make("DebuggerStatement", {});

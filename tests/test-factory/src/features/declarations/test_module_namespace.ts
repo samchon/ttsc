@@ -1,16 +1,22 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { NodeFlags, SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  NodeFlags,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { id, mod, num, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of namespace / module declarations and a class `static` block.
+ * Verifies printing of namespace / module declarations and a class `static`
+ * block.
  *
- * An exported identifier `module` with a body, a string-named module with an empty
- * body, and a standalone `static { ... }` class initialization block.
+ * An exported identifier `module` with a body, a string-named module with an
+ * empty body, and a standalone `static { ... }` class initialization block.
  *
- * 1. Module declarations print module without the namespace flag, including string-named modules and a static class block.
- * 2. Explicit export module App, module "mod" and static block literals specify the supplied forms.
+ * 1. Module declarations print module without the namespace flag, including
+ *    string-named modules and a static class block.
+ * 2. Explicit export module App, module "mod" and static block literals specify
+ *    the supplied forms.
  *
  * @evidence contracts/testing.md#behavioral-verification Module declarations print module without the namespace flag, including string-named modules and a static class block.
  * @evidence contracts/testing.md#independent-expectations Explicit export module App, module "mod" and static block literals specify the supplied forms.

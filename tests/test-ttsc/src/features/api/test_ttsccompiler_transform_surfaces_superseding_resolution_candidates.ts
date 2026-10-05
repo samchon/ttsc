@@ -19,15 +19,20 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
  * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput on an inline JSON envelope; no native producer, install or compiler host runs.
  */
 export function test_ttsccompiler_transform_surfaces_superseding_resolution_candidates() {
-  const result = parseNativeTransformOutput(JSON.stringify({
-    typescript: { "src/main.ts": 'export const value = "PLUGIN";\nconsole.log(value);\n' },
-    graph: {
-      candidates: { "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"] },
-      configs: ["tsconfig.json"],
-      edges: { "src/main.ts": ["src/mytype.ts"] },
-      globals: ["src/ambient.d.ts"],
-    },
-  }), "");
+  const result = parseNativeTransformOutput(
+    JSON.stringify({
+      typescript: {
+        "src/main.ts": 'export const value = "PLUGIN";\nconsole.log(value);\n',
+      },
+      graph: {
+        candidates: { "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"] },
+        configs: ["tsconfig.json"],
+        edges: { "src/main.ts": ["src/mytype.ts"] },
+        globals: ["src/ambient.d.ts"],
+      },
+    }),
+    "",
+  );
   assert.deepEqual(result.graph, {
     candidates: { "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"] },
     configs: ["tsconfig.json"],

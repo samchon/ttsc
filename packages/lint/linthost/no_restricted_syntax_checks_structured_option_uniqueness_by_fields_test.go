@@ -34,5 +34,7 @@ func TestNoRestrictedSyntaxChecksStructuredOptionUniquenessByFields(t *testing.T
     t.Fatalf("decoded structured fields changed: %+v", options)
   }
   _, duplicateErr := decodeNoRestrictedSyntaxOptions(json.RawMessage(`[{"selector":"A","message":"B\u0000true\u0000C"},{"selector":"A","message":"B\u0000true\u0000C"}]`))
-  if duplicateErr == nil { t.Fatal("identical structured options must reject") }
+  if duplicateErr == nil {
+    t.Fatal("identical structured options must reject")
+  }
 }

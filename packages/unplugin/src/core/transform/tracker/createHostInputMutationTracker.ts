@@ -43,11 +43,11 @@ const MAX_HOST_INPUT_WATCH_SCOPES = 16;
  * Path parsing follows the supplied filesystem's platform. An unknown case
  * policy keeps input metadata validation; a foreign view supplies its own watch
  * capability rather than opening a host-native handle for foreign paths.
- * Unmatched native event spellings withdraw
- * notification authority; metadata establishes the resulting change verdict.
- * Each named event also rechecks its identity against a fresh native view. A
- * changed alias or case policy withdraws authority instead of reusing the
- * generation's earlier identity observation for a new target.
+ * Unmatched native event spellings withdraw notification authority; metadata
+ * establishes the resulting change verdict. Each named event also rechecks its
+ * identity against a fresh native view. A changed alias or case policy
+ * withdraws authority instead of reusing the generation's earlier identity
+ * observation for a new target.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Compiler observation scopes govern admitted events; physical identity and
@@ -310,7 +310,12 @@ export async function createHostInputMutationTracker(
       internalRoot !== undefined &&
       relativeToProject(absolute, internal, filesystem.platform) !== undefined
     ) {
-      watchDirectory(internalRoot, undefined, true, /[^\x00-\x7f]/.test(probed));
+      watchDirectory(
+        internalRoot,
+        undefined,
+        true,
+        /[^\x00-\x7f]/.test(probed),
+      );
       admitInternal(probed, scope);
       continue;
     }

@@ -4,12 +4,13 @@ import { assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure } from "../../in
  * Verifies a failed main-snapshot rewrite cannot preserve its old stable key.
  *
  * A pending worker document is compacted while the snapshot directory is
- * replaced by a regular file, which fails for every user including root. The recovery document must force nonce keys until a later prepare
- * merges the pending input under a fresh epoch.
+ * replaced by a regular file, which fails for every user including root. The
+ * recovery document must force nonce keys until a later prepare merges the
+ * pending input under a fresh epoch.
  *
  * 1. Prepare a valid main and pending external worker observation.
- * 2. Obstruct the directory and assert a non-reusable token, a recovery record
- *    and nonce keys.
+ * 2. Obstruct the directory and assert a non-reusable token, a recovery record and
+ *    nonce keys.
  * 3. Restore it, assert the old epoch and the recovery file alone still nonce,
  *    then verify membership, fresh epoch and stable keys.
  *

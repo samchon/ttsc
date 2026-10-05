@@ -10,8 +10,8 @@ import { resolveProjectIdentity } from "./resolveProjectIdentity";
  * belongs to `resolveOwningProjectConfig`.
  *
  * Returns the symlink-resolved absolute config path when realpath succeeds;
- * otherwise the shared resolver preserves the selected absolute spelling.
- * That fallback does not certify physical identity. Use
+ * otherwise the shared resolver preserves the selected absolute spelling. That
+ * fallback does not certify physical identity. Use
  * {@link resolveProjectIdentity} when both the caller-selected spelling and the
  * Program identity are required.
  *

@@ -5,9 +5,9 @@
  * activity without enabling a separate measurement mode.
  *
  * Load and update counts classify the producer's accepted state transitions,
- * rather than counting every compiler Program object. An incremental update
- * can create a new generation object while reusing the prior Program's data.
- * Failed load attempts are not counted as successful loads.
+ * rather than counting every compiler Program object. An incremental update can
+ * create a new generation object while reusing the prior Program's data. Failed
+ * load attempts are not counted as successful loads.
  *
  * @evidence contracts/common.md#principled-implementation Process identity, cumulative successful cold loads/full reconstructions and data-reusing updates distinguish producer lifetime from the current cycle's reuse flag; the counters do not assert total compiler object creation.
  * @evidence contracts/common.md#clear-and-simple-design Four scalar observations report residency without exposing the sidecar's mutable Program or adding lifecycle controls to a result record.
@@ -29,8 +29,8 @@ export interface ResidentCheckTelemetry {
   programUpdates: number;
 
   /**
-   * This cycle retained warm Program data without full reconstruction.
-   * It does not certify reuse of the same compiler generation object.
+   * This cycle retained warm Program data without full reconstruction. It does
+   * not certify reuse of the same compiler generation object.
    */
   reused: boolean;
 }

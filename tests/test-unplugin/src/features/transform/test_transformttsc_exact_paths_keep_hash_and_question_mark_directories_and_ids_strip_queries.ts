@@ -17,14 +17,14 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * module id.
  *
  * Hosts that join the query to the path in one id cannot tell it from a `?` or
- * `#` in a directory name, so the id is stripped at the first delimiter. esbuild,
- * Bun and the webpack-style loader context hand the file's own path, so their
- * adapters pass `exactPath` and the path must reach project selection untouched.
- * Stripping `.../C#/src/mod0.ts` at the `#` would look the project up from the
- * parent directory, and the module would be left untransformed.
+ * `#` in a directory name, so the id is stripped at the first delimiter.
+ * esbuild, Bun and the webpack-style loader context hand the file's own path,
+ * so their adapters pass `exactPath` and the path must reach project selection
+ * untouched. Stripping `.../C#/src/mod0.ts` at the `#` would look the project
+ * up from the parent directory, and the module would be left untransformed.
  *
- * 1. Plant a decoy tsconfig at the root and a project below each of `C#`, a
- *    plain directory and, where the filesystem allows it, one containing `?`.
+ * 1. Plant a decoy tsconfig at the root and a project below each of `C#`, a plain
+ *    directory and, where the filesystem allows it, one containing `?`.
  * 2. Seed a cached generation per project under the key of its own tsconfig.
  * 3. Deliver each file with `exactPath` and require the generation's output; then
  *    deliver the plain project's file with a `?t=1` suffix and without
@@ -54,7 +54,10 @@ export async function test_transformttsc_exact_paths_keep_hash_and_question_mark
       try {
         fs.mkdirSync(root);
       } catch (error) {
-        if (directory.includes("?") && (error as NodeJS.ErrnoException).code === "EINVAL")
+        if (
+          directory.includes("?") &&
+          (error as NodeJS.ErrnoException).code === "EINVAL"
+        )
           return undefined;
         throw error;
       }
@@ -100,7 +103,9 @@ export async function test_transformttsc_exact_paths_keep_hash_and_question_mark
       "a file below a plain directory selects its project",
     );
     if (question === undefined)
-      console.log("SKIPPED the ? directory project: this filesystem cannot name it");
+      console.log(
+        "SKIPPED the ? directory project: this filesystem cannot name it",
+      );
     else
       assert.equal(
         (await deliver(question, true))?.code,

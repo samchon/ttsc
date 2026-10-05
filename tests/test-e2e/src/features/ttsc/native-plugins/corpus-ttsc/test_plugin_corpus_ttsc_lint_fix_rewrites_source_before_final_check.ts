@@ -35,7 +35,9 @@ import {
  */
 export function test_plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check(): void {
   const root = commonJsProject(
-    FixtureFiles.read("ttsc/plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check/inputs-1"),
+    FixtureFiles.read(
+      "ttsc/plugin_corpus_ttsc_lint_fix_rewrites_source_before_final_check/inputs-1",
+    ),
     {
       compilerOptions: {
         plugins: [{ transform: "@ttsc/lint" }],

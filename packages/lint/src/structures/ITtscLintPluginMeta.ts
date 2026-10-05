@@ -2,8 +2,8 @@
  * Plugin-level metadata exposed on `ITtscLintPlugin.meta`.
  *
  * All fields are optional and informational. The lint config's `plugins` map
- * key selects the contributor namespace; metadata does not override that key
- * or the contributor's Go rule registrations.
+ * key selects the contributor namespace; metadata does not override that key or
+ * the contributor's Go rule registrations.
  *
  * @evidence contracts/common.md#principled-implementation Optional string metadata describes a contributor without asserting executable rule identities or build validation.
  * @evidence contracts/common.md#clear-and-simple-design Package identity, version and advisory namespace share one metadata record separate from required source input.

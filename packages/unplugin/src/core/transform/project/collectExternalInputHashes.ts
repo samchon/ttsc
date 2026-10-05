@@ -10,12 +10,12 @@ import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
  * readable file, a stable directory-kind digest for a directory candidate, and
  * a stable `missing` marker otherwise. Keys use filesystem identity so
  * equivalent spellings share one entry under the observed case/link policy,
- * while the first observation retains the original
- * path supplied by the compiler. The marker is state, not an error — a recorded
- * input disappearing (or reappearing) must change the comparison exactly like a
- * content edit. Unavailable content does not prove physical absence. The public
- * core export supplies a physical-state dictionary; it does not preserve
- * independent lexical predicates for every alias.
+ * while the first observation retains the original path supplied by the
+ * compiler. The marker is state, not an error — a recorded input disappearing
+ * (or reappearing) must change the comparison exactly like a content edit.
+ * Unavailable content does not prove physical absence. The public core export
+ * supplies a physical-state dictionary; it does not preserve independent
+ * lexical predicates for every alias.
  *
  * @evidence contracts/common.md#principled-implementation One native identity context deduplicates addresses for this physical-state dictionary; the first spelling's read determines its value under a stable coherent view. Raw file bytes, observed directory kind and unavailable content remain distinct states, not per-alias predicate proofs.
  * @evidence contracts/common.md#clear-and-simple-design A single loop delegates state hashing and identity rules to their existing owners, returning only the external snapshot dictionary.

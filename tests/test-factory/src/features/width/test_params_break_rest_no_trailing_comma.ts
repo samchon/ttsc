@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  SyntaxKind,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { param, ref } from "../../internal/helpers";
 
 /**

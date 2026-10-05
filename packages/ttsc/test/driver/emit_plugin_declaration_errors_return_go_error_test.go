@@ -19,10 +19,10 @@ import (
 // Legacy native hosts check err but only print the diagnostic slice. TS4094
 // must fail those hosts while noEmitOnError still controls output publication.
 //
-// 1. Export an anonymous class whose private member prevents valid declarations.
-// 2. Emit with noEmitOnError enabled and disabled.
-// 3. Assert structured TS4094, declaration failure context, buffered JavaScript
-//    content and the write policy without publishing the callback's output.
+//  1. Export an anonymous class whose private member prevents valid declarations.
+//  2. Emit with noEmitOnError enabled and disabled.
+//  3. Assert structured TS4094, declaration failure context, buffered JavaScript
+//     content and the write policy without publishing the callback's output.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls EmitWithPluginTransformers on an actual declaration-invalid class for both noEmitOnError values, asserting PluginEmitError, exactly TS4094, declaration error context, unbuffered callback JavaScript with the exported class/private-member initializer, withheld buffered writes and unchanged source. Callback capture is not native host or manifest publication.
 // @evidence contracts/testing.md#independent-expectations An exported anonymous class with private member independently owes TS4094; literal code and configured noEmitOnError define failure and write expectations. The pinned CommonJS transform preserves the named value declaration for a class initializer before assigning that same binding to exports; independent source names and initializer value define the three JavaScript assertions.

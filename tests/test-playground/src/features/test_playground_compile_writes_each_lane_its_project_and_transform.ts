@@ -17,11 +17,11 @@ import {
  * relative path resolves under the work directory while an absolute one stays,
  * and a stdout that is not the documented shape must fail the build.
  *
- * 1. Compile and bundle with defaults, then with a custom work directory,
- *    tsconfig path, entry file, plugin name and extra compiler options, and read
- *    the recorded writes, plugin request and build request.
- * 2. Turn typia off for the service and for one call, and observe the tsconfig
- *    and the plugin log.
+ * 1. Compile and bundle with defaults, then with a custom work directory, tsconfig
+ *    path, entry file, plugin name and extra compiler options, and read the
+ *    recorded writes, plugin request and build request.
+ * 2. Turn typia off for the service and for one call, and observe the tsconfig and
+ *    the plugin log.
  * 3. Feed the transform a relative and an absolute path, a non-string value, an
  *    array, a missing `typescript` object and null, and a nonzero exit with
  *    padded and empty output streams.
@@ -64,7 +64,10 @@ export const test_playground_compile_writes_each_lane_its_project_and_transform 
       await service.bundle({ source });
       const cjs = JSON.parse(record.writes["/work/tsconfig.json"]!);
       assert.deepEqual(
-        { ...cjs, compilerOptions: { ...cjs.compilerOptions, module: "ESNext" } },
+        {
+          ...cjs,
+          compilerOptions: { ...cjs.compilerOptions, module: "ESNext" },
+        },
         esm,
         "the lanes differ only in the module kind",
       );
@@ -93,7 +96,11 @@ export const test_playground_compile_writes_each_lane_its_project_and_transform 
       await service.compile({ source });
       assert.equal(record.writes["/proj/app/main.ts"], source);
       const written = JSON.parse(record.writes["/proj/cfg/tsconfig.app.json"]!);
-      assert.equal(written.compilerOptions.strict, false, "an extra option wins");
+      assert.equal(
+        written.compilerOptions.strict,
+        false,
+        "an extra option wins",
+      );
       assert.deepEqual(written.compilerOptions.lib, ["ES2022"]);
       assert.equal(written.compilerOptions.moduleResolution, "Bundler");
       assert.deepEqual(written.compilerOptions.plugins, [
@@ -168,7 +175,9 @@ export const test_playground_compile_writes_each_lane_its_project_and_transform 
           {
             type: "error",
             target: "javascript",
-            value: { message: "ttsc: typia transform produced unparseable output" },
+            value: {
+              message: "ttsc: typia transform produced unparseable output",
+            },
           },
           stdout,
         );

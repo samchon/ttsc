@@ -1,11 +1,11 @@
 package evidence
 
 import (
+  "golang.org/x/sys/windows"
   "os"
   "path/filepath"
   "strings"
   "testing"
-  "golang.org/x/sys/windows"
 )
 
 /**

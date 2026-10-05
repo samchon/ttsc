@@ -12,16 +12,15 @@ import { make } from "../internal/make";
  * Placed before `a` in an array literal, the printer emits:
  *
  * ```ts
- * [, a]
+ * [, a];
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link OmittedExpression}.
  * @evidence contracts/common.md#principled-implementation A payload-free OmittedExpression represents a skipped array position whose enclosing commas carry the hole; it does not introduce an undefined value operand.
  * @evidence contracts/common.md#clear-and-simple-design Shared make constructs the only required discriminant, leaving list position and separators to its array owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit hole does not invent a binding or replace omission with a fixture-selected value.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the lack of operand and role of surrounding commas; the array-context example is separated from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link OmittedExpression}.
  */
 export const createOmittedExpression = (): OmittedExpression =>
   make("OmittedExpression", {});

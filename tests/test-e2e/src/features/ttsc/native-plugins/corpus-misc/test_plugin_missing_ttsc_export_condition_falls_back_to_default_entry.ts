@@ -38,7 +38,11 @@ import {
  */
 export const test_plugin_missing_ttsc_export_condition_falls_back_to_default_entry =
   () => {
-    const root = commonJsProject(FixtureFiles.read("ttsc/plugin_missing_ttsc_export_condition_falls_back_to_default_entry/inputs-1"));
+    const root = commonJsProject(
+      FixtureFiles.read(
+        "ttsc/plugin_missing_ttsc_export_condition_falls_back_to_default_entry/inputs-1",
+      ),
+    );
     fs.writeFileSync(
       path.join(root, "package.json"),
       JSON.stringify({

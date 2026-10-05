@@ -18,24 +18,23 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * Isolated evaluation loads the descriptor graph in a fresh runtime module
  * cache. Its recorded module/candidate content and physical paths, plus the
  * descriptor's own external-read declarations, supply persistence premises;
- * their presence is not detection of every omitted read or side effect.
- * An answer is kept
- * under everything else the evaluation was given: the descriptor, its factory
- * context, the effective environment it ran under, the runtimes that ran it,
- * and this ttsc build. A hit requires matching current stored content/realpath
- * projections; these sequential observations are not an atomic filesystem
- * snapshot and do not distinguish every cause of an unavailable null value.
+ * their presence is not detection of every omitted read or side effect. An
+ * answer is kept under everything else the evaluation was given: the
+ * descriptor, its factory context, the effective environment it ran under, the
+ * runtimes that ran it, and this ttsc build. A hit requires matching current
+ * stored content/realpath projections; these sequential observations are not an
+ * atomic filesystem snapshot and do not distinguish every cause of an
+ * unavailable null value.
  *
  * The files a descriptor reads outside its module graph are its own to declare
  * (`hostInputHashes`), so only the answer of a descriptor supplying that
- * declaration is recorded
- * (`declaresHostInputReads`); a declared fingerprint is
+ * declaration is recorded (`declaresHostInputReads`); a declared fingerprint is
  * compared as content on a later read; a separately observed physical target
  * exists only for recorded evaluation inputs. Missing or contradictory input
  * observations refuse a write. The caller also excludes evaluations whose
  * captured diagnostics file is nonempty, since a hit replays no diagnostics.
- * Startup preloads run before these observations and cannot
- * authorize persistence merely through a stable NODE_OPTIONS string.
+ * Startup preloads run before these observations and cannot authorize
+ * persistence merely through a stable NODE_OPTIONS string.
  *
  * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes evaluator format, descriptor/context, effective environment, actual primary/secondary executable content identities and ttsc version. Acceptance checks recorded input observations and producer-declared external content, not every possible read; unobserved startup preload authority refuses persistence.
  * @evidence contracts/common.md#clear-and-simple-design Locate/read/write separate key construction, proof validation and publication while the loader owns evaluation and its diagnostics.
@@ -223,15 +222,14 @@ export namespace PluginDescriptorEvaluationCache {
    *
    * The state is the one the evaluation proved while it ran, never a reading
    * taken now: hashing the inputs here would pair the answer with a state it
-   * may not have been computed from. An evaluation input
-   * without both proofs leaves nothing that could prove the entry later, so
-   * nothing is recorded, and neither is a fingerprint declaration no proof can
-   * use, nor the answer of a descriptor lacking its explicit external-read
-   * declaration (`declaresHostInputReads`). Declaration completeness still
-   * depends on the producer; this writer cannot detect omitted reads.
-   * The owning runtime must explicitly finish its
-   * observations; a partial side channel cannot establish the population. A
-   * write failure only costs the next launch an evaluation.
+   * may not have been computed from. An evaluation input without both proofs
+   * leaves nothing that could prove the entry later, so nothing is recorded,
+   * and neither is a fingerprint declaration no proof can use, nor the answer
+   * of a descriptor lacking its explicit external-read declaration
+   * (`declaresHostInputReads`). Declaration completeness still depends on the
+   * producer; this writer cannot detect omitted reads. The owning runtime must
+   * explicitly finish its observations; a partial side channel cannot establish
+   * the population. A write failure only costs the next launch an evaluation.
    *
    * `defaultWorkspaceRoot` is supplied only when the caller selected default
    * storage. Its ownership marker precedes the first answer, so a later root

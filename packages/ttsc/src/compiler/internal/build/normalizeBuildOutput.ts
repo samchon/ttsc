@@ -73,8 +73,7 @@ function parseCompilerDiagnostics(
 
     const diagnostic = CompilerDiagnostics.parseDiagnosticLine(line, cwd);
     if (diagnostic !== null) {
-      if (current !== undefined)
-        current.messageText = messageChunks.join("\n");
+      if (current !== undefined) current.messageText = messageChunks.join("\n");
       current = diagnostic;
       messageChunks = [diagnostic.messageText];
       out.push(current);

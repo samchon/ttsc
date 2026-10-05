@@ -40,7 +40,10 @@ func TestUnicornKnownBoundaryObservations(t *testing.T) {
 
   capture := "unicorn/no-useless-error-capture-stack-trace"
   declaration := "interface ErrorConstructor { captureStackTrace(target: object, constructorOpt?: Function): void; }"
-  for _, row := range []struct { name, source string; report bool }{
+  for _, row := range []struct {
+    name, source string
+    report       bool
+  }{
     {"own-constructor", "class MyError extends Error { constructor(){ super(); Error.captureStackTrace(this, MyError); } }", true},
     {"new-target", "class MyError extends Error { constructor(){ super(); Error.captureStackTrace(this, new.target); } }", true},
     {"external-frame-filter", "function makeCaptured(){ return new MyError(); } class MyError extends Error { constructor(){ super(); Error.captureStackTrace(this, makeCaptured); } }", false},
@@ -51,7 +54,10 @@ func TestUnicornKnownBoundaryObservations(t *testing.T) {
   }
 
   urlRule := "unicorn/relative-url-style"
-  for _, row := range []struct { name, base, value string; report bool }{
+  for _, row := range []struct {
+    name, base, value string
+    report            bool
+  }{
     {"directory-foo", "https://example.test/dir/", "./foo", true},
     {"directory-fragment", "https://example.test/dir/", "./#x", true},
     {"directory-query", "https://example.test/dir/", "./?x", true},
@@ -72,7 +78,11 @@ func TestUnicornKnownBoundaryObservations(t *testing.T) {
   }
 
   stringRule := "unicorn/prefer-string-starts-ends-with"
-  for _, row := range []struct { name, literal string; units int; report bool }{
+  for _, row := range []struct {
+    name, literal string
+    units         int
+    report        bool
+  }{
     {"ascii", `'A'`, 1, true},
     {"bmp", `'é'`, 1, true}, {"bmp-byte-count", `'é'`, 2, false},
     {"astral", `'😀'`, 2, true}, {"astral-byte-count", `'😀'`, 4, false},
@@ -85,7 +95,10 @@ func TestUnicornKnownBoundaryObservations(t *testing.T) {
   }
 
   replaceRule := "unicorn/prefer-string-replace-all"
-  for _, row := range []struct { name, expression string; report bool }{
+  for _, row := range []struct {
+    name, expression string
+    report           bool
+  }{
     {"insensitive", `'aA'.replace(/a/gi,'x');`, false},
     {"sticky", `'baa'.replace(/a/gy,'x');`, false},
     {"global", `'baa'.replace(/a/g,'x');`, true},

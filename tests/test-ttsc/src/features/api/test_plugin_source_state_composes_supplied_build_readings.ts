@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceState";
 
 /**
@@ -6,8 +7,8 @@ import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/inter
  *
  * The plugin source state is a digest of the source reading and the
  * build-environment reading in a fixed serialization that consumers recompute.
- * Each supplied reading must move the state independently, and an empty reading is
- * a value rather than an absent one.
+ * Each supplied reading must move the state independently, and an empty reading
+ * is a value rather than an absent one.
  *
  * 1. Compose states from source and environment readings, changing each
  *    independently and including empty strings.
@@ -23,28 +24,37 @@ import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/inter
  */
 export function test_plugin_source_state_composes_supplied_build_readings() {
   for (const [sourceDigest, environment, expected] of [
-  [
-    "source-a",
-    "environment-a",
-    "8e03f87a755ab52fb13f3b01a0af2089b99ec2c6168caeb67d9b919759feb2ff"
-  ],
-  [
-    "source-b",
-    "environment-a",
-    "e30496292127777a7df4906e0d6b7b26fa6eed78beec3f4f9e1a893eb28e842d"
-  ],
-  [
-    "source-a",
-    "environment-b",
-    "d1cf3d5428f6833a2cc89c317e2f3d53dccc0f6693573a28e650633206723372"
-  ],
-  [
-    "",
-    "",
-    "c774716e312b73891b8f55ac469d954db8b887a6528d339de920f351004a3738"
-  ]
-] as const) {
-    assert.equal(pluginSourceState("does-not-exist/source", { sourceDigest, environment }), expected);
-    assert.equal(pluginSourceState("another/nonexistent/source", { sourceDigest, environment }), expected);
+    [
+      "source-a",
+      "environment-a",
+      "8e03f87a755ab52fb13f3b01a0af2089b99ec2c6168caeb67d9b919759feb2ff",
+    ],
+    [
+      "source-b",
+      "environment-a",
+      "e30496292127777a7df4906e0d6b7b26fa6eed78beec3f4f9e1a893eb28e842d",
+    ],
+    [
+      "source-a",
+      "environment-b",
+      "d1cf3d5428f6833a2cc89c317e2f3d53dccc0f6693573a28e650633206723372",
+    ],
+    [
+      "",
+      "",
+      "c774716e312b73891b8f55ac469d954db8b887a6528d339de920f351004a3738",
+    ],
+  ] as const) {
+    assert.equal(
+      pluginSourceState("does-not-exist/source", { sourceDigest, environment }),
+      expected,
+    );
+    assert.equal(
+      pluginSourceState("another/nonexistent/source", {
+        sourceDigest,
+        environment,
+      }),
+      expected,
+    );
   }
 }

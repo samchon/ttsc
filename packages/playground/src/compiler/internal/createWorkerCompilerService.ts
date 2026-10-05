@@ -71,9 +71,10 @@ type ITransformOutcome = { ok: true } | { ok: false; message: string };
  * Dependency-injected worker `ICompilerService` factory. See
  * `createWorkerCompiler` for the public entry documentation.
  *
- * Runtime boot and source mounting have separate retry state. Requests serialize
- * every mutation of the shared virtual project; configured transform or lint
- * failures remain visible instead of yielding untransformed or clean results.
+ * Runtime boot and source mounting have separate retry state. Requests
+ * serialize every mutation of the shared virtual project; configured transform
+ * or lint failures remain visible instead of yielding untransformed or clean
+ * results.
  *
  * @evidence contracts/common.md#principled-implementation A promise chain orders virtual-file mutations; transform envelopes are validated before writes, and compile and lint outcomes preserve producer failure semantics. Post-start boot rejection remains terminal because an existing Go runtime cannot be replaced inside its Worker.
  * @evidence contracts/common.md#clear-and-simple-design Boot, mounting, project writes and result interpretation are local responsibilities behind one RPC factory; ESM and CommonJS lanes share the build pipeline.

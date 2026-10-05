@@ -13,8 +13,8 @@ import {
  * stale-id fallback must decode the producer's escaped name before consulting
  * the structured symbol index.
  *
- * 1. Build one node whose id escapes the hash of its private name
- *    (qualified name Counter.#count).
+ * 1. Build one node whose id escapes the hash of its private name (qualified name
+ *    Counter.#count).
  * 2. Resolve the same escaped id under an obsolete file.
  * 3. Assert the resolver returns that node.
  *
@@ -24,17 +24,17 @@ import {
  * @evidence contracts/testing.md#execution-ownership Calls TtscGraphMemory.from and resolveGraphHandle through resolveSyntheticGraph in the test process with typed in-memory nodes; no installed consumer, native producer or process is involved.
  */
 export function test_ttscgraph_resolver_recovers_private_member_from_escaped_stale_id(): void {
-    const node: ResolverGraphNode = {
-      id: "src/current.ts#Counter.\\#count:variable",
-      kind: "variable",
-      name: "#count",
-      qualifiedName: "Counter.#count",
-      file: "src/current.ts",
-      external: false,
-    };
-    const resolved = resolveSyntheticGraph(
-      [node],
-      "src/old.ts#Counter.\\#count:variable",
-    );
-    assert.strictEqual(resolved.node?.id, node.id);
+  const node: ResolverGraphNode = {
+    id: "src/current.ts#Counter.\\#count:variable",
+    kind: "variable",
+    name: "#count",
+    qualifiedName: "Counter.#count",
+    file: "src/current.ts",
+    external: false,
+  };
+  const resolved = resolveSyntheticGraph(
+    [node],
+    "src/old.ts#Counter.\\#count:variable",
+  );
+  assert.strictEqual(resolved.node?.id, node.id);
 }

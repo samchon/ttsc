@@ -34,7 +34,10 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 export function notifiesAbsence(
   /** Generation owning the separately scoped candidate observer. */
   cached: TtscCachedProjectTransform,
-  /** Exact native candidate spelling; physical aliases alone do not grant coverage. */
+  /**
+   * Exact native candidate spelling; physical aliases alone do not grant
+   * coverage.
+   */
   input: string,
 ): boolean {
   return trackerProvesInputUnchanged(cached.candidateMutationTracker, input);

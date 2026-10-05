@@ -1,10 +1,10 @@
 package evidence
 
 import (
-	"strings"
-	"testing"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/lint/rule"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 /**
@@ -26,7 +26,7 @@ import (
  * @evidence contracts/testing.md#execution-ownership TestReferencePolicyCombinesStrictFlagsForPositiveAndExcludedHosts is the sole selectable native Go unit entry in this file. The real parser, Markdown loader, config decoder and graph rule run within this process; no installation or compiler Program is needed, and nonfatal assertions collect both arms while CLI exit-status transport remains in its canonical integration owner.
  */
 func TestReferencePolicyCombinesStrictFlagsForPositiveAndExcludedHosts(t *testing.T) {
-	config := `{"claims":[{
+  config := `{"claims":[{
     "type":"typescript",
     "files":["src/**"],
     "symbol":"function",
@@ -39,39 +39,39 @@ func TestReferencePolicyCombinesStrictFlagsForPositiveAndExcludedHosts(t *testin
       "singleEvidencePerSymbol":true
     }
   }]}`
-	positive := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{
-		"docs/spec.md": "## Contract {#contract}\n\n## Pricing {#pricing}\n",
-		"src/first.ts": `/** @evidence docs/spec.md#contract Implements the contract. */
+  positive := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n\n## Pricing {#pricing}\n",
+    "src/first.ts": `/** @evidence docs/spec.md#contract Implements the contract. */
 export function first(): void {}
 `,
-		"src/second.ts": `/** @evidence docs/spec.md#pricing Implements the pricing rule. */
+    "src/second.ts": `/** @evidence docs/spec.md#pricing Implements the pricing rule. */
 export function second(): void {}
 `,
-	}, config, rule.SeverityError)
-	if positive.failed || len(positive.messages) != 0 {
-		t.Errorf("one positive owner per unit must pass all strict flags: failed=%t\n%s", positive.failed, strings.Join(positive.messages, "\n"))
-	}
+  }, config, rule.SeverityError)
+  if positive.failed || len(positive.messages) != 0 {
+    t.Errorf("one positive owner per unit must pass all strict flags: failed=%t\n%s", positive.failed, strings.Join(positive.messages, "\n"))
+  }
 
-	negative := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{
-		"docs/spec.md": "## Contract {#contract}\n",
-		"src/rejected.ts": `/** @evidenceExclude docs/spec.md#contract No implementation. */
+  negative := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{
+    "docs/spec.md": "## Contract {#contract}\n",
+    "src/rejected.ts": `/** @evidenceExclude docs/spec.md#contract No implementation. */
 export function rejected(): void {}
 `,
-	}, config, rule.SeverityError)
-	if !negative.failed {
-		t.Errorf("an excluded host must fail the actual strict graph rule")
-	}
-	output := strings.Join(negative.messages, "\n")
-	for _, expected := range []string{
-		"Forbidden @evidenceExclude for 'docs/spec.md#contract'",
-		"noEvidenceExclude requires positive @evidence",
-		"TypeScript function 'rejected'",
-		"cites 0 distinct selected evidence unit(s); singleEvidencePerSymbol requires exactly 1",
-		"Missing acknowledgement for 'docs/spec.md#contract'",
-		"this reference forbids @evidenceExclude",
-	} {
-		if !strings.Contains(output, expected) {
-			t.Errorf("missing literal strict-policy diagnostic %q:\n%s", expected, output)
-		}
-	}
+  }, config, rule.SeverityError)
+  if !negative.failed {
+    t.Errorf("an excluded host must fail the actual strict graph rule")
+  }
+  output := strings.Join(negative.messages, "\n")
+  for _, expected := range []string{
+    "Forbidden @evidenceExclude for 'docs/spec.md#contract'",
+    "noEvidenceExclude requires positive @evidence",
+    "TypeScript function 'rejected'",
+    "cites 0 distinct selected evidence unit(s); singleEvidencePerSymbol requires exactly 1",
+    "Missing acknowledgement for 'docs/spec.md#contract'",
+    "this reference forbids @evidenceExclude",
+  } {
+    if !strings.Contains(output, expected) {
+      t.Errorf("missing literal strict-policy diagnostic %q:\n%s", expected, output)
+    }
+  }
 }

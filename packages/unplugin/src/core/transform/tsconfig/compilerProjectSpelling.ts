@@ -7,14 +7,13 @@ import { resolveProjectIdentity } from "ttsc/path-identity";
  *
  * The compiler host's shared selector attempts physical config and root paths.
  * The adapter uses that selected config directory for wrapper values and the
- * plugin anchor at this observation. Failed realpath
- * can retain lexical spelling inside a successful identity result; a thrown
- * selection preserves the original tsconfig and its dirname. Neither fallback
- * proves physical resolution or guards against later native retargeting.
+ * plugin anchor at this observation. Failed realpath can retain lexical
+ * spelling inside a successful identity result; a thrown selection preserves
+ * the original tsconfig and its dirname. Neither fallback proves physical
+ * resolution or guards against later native retargeting.
  *
  * @param tsconfig The project's tsconfig as the adapter names it.
  * @param projectRoot The project root the compile declares.
- *
  * @evidence contracts/common.md#principled-implementation The shared project-identity resolver supplies its best-effort config address; realpath failure can preserve selected lexical spelling, while a thrown selection preserves the original input. Later compilation owns diagnostics and current filesystem observation.
  * @evidence contracts/common.md#clear-and-simple-design The adapter projects the shared identity into config spelling and directory instead of implementing another canonicalization policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed identity resolution is not converted into a fabricated config or fixed-path fallback that could select another project.

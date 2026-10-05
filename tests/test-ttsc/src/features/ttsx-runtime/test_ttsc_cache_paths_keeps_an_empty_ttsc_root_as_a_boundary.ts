@@ -1,8 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
 import { resolveSourceBuildCachePaths } from "../../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
+import { TestProject } from "../../../../utils/src/TestProject";
 import { assertNoAncestorWorkspace } from "../../internal/assertNoAncestorWorkspace";
 
 /**
@@ -24,31 +25,35 @@ import { assertNoAncestorWorkspace } from "../../internal/assertNoAncestorWorksp
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it calls resolveSourceBuildCachePaths with an empty env over directories created by TestProject.createProject (the placeholder file is removed to leave the empty root), and starts no CLI, compiler or process.
  */
 export function test_ttsc_cache_paths_keeps_an_empty_ttsc_root_as_a_boundary() {
-    const root = TestProject.createProject({
-      "node_modules/dependency/package.json": JSON.stringify({
-        name: "dependency",
-      }),
-      "test/main.ts": `export const value = 1;\n`,
-      "test/node_modules/.cache/ttsc/.gitkeep": "",
-      "test/tsconfig.json": JSON.stringify({
-        compilerOptions: { outDir: "../dist", rootDir: "." },
-        include: ["main.ts"],
-      }),
-    });
-    assertNoAncestorWorkspace(fs.realpathSync.native(root));
-    const ttscRoot = path.join(
-      fs.realpathSync.native(root),
-      "test",
-      "node_modules",
-      ".cache",
-      "ttsc",
-    );
-    // `createProject` needs a file to materialize the directory; removing it
-    // leaves the precise state between root creation and marker publication.
-    fs.rmSync(path.join(ttscRoot, ".gitkeep"));
+  const root = TestProject.createProject({
+    "node_modules/dependency/package.json": JSON.stringify({
+      name: "dependency",
+    }),
+    "test/main.ts": `export const value = 1;\n`,
+    "test/node_modules/.cache/ttsc/.gitkeep": "",
+    "test/tsconfig.json": JSON.stringify({
+      compilerOptions: { outDir: "../dist", rootDir: "." },
+      include: ["main.ts"],
+    }),
+  });
+  assertNoAncestorWorkspace(fs.realpathSync.native(root));
+  const ttscRoot = path.join(
+    fs.realpathSync.native(root),
+    "test",
+    "node_modules",
+    ".cache",
+    "ttsc",
+  );
+  // `createProject` needs a file to materialize the directory; removing it
+  // leaves the precise state between root creation and marker publication.
+  fs.rmSync(path.join(ttscRoot, ".gitkeep"));
 
-    assert.equal(
-      resolveSourceBuildCachePaths(path.join(fs.realpathSync.native(root), "test"), undefined, {}).root,
-      ttscRoot,
-    );
+  assert.equal(
+    resolveSourceBuildCachePaths(
+      path.join(fs.realpathSync.native(root), "test"),
+      undefined,
+      {},
+    ).root,
+    ttscRoot,
+  );
 }

@@ -16,8 +16,8 @@ import { routeWatchBrokerMessage } from "../../../../packages/unplugin/src/core/
  * macOS that let FSEvents silence stand for a filesystem recheck
  * (samchon/ttsc#1546).
  *
- * 1. Drain for registration A, then register B, drain for B, and drain for A
- *    again while B's drain is in flight.
+ * 1. Drain for registration A, then register B, drain for B, and drain for A again
+ *    while B's drain is in flight.
  * 2. Assert B's drain is a different promise from A's first and that exactly two
  *    requests were sent. A's second call joins B's in-flight drain, which also
  *    covers A, and is not asserted to be a distinct promise.

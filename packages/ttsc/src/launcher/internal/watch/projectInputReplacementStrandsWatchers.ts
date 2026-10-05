@@ -12,23 +12,25 @@ import { WatchPaths } from "./WatchPaths";
  * `lib/internal/fs/recursive_watch.js` outside macOS and Windows. That
  * implementation records paths and skips an already registered path, motivating
  * this policy's rearm selection on those hosts. The predicate returns false for
- * macOS and Windows; that selection does not prove native subtree delivery after
- * replacement or that those backends follow every replaced path.
+ * macOS and Windows; that selection does not prove native subtree delivery
+ * after replacement or that those backends follow every replaced path.
  *
  * On the selected backend, the supplied path must currently stat as a directory
  * and its parent must anchor at least one declared file, reload file, strict
- * reload-directory descendant or literal glob root. This is an attention policy,
- * not detection that an object was replaced. Restricting reinstallation avoids
- * repeatedly rebuilding a recursive entry population on unrelated changes.
- * Reload-directory membership alone anchors its parent rather than itself;
- * another declaration can still anchor that same path. The topology caller owns
- * retiring and synchronizing watchers before its next snapshot; this predicate
- * starts or closes no watcher and does not certify the resulting coverage.
+ * reload-directory descendant or literal glob root. This is an attention
+ * policy, not detection that an object was replaced. Restricting reinstallation
+ * avoids repeatedly rebuilding a recursive entry population on unrelated
+ * changes. Reload-directory membership alone anchors its parent rather than
+ * itself; another declaration can still anchor that same path. The topology
+ * caller owns retiring and synchronizing watchers before its next snapshot;
+ * this predicate starts or closes no watcher and does not certify the resulting
+ * coverage.
  *
- * @param identities Identity transaction; absence creates a native host context.
+ * @param identities Identity transaction; absence creates a native host
+ *   context.
  * @param platform Backend selection only; paths still use the host's path API
- *   and the supplied identity context, not this argument's foreign path grammar.
- *
+ *   and the supplied identity context, not this argument's foreign path
+ *   grammar.
  * @evidence contracts/common.md#principled-implementation The supported selection policy requests rearming only outside macOS/Windows for an existing directory whose parent anchors a declaration; its boolean is not proof of replacement or native event delivery.
  * @evidence contracts/common.md#clear-and-simple-design A backend capability branch precedes directory and declaration checks, separating rescan admission from handle reinstallation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Node's path-indexed registration supplies the rearm premise; actual directory/declaration observations select attention without test identities or an invented proof that native subtree backends always recover replacements.

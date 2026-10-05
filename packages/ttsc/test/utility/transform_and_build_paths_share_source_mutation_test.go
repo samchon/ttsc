@@ -7,9 +7,9 @@ import (
   "strings"
   "testing"
 
-  "github.com/samchon/ttsc/packages/ttsc/driver"
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
@@ -29,8 +29,8 @@ func (sharedMutationPlugin) SourcePreamble(driver.PluginContext) (string, error)
 // The owning test supplies literal numeric tokens and a callback counter, then
 // registers two fixtures in the Go test process to distinguish chain order.
 type utilityOrderedEmitPlugin struct {
-  from string
-  to string
+  from  string
+  to    string
   calls *int
 }
 

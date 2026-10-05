@@ -8,9 +8,9 @@ import "testing"
 // Some JSDoc tags are boolean markers; the rule checks only whether such a tag
 // carries text, so the result does not depend on comment attachment.
 //
-// 1. Run the rule over a block whose third line is `@async yes` and expect
-//    one finding on line 3.
-// 2. Run the rule over a block with a bare `@async` and expect none.
+//  1. Run the rule over a block whose third line is `@async yes` and expect
+//     one finding on line 3.
+//  2. Run the rule over a block with a bare `@async` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/empty-tags rule through NewEngine.Run over a parsed virtual TypeScript file. `@async yes` yields exactly one finding, with that rule at error severity, on line 3; a bare `@async` yields none.
 // @evidence contracts/testing.md#independent-expectations async is a marker tag that takes no content, so trailing text is a violation. The literal sources and the expected line 3 follow from that tag contract; the message text is not asserted.

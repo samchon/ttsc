@@ -8,14 +8,13 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * looks up through the ordinary `node_modules` search from the importer. A
  * nearer copy of that package, a nested install or a moved workspace package,
  * would be selected instead, so the candidates the lookup found missing in the
- * nearer roots are inputs of whatever the importer evaluated.
- * The package is named by the resolved module itself, by
- * the directory after its last `node_modules`, or by the linked entry of a
- * search root it lies in, so Node's `imports` algorithm is not copied. A target
- * inside the importer's own package, or one no search root selects, visits
- * nothing.
- * Expansion also visits possible manifest target spellings; this conservative
- * input population can exceed the spellings the completed Node resolver used.
+ * nearer roots are inputs of whatever the importer evaluated. The package is
+ * named by the resolved module itself, by the directory after its last
+ * `node_modules`, or by the linked entry of a search root it lies in, so Node's
+ * `imports` algorithm is not copied. A target inside the importer's own
+ * package, or one no search root selects, visits nothing. Expansion also visits
+ * possible manifest target spellings; this conservative input population can
+ * exceed the spellings the completed Node resolver used.
  *
  * The rule is the resolution input recorder's
  * (`RESOLUTION_INPUT_RECORDER_PATH`).
@@ -27,7 +26,6 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  *   or `undefined` when the caller observes nothing itself.
  * @param visit Receives each candidate, and whether its search root moved since
  *   `witnesses`, which leaves the candidate without proof.
- *
  * @evidence contracts/common.md#principled-implementation The selected target identifies the bare package a hash-import reached; nearer roots' candidates remain inputs and changed pre-resolution root witnesses prevent claiming stable proof.
  * @evidence contracts/common.md#clear-and-simple-design A shared visitor emits candidates through the caller callback instead of duplicating imports resolution or retaining a second candidate population.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual selected targets and supplied probe extensions drive the recorder's exported visitor; this adapter neither modifies Node nor guesses one known package's missing paths.

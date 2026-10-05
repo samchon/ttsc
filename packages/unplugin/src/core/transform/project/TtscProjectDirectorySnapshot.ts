@@ -24,13 +24,14 @@ export interface TtscProjectDirectorySnapshot {
   path: string;
 
   /**
-   * Whether this directory's subtree currently contains an admitted regular file.
+   * Whether this directory's subtree currently contains an admitted regular
+   * file.
    *
-   * An admitted directory with no such file is still walked and watched, so a source
-   * appearing in it later is noticed, but it takes no part in the membership
-   * comparison. That is what lets a bundler create its output directory and
-   * fill it without voiding a generation no compiler input touched, for any
-   * output directory rather than for a fixed list of names.
+   * An admitted directory with no such file is still walked and watched, so a
+   * source appearing in it later is noticed, but it takes no part in the
+   * membership comparison. That is what lets a bundler create its output
+   * directory and fill it without voiding a generation no compiler input
+   * touched, for any output directory rather than for a fixed list of names.
    */
   relevant: boolean;
 

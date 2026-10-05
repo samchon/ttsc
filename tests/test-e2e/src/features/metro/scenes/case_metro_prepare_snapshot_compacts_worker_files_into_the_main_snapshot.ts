@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, readMainSnapshot, listWorkerSnapshots, snapshotDirectory } from "../../../internal/metro/internal/metro-snapshot";
+import {
+  listWorkerSnapshots,
+  prepareSnapshot,
+  readMainSnapshot,
+  snapshotDirectory,
+} from "../../../internal/metro/internal/metro-snapshot";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Verifies snapshot compaction merges worker files into the main snapshot.
@@ -86,7 +92,10 @@ export async function case_metro_prepare_snapshot_compacts_worker_files_into_the
     }
   }
   if (liveFailures.length !== 0) {
-    throw new AggregateError(liveFailures, "Live compactor observation or owned lock cleanup failed");
+    throw new AggregateError(
+      liveFailures,
+      "Live compactor observation or owned lock cleanup failed",
+    );
   }
 
   const exited = spawnSync(process.execPath, ["-e", ""], { stdio: "ignore" });
@@ -100,8 +109,14 @@ export async function case_metro_prepare_snapshot_compacts_worker_files_into_the
   } catch (error) {
     absence = error;
   }
-  assert.ok(typeof absence === "object" && absence !== null && "code" in absence);
-  assert.equal(absence.code, "ESRCH", "only native absence establishes this owner is dead");
+  assert.ok(
+    typeof absence === "object" && absence !== null && "code" in absence,
+  );
+  assert.equal(
+    absence.code,
+    "ESRCH",
+    "only native absence establishes this owner is dead",
+  );
   const staleToken = "2".repeat(32);
   fs.mkdirSync(compactionLock);
   fs.writeFileSync(

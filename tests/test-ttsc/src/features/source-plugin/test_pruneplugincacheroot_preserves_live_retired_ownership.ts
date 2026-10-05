@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
@@ -7,14 +6,15 @@ import path from "node:path";
 import { acquirePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/acquirePluginBuildLock";
 import { prunePluginCacheRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/prunePluginCacheRoot";
 import { releasePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/releasePluginBuildLock";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies payload eviction and retired lock ownership have separate lifetimes.
  *
  * Actual acquire/release calls produce the generations. Their empty fixture
  * tasks finish before release. An exited owned child supplies a native absent
- * PID for one qualified retired record; the other retains this live process.
- * No observer or unfinished-task population is introduced by this case.
+ * PID for one qualified retired record; the other retains this live process. No
+ * observer or unfinished-task population is introduced by this case.
  *
  * 1. Release a generation for a payload last used 31 days before supplied now.
  * 2. Release two fresh-entry generations, recording absent and live local PIDs.
@@ -27,7 +27,10 @@ import { releasePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/
  * @evidence contracts/testing.md#execution-ownership This source-unit directly imports authored acquire/release/prune owners and uses private native records, with each acquired empty fixture task released before inspection or pruning. At most eight inert completed children prepare ESRCH; no Go build, installation or product host is needed. Preparation failure is not skipped, and numeric PID reuse after preparation remains possible. TestProject owns temporary cleanup.
  */
 export function test_pruneplugincacheroot_preserves_live_retired_ownership(): void {
-  const root = path.join(TestProject.tmpdir("ttsc-retired-lock-unit-"), "plugins");
+  const root = path.join(
+    TestProject.tmpdir("ttsc-retired-lock-unit-"),
+    "plugins",
+  );
   fs.mkdirSync(root);
   const now = Date.now();
   const deadPid = endedProcessId();
@@ -36,17 +39,25 @@ export function test_pruneplugincacheroot_preserves_live_retired_ownership(): vo
     const directory = path.join(root, name);
     fs.mkdirSync(directory);
     fs.writeFileSync(path.join(directory, "plugin"), name, "utf8");
-    fs.writeFileSync(path.join(directory, ".last-used"), `${lastUsed}\n`, "utf8");
+    fs.writeFileSync(
+      path.join(directory, ".last-used"),
+      `${lastUsed}\n`,
+      "utf8",
+    );
     return directory;
   };
   const retire = (entry: string): string => {
     const retired = path.join(`${entry}.lock.v3`, "retired");
-    const existing = new Set(fs.existsSync(retired) ? fs.readdirSync(retired) : []);
+    const existing = new Set(
+      fs.existsSync(retired) ? fs.readdirSync(retired) : [],
+    );
     const lease = acquirePluginBuildLock(`${entry}.lock`);
     assert.ok(lease, "fixture failed to acquire a generation");
     // The fixture task has no payload operation; it is complete before release.
     releasePluginBuildLock(`${entry}.lock`, lease);
-    const created = fs.readdirSync(retired).filter((name) => !existing.has(name));
+    const created = fs
+      .readdirSync(retired)
+      .filter((name) => !existing.has(name));
     assert.equal(created.length, 1, created.join(", "));
     return path.join(retired, created[0]!);
   };
@@ -60,7 +71,11 @@ export function test_pruneplugincacheroot_preserves_live_retired_ownership(): vo
     string,
     unknown
   >;
-  fs.writeFileSync(ownerFile, JSON.stringify({ ...owner, pid: deadPid }), "utf8");
+  fs.writeFileSync(
+    ownerFile,
+    JSON.stringify({ ...owner, pid: deadPid }),
+    "utf8",
+  );
   const live = retire(fresh);
   assert.notEqual(live, dead);
 
@@ -80,7 +95,10 @@ export function test_pruneplugincacheroot_preserves_live_retired_ownership(): vo
     }
   }
   if (failures.length)
-    throw new AggregateError(failures, "retired lock collection assertions failed");
+    throw new AggregateError(
+      failures,
+      "retired lock collection assertions failed",
+    );
 }
 
 function endedProcessId(): number {

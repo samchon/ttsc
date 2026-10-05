@@ -9,9 +9,9 @@ type ReadFile = (file: string) => Buffer;
 /**
  * Immutable, provenance-gated source lines owned by one graph snapshot.
  *
- * Declaration documentation is a display fact derived from source text,
- * but the live disk is not the snapshot the checker resolved. A file becomes
- * readable here only after its current bytes hash to `diskDigest` and the
+ * Declaration documentation is a display fact derived from source text, but the
+ * live disk is not the snapshot the checker resolved. A file becomes readable
+ * here only after its current bytes hash to `diskDigest` and the
  * compiler-decoded text hashes to `checkerDigest`. Manifest members cache both
  * success and failure, so every consumer of a `TtscGraphMemory` sees one
  * adjudication and one immutable line array. Unknown names remain uncached;

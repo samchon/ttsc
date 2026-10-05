@@ -37,11 +37,12 @@ export interface TtscTransformHooks {
    * from `F`, the `graph.globals` files, the `graph.configs` chain, importer
    * `graph.candidates`, and universal `graph.resolutionInputs`, together with
    * the universal host inputs and plugin source directories. For a file the
-   * envelope declared `dependenciesComplete` without also declaring it volatile,
-   * the reachability closure and `graph.globals` are dropped; `dependencies[F]`, importer
-   * `graph.candidates`, `graph.resolutionInputs`, the universal host inputs,
-   * the plugin source directories and the universal `graph.configs` chain
-   * remain. See `selectWatchInputs` for the exact derivation.
+   * envelope declared `dependenciesComplete` without also declaring it
+   * volatile, the reachability closure and `graph.globals` are dropped;
+   * `dependencies[F]`, importer `graph.candidates`, `graph.resolutionInputs`,
+   * the universal host inputs, the plugin source directories and the universal
+   * `graph.configs` chain remain. See `selectWatchInputs` for the exact
+   * derivation.
    */
   addWatchFile?: TtscAddWatchFile;
 
@@ -66,21 +67,21 @@ export interface TtscTransformHooks {
   membership?: boolean;
 
   /**
-   * Whether the delivered id is already a bare filesystem path, as esbuild,
-   * Bun and a webpack-style loader context hand it (`args.path`,
-   * `resourcePath`), with any query or hash held apart by the host. A `?` or
-   * `#` in such a path belongs to a directory or file name, so the transform
-   * uses the id as it is. Left unset, the id is a bundler module id (Vite,
-   * Rollup, webpack, Rspack, Farm) whose query and hash suffix is stripped and
-   * whose host-wrapper queries (`?raw`, `?url`) are left to the host.
+   * Whether the delivered id is already a bare filesystem path, as esbuild, Bun
+   * and a webpack-style loader context hand it (`args.path`, `resourcePath`),
+   * with any query or hash held apart by the host. A `?` or `#` in such a path
+   * belongs to a directory or file name, so the transform uses the id as it is.
+   * Left unset, the id is a bundler module id (Vite, Rollup, webpack, Rspack,
+   * Farm) whose query and hash suffix is stripped and whose host-wrapper
+   * queries (`?raw`, `?url`) are left to the host.
    */
   exactPath?: boolean;
 
   /**
    * Actual delivery lifecycle reported by the adapter. False identifies a
    * one-shot execution; true identifies watching, and absence leaves it
-   * unknown. Fresh output with unavailable observations requires false plus
-   * a supported cache-withdrawal callback. When project.watching is supplied,
+   * unknown. Fresh output with unavailable observations requires false plus a
+   * supported cache-withdrawal callback. When project.watching is supplied,
    * both declarations must agree for that admission.
    */
   watching?: boolean;
@@ -119,12 +120,12 @@ export interface TtscTransformHooks {
    * Invoked when the module's output depends on inputs no file-dependency
    * snapshot of the module represents: the plugin declared the transformed file
    * volatile (the envelope's `volatile` list), or the module was handed over
-   * without a complete host-observation closure, or without the project's record,
-   * which could not be written. Adapters should
-   * mark the module uncacheable where the bundler exposes that control (e.g. a
-   * webpack loader context's `cacheable(false)`), or answer the bundler's cache
-   * for it where the bundler asks instead (Rollup's
-   * `shouldTransformCachedModule`, through the module's `meta`).
+   * without a complete host-observation closure, or without the project's
+   * record, which could not be written. Adapters should mark the module
+   * uncacheable where the bundler exposes that control (e.g. a webpack loader
+   * context's `cacheable(false)`), or answer the bundler's cache for it where
+   * the bundler asks instead (Rollup's `shouldTransformCachedModule`, through
+   * the module's `meta`).
    */
   markVolatile?: TtscMarkVolatile;
 }

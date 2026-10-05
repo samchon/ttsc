@@ -6,8 +6,8 @@
  *
  * Expiry withdraws this observation's delivery authority, not proof that the
  * backend can never deliver. Native latency, scheduling and unsupported
- * coverage can all miss the threshold. Owners fail or mark unproven watches
- * and retain state validation instead of treating timeout as acknowledgment;
- * actual callback execution still depends on event-loop progress.
+ * coverage can all miss the threshold. Owners fail or mark unproven watches and
+ * retain state validation instead of treating timeout as acknowledgment; actual
+ * callback execution still depends on event-loop progress.
  */
 export const WATCH_PROBE_TIMEOUT_MS = 10_000;

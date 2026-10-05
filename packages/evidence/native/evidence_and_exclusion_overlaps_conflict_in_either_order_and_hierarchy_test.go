@@ -67,7 +67,9 @@ export function second(): void {}
       assertProblemContains(t, messages, "@evidence at ")
       assertProblemContains(t, messages, "overlaps @evidenceExclude at ")
       target := "validation"
-      if strings.HasPrefix(name, "exact") { target = "contract" }
+      if strings.HasPrefix(name, "exact") {
+        target = "contract"
+      }
       assertProblemContains(t, messages, "Conflicting acknowledgements for 'docs/spec.md#"+target+"'")
       if countProblemsContaining(messages, "Missing acknowledgement") != 0 {
         t.Fatalf("the conflict stopped covering its target:\n%s", strings.Join(messages, "\n"))

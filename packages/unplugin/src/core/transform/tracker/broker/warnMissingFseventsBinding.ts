@@ -8,13 +8,12 @@ let warned = false;
  * The watch broker watches macOS through that binding, since `fs.watch` there
  * can lose events without notice. Missing resolution makes broker registrations
  * fail rather than authorizing silence; custom watchers are separate. The
- * binding is an optional
- * dependency that package managers install on macOS unless told to omit
- * optional dependencies, so the cause is named with its remedy, as a Node
- * process warning, code `TTSC_FSEVENTS_MISSING`. Resolution failure need not mean
- * the package was never installed, and actual child loading is checked later.
- * The flag is set before emission and is not reset; host warning listeners and
- * display policy own delivery, not this operation.
+ * binding is an optional dependency that package managers install on macOS
+ * unless told to omit optional dependencies, so the cause is named with its
+ * remedy, as a Node process warning, code `TTSC_FSEVENTS_MISSING`. Resolution
+ * failure need not mean the package was never installed, and actual child
+ * loading is checked later. The flag is set before emission and is not reset;
+ * host warning listeners and display policy own delivery, not this operation.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A stable process warning names failed optional binding resolution without

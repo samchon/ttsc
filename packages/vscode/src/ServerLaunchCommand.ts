@@ -23,22 +23,22 @@
  *   state; the type comment separates JS, native and command-shim boundaries.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidence contracts/portability.md#os-neutral-implementation
-  *   command and args represent Node, native executables or the Windows
-  *   command processor. Shim environment and verbatim arguments travel
-  *   together so prequoted cmd payloads are not escaped as ordinary arguments.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   ServerLaunchCommand is a type definition with no computation to cost.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   ServerLaunchCommand is a type definition and coordinates no work across
-  *   requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   ServerLaunchCommand is a type definition and owns no state, handle or
-  *   task.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   command and args represent Node, native executables or the Windows
+ *   command processor. Shim environment and verbatim arguments travel
+ *   together so prequoted cmd payloads are not escaped as ordinary arguments.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ServerLaunchCommand is a type definition with no computation to cost.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ServerLaunchCommand is a type definition and coordinates no work across
+ *   requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ServerLaunchCommand is a type definition and owns no state, handle or
+ *   task.
  */
 export type ServerLaunchCommand = {
   /** Ordinary argument vector, or explicit cmd switches and quoted payload. */

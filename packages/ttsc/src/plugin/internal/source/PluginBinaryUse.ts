@@ -13,10 +13,10 @@ const reservations = new Map<string, string>();
 /**
  * Register reader reservations for returned executable paths until their
  * consumer process ends. Cooperating collectors preserve these records;
- * external deletion or replacement is not prevented by a token.
- * Registration and collection both run under the cache key's build lease.
- * Reservations are readers, not build generations: other readers can share the
- * same executable without holding that exclusive lease during execution.
+ * external deletion or replacement is not prevented by a token. Registration
+ * and collection both run under the cache key's build lease. Reservations are
+ * readers, not build generations: other readers can share the same executable
+ * without holding that exclusive lease during execution.
  *
  * @evidence contracts/common.md#principled-implementation Per-key publication serializes with deletion while independent reader records preserve concurrent consumers through process lifetime.
  * @evidence contracts/common.md#clear-and-simple-design Registration, local reuse and collector liveness share one reservation representation, separate from builder-generation completion.
@@ -95,7 +95,8 @@ export namespace PluginBinaryUse {
   /**
    * Whether the pathname of this process's previously published reader token
    * still exists. This permits local reuse under the cooperating cache-owner
-   * premise; existence alone does not revalidate its kind, record or incarnation.
+   * premise; existence alone does not revalidate its kind, record or
+   * incarnation.
    *
    * @evidence contracts/common.md#principled-implementation Only a pathname previously recorded by retain authorizes local reuse, and an absent pathname requires acquisition again. This existence query assumes cache ownership prevents external token replacement; it does not reread ownership or pin an incarnation.
    * @evidence contracts/common.md#clear-and-simple-design One process map and native existence observation answer the previously-owned-token question without interpreting other consumers.

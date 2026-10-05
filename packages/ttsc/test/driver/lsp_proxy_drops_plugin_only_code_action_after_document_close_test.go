@@ -57,7 +57,7 @@ func TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose(t *testing.T) {
 
   body := h.recvEditor()
   var decoded struct {
-    ID int `json:"id"`
+    ID     int                    `json:"id"`
     Result []driver.LSPCodeAction `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {

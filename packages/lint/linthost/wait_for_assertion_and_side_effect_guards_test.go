@@ -48,8 +48,8 @@ async function testCase() {
 }
 `, RuleConfig{
     "testing-library/no-wait-for-multiple-assertions": SeverityError,
-    "testing-library/no-wait-for-side-effects": SeverityError,
-    "testing-library/no-wait-for-snapshot": SeverityError,
-    "testing-library/prefer-find-by": SeverityError,
+    "testing-library/no-wait-for-side-effects":        SeverityError,
+    "testing-library/no-wait-for-snapshot":            SeverityError,
+    "testing-library/prefer-find-by":                  SeverityError,
   }, nil)
 }

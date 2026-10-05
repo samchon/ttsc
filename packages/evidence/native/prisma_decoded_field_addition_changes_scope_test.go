@@ -16,45 +16,45 @@ import "testing"
  * @evidence contracts/testing.md#execution-ownership TestPrismaDecodedFieldAdditionChangesScope is one native Go unit entry calling prismaModelUnits and newScopeIndex directly with literal in-memory records. It starts no parser bridge, Node child, consumer installation, artifact build or product host. The original bridge case is retained until its source-loader and native surviving cases have actual execution evidence.
  */
 func TestPrismaDecodedFieldAdditionChangesScope(t *testing.T) {
-	model := prismaModel{
-		Name:   "Sale",
-		Digest: "model-content",
-		Fields: []prismaField{
-			{Name: "id", Symbol: "column", Digest: "id-content"},
-			{Name: "price", Symbol: "column", Digest: "price-content"},
-		},
-	}
-	before := prismaModelUnits(model)
-	model.Fields = append(model.Fields, prismaField{
-		Name: "currency", Symbol: "column", Digest: "currency-content",
-	})
-	after := prismaModelUnits(model)
-	if got := prismaUnitIndex(after); got != "prisma:Sale=model\nprisma:Sale.id=column\nprisma:Sale.price=column\nprisma:Sale.currency=column" {
-		t.Fatalf("field addition did not produce the complete native population:\n%s", got)
-	}
-	for _, units := range [][]*evidenceUnit{before, after} {
-		for _, unit := range units {
-			if unit.Digest == "" {
-				t.Fatalf("%s has no content digest", unit.Target)
-			}
-			switch unit.Target {
-			case "prisma:Sale":
-				if unit.Digest != "model-content" {
-					t.Fatalf("model own digest changed to %q", unit.Digest)
-				}
-			case "prisma:Sale.price":
-				if unit.Digest != "price-content" {
-					t.Fatalf("price own digest changed to %q", unit.Digest)
-				}
-			}
-		}
-	}
-	beforeScopes := newScopeIndex(before)
-	afterScopes := newScopeIndex(after)
-	if beforeScopes.fingerprint("prisma:Sale") == afterScopes.fingerprint("prisma:Sale") {
-		t.Fatal("adding currency left the model's aggregate fingerprint unchanged")
-	}
-	if beforeScopes.fingerprint("prisma:Sale.price") != afterScopes.fingerprint("prisma:Sale.price") {
-		t.Fatal("adding currency changed the unchanged price scope")
-	}
+  model := prismaModel{
+    Name:   "Sale",
+    Digest: "model-content",
+    Fields: []prismaField{
+      {Name: "id", Symbol: "column", Digest: "id-content"},
+      {Name: "price", Symbol: "column", Digest: "price-content"},
+    },
+  }
+  before := prismaModelUnits(model)
+  model.Fields = append(model.Fields, prismaField{
+    Name: "currency", Symbol: "column", Digest: "currency-content",
+  })
+  after := prismaModelUnits(model)
+  if got := prismaUnitIndex(after); got != "prisma:Sale=model\nprisma:Sale.id=column\nprisma:Sale.price=column\nprisma:Sale.currency=column" {
+    t.Fatalf("field addition did not produce the complete native population:\n%s", got)
+  }
+  for _, units := range [][]*evidenceUnit{before, after} {
+    for _, unit := range units {
+      if unit.Digest == "" {
+        t.Fatalf("%s has no content digest", unit.Target)
+      }
+      switch unit.Target {
+      case "prisma:Sale":
+        if unit.Digest != "model-content" {
+          t.Fatalf("model own digest changed to %q", unit.Digest)
+        }
+      case "prisma:Sale.price":
+        if unit.Digest != "price-content" {
+          t.Fatalf("price own digest changed to %q", unit.Digest)
+        }
+      }
+    }
+  }
+  beforeScopes := newScopeIndex(before)
+  afterScopes := newScopeIndex(after)
+  if beforeScopes.fingerprint("prisma:Sale") == afterScopes.fingerprint("prisma:Sale") {
+    t.Fatal("adding currency left the model's aggregate fingerprint unchanged")
+  }
+  if beforeScopes.fingerprint("prisma:Sale.price") != afterScopes.fingerprint("prisma:Sale.price") {
+    t.Fatal("adding currency changed the unchanged price scope")
+  }
 }

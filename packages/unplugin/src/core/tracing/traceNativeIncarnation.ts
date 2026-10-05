@@ -2,8 +2,8 @@ import fs from "node:fs";
 
 /**
  * Observe a spawned Linux child's current proc incarnation for a later observer
- * in the same native view. This is neither a wait nor an exit/stdio-close proof.
- * The private spawn observer calls it only with tracing enabled.
+ * in the same native view. This is neither a wait nor an exit/stdio-close
+ * proof. The private spawn observer calls it only with tracing enabled.
  *
  * Two child records bracketed by equal writer views reject observed identity
  * changes. Read failures stay unavailable; a zombie is still a present record.
@@ -90,7 +90,10 @@ export function traceNativeIncarnation(
     if (!text.startsWith(`${pid} (`) || end < 0) {
       throw new Error("invalid-proc-record");
     }
-    const fields = text.slice(end + 1).trim().split(/\s+/);
+    const fields = text
+      .slice(end + 1)
+      .trim()
+      .split(/\s+/);
     const state = fields[0];
     const parentPid = fields[1];
     const startTicks = fields[19];

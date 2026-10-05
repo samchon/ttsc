@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+
 import { GoBoundary } from "../GoBoundary";
 
 /**
@@ -18,23 +19,28 @@ import { GoBoundary } from "../GoBoundary";
  * @evidence contracts/performance.md#bound-retention-and-release-resources GoBoundary returns after its synchronous Go command result; package bodies own temporary inputs and their original joins. This registry does not independently certify every descendant or deferred cleanup. Buffered command output has the existing 64 MiB limit, and forced termination is not resource-release proof.
  */
 export function nativeLintConnections(): void {
-  GoBoundary.run("lint", "./linthost", [
-    "TestAwaitThenableSuggestionPreservesMicrotaskBoundary",
-    "TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig",
-    "TestConfigCacheInvalidatesTransitiveDependencyDigests",
-    "TestConfigDependencyGraphNeverPublishesTheFilesystemRoot",
-    "TestFormatSortImportsPreservesBindingImportEvaluationOrder",
-    "TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock",
-    "TestLoadRuleConfigLoadsJavaScriptConfigFile",
-    "TestLoadRuleConfigLoadsTypeScriptConfigFile",
-    "TestLoadRuleConfigTypeScriptConfigFileRoundTripsFormatBlock",
-    "TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper",
-    "TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper",
-    "TestLSPFormatBufferRealBinaryE2E",
-    "TestResidentRulesReuseExecutableConfigAcrossRealAndLinkedDependencies",
-    "TestResidentRuleCacheRespectsConfigCacheOptOut",
-    "TestScriptConfigLoaderTracksLocalDependencyGraph"
-  ], {
-    TTSC_TTSX_BINARY: TestProject.TTSX_BIN,
-  });
+  GoBoundary.run(
+    "lint",
+    "./linthost",
+    [
+      "TestAwaitThenableSuggestionPreservesMicrotaskBoundary",
+      "TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig",
+      "TestConfigCacheInvalidatesTransitiveDependencyDigests",
+      "TestConfigDependencyGraphNeverPublishesTheFilesystemRoot",
+      "TestFormatSortImportsPreservesBindingImportEvaluationOrder",
+      "TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock",
+      "TestLoadRuleConfigLoadsJavaScriptConfigFile",
+      "TestLoadRuleConfigLoadsTypeScriptConfigFile",
+      "TestLoadRuleConfigTypeScriptConfigFileRoundTripsFormatBlock",
+      "TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper",
+      "TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper",
+      "TestLSPFormatBufferRealBinaryE2E",
+      "TestResidentRulesReuseExecutableConfigAcrossRealAndLinkedDependencies",
+      "TestResidentRuleCacheRespectsConfigCacheOptOut",
+      "TestScriptConfigLoaderTracksLocalDependencyGraph",
+    ],
+    {
+      TTSC_TTSX_BINARY: TestProject.TTSX_BIN,
+    },
+  );
 }

@@ -1,8 +1,8 @@
 /**
  * An LSP position with zero-based line and UTF-16 character offsets.
  *
- * The editor protocol counts UTF-16 characters, so these values cannot be
- * read as compiler UTF-8 byte offsets.
+ * The editor protocol counts UTF-16 characters, so these values cannot be read
+ * as compiler UTF-8 byte offsets.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Separate numeric line and character fields preserve the LSP's two
@@ -22,19 +22,19 @@
  *   and the type comment explains why compiler byte offsets differ. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   ProtocolPosition only describes values and opens no file, path or process.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   ProtocolPosition is a type definition with no computation to cost.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   ProtocolPosition is a type definition and coordinates no work across
-  *   requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   ProtocolPosition is a type definition and owns no state, handle or task.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   ProtocolPosition only describes values and opens no file, path or process.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ProtocolPosition is a type definition with no computation to cost.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ProtocolPosition is a type definition and coordinates no work across
+ *   requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ProtocolPosition is a type definition and owns no state, handle or task.
  */
 export type ProtocolPosition = {
   /** Zero-based UTF-16 offset within the line. */
@@ -47,8 +47,8 @@ export type ProtocolPosition = {
 /**
  * An LSP range from an inclusive start to an exclusive end.
  *
- * A range must be ordered; this type stores the endpoints while the
- * collector validates their shape.
+ * A range must be ordered; this type stores the endpoints while the collector
+ * validates their shape.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Start and end use the same UTF-16 position representation. The collector
@@ -67,19 +67,19 @@ export type ProtocolPosition = {
  *   comment explains ordering and the collector validation boundary. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   ProtocolRange only describes values and opens no file, path or process.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   ProtocolRange is a type definition with no computation to cost.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   ProtocolRange is a type definition and coordinates no work across
-  *   requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   ProtocolRange is a type definition and owns no state, handle or task.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   ProtocolRange only describes values and opens no file, path or process.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ProtocolRange is a type definition with no computation to cost.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ProtocolRange is a type definition and coordinates no work across
+ *   requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ProtocolRange is a type definition and owns no state, handle or task.
  */
 export type ProtocolRange = {
   /** Exclusive endpoint in the same document as start. */
@@ -114,20 +114,20 @@ export type ProtocolRange = {
  *   paths are not document URIs. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   NormalizedTextEdit only describes values and opens no file, path or
-  *   process.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   NormalizedTextEdit is a type definition with no computation to cost.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   NormalizedTextEdit is a type definition and coordinates no work across
-  *   requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   NormalizedTextEdit is a type definition and owns no state, handle or task.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   NormalizedTextEdit only describes values and opens no file, path or
+ *   process.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   NormalizedTextEdit is a type definition with no computation to cost.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   NormalizedTextEdit is a type definition and coordinates no work across
+ *   requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   NormalizedTextEdit is a type definition and owns no state, handle or task.
  */
 export type NormalizedTextEdit = {
   /** Replacement text; an empty string deletes the covered range. */
@@ -141,13 +141,13 @@ export type NormalizedTextEdit = {
 };
 
 /**
- * Collect valid text replacements from a WorkspaceEdit changes map, or
- * return undefined when that map is absent or invalid.
+ * Collect valid text replacements from a WorkspaceEdit changes map, or return
+ * undefined when that map is absent or invalid.
  *
- * Malformed rows are skipped. Positions must be nonnegative integers in
- * order and newText must be a string; an empty valid map returns an empty
- * array. This normalizes the changes form only, not documentChanges or
- * resource operations.
+ * Malformed rows are skipped. Positions must be nonnegative integers in order
+ * and newText must be a string; an empty valid map returns an empty array. This
+ * normalizes the changes form only, not documentChanges or resource
+ * operations.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Object.entries and array iteration decode the supported LSP changes form.
@@ -168,21 +168,21 @@ export type NormalizedTextEdit = {
  *   documentChanges/resource-operation forms. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   It decodes LSP JSON and keeps URIs as strings without resolving a path.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   M changes-map entries and E edit rows take O(M + E) time. Object.entries
-  *   allocates O(M) temporary entries and valid rows produce at most O(E)
-  *   output records; empty or invalid rows still require inspection.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It is one pure decode of a single reply, so no other request shares its
-  *   result.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the returned array transfers to the caller.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   It decodes LSP JSON and keeps URIs as strings without resolving a path.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   M changes-map entries and E edit rows take O(M + E) time. Object.entries
+ *   allocates O(M) temporary entries and valid rows produce at most O(E)
+ *   output records; empty or invalid rows still require inspection.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It is one pure decode of a single reply, so no other request shares its
+ *   result.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the returned array transfers to the caller.
  */
 export function collectWorkspaceEditChanges(
   value: unknown,
@@ -211,13 +211,13 @@ export function collectWorkspaceEditChanges(
 }
 
 /**
- * Return whether a JSON-shaped command argument contains a URI in the
- * supplied dirty-document set.
+ * Return whether a JSON-shaped command argument contains a URI in the supplied
+ * dirty-document set.
  *
  * Recursive arrays and object values can carry document targets. Every string
  * is passed through canonicalize before the exact set lookup, so a URI that a
- * server spelled differently from the editor still names the same document;
- * the default leaves strings unchanged. Inputs are acyclic protocol data; the
+ * server spelled differently from the editor still names the same document; the
+ * default leaves strings unchanged. Inputs are acyclic protocol data; the
  * operation does not resolve paths or change documents.
  *
  * @evidence contracts/common.md#principled-implementation
@@ -238,22 +238,22 @@ export function collectWorkspaceEditChanges(
  *   or native path resolution. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   It compares strings from JSON arguments and resolves no path.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   Acyclic JSON data needs O(V) local traversal for V values, plus the
-  *   caller's string canonicalization and Set lookup costs. Object.values
-  *   allocates each visited object's values; nested arrays and objects use
-  *   recursive stack space and stop when a dirty target is found.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It is a pure scan of one argument list with nothing to share across
-  *   requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing after returning a boolean.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   It compares strings from JSON arguments and resolves no path.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Acyclic JSON data needs O(V) local traversal for V values, plus the
+ *   caller's string canonicalization and Set lookup costs. Object.values
+ *   allocates each visited object's values; nested arrays and objects use
+ *   recursive stack space and stop when a dirty target is found.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It is a pure scan of one argument list with nothing to share across
+ *   requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing after returning a boolean.
  */
 export function commandArgumentsContainDirtyURI(
   args: readonly unknown[],
@@ -294,20 +294,20 @@ export function commandArgumentsContainDirtyURI(
  *   write.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   It compares URI strings and resolves no path.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   It visits at most E replacements with one canonicalization and Set
-  *   lookup per visited URI, stopping at the first dirty target. Local
-  *   traversal is O(E); string processing belongs to those supplied operations.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It is a pure scan of one edit list with nothing to share across requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing after returning a boolean.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   It compares URI strings and resolves no path.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   It visits at most E replacements with one canonicalization and Set
+ *   lookup per visited URI, stopping at the first dirty target. Local
+ *   traversal is O(E); string processing belongs to those supplied operations.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It is a pure scan of one edit list with nothing to share across requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing after returning a boolean.
  */
 export function workspaceEditChangesTouchDirtyURI(
   edits: readonly NormalizedTextEdit[],
@@ -339,19 +339,19 @@ export function workspaceEditChangesTouchDirtyURI(
  *   isolation, including why an empty prefix cannot authorize application.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   It compares two command id strings and touches no path or process.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It performs one string prefix comparison, so there is no algorithm choice.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It coordinates no completed or in-flight computation across requests;
-  *   each command is checked against the current prefix.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   It compares two command id strings and touches no path or process.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It performs one string prefix comparison, so there is no algorithm choice.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It coordinates no completed or in-flight computation across requests;
+ *   each command is checked against the current prefix.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing.
  */
 export function shouldApplyCommandWorkspaceEdit(
   command: string,

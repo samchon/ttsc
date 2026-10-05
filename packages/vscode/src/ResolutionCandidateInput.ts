@@ -1,6 +1,6 @@
 /**
- * Optional active file, owning workspace root and workspace roots used to
- * order resolution candidates.
+ * Optional active file, owning workspace root and workspace roots used to order
+ * resolution candidates.
  *
  * An absent active file leaves workspace-only discovery; an absent active
  * workspace root permits the normal ancestor search.
@@ -24,23 +24,23 @@
  *   meaning. Purpose, conditions and reasons use separate native paragraphs
  *   under the documentation skill; member comments remain beside their
  *   fields.
-  *
-  * @evidence contracts/portability.md#os-neutral-implementation
-  *   Active-file and workspace fields carry native paths and an optional
-  *   physical discovery boundary. The candidate builder interprets them with
-  *   Node paths and filesystem identity; this input neither folds case nor
-  *   substitutes URI spelling for native path identity.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   ResolutionCandidateInput is a type definition with no computation to cost.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   ResolutionCandidateInput is a type definition and coordinates no work
-  *   across requests.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   ResolutionCandidateInput is a type definition and owns no state, handle or
-  *   task.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Active-file and workspace fields carry native paths and an optional
+ *   physical discovery boundary. The candidate builder interprets them with
+ *   Node paths and filesystem identity; this input neither folds case nor
+ *   substitutes URI spelling for native path identity.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ResolutionCandidateInput is a type definition with no computation to cost.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ResolutionCandidateInput is a type definition and coordinates no work
+ *   across requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ResolutionCandidateInput is a type definition and owns no state, handle or
+ *   task.
  */
 export type ResolutionCandidateInput = {
   /** Active file path; absence uses only the supplied workspace roots. */

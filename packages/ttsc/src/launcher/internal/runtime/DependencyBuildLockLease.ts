@@ -4,8 +4,8 @@
  * Produced by {@link acquireDependencyBuildLock} and consumed by
  * {@link releaseDependencyBuildLock}. Release retires this generation and no
  * other under a stable cooperative namespace with noncolliding generation
- * identities. A late holder therefore targets its historical generation;
- * the structural type itself does not authenticate acquisition or ownership.
+ * identities. A late holder therefore targets its historical generation; the
+ * structural type itself does not authenticate acquisition or ownership.
  *
  * @evidence contracts/common.md#principled-implementation A lease carries the successfully acquired generation, binding finalization to that holder even if a recovery path later publishes a successor.
  * @evidence contracts/common.md#clear-and-simple-design The single generation member separates an acquisition result from diagnostic observations; release consumes that identity under the protocol's namespace and generation premises.

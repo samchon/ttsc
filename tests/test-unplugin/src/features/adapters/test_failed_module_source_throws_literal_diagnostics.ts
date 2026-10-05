@@ -26,7 +26,8 @@ export function test_failed_module_source_throws_literal_diagnostics(): void {
   ]) {
     assert.throws(
       () => new Function(failedModuleSource(new Error(message)))(),
-      (failure: unknown) => failure instanceof Error && failure.message === message,
+      (failure: unknown) =>
+        failure instanceof Error && failure.message === message,
       `evaluation must throw the exact diagnostic ${JSON.stringify(message)}`,
     );
   }

@@ -7,12 +7,11 @@ import type { Statement } from "./Statement";
  *
  * Built by {@link factory.createForStatement}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Independently optional initializer, condition and incrementor plus required body preserve all three header slots, including omitted clauses; no execution is simulated.
  * @evidence contracts/common.md#clear-and-simple-design Explicit clause fields avoid positional guessing and share existing expression/statement nodes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing clauses model source syntax without hardcoded termination or test-selected loop counts.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies C-style syntax and explains each omitted header clause; separated comments follow the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ForStatement {
   /** Discriminant tag; always `"ForStatement"`. */

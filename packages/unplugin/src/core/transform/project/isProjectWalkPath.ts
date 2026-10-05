@@ -17,9 +17,9 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * `root`: it lies under `root`, each component below that root exists without
  * traversing a symbolic link, the leaf is a regular file, and the configured
  * name, directory and file rules admit it. This establishes current walk
- * eligibility, not that a particular capture actually read or hashed it. Missing
- * paths and files reached through symlinks or Windows junctions are out-of-walk
- * inputs that only the reference graph can prove relevant.
+ * eligibility, not that a particular capture actually read or hashed it.
+ * Missing paths and files reached through symlinks or Windows junctions are
+ * out-of-walk inputs that only the reference graph can prove relevant.
  *
  * @evidence contracts/common.md#principled-implementation Lexical root containment, admitted filename policy and lstat of every component establish that the actual walk reaches this regular file without traversing a symlink or junction.
  * @evidence contracts/common.md#clear-and-simple-design Ordered early rejections separate containment, policy and filesystem-kind checks; physical identity is deliberately not substituted for lexical traversal.
@@ -75,7 +75,13 @@ export function isProjectWalkPath(
   ) {
     return false;
   }
-  if (isExcludedProjectDirectory(pathApi.dirname(pathApi.resolve(file)), policy, platform)) {
+  if (
+    isExcludedProjectDirectory(
+      pathApi.dirname(pathApi.resolve(file)),
+      policy,
+      platform,
+    )
+  ) {
     return false;
   }
   // The walk hashes only files that could enter the program, so a path it does

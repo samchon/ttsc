@@ -33,8 +33,8 @@ export interface ITtscLintReactRules {
   /**
    * Report anonymous function arguments to calls named `memo` or `forwardRef`
    * unless the call has a named declaration/property host or default export.
-   * Named function arguments are accepted; a later `displayName` assignment
-   * is not resolved by this source policy.
+   * Named function arguments are accepted; a later `displayName` assignment is
+   * not resolved by this source policy.
    *
    * Anonymous wrappers leave the resulting component nameless in React DevTools
    * and runtime stack frames.
@@ -92,8 +92,8 @@ export interface ITtscLintReactRules {
   "react/jsx-key"?: TtscLintRuleSetting;
 
   /**
-   * Reject case-folded duplicate JSX prop names on the same element. This is
-   * a source naming policy rather than a runtime overwrite analysis.
+   * Reject case-folded duplicate JSX prop names on the same element. This is a
+   * source naming policy rather than a runtime overwrite analysis.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-react/blob/master/docs/rules/jsx-no-duplicate-props.md
    */
@@ -257,9 +257,9 @@ export interface ITtscLintReactRules {
   "react/rules-of-hooks"?: TtscLintRuleSetting;
 
   /**
-   * Report calls to recognized state-setter bindings whose nearest function
-   * is a recognized effect callback. Conditional branches are not exempted;
-   * the check does not prove that an effect loops at runtime.
+   * Report calls to recognized state-setter bindings whose nearest function is
+   * a recognized effect callback. Conditional branches are not exempted; the
+   * check does not prove that an effect loops at runtime.
    *
    * @reference https://react.dev/learn/you-might-not-need-an-effect
    */
@@ -280,17 +280,18 @@ export interface ITtscLintReactRules {
    * Reject string-form `style` values such as `style="color: red"` or
    * `style={\`...`}`.
    *
-   * The native check reports statically known nonempty values and skips
-   * unknown expressions; it does not infer an expression's object type or
-   * execute React's runtime validation.
+   * The native check reports statically known nonempty values and skips unknown
+   * expressions; it does not infer an expression's object type or execute
+   * React's runtime validation.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-react/blob/master/docs/rules/style-prop-object.md
    */
   "react/style-prop-object"?: TtscLintRuleSetting;
 
   /**
-   * Report block-bodied `useMemo` callbacks with no own return statement.
-   * A bare `return` satisfies this syntax check; returned types are not inferred.
+   * Report block-bodied `useMemo` callbacks with no own return statement. A
+   * bare `return` satisfies this syntax check; returned types are not
+   * inferred.
    *
    * A block-bodied callback without `return` memoizes `undefined`, silently
    * discarding the intended computation — a common mistake when wrapping an

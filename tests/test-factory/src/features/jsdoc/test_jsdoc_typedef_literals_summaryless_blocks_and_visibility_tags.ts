@@ -14,7 +14,10 @@ const type = (kind: SyntaxKind) =>
 const property = (name: string, kind: SyntaxKind) =>
   f.createJSDocPropertyTag(undefined, id(name), false, type(kind), false);
 
-/** The tag kind names the legacy parser reads from a block placed before `var x;`. */
+/**
+ * The tag kind names the legacy parser reads from a block placed before `var
+ * x;`.
+ */
 const parsedTags = (block: string): string[] => {
   const file: ts.SourceFile = parseClean(`${block}\nvar x;`);
   const statement = file.statements[0] as ts.Node & {
@@ -26,21 +29,21 @@ const parsedTags = (block: string): string[] => {
 };
 
 /**
- * Verifies the JSDoc builders for typedef type literals, summary-less blocks and
- * the type, property, private, protected and overload tags print the documented
- * lines and parse as those tags.
+ * Verifies the JSDoc builders for typedef type literals, summary-less blocks
+ * and the type, property, private, protected and overload tags print the
+ * documented lines and parse as those tags.
  *
  * A `@typedef` whose type is an object shape prints `{Object}` and one `@prop`
- * line per property, `{Object[]}` when the shape describes an array, and a block
- * without a summary starts directly with its first tag line. Visibility tags
- * print bare or with a trailing comment, and a bracketed property marks the name
- * optional.
+ * line per property, `{Object[]}` when the shape describes an array, and a
+ * block without a summary starts directly with its first tag line. Visibility
+ * tags print bare or with a trailing comment, and a bracketed property marks
+ * the name optional.
  *
  * 1. Print a typedef over a two-property literal, an array literal and a block
  *    without a summary beside a block with one.
  * 2. Print the type, private, protected, property and overload tags.
- * 3. Compare each block with an authored literal and with the tag kinds the
- *    pinned legacy parser reads from it.
+ * 3. Compare each block with an authored literal and with the tag kinds the pinned
+ *    legacy parser reads from it.
  *
  * @evidence contracts/testing.md#behavioral-verification Prints each block with TsPrinter and requires the exact authored text, detecting wrong tag spelling or stray summary lines; independent parser checks additionally require the specified top-level tag kinds.
  * @evidence contracts/testing.md#independent-expectations Authored literals specify `@typedef {Object} P` followed by property lines, `{Object[]}` for an array shape, `[n]` for an optional property and one tag per line. The independent legacy parse verifies top-level typedef/type/visibility kinds. Property lines are checked by exact text; the standalone property and overload blocks are required only to parse cleanly.
@@ -49,9 +52,16 @@ const parsedTags = (block: string): string[] => {
  */
 export const test_jsdoc_typedef_literals_summaryless_blocks_and_visibility_tags =
   (): void => {
-    const typedef = (shape: ReturnType<typeof f.createJSDocTypeLiteral>, name: string) =>
-      f.createJSDocTypedefTag(undefined, shape, id(name));
-    const cases: { name: string; block: string; kinds?: string[]; text: string }[] = [
+    const typedef = (
+      shape: ReturnType<typeof f.createJSDocTypeLiteral>,
+      name: string,
+    ) => f.createJSDocTypedefTag(undefined, shape, id(name));
+    const cases: {
+      name: string;
+      block: string;
+      kinds?: string[];
+      text: string;
+    }[] = [
       {
         name: "typedef over an object literal under a summary",
         block: print(
@@ -130,13 +140,18 @@ export const test_jsdoc_typedef_literals_summaryless_blocks_and_visibility_tags 
           ]),
         ),
         text: "/**\n * @prop {string} [n] the n\n */",
-              },
+      },
     ];
     for (const c of cases) {
       TestValidator.equals(c.name, c.block, c.text);
       if (c.kinds !== undefined)
-        TestValidator.equals(`${c.name}: legacy tag kinds`, parsedTags(c.text), c.kinds);
-      else parseClean(`${c.text}
+        TestValidator.equals(
+          `${c.name}: legacy tag kinds`,
+          parsedTags(c.text),
+          c.kinds,
+        );
+      else
+        parseClean(`${c.text}
 var x;`);
     }
 
@@ -144,11 +159,25 @@ var x;`);
       undefined,
       f.createJSDocSignature(
         undefined,
-        [f.createJSDocParameterTag(undefined, id("x"), false, type(SyntaxKind.NumberKeyword), false)],
-        f.createJSDocReturnTag(undefined, type(SyntaxKind.VoidKeyword), undefined),
+        [
+          f.createJSDocParameterTag(
+            undefined,
+            id("x"),
+            false,
+            type(SyntaxKind.NumberKeyword),
+            false,
+          ),
+        ],
+        f.createJSDocReturnTag(
+          undefined,
+          type(SyntaxKind.VoidKeyword),
+          undefined,
+        ),
       ),
     );
-    const overloadText: string = print(f.createJSDocComment(undefined, [overload]));
+    const overloadText: string = print(
+      f.createJSDocComment(undefined, [overload]),
+    );
     TestValidator.equals(
       "overload tag with its signature lines",
       overloadText,

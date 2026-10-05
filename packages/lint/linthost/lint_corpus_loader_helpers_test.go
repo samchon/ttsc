@@ -60,10 +60,10 @@ type corpusEntry struct {
   RelativeFile string
   Source       string
   // SourcePath uses canonical portable separators before native file access.
-  SourcePath   string
-  Rules        map[string]any
-  Expected     []corpusExpectation
-  Companions   map[string]string
+  SourcePath string
+  Rules      map[string]any
+  Expected   []corpusExpectation
+  Companions map[string]string
   // Renamed reports an explicit `@ttsc-corpus-filename` directive.
   Renamed bool
   // Options names the rules that carry a `@ttsc-corpus-options` payload.
@@ -89,7 +89,7 @@ var (
   corpusCleanMarker    = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-clean\b`)
   corpusCleanDirective = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-clean\s*:\s*([@\w/-]+)\s*$`)
 
-  corpusSkipMarker    =regexp.MustCompile(`^\s*//\s*@ttsc-corpus-skip\b`)
+  corpusSkipMarker    = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-skip\b`)
   corpusSkipDirective = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-skip(?:\(([^)]*)\))?\s*:\s*(.*?)\s*$`)
 
   corpusCompanionMarker    = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-companion\b`)

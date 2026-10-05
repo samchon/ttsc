@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   "encoding/json"
+  "testing"
 )
 
 // TestNoRestrictedTypesRejectsOnlyExactTypeSyntax verifies bans do not leak into

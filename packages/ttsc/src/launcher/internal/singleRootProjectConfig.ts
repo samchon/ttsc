@@ -3,9 +3,9 @@ import path from "node:path";
 /**
  * Project the single-root overlay that inherits the selected owning config.
  * Explicit empty include/exclude lists displace inherited populations. Checked
- * overlays preserve inherited noEmitOnError; unchecked overlays clear it.
- * The caller supplies the already selected physical volume root and owns
- * config placement, exclusive creation, parsing, compilation and cleanup.
+ * overlays preserve inherited noEmitOnError; unchecked overlays clear it. The
+ * caller supplies the already selected physical volume root and owns config
+ * placement, exclusive creation, parsing, compilation and cleanup.
  *
  * @evidence contracts/common.md#principled-implementation The overlay retains its owning config through extends, selects the exact source and clears inherited include/exclude populations without changing the checked lane's noEmitOnError policy.
  * @evidence contracts/common.md#clear-and-simple-design One fresh JSON-compatible object supplies the existing fixed compiler overrides and selected path values to the production writer.

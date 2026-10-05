@@ -1,9 +1,13 @@
-import { FixtureFiles } from "../../FixtureFiles";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../FixtureFiles";
 import { createLintProject, runLintProject } from "./config-file";
 
-/** One unchanged contributor fixture and cached launcher result for three wire consumers; construction totals remain separately observed. */
+/**
+ * One unchanged contributor fixture and cached launcher result for three wire
+ * consumers; construction totals remain separately observed.
+ */
 let completed: ReturnType<typeof runLintProject> | undefined;
 let failed: { error: unknown } | undefined;
 
@@ -19,7 +23,13 @@ export function contributorBoundaryResult(): ReturnType<typeof runLintProject> {
   try {
     const project = createLintProject({
       name: "contributor-wire-batch",
-      source: fs.readFileSync(path.resolve(import.meta.dirname, "../../../../fixtures/lint/workspace/contributor-source.ts"), "utf8"),
+      source: fs.readFileSync(
+        path.resolve(
+          import.meta.dirname,
+          "../../../../fixtures/lint/workspace/contributor-source.ts",
+        ),
+        "utf8",
+      ),
       pluginConfig: { configFile: "./lint.config.ts" },
       extraSources: FixtureFiles.read("lint/contributor-boundary/inputs-1"),
       linkNodeModules: ["lint-contributor-demo"],

@@ -5,9 +5,9 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { graphInputObservationFailures } from "./graphInputObservationFailures";
 
 /**
- * Report whether replay found no changed recorded compiler predicates. Unrecorded
- * predicates impose no condition. The failure collector performs the complete
- * observation even though this adapter returns only a boolean.
+ * Report whether replay found no changed recorded compiler predicates.
+ * Unrecorded predicates impose no condition. The failure collector performs the
+ * complete observation even though this adapter returns only a boolean.
  *
  * @evidence contracts/common.md#principled-implementation An empty failure list means each explicitly recorded predicate matched its replay; absent predicates do not create extra obligations.
  * @evidence contracts/common.md#clear-and-simple-design The boolean adapter uses the same failure collector as diagnostic callers instead of a competing predicate replay implementation.

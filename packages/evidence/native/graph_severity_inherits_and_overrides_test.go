@@ -3,8 +3,8 @@ package evidence
 import (
   "encoding/json"
   "fmt"
-  "testing"
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 /**

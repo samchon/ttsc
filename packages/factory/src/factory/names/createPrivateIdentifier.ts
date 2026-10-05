@@ -11,9 +11,12 @@ import { make } from "../internal/make";
  * With `text` of `secret`, this prints:
  *
  * ```ts
- * #secret
+ * #secret;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The textual content.
+ * @returns The created {@link PrivateIdentifier}.
  * @evidence contracts/common.md#principled-implementation
  *   The private-name outline stores a leading #; conditional prefixing accepts
  *   both caller spellings without duplicating that prefix. Valid names are required.
@@ -27,10 +30,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains optional caller prefixing and its printed result;
  *   the example and tags occupy separate paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The textual content.
- * @returns The created {@link PrivateIdentifier}.
  */
 export const createPrivateIdentifier = (text: string): PrivateIdentifier =>
   make("PrivateIdentifier", { text: text.startsWith("#") ? text : `#${text}` });

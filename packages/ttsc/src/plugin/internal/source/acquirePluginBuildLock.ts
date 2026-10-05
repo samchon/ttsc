@@ -12,9 +12,9 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  *
  * A non-empty candidate is renamed to `current`. Directory rename cannot
  * replace a non-empty `current`, so exactly one contender wins without an
- * empty-owner publication window. `null` means admission was unavailable:
- * a legacy path, contention or a missing rename pathname can produce it. It
- * does not identify which peer won or prove another producer completed.
+ * empty-owner publication window. `null` means admission was unavailable: a
+ * legacy path, contention or a missing rename pathname can produce it. It does
+ * not identify which peer won or prove another producer completed.
  *
  * The caller releases the returned lease in finally after its actual payload
  * callback ends. Its independent completion nonce qualifies that task's marker.

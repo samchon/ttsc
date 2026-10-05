@@ -4,7 +4,8 @@ import type { TtsxSubcommand } from "./TtsxSubcommand";
 /**
  * Flag-schema command identities: compiler command lanes and the `ttsx` runner.
  * This is not an inventory of every dispatcher word: direct `help`/`version`
- * dispatch and nested cache commands do not introduce flag-selection identities.
+ * dispatch and nested cache commands do not introduce flag-selection
+ * identities.
  *
  * @evidence contracts/common.md#principled-implementation The union admits the two maintained flag-selection vocabularies; shared schema consumers can select either surface without admitting arbitrary dispatcher words as flag contexts.
  * @evidence contracts/common.md#clear-and-simple-design This alias combines the existing command vocabularies rather than maintaining a third list that could drift from their dispatchers.

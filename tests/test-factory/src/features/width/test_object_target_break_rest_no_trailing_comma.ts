@@ -1,6 +1,10 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, type Node, TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, {
+  type Expression,
+  type Node,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { id } from "../../internal/helpers";
 import { structure, syntaxErrorOf } from "../../internal/oracle";
 
@@ -93,8 +97,16 @@ export const test_object_target_break_rest_no_trailing_comma = (): void => {
   for (const [index, [title, node]] of cases.entries()) {
     const flat: string = wide.print(node);
     const broken: string = tiny.print(node);
-    TestValidator.equals(`${title} flat preserves target`, structure(flat), structure(expected[index]!));
-    TestValidator.equals(`${title} broken preserves target`, structure(broken), structure(expected[index]!));
+    TestValidator.equals(
+      `${title} flat preserves target`,
+      structure(flat),
+      structure(expected[index]!),
+    );
+    TestValidator.equals(
+      `${title} broken preserves target`,
+      structure(broken),
+      structure(expected[index]!),
+    );
     TestValidator.equals(
       `${title} flat compiles`,
       syntaxErrorOf(flat),
@@ -139,6 +151,8 @@ export const test_object_target_break_rest_no_trailing_comma = (): void => {
   TestValidator.equals(
     "rvalue twin preserves spread",
     structure(rvalue),
-    structure("var mergedValue = { firstDestructuredBinding, ...remainingDestructuredBindings };"),
+    structure(
+      "var mergedValue = { firstDestructuredBinding, ...remainingDestructuredBindings };",
+    ),
   );
 };

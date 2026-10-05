@@ -1,9 +1,9 @@
 package evidence
 
 import (
+  "github.com/samchon/ttsc/packages/lint/rule"
   "strings"
   "testing"
-  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // Verifies that the artifacts this

@@ -9,10 +9,10 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * witness for is compiled again. The generation that named the paths may be
  * gone by the next compile: a host ending its build resets the cache, as Bun
  * does after every build and esbuild does when its last context is disposed,
- * and a failed generation is evicted.
- * The paths therefore outlive the generation here, so a project whose plugin
- * keeps reporting the same file compiles once per change rather than twice.
- * They only say what to read; the capture certifies what it reads.
+ * and a failed generation is evicted. The paths therefore outlive the
+ * generation here, so a project whose plugin keeps reporting the same file
+ * compiles once per change rather than twice. They only say what to read; the
+ * capture certifies what it reads.
  */
 export const TRANSFORM_CACHE_DEPENDENCY_WITNESSES = new WeakMap<
   TtscTransformCache,

@@ -1,7 +1,7 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 
 import { TtscService } from "../../../../../packages/ttsc/src/TtscService";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies TtscService refuses a project with no transform-stage plugin.

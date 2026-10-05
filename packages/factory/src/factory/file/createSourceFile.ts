@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * import { a } from "./mod";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param statements The statements.
+ * @returns The created {@link SourceFile}.
  * @evidence contracts/common.md#principled-implementation
  *   SourceFile retains the ordered Statement array as its file body; empty
  *   statements represent an empty outline rather than a synthesized declaration.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states file-body ordering and empty behavior, using a separate import
  *   example and blank comment lines before acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param statements The statements.
- * @returns The created {@link SourceFile}.
  */
 export const createSourceFile = (
   statements: readonly Statement[],

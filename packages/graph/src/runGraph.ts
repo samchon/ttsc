@@ -1,6 +1,5 @@
-import { GraphProcessTrace } from "./internal/GraphProcessTrace";
-
 import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
+import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 import { publishArtifacts } from "./model/publishedArtifacts";
 import { ensureExecutable } from "./nativeExecutable";
 import { resolveGraphBinary } from "./resolveGraphBinary";
@@ -55,7 +54,8 @@ export function runGraph(
 function runDump(argv: readonly string[]): number {
   // Resolve the native binary from the target project the caller named with
   // `--cwd`, not from wherever the launcher process happened to start.
-  const { cwd, tsconfig, artifactsSpecified } = TtscGraphLauncherArguments.dump(argv);
+  const { cwd, tsconfig, artifactsSpecified } =
+    TtscGraphLauncherArguments.dump(argv);
   const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     // `ttscgraph` owns the flag contract, so a resolvable binary always answers

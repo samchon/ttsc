@@ -3,6 +3,7 @@ import type { SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
 import { realNativeEnvelopeContributor } from "./unplugin/internal/real-native-envelope/realNativeEnvelopeContributor";
 
 /**
@@ -11,9 +12,9 @@ import { realNativeEnvelopeContributor } from "./unplugin/internal/real-native-e
  * `@ttsc/banner`, `@ttsc/paths` and `@ttsc/strip` are driven the same way: a
  * project whose tsconfig names the plugin, a `node_modules/@ttsc/<name>` link
  * to the checkout's package, and `ttsc --emit` through the built launcher. The
- * experiment opens `fixtures/utilities/workspace` once, and
- * every scenario owns a sibling directory that differs from the others only by
- * the configuration, discovery or compiler-option state it asserts.
+ * experiment opens `fixtures/utilities/workspace` once, and every scenario owns
+ * a sibling directory that differs from the others only by the configuration,
+ * discovery or compiler-option state it asserts.
  */
 export namespace UtilityWorkspace {
   /** Process result of one launcher invocation. */
@@ -40,12 +41,12 @@ export namespace UtilityWorkspace {
    * Copy the combined static workspace once and link all three real packages.
    *
    * The copy keeps authored bytes through the existing directory copier. The
-   * package links are the same junctions or symlinks the former per-case projects
-   * created, made once at the workspace root so every scenario directory
-   * resolves the plugin through ordinary upward `node_modules` lookup. Scenarios
-   * are sibling directories, so no scenario's manifest or configuration lies on
-   * another scenario's ancestor path, and the workspace root itself carries
-   * neither a manifest nor a plugin configuration.
+   * package links are the same junctions or symlinks the former per-case
+   * projects created, made once at the workspace root so every scenario
+   * directory resolves the plugin through ordinary upward `node_modules`
+   * lookup. Scenarios are sibling directories, so no scenario's manifest or
+   * configuration lies on another scenario's ancestor path, and the workspace
+   * root itself carries neither a manifest nor a plugin configuration.
    *
    * @evidence contracts/common.md#principled-implementation The workspace is the authored fixture copied byte for byte plus three real package links, so scenarios exercise upward tsconfig, package and node_modules resolution through checkout links, not a packed installation; no compiler result is synthesized.
    * @evidence contracts/common.md#clear-and-simple-design One function owns copy, link and the per-scenario process environment; scenarios own their assertions and expected strings, and no executor framework is introduced beyond the failure collector.
@@ -69,14 +70,23 @@ export namespace UtilityWorkspace {
     const scope = path.join(root, "node_modules", "@ttsc");
     fs.mkdirSync(scope, { recursive: true });
     const packageRoots = ["banner", "paths", "strip"].map((name) => {
-      const packageRoot = path.join(TestProject.WORKSPACE_ROOT, "packages", name);
+      const packageRoot = path.join(
+        TestProject.WORKSPACE_ROOT,
+        "packages",
+        name,
+      );
       fs.symlinkSync(packageRoot, path.join(scope, name), "junction");
       return packageRoot;
     });
 
     const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
     const programRunLog = path.join(root, "baseline-program-runs.bin");
-    const baselineConfig = path.join(root, "banner", "external-maps", "tsconfig.json");
+    const baselineConfig = path.join(
+      root,
+      "banner",
+      "external-maps",
+      "tsconfig.json",
+    );
     const baseline = JSON.parse(fs.readFileSync(baselineConfig, "utf8"));
     baseline.compilerOptions.plugins.push({
       name: "real-envelope-compile-probe",
@@ -157,7 +167,10 @@ export namespace UtilityWorkspace {
       ["--cwd", project(workspace, scenario), "--emit"],
       scenario,
     );
-    console.log("Utility compiler invocation " + JSON.stringify({ scenario, pid: result.pid, status: result.status }));
+    console.log(
+      "Utility compiler invocation " +
+        JSON.stringify({ scenario, pid: result.pid, status: result.status }),
+    );
     return result;
   }
 
@@ -173,8 +186,15 @@ export namespace UtilityWorkspace {
    * @evidence contracts/performance.md#reuse-equivalent-work Output is always read fresh because scenarios compare current emitted bytes.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous read leaves no open handle and retains only the returned string.
    */
-  export function read(workspace: IWorkspace, scenario: string, file: string): string {
-    return fs.readFileSync(path.join(project(workspace, scenario), file), "utf8");
+  export function read(
+    workspace: IWorkspace,
+    scenario: string,
+    file: string,
+  ): string {
+    return fs.readFileSync(
+      path.join(project(workspace, scenario), file),
+      "utf8",
+    );
   }
 
   /**
@@ -189,7 +209,11 @@ export namespace UtilityWorkspace {
    * @evidence contracts/performance.md#reuse-equivalent-work Always queries current state because assertions concern what an emit just wrote.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Retains and opens nothing.
    */
-  export function exists(workspace: IWorkspace, scenario: string, file: string): boolean {
+  export function exists(
+    workspace: IWorkspace,
+    scenario: string,
+    file: string,
+  ): boolean {
     return fs.existsSync(path.join(project(workspace, scenario), file));
   }
 
@@ -211,6 +235,8 @@ export namespace UtilityWorkspace {
       throw new Error("Workspace was not removed: " + workspace.root);
     for (const packageRoot of workspace.packageRoots)
       if (!fs.existsSync(path.join(packageRoot, "package.json")))
-        throw new Error("Workspace cleanup reached the linked package: " + packageRoot);
+        throw new Error(
+          "Workspace cleanup reached the linked package: " + packageRoot,
+        );
   }
 }

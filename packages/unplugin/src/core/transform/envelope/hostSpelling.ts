@@ -21,9 +21,9 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
  * own. A module under neither, which no host names by the project, takes the
  * project's configured spelling. Containment uses native lexical path
  * relations; physical identity was established when the roots were captured.
- * The wrapper tsconfig written for the compiler takes the same
- * function with the compiler's physical root as the delivered path, since the
- * compiler is the other party the adapter spells paths for.
+ * The wrapper tsconfig written for the compiler takes the same function with
+ * the compiler's physical root as the delivered path, since the compiler is the
+ * other party the adapter spells paths for.
  *
  * @param project The project root as configured and as the filesystem resolves
  *   it; equal where the root traverses no link, which makes the answer the
@@ -31,7 +31,6 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
  * @param delivered The module the host asked to transform, as it spelled it, or
  *   the root the compiler spells.
  * @returns The spelling function for this delivery's inputs.
- *
  * @evidence contracts/common.md#principled-implementation The delivered module selects which captured root spelling the host uses; rewriting only paths contained beneath the opposite root preserves project-relative suffixes and leaves external inputs unchanged.
  * @evidence contracts/common.md#clear-and-simple-design Orientation is chosen once and a returned mapper applies that one native relative-path rule; the within helper shares the same containment predicate without consulting bundler-specific configuration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The mapping follows two actual project root spellings and delivery context, not a named-consumer exception or patched resolver; paths outside the selected root are not coerced into the project.
@@ -72,8 +71,8 @@ export function hostSpelling(
 /**
  * Test native lexical containment, including the root itself.
  *
- * Parent-relative escapes and cross-volume absolute relatives are outside;
- * this check does not resolve symlinks or establish physical file identity.
+ * Parent-relative escapes and cross-volume absolute relatives are outside; this
+ * check does not resolve symlinks or establish physical file identity.
  */
 function within(file: string, root: string): boolean {
   const relative = path.relative(root, file);

@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
+import {
+  type PreparedAssetSelection,
+  captureE2ePreparedAssets,
+} from "./captureE2ePreparedAssets";
 import type { TracePhaseObservation } from "./captureE2eTracePhase";
-import { captureE2ePreparedAssets, type PreparedAssetSelection } from "./captureE2ePreparedAssets";
 
 /**
  * Requires an actual legacy observation and its unchanged selected preparation.
@@ -34,19 +37,34 @@ export function requireE2eBaselinePreparation(
   assert.ok(baseline.traces && baseline.assetsAfter);
   assert.deepEqual(baseline.traces.integrityProblems, []);
   assert.deepEqual(baseline.traces.incompleteProcessInvocations, []);
-  const measured = baseline.outcome.returned ? baseline.outcome.value : undefined;
+  const measured = baseline.outcome.returned
+    ? baseline.outcome.value
+    : undefined;
   assert.ok(measured !== null && typeof measured === "object");
-  const returned = measured as { pid?: unknown; status?: unknown; signal?: unknown };
-  assert.ok(typeof returned.pid === "number" && Number.isSafeInteger(returned.pid) && returned.pid > 0);
-  assert.ok(typeof returned.status === "number" && Number.isInteger(returned.status));
+  const returned = measured as {
+    pid?: unknown;
+    status?: unknown;
+    signal?: unknown;
+  };
+  assert.ok(
+    typeof returned.pid === "number" &&
+      Number.isSafeInteger(returned.pid) &&
+      returned.pid > 0,
+  );
+  assert.ok(
+    typeof returned.status === "number" && Number.isInteger(returned.status),
+  );
   assert.equal(returned.signal, null);
   assert.ok(producerAssets.length > 0);
-  assert.deepEqual(Object.keys(producerLabels).sort(), producerAssets.map(asset => asset.label).sort());
+  assert.deepEqual(
+    Object.keys(producerLabels).sort(),
+    producerAssets.map((asset) => asset.label).sort(),
+  );
   const prepared = captureE2ePreparedAssets(producerAssets);
   for (const asset of prepared) {
     const label = producerLabels[asset.label]!;
-    const before = baseline.assetsBefore.filter(item => item.label === label);
-    const after = baseline.assetsAfter.filter(item => item.label === label);
+    const before = baseline.assetsBefore.filter((item) => item.label === label);
+    const after = baseline.assetsAfter.filter((item) => item.label === label);
     assert.equal(before.length, 1, `baseline producer ${label}`);
     assert.equal(after.length, 1, `baseline producer ${label}`);
     assert.equal(before[0]!.sha256, after[0]!.sha256);

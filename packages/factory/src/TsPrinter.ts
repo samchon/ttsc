@@ -53,20 +53,20 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  *
  * The printer adds the parentheses and blocks that keep the printed tree equal
  * to the parsed tree where TypeScript's grammar would otherwise bind
- * differently, such as a statement that starts with an object literal, a
- * `for` header holding `in`, or an `else` after a nested `if`. TypeScript reads
- * a `<` after an expression as the start of type arguments when a later `>` is
+ * differently, such as a statement that starts with an object literal, a `for`
+ * header holding `in`, or an `else` after a nested `if`. TypeScript reads a `<`
+ * after an expression as the start of type arguments when a later `>` is
  * followed by `(`, a template or a line break, as in `f(a < b, c > (d))`. The
- * printer parenthesizes the comparison, or writes its right operand as
- * `(+0 as number, ...)` when that operand holds the closing `>`, and never
- * breaks a line after `>` or `>>`. An identifier spelled `let` at the start of
- * a statement is the caller's to avoid, because identifier spellings are not
+ * printer parenthesizes the comparison, or writes its right operand as `(+0 as
+ * number, ...)` when that operand holds the closing `>`, and never breaks a
+ * line after `>` or `>>`. An identifier spelled `let` at the start of a
+ * statement is the caller's to avoid, because identifier spellings are not
  * validated.
  *
- * Quoted JSX attributes encode their cooked string values with entities. A value
- * containing an unpaired UTF-16 surrogate uses a JSX expression instead, because
- * native entity decoding cannot represent that code unit. JavaScript string
- * and JSX expression literals use JavaScript escapes.
+ * Quoted JSX attributes encode their cooked string values with entities. A
+ * value containing an unpaired UTF-16 surrogate uses a JSX expression instead,
+ * because native entity decoding cannot represent that code unit. JavaScript
+ * string and JSX expression literals use JavaScript escapes.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @example
@@ -75,7 +75,8 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  *
  *   const printer = new TsPrinter({ printWidth: 80, indent: "  " });
  *   printer.print(factory.createStringLiteral("hello")); // "hello"
- *   ```
+ *   ```;
+ *
  * @evidence contracts/common.md#principled-implementation Discriminant dispatch lowers each outline kind to grammar-specific documents; precedence, associativity, optional-chain boundaries and assignment-target context constrain parentheses and commas independently of layout. Numeric and bitwise operands retain grouping because rounding and observable conversions forbid general reassociation; class expression statements preserve expression-local names. Parentheses and blocks also cover the grammar slots a fuzz against the TypeScript parser showed to rebind: `new` targets, `as`/`satisfies` before `&`, `|`, `<` or a conditional `?`, statement-leading comma lists, `for`-header `in`, dangling `else`, `for...of` sources and decorator element access. A `<` comparison that a later `>` followed by `(` or a template could pair with into type arguments is parenthesized, or its right operand is written as `(+0 as number, ...)`, so the printed tree parses back to the same tree. Inputs must be well-formed acyclic trees; arbitrary typed shapes are not a grammar validator.
  * @evidence contracts/common.md#clear-and-simple-design The instance retains only three layout settings; private helpers own grammar boundaries, comment rendering and list layout, while the document engine owns width decisions. The exhaustive switch keeps node lowering visible in one owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Grammar exceptions such as rest-target commas and JSX whitespace preserve supported syntax and meaning rather than fixture answers; the printer reads package-owned comment metadata and does not patch a compiler or consumer.
@@ -131,7 +132,8 @@ export class TsPrinter {
    * Print an entire source file.
    *
    * A supplied source file takes precedence over `statements`. The output ends
-   * with one configured newline, including when the selected statement list is empty.
+   * with one configured newline, including when the selected statement list is
+   * empty.
    *
    * @param sourceFile A {@link SourceFile}. When omitted, one is composed from
    *   the given `statements`.
@@ -266,10 +268,11 @@ export class TsPrinter {
 
   /**
    * The right operand of a binary expression. When the operator is `<` or `<<`
-   * and the operand holds a `>` that closes a type list, a leading `+0 as number`
-   * operand in parentheses keeps TypeScript from reading the `<` as type
-   * arguments and leaves the operand's value unchanged. The assertion keeps the
-   * checker from reporting the unused left side of the comma (TS2695).
+   * and the operand holds a `>` that closes a type list, a leading `+0 as
+   * number` operand in parentheses keeps TypeScript from reading the `<` as
+   * type arguments and leaves the operand's value unchanged. The assertion
+   * keeps the checker from reporting the unused left side of the comma
+   * (TS2695).
    */
   private lessRightOperand(node: BinaryExpression): Doc {
     if (
@@ -296,12 +299,7 @@ export class TsPrinter {
   private statementBlock(items: Doc[], forceBreak: boolean = true): Doc {
     if (items.length === 0) return "{}";
     return group(
-      concat([
-        "{",
-        indent(concat([line, join(line, items)])),
-        line,
-        "}",
-      ]),
+      concat(["{", indent(concat([line, join(line, items)])), line, "}"]),
       forceBreak,
     );
   }
@@ -918,14 +916,18 @@ export class TsPrinter {
           ? concat(["return ", this.restrictedExpression(node.expression), ";"])
           : "return;";
       case "ThrowStatement":
-        return concat(["throw ", this.restrictedExpression(node.expression), ";"]);
+        return concat([
+          "throw ",
+          this.restrictedExpression(node.expression),
+          ";",
+        ]);
       case "IfStatement":
         return concat([
           "if (",
           this.emit(node.expression),
           ") ",
           node.elseStatement !== undefined &&
-            this.endsWithElselessIf(node.thenStatement)
+          this.endsWithElselessIf(node.thenStatement)
             ? this.statementBlock([this.emit(node.thenStatement)])
             : this.embeddedStatement(node.thenStatement),
           node.elseStatement
@@ -2131,18 +2133,20 @@ export class TsPrinter {
       : this.parenthesizedExpression(operand);
   }
 
-  /** Keep trailing comment line terminators inside a postfix operand's parentheses. */
+  /**
+   * Keep trailing comment line terminators inside a postfix operand's
+   * parentheses.
+   */
   private postfixBoundaryOperand(expression: Expression, body: Doc): Doc {
     let last: Node = expression;
     while (true) {
       if (
-        getSyntheticTrailingComments(last)?.some(
-          (comment) => this.commentHasLineBreak(comment),
+        getSyntheticTrailingComments(last)?.some((comment) =>
+          this.commentHasLineBreak(comment),
         )
       )
         return concat(["(", body, ")"]);
-      if (last.kind === "PartiallyEmittedExpression")
-        last = last.expression;
+      if (last.kind === "PartiallyEmittedExpression") last = last.expression;
       else if (last.kind === "PropertyAccessExpression") last = last.name;
       else if (last.kind === "TaggedTemplateExpression") last = last.template;
       else return body;
@@ -2723,7 +2727,10 @@ export class TsPrinter {
     );
   }
 
-  /** Embedded statement slots must remain grammatical when a placeholder emits nothing. */
+  /**
+   * Embedded statement slots must remain grammatical when a placeholder emits
+   * nothing.
+   */
   private embeddedStatement(statement: Statement): Doc {
     return statement.kind === "NotEmittedStatement"
       ? this.withComments(statement, ";")
@@ -2831,8 +2838,8 @@ export class TsPrinter {
    *
    * TypeScript reads `a < b > (c)` as the call `a<b>(c)` with type arguments:
    * after an expression, a `<` starts a type argument list, the type parser
-   * recovers inside parentheses, and a `>` followed by `(`, a template or a line
-   * break ends the list. The pairing can cross parentheses, brackets and
+   * recovers inside parentheses, and a `>` followed by `(`, a template or a
+   * line break ends the list. The pairing can cross parentheses, brackets and
    * braces, so the scan covers every printed child.
    */
   private containsClosingOpener(node: unknown): boolean {
@@ -2937,10 +2944,11 @@ export class TsPrinter {
 
   /**
    * Whether the printed expression leaves a `<` or `<<` comparison open, with
-   * only `|`, `&`, `??` or `,` after it, so that a later `>` operand can close it.
+   * only `|`, `&`, `??` or `,` after it, so that a later `>` operand can close
+   * it.
    *
-   * TypeScript reads `a < b | c > (d)` and `a < b, c > (d)` as the call
-   * `a<b | c>(d)` with type arguments: a `<` after an expression starts a type
+   * TypeScript reads `a < b | c > (d)` and `a < b, c > (d)` as the call `a<b |
+   * c>(d)` with type arguments: a `<` after an expression starts a type
    * argument list, and a `>` followed by `(` or a template ends it. An operand
    * of the comparison list that holds such a `<` is parenthesized when a `>`
    * operand follows it.
@@ -3116,8 +3124,7 @@ export class TsPrinter {
       case "SatisfiesExpression":
         return (
           this.expressionPrecedence(expression.expression) >=
-            ExpressionPrecedence.Relational &&
-          next(expression.expression)
+            ExpressionPrecedence.Relational && next(expression.expression)
         );
       case "PrefixUnaryExpression":
       case "AwaitExpression":
@@ -3197,8 +3204,8 @@ export class TsPrinter {
     let first: Node | undefined = expression;
     while (first !== undefined) {
       if (
-        getSyntheticLeadingComments(first)?.some(
-          (comment) => this.commentHasLineBreak(comment),
+        getSyntheticLeadingComments(first)?.some((comment) =>
+          this.commentHasLineBreak(comment),
         )
       )
         return concat(["(", body, ")"]);
@@ -3239,11 +3246,14 @@ export class TsPrinter {
   }
 
   /** Move a line-breaking label comment before its restricted jump keyword. */
-  private jumpStatement(keyword: "break" | "continue", label?: Identifier): Doc {
+  private jumpStatement(
+    keyword: "break" | "continue",
+    label?: Identifier,
+  ): Doc {
     if (label === undefined) return keyword + ";";
     if (
-      getSyntheticLeadingComments(label)?.some(
-        (comment) => this.commentHasLineBreak(comment),
+      getSyntheticLeadingComments(label)?.some((comment) =>
+        this.commentHasLineBreak(comment),
       )
     )
       return this.withComments(
@@ -3435,8 +3445,8 @@ const isBreakSafeJsxText = (text: string): boolean =>
  * delimiter must be an entity. Numeric entities keep control characters and
  * line endings out of source layout without normalizing their cooked values.
  * The caller routes unpaired surrogates through a JavaScript expression because
- * the pinned native JSX decoder replaces numeric surrogate entities with U+FFFD.
- * Well-formed pairs pass through as one code point.
+ * the pinned native JSX decoder replaces numeric surrogate entities with
+ * U+FFFD. Well-formed pairs pass through as one code point.
  */
 const escapeJsxAttribute = (text: string, singleQuote?: boolean): string => {
   const quote = singleQuote === true ? "'" : '"';

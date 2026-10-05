@@ -1,4 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
+
 import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 import { structure } from "../../internal/oracle";
 
@@ -21,11 +22,24 @@ export const test_default_width_boundary = (): void => {
   const printer = new TsPrinter();
   for (const width of [80, 81]) {
     const argument = "a".repeat(width - 3);
-    const node = factory.createCallExpression(factory.createIdentifier("f"), undefined, [factory.createIdentifier(argument)]);
+    const node = factory.createCallExpression(
+      factory.createIdentifier("f"),
+      undefined,
+      [factory.createIdentifier(argument)],
+    );
     const actual = printer.print(node);
     const expected = "f(" + argument + ")";
-    TestValidator.equals(`${width} columns break`, actual.includes("\n"), width === 81);
-    TestValidator.equals(`${width} columns preserve syntax`, structure(actual + ";"), structure(expected + ";"));
-    if (width === 80) TestValidator.equals("80 columns exact flat text", actual, expected);
+    TestValidator.equals(
+      `${width} columns break`,
+      actual.includes("\n"),
+      width === 81,
+    );
+    TestValidator.equals(
+      `${width} columns preserve syntax`,
+      structure(actual + ";"),
+      structure(expected + ";"),
+    );
+    if (width === 80)
+      TestValidator.equals("80 columns exact flat text", actual, expected);
   }
 };

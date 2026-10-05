@@ -13,10 +13,9 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
  * @param location The directory, spelled as the filesystem names it.
  * @param recursive Whether entries below subdirectories are heard.
  * @param listener Receives each event.
- * @param openWatch Owned native-compatible subscription operation; fs.watch by default.
- *
+ * @param openWatch Owned native-compatible subscription operation; fs.watch by
+ *   default.
  * @returns The open watch.
- *
  * @evidence contracts/common.md#principled-implementation The native event and optional filename are normalized to the common watch contract; an absent name explicitly marks an observation gap.
  * @evidence contracts/common.md#clear-and-simple-design One supported fs.watch subscription maps its event callback without another scheduling or polling layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown native events become the declared rename category, without invented filenames or patched fs methods. An explicitly supplied observer is invoked through this parameter rather than installed into the global filesystem.

@@ -20,8 +20,8 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership This discoverable Go Test and four named subtests call assertFixSnapshotWithOptions, which executes the owning Engine and applies actual fixes to private fixture files in the same process. No consumer installation, native build or real product host runs.
 func TestFormatQuotePropsConsistentPreservesCookedIdentifierKeys(t *testing.T) {
   rows := []struct {
-    name string
-    source string
+    name     string
+    source   string
     expected string
   }{
     {"fixed-width", "const value = { f\\u006fo: 1, \"bar-baz\": 2 };\n", "const value = { \"foo\": 1, \"bar-baz\": 2 };\n"},

@@ -11,9 +11,11 @@ import { createToken } from "./createToken";
  * This prints:
  *
  * ```ts
- * null
+ * null;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link Token}.
  * @evidence contracts/common.md#principled-implementation
  *   NullKeyword maps to the printer's null literal; token construction retains
  *   the syntax kind instead of inferring it from an identifier string.
@@ -27,8 +29,5 @@ import { createToken } from "./createToken";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes the keyword token from a nullable value and gives a
  *   printed example in its own paragraph before separated tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link Token}.
  */
 export const createNull = (): Token => createToken(SyntaxKind.NullKeyword);

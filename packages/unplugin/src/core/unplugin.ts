@@ -550,8 +550,7 @@ const unpluginFactory: UnpluginFactory<
                     : {}),
                   registration,
                 });
-                if (registration.digest === undefined)
-                  handed.unprovable = true;
+                if (registration.digest === undefined) handed.unprovable = true;
                 else
                   handed.record = {
                     digest: registration.digest,

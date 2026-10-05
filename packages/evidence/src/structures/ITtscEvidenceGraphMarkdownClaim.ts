@@ -1,5 +1,5 @@
-import type { TtscEvidenceGraphMarkdownSymbol } from "./TtscEvidenceGraphMarkdownSymbol";
 import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase";
+import type { TtscEvidenceGraphMarkdownSymbol } from "./TtscEvidenceGraphMarkdownSymbol";
 
 /**
  * A population of Markdown documents claiming its referenced evidence.
@@ -21,7 +21,7 @@ import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase"
  * @evidence contracts/common.md#clear-and-simple-design Only Markdown files and host kinds are specialized; the shared base remains responsible for roots, diagnostics and outgoing references.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The type selects outline kinds rather than hardcoding document names or accepting a fixture-specific acknowledgment path.
  * @evidence contracts/common.md#meaningful-documentation The comment describes where Markdown acknowledgments live and the member comments state file parsing and selector defaults, separated from these tags.
-* @evidence contracts/portability.md#os-neutral-implementation The inherited stable root and ordered glob paths select a native document population independently of outline targets; separators are portable and identity remains the explicit graph policy rather than a guess from the OS name.
+ * @evidence contracts/portability.md#os-neutral-implementation The inherited stable root and ordered glob paths select a native document population independently of outline targets; separators are portable and identity remains the explicit graph policy rather than a guess from the OS name.
  */
 export interface ITtscEvidenceGraphMarkdownClaim extends ITtscEvidenceGraphClaimBase<"markdown"> {
   /**

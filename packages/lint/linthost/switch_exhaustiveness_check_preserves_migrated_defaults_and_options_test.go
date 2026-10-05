@@ -48,10 +48,10 @@ switch (complete) { case "alpha": break; case "beta": break; default: break; }
   writeFile(t, filepath.Join(root, "package.json"), `{"devDependencies":{"@ttsc/lint":"*"}}`)
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{"compilerOptions":{"target":"ES2022","module":"NodeNext","moduleResolution":"NodeNext","strict":true,"noEmit":true,"rootDir":"src"},"include":["src"]}`)
   cases := []struct {
-    name, source string
-    setting any
-    lines []int
-    messages map[string]int
+    name, source   string
+    setting        any
+    lines          []int
+    messages       map[string]int
     visible, clean []string
   }{
     {
@@ -77,11 +77,11 @@ switch (maybeText) { case "known": break; }
 declare const complete: Choice;
 switch (complete) { case "alpha": break; case "beta": break; default: break; }
 `,
-      setting: "error",
-      lines: []int{3, 6, 9, 14, 17},
+      setting:  "error",
+      lines:    []int{3, 6, 9, 14, 17},
       messages: map[string]int{`Cases not matched: "beta"`: 2, `Cases not matched: "only"`: 1, "Cases not matched: typeof second": 1, "Cases not matched: undefined": 1},
-      visible: []string{"switch (withDefault)", "switch (withoutDefault)", "switch (singleton)", "switch (symbolValue)", "switch (maybeText)"},
-      clean: []string{"switch (complete)"},
+      visible:  []string{"switch (withDefault)", "switch (withoutDefault)", "switch (singleton)", "switch (symbolValue)", "switch (maybeText)"},
+      clean:    []string{"switch (complete)"},
     },
     {
       name: "all non-default options",
@@ -103,14 +103,14 @@ switch (oldDefaultComment) { case "known": break; /* no default */ }
 `,
       setting: []any{"error", map[string]any{
         "allowDefaultCaseForExhaustiveSwitch": false,
-        "considerDefaultExhaustiveForUnions": true,
-        "defaultCaseCommentPattern": `^skip\s+default$`,
-        "requireDefaultForNonUnion": true,
+        "considerDefaultExhaustiveForUnions":  true,
+        "defaultCaseCommentPattern":           `^skip\s+default$`,
+        "requireDefaultForNonUnion":           true,
       }},
-      lines: []int{6, 9, 15},
+      lines:    []int{6, 9, 15},
       messages: map[string]int{"Cases not matched: default": 2, "default case is unnecessary": 1},
-      visible: []string{"switch (redundantDefault)", "switch (openWithoutDefault)", "switch (oldDefaultComment)"},
-      clean: []string{"switch (hiddenByDefault)", "switch (customComment)"},
+      visible:  []string{"switch (redundantDefault)", "switch (openWithoutDefault)", "switch (oldDefaultComment)"},
+      clean:    []string{"switch (hiddenByDefault)", "switch (customComment)"},
     },
   }
   for _, test := range cases {
@@ -119,15 +119,21 @@ switch (oldDefaultComment) { case "known": break; /* no default */ }
     code, stdout, stderr := captureCommandOutput(t, func() int {
       return run([]string{"check", "--cwd", root, "--plugins-json", lintManifest(t)})
     })
-    if stdout != "" { t.Fatalf("%s wrote stdout: %q", test.name, stdout) }
+    if stdout != "" {
+      t.Fatalf("%s wrote stdout: %q", test.name, stdout)
+    }
     assertSwitchExhaustivenessCheckResultForTest(t, code, stderr, len(test.lines), test.messages)
     assertTypedRuleRenderedErrors(t, switchExhaustivenessCheckRuleName, stderr, test.lines...)
     rendered := noMisusedPromisesANSI.ReplaceAllString(stderr, "")
     for _, text := range test.visible {
-      if !strings.Contains(rendered, text) { t.Fatalf("%s omitted violation codeframe %q: %s", test.name, text, rendered) }
+      if !strings.Contains(rendered, text) {
+        t.Fatalf("%s omitted violation codeframe %q: %s", test.name, text, rendered)
+      }
     }
     for _, text := range test.clean {
-      if strings.Contains(rendered, text) { t.Fatalf("%s reported clean control %q: %s", test.name, text, rendered) }
+      if strings.Contains(rendered, text) {
+        t.Fatalf("%s reported clean control %q: %s", test.name, text, rendered)
+      }
     }
   }
 }

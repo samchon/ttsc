@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 
 import {
-  commandArgumentsContainDirtyURI,
   type NormalizedTextEdit,
+  commandArgumentsContainDirtyURI,
   workspaceEditChangesTouchDirtyURI,
 } from "../../../../../packages/vscode/src/commandEdits";
 
 /**
  * Verifies the dirty-document guards compare a URI after the supplied
  * canonicalizer, so a server's spelling of a document and the editor's spelling
- * name the same dirty document, and that without a canonicalizer the spelling is
- * compared exactly as written.
+ * name the same dirty document, and that without a canonicalizer the spelling
+ * is compared exactly as written.
  *
  * A language server writes `file:///C:/x` where VS Code spells the same file
  * `file:///c%3A/x`. A guard that compared the raw strings would let a command
@@ -81,7 +81,11 @@ export function test_vscode_dirty_document_guards_canonicalize_server_spelled_ur
     "by default a replacement under the server spelling is compared as written",
   );
   assert.equal(
-    workspaceEditChangesTouchDirtyURI([edit("file:///C:/y"), edit(server)], dirty, drive),
+    workspaceEditChangesTouchDirtyURI(
+      [edit("file:///C:/y"), edit(server)],
+      dirty,
+      drive,
+    ),
     true,
     "a canonicalizer exposes a replacement hidden by the server spelling",
   );

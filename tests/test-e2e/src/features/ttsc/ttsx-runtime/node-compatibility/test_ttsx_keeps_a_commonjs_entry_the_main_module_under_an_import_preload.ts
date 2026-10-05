@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-
 /**
  * Verifies a CommonJS TypeScript entry stays Node's main module when an
  * `--import` preload makes Node run it through the ESM loader.
@@ -35,74 +34,75 @@ import { pathToFileURL } from "node:url";
  * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
 export function test_ttsx_keeps_a_commonjs_entry_the_main_module_under_an_import_preload() {
-    const root = TestProject.commonJsProject({
-      "src/main.ts": [
-        `declare const require: any;`,
-        `declare const module: any;`,
-        `declare const __filename: string;`,
-        `console.log(JSON.stringify({`,
-        `  cache: typeof require.cache,`,
-        `  shared: require.cache === require("node:module").createRequire(__filename).cache,`,
-        `  dep: require("./dep.js").value,`,
-        `  main: require.main === module,`,
-        `}));`,
-        ``,
-      ].join("\n"),
-      "src/dep.ts": `export const value: string = "dep";\n`,
-      "preload.mjs": ``,
-      "native-reference.cjs": `console.log(JSON.stringify({ cache: typeof require.cache, main: require.main === module, shared: require.cache === require("node:module").createRequire(__filename).cache }));\n`,
-    });
-    const preload = pathToFileURL(path.join(root, "preload.mjs")).href;
-    const register = path.join(
-      TestProject.WORKSPACE_ROOT,
-      "packages",
-      "ttsc",
-      "lib",
-      "register.js",
-    );
-    const reference = TestProject.spawn(
-      process.execPath,
-      [
-        "--import",
-        preload,
-        "native-reference.cjs",
-      ],
-      { cwd: root },
-    );
-    assert.equal(reference.status, 0, reference.stderr);
-    const native = JSON.parse(reference.stdout.trim()) as {
-      cache: string;
-      main: boolean;
-      shared: boolean;
-    };
-    assert.deepEqual(native, { cache: "object", main: true, shared: true });
-    const expected = { cache: native.cache, dep: "dep", main: true, shared: native.shared };
-    for (const [label, result] of [
-      [
-        "ttsx",
-        TestProject.spawn(TestProject.TTSX_BIN, ["src/main.ts"], {
-          cwd: root,
-          env: { NODE_OPTIONS: `--import=${preload}` },
-        }),
-      ],
-      [
-        "--import ttsc/register",
-        TestProject.spawn(
-          process.execPath,
-          ["--import", pathToFileURL(register).href, "src/main.ts"],
-          { cwd: root },
-        ),
-      ],
-      [
-        "--import preload -r ttsc/register",
-        TestProject.spawn(
-          process.execPath,
-          ["--import", preload, "-r", register, "src/main.ts"],
-          { cwd: root },
-        ),
-      ],
-    ] as const) {
-      assert.equal(result.status, 0, `${label}: ${result.stderr}`);
-      assert.deepEqual(JSON.parse(result.stdout.trim()), expected, label);
-    }
+  const root = TestProject.commonJsProject({
+    "src/main.ts": [
+      `declare const require: any;`,
+      `declare const module: any;`,
+      `declare const __filename: string;`,
+      `console.log(JSON.stringify({`,
+      `  cache: typeof require.cache,`,
+      `  shared: require.cache === require("node:module").createRequire(__filename).cache,`,
+      `  dep: require("./dep.js").value,`,
+      `  main: require.main === module,`,
+      `}));`,
+      ``,
+    ].join("\n"),
+    "src/dep.ts": `export const value: string = "dep";\n`,
+    "preload.mjs": ``,
+    "native-reference.cjs": `console.log(JSON.stringify({ cache: typeof require.cache, main: require.main === module, shared: require.cache === require("node:module").createRequire(__filename).cache }));\n`,
+  });
+  const preload = pathToFileURL(path.join(root, "preload.mjs")).href;
+  const register = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "lib",
+    "register.js",
+  );
+  const reference = TestProject.spawn(
+    process.execPath,
+    ["--import", preload, "native-reference.cjs"],
+    { cwd: root },
+  );
+  assert.equal(reference.status, 0, reference.stderr);
+  const native = JSON.parse(reference.stdout.trim()) as {
+    cache: string;
+    main: boolean;
+    shared: boolean;
+  };
+  assert.deepEqual(native, { cache: "object", main: true, shared: true });
+  const expected = {
+    cache: native.cache,
+    dep: "dep",
+    main: true,
+    shared: native.shared,
+  };
+  for (const [label, result] of [
+    [
+      "ttsx",
+      TestProject.spawn(TestProject.TTSX_BIN, ["src/main.ts"], {
+        cwd: root,
+        env: { NODE_OPTIONS: `--import=${preload}` },
+      }),
+    ],
+    [
+      "--import ttsc/register",
+      TestProject.spawn(
+        process.execPath,
+        ["--import", pathToFileURL(register).href, "src/main.ts"],
+        { cwd: root },
+      ),
+    ],
+    [
+      "--import preload -r ttsc/register",
+      TestProject.spawn(
+        process.execPath,
+        ["--import", preload, "-r", register, "src/main.ts"],
+        { cwd: root },
+      ),
+    ],
+  ] as const) {
+    assert.equal(result.status, 0, `${label}: ${result.stderr}`);
+    assert.deepEqual(JSON.parse(result.stdout.trim()), expected, label);
   }
+}

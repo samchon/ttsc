@@ -1,10 +1,10 @@
-import { LintWorkspace } from "../../../../internal/lint/LintWorkspace";
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../../../../../../packages/ttsc/lib/index.js";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
+import { LintWorkspace } from "../../../../internal/lint/LintWorkspace";
 import {
   TSGO_BINARY,
   TTSX_BIN,
@@ -46,78 +46,84 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original failure type, no ignored findings and exact main.ts rule/category tuples remain executable; direct Go owners retain the original JSON/source distinctions and add valid and unignored controls.
  */
 export function test_lint_config_file_out_of_tree_tsconfig_honors_project_ignores_via_cwd_discovery() {
-    const source = "var value = 1;\nconsole.log(value);\n";
-    const project = createLintProject({
-      name: "config-file-out-of-tree-ignores",
-      source,
-      pluginConfig: {},
-      extraSources: FixtureFiles.read("lint/lint_config_file_out_of_tree_tsconfig_honors_project_ignores_via_cwd_discovery/inputs-1"),
+  const source = "var value = 1;\nconsole.log(value);\n";
+  const project = createLintProject({
+    name: "config-file-out-of-tree-ignores",
+    source,
+    pluginConfig: {},
+    extraSources: FixtureFiles.read(
+      "lint/lint_config_file_out_of_tree_tsconfig_honors_project_ignores_via_cwd_discovery/inputs-1",
+    ),
+  });
+  const wrapper = LintWorkspace.caseRoot("ttsc-lint-out-of-tree-", true);
+  const failures: unknown[] = [];
+  try {
+    const tsconfig = path.join(wrapper, "tsconfig.json");
+    // A configured program defaults rootDir to its selected config directory.
+    // The wrapper owns no sources; pin the actual project root so this case
+    // exercises lint discovery and ignores without an unrelated TS6059.
+    fs.writeFileSync(
+      tsconfig,
+      JSON.stringify({
+        extends: path.join(project.tmpdir, "tsconfig.json"),
+        compilerOptions: { rootDir: project.tmpdir },
+      }),
+      "utf8",
+    );
+    const compiler = new TtscCompiler({
+      cacheDir: TestProject.sharedPluginCache(),
+      cwd: project.tmpdir,
+      env: {
+        PATH: lintGoPath(),
+        TTSC_GO_CACHE_DIR: TestProject.sharedGoBuildCache(),
+        TTSC_TSGO_BINARY: TSGO_BINARY,
+        TTSC_TTSX_BINARY: TTSX_BIN,
+      },
+      projectRoot: project.tmpdir,
+      tsconfig,
     });
-    const wrapper = LintWorkspace.caseRoot("ttsc-lint-out-of-tree-", true);
-    const failures: unknown[] = [];
-    try {
-      const tsconfig = path.join(wrapper, "tsconfig.json");
-      // A configured program defaults rootDir to its selected config directory.
-      // The wrapper owns no sources; pin the actual project root so this case
-      // exercises lint discovery and ignores without an unrelated TS6059.
-      fs.writeFileSync(
-        tsconfig,
-        JSON.stringify({
-          extends: path.join(project.tmpdir, "tsconfig.json"),
-          compilerOptions: { rootDir: project.tmpdir },
-        }),
-        "utf8",
-      );
-      const compiler = new TtscCompiler({
-        cacheDir: TestProject.sharedPluginCache(),
-        cwd: project.tmpdir,
-        env: {
-          PATH: lintGoPath(),
-          TTSC_GO_CACHE_DIR: TestProject.sharedGoBuildCache(),
-          TTSC_TSGO_BINARY: TSGO_BINARY,
-          TTSC_TTSX_BINARY: TTSX_BIN,
-        },
-        projectRoot: project.tmpdir,
-        tsconfig,
-      });
-      const result = compiler.compile();
+    const result = compiler.compile();
 
-      assert.equal(result.type, "failure");
-      const leaked = result.diagnostics.filter(
-        (d) =>
-          d.file !== null &&
-          (d.file.includes(".next") || d.file.includes("next-env")),
-      );
-      assert.deepEqual(
-        leaked,
-        [],
-        `ignored files must not be linted:\n${JSON.stringify(result.diagnostics, null, 2)}`,
-      );
-      assert.deepEqual(
-        result.diagnostics.map((d) => [
-          d.file === null ? null : path.basename(d.file),
-          d.messageText.slice(0, d.messageText.indexOf("]") + 1),
-          d.category,
-        ]),
-        [
-          ["main.ts", "[no-var]", "error"],
-          ["main.ts", "[no-console]", "error"],
-        ],
-        JSON.stringify(result.diagnostics, null, 2),
-      );
+    assert.equal(result.type, "failure");
+    const leaked = result.diagnostics.filter(
+      (d) =>
+        d.file !== null &&
+        (d.file.includes(".next") || d.file.includes("next-env")),
+    );
+    assert.deepEqual(
+      leaked,
+      [],
+      `ignored files must not be linted:\n${JSON.stringify(result.diagnostics, null, 2)}`,
+    );
+    assert.deepEqual(
+      result.diagnostics.map((d) => [
+        d.file === null ? null : path.basename(d.file),
+        d.messageText.slice(0, d.messageText.indexOf("]") + 1),
+        d.category,
+      ]),
+      [
+        ["main.ts", "[no-var]", "error"],
+        ["main.ts", "[no-console]", "error"],
+      ],
+      JSON.stringify(result.diagnostics, null, 2),
+    );
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    try {
+      fs.rmSync(wrapper, { recursive: true, force: true });
     } catch (error) {
       failures.push(error);
-    } finally {
-      try {
-        fs.rmSync(wrapper, { recursive: true, force: true });
-      } catch (error) {
-        failures.push(error);
-      }
-      try {
-        project.cleanup();
-      } catch (error) {
-        failures.push(error);
-      }
     }
-    if (failures.length) throw new AggregateError(failures, "Out-of-tree lint configuration or owned cleanup failed");
+    try {
+      project.cleanup();
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Out-of-tree lint configuration or owned cleanup failed",
+    );
+}

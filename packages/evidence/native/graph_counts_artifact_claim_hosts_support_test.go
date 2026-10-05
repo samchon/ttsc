@@ -13,8 +13,6 @@ const markdownClaimReferencePolicyConfig = `{"claims":[{
   }
 }]}`
 
-
-
 const prismaClaimReferencePolicyConfig = `{"claims":[{
   "type":"prisma",
   "files":["prisma/schema.prisma"],

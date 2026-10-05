@@ -8,9 +8,9 @@ import (
 )
 
 type extra_NodeBuilder struct {
-  ctxStack []*checker.NodeBuilderContext
-  host checker.Host
-  impl *checker.NodeBuilderImpl
+  ctxStack  []*checker.NodeBuilderContext
+  host      checker.Host
+  impl      *checker.NodeBuilderImpl
   verbosity *checker.VerbosityContext
 }
 

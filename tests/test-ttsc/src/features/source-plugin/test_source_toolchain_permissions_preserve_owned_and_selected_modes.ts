@@ -25,7 +25,9 @@ export function test_source_toolchain_permissions_preserve_owned_and_selected_mo
     // Windows has no execute bit: the repair is documented to do nothing there.
     // Windows reports 0o666 for a writable file and 0o444 for a read-only one,
     // so a repair that wrongly chmod-ed would visibly rewrite the file.
-    const windowsRoot = TestProject.tmpdir("ttsc-toolchain-permissions-source-");
+    const windowsRoot = TestProject.tmpdir(
+      "ttsc-toolchain-permissions-source-",
+    );
     const windowsTool = path.join(windowsRoot, "go.exe");
     fs.writeFileSync(windowsTool, "authored executable bytes\n");
     for (const mode of [0o666, 0o444]) {
@@ -65,17 +67,19 @@ export function test_source_toolchain_permissions_preserve_owned_and_selected_mo
   for (const owned of [true, false]) {
     for (const kind of ["go", "gofmt"] as const) {
       const directoryRoot = path.join(root, `${kind}-${owned}`);
-      const candidate = kind === "go"
-        ? path.join(directoryRoot, "go")
-        : path.join(directoryRoot, "bin", "gofmt");
+      const candidate =
+        kind === "go"
+          ? path.join(directoryRoot, "go")
+          : path.join(directoryRoot, "bin", "gofmt");
       fs.mkdirSync(candidate, { recursive: true });
       const sentinel = path.join(candidate, "sentinel.txt");
       fs.writeFileSync(sentinel, "directory sentinel\n");
-      const binary = kind === "go"
-        ? candidate
-        : path.join(directoryRoot, "bin", "go");
+      const binary =
+        kind === "go" ? candidate : path.join(directoryRoot, "bin", "go");
       if (kind === "gofmt") {
-        fs.mkdirSync(path.join(directoryRoot, "src", "runtime"), { recursive: true });
+        fs.mkdirSync(path.join(directoryRoot, "src", "runtime"), {
+          recursive: true,
+        });
         fs.writeFileSync(binary, "inert SDK go bytes\n");
         fs.chmodSync(binary, 0o666);
       }
@@ -89,11 +93,16 @@ export function test_source_toolchain_permissions_preserve_owned_and_selected_mo
         assert.equal(fs.statSync(candidate).mode & 0o7777, mode);
         if (kind === "gofmt") {
           assert.equal(fs.statSync(binary).isFile(), true);
-          assert.equal(fs.statSync(binary).mode & 0o7777, owned ? 0o755 : 0o766);
+          assert.equal(
+            fs.statSync(binary).mode & 0o7777,
+            owned ? 0o755 : 0o766,
+          );
           assert.equal(fs.readFileSync(binary, "utf8"), "inert SDK go bytes\n");
         }
       } catch (error) {
-        failures.push(new Error(`${kind} directory (owned=${owned})`, { cause: error }));
+        failures.push(
+          new Error(`${kind} directory (owned=${owned})`, { cause: error }),
+        );
       } finally {
         // Restore traversal permission only after observing the directory mode.
         fs.chmodSync(candidate, 0o700);
@@ -101,10 +110,15 @@ export function test_source_toolchain_permissions_preserve_owned_and_selected_mo
       try {
         assert.equal(fs.readFileSync(sentinel, "utf8"), "directory sentinel\n");
       } catch (error) {
-        failures.push(new Error(`${kind} sentinel (owned=${owned})`, { cause: error }));
+        failures.push(
+          new Error(`${kind} sentinel (owned=${owned})`, { cause: error }),
+        );
       }
     }
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "toolchain directory admission assertions");
+    throw new AggregateError(
+      failures,
+      "toolchain directory admission assertions",
+    );
 }

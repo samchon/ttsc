@@ -1,10 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
-
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
 
+import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies collecting a single-file cache part never throws, never creates the
@@ -16,8 +15,8 @@ import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/inte
  *
  * 1. Collect a part that does not exist, and one that is a file.
  * 2. Link a part to an outside directory holding an old entry, and collect it.
- * 3. Assert the outside bytes and observed modification time remain unchanged,
- *    no collection marker appears, and the input link still names a link.
+ * 3. Assert the outside bytes and observed modification time remain unchanged, no
+ *    collection marker appears, and the input link still names a link.
  *
  * @evidence contracts/testing.md#behavioral-verification Collection neither throws nor creates a missing root; file-root bytes and linked outside bytes/mtime stay unchanged, no outside collection marker is written, and the link remains a link.
  * @evidence contracts/testing.md#independent-expectations Authored absent, regular-file and linked-directory roots distinguish safe collection scope. Literal outside bytes and no-marker expectations are independent; the native mtime observed before collection avoids assuming filesystem timestamp precision.

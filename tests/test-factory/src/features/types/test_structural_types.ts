@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, param, print, ref } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, kw, param, print, ref } from "../../internal/helpers";
  * Function type, tuple, `keyof`, `readonly T[]`, `unique symbol`, indexed
  * access `T[K]`, `typeof value`, and a parenthesized union.
  *
- * 1. Function, tuple, type operators, indexed access, type query and parenthesized union preserve their specialized type forms.
- * 2. Each literal type expectation independently fixes arrow, brackets, operators and query spelling.
+ * 1. Function, tuple, type operators, indexed access, type query and parenthesized
+ *    union preserve their specialized type forms.
+ * 2. Each literal type expectation independently fixes arrow, brackets, operators
+ *    and query spelling.
  *
  * @evidence contracts/testing.md#behavioral-verification Function, tuple, type operators, indexed access, type query and parenthesized union preserve their specialized type forms.
  * @evidence contracts/testing.md#independent-expectations Each literal type expectation independently fixes arrow, brackets, operators and query spelling.

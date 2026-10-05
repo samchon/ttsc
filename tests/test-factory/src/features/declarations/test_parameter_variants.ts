@@ -1,16 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, kw, num, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of {@link factory.createParameterDeclaration|parameter} variants.
+ * Verifies printing of {@link factory.createParameterDeclaration|parameter}
+ * variants.
  *
  * A rest parameter `...args: string[]`, an optional `x?: number`, and a
  * decorated parameter with a default `@inject x: number = 1`.
  *
- * 1. Rest, optional and decorated/default parameters retain their markers, type and initializer in arrow syntax.
- * 2. Literal ...args: string[], x?: number and @inject x: number = 1 expectations are authored syntax, not printer snapshots.
+ * 1. Rest, optional and decorated/default parameters retain their markers, type
+ *    and initializer in arrow syntax.
+ * 2. Literal ...args: string[], x?: number and @inject x: number = 1 expectations
+ *    are authored syntax, not printer snapshots.
  *
  * @evidence contracts/testing.md#behavioral-verification Rest, optional and decorated/default parameters retain their markers, type and initializer in arrow syntax.
  * @evidence contracts/testing.md#independent-expectations Literal ...args: string[], x?: number and @inject x: number = 1 expectations are authored syntax, not printer snapshots.

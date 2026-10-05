@@ -12,10 +12,10 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  * match this caller's delivery, yet it is no longer the cache's answer, and
  * serving it would return output the cache itself has already discarded.
  *
- * 1. Supply a literal settled-pass generation, and install a pending stale generation that
- *    still matches the source under the same key.
- * 2. Start a matching caller, replace the entry with the literal good generation as a
- *    sibling's recompile would, and resolve the stale generation.
+ * 1. Supply a literal settled-pass generation, and install a pending stale
+ *    generation that still matches the source under the same key.
+ * 2. Start a matching caller, replace the entry with the literal good generation
+ *    as a sibling's recompile would, and resolve the stale generation.
  * 3. Assert the caller returns the replacement's output, not the superseded one.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual authored transformTtsc executes its awaited-generation identity and eviction/retry paths. An otherwise matching stale value with STALE output is replaced during await, so only the newer literal output may be delivered.

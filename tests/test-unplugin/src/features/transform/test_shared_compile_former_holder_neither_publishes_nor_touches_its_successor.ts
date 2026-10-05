@@ -1,15 +1,15 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import type { TtscSharedCompilePublication } from "../../../../../packages/unplugin/src/core/transform/session/TtscSharedCompilePublication";
 import { claimSharedCompile } from "../../../../../packages/unplugin/src/core/transform/session/claimSharedCompile";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a holder whose lock was taken over neither publishes over its
- * successor nor removes the successor's lock on release, and that two workers reclaiming
- * one abandoned lock end with one holder.
+ * successor nor removes the successor's lock on release, and that two workers
+ * reclaiming one abandoned lock end with one holder.
  *
  * A lock whose heartbeat went stale is taken over, but the former holder may
  * still be alive, finishing a slow compile. It published without checking it

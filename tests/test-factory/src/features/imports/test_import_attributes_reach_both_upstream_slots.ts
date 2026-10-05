@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print, str } from "../../internal/helpers";
 
 /**
@@ -20,7 +20,8 @@ import { id, print, str } from "../../internal/helpers";
  *
  * 1. Build an import type with attributes and a qualifier.
  * 2. Build an `@import` JSDoc tag with attributes.
- * 3. Assert each prints its own form and a plain import type retains its qualifier.
+ * 3. Assert each prints its own form and a plain import type retains its
+ *    qualifier.
  *
  * @evidence contracts/testing.md#behavioral-verification Import type attributes preserve their with object and qualifier, and JSDoc import tags retain their attribute slot.
  * @evidence contracts/testing.md#independent-expectations Exact source literals independently specify the type: json attribute and names; the plain import-type literal supplies an omission control.

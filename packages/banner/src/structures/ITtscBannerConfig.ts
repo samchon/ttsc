@@ -1,8 +1,8 @@
 /**
  * Object exported by a standalone `banner.config.*` file.
  *
- * The native loader requires a nonblank text string. Keeping banner contents
- * in this object gives JSON, JavaScript and TypeScript configuration the same
+ * The native loader requires a nonblank text string. Keeping banner contents in
+ * this object gives JSON, JavaScript and TypeScript configuration the same
  * value contract; the tsconfig plugin entry selects the file instead.
  *
  * @evidence contracts/common.md#principled-implementation

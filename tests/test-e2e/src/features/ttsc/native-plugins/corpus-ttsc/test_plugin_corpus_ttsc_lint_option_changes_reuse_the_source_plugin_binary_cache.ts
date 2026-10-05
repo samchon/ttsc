@@ -1,6 +1,6 @@
-import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import { TestProject } from "@ttsc/testing";
 
+import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
   assert,
   fs,
@@ -37,7 +37,9 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original cold build-message presence, second build-message absence, successful statuses, custom output and one-entry assertions remain. The original emit input contributes noEmit true and absent dist/main.js to the second request; no observation is removed or strengthened into unobserved actual-build or rule-warning proof.
  */
 export function test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin_binary_cache(): void {
-  const root = setupLintProject("lint-violations", { nativeProducer: "snapshot" });
+  const root = setupLintProject("lint-violations", {
+    nativeProducer: "snapshot",
+  });
   fs.writeFileSync(
     path.join(root, "src", "main.ts"),
     `export const value: string = "cache-options";\n`,
@@ -85,7 +87,9 @@ export function test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plu
     assert.equal(first.status, 0, first.stderr);
     assert.match(first.stderr, /building source plugin "@ttsc\/lint"/);
   } catch (error) {
-    failures.push(new Error("cold source-plugin publication", { cause: error }));
+    failures.push(
+      new Error("cold source-plugin publication", { cause: error }),
+    );
   }
 
   writeConfig({ "no-explicit-any": "warning", "prefer-template": "warning" });
@@ -110,7 +114,13 @@ export function test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plu
     const entries = pluginCacheEntryDirs(pluginCache);
     assert.equal(entries.length, 1);
   } catch (error) {
-    failures.push(new Error("warm options and emit/outDir overrides", { cause: error }));
+    failures.push(
+      new Error("warm options and emit/outDir overrides", { cause: error }),
+    );
   }
-  if (failures.length) throw new AggregateError(failures, "Cold/warm lint cache and emit scenarios failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Cold/warm lint cache and emit scenarios failed",
+    );
 }

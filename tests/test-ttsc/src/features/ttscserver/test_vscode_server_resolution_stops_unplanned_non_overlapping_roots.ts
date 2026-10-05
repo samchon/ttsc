@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server planning stops unplanned non-overlapping roots.
@@ -29,9 +30,8 @@ export function test_vscode_server_resolution_stops_unplanned_non_overlapping_ro
   for (const entry of [rootA, rootB]) assert.equal(fs.existsSync(entry), false);
   const observed = (() => {
     return {
-      stopped: mod.rootsToStopForPlan([(rootA), (rootB)], [(rootA)]),
+      stopped: mod.rootsToStopForPlan([rootA, rootB], [rootA]),
     };
-  
   })();
   const actual = observed as { stopped: string[] };
   assert.deepEqual(

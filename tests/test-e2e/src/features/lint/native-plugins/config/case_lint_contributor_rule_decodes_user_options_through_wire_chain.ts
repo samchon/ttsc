@@ -19,14 +19,20 @@ export function test_lint_contributor_rule_decodes_user_options_through_wire_cha
   const result = contributorBoundaryResult();
   assert.notEqual(result.status, 0, result.stderr);
   assert.deepEqual(
-    result.diagnostics.filter((diagnostic) => path.basename(diagnostic.file) === "options.ts" && diagnostic.rule === "demo/no-marker-comment").map(({ rule, severity, message }) => ({ rule, severity, message })),
+    result.diagnostics
+      .filter(
+        (diagnostic) =>
+          path.basename(diagnostic.file) === "options.ts" &&
+          diagnostic.rule === "demo/no-marker-comment",
+      )
+      .map(({ rule, severity, message }) => ({ rule, severity, message })),
     [
-  {
-    "rule": "demo/no-marker-comment",
-    "severity": "error",
-    "message": "XXX marker is not allowed."
-  }
-],
+      {
+        rule: "demo/no-marker-comment",
+        severity: "error",
+        message: "XXX marker is not allowed.",
+      },
+    ],
     result.stderr,
   );
 }

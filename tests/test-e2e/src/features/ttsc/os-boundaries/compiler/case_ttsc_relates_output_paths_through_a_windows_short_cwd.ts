@@ -1,13 +1,14 @@
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
-import { TestProject } from "../../../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+import { TestProject } from "../../../../../../utils/src/TestProject";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { isolatedCacheEnvironment } from "../../../../internal/ttsc/internal/isolated-cache-environment";
+
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies paths printed through a Windows 8.3 cwd stay project-relative.
@@ -19,7 +20,8 @@ import { isolatedCacheEnvironment } from "../../../../internal/ttsc/internal/iso
  * lets the installed runner distinguish verified coverage from an unavailable
  * alias without calling that capability branch a pass.
  *
- * 1. Create a private project below the installed consumer and query its short alias.
+ * 1. Create a private project below the installed consumer and query its short
+ *    alias.
  * 2. Clean one legacy cache and compile one positional source through it.
  * 3. Assert both reported paths stay relative to that cwd.
  *
@@ -32,74 +34,87 @@ import { isolatedCacheEnvironment } from "../../../../internal/ttsc/internal/iso
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns and retains the private project/owned ancestry before child launch; isolatedCacheEnvironment confines intended clean targets. Workspace compiler overrides are removed. Actual synchronous error/signal/status is distinct from arbitrary descendant join or loaded-image identity; unavailable alias returns false without coverage certification.
  * @evidence contracts/e2e.md#preserved-coverage All original cache-removal transcript, exact emitted-path stdout and actual file assertions remain. A false result explicitly reports unavailable short-name coverage; only a true result follows every real clean/emit assertion.
  */
-export const case_ttsc_relates_output_paths_through_a_windows_short_cwd =
-  (
-    ttscBinary: string = TestProject.TTSC_BIN,
-    consumerRoot?: string,
-  ): boolean => {
-    if (process.platform !== "win32") return false;
-    const root = TestProject.tmpdir("ttsc-short-cwd-", consumerRoot);
-    TestProject.retainTemporaryDirectory(root, "installed short-cwd synchronous children have no descendant join acknowledgement");
-    const files = FixtureFiles.read("ttsc/ttsc_relates_output_paths_through_a_windows_short_cwd/inputs-1");
-    for (const [relative, content] of Object.entries(files)) {
-      const file = path.join(root, relative);
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, content, "utf8");
-    }
-    const queried = childProcess.spawnSync(
-      path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe"),
-      ["/d", "/c", `for %I in ("${root}") do @echo %~sI`],
-      {
-        encoding: "utf8",
-        windowsHide: true,
-        windowsVerbatimArguments: true,
-      },
-    );
-    assert.equal(queried.error, undefined, "short-name query launch error");
-    assert.equal(queried.signal, null, "short-name query terminated by signal");
-    assert.equal(queried.status, 0, queried.stderr);
-    const short = queried.stdout.trim();
-    const long = fs.realpathSync.native(root);
-    if (short.toLowerCase() === long.toLowerCase()) return false;
-    fs.mkdirSync(path.join(root, "node_modules", ".ttsc"), { recursive: true });
+export const case_ttsc_relates_output_paths_through_a_windows_short_cwd = (
+  ttscBinary: string = TestProject.TTSC_BIN,
+  consumerRoot?: string,
+): boolean => {
+  if (process.platform !== "win32") return false;
+  const root = TestProject.tmpdir("ttsc-short-cwd-", consumerRoot);
+  TestProject.retainTemporaryDirectory(
+    root,
+    "installed short-cwd synchronous children have no descendant join acknowledgement",
+  );
+  const files = FixtureFiles.read(
+    "ttsc/ttsc_relates_output_paths_through_a_windows_short_cwd/inputs-1",
+  );
+  for (const [relative, content] of Object.entries(files)) {
+    const file = path.join(root, relative);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content, "utf8");
+  }
+  const queried = childProcess.spawnSync(
+    path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe"),
+    ["/d", "/c", `for %I in ("${root}") do @echo %~sI`],
+    {
+      encoding: "utf8",
+      windowsHide: true,
+      windowsVerbatimArguments: true,
+    },
+  );
+  assert.equal(queried.error, undefined, "short-name query launch error");
+  assert.equal(queried.signal, null, "short-name query terminated by signal");
+  assert.equal(queried.status, 0, queried.stderr);
+  const short = queried.stdout.trim();
+  const long = fs.realpathSync.native(root);
+  if (short.toLowerCase() === long.toLowerCase()) return false;
+  fs.mkdirSync(path.join(root, "node_modules", ".ttsc"), { recursive: true });
 
-    const spawn = (binary: string, args: string[], options: { cwd: string; env?: NodeJS.ProcessEnv }) => {
-      const env = { ...process.env, ...options.env };
-      for (const name of Object.keys(env))
-        if (["TTSC_BINARY", "TTSC_TSGO_BINARY"].includes(name.toUpperCase()))
-          delete env[name];
-      return childProcess.spawnSync(process.execPath, [binary, ...args], {
-        cwd: options.cwd,
-        env,
-        encoding: "utf8",
-        windowsHide: true,
-      });
-    };
-
-    const clean = spawn(ttscBinary, ["clean", "--cwd", short], {
-      cwd: short,
-      env: isolatedCacheEnvironment(root),
+  const spawn = (
+    binary: string,
+    args: string[],
+    options: { cwd: string; env?: NodeJS.ProcessEnv },
+  ) => {
+    const env = { ...process.env, ...options.env };
+    for (const name of Object.keys(env))
+      if (["TTSC_BINARY", "TTSC_TSGO_BINARY"].includes(name.toUpperCase()))
+        delete env[name];
+    return childProcess.spawnSync(process.execPath, [binary, ...args], {
+      cwd: options.cwd,
+      env,
+      encoding: "utf8",
+      windowsHide: true,
     });
-    assert.equal(clean.error, undefined, "installed clean launch error");
-    assert.equal(clean.signal, null, "installed clean terminated by signal");
-    assert.equal(clean.status, 0, clean.stderr);
-    assert.ok(
-      clean.stdout
-        .split(/\r?\n/)
-        .includes(`ttsc: removed ${path.join("node_modules", ".ttsc")}`),
-      clean.stdout,
-    );
-
-    const build = spawn(ttscBinary, ["--cwd", short, "src/index.ts"], {
-      cwd: short,
-    });
-    assert.equal(build.error, undefined, "installed positional emit launch error");
-    assert.equal(build.signal, null, "installed positional emit terminated by signal");
-    assert.equal(build.status, 0, `${build.stdout}${build.stderr}`);
-    assert.equal(build.stdout.trim(), path.join("lib", "src", "index.js"));
-    assert.equal(
-      fs.existsSync(path.join(root, "lib", "src", "index.js")),
-      true,
-    );
-    return true;
   };
+
+  const clean = spawn(ttscBinary, ["clean", "--cwd", short], {
+    cwd: short,
+    env: isolatedCacheEnvironment(root),
+  });
+  assert.equal(clean.error, undefined, "installed clean launch error");
+  assert.equal(clean.signal, null, "installed clean terminated by signal");
+  assert.equal(clean.status, 0, clean.stderr);
+  assert.ok(
+    clean.stdout
+      .split(/\r?\n/)
+      .includes(`ttsc: removed ${path.join("node_modules", ".ttsc")}`),
+    clean.stdout,
+  );
+
+  const build = spawn(ttscBinary, ["--cwd", short, "src/index.ts"], {
+    cwd: short,
+  });
+  assert.equal(
+    build.error,
+    undefined,
+    "installed positional emit launch error",
+  );
+  assert.equal(
+    build.signal,
+    null,
+    "installed positional emit terminated by signal",
+  );
+  assert.equal(build.status, 0, `${build.stdout}${build.stderr}`);
+  assert.equal(build.stdout.trim(), path.join("lib", "src", "index.js"));
+  assert.equal(fs.existsSync(path.join(root, "lib", "src", "index.js")), true);
+  return true;
+};

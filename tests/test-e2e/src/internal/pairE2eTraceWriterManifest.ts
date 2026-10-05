@@ -21,9 +21,16 @@ export function pairE2eTraceWriterManifest(
   phase: TracePhaseObservation<unknown>,
   requirements: readonly TraceBoundaryRequirement[],
 ): { boundaries: TraceBoundaryPairing[]; completenessCertified: false } {
-  const previous = new Map(phase.assetsBefore.map(asset => [asset.label, asset]));
-  const current = new Map(phase.assetsAfter?.map(asset => [asset.label, asset]));
-  const byWriterEvent = new Map<string, NonNullable<typeof phase.traces>["writerObservations"]>();
+  const previous = new Map(
+    phase.assetsBefore.map((asset) => [asset.label, asset]),
+  );
+  const current = new Map(
+    phase.assetsAfter?.map((asset) => [asset.label, asset]),
+  );
+  const byWriterEvent = new Map<
+    string,
+    NonNullable<typeof phase.traces>["writerObservations"]
+  >();
   for (const row of phase.traces?.writerObservations ?? []) {
     const key = `${row.observation.writerPid}:${row.observation.event}`;
     const group = byWriterEvent.get(key);
@@ -31,42 +38,69 @@ export function pairE2eTraceWriterManifest(
     else byWriterEvent.set(key, [row]);
   }
   const names = new Set<string>();
-  const boundaries = requirements.map(requirement => {
-    const identity = JSON.stringify([requirement.boundary, requirement.writerPid]);
-    if (names.has(identity)) throw new Error("Duplicate required boundary/writer: " + identity);
+  const boundaries = requirements.map((requirement) => {
+    const identity = JSON.stringify([
+      requirement.boundary,
+      requirement.writerPid,
+    ]);
+    if (names.has(identity))
+      throw new Error("Duplicate required boundary/writer: " + identity);
     names.add(identity);
     const problems: string[] = [];
-    if (!Number.isSafeInteger(requirement.writerPid) || requirement.writerPid <= 0)
+    if (
+      !Number.isSafeInteger(requirement.writerPid) ||
+      requirement.writerPid <= 0
+    )
       problems.push("Required writer lacks actual positive PID");
     if (requirement.producerAssets.length === 0)
       problems.push("Required boundary has no selected producer assets");
     for (const label of requirement.producerAssets) {
       const before = previous.get(label);
       const after = current.get(label);
-      if (!before || !after) problems.push("Missing selected producer observation: " + label);
-      else if (before.requestedPath !== after.requestedPath || before.realPath !== after.realPath ||
-        before.sha256 !== after.sha256 || JSON.stringify(before.identityAfter) !== JSON.stringify(after.identityBefore))
+      if (!before || !after)
+        problems.push("Missing selected producer observation: " + label);
+      else if (
+        before.requestedPath !== after.requestedPath ||
+        before.realPath !== after.realPath ||
+        before.sha256 !== after.sha256 ||
+        JSON.stringify(before.identityAfter) !==
+          JSON.stringify(after.identityBefore)
+      )
         problems.push("Selected producer changed across phase: " + label);
     }
-    const matches = (byWriterEvent.get(`${requirement.writerPid}:${requirement.event}`) ?? [])
-      .filter(row => Object.entries(requirement.data ?? {}).every(([key, expected]) =>
-        Object.hasOwn(row.observation.data ?? {}, key) && row.observation.data?.[key] === expected));
-    if (matches.length === 0) problems.push("Missing required writer/event observation");
-    for (const writerFile of new Set(matches.map(row => row.writerFile))) {
+    const matches = (
+      byWriterEvent.get(`${requirement.writerPid}:${requirement.event}`) ?? []
+    ).filter((row) =>
+      Object.entries(requirement.data ?? {}).every(
+        ([key, expected]) =>
+          Object.hasOwn(row.observation.data ?? {}, key) &&
+          row.observation.data?.[key] === expected,
+      ),
+    );
+    if (matches.length === 0)
+      problems.push("Missing required writer/event observation");
+    for (const writerFile of new Set(matches.map((row) => row.writerFile))) {
       if (!phase.traces?.writerRuntimeVersions[writerFile])
         problems.push("Missing actual writer runtime report: " + writerFile);
     }
     return {
-      boundary: requirement.boundary, writerPid: requirement.writerPid,
-      observations: matches.map(row => ({ writerFile: row.writerFile,
-        invocation: row.observation.invocation, sequence: row.observation.sequence })),
+      boundary: requirement.boundary,
+      writerPid: requirement.writerPid,
+      observations: matches.map((row) => ({
+        writerFile: row.writerFile,
+        invocation: row.observation.invocation,
+        sequence: row.observation.sequence,
+      })),
       problems,
     };
   });
   return { boundaries, completenessCertified: false };
 }
 
-/** Actual selected owner PID and primitive/domain discriminator, not expected starts. */
+/**
+ * Actual selected owner PID and primitive/domain discriminator, not expected
+ * starts.
+ */
 export interface TraceBoundaryRequirement {
   boundary: string;
   writerPid: number;

@@ -1,8 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
 import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/internal/runtime/readDependencyCache";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the reader selects the advertised generation, ignores an unpublished
@@ -26,64 +27,70 @@ import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/i
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it writes the marker and generation directories itself in a TestProject.tmpdir, in sequence in one process, and calls readDependencyCache at each stage. No child process, product publisher, artifact build or host runs.
  */
 export function test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_partial_emit() {
-    const root = TestProject.tmpdir("ttsx-depcache-publish-");
-    const cacheDir = path.join(root, "entry");
-    const metaPath = path.join(root, "entry.json");
-    const genA = "a".repeat(32);
-    const genB = "b".repeat(32);
-    const genADir = path.join(cacheDir, `gen-${genA}`);
+  const root = TestProject.tmpdir("ttsx-depcache-publish-");
+  const cacheDir = path.join(root, "entry");
+  const metaPath = path.join(root, "entry.json");
+  const genA = "a".repeat(32);
+  const genB = "b".repeat(32);
+  const genADir = path.join(cacheDir, `gen-${genA}`);
 
-    // Seed a complete generation A.
-    fs.mkdirSync(genADir, { recursive: true });
-    fs.writeFileSync(path.join(genADir, "index.js"), "exports.value = 'A';\n");
-    fs.writeFileSync(
-      metaPath,
-      JSON.stringify({
-        generation: genA,
-        moduleOptions: { module: "commonjs" },
-        emittedSources: {},
-        outputs: ["index.js"],
-        rootDir: root,
-      }),
-      "utf8",
-    );
+  // Seed a complete generation A.
+  fs.mkdirSync(genADir, { recursive: true });
+  fs.writeFileSync(path.join(genADir, "index.js"), "exports.value = 'A';\n");
+  fs.writeFileSync(
+    metaPath,
+    JSON.stringify({
+      generation: genA,
+      moduleOptions: { module: "commonjs" },
+      emittedSources: {},
+      outputs: ["index.js"],
+      rootDir: root,
+    }),
+    "utf8",
+  );
 
-    const genBDir = path.join(cacheDir, `gen-${genB}`);
-    fs.mkdirSync(genBDir, { recursive: true });
-    fs.writeFileSync(path.join(genBDir, "index.js"), "exports.value = 'B';\n");
+  const genBDir = path.join(cacheDir, `gen-${genB}`);
+  fs.mkdirSync(genBDir, { recursive: true });
+  fs.writeFileSync(path.join(genBDir, "index.js"), "exports.value = 'B';\n");
 
-    // Marker still names A: the reader must return the complete A, never a
-    // BuiltProject pointing at the unpublished B directory.
-    const midRebuild = readDependencyCache(cacheDir, metaPath);
-    assert.notEqual(midRebuild, null, "reader should still hit generation A");
-    assert.equal(midRebuild!.emitDir, genADir);
+  // Marker still names A: the reader must return the complete A, never a
+  // BuiltProject pointing at the unpublished B directory.
+  const midRebuild = readDependencyCache(cacheDir, metaPath);
+  assert.notEqual(midRebuild, null, "reader should still hit generation A");
+  assert.equal(midRebuild!.emitDir, genADir);
 
-    const temporaryMarker = metaPath + ".tmp";
-    fs.writeFileSync(temporaryMarker, JSON.stringify({
-      generation: genB, moduleOptions: { module: "commonjs" },
-      emittedSources: {}, outputs: ["index.js"], rootDir: root,
-    }));
-    fs.renameSync(temporaryMarker, metaPath);
+  const temporaryMarker = metaPath + ".tmp";
+  fs.writeFileSync(
+    temporaryMarker,
+    JSON.stringify({
+      generation: genB,
+      moduleOptions: { module: "commonjs" },
+      emittedSources: {},
+      outputs: ["index.js"],
+      rootDir: root,
+    }),
+  );
+  fs.renameSync(temporaryMarker, metaPath);
 
-    // After the atomic swap the reader observes the complete B.
-    const afterPublish = readDependencyCache(cacheDir, metaPath);
-    assert.notEqual(afterPublish, null, "reader should hit generation B");
-    assert.equal(afterPublish!.emitDir, path.join(cacheDir, `gen-${genB}`));
+  // After the atomic swap the reader observes the complete B.
+  const afterPublish = readDependencyCache(cacheDir, metaPath);
+  assert.notEqual(afterPublish, null, "reader should hit generation B");
+  assert.equal(afterPublish!.emitDir, path.join(cacheDir, `gen-${genB}`));
 
-    // Negative twin: a marker that names a generation whose directory holds no
-    // emitted JavaScript (a failed/partial generation) is never a hit.
-    const genC = "c".repeat(32);
-    fs.mkdirSync(path.join(cacheDir, `gen-${genC}`), { recursive: true });
-    fs.writeFileSync(
-      metaPath,
-      JSON.stringify({
-        generation: genC,
-        moduleOptions: { module: "commonjs" },
-        emittedSources: {},
-        outputs: ["index.js"],
-        rootDir: root,
-      }),
-      "utf8",
-    );
-    assert.equal(readDependencyCache(cacheDir, metaPath), null);
-  }
+  // Negative twin: a marker that names a generation whose directory holds no
+  // emitted JavaScript (a failed/partial generation) is never a hit.
+  const genC = "c".repeat(32);
+  fs.mkdirSync(path.join(cacheDir, `gen-${genC}`), { recursive: true });
+  fs.writeFileSync(
+    metaPath,
+    JSON.stringify({
+      generation: genC,
+      moduleOptions: { module: "commonjs" },
+      emittedSources: {},
+      outputs: ["index.js"],
+      rootDir: root,
+    }),
+    "utf8",
+  );
+  assert.equal(readDependencyCache(cacheDir, metaPath), null);
+}

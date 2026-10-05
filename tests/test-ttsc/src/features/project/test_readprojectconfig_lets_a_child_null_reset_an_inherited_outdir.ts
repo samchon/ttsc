@@ -1,6 +1,10 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
-import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies a child tsconfig's `outDir: null` resets an inherited output

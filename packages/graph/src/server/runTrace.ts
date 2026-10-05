@@ -617,7 +617,12 @@ function findPath(
     for (const { id, depth } of queue) {
       // The forward step the open trace would take, built in one place so the
       // two walks cannot disagree about what a step follows.
-      const { edges: candidates, omitted } = traceEdges(graph, id, false, focus);
+      const { edges: candidates, omitted } = traceEdges(
+        graph,
+        id,
+        false,
+        focus,
+      );
       // A dispatch fanout past the hub cut is not walked, but each hop in it is
       // a real, eligible continuation. Leaving it out of the search while still
       // reporting "no path" would claim an absence the walk never established,
@@ -992,7 +997,10 @@ function inBodylessContainer(
     if (container === undefined || container.kind === "file") return false;
     if (seen.has(container.id)) return false;
     seen.add(container.id);
-    if (container.kind === "interface" || container.modifiers?.includes("declare"))
+    if (
+      container.kind === "interface" ||
+      container.modifiers?.includes("declare")
+    )
       return true;
     current = container;
   }

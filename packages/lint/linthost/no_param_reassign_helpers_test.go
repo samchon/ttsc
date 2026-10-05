@@ -2,9 +2,9 @@ package linthost
 
 import (
   "encoding/json"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
   "sort"
   "testing"
-  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 type noParamReassignFinding struct {

@@ -6,9 +6,9 @@ import { resolveRealPath } from "./resolveRealPath";
  * Obtain a native realpath spelling for the project-root aliases.
  *
  * Native realpath expands Windows short names; an unavailable native result
- * delegates to the regular best-effort resolver. If both observations fail,
- * the input spelling survives; no returned string certifies how a watcher
- * will name later events or their child paths.
+ * delegates to the regular best-effort resolver. If both observations fail, the
+ * input spelling survives; no returned string certifies how a watcher will name
+ * later events or their child paths.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node's native realpath supplies an observed root alias; the

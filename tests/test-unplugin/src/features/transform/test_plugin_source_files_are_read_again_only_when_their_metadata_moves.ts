@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,6 +7,7 @@ import { refreshFilesystemClockReference } from "../../../../../packages/unplugi
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
 import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceFilesDigest";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a plugin source's files are read again only when their metadata

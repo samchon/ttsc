@@ -26,10 +26,10 @@ import (
 // while the selected module mutates an unrelated directory beside the fixture.
 // The real compiler/launcher transport remains in the other loader boundaries.
 //
-// 1. Generate loaders for export conflicts and a selected package that churns
-//    an unrelated root sibling during evaluation.
-// 2. Execute those loaders in one Node process and decode each actual envelope.
-// 3. Execute an invalid-export control separately and require its error envelope.
+//  1. Generate loaders for export conflicts and a selected package that churns
+//     an unrelated root sibling during evaluation.
+//  2. Execute those loaders in one Node process and decode each actual envelope.
+//  3. Execute an invalid-export control separately and require its error envelope.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual bannerTypeScriptConfigLoaderSource and resolutioninputs.Recorder select the authored default/outer/nested texts and evaluate selection's installed module despite root-sibling mkdir/rmdir churn. Its actual envelope retains selected-module/manifest byte hashes and physical identities, both proof keys for every input and no selection candidate beyond the selected root. The invalid export retains its supported failure requirement.
 // @evidence contracts/testing.md#independent-expectations Conflicting export literals define precedence. Authored package/module bytes independently define SHA-256, native EvalSymlinks defines physical identity and the known installed root defines the cutoff. Actual stdout is decoded without deriving expected results from loader source or recorder output.
@@ -85,7 +85,7 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
       Inputs    []string           `json:"inputs"`
       Hashes    map[string]*string `json:"hashes"`
       Realpaths map[string]*string `json:"realpaths"`
-      Value struct {
+      Value     struct {
         Text string `json:"text"`
       } `json:"value"`
     }

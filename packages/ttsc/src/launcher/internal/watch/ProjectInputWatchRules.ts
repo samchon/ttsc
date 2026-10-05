@@ -58,8 +58,8 @@ export namespace ProjectInputWatchRules {
    *
    * A target inside the project selects the nearest existing directory at or
    * above the project root. For an external target, candidates are the nearest
-   * existing directories of its declared parent and its own tree, in that order.
-   * A candidate strictly containing the project is refused; one with the
+   * existing directories of its declared parent and its own tree, in that
+   * order. A candidate strictly containing the project is refused; one with the
    * project's own identity is allowed. If neither candidate is admitted, the
    * result is undefined. This selects a root under current native observations;
    * it starts no watcher and does not prove future event delivery.
@@ -117,7 +117,8 @@ export namespace ProjectInputWatchRules {
    * Whether `directory` contains any declaration of the snapshot: a declared
    * file, a reload file, a reload directory strictly below it, or the literal
    * root of a declared glob. This predicate classifies declaration ancestry;
-   * watcher retirement and native delivery remain the topology owner's decisions.
+   * watcher retirement and native delivery remain the topology owner's
+   * decisions.
    *
    * @evidence contracts/common.md#principled-implementation Files and glob roots anchor containing coverage; reload-directory membership alone requires a strict containing directory. Other declaration categories can independently anchor the same path.
    * @evidence contracts/common.md#clear-and-simple-design Four short-circuited declaration categories remain visible under one anchor predicate.

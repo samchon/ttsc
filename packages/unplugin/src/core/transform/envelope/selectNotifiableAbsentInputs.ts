@@ -25,11 +25,12 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * replaced; watched also includes their project-local ancestor components so
  * link retargeting cannot leave observers attached only to the old target.
  *
- * A chain that does not reach a captured project root before the filesystem-root
- * stopping condition retains direct probing. More than 512 distinct lexical
- * parent locations rejects the whole selection after collection; this limits
- * admitted directory locations, not candidate count, temporary memory or scan
- * work. The tracker owns actual watcher acquisition, notifications and release.
+ * A chain that does not reach a captured project root before the
+ * filesystem-root stopping condition retains direct probing. More than 512
+ * distinct lexical parent locations rejects the whole selection after
+ * collection; this limits admitted directory locations, not candidate count,
+ * temporary memory or scan work. The tracker owns actual watcher acquisition,
+ * notifications and release.
  *
  * @evidence contracts/common.md#principled-implementation Exact failed file predicates select unavailable resolver names, while the lexical ancestor chain witnesses component creation and retargeting; selections outside the root retain direct probes because their chain cannot be covered by project-local watchers.
  * @evidence contracts/common.md#clear-and-simple-design Separate candidate and ancestor sets expose probe-replacement names versus required watcher paths; resource acquisition remains with the tracker instead of occurring during envelope selection.

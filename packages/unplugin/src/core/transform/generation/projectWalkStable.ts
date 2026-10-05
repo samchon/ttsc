@@ -16,17 +16,17 @@ import { trackerChangedDeclaredProjectInput } from "./trackerChangedDeclaredProj
  * graph and external/host proofs in captureTransformGeneration.
  *
  * The walks compare recorded bytes and metadata. A healthy tracker opened
- * before the compile can supply independent A-B-A event evidence: a
- * producer can restore both bytes and timestamps before the second walk, but it
- * cannot withdraw an event already recorded. This predicate accepts the records when
+ * before the compile can supply independent A-B-A event evidence: a producer
+ * can restore both bytes and timestamps before the second walk, but it cannot
+ * withdraw an event already recorded. This predicate accepts the records when
  * the configuration did, both walks are complete for the declared inputs, those
  * inputs kept their content and metadata, every directory that can hold a
  * program input kept its membership, and the tracker saw neither a content
- * event on a declared input nor a membership event.
- * It reads recorded event/overflow/membership fields, not tracker failed,
- * unverified or coverage state; supplying a tracker does not itself prove that
- * every native mutation was delivered. Actual backend/proof authority stays
- * with the tracker and generation-admission owners.
+ * event on a declared input nor a membership event. It reads recorded
+ * event/overflow/membership fields, not tracker failed, unverified or coverage
+ * state; supplying a tracker does not itself prove that every native mutation
+ * was delivered. Actual backend/proof authority stays with the tracker and
+ * generation-admission owners.
  *
  * That tracker is the only one accepted. The host-input and candidate trackers
  * open after the compile returns, so they never saw what it read. A change in
@@ -45,7 +45,6 @@ import { trackerChangedDeclaredProjectInput } from "./trackerChangedDeclaredProj
  * @param props.snapshot The project walk taken after the compile.
  * @param props.tracker The project tracker opened before the compile, if one
  *   could be opened.
- *
  * @evidence contracts/common.md#principled-implementation Complete walks must agree on declared content, metadata and relevant directory membership, and recorded compile-time events/overflow/membership must not refute them. Independent A-B-A authority requires a healthy, relevant backend; this predicate does not check tracker health/coverage and is not an atomic filesystem freeze or full generation proof.
  * @evidence contracts/common.md#clear-and-simple-design The verdict composes existing walk, hash, directory and event predicates without duplicating their evidence collection or tracker ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown declared scope compares the full walk, omitted tracker events remain conservative, and no bundler cache filename exception replaces the actual compile-window distinction.

@@ -28,16 +28,16 @@ import { createIdentifier } from "../names/createIdentifier";
  * @returns {void}
  * ```
  *
- * @evidence contracts/common.md#principled-implementation Directly retaining the documentation signature, optional name and comment while defaulting an absent identifier to callback preserves named and unnamed annotations without creating an executable function.
- * @evidence contracts/common.md#clear-and-simple-design The signature owns its template, parameter and return components; this adapter adds only the heading payload and default spelling.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Callback is a supported tag default, and the supplied signature is not replaced with a known fixture shape or a foreign callable declaration.
- * @evidence contracts/common.md#meaningful-documentation Native prose describes heading/signature layout, retained references and unchecked parameter correspondence with an example; paragraph and native-tag separation follows the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `callback`.
  * @param typeExpression The callback signature.
  * @param fullName The full callback name, if any.
  * @param comment The trailing comment, if any.
  * @returns The created {@link JSDocCallbackTag}.
+ * @evidence contracts/common.md#principled-implementation Directly retaining the documentation signature, optional name and comment while defaulting an absent identifier to callback preserves named and unnamed annotations without creating an executable function.
+ * @evidence contracts/common.md#clear-and-simple-design The signature owns its template, parameter and return components; this adapter adds only the heading payload and default spelling.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Callback is a supported tag default, and the supplied signature is not replaced with a known fixture shape or a foreign callable declaration.
+ * @evidence contracts/common.md#meaningful-documentation Native prose describes heading/signature layout, retained references and unchecked parameter correspondence with an example; paragraph and native-tag separation follows the documentation guidance.
  */
 export const createJSDocCallbackTag = (
   tagName: Identifier | undefined,

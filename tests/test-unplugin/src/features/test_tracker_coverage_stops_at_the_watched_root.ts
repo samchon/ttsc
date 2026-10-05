@@ -15,8 +15,8 @@ import { pathTraversesSymbolicLink } from "../../../../packages/unplugin/src/cor
  * components between the input and the root decide.
  *
  * 1. With an lstat double in which `/var`, an ancestor of the project root, is a
- *    link, assert an input below the root does not traverse a link when the root
- *    is given, and does when it is not.
+ *    link, assert an input below the root does not traverse a link when the
+ *    root is given, and does when it is not.
  * 2. Assert an input below a link inside the root traverses one, and an input
  *    outside the root is examined all the way up.
  *

@@ -77,7 +77,8 @@ func benchmarkWideModule(b *testing.B, units int) {
  * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
  * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalWideModule20 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
  */
-func BenchmarkTraversalWideModule20(b *testing.B)  { benchmarkWideModule(b, 20) }
+func BenchmarkTraversalWideModule20(b *testing.B) { benchmarkWideModule(b, 20) }
+
 /**
  * Measures traversal of one 80-declaration module behind a barrel.
  *
@@ -86,7 +87,8 @@ func BenchmarkTraversalWideModule20(b *testing.B)  { benchmarkWideModule(b, 20) 
  * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
  * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalWideModule80 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
  */
-func BenchmarkTraversalWideModule80(b *testing.B)  { benchmarkWideModule(b, 80) }
+func BenchmarkTraversalWideModule80(b *testing.B) { benchmarkWideModule(b, 80) }
+
 /**
  * Measures traversal of one 320-declaration module behind a barrel.
  *
@@ -131,7 +133,8 @@ func benchmarkSharedModule(b *testing.B, barrels int, units int) {
  * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
  * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalSharedModule4 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
  */
-func BenchmarkTraversalSharedModule4(b *testing.B)  { benchmarkSharedModule(b, 4, 100) }
+func BenchmarkTraversalSharedModule4(b *testing.B) { benchmarkSharedModule(b, 4, 100) }
+
 /**
  * Measures traversal when sixteen selected barrels reach one 100-declaration module.
  *
@@ -233,7 +236,8 @@ func benchmarkGraphRebuild(
  * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
  * @evidence contracts/testing.md#execution-ownership BenchmarkWatchCycleSdk50 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
  */
-func BenchmarkWatchCycleSdk50(b *testing.B)  { benchmarkGraphRebuild(b, 50, 50, 3, 1) }
+func BenchmarkWatchCycleSdk50(b *testing.B) { benchmarkGraphRebuild(b, 50, 50, 3, 1) }
+
 /**
  * Measures one graph rebuild over a parsed Program of 200 operations and 200 DTOs.
  *

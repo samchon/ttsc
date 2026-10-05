@@ -12,9 +12,12 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * Export metadata cannot change a helper's conditional execution or discard
  * properties the actual helper exports, including computed runtime names.
  *
- * 1. Evaluate all executable scope shapes against one immutable JavaScript fixture.
- * 2. Evaluate false conditions whose dependency throws, plus helper-shaped string data.
- * 3. Compare prepared execution with unmodified native execution and literal results.
+ * 1. Evaluate all executable scope shapes against one immutable JavaScript
+ *    fixture.
+ * 2. Evaluate false conditions whose dependency throws, plus helper-shaped string
+ *    data.
+ * 3. Compare prepared execution with unmodified native execution and literal
+ *    results.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls authored CommonJsRuntimeSource.prepare and executes its returned body through vm.compileFunction; assertions observe star exports, computed values, conditional execution and exact inert text.
  * @evidence contracts/testing.md#independent-expectations Unmodified native vm execution is the reference; literal actual 17 and computed 42 fixture values additionally rule out two equally empty results, while false-branch dependencies deliberately throw if executed.
@@ -30,18 +33,31 @@ export function test_commonjs_preparation_preserves_star_helper_execution_and_in
   });
   const filename = path.join(root, "consumer.cjs");
   const native = createRequire(filename);
-  const helper = 'function __exportStar(value, target) { for (const key of Object.keys(value)) if (key !== "default" && !(key in target)) Object.defineProperty(target, key, { enumerable: true, get: () => value[key] }); } const tslib_1 = { __exportStar };';
+  const helper =
+    'function __exportStar(value, target) { for (const key of Object.keys(value)) if (key !== "default" && !(key in target)) Object.defineProperty(target, key, { enumerable: true, get: () => value[key] }); } const tslib_1 = { __exportStar };';
   const execute = (source: string): Record<string, unknown> => {
     const module = { exports: {} as Record<string, unknown> };
-    vm.compileFunction(source, ["exports", "require", "module", "__filename", "__dirname"], { filename })(module.exports, native, module, filename, root);
+    vm.compileFunction(
+      source,
+      ["exports", "require", "module", "__filename", "__dirname"],
+      { filename },
+    )(module.exports, native, module, filename, root);
     return module.exports;
   };
   const failures: Error[] = [];
-  const check = (label: string, source: string, expected: Record<string, unknown>) => {
+  const check = (
+    label: string,
+    source: string,
+    expected: Record<string, unknown>,
+  ) => {
     try {
       const reference = execute(source);
       assert.deepEqual(reference, expected, label + " native reference");
-      assert.deepEqual(execute(CommonJsRuntimeSource.prepare(source, filename)), reference, label + " prepared");
+      assert.deepEqual(
+        execute(CommonJsRuntimeSource.prepare(source, filename)),
+        reference,
+        label + " prepared",
+      );
     } catch (error) {
       failures.push(new Error(label, { cause: error }));
     }
@@ -55,17 +71,36 @@ export function test_commonjs_preparation_preserves_star_helper_execution_and_in
         ["iife", "(function(){" + call + "})();"],
         ["class", "class ExportScope { static {" + call + "} }"],
       ]) {
-        for (const prefix of ["", "const marker = /`/;", "const ratio = 8 / 2 / 2;"])
-          check(name + "/" + scope + "/" + prefix, helper + prefix + body, { actual: 17, dynamic: 42 });
+        for (const prefix of [
+          "",
+          "const marker = /`/;",
+          "const ratio = 8 / 2 / 2;",
+        ])
+          check(name + "/" + scope + "/" + prefix, helper + prefix + body, {
+            actual: 17,
+            dynamic: 42,
+          });
       }
       const text = "\n" + name + '(require("./ghost.cjs"), exports);\n';
-      check(name + "/template", helper + "exports.text = `" + text + "`;", { text });
-      check(name + "/false", helper + "exports.actual=17;if(false) " + name + '(require("./hidden.cjs"), exports);', { actual: 17 });
+      check(name + "/template", helper + "exports.text = `" + text + "`;", {
+        text,
+      });
+      check(
+        name + "/false",
+        helper +
+          "exports.actual=17;if(false) " +
+          name +
+          '(require("./hidden.cjs"), exports);',
+        { actual: 17 },
+      );
     }
   } finally {
     for (const file of ["nested.cjs", "hidden.cjs", "ghost.cjs"])
       delete native.cache[path.join(root, file)];
   }
   if (failures.length)
-    throw new AggregateError(failures, "CommonJS preparation changed helper execution");
+    throw new AggregateError(
+      failures,
+      "CommonJS preparation changed helper execution",
+    );
 }

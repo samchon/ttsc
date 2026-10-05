@@ -2,8 +2,8 @@ import type { RuntimeManifest } from "./RuntimeManifest";
 
 /**
  * Select the plugin policy shared by runtime project and isolated-root builds.
- * Descriptor evaluation disables plugins to prevent recursive self-hosting.
- * A run that disabled them retains that policy for every subsequently loaded
+ * Descriptor evaluation disables plugins to prevent recursive self-hosting. A
+ * run that disabled them retains that policy for every subsequently loaded
  * project, independent of which manifest supplied its runtime cache.
  *
  * @evidence contracts/common.md#principled-implementation Descriptor evaluation or any manifest with plugins false selects disabled loading; otherwise the owning project's ordinary discovery remains available.
@@ -21,7 +21,8 @@ export function selectRuntimePluginPolicy(
   /** Whether this invocation evaluates a plugin descriptor. */
   descriptorLoad: boolean,
 ): false | undefined {
-  return descriptorLoad || manifests.some((manifest) => manifest.plugins === false)
+  return descriptorLoad ||
+    manifests.some((manifest) => manifest.plugins === false)
     ? false
     : undefined;
 }

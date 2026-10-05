@@ -1,15 +1,18 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, print } from "../../internal/helpers";
 
 /**
  * Verifies printing of a class expression with a single property member.
  *
- * A class expression must retain its own name and member body when printed as an expression.
+ * A class expression must retain its own name and member body when printed as
+ * an expression.
  *
- * 1. A named class expression retains C and its typed x property without declaration-only syntax.
- * 2. Literal class C with its x: number; body independently fixes name and indentation.
+ * 1. A named class expression retains C and its typed x property without
+ *    declaration-only syntax.
+ * 2. Literal class C with its x: number; body independently fixes name and
+ *    indentation.
  *
  * @evidence contracts/testing.md#behavioral-verification A named class expression retains C and its typed x property without declaration-only syntax.
  * @evidence contracts/testing.md#independent-expectations Literal class C with its x: number; body independently fixes name and indentation.

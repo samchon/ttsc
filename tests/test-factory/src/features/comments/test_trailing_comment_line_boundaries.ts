@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import factory, {
   SyntaxKind,
   setSyntheticTrailingComments,
@@ -6,10 +7,11 @@ import factory, {
 import { print } from "../../internal/helpers";
 
 /**
- * Verifies trailing comments honor independent leading and trailing line boundaries.
+ * Verifies trailing comments honor independent leading and trailing line
+ * boundaries.
  *
- * A single-line comment must end its line even when its flag is false; multiline
- * comments can independently start and end a new line.
+ * A single-line comment must end its line even when its flag is false;
+ * multiline comments can independently start and end a new line.
  *
  * 1. Print multiline comments with neither, each, and both newline flags.
  * 2. Contrast single-line comments with false and true trailing flags.
@@ -30,12 +32,14 @@ export const test_trailing_comment_line_boundaries = (): void => {
     [SyntaxKind.SingleLineCommentTrivia, true, true, "x\n// c\n"],
   ] as const) {
     const node = factory.createIdentifier("x");
-    setSyntheticTrailingComments(node, [{
-      kind,
-      text: " c ",
-      hasLeadingNewLine: before,
-      hasTrailingNewLine: after,
-    }]);
+    setSyntheticTrailingComments(node, [
+      {
+        kind,
+        text: " c ",
+        hasLeadingNewLine: before,
+        hasTrailingNewLine: after,
+      },
+    ]);
     assert.equal(print(node), expected, `${kind}/${before}/${after}`);
   }
 };

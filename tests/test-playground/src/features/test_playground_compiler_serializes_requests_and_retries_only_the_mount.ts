@@ -1,13 +1,13 @@
 import type { IBootResult, ITtscResult } from "@ttsc/wasm";
 import assert from "node:assert/strict";
 
+import { createWorkerCompilerService } from "../../../../packages/playground/src/compiler/internal/createWorkerCompilerService";
 import {
   BASE_OPTIONS,
   compilePayload,
   envelope,
   makeFakeWorker,
 } from "../internal/fakeWorker";
-import { createWorkerCompilerService } from "../../../../packages/playground/src/compiler/internal/createWorkerCompilerService";
 
 /**
  * Verifies the worker compiler runs requests one at a time over its shared
@@ -164,7 +164,8 @@ export const test_playground_compiler_serializes_requests_and_retries_only_the_m
       const service = createWorkerCompilerService(
         {
           bootTtsc: async () => {
-            if (++attempts === 1) throw new Error("fetch failed before runtime");
+            if (++attempts === 1)
+              throw new Error("fetch failed before runtime");
             return { api, host };
           },
           parseResult: <T>(result: ITtscResult): T | null =>
@@ -178,6 +179,10 @@ export const test_playground_compiler_serializes_requests_and_retries_only_the_m
       );
       const next = await service.compile({ source: "export const a = 1;" });
       assert.equal(next.type, "success");
-      assert.equal(attempts, 2, "the next request retried the pre-runtime boot");
+      assert.equal(
+        attempts,
+        2,
+        "the next request retried the pre-runtime boot",
+      );
     }
   };

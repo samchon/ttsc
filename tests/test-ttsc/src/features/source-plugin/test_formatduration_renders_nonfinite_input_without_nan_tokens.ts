@@ -23,21 +23,21 @@ import { formatDuration } from "../../../../../packages/ttsc/src/plugin/internal
  * @evidence contracts/testing.md#execution-ownership A unit test calling formatDuration directly with numbers; nothing is built or launched.
  */
 export function test_formatduration_renders_nonfinite_input_without_nan_tokens() {
-    for (const value of [
-      Number.POSITIVE_INFINITY,
-      Number.NEGATIVE_INFINITY,
-      Number.NaN,
-    ]) {
-      const rendered = formatDuration(value);
-      assert.equal(rendered, "an unknown time");
-      assert.doesNotMatch(rendered, /Infinity|NaN/);
-    }
-
-    assert.equal(formatDuration(0), "0ms");
-    assert.equal(formatDuration(-5), "0ms");
-    assert.equal(formatDuration(999), "999ms");
-    assert.equal(formatDuration(1_000), "1s");
-    assert.equal(formatDuration(59_999), "59s");
-    assert.equal(formatDuration(60_000), "1m 0s");
-    assert.equal(formatDuration(123_456), "2m 3s");
+  for (const value of [
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.NaN,
+  ]) {
+    const rendered = formatDuration(value);
+    assert.equal(rendered, "an unknown time");
+    assert.doesNotMatch(rendered, /Infinity|NaN/);
   }
+
+  assert.equal(formatDuration(0), "0ms");
+  assert.equal(formatDuration(-5), "0ms");
+  assert.equal(formatDuration(999), "999ms");
+  assert.equal(formatDuration(1_000), "1s");
+  assert.equal(formatDuration(59_999), "59s");
+  assert.equal(formatDuration(60_000), "1m 0s");
+  assert.equal(formatDuration(123_456), "2m 3s");
+}

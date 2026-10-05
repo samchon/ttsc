@@ -42,7 +42,10 @@ import { envelopeDerivation } from "./envelopeDerivation";
 export function selectTransformedSource(props: {
   /** Absolute native module spelling whose producer output is requested. */
   file: string;
-  /** Stable generation root used by project keys and alternate producer spellings. */
+  /**
+   * Stable generation root used by project keys and alternate producer
+   * spellings.
+   */
   projectRoot: string;
   /** Immutable compiler generation supplying coupled text and map records. */
   result: ITtscCompilerTransformation;

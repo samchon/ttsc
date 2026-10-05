@@ -16,6 +16,8 @@ import { readProjectConfig } from "../project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../readEffectiveCompilerOptions";
 import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
+import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
+import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
 import { assertSharedHostCompatibility } from "../sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "../sharedHost/clearInheritedSemanticConfigPath";
@@ -25,9 +27,7 @@ import { linkedTransformPlugins } from "../sharedHost/linkedTransformPlugins";
 import { publishLinkedTransformPlugins } from "../sharedHost/publishLinkedTransformPlugins";
 import { resolvePluginConfigDir } from "../sharedHost/resolvePluginConfigDir";
 import { selectSharedHostPlugin } from "../sharedHost/selectSharedHostPlugin";
-import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { spawnNative } from "../spawnNative";
-import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
 import { BuildTiming } from "./BuildTiming";
 import { CompilerDiagnostics } from "./CompilerDiagnostics";
 import { NativePluginArguments } from "./NativePluginArguments";
@@ -139,8 +139,8 @@ export namespace BuildExecution {
    * Publish this invocation's payloads into its already layered environment.
    *
    * The caller owns the fresh environment and the selected Node executable.
-   * Executable capability discovery remains at the native spawn boundary;
-   * this composer only writes protocol values and removes stale payloads.
+   * Executable capability discovery remains at the native spawn boundary; this
+   * composer only writes protocol values and removes stale payloads.
    *
    * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, forwarded arguments and linked transforms are published or cleared according to this invocation and explicit caller ownership.
    * @evidence contracts/common.md#clear-and-simple-design A synchronous payload composer consumes the existing merged environment, keeping native executable discovery in nativePluginEnv without copying environment layers again.
@@ -255,11 +255,11 @@ export namespace BuildExecution {
    * The supported format lane supplies emit:false and returns after configured
    * checks without a later type-check or transform pass; conflicting internal
    * emit/format selections are not validated here. Launch and compatibility
-   * errors may throw.
-   * Required emit provenance keeps the selected producer: an opted-in native
-   * host reports its captured generation, while the direct compiler adapter
-   * admits only a stable observed selection and supported output layout.
-   * Unknown ownership remains explicit for consumers rather than guessed.
+   * errors may throw. Required emit provenance keeps the selected producer: an
+   * opted-in native host reports its captured generation, while the direct
+   * compiler adapter admits only a stable observed selection and supported
+   * output layout. Unknown ownership remains explicit for consumers rather than
+   * guessed.
    *
    * @evidence contracts/common.md#principled-implementation Ordered checks block emit on failure and retain negotiated same-generation input observations; transforms use one compatible host. Normally completed native partial emission and supported stable external emission can retain actual-write provenance alongside unchanged nonzero status, while interrupted or unknown generations establish no proof.
    * @evidence contracts/common.md#clear-and-simple-design This dispatcher owns phase policy while argv, spawning, normalization and fallback comparison remain shared helpers used by one-shot and watch lanes.
@@ -411,8 +411,9 @@ export namespace BuildExecution {
    *
    * `ttsc --init` exists to write the starter `tsconfig.json`, and `ttsc --all`
    * / `ttsc -?` only print tsgo's help: none of them needs a project, so a
-   * project-resolution failure must not stop them. The classification is `FLAG_SCHEMA`'s (`terminal` +
-   * `projectFree`), so marking a further flag project-free needs no edit here.
+   * project-resolution failure must not stop them. The classification is
+   * `FLAG_SCHEMA`'s (`terminal` + `projectFree`), so marking a further flag
+   * project-free needs no edit here.
    *
    * A resolvable project keeps the established lane untouched: the build path
    * still forwards the flag with `-p <tsconfig>` from the project root, so
@@ -501,10 +502,10 @@ export namespace BuildExecution {
   }
 
   /**
-   * Whether a check-stage host declares reporting TypeScript's diagnostics,
-   * in which case another pass can duplicate already-reported diagnostics.
-   * This trusts an explicit descriptor contract; it does not independently
-   * measure the completed host's diagnostic completeness or success.
+   * Whether a check-stage host declares reporting TypeScript's diagnostics, in
+   * which case another pass can duplicate already-reported diagnostics. This
+   * trusts an explicit descriptor contract; it does not independently measure
+   * the completed host's diagnostic completeness or success.
    *
    * @evidence contracts/common.md#principled-implementation Only check-stage descriptors explicitly declaring TypeScript diagnostic reporting satisfy the predicate; transform metadata cannot supply that declaration. The dispatcher owns when it may trust this contract rather than treating a true predicate as observed runtime completeness.
    * @evidence contracts/common.md#clear-and-simple-design One capability query is shared by both analysis and emission orchestration rather than duplicating plugin classifications.
@@ -892,10 +893,11 @@ export namespace BuildExecution {
   /**
    * Retain emitted-file metadata while displaying only user-selected listing.
    * The caller supplies the original effective option before internally added
-   * reporting flags. Status, diagnostics and other producer facts are preserved.
-   * The supported tsgo producer reports absolute emitted paths. When listing
-   * is hidden, remaining stdout uses LF separators and loses trailing newlines;
-   * this transformation does not preserve every original output byte.
+   * reporting flags. Status, diagnostics and other producer facts are
+   * preserved. The supported tsgo producer reports absolute emitted paths. When
+   * listing is hidden, remaining stdout uses LF separators and loses trailing
+   * newlines; this transformation does not preserve every original output
+   * byte.
    *
    * @evidence contracts/common.md#principled-implementation TSFILE lines establish reported emitted files, while the original effective boolean alone owns their user-visible display; internal reporting does not enable the user's option.
    * @evidence contracts/common.md#clear-and-simple-design One pure operation separates metadata collection from display and is shared by the actual direct compiler build path.
@@ -914,9 +916,10 @@ export namespace BuildExecution {
     return {
       ...result,
       emittedFiles,
-      stdout: displayListing || emittedFiles.length === 0
-        ? result.stdout
-        : stripEmittedFileLines(result.stdout),
+      stdout:
+        displayListing || emittedFiles.length === 0
+          ? result.stdout
+          : stripEmittedFileLines(result.stdout),
     };
   }
 
@@ -1114,7 +1117,8 @@ export namespace BuildExecution {
    * A supplied resolvedProject preserves the caller's lexical project identity.
    * Plugin admission, loading and watch-input callbacks inside the guarded
    * acquisition branch become setup-failure results on error. Initial project/
-   * compiler resolution and final config-anchor resolution outside it may throw.
+   * compiler resolution and final config-anchor resolution outside it may
+   * throw.
    *
    * @evidence contracts/common.md#principled-implementation One selected project supplies root, config and compiler policy; explicit resolvedProject preserves prior selection, and the guarded plugin admission/loading/watch-input callback branch is converted to a setup failure.
    * @evidence contracts/common.md#clear-and-simple-design A single context carries compiler/project/plugin selection to all phases, with plugin acquisition isolated from project and executable resolution.

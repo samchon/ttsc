@@ -22,7 +22,9 @@ import {
  *
  * 1. Materialize a project with one missing-semi violation and a
  *    `lint.config.json` whose `format` block enables semicolons.
- * 2. Run one `ttsc format --singleThreaded` with explicit semicolon and double-quote options through the real launcher and shared source-plugin cache.
+ * 2. Run one `ttsc format --singleThreaded` with explicit semicolon and
+ *    double-quote options through the real launcher and shared source-plugin
+ *    cache.
  * 3. Assert the source file gains the semicolon and no JavaScript is emitted.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual ttsc format with --singleThreaded writes semicolons and converts the separate single-quoted export to exact double-quoted text while dist/main.js remains absent; other possible output paths are not enumerated.
@@ -36,7 +38,9 @@ import {
  */
 export function test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source(): void {
   const root = commonJsProject(
-    FixtureFiles.read("ttsc/plugin_corpus_ttsc_lint_format_subcommand_rewrites_source/inputs-1"),
+    FixtureFiles.read(
+      "ttsc/plugin_corpus_ttsc_lint_format_subcommand_rewrites_source/inputs-1",
+    ),
     {
       compilerOptions: {
         noEmit: true,
@@ -62,16 +66,25 @@ export function test_plugin_corpus_ttsc_lint_format_subcommand_rewrites_source()
   );
 
   const goBinary = path.join(os.homedir(), "go-sdk", "go", "bin", "go");
-  const result = spawn(ttscBin, [
-    "format", "--cwd", root, "-p", path.join(root, "tsconfig.json"), "--singleThreaded",
-  ], {
-    cwd: root,
-    env: {
-      PATH: goPath(),
-      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      TTSC_GO_BINARY: fs.existsSync(goBinary) ? goBinary : "go",
+  const result = spawn(
+    ttscBin,
+    [
+      "format",
+      "--cwd",
+      root,
+      "-p",
+      path.join(root, "tsconfig.json"),
+      "--singleThreaded",
+    ],
+    {
+      cwd: root,
+      env: {
+        PATH: goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        TTSC_GO_BINARY: fs.existsSync(goBinary) ? goBinary : "go",
+      },
     },
-  });
+  );
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);

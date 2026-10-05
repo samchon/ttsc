@@ -4,9 +4,9 @@ import { findDeclaredValue } from "./findDeclaredValue";
  * Locate one compiler option while retaining its declaring directory.
  *
  * Own key presence is significant even for null or undefined values; the caller
- * decides whether the selected option value is usable.
- * An optional decoded-source map belongs to one caller read transaction;
- * independent option searches retain separate branch-local cycle guards.
+ * decides whether the selected option value is usable. An optional
+ * decoded-source map belongs to one caller read transaction; independent option
+ * searches retain separate branch-local cycle guards.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A wrapper preserves key presence through the generic selector, so the own

@@ -1,3 +1,6 @@
+import { TestProject } from "@ttsc/testing";
+import { randomUUID } from "node:crypto";
+
 import {
   assert,
   child_process,
@@ -5,8 +8,6 @@ import {
   tsgoBinary,
   ttscBin,
 } from "./toolchain";
-import { TestProject } from "@ttsc/testing";
-import { randomUUID } from "node:crypto";
 
 /**
  * A real `ttsc --watch` child with build-count and quiet-period assertions.
@@ -14,8 +15,9 @@ import { randomUUID } from "node:crypto";
  * The launcher receives an inherited IPC channel. Its nonce-bound stopped
  * receipt establishes that it joined active builds and native resident owners;
  * actual launcher/stdio close must agree before inputs can be reclaimed.
- * Callers supplying a nested project name its tracked workspace as ownershipRoot
- * and list separately tracked external inputs through ownedInputRoots.
+ * Callers supplying a nested project name its tracked workspace as
+ * ownershipRoot and list separately tracked external inputs through
+ * ownedInputRoots.
  *
  * @evidence contracts/common.md#principled-implementation Native build markers distinguish completed cycles from starts. Shutdown requires the supported launcher nonce receipt plus actual close and matching exit status, rather than assuming signal termination joined native descendants.
  * @evidence contracts/common.md#clear-and-simple-design One live child owns the transcript and observers; one memoized close operation supplies all callers with the same join result, and exitResult exposes only the real close event.
@@ -39,15 +41,29 @@ export class WatchSession {
   private startupError: Error | undefined;
   private readonly closure: Promise<void>;
   private closeOperation: Promise<void> | undefined;
-  private exit: { code: number | null; signal: NodeJS.Signals | null } | undefined;
+  private exit:
+    | { code: number | null; signal: NodeJS.Signals | null }
+    | undefined;
 
   public constructor(
     root: string,
-    options: { args?: readonly string[]; env?: NodeJS.ProcessEnv; ownershipRoot?: string; ownedInputRoots?: readonly string[]; watchFlag?: string } = {},
+    options: {
+      args?: readonly string[];
+      env?: NodeJS.ProcessEnv;
+      ownershipRoot?: string;
+      ownedInputRoots?: readonly string[];
+      watchFlag?: string;
+    } = {},
   ) {
     const child = child_process.spawn(
       process.execPath,
-      [ttscBin, ...(options.args ?? []), options.watchFlag ?? "--watch", "--cwd", root],
+      [
+        ttscBin,
+        ...(options.args ?? []),
+        options.watchFlag ?? "--watch",
+        "--cwd",
+        root,
+      ],
       {
         cwd: root,
         env: {
@@ -66,7 +82,10 @@ export class WatchSession {
       throw new Error("ttsc --watch must expose piped stdout and stderr");
     }
     this.child = child;
-    this.ownedInputRoots = [options.ownershipRoot ?? root, ...(options.ownedInputRoots ?? [])];
+    this.ownedInputRoots = [
+      options.ownershipRoot ?? root,
+      ...(options.ownedInputRoots ?? []),
+    ];
     this.closure = new Promise<void>((resolve) => {
       child.once("close", (code, signal) => {
         this.exit = { code, signal };
@@ -79,7 +98,11 @@ export class WatchSession {
       this.startupError = error;
       for (const listener of this.listeners) listener();
     });
-    this.label = ["ttsc", ...(options.args ?? []), options.watchFlag ?? "--watch"].join(" ");
+    this.label = [
+      "ttsc",
+      ...(options.args ?? []),
+      options.watchFlag ?? "--watch",
+    ].join(" ");
     const onChunk = (chunk: Buffer): void => {
       this.output += chunk.toString("utf8");
       this.builds = (
@@ -115,7 +138,12 @@ export class WatchSession {
         else if (this.startupError !== undefined || this.closed) {
           clearTimeout(timer);
           this.listeners.delete(check);
-          reject(this.startupError ?? new Error(`${this.label} exited before ${count} builds:\n${this.output}`));
+          reject(
+            this.startupError ??
+              new Error(
+                `${this.label} exited before ${count} builds:\n${this.output}`,
+              ),
+          );
         }
       };
       this.listeners.add(check);
@@ -148,14 +176,23 @@ export class WatchSession {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.listeners.delete(check);
-        try { this.assertRunning(); resolve(); }
-        catch (error) { reject(error); }
+        try {
+          this.assertRunning();
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
       }, duration);
       const check = (): void => {
         if (this.closed || this.startupError !== undefined) {
           clearTimeout(timer);
           this.listeners.delete(check);
-          reject(this.startupError ?? new Error(`${this.label} exited during quiet observation:\n${this.output}`));
+          reject(
+            this.startupError ??
+              new Error(
+                `${this.label} exited during quiet observation:\n${this.output}`,
+              ),
+          );
           return;
         }
         if (
@@ -182,7 +219,9 @@ export class WatchSession {
   }
 
   /** Actual launcher/stdio closure result; absent while the session is live. */
-  public exitResult(): { code: number | null; signal: NodeJS.Signals | null } | undefined {
+  public exitResult():
+    | { code: number | null; signal: NodeJS.Signals | null }
+    | undefined {
     return this.exit;
   }
 
@@ -205,43 +244,88 @@ export class WatchSession {
       if (typeof value !== "object" || value === null) return;
       const message = value as Record<string, unknown>;
       if (message.type !== "ttsc.watch.stopped" || message.id !== id) return;
-      if (message.status !== null && !(typeof message.status === "number" && Number.isInteger(message.status) && message.status >= 0 && message.status <= 255))
-        failure ??= new Error(`${this.label} returned an invalid joined status`);
+      if (
+        message.status !== null &&
+        !(
+          typeof message.status === "number" &&
+          Number.isInteger(message.status) &&
+          message.status >= 0 &&
+          message.status <= 255
+        )
+      )
+        failure ??= new Error(
+          `${this.label} returned an invalid joined status`,
+        );
       else receipt = message.status;
     };
     this.child.on("message", onMessage);
     try {
       if (this.closed || !this.child.connected) {
-        failure = new Error(`${this.label} closed without an owning shutdown receipt:\n${this.output}`);
+        failure = new Error(
+          `${this.label} closed without an owning shutdown receipt:\n${this.output}`,
+        );
       } else {
         try {
           this.child.send({ type: "ttsc.watch.stop", id }, (error) => {
             if (error !== null) failure ??= error;
           });
         } catch (error) {
-          failure = new Error(`${this.label} could not request shutdown`, { cause: error });
+          failure = new Error(`${this.label} could not request shutdown`, {
+            cause: error,
+          });
         }
       }
       timer = setTimeout(() => {
-        failure ??= new Error(`${this.label} did not join shutdown:\n${this.output}`);
-        try { this.retainInputs(failure); }
-        catch (error) { failure = new Error(`${this.label} could not retain unresolved inputs`, { cause: new AggregateError([failure, error]) }); }
-        try { this.child.kill("SIGKILL"); }
-        catch (error) { failure = new Error(`${this.label} could not terminate its launcher`, { cause: new AggregateError([failure, error]) }); }
+        failure ??= new Error(
+          `${this.label} did not join shutdown:\n${this.output}`,
+        );
+        try {
+          this.retainInputs(failure);
+        } catch (error) {
+          failure = new Error(
+            `${this.label} could not retain unresolved inputs`,
+            { cause: new AggregateError([failure, error]) },
+          );
+        }
+        try {
+          this.child.kill("SIGKILL");
+        } catch (error) {
+          failure = new Error(
+            `${this.label} could not terminate its launcher`,
+            { cause: new AggregateError([failure, error]) },
+          );
+        }
       }, 30_000);
       // Even escalation joins actual close: a timeout never authorizes deleting
       // inputs that an unproved descendant may still read.
       await this.closure;
       if (this.startupError !== undefined) failure ??= this.startupError;
-      if (receipt === undefined) failure ??= new Error(`${this.label} omitted its joined shutdown receipt:\n${this.output}`);
-      if (receipt === null && this.builds > 0) failure ??= new Error(`${this.label} omitted the completed build status:\n${this.output}`);
-      if (this.child.signalCode !== null || this.child.exitCode !== (receipt ?? 0))
-        failure ??= new Error(`${this.label} close disagrees with joined status ${receipt}: code=${this.child.exitCode}, signal=${this.child.signalCode}\n${this.output}`);
+      if (receipt === undefined)
+        failure ??= new Error(
+          `${this.label} omitted its joined shutdown receipt:\n${this.output}`,
+        );
+      if (receipt === null && this.builds > 0)
+        failure ??= new Error(
+          `${this.label} omitted the completed build status:\n${this.output}`,
+        );
+      if (
+        this.child.signalCode !== null ||
+        this.child.exitCode !== (receipt ?? 0)
+      )
+        failure ??= new Error(
+          `${this.label} close disagrees with joined status ${receipt}: code=${this.child.exitCode}, signal=${this.child.signalCode}\n${this.output}`,
+        );
       if (failure !== undefined) throw failure;
       this.assertNoUncaughtExit();
     } catch (error) {
-      try { this.retainInputs(error); }
-      catch (retentionError) { throw new AggregateError([error, retentionError], `${this.label} shutdown and input retention failed`); }
+      try {
+        this.retainInputs(error);
+      } catch (retentionError) {
+        throw new AggregateError(
+          [error, retentionError],
+          `${this.label} shutdown and input retention failed`,
+        );
+      }
       throw error;
     } finally {
       if (timer !== undefined) clearTimeout(timer);
@@ -253,17 +337,31 @@ export class WatchSession {
     const reason = `${this.label} has unresolved native ownership: ${String(error)}`;
     const failures: unknown[] = [];
     for (const root of this.ownedInputRoots) {
-      try { TestProject.retainTemporaryDirectory(root, reason); }
-      catch (failure) { failures.push(failure); }
+      try {
+        TestProject.retainTemporaryDirectory(root, reason);
+      } catch (failure) {
+        failures.push(failure);
+      }
     }
-    try { TestProject.retainSharedPluginCache(reason); }
-    catch (failure) { failures.push(failure); }
-    if (failures.length) throw new AggregateError(failures, "watch input retention authority failed");
+    try {
+      TestProject.retainSharedPluginCache(reason);
+    } catch (failure) {
+      failures.push(failure);
+    }
+    if (failures.length)
+      throw new AggregateError(
+        failures,
+        "watch input retention authority failed",
+      );
   }
 
   private assertRunning(): void {
     if (this.startupError !== undefined) throw this.startupError;
-    assert.equal(this.closed, false, `${this.label} exited during observation:\n${this.output}`);
+    assert.equal(
+      this.closed,
+      false,
+      `${this.label} exited during observation:\n${this.output}`,
+    );
   }
 
   private assertNoUncaughtExit(): void {

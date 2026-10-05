@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { readEffectiveTsconfigTemplateFileSpecs } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigTemplateFileSpecs";
 import { readEffectiveTsconfigTemplateCompilerOptions } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigTemplateCompilerOptions";
+import { readEffectiveTsconfigTemplateFileSpecs } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigTemplateFileSpecs";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -13,10 +13,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * elements, inherited anchors and an own files override.
  *
  * Separate scalar, list and paths selections need the same decoded config
- * sources, while inheritance precedence and declaring anchors stay independent.
+ * sources, while inheritance precedence and declaring anchors stay
+ * independent.
  *
- * 1. Read a two-config chain with inherited templates, an own scalar override
- *    and mixed template/ordinary list and alias targets.
+ * 1. Read a two-config chain with inherited templates, an own scalar override and
+ *    mixed template/ordinary list and alias targets.
  * 2. Assert the literal anchored result and one read of each config source.
  * 3. Change the base config and require a fresh pair of reads and changed output.
  *
@@ -38,7 +39,10 @@ export function test_template_compiler_options_share_only_one_read_transaction()
     include: ["${configDir}/src/**/*", "./lib/**/*", null],
   };
   const root = TestProject.createProject({
-    "base.json": JSON.stringify({ compilerOptions: baseOptions, ...baseFileSpecs }),
+    "base.json": JSON.stringify({
+      compilerOptions: baseOptions,
+      ...baseFileSpecs,
+    }),
     "child/tsconfig.json": JSON.stringify({
       extends: "../base.json",
       compilerOptions: { outDir: "${configDir}/leaf-build" },
@@ -66,11 +70,17 @@ export function test_template_compiler_options_share_only_one_read_transaction()
     return Reflect.apply(original, fs, args);
   }) as typeof fs.readFileSync;
   try {
-    assert.deepEqual(readEffectiveTsconfigTemplateCompilerOptions(leaf), expected);
+    assert.deepEqual(
+      readEffectiveTsconfigTemplateCompilerOptions(leaf),
+      expected,
+    );
     assert.deepEqual(reads.splice(0).sort(), [base, leaf].sort());
-    fs.writeFileSync(base, JSON.stringify({
-      compilerOptions: { ...baseOptions, rootDir: "${configDir}/next-src" },
-    }));
+    fs.writeFileSync(
+      base,
+      JSON.stringify({
+        compilerOptions: { ...baseOptions, rootDir: "${configDir}/next-src" },
+      }),
+    );
     assert.deepEqual(readEffectiveTsconfigTemplateCompilerOptions(leaf), {
       ...expected,
       rootDir: path.join(consumer, "next-src"),
@@ -99,14 +109,20 @@ export function test_template_compiler_options_share_only_one_read_transaction()
         null,
       ],
     };
-    assert.deepEqual(readEffectiveTsconfigTemplateFileSpecs(leaf), expectedSpecs);
+    assert.deepEqual(
+      readEffectiveTsconfigTemplateFileSpecs(leaf),
+      expectedSpecs,
+    );
     assert.deepEqual(reads.splice(0).sort(), [base, leaf].sort());
-    fs.writeFileSync(base, JSON.stringify({
-      compilerOptions: baseOptions,
-      ...baseFileSpecs,
-      files: ["${configDir}/changed-base.ts"],
-      include: ["${configDir}/next/**/*", "./next-lib/**/*", false],
-    }));
+    fs.writeFileSync(
+      base,
+      JSON.stringify({
+        compilerOptions: baseOptions,
+        ...baseFileSpecs,
+        files: ["${configDir}/changed-base.ts"],
+        include: ["${configDir}/next/**/*", "./next-lib/**/*", false],
+      }),
+    );
     assert.deepEqual(readEffectiveTsconfigTemplateFileSpecs(leaf), {
       ...expectedSpecs,
       include: [

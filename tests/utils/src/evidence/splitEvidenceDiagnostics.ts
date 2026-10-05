@@ -1,5 +1,6 @@
 /**
- * Separates compiler diagnostic banners while retaining their continuation text.
+ * Separates compiler diagnostic banners while retaining their continuation
+ * text.
  *
  * @evidence contracts/common.md#principled-implementation Authored compiler text is normalized and split at plain or source-qualified diagnostic banners; project findings and duplicate chunks remain visible.
  * @evidence contracts/common.md#clear-and-simple-design One pure string operation serves both consumer assertions and its direct unit without copied implementations or a compiler-shaped response.

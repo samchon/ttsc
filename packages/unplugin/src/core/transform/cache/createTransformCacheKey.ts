@@ -5,16 +5,15 @@ import { stableStringify } from "../utils/stableStringify";
 /**
  * Build the key one project generation is cached under.
  *
- * The declared compile configuration is represented by:
- * the selected tsconfig's filesystem identity, the compiler-options overlay,
- * the plugin list, and the translated aliases. Two adapter configurations that
- * have different supported JSON representations therefore receive different
- * keys; native spellings resolving to one config identity may share a key.
- * A key does not encode current filesystem content or prove freshness.
- * Compiler overlays, plugin payloads and alias
- * mappings retain their JSON declaration order: tied compiler path patterns
- * and arbitrary plugin payloads can observe it. Only the host-owned outer
- * manifest is serialized with sorted keys.
+ * The declared compile configuration is represented by: the selected tsconfig's
+ * filesystem identity, the compiler-options overlay, the plugin list, and the
+ * translated aliases. Two adapter configurations that have different supported
+ * JSON representations therefore receive different keys; native spellings
+ * resolving to one config identity may share a key. A key does not encode
+ * current filesystem content or prove freshness. Compiler overlays, plugin
+ * payloads and alias mappings retain their JSON declaration order: tied
+ * compiler path patterns and arbitrary plugin payloads can observe it. Only the
+ * host-owned outer manifest is serialized with sorted keys.
  *
  * @evidence contracts/common.md#principled-implementation Native tsconfig identity and actual JSON representations of compiler overlays, plugin payloads and alias mappings distinguish requested compiles, retaining declaration order that path-pattern ties or plugins can observe.
  * @evidence contracts/common.md#clear-and-simple-design Existing path identity and stable JSON encoding define the key; filesystem state remains the generation validator's responsibility.

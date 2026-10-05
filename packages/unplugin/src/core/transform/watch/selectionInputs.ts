@@ -17,15 +17,13 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * move the file to another project, and so can a referenced config appearing,
  * so reported config reads and failed discovery candidates are registered with
  * the host as well, with current host state as evidence or an unavailable
- * content marker when reading fails. They
- * join the delivery's other inputs in the one batch the host receives, so a
- * config both name is handed once.
+ * content marker when reading fails. They join the delivery's other inputs in
+ * the one batch the host receives, so a config both name is handed once.
  *
  * @param consulted Ordered reported config reads and failed discovery names.
  * @param filesystem The filesystem the evidence is read through.
  * @param spell The spelling every input is handed under for this delivery
  *   (`hostSpelling`).
- *
  * @evidence contracts/common.md#principled-implementation Reported routing spellings receive current host byte/kind observations, including failed discovery names whose appearance can change selection. Unavailable reads use the supported marker without certifying physical absence; recorded native identity stays distinct from notification spelling.
  * @evidence contracts/common.md#clear-and-simple-design A delivery-local identity context and one map produce the evidence batch; callers own deduplication and project-record accumulation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable configurations receive the supported missing state instead of fabricated contents or an assumption that the selected config is the only routing dependency.

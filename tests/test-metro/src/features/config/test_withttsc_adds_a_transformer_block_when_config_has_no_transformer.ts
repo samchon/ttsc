@@ -11,7 +11,8 @@ import { assertWithTtscAddsTransformerWhenAbsent } from "../../internal/metro-co
  *
  * 1. Call withTtsc on a config that has only a `projectRoot` key.
  * 2. Assert `projectRoot` survives.
- * 3. Assert `transformer.babelTransformerPath` is a string ending in `transformer.js`.
+ * 3. Assert `transformer.babelTransformerPath` is a string ending in
+ *    `transformer.js`.
  *
  * @evidence contracts/testing.md#behavioral-verification withTtsc({ projectRoot }) returns a config whose projectRoot is unchanged and whose transformer.babelTransformerPath is a string ending in transformer.js, without throwing on the missing transformer key.
  * @evidence contracts/testing.md#independent-expectations The expected values are literals from the Metro config contract: the caller's projectRoot string is returned verbatim and the transformer path is a string naming a transformer.js module. The assertions do not check that the file exists or is loadable.

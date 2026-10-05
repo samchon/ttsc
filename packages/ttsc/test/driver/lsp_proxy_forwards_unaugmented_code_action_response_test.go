@@ -14,11 +14,11 @@ import (
 //
 // No notification id is remembered and response id 99 has no pending owner.
 //
-// 1. Use the default null PluginSource (zero contributions).
-// 2. Send a notification-shaped codeAction (no id) and assert it reaches
-//    upstream byte-equal.
-// 3. Send an upstream response with id=99 (not remembered).
-// 4. Assert the editor sees the response bytes unchanged.
+//  1. Use the default null PluginSource (zero contributions).
+//  2. Send a notification-shaped codeAction (no id) and assert it reaches
+//     upstream byte-equal.
+//  3. Send an upstream response with id=99 (not remembered).
+//  4. Assert the editor sees the response bytes unchanged.
 //
 // @evidence contracts/testing.md#behavioral-verification Proxy.Run preserves id-less notification and unknown-id response bytes.
 // @evidence contracts/testing.md#independent-expectations No notification id is remembered and response id 99 has no pending owner.

@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server resolution prefers canonical tsconfig names.
@@ -26,20 +27,15 @@ export function test_vscode_server_resolution_prefers_canonical_tsconfig_over_va
   const project = TestProject.tmpdir("vscode-tsconfig-priority-");
   fs.mkdirSync(path.join(project, "src"), { recursive: true });
   fs.writeFileSync(path.join(project, "src", "main.ts"), "export {};\n");
-  for (const name of [
-    "jsconfig.json",
-    "tsconfig.app.json",
-    "tsconfig.json",
-  ]) {
+  for (const name of ["jsconfig.json", "tsconfig.app.json", "tsconfig.json"]) {
     fs.writeFileSync(path.join(project, name), "{}\n");
-}
+  }
   const observed = (() => {
     const candidate = mod.createResolutionCandidates({
-      activeFile: (path.join(project, "src", "main.ts")),
-      activeWorkspaceRoot: (project),
+      activeFile: path.join(project, "src", "main.ts"),
+      activeWorkspaceRoot: project,
     })[0]!;
     return candidate.tsconfig;
-  
   })();
   assert.ok(typeof observed === "string", "the selected config must exist");
   assert.equal(

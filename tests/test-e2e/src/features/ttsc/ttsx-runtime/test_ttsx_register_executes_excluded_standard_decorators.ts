@@ -5,7 +5,10 @@ import {
   STANDARD_DECORATOR_OUTPUT,
   STANDARD_DECORATOR_SOURCE,
 } from "../../../internal/ttsc/internal/ttsx-decorators";
-import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsc/internal/ttsx-register";
+import {
+  TTSX_REGISTER,
+  linkTtscPackage,
+} from "../../../internal/ttsc/internal/ttsx-register";
 
 /**
  * Verifies registered and direct excluded entries lower inherited decorators.
@@ -16,6 +19,7 @@ import { TTSX_REGISTER, linkTtscPackage } from "../../../internal/ttsc/internal/
  * 1. Exclude a decorated script from a project's included source tree.
  * 2. Execute it with ttsx and the public Node preload in both module formats.
  * 3. Assert the same class and method effects in all runs.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual direct ttsx and public ttsc/register execute an excluded decorated script inheriting ESNext through extends, requiring zero status and exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The authored fixture decorators specify their complete literal output independently of fallback project generation.
  * @evidence contracts/testing.md#distinguishing-cases CommonJS and ESM inherited options each execute through direct launcher and public preload. The excluded script contrasts with a distinct included source; invalid compile gates have their own test.
@@ -49,10 +53,22 @@ export function test_ttsx_register_executes_excluded_standard_decorators() {
       [process.execPath, ["--require", TTSX_REGISTER, "scripts/main.ts"]],
     ] as const) {
       const result = TestProject.spawn(command, [...args], { cwd: root });
-      try { assert.equal(result.status, 0, result.stderr); } catch (error) { failures.push(error); }
-      try { assert.equal(result.stdout.trim(), STANDARD_DECORATOR_OUTPUT); } catch (error) { failures.push(error); }
+      try {
+        assert.equal(result.status, 0, result.stderr);
+      } catch (error) {
+        failures.push(error);
+      }
+      try {
+        assert.equal(result.stdout.trim(), STANDARD_DECORATOR_OUTPUT);
+      } catch (error) {
+        failures.push(error);
+      }
     }
   }
 
-  if (failures.length) throw new AggregateError(failures, "register_executes_excluded_standard_decorators assertions failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "register_executes_excluded_standard_decorators assertions failed",
+    );
 }

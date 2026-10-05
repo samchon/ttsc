@@ -25,21 +25,29 @@ import (
 // @evidence contracts/testing.md#execution-ownership One direct external-package unit registers five separately named context subcases and calls the public option-decoding operations with raw JSON. It needs no Program, registry, filesystem fixture, native artifact or installed consumer.
 func TestContextDecodeOptionsPreservesDefaultsAndDecoderErrors(t *testing.T) {
   contexts := []struct {
-    name string
+    name   string
     decode func(json.RawMessage) func(interface{}) error
     absent func(interface{}) error
   }{
     {"file", func(raw json.RawMessage) func(interface{}) error { return (&rule.Context{Options: raw}).DecodeOptions }, (*rule.Context)(nil).DecodeOptions},
-    {"project", func(raw json.RawMessage) func(interface{}) error { return (&rule.ProjectContext{Options: raw}).DecodeOptions }, (*rule.ProjectContext)(nil).DecodeOptions},
-    {"input", func(raw json.RawMessage) func(interface{}) error { return (&rule.ProjectInputContext{Options: raw}).DecodeOptions }, (*rule.ProjectInputContext)(nil).DecodeOptions},
-    {"hint", func(raw json.RawMessage) func(interface{}) error { return (&rule.HintContext{Options: raw}).DecodeOptions }, (*rule.HintContext)(nil).DecodeOptions},
-    {"graph", func(raw json.RawMessage) func(interface{}) error { return (&rule.GraphContext{Options: raw}).DecodeOptions }, (*rule.GraphContext)(nil).DecodeOptions},
+    {"project", func(raw json.RawMessage) func(interface{}) error {
+      return (&rule.ProjectContext{Options: raw}).DecodeOptions
+    }, (*rule.ProjectContext)(nil).DecodeOptions},
+    {"input", func(raw json.RawMessage) func(interface{}) error {
+      return (&rule.ProjectInputContext{Options: raw}).DecodeOptions
+    }, (*rule.ProjectInputContext)(nil).DecodeOptions},
+    {"hint", func(raw json.RawMessage) func(interface{}) error {
+      return (&rule.HintContext{Options: raw}).DecodeOptions
+    }, (*rule.HintContext)(nil).DecodeOptions},
+    {"graph", func(raw json.RawMessage) func(interface{}) error {
+      return (&rule.GraphContext{Options: raw}).DecodeOptions
+    }, (*rule.GraphContext)(nil).DecodeOptions},
   }
   for _, context := range contexts {
     t.Run(context.name, func(t *testing.T) {
       type options struct {
-        Mode string `json:"mode"`
-        Count int `json:"count"`
+        Mode  string `json:"mode"`
+        Count int    `json:"count"`
       }
       for _, decode := range []func(interface{}) error{context.absent, context.decode(nil), context.decode(json.RawMessage{})} {
         out := options{Mode: "default", Count: 7}

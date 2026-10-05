@@ -12,7 +12,6 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
-//
 // @evidence contracts/testing.md#behavioral-verification The observing filesystem fails the proof with inputProofContentChanged after a file read as A is changed to B and then restored to A.
 // @evidence contracts/testing.md#independent-expectations The three contents A, B and A and the expected failure constant are written literally.
 // @evidence contracts/testing.md#distinguishing-cases A-B-A is the case a final-state comparison would accept; the second read of B makes the observation fail even though the bytes match again.
@@ -41,7 +40,6 @@ func TestInputObservationFSRejectsRestoredContent(t *testing.T) {
   }
 }
 
-//
 // @evidence contracts/testing.md#behavioral-verification The proof reports the SHA-256 of the bytes the compiler read, a realpath for the read file, an existence-only failure for an unread file and an observed-missing state for an absent candidate.
 // @evidence contracts/testing.md#independent-expectations The expected digest is computed independently from the literal file contents with crypto/sha256.
 // @evidence contracts/testing.md#distinguishing-cases An existence-only check, a read and a missing candidate are three distinct states with different proof outcomes.
@@ -87,7 +85,6 @@ func TestInputObservationFSProvesReadBytesAndMissingCandidates(t *testing.T) {
   }
 }
 
-//
 // TestInputObservationFSPreservesPredicateSemantics covers five named cases:
 // native directory predicates, seven authored repeated-observation pairs,
 // three authored conflicts, and two supplied graph-candidate proof views.
@@ -300,7 +297,6 @@ func stringPointer(value string) *string {
   return &value
 }
 
-//
 // @evidence contracts/testing.md#behavioral-verification The proof hash covers the BOM-stripped text the compiler decoded rather than the raw bytes on disk.
 // @evidence contracts/testing.md#independent-expectations The expected digest is computed from the literal decoded text, and the file is written with an explicit UTF-8 BOM.
 // @evidence contracts/testing.md#distinguishing-cases A BOM-prefixed file distinguishes hashing the decoded text from hashing the raw bytes.
@@ -325,7 +321,6 @@ func TestInputObservationFSHashesCompilerDecodedText(t *testing.T) {
   }
 }
 
-//
 // @evidence contracts/testing.md#behavioral-verification A probe through a lexical directory alias joins the physical read of the selected file so the proof reports the physical path.
 // @evidence contracts/testing.md#independent-expectations The expected physical path and bytes come from the test's own directory layout and literal file contents.
 // @evidence contracts/testing.md#distinguishing-cases The alias spelling and the physical spelling differ, so a proof keyed on the lexical path alone fails.

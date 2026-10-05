@@ -4,8 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, cacheKeyForRun, readMainSnapshot, listWorkerSnapshots, workerSnapshotFiles, workerSnapshotTrees } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  cacheKeyForRun,
+  listWorkerSnapshots,
+  prepareSnapshot,
+  readMainSnapshot,
+  workerSnapshotFiles,
+  workerSnapshotTrees,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies the two-run acceptance reproduction of samchon/ttsc#721, out-of-walk
@@ -96,7 +103,11 @@ export async function case_metro_cache_key_changes_when_a_recorded_external_inpu
   assert.deepEqual(listWorkerSnapshots(root), []);
   assert.ok(readMainSnapshot(root).files.includes(external));
   const before = await cacheKeyForRun(root, options);
-  assert.equal(await cacheKeyForRun(root, options), before, "unchanged external input must retain the key");
+  assert.equal(
+    await cacheKeyForRun(root, options),
+    before,
+    "unchanged external input must retain the key",
+  );
 
   fs.writeFileSync(external, "second\n", "utf8");
   const after = await cacheKeyForRun(root, options);

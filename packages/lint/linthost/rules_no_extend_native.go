@@ -17,7 +17,7 @@ type noExtendNativeOptions struct {
   Exceptions []string `json:"exceptions"`
 }
 
-func (noExtendNative) Name() string { return "no-extend-native" }
+func (noExtendNative) Name() string           { return "no-extend-native" }
 func (noExtendNative) NeedsTypeChecker() bool { return true }
 func (noExtendNative) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindBinaryExpression, shimast.KindCallExpression}

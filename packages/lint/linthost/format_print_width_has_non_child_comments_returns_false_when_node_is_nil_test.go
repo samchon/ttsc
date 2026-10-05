@@ -25,9 +25,9 @@ func TestFormatPrintWidthHasNonChildCommentsReturnsFalseWhenNodeIsNil(t *testing
     t.Fatalf("hasNonChildComments(nil, ...): want false, got true")
   }
   cases := []struct {
-    name string
+    name   string
     source string
-    want bool
+    want   bool
   }{
     {"empty-object", "const x = {};\n", false},
     {"plain-members", "const x = { a: 1, b: 2 };\n", false},

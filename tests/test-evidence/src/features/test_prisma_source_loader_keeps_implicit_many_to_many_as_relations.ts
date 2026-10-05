@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { TestProject } from "../../../utils/src/TestProject";
 
 /**
- * Verifies implicit many-to-many payloads contain only authored models and fields.
+ * Verifies implicit many-to-many payloads contain only authored models and
+ * fields.
  *
  * Prisma's implicit join table must not introduce a model or foreign-key column
  * into this population. Both authored lists represent relations.
@@ -21,21 +22,39 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership Matching src/features export calls maintained source and its WASM parser in the same unit Node process over one temporary schema. It installs no consumer, builds no native artifact and launches no product child. Admission gates the table; table and exact-root cleanup failures are collected. Actual runtime and census remain unverified until separately executed.
  */
 export async function test_prisma_source_loader_keeps_implicit_many_to_many_as_relations(): Promise<void> {
-  const { loadPrismaModels } = createRequire(import.meta.url)(fileURLToPath(new URL(
-    "../../../../packages/evidence/src/internal/loadPrismaModels.ts", import.meta.url,
-  ))) as {
-    loadPrismaModels(request: { root: string; sets: Array<{ id: string; files: string[] }> }): Promise<{
-      documents: Array<{ models: Array<{ name: string; fields: Array<{ name: string; symbol: string }> }> }>;
+  const { loadPrismaModels } = createRequire(import.meta.url)(
+    fileURLToPath(
+      new URL(
+        "../../../../packages/evidence/src/internal/loadPrismaModels.ts",
+        import.meta.url,
+      ),
+    ),
+  ) as {
+    loadPrismaModels(request: {
+      root: string;
+      sets: Array<{ id: string; files: string[] }>;
+    }): Promise<{
+      documents: Array<{
+        models: Array<{
+          name: string;
+          fields: Array<{ name: string; symbol: string }>;
+        }>;
+      }>;
       problems: unknown[];
     }>;
   };
   const root = TestProject.tmpdir("prisma-original-many-to-many-");
   const failures: Error[] = [];
   const check = (label: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(label, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(label, { cause }));
+    }
   };
   try {
-    TestProject.writeFiles(root, { "prisma/schema.prisma": `datasource db {
+    TestProject.writeFiles(root, {
+      "prisma/schema.prisma": `datasource db {
   provider = "postgresql"
 }
 
@@ -48,19 +67,49 @@ model Category {
   id    String @id @db.Uuid
   posts Post[]
 }
-` });
-    const result = await loadPrismaModels({ root, sets: [{ id: "many-to-many", files: ["prisma/schema.prisma"] }] });
+`,
+    });
+    const result = await loadPrismaModels({
+      root,
+      sets: [{ id: "many-to-many", files: ["prisma/schema.prisma"] }],
+    });
     assert.deepEqual(result.problems, []);
     assert.equal(result.documents.length, 1);
-    check("exact authored models and fields", () => assert.deepEqual(
-      result.documents[0]!.models.map(model => [model.name, model.fields.map(field => [field.name, field.symbol])]),
-      [["Post", [["id", "column"], ["categories", "relation"]]], ["Category", [["id", "column"], ["posts", "relation"]]]],
-    ));
+    check("exact authored models and fields", () =>
+      assert.deepEqual(
+        result.documents[0]!.models.map((model) => [
+          model.name,
+          model.fields.map((field) => [field.name, field.symbol]),
+        ]),
+        [
+          [
+            "Post",
+            [
+              ["id", "column"],
+              ["categories", "relation"],
+            ],
+          ],
+          [
+            "Category",
+            [
+              ["id", "column"],
+              ["posts", "relation"],
+            ],
+          ],
+        ],
+      ),
+    );
   } catch (cause) {
     failures.push(new Error("many-to-many source load", { cause }));
   } finally {
-    check("cleanup:remove", () => fs.rmSync(root, { recursive: true, force: true }));
+    check("cleanup:remove", () =>
+      fs.rmSync(root, { recursive: true, force: true }),
+    );
     check("cleanup:absence", () => assert.equal(fs.existsSync(root), false));
   }
-  if (failures.length) throw new AggregateError(failures, "Implicit Prisma many-to-many payload failed.");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Implicit Prisma many-to-many payload failed.",
+    );
 }

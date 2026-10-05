@@ -9,8 +9,8 @@ import { settleMutationTrackers } from "./settleMutationTrackers";
  * a delivery could validate against a tracker that has not been told yet. Each
  * tracker uses its supplied native drain or the local two-immediate fallback;
  * that fallback is a scheduling opportunity, not independent native delivery
- * proof. Concurrent sibling deliveries share an in-flight tracker drain.
- * Each tracker with a verifier then checks its watched directories against those it
+ * proof. Concurrent sibling deliveries share an in-flight tracker drain. Each
+ * tracker with a verifier then checks its watched directories against those it
  * opened on, so a replaced directory withdraws the tracker instead of leaving
  * its silence to stand as proof. The trackers share what they read, so a
  * directory they all watch, the project root above all, costs one metadata call

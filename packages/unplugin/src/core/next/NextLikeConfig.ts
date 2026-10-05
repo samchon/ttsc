@@ -5,8 +5,8 @@ import type { WebpackLikeConfig } from "./WebpackLikeConfig";
  * Minimal structural type for a Next.js configuration object.
  *
  * Only `webpack` and `turbopack` are used by this adapter; all other Next.js
- * own enumerable options are shallow-copied through the spread operator;
- * nested values remain shared.
+ * own enumerable options are shallow-copied through the spread operator; nested
+ * values remain shared.
  *
  * @evidence contracts/common.md#principled-implementation
  *   An open record preserves unrelated Next settings while typed webpack and

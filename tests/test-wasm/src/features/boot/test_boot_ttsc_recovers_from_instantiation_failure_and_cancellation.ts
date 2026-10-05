@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { bootTtsc } from "@ttsc/wasm";
+import assert from "node:assert/strict";
 
 import { FAKE_API, withBootStubs } from "../../internal/bootHarness";
 
@@ -46,7 +46,9 @@ export const test_boot_ttsc_recovers_from_instantiation_failure_and_cancellation
           const start = new Promise<void>((resolve) => {
             started = resolve;
           });
-          let complete!: (value: WebAssembly.WebAssemblyInstantiatedSource) => void;
+          let complete!: (
+            value: WebAssembly.WebAssemblyInstantiatedSource,
+          ) => void;
           WebAssembly.instantiateStreaming = async () => {
             started();
             if (!cancelled) throw cause;
@@ -57,7 +59,11 @@ export const test_boot_ttsc_recovers_from_instantiation_failure_and_cancellation
             );
           };
           const controller = new AbortController();
-          const first = bootTtsc({ apiName, wasmUrl, signal: controller.signal });
+          const first = bootTtsc({
+            apiName,
+            wasmUrl,
+            signal: controller.signal,
+          });
           await start;
           if (cancelled) controller.abort(cause);
           await assert.rejects(first, (error: unknown) => {

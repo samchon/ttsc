@@ -29,7 +29,6 @@ import { registrationState } from "./registrationState";
  *   structured-cloneable, or when a different option value is supplied after
  *   the first load. The import-time registration of the entry stays silent off
  *   Bun so the module is harmless to import from Node (tests, tooling).
- *
  * @evidence contracts/common.md#principled-implementation
  *   Structured cloning captures option values before installation. Before first
  *   load the pending snapshot is replaceable; afterward deep equality permits

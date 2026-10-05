@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership The discoverable Go unit entry owns its independent comment and fence variants and calls the native scanner directly on authored strings, without filesystem preparation, native builds, installed consumers or product subprocesses.
 func TestMarkdownCommentSyntaxDoesNotChangeHeadingOwnership(t *testing.T) {
   cases := []struct {
-    name string
+    name    string
     content string
   }{
     {"inline comment", "# Public\nprose <!--\n## Hidden\n-->\npublic body\n"},
@@ -34,17 +34,29 @@ func TestMarkdownCommentSyntaxDoesNotChangeHeadingOwnership(t *testing.T) {
   for _, row := range cases {
     t.Run(row.name, func(t *testing.T) {
       inventory, problems := scanProjectMarkdown("docs/spec.md", row.content)
-      if len(problems) != 0 { t.Errorf("unexpected scan problems: %v", problems) }
+      if len(problems) != 0 {
+        t.Errorf("unexpected scan problems: %v", problems)
+      }
       targets := []string{}
-      for _, unit := range inventory.Units { targets = append(targets, unit.Target) }
+      for _, unit := range inventory.Units {
+        targets = append(targets, unit.Target)
+      }
       if got := strings.Join(targets, ","); got != "docs/spec.md,docs/spec.md#public" {
         t.Errorf("visible targets = %q, want file and public heading only", got)
       }
       public := ""
-      for _, unit := range inventory.Units { if unit.Target == "docs/spec.md#public" { public = unit.Digest } }
+      for _, unit := range inventory.Units {
+        if unit.Target == "docs/spec.md#public" {
+          public = unit.Digest
+        }
+      }
       edited, _ := scanProjectMarkdown("docs/spec.md", strings.Replace(row.content, "public body", "revised body", 1))
       revised := ""
-      for _, unit := range edited.Units { if unit.Target == "docs/spec.md#public" { revised = unit.Digest } }
+      for _, unit := range edited.Units {
+        if unit.Target == "docs/spec.md#public" {
+          revised = unit.Digest
+        }
+      }
       if public == "" || revised == "" || public == revised {
         t.Errorf("public prose edit must change its visible owner's nonempty digest: before=%q after=%q", public, revised)
       }

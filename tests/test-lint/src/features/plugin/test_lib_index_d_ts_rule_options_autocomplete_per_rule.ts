@@ -50,9 +50,9 @@ import type { ITtscLintConfig } from "../../../../../packages/lint/src/structure
  * - An identifier-form built-in name without the canonical slash (`reactJsxKey`)
  *   is rejected.
  *
- * The assertion owner is the compiler run
- * `tsc --noEmit -p tests/test-lint/tsconfig.json`. Runtime object truthiness
- * cannot verify type checking.
+ * The assertion owner is the compiler run `tsc --noEmit -p
+ * tests/test-lint/tsconfig.json`. Runtime object truthiness cannot verify type
+ * checking.
  *
  * 1. Construct configs exercising each tuple shape, both valid and broken.
  * 2. Run the suite's TypeScript checker to enforce accepted assignments.

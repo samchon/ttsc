@@ -60,7 +60,7 @@ func TestLSPProxyAugmentsCodeActionResponse(t *testing.T) {
     t.Fatalf("expected 2 actions, got %d in %s", got, body)
   }
   var response struct {
-    ID int `json:"id"`
+    ID     int `json:"id"`
     Result []struct {
       Title string `json:"title"`
     } `json:"result"`

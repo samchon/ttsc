@@ -14,12 +14,12 @@ import (
 // path branch uncovered. A marker-shaped line that does not parse, and a
 // directive repeated for one rule or file, must therefore be errors.
 //
-// 1. Mix a valid directive with a missing-colon marker, and repeat options and
-//    filename directives.
-// 2. Parse them through the loader's option, filename and clean-rule readers.
-// 3. Assert each contract violation is reported with the fixture's name.
-// 4. Assert the well-formed neighbors apply: options upgrade the severity to a
-//    tuple with its authored payload, and a clean directive returns its rule name.
+//  1. Mix a valid directive with a missing-colon marker, and repeat options and
+//     filename directives.
+//  2. Parse them through the loader's option, filename and clean-rule readers.
+//  3. Assert each contract violation is reported with the fixture's name.
+//  4. Assert the well-formed neighbors apply: options upgrade the severity to a
+//     tuple with its authored payload, and a clean directive returns its rule name.
 //
 // @evidence contracts/testing.md#behavioral-verification corpusApplyOptions, corpusResolveSourcePath and corpusParseClean are called on authored sources; malformed and duplicate forms must return an error naming the fixture, and the valid options and clean forms must return the [severity, options] tuple with enabled:true and the clean rule name they declare. corpusResolveSourcePath is exercised only on its rejection paths.
 // @evidence contracts/testing.md#independent-expectations The directive grammar (`@ttsc-corpus-options: <rule> <json>`, `@ttsc-corpus-filename: <path>`, `@ttsc-corpus-clean: <rule>`, each at most once per target) is the specification; expected messages and the [severity, options] tuple are literals written from it.

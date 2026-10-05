@@ -1,16 +1,23 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind, addSyntheticLeadingComment } from "../../../../../packages/factory/src/index";
-import { kw, print } from "../../internal/helpers";
+
+import factory, {
+  SyntaxKind,
+  addSyntheticLeadingComment,
+} from "../../../../../packages/factory/src/index";
 import { jsdoc } from "../../internal/commentFixtures";
+import { kw, print } from "../../internal/helpers";
 
 /**
- * Verifies attachment of a JSDoc comment to a member nested inside an interface.
+ * Verifies attachment of a JSDoc comment to a member nested inside an
+ * interface.
  *
  * The embedded newlines must re-indent with the member, so the comment lines
  * sit at the member's indentation rather than the file column.
  *
- * 1. JSDoc attached to interface property id stays nested and indented with the member.
- * 2. The complete interface I output literal specifies two-space comment/member indentation and the id: string payload.
+ * 1. JSDoc attached to interface property id stays nested and indented with the
+ *    member.
+ * 2. The complete interface I output literal specifies two-space comment/member
+ *    indentation and the id: string payload.
  *
  * @evidence contracts/testing.md#behavioral-verification JSDoc attached to interface property id stays nested and indented with the member.
  * @evidence contracts/testing.md#independent-expectations The complete interface I output literal specifies two-space comment/member indentation and the id: string payload.

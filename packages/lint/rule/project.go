@@ -27,19 +27,19 @@ import (
 type ProjectIdentity struct {
   // LifecycleID is minted by the host for each loaded Program cycle;
   // a supplied caller value is replaced during host normalization.
-  LifecycleID         string `json:"lifecycleId"`
+  LifecycleID string `json:"lifecycleId"`
 
   // InvocationCwd is the caller's working directory.
-  InvocationCwd       string `json:"invocationCwd"`
+  InvocationCwd string `json:"invocationCwd"`
 
   // LogicalConfigPath is the caller-facing config path spelling.
-  LogicalConfigPath   string `json:"logicalConfigPath"`
+  LogicalConfigPath string `json:"logicalConfigPath"`
 
   // LogicalProjectRoot is the root used for caller-facing locations.
-  LogicalProjectRoot  string `json:"logicalProjectRoot"`
+  LogicalProjectRoot string `json:"logicalProjectRoot"`
 
   // PhysicalConfigPath is the config identity used by the compiler filesystem.
-  PhysicalConfigPath  string `json:"physicalConfigPath"`
+  PhysicalConfigPath string `json:"physicalConfigPath"`
 
   // PhysicalProjectRoot anchors local dependency declarations.
   PhysicalProjectRoot string `json:"physicalProjectRoot"`
@@ -48,7 +48,7 @@ type ProjectIdentity struct {
   ExplicitProjectRoot string `json:"explicitProjectRoot,omitempty"`
 
   // PluginConfigOrigin is empty when no separate discovery origin was supplied.
-  PluginConfigOrigin  string `json:"pluginConfigOrigin,omitempty"`
+  PluginConfigOrigin string `json:"pluginConfigOrigin,omitempty"`
 }
 
 // ProjectRuleStatus describes whether a named project rule exists, was
@@ -85,7 +85,7 @@ const (
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectFinding is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectFinding struct {
   // Message describes the project-wide finding.
-  Message  string
+  Message string
 
   // Severity is the reported level, which can differ from the rule default.
   Severity Severity
@@ -111,10 +111,10 @@ type ProjectFinding struct {
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRuleResult is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectRuleResult struct {
   // Status is the rule outcome when this snapshot was read.
-  Status   ProjectRuleStatus
+  Status ProjectRuleStatus
 
   // State is the exact contributor-owned value, without a deep copy.
-  State    any
+  State any
 
   // Findings contains copied project findings at the snapshot boundary.
   Findings []ProjectFinding
@@ -281,10 +281,10 @@ const (
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInput is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectInput struct {
   // Kind chooses exact-file or glob-population observation.
-  Kind    ProjectInputKind `json:"kind"`
+  Kind ProjectInputKind `json:"kind"`
 
   // Pattern is a native path or glob resolved from the physical project root.
-  Pattern string           `json:"pattern"`
+  Pattern string `json:"pattern"`
 }
 
 // ProjectInputRule is the optional dependency-publication contract for a
@@ -332,7 +332,7 @@ type ProjectInputContext struct {
   Severity Severity
 
   // Options owns copied configured bytes; DecodeOptions preserves defaults when empty.
-  Options  json.RawMessage
+  Options json.RawMessage
 }
 
 // NewProjectInputContext constructs the context passed to
@@ -468,16 +468,16 @@ type ProjectContext struct {
   Identity ProjectIdentity
 
   // Sources copies the slice, not the AST objects; contributors must not mutate the Program.
-  Sources  []*shimast.SourceFile
+  Sources []*shimast.SourceFile
 
   // Checker is the host's Program checker, when the rule requests type information.
-  Checker  *shimchecker.Checker
+  Checker *shimchecker.Checker
 
   // Severity is the resolved rule level.
   Severity Severity
 
   // Options carries the raw resolved payload; decode it into contributor-owned values.
-  Options  json.RawMessage
+  Options json.RawMessage
 
   reporter    ProjectReporter
   stateSetter projectStateSetter

@@ -17,7 +17,6 @@ import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitn
  *
  * @param paths Dependency-only paths an earlier compile reported.
  * @param filesystem The filesystem the compile reads.
- *
  * @evidence contracts/common.md#principled-implementation Content, physical target and metadata boundaries are captured before compile; signature equality records one comparison rather than certifying an atomic read or usable metadata.
  * @evidence contracts/common.md#clear-and-simple-design One witness constructor groups the dependency observations required by postcompile admission, leaving retry policy to generation ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A newly reported path has no invented earlier witness; its owner must compile with a real pre-read observation.

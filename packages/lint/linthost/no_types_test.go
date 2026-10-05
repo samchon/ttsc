@@ -8,9 +8,9 @@ import "testing"
 // Parameter and return types already belong in TypeScript syntax, so a JSDoc
 // type brace duplicates them and can drift.
 //
-// 1. Run the rule over a block whose third line is `@param {string} name
-//    description` and expect one finding on line 3.
-// 2. Run the rule over a block with `@param name description` and expect none.
+//  1. Run the rule over a block whose third line is `@param {string} name
+//     description` and expect one finding on line 3.
+//  2. Run the rule over a block with `@param name description` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/no-types rule through NewEngine.Run over a parsed virtual TypeScript file. The typed @param yields exactly one finding, with that rule at error severity, on line 3; the untyped @param yields none.
 // @evidence contracts/testing.md#independent-expectations TypeScript annotations own the types of TypeScript sources, so a JSDoc type brace is redundant. The literal sources and expected line 3 follow from that policy; the message text is not asserted.

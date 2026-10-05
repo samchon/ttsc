@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -7,6 +6,7 @@ import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/b
 import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a bridge moves a record on its growing schedule only while the
@@ -31,6 +31,7 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/cor
  *    owed.
  * 3. Report a compile that depends on both, and assert the second record moves at
  *    once and keeps moving on its schedule.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored bridge receives injected notifications for watched and unwatched records; the watched record repeats while the unwatched record moves once, remains owed and resumes repetition when a compile depends on it.
  * @evidence contracts/testing.md#independent-expectations

@@ -22,6 +22,7 @@ import {
  * 2. Reject invalid public limits before metadata fetch or decompressor setup.
  * 3. Keep the gzip small but set the expanded limit below its tar output.
  * 4. Assert each independent byte budget fails with its own context.
+ *
  * @evidence contracts/testing.md#behavioral-verification installPlaygroundDependencies and downloadTarball enforce the compressed byte limit when Content-Length is absent or falsely low, cancel the response body on an oversized declared length and on HTTP 500, and reject limits of 0 (public options and unpackNpmTarball) before any fetch; the expanded limit is enforced through installPlaygroundDependencies, which rejects at expanded length minus one and accepts exactly the compressed and expanded lengths.
  * @evidence contracts/testing.md#independent-expectations The authored compressed length minus1 and independent Node gunzipSync expanded length minus1 pin different byte domains; literal cancellation1/fetch0 counters distinguish rejection before resource acquisition.
  * @evidence contracts/testing.md#distinguishing-cases Absent versus falsely low Content-Length, declared1000 versus limit999, HTTP500, invalid public limits and small-gzip/large-tar cases retain independent outcomes, with literal byte preservation at the exact inclusive limits.
@@ -126,11 +127,21 @@ export const test_npm_registry_bounds_compressed_and_expanded_archives =
 
     const expandedLength = gunzipSync(new Uint8Array(tarball)).byteLength;
     const atLimit = await installNpmFixture({
-      options: { maxTarballBytes: tarball.byteLength, maxUnpackedBytes: expandedLength },
+      options: {
+        maxTarballBytes: tarball.byteLength,
+        maxUnpackedBytes: expandedLength,
+      },
       tarball,
     });
-    assert.equal(atLimit.runtimeFiles["fixture/index.js"], "module.exports = true;\n", "exact compressed/expanded limits remain inclusive");
-    assert.equal(atLimit.compilerFiles["node_modules/fixture/index.d.ts"], "export declare const value: true;\n");
+    assert.equal(
+      atLimit.runtimeFiles["fixture/index.js"],
+      "module.exports = true;\n",
+      "exact compressed/expanded limits remain inclusive",
+    );
+    assert.equal(
+      atLimit.compilerFiles["node_modules/fixture/index.d.ts"],
+      "export declare const value: true;\n",
+    );
     await assert.rejects(
       installNpmFixture({
         options: { maxUnpackedBytes: expandedLength - 1 },

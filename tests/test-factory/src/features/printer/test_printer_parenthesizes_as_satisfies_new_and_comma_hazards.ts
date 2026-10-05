@@ -6,7 +6,12 @@ import factory, {
   SyntaxKind,
 } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
-import { parseClean, printLegacy, shapeOf, structure } from "../../internal/oracle";
+import {
+  parseClean,
+  printLegacy,
+  shapeOf,
+  structure,
+} from "../../internal/oracle";
 
 const f = factory;
 const l = ts.factory;
@@ -20,9 +25,9 @@ interface Case {
   text: string;
   ttsc: () => Node;
   /**
-   * The legacy tree for the differential comparison, given only where the legacy
-   * printer prints the grammar-correct text; `shape` is the outline of the
-   * authored literal's legacy parse otherwise.
+   * The legacy tree for the differential comparison, given only where the
+   * legacy printer prints the grammar-correct text; `shape` is the outline of
+   * the authored literal's legacy parse otherwise.
    */
   legacy?: () => ts.Node;
   shape?: string;
@@ -30,13 +35,14 @@ interface Case {
 
 /**
  * Verifies the printer keeps the parentheses that a `new` target, an `as` or
- * `satisfies` operand and a leading object literal need to re-parse as the tree.
+ * `satisfies` operand and a leading object literal need to re-parse as the
+ * tree.
  *
  * `as` and `satisfies` bind like a relational operator and take a type on their
- * right, so a following `&`, `|` or `<` would be read as part of that type or as
- * a generic list, and a `?` would make the type conditional. A `new` target
- * ending its leftmost operand in `new X()` would absorb the argument list, and a
- * statement beginning with `{` is a block.
+ * right, so a following `&`, `|` or `<` would be read as part of that type or
+ * as a generic list, and a `?` would make the type conditional. A `new` target
+ * ending its leftmost operand in `new X()` would absorb the argument list, and
+ * a statement beginning with `{` is a block.
  *
  * 1. Print `new` targets wrapping a `new X()` leftmost in `|` and `satisfies`.
  * 2. Print `as` and `satisfies` operands, and an operand ending in `as`, to the
@@ -68,7 +74,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
             undefined,
             [id("x")],
           ),
-        shape: "NewExpression(ParenthesizedExpression(BinaryExpression(NewExpression(Identifier),[|],Identifier)),Identifier)",
+        shape:
+          "NewExpression(ParenthesizedExpression(BinaryExpression(NewExpression(Identifier),[|],Identifier)),Identifier)",
       },
       {
         name: "new target whose leftmost is new X() under satisfies",
@@ -82,7 +89,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
             undefined,
             [],
           ),
-        shape: "NewExpression(ParenthesizedExpression(SatisfiesExpression(NewExpression(Identifier),AnyKeyword)))",
+        shape:
+          "NewExpression(ParenthesizedExpression(SatisfiesExpression(NewExpression(Identifier),AnyKeyword)))",
       },
       {
         name: "as before &",
@@ -93,7 +101,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
             SyntaxKind.AmpersandToken,
             id("y"),
           ),
-        shape: "BinaryExpression(ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier))),[&],Identifier)",
+        shape:
+          "BinaryExpression(ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier))),[&],Identifier)",
       },
       {
         name: "as before <",
@@ -104,7 +113,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
             SyntaxKind.LessThanToken,
             id("y"),
           ),
-        shape: "BinaryExpression(ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier))),[<],Identifier)",
+        shape:
+          "BinaryExpression(ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier))),[<],Identifier)",
       },
       {
         name: "satisfies before |",
@@ -115,7 +125,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
             SyntaxKind.BarToken,
             id("y"),
           ),
-        shape: "BinaryExpression(ParenthesizedExpression(SatisfiesExpression(Identifier,TypeReference(Identifier))),[|],Identifier)",
+        shape:
+          "BinaryExpression(ParenthesizedExpression(SatisfiesExpression(Identifier,TypeReference(Identifier))),[|],Identifier)",
       },
       {
         name: "operand ending in as before &",
@@ -130,7 +141,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
             SyntaxKind.AmpersandToken,
             id("y"),
           ),
-        shape: "BinaryExpression(BinaryExpression(Identifier,[+],ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier)))),[&],Identifier)",
+        shape:
+          "BinaryExpression(BinaryExpression(Identifier,[+],ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier)))),[&],Identifier)",
       },
       {
         name: "conditional condition ending in as",
@@ -143,7 +155,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
             undefined,
             id("z"),
           ),
-        shape: "ConditionalExpression(ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier))),[?],PrefixUnaryExpression(Identifier),[:],Identifier)",
+        shape:
+          "ConditionalExpression(ParenthesizedExpression(AsExpression(Identifier,TypeReference(Identifier))),[?],PrefixUnaryExpression(Identifier),[:],Identifier)",
       },
       {
         name: "statement comma list headed by an object literal",
@@ -158,7 +171,8 @@ export const test_printer_parenthesizes_as_satisfies_new_and_comma_hazards =
               id("a"),
             ),
           ),
-        shape: "ParenthesizedExpression(BinaryExpression(ObjectLiteralExpression(PropertyAssignment(Identifier,NumericLiteral)),[,],Identifier))",
+        shape:
+          "ParenthesizedExpression(BinaryExpression(ObjectLiteralExpression(PropertyAssignment(Identifier,NumericLiteral)),[,],Identifier))",
       },
       {
         name: "negative: as alone needs no parentheses",

@@ -21,6 +21,7 @@ import {
  * 3. Assert all pass, every project emit coexists in the workspace cache, and exit
  *    cleans the shared generation directory without creating nested
  *    `node_modules` trees.
+ *
  * @evidence contracts/testing.md#behavioral-verification Real Mocha under ttsc/register loads three excluded TS roots from two projects; output must name all suites and 3 passing, the third test observes three live cache generations, and exit leaves the runtime index empty without nested node_modules.
  * @evidence contracts/testing.md#independent-expectations Authored enum/string equality is the execution oracle; exact live count three and post-exit empty list independently observe coexistence and cleanup. The projects source enums are not imported by the generated tests.
  * @evidence contracts/testing.md#distinguishing-cases Two roots share one owning project and the third uses another; all are excluded from src include. The test distinguishes live coexistence from early deletion and post-exit release from leaked generations.
@@ -31,60 +32,60 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original status, three suite names, 3 passing, in-host generation count, empty exit index and absent nested node_modules remain. Runtime import of one/src or two/src enums is not an existing assertion.
  */
 export function test_ttsx_register_runs_multiple_out_of_include_mocha_roots() {
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({
-        name: "ttsx-register-mocha",
-        type: "commonjs",
-        version: "1.0.0",
-      }),
-      "one/tsconfig.json": projectConfig(),
-      "one/src/value.ts": `export enum Value { One = "one" }\n`,
-      "one/test/first/index.ts": mochaTest("first", "one"),
-      "one/test/second/index.ts": mochaTest("second", "one"),
-      "two/tsconfig.json": projectConfig(),
-      "two/src/value.ts": `export enum Value { Two = "two" }\n`,
-      "two/test/third/index.ts": mochaTest("third", "two", true),
-    });
-    linkTtscPackage(root);
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({
+      name: "ttsx-register-mocha",
+      type: "commonjs",
+      version: "1.0.0",
+    }),
+    "one/tsconfig.json": projectConfig(),
+    "one/src/value.ts": `export enum Value { One = "one" }\n`,
+    "one/test/first/index.ts": mochaTest("first", "one"),
+    "one/test/second/index.ts": mochaTest("second", "one"),
+    "two/tsconfig.json": projectConfig(),
+    "two/src/value.ts": `export enum Value { Two = "two" }\n`,
+    "two/test/third/index.ts": mochaTest("third", "two", true),
+  });
+  linkTtscPackage(root);
 
-    const result = TestProject.spawn(
-      process.execPath,
-      [
-        MOCHA_BIN,
-        "--require",
-        TTSX_REGISTER,
-        "--extension",
-        "ts",
-        "one/test/first/index.ts",
-        "one/test/second/index.ts",
-        "two/test/third/index.ts",
-      ],
-      { cwd: root, env: { TTSC_CACHE_DIR: "" } },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /3 passing/);
-    for (const suite of ["first", "second", "third"]) {
-      assert.match(result.stdout, new RegExp(`\\b${suite}\\b`));
-    }
-    const runtimeRoot = path.join(
-      root,
-      "node_modules",
-      ".cache",
-      "ttsc",
-      "ttsx",
-      "project",
-    );
-    assert.deepEqual(
-      fs.existsSync(runtimeRoot) ? fs.readdirSync(runtimeRoot) : [],
-      [],
-    );
-    for (const project of ["one", "two"]) {
-      assert.equal(
-        fs.existsSync(path.join(root, project, "node_modules")),
-        false,
-      );
-    }
+  const result = TestProject.spawn(
+    process.execPath,
+    [
+      MOCHA_BIN,
+      "--require",
+      TTSX_REGISTER,
+      "--extension",
+      "ts",
+      "one/test/first/index.ts",
+      "one/test/second/index.ts",
+      "two/test/third/index.ts",
+    ],
+    { cwd: root, env: { TTSC_CACHE_DIR: "" } },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /3 passing/);
+  for (const suite of ["first", "second", "third"]) {
+    assert.match(result.stdout, new RegExp(`\\b${suite}\\b`));
   }
+  const runtimeRoot = path.join(
+    root,
+    "node_modules",
+    ".cache",
+    "ttsc",
+    "ttsx",
+    "project",
+  );
+  assert.deepEqual(
+    fs.existsSync(runtimeRoot) ? fs.readdirSync(runtimeRoot) : [],
+    [],
+  );
+  for (const project of ["one", "two"]) {
+    assert.equal(
+      fs.existsSync(path.join(root, project, "node_modules")),
+      false,
+    );
+  }
+}
 
 function projectConfig(): string {
   return JSON.stringify({

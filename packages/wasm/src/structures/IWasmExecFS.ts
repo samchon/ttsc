@@ -64,7 +64,8 @@ export interface IWasmExecFS {
   ): void;
 
   /**
-   * Open a virtual path with bridge flags; low-level creation requires its parent.
+   * Open a virtual path with bridge flags; low-level creation requires its
+   * parent.
    *
    * @evidence contracts/common.md#principled-implementation Node-shaped flags select file access and the returned descriptor owns its cursor.
    * @evidence contracts/common.md#clear-and-simple-design One open boundary captures access flags and descriptor identity; recursive seeding remains outside this low-level operation.
@@ -82,7 +83,8 @@ export interface IWasmExecFS {
   ): void;
 
   /**
-   * Release an open descriptor; closing a pipe write end signals EOF to readers.
+   * Release an open descriptor; closing a pipe write end signals EOF to
+   * readers.
    *
    * @evidence contracts/common.md#principled-implementation Explicit close follows descriptor ownership and the virtual pipe's endpoint lifecycle.
    * @evidence contracts/common.md#clear-and-simple-design Descriptor release is one operation; file nodes and the two pipe endpoint roles keep their separate lifetimes.
@@ -134,7 +136,8 @@ export interface IWasmExecFS {
   ): void;
 
   /**
-   * Create one directory with an existing parent; virtual permissions are fixed.
+   * Create one directory with an existing parent; virtual permissions are
+   * fixed.
    *
    * @evidence contracts/common.md#principled-implementation Single-directory creation remains distinct from the host's recursive seeding API.
    * @evidence contracts/common.md#clear-and-simple-design One-directory creation keeps bridge semantics visible rather than silently creating missing ancestor chains.
@@ -233,7 +236,8 @@ export interface IWasmExecFS {
   ): void;
 
   /**
-   * Move a file or directory subtree after validating destination compatibility.
+   * Move a file or directory subtree after validating destination
+   * compatibility.
    *
    * @evidence contracts/common.md#principled-implementation Tree mutation preserves node identity and moves descendant paths as one operation.
    * @evidence contracts/common.md#clear-and-simple-design A single subtree move owns validation and rebasing instead of composing public delete and recreate operations.
@@ -422,8 +426,9 @@ export interface IWasmExecFS {
   ): void;
 
   /**
-   * Resize a file to a nonnegative integer byte length, zero-filling extensions.
-   * A length the engine cannot allocate reports `EFBIG` and changes nothing.
+   * Resize a file to a nonnegative integer byte length, zero-filling
+   * extensions. A length the engine cannot allocate reports `EFBIG` and changes
+   * nothing.
    *
    * @evidence contracts/common.md#principled-implementation Path-based resize operates on the stored node and preserves open-descriptor identity.
    * @evidence contracts/common.md#clear-and-simple-design The path variant resolves a node then uses shared resize semantics rather than composing reads and writes.

@@ -19,9 +19,9 @@ import { pluginSourceCovers } from "./pluginSourceCovers";
  */
 export namespace SourcePluginAdmission {
   /**
-   * Refuse a contributor whose source root has its own go.mod.
-   * The observation is existence only, as in the original merge loop; copying
-   * and compilation remain later builder operations.
+   * Refuse a contributor whose source root has its own go.mod. The observation
+   * is existence only, as in the original merge loop; copying and compilation
+   * remain later builder operations.
    *
    * @evidence contracts/common.md#principled-implementation Native existence at the exact contributor-root go.mod rejects module ownership before that contributor is copied into the host module.
    * @evidence contracts/common.md#clear-and-simple-design One observed package-admission guard retains the original named diagnostic.
@@ -74,8 +74,8 @@ export namespace SourcePluginAdmission {
   }
 
   /**
-   * Identify compiler/shim module names whose replacement ttsc owns.
-   * This is module-name policy, not a lookup of a physical Go module.
+   * Identify compiler/shim module names whose replacement ttsc owns. This is
+   * module-name policy, not a lookup of a physical Go module.
    *
    * @evidence contracts/common.md#principled-implementation Exact ttsc/compiler roots and the compiler shim namespace retain the existing managed-module discriminants.
    * @evidence contracts/common.md#clear-and-simple-design Both replacement rejection and workspace filtering use this same predicate.

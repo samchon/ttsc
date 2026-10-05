@@ -25,10 +25,10 @@ function formatGenerationFailurePath(
 
 /**
  * Build the terminal error shared by waiters of an unstable generation, with
- * bounded per-attempt witnesses and a retained retry comparison baseline.
- * Live generation fields detach and their cleanup is attempted before the
- * error retains that data; failed native cleanup is not certified released.
- * Producer details and native paths are JSON-escaped for safe diagnostics.
+ * bounded per-attempt witnesses and a retained retry comparison baseline. Live
+ * generation fields detach and their cleanup is attempted before the error
+ * retains that data; failed native cleanup is not certified released. Producer
+ * details and native paths are JSON-escaped for safe diagnostics.
  *
  * @evidence contracts/common.md#principled-implementation Each attempted proof contributes its classified witnesses and omitted count, while absent retained entries remain an explicit incomplete proof; the validation baseline identifies the environment that can authorize retry.
  * @evidence contracts/common.md#clear-and-simple-design Error rendering stays here, path attribution uses one private formatter and live generation disposal delegates to the shared lifecycle owner.

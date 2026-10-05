@@ -20,10 +20,10 @@ import (
 // running, and one that recovered the panic would hide the plugin's failure
 // from the browser host's rejection path.
 //
-// 1. Run a plugin that registers a child blocked on its context and then panics.
-// 2. Recover the panic in the caller and read the invocation afterwards.
-// 3. Assert the panic value arrived unchanged, the child saw the cancellation and
-//    wrote before the streams closed, and registration and writes are closed.
+//  1. Run a plugin that registers a child blocked on its context and then panics.
+//  2. Recover the panic in the caller and read the invocation afterwards.
+//  3. Assert the panic value arrived unchanged, the child saw the cancellation and
+//     wrote before the streams closed, and registration and writes are closed.
 //
 // @evidence contracts/testing.md#behavioral-verification Panics from Run with a registered child and asserts the panic value reaches the caller, the child observed the cancellation and wrote before the streams closed, and registration and writes are closed afterwards, so a swallowed panic, a skipped wait or a missing cancellation fails.
 // @evidence contracts/testing.md#independent-expectations The panic value and the child write error are authored in the test; io.ErrClosedPipe and a canceled context are the documented closed-ownership results.

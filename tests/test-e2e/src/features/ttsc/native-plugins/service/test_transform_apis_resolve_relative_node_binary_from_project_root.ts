@@ -1,5 +1,4 @@
 import { TestProject } from "@ttsc/testing";
-import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,9 +7,13 @@ import {
   TtscCompiler,
   TtscService,
 } from "../../../../../../../packages/ttsc/lib/index.js";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
 import { tsgo } from "../../../../internal/ttsc/internal/compiler";
-import { SHARED_GO_BUILD_CACHE_DIR, SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import {
+  SHARED_GO_BUILD_CACHE_DIR,
+  SHARED_PLUGIN_CACHE_DIR,
+} from "../../../../internal/ttsc/internal/plugin-cache";
 
 /**
  * Verifies transform API runtime overrides resolve against the actual project.
@@ -38,7 +41,8 @@ export async function test_transform_apis_resolve_relative_node_binary_from_proj
     ProjectFixtures.copy("ttsc-utility-plugins"),
   );
   const caller = TestProject.tmpdir("ttsc-relative-node-caller-");
-  const retentionReason = "relative-runtime service has no awaited disposal acknowledgement";
+  const retentionReason =
+    "relative-runtime service has no awaited disposal acknowledgement";
   TestProject.retainTemporaryDirectory(root, retentionReason);
   TestProject.retainTemporaryDirectory(caller, retentionReason);
   TestProject.retainSharedPluginCache(retentionReason);
@@ -94,8 +98,15 @@ export async function test_transform_apis_resolve_relative_node_binary_from_proj
   } catch (error) {
     failures.push(error);
   } finally {
-    try { service.dispose(); }
-    catch (error) { failures.push(error); }
+    try {
+      service.dispose();
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "relative-runtime resident transformation or disposal failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "relative-runtime resident transformation or disposal failed",
+    );
 }

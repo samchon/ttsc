@@ -27,7 +27,9 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Five separate startup methods exercise metadata collection stages; a healthy instance distinguishes unconditional rejection from panic containment. Runtime Check recovery is owned by separate engine units.
 // @evidence contracts/testing.md#execution-ownership Real inspectContributor invokes public contributor methods directly in-process; this unit checks inspection error semantics without claiming public registration, native static initialization or installation.
 func TestContributorMetadataPanicIsRejected(t *testing.T) {
-  if metadata, err := inspectContributor(metadataPanickingContributor{}); err != nil || metadata.name != "test/metadata-panic" { t.Fatalf("nonpanicking contributor control rejected: %+v / %v", metadata, err) }
+  if metadata, err := inspectContributor(metadataPanickingContributor{}); err != nil || metadata.name != "test/metadata-panic" {
+    t.Fatalf("nonpanicking contributor control rejected: %+v / %v", metadata, err)
+  }
   for _, method := range []string{
     "Name",
     "Visits",

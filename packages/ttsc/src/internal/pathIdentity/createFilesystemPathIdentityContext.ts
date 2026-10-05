@@ -15,8 +15,8 @@ import { resolveFilesystemPath } from "./resolveFilesystemPath";
  *
  * Successfully observed prefixes use their physical spelling. An unresolved
  * suffix preserves spelling under sensitive or unknown policy; observed
- * insensitivity permits ASCII case folding. In best-effort mode that suffix
- * can include unreadable existing entries, so it is not proof of absence.
+ * insensitivity permits ASCII case folding. In best-effort mode that suffix can
+ * include unreadable existing entries, so it is not proof of absence.
  *
  * Cached observations agree for the same queried key, not an atomic view of the
  * whole filesystem. An unavailable read-only case probe reports unknown and
@@ -378,8 +378,13 @@ function queryWindowsDirectoryCaseSensitivityBytes(
   directory: string,
 ): Buffer | undefined {
   const args = ["file", "queryCaseSensitiveInfo", directory];
-  const result = E2ETrace.synchronous("fsutil.exe", args, {}, "path-case-probe",
-    () => childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }));
+  const result = E2ETrace.synchronous(
+    "fsutil.exe",
+    args,
+    {},
+    "path-case-probe",
+    () => childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }),
+  );
   return result.error === undefined &&
     result.status === 0 &&
     Buffer.isBuffer(result.stdout)

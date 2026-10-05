@@ -35,7 +35,7 @@ func TestParseTSConfigPreservesNativeDiagnostics(t *testing.T) {
   }
   for _, row := range []struct {
     name, text string
-    invalid bool
+    invalid    bool
   }{
     {"valid-jsonc", "{ /* comment */ \"files\": [\"main.ts\"] }", false},
     {"syntax-only", "{", true},

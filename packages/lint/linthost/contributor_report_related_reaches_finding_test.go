@@ -21,10 +21,10 @@ import (
 // survives the LSP render. A malformed related start and caller mutation after
 // reporting distinguish real normalization and ownership from slice forwarding.
 //
-// 1. Adapt a contributor with an authored negative-start related location.
-// 2. Run its real report and mutate the contributor-owned related storage.
-// 3. Require the original bounded location and message in the finding and its
-//    literal same-file LSP URI and coordinates.
+//  1. Adapt a contributor with an authored negative-start related location.
+//  2. Run its real report and mutate the contributor-owned related storage.
+//  3. Require the original bounded location and message in the finding and its
+//     literal same-file LSP URI and coordinates.
 //
 // @evidence contracts/testing.md#behavioral-verification Real public related reporting bounds authored -5..12 coordinates to 0..12, preserves its original message after caller mutation and survives contributor adaptation into one warning finding; LSP rendering preserves file:///virtual/test.ts and line-zero 0..12 related coordinates.
 // @evidence contracts/testing.md#independent-expectations Authored const source, flagged/defined over here messages and manually specified statement byte bounds define expected data independently of both adapters. A literal URI and LSP coordinates strengthen the existing same-file helper comparison.
@@ -43,7 +43,9 @@ func TestContributorReportRelatedReachesFinding(t *testing.T) {
   findings := NewEngineWithResolver(InlineRuleResolver{
     Rules: RuleConfig{"demo/related": SeverityWarn},
   }).Run([]*shimast.SourceFile{file}, nil)
-  if err := validateSemanticRuleFindings(RuleConfig{"demo/related": SeverityWarn}, findings); err != nil { t.Fatal(err) }
+  if err := validateSemanticRuleFindings(RuleConfig{"demo/related": SeverityWarn}, findings); err != nil {
+    t.Fatal(err)
+  }
 
   if len(findings) != 1 {
     t.Fatalf("want one finding, got %d", len(findings))
@@ -58,7 +60,9 @@ func TestContributorReportRelatedReachesFinding(t *testing.T) {
   if related[0].Message != "defined over here" {
     t.Fatalf("related message lost: %q", related[0].Message)
   }
-  if findings[0].Message != "flagged" || related[0].Pos != 0 || related[0].End != 12 { t.Fatalf("related diagnostic or source bounds changed: %+v", findings[0]) }
+  if findings[0].Message != "flagged" || related[0].Pos != 0 || related[0].End != 12 {
+    t.Fatalf("related diagnostic or source bounds changed: %+v", findings[0])
+  }
 
   diag := findingToLSPDiagnostic(findings[0])
   if len(diag.RelatedInformation) != 1 {
@@ -74,7 +78,9 @@ func TestContributorReportRelatedReachesFinding(t *testing.T) {
   if entry.Location.Range.Start == entry.Location.Range.End {
     t.Fatalf("related range should be non-empty, got %+v", entry.Location.Range)
   }
-  if entry.Location.URI != "file:///virtual/test.ts" || entry.Location.Range.Start.Line != 0 || entry.Location.Range.Start.Character != 0 || entry.Location.Range.End.Line != 0 || entry.Location.Range.End.Character != 12 { t.Fatalf("literal related URI/range lost: %+v", entry.Location) }
+  if entry.Location.URI != "file:///virtual/test.ts" || entry.Location.Range.Start.Line != 0 || entry.Location.Range.Start.Character != 0 || entry.Location.Range.End.Line != 0 || entry.Location.Range.End.Character != 12 {
+    t.Fatalf("literal related URI/range lost: %+v", entry.Location)
+  }
 }
 
 // relatedContributor reports one finding on the first statement it visits and

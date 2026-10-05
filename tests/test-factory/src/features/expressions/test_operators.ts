@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, print } from "../../internal/helpers";
  * Binary `+` and `===`, prefix `!`, postfix `++`, and the `c ? a : b` ternary,
  * all on a single line when they fit.
  *
- * 1. Representative binary, unary, postfix and conditional expressions retain their chosen operators and operands.
- * 2. Literal a + b, equality, !f, i++ and ternary expectations come from syntax rather than token lookup in the printer.
+ * 1. Representative binary, unary, postfix and conditional expressions retain
+ *    their chosen operators and operands.
+ * 2. Literal a + b, equality, !f, i++ and ternary expectations come from syntax
+ *    rather than token lookup in the printer.
  *
  * @evidence contracts/testing.md#behavioral-verification Representative binary, unary, postfix and conditional expressions retain their chosen operators and operands.
  * @evidence contracts/testing.md#independent-expectations Literal a + b, equality, !f, i++ and ternary expectations come from syntax rather than token lookup in the printer.

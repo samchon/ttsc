@@ -44,9 +44,9 @@ func TestLSPProxyClearsStalePluginDiagnostics(t *testing.T) {
   var first struct {
     Method string `json:"method"`
     Params struct {
-      URI string `json:"uri"`
+      URI         string `json:"uri"`
       Diagnostics []struct {
-        Source string `json:"source"`
+        Source  string `json:"source"`
         Message string `json:"message"`
       } `json:"diagnostics"`
     } `json:"params"`
@@ -64,7 +64,7 @@ func TestLSPProxyClearsStalePluginDiagnostics(t *testing.T) {
   var decoded struct {
     Method string `json:"method"`
     Params struct {
-      URI string `json:"uri"`
+      URI         string            `json:"uri"`
       Diagnostics []json.RawMessage `json:"diagnostics"`
     } `json:"params"`
   }

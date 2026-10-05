@@ -3,7 +3,7 @@
 package evidence
 
 import (
-	"testing"
+  "testing"
 )
 
 /**
@@ -26,24 +26,24 @@ import (
  * @evidence contracts/testing.md#execution-ownership TestALocationIsSpelledTheWayAReaderOpensIt is a Windows-only Go unit entry of package evidence, run by go test on a Windows host. It creates real NTFS directory junctions through linkWindowsPopulationDirectory and drives the rule in-process; it starts no ttsc check, lint sidecar or installed consumer.
  */
 func TestALocationIsSpelledTheWayAReaderOpensIt(t *testing.T) {
-	project := `C:\home\me\project`
-	for _, entry := range []struct {
-		declared string
-		expected string
-	}{
-		{"docs", "docs/requirements/pricing.md"},
-		{"../documents", "../documents/requirements/pricing.md"},
-		{"C:/contracts", "../../../contracts/requirements/pricing.md"},
-		{"D:/contracts", "D:/contracts/requirements/pricing.md"},
-		{"D:/", "D:/requirements/pricing.md"},
-		{"//server/share", "//server/share/requirements/pricing.md"},
-	} {
-		base := resolvePopulationBase(project, entry.declared)
-		if got := base.display("requirements/pricing.md"); got != entry.expected {
-			t.Fatalf("root %q location = %q, want %q", entry.declared, got, entry.expected)
-		}
-		if base.Declared != entry.declared {
-			t.Fatalf("root %q declared = %q", entry.declared, base.Declared)
-		}
-	}
+  project := `C:\home\me\project`
+  for _, entry := range []struct {
+    declared string
+    expected string
+  }{
+    {"docs", "docs/requirements/pricing.md"},
+    {"../documents", "../documents/requirements/pricing.md"},
+    {"C:/contracts", "../../../contracts/requirements/pricing.md"},
+    {"D:/contracts", "D:/contracts/requirements/pricing.md"},
+    {"D:/", "D:/requirements/pricing.md"},
+    {"//server/share", "//server/share/requirements/pricing.md"},
+  } {
+    base := resolvePopulationBase(project, entry.declared)
+    if got := base.display("requirements/pricing.md"); got != entry.expected {
+      t.Fatalf("root %q location = %q, want %q", entry.declared, got, entry.expected)
+    }
+    if base.Declared != entry.declared {
+      t.Fatalf("root %q declared = %q", entry.declared, base.Declared)
+    }
+  }
 }

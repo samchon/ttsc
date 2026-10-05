@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import type { IViteServeCandidateFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/IViteServeCandidateFixture";
 import { assertFixtureDerivesMissingCandidate } from "../../../../internal/unplugin/internal/adapter-vite-serve/assertFixtureDerivesMissingCandidate";
 import { createLinkedWorkspaceFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/createLinkedWorkspaceFixture";
-import type { IViteServeCandidateFixture } from "../../../../internal/unplugin/internal/adapter-vite-serve/IViteServeCandidateFixture";
 import { mainModuleNode } from "../../../../internal/unplugin/internal/adapter-vite-serve/mainModuleNode";
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
 import { requestMainModule } from "../../../../internal/unplugin/internal/adapter-vite-serve/requestMainModule";

@@ -24,10 +24,10 @@ import type createStrip from "../../../../packages/strip/src/index";
  *    `strip.config.ts` and whose parent holds `strip.config.json`.
  * 2. Discover from the nested tsconfig and assert the fourteen probed paths in
  *    native order, the file digest, the directory marker digest and nulls.
- * 3. Re-anchor through `pluginConfigDir` and an absolute `configFile`, and
- *    assert the walk then starts at, or stops on, the named location.
- * 4. Pass a blank configFile and change the selected file's contents, then
- *    verify discovery still applies and the next evaluation sees the new bytes.
+ * 3. Re-anchor through `pluginConfigDir` and an absolute `configFile`, and assert
+ *    the walk then starts at, or stops on, the named location.
+ * 4. Pass a blank configFile and change the selected file's contents, then verify
+ *    discovery still applies and the next evaluation sees the new bytes.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls createStrip without configFile and asserts hostInputs, hostInputHashes and hostInputRealpaths for a two-level walk; the descriptor must stop at the first directory that holds a real config file and must treat the directory-shaped candidate as unread bytes with a marker digest.
  * @evidence contracts/testing.md#independent-expectations Digests are computed with node:crypto over literal bytes and the documented marker string, the candidate order is the authored seven-name list, and the physical target of the directory candidate is the junction target the test created, none of it read back from the factory.

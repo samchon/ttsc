@@ -23,7 +23,8 @@ import { selectResolutionCandidateInputs } from "./selectResolutionCandidateInpu
  * spelling or identity domain.
  *
  * The supplied file identity must come from this state's context. The caller
- * owns memoization of the final ordered array; this operation only constructs it.
+ * owns memoization of the final ordered array; this operation only constructs
+ * it.
  *
  * @evidence contracts/common.md#principled-implementation Separate lexical and physical seen sets preserve alias-sensitive inputs while coalescing realized graph files; completeness narrows graph inputs only when the same file is not declared volatile.
  * @evidence contracts/common.md#clear-and-simple-design Two local append policies make the different equivalence domains explicit, while specialized selectors own dependency, graph, resolver, host and plugin-source selection.

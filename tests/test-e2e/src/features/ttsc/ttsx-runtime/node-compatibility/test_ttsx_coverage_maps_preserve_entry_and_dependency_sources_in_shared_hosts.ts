@@ -33,54 +33,98 @@ import {
  */
 export function test_ttsx_coverage_maps_preserve_entry_and_dependency_sources_in_shared_hosts(): void {
   const options = {
-    target: "ES2022", module: "commonjs", strict: true,
-    sourceMap: true, outDir: "lib", rootDir: "src",
+    target: "ES2022",
+    module: "commonjs",
+    strict: true,
+    sourceMap: true,
+    outDir: "lib",
+    rootDir: "src",
   };
   const files: Record<string, string> = {
     "package.json": JSON.stringify({ private: true }),
-    "tsconfig.json": JSON.stringify({ compilerOptions: options, include: ["src"] }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: options,
+      include: ["src"],
+    }),
     "src/lib.ts": tallCommentLibrarySource(),
     "src/main.ts": [
       'import { used as rootUsed } from "./lib";',
       'import { used as mappedUsed } from "dep-mapped";',
       'import { used as forcedUsed } from "dep-forced";',
-      "rootUsed(); mappedUsed(); forcedUsed();", "",
+      "rootUsed(); mappedUsed(); forcedUsed();",
+      "",
     ].join("\n"),
   };
-  for (const [name, sourceMap] of [["dep-mapped", true], ["dep-forced", false]] as const) {
+  for (const [name, sourceMap] of [
+    ["dep-mapped", true],
+    ["dep-forced", false],
+  ] as const) {
     files[`node_modules/${name}/package.json`] = JSON.stringify({
-      name, version: "1.0.0", exports: { ".": "./src/index.ts" },
+      name,
+      version: "1.0.0",
+      exports: { ".": "./src/index.ts" },
     });
     files[`node_modules/${name}/tsconfig.json`] = JSON.stringify({
-      compilerOptions: { ...options, sourceMap }, include: ["src"],
+      compilerOptions: { ...options, sourceMap },
+      include: ["src"],
     });
     files[`node_modules/${name}/src/index.ts`] = tallCommentLibrarySource();
   }
   const root = TestProject.createProject(files);
   const failures: Error[] = [];
   for (const sourceMap of [true, false]) {
-    fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({
-      compilerOptions: { ...options, sourceMap }, include: ["src"],
-    }));
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { ...options, sourceMap },
+        include: ["src"],
+      }),
+    );
     const run = runTtsxWithCoverage(root, "src/main.ts");
     try {
       assert.equal(run.status, 0, run.stderr);
-    } catch (error) { failures.push(new Error(`root sourceMap=${sourceMap}`, { cause: error })); }
-    for (const relative of ["src/lib.ts", "node_modules/dep-mapped/src/index.ts", "node_modules/dep-forced/src/index.ts"]) {
+    } catch (error) {
+      failures.push(new Error(`root sourceMap=${sourceMap}`, { cause: error }));
+    }
+    for (const relative of [
+      "src/lib.ts",
+      "node_modules/dep-mapped/src/index.ts",
+      "node_modules/dep-forced/src/index.ts",
+    ]) {
       try {
         const script = run.scriptEndingWith(relative.replaceAll("\\", "/"));
         assert.ok(script, `coverage must record ${relative}`);
-        assert.notEqual(script.sourceMap, null, "source-map-cache.data must be present");
+        assert.notEqual(
+          script.sourceMap,
+          null,
+          "source-map-cache.data must be present",
+        );
         const mapped = sourceMapSourcePath(script);
         assert.ok(mapped, "the inlined map must list a source path");
-        assert.equal(physicalRealpath(mapped), physicalRealpath(path.join(root, relative)),
-          "the map must name the original physical TS source");
-        assert.equal(maxFunctionCount(script, "unused"), 0,
-          "the never-called export must record zero executions");
-        assert.ok(maxFunctionCount(script, "used") >= 1,
-          "the called export must record at least one execution");
-      } catch (error) { failures.push(new Error(`sourceMap=${sourceMap}: ${relative}`, { cause: error })); }
+        assert.equal(
+          physicalRealpath(mapped),
+          physicalRealpath(path.join(root, relative)),
+          "the map must name the original physical TS source",
+        );
+        assert.equal(
+          maxFunctionCount(script, "unused"),
+          0,
+          "the never-called export must record zero executions",
+        );
+        assert.ok(
+          maxFunctionCount(script, "used") >= 1,
+          "the called export must record at least one execution",
+        );
+      } catch (error) {
+        failures.push(
+          new Error(`sourceMap=${sourceMap}: ${relative}`, { cause: error }),
+        );
+      }
     }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "runtime coverage map assertions failed");
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "runtime coverage map assertions failed",
+    );
 }

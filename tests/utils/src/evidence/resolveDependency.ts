@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import path from "node:path";
+
 import { suiteRoot } from "./suiteRoot";
 
 /**
@@ -9,8 +10,8 @@ import { suiteRoot } from "./suiteRoot";
  * resolves to a launcher, and what is needed here is the package root.
  */
 export const resolveDependency = (specifier: string): string => {
-  const manifest: string = createRequire(path.join(suiteRoot, "package.json")).resolve(
-    `${specifier}/package.json`,
-  );
+  const manifest: string = createRequire(
+    path.join(suiteRoot, "package.json"),
+  ).resolve(`${specifier}/package.json`);
   return path.dirname(manifest);
 };

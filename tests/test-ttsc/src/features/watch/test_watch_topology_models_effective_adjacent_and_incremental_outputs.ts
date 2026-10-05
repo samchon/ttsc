@@ -383,7 +383,11 @@ async function expectProjectQuiet(
   await delay();
   assert.equal(projectChangeCount(changes), count);
   assert.equal(projectChangeCount(changes), expected);
-  assert.equal(changes.length, expected, "output attention reported another lane");
+  assert.equal(
+    changes.length,
+    expected,
+    "output attention reported another lane",
+  );
 }
 
 async function waitForProjectChange(

@@ -1,22 +1,24 @@
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
-import { TestProject } from "../../../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
 import type { compilerUsesCaseSensitiveFileNames as compilerCaseOperation } from "../../../../../../../packages/ttsc/src/compiler/internal/project/compilerUsesCaseSensitiveFileNames";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+import { TestProject } from "../../../../../../utils/src/TestProject";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
- * Verifies installed compiler resolution agrees with its ordinary volume policy.
+ * Verifies installed compiler resolution agrees with its ordinary volume
+ * policy.
  *
  * The paths source units supply both compiler case authorities through the
  * supported filesystem seam. This connection checks the candidate SDK proxy
  * against a real compiler request on the installation's ordinary temp volume.
- * It observes case-only resolution, rather than reading a private compiler flag;
- * mixed volume and explicitly sensitive Windows directory policies remain outside
- * this fixture.
+ * It observes case-only resolution, rather than reading a private compiler
+ * flag; mixed volume and explicitly sensitive Windows directory policies remain
+ * outside this fixture.
  *
  * 1. Write a lowercase module and a root importing its uppercase spelling.
  * 2. Read the supplied candidate SDK compiler case policy for the private cache.
@@ -37,24 +39,47 @@ export function case_installed_compiler_resolves_case_only_imports_with_its_host
   consumerRoot: string,
 ): void {
   const root = TestProject.tmpdir("ttsc-compiler-case-policy-", consumerRoot);
-  TestProject.retainTemporaryDirectory(root, "installed compiler policy/request has no descendant join acknowledgement");
-  const files = FixtureFiles.read("ttsc/installed_compiler_resolves_case_only_imports_with_its_host_policy/inputs-1");
-  for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(root, name), body, "utf8");
+  TestProject.retainTemporaryDirectory(
+    root,
+    "installed compiler policy/request has no descendant join acknowledgement",
+  );
+  const files = FixtureFiles.read(
+    "ttsc/installed_compiler_resolves_case_only_imports_with_its_host_policy/inputs-1",
+  );
+  for (const [name, body] of Object.entries(files))
+    fs.writeFileSync(path.join(root, name), body, "utf8");
   const cacheDir = path.join(root, "cache");
   const env: NodeJS.ProcessEnv = { ...process.env, TTSC_CACHE_DIR: cacheDir };
   for (const key of Object.keys(env)) {
-    if (["TTSC_BINARY", "TTSC_TSGO_BINARY", "TTSC_NODE_BINARY", "NODE_OPTIONS", "TTSX_RUNTIME_MANIFEST"].includes(key.toUpperCase())) delete env[key];
+    if (
+      [
+        "TTSC_BINARY",
+        "TTSC_TSGO_BINARY",
+        "TTSC_NODE_BINARY",
+        "NODE_OPTIONS",
+        "TTSX_RUNTIME_MANIFEST",
+      ].includes(key.toUpperCase())
+    )
+      delete env[key];
   }
-  const sensitive = compilerUsesCaseSensitiveFileNames({ cacheDir, env, projectRoot: root });
+  const sensitive = compilerUsesCaseSensitiveFileNames({
+    cacheDir,
+    env,
+    projectRoot: root,
+  });
   assert.equal(typeof sensitive, "boolean");
   if (process.platform === "win32") assert.equal(sensitive, false);
   else assert.equal(sensitive, !fs.existsSync(path.join(root, "VALUE.ts")));
-  const result = spawnSync(process.execPath, [ttscBinary, "--cwd", root, "--noEmit"], {
-    cwd: root,
-    env,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+  const result = spawnSync(
+    process.execPath,
+    [ttscBinary, "--cwd", root, "--noEmit"],
+    {
+      cwd: root,
+      env,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   if (sensitive) {
@@ -63,5 +88,8 @@ export function case_installed_compiler_resolves_case_only_imports_with_its_host
   } else {
     assert.equal(result.status, 0, result.stdout + result.stderr);
   }
-  assert.equal(fs.readFileSync(path.join(root, "value.ts"), "utf8"), "export const value = 7;\n");
+  assert.equal(
+    fs.readFileSync(path.join(root, "value.ts"), "utf8"),
+    "export const value = 7;\n",
+  );
 }

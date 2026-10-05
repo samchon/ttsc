@@ -64,7 +64,9 @@ func runBuild(args []string) (status int) {
   _ = flags.Bool("verbose", false, "")
   _ = flags.Bool("noEmit", false, "")
   outDir := flags.String("outDir", "dist", "")
-  if err := flags.Parse(args); err != nil { return 2 }
+  if err := flags.Parse(args); err != nil {
+    return 2
+  }
   if *provenancePath != "" && !filepath.IsAbs(*provenancePath) {
     fmt.Fprintln(os.Stderr, "go-source-plugin: emit provenance path must be absolute")
     return 2
@@ -73,27 +75,45 @@ func runBuild(args []string) (status int) {
   if root == "" {
     var err error
     root, err = os.Getwd()
-    if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }
+    if err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      return 2
+    }
   }
   config := *tsconfig
-  if config == "" { config = filepath.Join(root, "tsconfig.json") }
+  if config == "" {
+    config = filepath.Join(root, "tsconfig.json")
+  }
   plugins, err := parsePlugins(*pluginsJSON)
-  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
   prog, diagnostics, err := driver.LoadProgram(root, config, driver.LoadProgramOptions{
     ForceEmit: true, OutDir: *outDir,
     SourcePreamble: "declare function goUpper(value: string): string;\n",
   })
-  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }
-  if len(diagnostics) != 0 { driver.WritePrettyDiagnostics(os.Stderr, diagnostics, root); return 2 }
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  if len(diagnostics) != 0 {
+    driver.WritePrettyDiagnostics(os.Stderr, diagnostics, root)
+    return 2
+  }
   defer prog.Close()
   publish := writeEmittedFile
   if *provenancePath != "" {
     var snapshot func() map[string][]string
     publish, snapshot, err = prog.NewEmitProvenanceRecorder(writeEmittedFile)
-    if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }
+    if err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      return 2
+    }
     defer func() {
       if err := driver.WriteEmitProvenanceJSON(*provenancePath, snapshot()); err != nil {
-        fmt.Fprintln(os.Stderr, err); status = 2
+        fmt.Fprintln(os.Stderr, err)
+        status = 2
       }
     }()
   }
@@ -102,12 +122,17 @@ func runBuild(args []string) (status int) {
   transformPlugin := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
-      if node == nil { return nil }
+      if node == nil {
+        return nil
+      }
       if node.Kind == shimast.KindCallExpression {
         call := node.AsCallExpression()
         if call.Expression.Kind == shimast.KindIdentifier && call.Expression.Text() == "goUpper" && call.Arguments != nil && len(call.Arguments.Nodes) == 1 && call.Arguments.Nodes[0].Kind == shimast.KindStringLiteral {
           value, err := transformValue(call.Arguments.Nodes[0].Text(), plugins)
-          if err != nil { transformError = err; return node }
+          if err != nil {
+            transformError = err
+            return node
+          }
           return ec.Factory.NewStringLiteral(value, 0)
         }
       }
@@ -120,17 +145,28 @@ func runBuild(args []string) (status int) {
     pending[name] = text
     return nil
   })
-  if err != nil { fmt.Fprintln(os.Stderr, err); return 2 }
-  if transformError != nil { fmt.Fprintln(os.Stderr, transformError); return 2 }
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  if transformError != nil {
+    fmt.Fprintln(os.Stderr, transformError)
+    return 2
+  }
   driver.WritePrettyDiagnostics(os.Stderr, emitDiagnostics, root)
   for name, text := range pending {
-    if err := publish(name, text, nil); err != nil { fmt.Fprintln(os.Stderr, err); return 2 }
+    if err := publish(name, text, nil); err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      return 2
+    }
   }
   return 0
 }
 
 func writeEmittedFile(name, text string, _ *shimcompiler.WriteFileData) error {
-  if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil { return err }
+  if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+    return err
+  }
   return os.WriteFile(name, []byte(text), 0o644)
 }
 

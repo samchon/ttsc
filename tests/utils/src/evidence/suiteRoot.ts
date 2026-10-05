@@ -8,4 +8,10 @@ import path from "node:path";
  * whether the suite is driven from the repository root or from its own
  * package.
  */
-export const suiteRoot: string = path.resolve(import.meta.dirname, "..", "..", "..", "test-e2e");
+export const suiteRoot: string = path.resolve(
+  import.meta.dirname,
+  "..",
+  "..",
+  "..",
+  "test-e2e",
+);

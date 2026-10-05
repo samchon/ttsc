@@ -1,5 +1,5 @@
-import { disposeCachedTransform } from "./disposeCachedTransform";
 import type { TtscTransformCache } from "./TtscTransformCache";
+import { disposeCachedTransform } from "./disposeCachedTransform";
 
 /**
  * Withdraw every generation while preserving the host's current delivery pass.

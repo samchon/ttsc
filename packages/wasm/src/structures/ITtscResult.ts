@@ -23,15 +23,21 @@ export interface ITtscResult {
   /** Exit code. 0 = success, 2 = compiler/config/usage error, 3 = runtime error. */
   code: number;
 
-  /** Invocation-owned plugin stdout; project/query endpoints use an empty string. */
+  /**
+   * Invocation-owned plugin stdout; project/query endpoints use an empty
+   * string.
+   */
   stdout: string;
 
-  /** Plugin stderr or a project/query failure message; distinct from host.stderr capture. */
+  /**
+   * Plugin stderr or a project/query failure message; distinct from host.stderr
+   * capture.
+   */
   stderr: string;
 
   /**
-   * For project and snapshot endpoints, the JSON-encoded structured result. For the
-   * plugin endpoint, this is empty. The plugin's own output sits in
+   * For project and snapshot endpoints, the JSON-encoded structured result. For
+   * the plugin endpoint, this is empty. The plugin's own output sits in
    * stdout/stderr. Use `parseResult<T>` to deserialize.
    */
   result: string;

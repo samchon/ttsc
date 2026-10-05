@@ -2,23 +2,26 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TestProject } from "../../../../utils/src/TestProject";
-import { readCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/readCapabilityResolution";
-import { writeCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/writeCapabilityResolution";
 import { hashHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/hashHostInputPaths";
 import { realpathHostInputPaths } from "../../../../../packages/ttsc/src/plugin/internal/load/realpathHostInputPaths";
+import { readCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/readCapabilityResolution";
 import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceState";
+import { writeCapabilityResolution } from "../../../../../packages/ttsc/src/plugin/internal/writeCapabilityResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies capability-cache source proof trusts a digest only while metadata holds.
+ * Verifies capability-cache source proof trusts a digest only while metadata
+ * holds.
  *
  * Corrupting only the stored digest distinguishes metadata reuse from a fresh
  * content reading: unchanged metadata must refuse that digest, whereas moved
- * metadata must reread the unchanged source bytes and accept their recorded state.
+ * metadata must reread the unchanged source bytes and accept their recorded
+ * state.
  *
  * 1. Copy package-owned source inputs, settle their timestamps and record a hit.
  * 2. Corrupt the stored digest while retaining its signature and require a miss.
- * 3. Rewrite identical bytes to move metadata, corrupt the digest and require a hit.
+ * 3. Rewrite identical bytes to move metadata, corrupt the digest and require a
+ *    hit.
  * 4. Edit source bytes after a valid record and require a miss.
  *
  * @evidence contracts/testing.md#behavioral-verification Direct writeCapabilityResolution/readCapabilityResolution calls execute actual source-state and metadata proof. The original unchanged-hit, corrupted-digest miss, moved-metadata hit and changed-byte miss all remain, including stored-signature assertions.
@@ -34,19 +37,41 @@ export function test_capabilityresolutioncache_reads_plugin_sources_only_when_th
   const tsconfig = path.join(cwd, "tsconfig.json");
   fs.writeFileSync(tsconfig, "{}");
   fs.writeFileSync(binary, "binary");
-  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit",
-    "capabilityresolutioncache_reads_plugin_sources_only_when_their_metadata_moved", "inputs-1"), module);
-  for (const parts of [["cmd", "plugin", "main.go"], ["internal", "mark", "mark.go"]]) {
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "unit",
+      "capabilityresolutioncache_reads_plugin_sources_only_when_their_metadata_moved",
+      "inputs-1",
+    ),
+    module,
+  );
+  for (const parts of [
+    ["cmd", "plugin", "main.go"],
+    ["internal", "mark", "mark.go"],
+  ]) {
     const file = path.join(module, ...parts);
     fs.renameSync(`${file}.txt`, file);
   }
-  const files = [path.join(module, "go.mod"), path.join(module, "cmd", "plugin", "main.go"),
-    path.join(module, "internal", "mark", "mark.go")];
+  const files = [
+    path.join(module, "go.mod"),
+    path.join(module, "cmd", "plugin", "main.go"),
+    path.join(module, "internal", "mark", "mark.go"),
+  ];
   const settle = (): void => {
     const past = new Date(Date.now() - 3_600_000);
     for (const file of files) fs.utimesSync(file, past, past);
   };
-  const key = { cwd, env: { TTSC_CACHE_DIR: cache }, tsconfig: "tsconfig.json", version: "1.2.3" };
+  const key = {
+    cwd,
+    env: { TTSC_CACHE_DIR: cache },
+    tsconfig: "tsconfig.json",
+    version: "1.2.3",
+  };
   const record = (): void => {
     writeCapabilityResolution(key, {
       hostInputHashes: hashHostInputPaths([tsconfig]),
@@ -61,7 +86,9 @@ export function test_capabilityresolutioncache_reads_plugin_sources_only_when_th
   const answers = (): boolean => readCapabilityResolution(key) !== null;
   const misrecord = (): void => {
     const directory = path.join(cache, "capabilities");
-    const entries = fs.readdirSync(directory).filter((name) => name.endsWith(".json"));
+    const entries = fs
+      .readdirSync(directory)
+      .filter((name) => name.endsWith(".json"));
     assert.equal(entries.length, 1, "exactly one authored cache entry");
     const file = path.join(directory, entries[0]!);
     const entry = JSON.parse(fs.readFileSync(file, "utf8")) as {
@@ -70,7 +97,11 @@ export function test_capabilityresolutioncache_reads_plugin_sources_only_when_th
     const source = entry.pluginSources[module]!;
     assert.equal(typeof source.signature, "string", "a signature was kept");
     const differentDigest = "0".repeat(64);
-    assert.notEqual(source.digest, differentDigest, "the corruption changes the observed digest");
+    assert.notEqual(
+      source.digest,
+      differentDigest,
+      "the corruption changes the observed digest",
+    );
     source.digest = differentDigest;
     fs.writeFileSync(file, JSON.stringify(entry), "utf8");
   };
@@ -78,7 +109,11 @@ export function test_capabilityresolutioncache_reads_plugin_sources_only_when_th
   record();
   assert.equal(answers(), true);
   misrecord();
-  assert.equal(answers(), false, "unchanged metadata must trust and refuse the corrupted digest");
+  assert.equal(
+    answers(),
+    false,
+    "unchanged metadata must trust and refuse the corrupted digest",
+  );
   settle();
   record();
   assert.equal(answers(), true, "the entry holds before its metadata moves");

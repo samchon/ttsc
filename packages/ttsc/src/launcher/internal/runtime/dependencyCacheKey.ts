@@ -3,10 +3,11 @@ import crypto from "node:crypto";
 /**
  * Derive a dependency build address within its owning run or process cache.
  *
- * A key addresses one build context: a dependency project's whole file set, or with
- * `options.root` one TypeScript root that project's file set does not contain,
- * compiled alone through its options. Their encodings differ, but the returned
- * 64-bit truncated digest is not a collision-free generation identity.
+ * A key addresses one build context: a dependency project's whole file set, or
+ * with `options.root` one TypeScript root that project's file set does not
+ * contain, compiled alone through its options. Their encodings differ, but the
+ * returned 64-bit truncated digest is not a collision-free generation
+ * identity.
  *
  * Compiler identity is supplied by the build coordinator after inspecting the
  * actual executable; an unavailable proof uses a fresh identity there.
@@ -51,7 +52,9 @@ export function dependencyCacheKey(
       .update("\0runtime-es2025")
       .update("\0private-output-volume-root-v1")
       .update(`\0compiler:${options.compilerIdentity ?? ""}`)
-      .update(options.plugins === false ? "\0plugins:disabled" : "\0plugins:discover")
+      .update(
+        options.plugins === false ? "\0plugins:disabled" : "\0plugins:discover",
+      )
       .update(options.root === undefined ? "" : `\0root:${options.root}`)
       // Descriptor evaluation promises a result bound to this process's exact
       // input observations. Reusing an emit another evaluator built can pair

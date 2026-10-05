@@ -53,9 +53,6 @@ const packCache = new Map<string, RuntimePackEntry>();
  *   rejection eviction and network waiting policy. Those reasons follow the
  *   documentation skill, and ILoadTypiaRuntimePackOptions documents the
  *   cancellation scope.
- *
- *
- *
  */
 export function loadTypiaRuntimePack(
   url: string,
@@ -99,7 +96,9 @@ export function loadTypiaRuntimePack(
       Array.isArray(pack) ||
       !Object.values(pack).every((value) => typeof value === "string")
     ) {
-      throw new Error("loadTypiaRuntimePack: expected a source-text record map.");
+      throw new Error(
+        "loadTypiaRuntimePack: expected a source-text record map.",
+      );
     }
     return pack as Record<string, string>;
   })()

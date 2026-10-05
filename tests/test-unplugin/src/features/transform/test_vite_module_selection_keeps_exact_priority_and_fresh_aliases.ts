@@ -1,20 +1,20 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { selectModulesByFile } from "../../../../../packages/unplugin/src/core/vite/selectModulesByFile";
 import type { ViteModuleGraphLike } from "../../../../../packages/unplugin/src/core/vite/ViteModuleGraphLike";
 import type { ViteModuleNodeLike } from "../../../../../packages/unplugin/src/core/vite/ViteModuleNodeLike";
+import { selectModulesByFile } from "../../../../../packages/unplugin/src/core/vite/selectModulesByFile";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Selects exact host nodes before identity fallback, and observes directory
  * alias changes in the next selection rather than retaining the old target.
  *
- * Real files and two directory links establish shared native targets. Empty
- * and missing exact answers retain every authored node registered for the
- * matching target, without admitting another file or a previous target after
- * the query's link moves. No Vite server or installed consumer runs.
+ * Real files and two directory links establish shared native targets. Empty and
+ * missing exact answers retain every authored node registered for the matching
+ * target, without admitting another file or a previous target after the query's
+ * link moves. No Vite server or installed consumer runs.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls selectModulesByFile with populated, empty and undefined host lookup answers and an absent lookup capability. Asserts exact-node priority, all matching physical/link nodes, unrelated exclusion, fresh retargeted selection and empty absent-map output; node object identities are preserved.
  * @evidence contracts/testing.md#independent-expectations Native realpath independently establishes the two links' targets before each relevant call. Expected node arrays are authored literals attached to those files; no product identity resolver generates the oracle. The host's populated exact set is authoritative even when fallback would return different nodes.

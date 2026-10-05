@@ -4,21 +4,18 @@
  *
  * A release that throws from a `finally` block replaced whatever the work
  * produced: a build that had published its binary failed, and a build that had
- * failed reported the release's error instead of its own.
- * The work's value is returned and its error is thrown as they were. A release
- * that still fails goes to `onReleaseFailure`. This adapter does not establish
- * whether release completed; the caller's lock protocol owns any later
- * abandoned-generation recovery.
+ * failed reported the release's error instead of its own. The work's value is
+ * returned and its error is thrown as they were. A release that still fails
+ * goes to `onReleaseFailure`. This adapter does not establish whether release
+ * completed; the caller's lock protocol owns any later abandoned-generation
+ * recovery.
  *
  * @param work Synchronous work under the lock. Returning a Promise does not
  *   extend lock ownership until that Promise settles.
  * @param release Frees the lock.
  * @param onReleaseFailure Receives a release's error, which it must not throw.
- *
  * @returns What `work` returned.
- *
  * @throws What `work` threw.
- *
  * @evidence contracts/common.md#principled-implementation Both synchronous success and failure attempt release before preserving the original outcome; the release reporter must not throw, and asynchronous work is outside this lock-lifetime contract.
  * @evidence contracts/common.md#clear-and-simple-design One outcome branch and a shared release-reporting helper expose the ownership transition without wrapping successful results in another protocol.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Real release failures are reported rather than converted into a fabricated build failure or success; no foreign release method is replaced.

@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 import { num } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { num } from "../../internal/helpers";
  * Under a very small `printWidth`, even a short array or single-property object
  * is forced to break.
  *
- * 1. Small width alone forces arrays and objects into their expected multiline layouts.
- * 2. Explicit broken source lines independently fix elements, properties, commas and indentation.
+ * 1. Small width alone forces arrays and objects into their expected multiline
+ *    layouts.
+ * 2. Explicit broken source lines independently fix elements, properties, commas
+ *    and indentation.
  *
  * @evidence contracts/testing.md#behavioral-verification Small width alone forces arrays and objects into their expected multiline layouts.
  * @evidence contracts/testing.md#independent-expectations Explicit broken source lines independently fix elements, properties, commas and indentation.

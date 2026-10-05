@@ -29,15 +29,14 @@ import { selectionInputs } from "./selectionInputs";
  * whose inputs are exactly what a failed envelope of that attempt would
  * register. Any other rejection has no generation to describe; the delivery
  * then registers its known selected config along with reported routing inputs.
- * An explicit project has no discovery history, but its config must still
- * reach recovery callbacks. These registrations provide a config-edit recovery
+ * An explicit project has no discovery history, but its config must still reach
+ * recovery callbacks. These registrations provide a config-edit recovery
  * channel; they do not claim the unknown compiler input closure is complete.
  *
  * @param file The delivered module, as the host spelled it.
  * @param selection The configs that routed the file to its project, and the
  *   project's tsconfig, which spells the project for a rejection that has no
  *   generation to spell it.
- *
  * @evidence contracts/common.md#principled-implementation An unstable attempt delegates its retained validation generation to normal failed delivery. A generation-free rejection registers the already-selected config as well as reported routing dependencies, including empty explicit-discovery history; current recovery facts do not manufacture compiler output or claim an unknown complete closure.
  * @evidence contracts/common.md#clear-and-simple-design The unstable branch delegates generation recovery, while the generation-free branch has one routing batch shared by record and module callbacks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The selected config comes from actual project selection, not a guessed dependency. Existing project records gain no newly accepted digest; absent records request a supplied volatility callback rather than inventing persistence or guaranteeing a host cache effect.
@@ -74,11 +73,7 @@ export function notifyRejectedGenerationInputs(
     file,
   );
   const consulted = [...new Set([...selection.consulted, selection.tsconfig])];
-  const inputs = selectionInputs(
-    consulted,
-    selection.filesystem,
-    spell,
-  );
+  const inputs = selectionInputs(consulted, selection.filesystem, spell);
   // A generation the adapter rejected has no state to record beyond the
   // known selected config and reported routing names: a build host keeps its last
   // generation wrote, which its bridge moves when the selection changes. A

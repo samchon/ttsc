@@ -19,9 +19,9 @@ import { spawnGoTool } from "./spawnGoTool";
  * outside target supplies a separate source population: the cache key digests
  * it, the load reports its state among `pluginSources`, and a watch observes
  * it. buildSourcePlugin snapshots and proves that target's copy, then anchors
- * the replacement to the copy before compiling. A relative target also has to resolve from the module's
- * own directory, as it does for `go build` there, and not from the scratch copy
- * the build runs in.
+ * the replacement to the copy before compiling. A relative target also has to
+ * resolve from the module's own directory, as it does for `go build` there, and
+ * not from the scratch copy the build runs in.
  *
  * The directives are read through `go mod edit -json`, Go's own reading of
  * `go.mod`, not a copy of its grammar. Only the main module's directives count,

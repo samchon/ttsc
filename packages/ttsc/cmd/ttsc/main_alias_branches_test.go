@@ -13,10 +13,10 @@ import (
 // call runs from an owned empty directory and requires the missing default
 // config cause; project.cts remains a positional operand, not a config selector.
 //
-// 1. Prepare the literal project.cts argument through the real dispatcher preparation.
-// 2. Assert build kind, unchanged singleton argv and successful empty-stream preparation.
-// 3. Run the original argv from an empty owned cwd and require status two plus
-//    the default-config absence cause.
+//  1. Prepare the literal project.cts argument through the real dispatcher preparation.
+//  2. Assert build kind, unchanged singleton argv and successful empty-stream preparation.
+//  3. Run the original argv from an empty owned cwd and require status two plus
+//     the default-config absence cause.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual prepareCommandInvocation selects commandBuild and preserves literal project.cts argv with status zero and empty streams. The full run from an owned empty cwd returns status two and reports tsconfig not found, not inspection of project.cts.
 // @evidence contracts/testing.md#independent-expectations Literal build-kind, singleton project.cts and empty preparation streams distinguish alias selection from unknown-command status two. The owned empty cwd independently supplies default-config absence; status two and the literal missing-config cause distinguish that failure without certifying a .cts-file inspection.

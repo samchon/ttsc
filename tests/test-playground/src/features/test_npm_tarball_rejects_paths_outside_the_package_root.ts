@@ -13,6 +13,7 @@ import { createPaxRecord, createTarball } from "../internal/tarball";
  * 1. Exercise unsafe direct, PAX, and GNU long-name spellings.
  * 2. Mix two individually safe top-level roots in one archive.
  * 3. Assert every form rejects before an unpacked file map is returned.
+ *
  * @evidence contracts/testing.md#behavioral-verification unpackNpmTarball rejects parent/absolute/drive/backslash/dot/drive-relative header paths, traversal from PAX/GNU overrides and two individually safe but inconsistent roots before returning a file map.
  * @evidence contracts/testing.md#independent-expectations Authored unsafe spellings and differing package/other roots specify confinement independently of parser output; each archive contains populated bad or safe bytes rather than relying on absent fixture files.
  * @evidence contracts/testing.md#distinguishing-cases Six named direct-header rows plus PAX, GNU long-name and mixed-root controls preserve separate rejection identities; safe nonstandard-root acceptance belongs to the neighboring unit.

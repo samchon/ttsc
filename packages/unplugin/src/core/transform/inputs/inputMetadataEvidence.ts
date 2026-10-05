@@ -4,8 +4,8 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import type { TtscInputMetadataEvidence } from "./TtscInputMetadataEvidence";
 
 /**
- * Observe lexical-link and target metadata together with clock separability.
- * An unavailable link target retains a missing-target signature and cannot
+ * Observe lexical-link and target metadata together with clock separability. An
+ * unavailable link target retains a missing-target signature and cannot
  * authorize notification-only or metadata-only reuse. Unavailable lexical
  * metadata returns undefined rather than representing a proven missing input.
  *

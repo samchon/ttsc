@@ -14,18 +14,17 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * Given operands `a` and `b`, the printer emits:
  *
  * ```ts
- * a > b
+ * a > b;
  * ```
- *
- * @evidence contracts/common.md#principled-implementation GreaterThanToken preserves ordered relational operands; the emitted language determines comparison semantics rather than this syntax builder.
- * @evidence contracts/common.md#clear-and-simple-design A single binary-builder call owns operator selection, reusing the common comparison outline.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The greater-than token is the requested relation, not a guessed ordering result or consumer-specific branch.
- * @evidence contracts/common.md#meaningful-documentation Native prose names the comparison and operand positions, with expression example and tags separated following documentation guidance. The sentence on keeping the right operand on the operator line states the layout limit.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.
  * @param right The right-hand operand.
  * @returns The created {@link BinaryExpression}.
+ * @evidence contracts/common.md#principled-implementation GreaterThanToken preserves ordered relational operands; the emitted language determines comparison semantics rather than this syntax builder.
+ * @evidence contracts/common.md#clear-and-simple-design A single binary-builder call owns operator selection, reusing the common comparison outline.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The greater-than token is the requested relation, not a guessed ordering result or consumer-specific branch.
+ * @evidence contracts/common.md#meaningful-documentation Native prose names the comparison and operand positions, with expression example and tags separated following documentation guidance. The sentence on keeping the right operand on the operator line states the layout limit.
  */
 export const createGreaterThan = (
   left: Expression,

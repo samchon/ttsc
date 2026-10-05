@@ -21,7 +21,6 @@ import { projectRecordDigest } from "./projectRecordDigest";
  * @returns The intended text's digest (`projectRecordDigest`) after equal-byte
  *   observation or successful write. A concurrent writer can change the file
  *   before return; no read-back or exclusive-writer guarantee is supplied.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Sorted JSON keys make equivalent record states byte-identical; an exact
  *   existing-byte comparison suppresses no-op writes. In-place updates preserve

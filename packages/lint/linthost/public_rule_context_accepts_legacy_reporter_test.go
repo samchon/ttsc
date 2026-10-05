@@ -29,14 +29,16 @@ func TestPublicRuleContextAcceptsLegacyReporter(t *testing.T) {
   if reporter.ranges != 1 {
     t.Fatalf("legacy reporter should receive ReportRange fallback, got %d", reporter.ranges)
   }
-  if reporter.reports != 0 || reporter.lastPos != 1 || reporter.lastEnd != 2 || reporter.lastMessage != "message" { t.Fatalf("legacy range payload lost: %+v", reporter) }
+  if reporter.reports != 0 || reporter.lastPos != 1 || reporter.lastEnd != 2 || reporter.lastMessage != "message" {
+    t.Fatalf("legacy range payload lost: %+v", reporter)
+  }
 }
 
 type legacyReporter struct {
-  ranges int
-  reports int
-  lastPos int
-  lastEnd int
+  ranges      int
+  reports     int
+  lastPos     int
+  lastEnd     int
   lastMessage string
 }
 

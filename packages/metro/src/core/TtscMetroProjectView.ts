@@ -1,6 +1,6 @@
 import type {
-  readProjectMembershipPolicy,
   TtscWatchInput,
+  readProjectMembershipPolicy,
 } from "@ttsc/unplugin/api";
 
 /**

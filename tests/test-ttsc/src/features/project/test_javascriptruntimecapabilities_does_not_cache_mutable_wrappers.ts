@@ -11,14 +11,17 @@ import { javascriptRuntimeCapabilities } from "../../../../../packages/ttsc/src/
  * The first call-local environment selects real Node; the second selects an
  * authored Node script reporting Bun-shaped data. The wrapper's own bytes and
  * mode stay unchanged, so its identity alone cannot authorize cached features.
- * This does not execute Bun or establish process-death/cache-eviction behavior.
+ * This does not execute Bun or establish process-death/cache-eviction
+ * behavior.
  *
  * @evidence contracts/testing.md#behavioral-verification Directly invokes javascriptRuntimeCapabilities twice through the original stable POSIX wrapper, observing real Node false/true features then authored Bun-shaped true/false features. Independent wrapper-byte/mode observations retain the mutable-environment cache premise.
  * @evidence contracts/testing.md#independent-expectations Literal original shell/script bytes and call-local TTSC_TEST_RUNTIME_TARGET values select the actual Node executable or authored alternate response. Expected flags and reported executable paths belong to those targets, not the cache implementation; the alternate is not certified as real Bun.
  * @evidence contracts/testing.md#distinguishing-cases Changes only the selected target environment while retaining the wrapper path, bytes and 0755 mode. Both actual probe results have independent feature/path observations. The original Windows return false is preserved and the existing generic unit executor reports SKIPPED with no behavioral coverage, rather than PASS.
  * @evidence contracts/testing.md#execution-ownership This named project source unit imports the actual probe owner; its synchronous native subprocesses execute the shell wrapper and selected Node targets without an installation, compiler, Go build, product host or foreign replacement. Environments are call-local copies, private-root cleanup failures are aggregated and owning probe fallback/cache retention remains production-owned. Body existence does not establish runtime, selection or native-child outcomes.
  */
-export function test_javascriptruntimecapabilities_does_not_cache_mutable_wrappers(): void | false {
+export function test_javascriptruntimecapabilities_does_not_cache_mutable_wrappers():
+  | void
+  | false {
   if (process.platform === "win32") return false;
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "ttsc-runtime-wrapper-capability-"),

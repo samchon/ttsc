@@ -3,21 +3,21 @@
  * `jsconfig.json`, by the grammar TypeScript-Go reads one with.
  *
  * This parser models the compiler's config literal grammar: comments that end
- * at any ECMAScript line terminator (`\n`, `\r`, U+2028, U+2029), every character it
- * counts as whitespace (a byte-order mark, a no-break space, the Unicode space
- * separators), trailing commas, hexadecimal, octal, binary, fractional and
- * separated numbers, valid string escapes, and a file holding no value at
- * all, which reads as an empty object. It rejects:
- * a key or string that is not double-quoted (TS1327), a value that is not a
- * literal (TS1328), a legacy octal number (TS1121), a missing comma, and text
- * after the root value. Legacy octal and decimal string escapes and malformed
- * hexadecimal or Unicode escapes are rejected because the compiler scanner
- * reports them, even when it constructs a recovery string. Raw U+2028/U+2029
- * remain string data; escaped line terminators continue the string. Returned
- * objects preserve their authored keys, including an empty key and `__proto__`;
- * this is not a reproduction of the compiler's recovery AST projection or
- * diagnostic messages. Comment stripping over `JSON.parse` would reject the
- * supported non-JSON literal forms.
+ * at any ECMAScript line terminator (`\n`, `\r`, U+2028, U+2029), every
+ * character it counts as whitespace (a byte-order mark, a no-break space, the
+ * Unicode space separators), trailing commas, hexadecimal, octal, binary,
+ * fractional and separated numbers, valid string escapes, and a file holding no
+ * value at all, which reads as an empty object. It rejects: a key or string
+ * that is not double-quoted (TS1327), a value that is not a literal (TS1328), a
+ * legacy octal number (TS1121), a missing comma, and text after the root value.
+ * Legacy octal and decimal string escapes and malformed hexadecimal or Unicode
+ * escapes are rejected because the compiler scanner reports them, even when it
+ * constructs a recovery string. Raw U+2028/U+2029 remain string data; escaped
+ * line terminators continue the string. Returned objects preserve their
+ * authored keys, including an empty key and `__proto__`; this is not a
+ * reproduction of the compiler's recovery AST projection or diagnostic
+ * messages. Comment stripping over `JSON.parse` would reject the supported
+ * non-JSON literal forms.
  *
  * The one reading of that grammar in the workspace. ttsc's own project reader
  * reads every config through it (`readJsoncFile`), and `@ttsc/unplugin` reads
@@ -27,11 +27,8 @@
  * treating CRLF as one line end and recognizing U+2028/U+2029 line ends.
  *
  * @param input The file's text as read.
- *
  * @returns The parsed value.
- *
  * @throws A `SyntaxError` naming the position of text that is not a config.
- *
  * @evidence contracts/common.md#principled-implementation Recursive descent follows the compiler config's literal, trivia and comma grammar; explicit property definition preserves __proto__ as data, and JavaScript Number represents numeric values rather than preserving arbitrary-precision source spelling. Error positions count the original UTF-16 text and ECMAScript line terminators.
  * @evidence contracts/common.md#clear-and-simple-design One cursor owns token consumption and positioned failures, while bounded lexical helpers handle strings, numbers and trivia. Public parsing returns a fresh value; filesystem attribution and object-root validation remain reader responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The parser implements the supported compiler grammar directly instead of stripping comments into a narrower JSON grammar or accepting particular config filenames and fixture values.

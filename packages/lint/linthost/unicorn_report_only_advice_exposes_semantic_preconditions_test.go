@@ -20,8 +20,8 @@ import (
 func TestUnicornReportOnlyAdviceExposesSemanticPreconditions(t *testing.T) {
   cases := []struct {
     rule, source string
-    warnings []string
-    reverse bool
+    warnings     []string
+    reverse      bool
   }{
     {"unicorn/prefer-regexp-test", "const r=/a/g; r.lastIndex=1; if ('a'.match(r)) {}", []string{"method identity", "global/sticky `lastIndex`"}, false},
     {"unicorn/prefer-regexp-test", "if (/a/.exec(text)) {}", []string{"method identity", "global/sticky `lastIndex`"}, false},
@@ -31,11 +31,17 @@ func TestUnicornReportOnlyAdviceExposesSemanticPreconditions(t *testing.T) {
   for _, c := range cases {
     t.Run(c.source, func(t *testing.T) {
       _, _, findings := runRuleFindingsSnapshot(t, c.rule, c.source, nil)
-      if len(findings) != 1 { t.Fatalf("want one review finding, got %+v", findings) }
-      for _, warning := range c.warnings {
-        if !strings.Contains(findings[0].Message, warning) { t.Fatalf("missing %q in %q", warning, findings[0].Message) }
+      if len(findings) != 1 {
+        t.Fatalf("want one review finding, got %+v", findings)
       }
-      if strings.Contains(findings[0].Message, "Reverse the call argument groups") != c.reverse { t.Fatalf("wrong ordering advice: %q", findings[0].Message) }
+      for _, warning := range c.warnings {
+        if !strings.Contains(findings[0].Message, warning) {
+          t.Fatalf("missing %q in %q", warning, findings[0].Message)
+        }
+      }
+      if strings.Contains(findings[0].Message, "Reverse the call argument groups") != c.reverse {
+        t.Fatalf("wrong ordering advice: %q", findings[0].Message)
+      }
       assertReportOnlySnapshot(t, c.rule, c.source)
     })
   }

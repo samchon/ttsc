@@ -17,8 +17,8 @@ import { openBrokeredWatch } from "../transform/tracker/broker/openBrokeredWatch
  * through the same registration (`openBrokeredWatch`) with a sink of their own
  * that forwards events (samchon/ttsc#1485). Attributed events reach `listener`
  * with a joined caller-directory path; unattributed events use null. A failed
- * registration reaches
- * `onError`, which hands the scope's entries to the bounded poll.
+ * registration reaches `onError`, which hands the scope's entries to the
+ * bounded poll.
  *
  * Registration completes asynchronously, and FSEvents can later drop events
  * (samchon/ttsc#1425). Until the broker confirms the watch, and whenever it
@@ -34,7 +34,6 @@ import { openBrokeredWatch } from "../transform/tracker/broker/openBrokeredWatch
  *   broker may then prove the scope's stream delivered, through a probe below
  *   the project's tool cache (samchon/ttsc#1453). An external scope names
  *   none.
- *
  * @evidence contracts/common.md#principled-implementation Broker isolation contains native watcher failures; opening confirmation and gaps trigger rechecks rather than authorizing unchanged inputs silently.
  * @evidence contracts/common.md#clear-and-simple-design One registration forwards events and failures while the input observer owns conditions, polling, and consumer actions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The owned broker protocol does not patch native methods, and dropped events cannot become freshness proof.

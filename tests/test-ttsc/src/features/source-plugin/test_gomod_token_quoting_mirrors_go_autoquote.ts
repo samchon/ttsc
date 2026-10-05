@@ -9,8 +9,8 @@ import { formatGoWorkPath } from "../../../../../packages/ttsc/src/plugin/intern
  * `writeGoWork` emits `use`/`replace` paths into a `go.work` whose grammar
  * (`golang.org/x/mod/modfile`) is whitespace-tokenized, so a path containing a
  * space — a home directory like `/Users/John Smith/...` — must be quoted or
- * `go` cannot parse it (#394). `formatGoWorkPath`/`autoQuoteGoModToken`
- * apply modfile's ASCII delimiter/comment rules and Go escape spellings to the
+ * `go` cannot parse it (#394). `formatGoWorkPath`/`autoQuoteGoModToken` apply
+ * modfile's ASCII delimiter/comment rules and Go escape spellings to the
  * literal inputs below. JavaScript runtime Unicode categories do not certify
  * identity with every Go toolchain's Unicode tables, and malformed UTF-16 is
  * not covered by a Go-decoding round-trip guarantee. This corpus uses valid
@@ -20,7 +20,8 @@ import { formatGoWorkPath } from "../../../../../packages/ttsc/src/plugin/intern
  *    authored quote triggers and escape forms.
  * 2. Feed the explicit Windows grammar paths with and without spaces.
  * 3. Contrast POSIX literal backslashes and check the native default grammar.
- * 4. Assert each output equals the literal authored from Go's modfile quoting rules (the Go toolchain is not run).
+ * 4. Assert each output equals the literal authored from Go's modfile quoting
+ *    rules (the Go toolchain is not run).
  *
  * @evidence contracts/testing.md#behavioral-verification Calls authored autoQuoteGoModToken and formatGoWorkPath; literal output assertions detect invalid workspace tokens and incorrect Go escape sequences.
  * @evidence contracts/testing.md#independent-expectations Each expected string is an authored literal following the documented delimiter/comment behavior of golang.org/x/mod/modfile AutoQuote and strconv.Quote escape forms for this corpus. Expectations are not computed by the TypeScript implementation, but Go is not executed here, so a mistaken reading is not detected. These inputs do not certify runtime Unicode-table equivalence, arbitrary malformed UTF-16 or actual Go decoding round trips.
@@ -110,7 +111,10 @@ export function test_gomod_token_quoting_mirrors_go_autoquote() {
   for (const platform of ["linux", "darwin"] as const) {
     assert.equal(formatGoWorkPath("a\\b c", platform), '"a\\\\b c"');
     assert.equal(formatGoWorkPath("a\\b", platform), "a\\b");
-    assert.equal(formatGoWorkPath("/Users/John Smith/x", platform), '"/Users/John Smith/x"');
+    assert.equal(
+      formatGoWorkPath("/Users/John Smith/x", platform),
+      '"/Users/John Smith/x"',
+    );
   }
   assert.equal(
     formatGoWorkPath("a\\b c"),

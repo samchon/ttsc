@@ -23,9 +23,13 @@ export function test_project_input_path_identity_preserves_observed_native_case_
   const roots: string[] = [];
   const failures: Error[] = [];
   try {
-    const absentRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-identity-default-"));
+    const absentRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "ttsc-identity-default-"),
+    );
     roots.push(absentRoot);
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-identity-empty-"));
+    const empty = fs.mkdtempSync(
+      path.join(os.tmpdir(), "ttsc-identity-empty-"),
+    );
     roots.push(empty);
     const absent = path.join(absentRoot, "never-created");
     for (const [name, directory, owner] of [
@@ -33,26 +37,38 @@ export function test_project_input_path_identity_preserves_observed_native_case_
       ["empty-root", empty, empty],
     ] as const) {
       try {
-        if (name === "absent-child") assert.equal(fs.existsSync(directory), false);
+        if (name === "absent-child")
+          assert.equal(fs.existsSync(directory), false);
         else assert.deepEqual(fs.readdirSync(directory), []);
         const physicalPrefix = fs.realpathSync.native(owner);
-        const expectedDirectory = name === "absent-child"
-          ? path.join(physicalPrefix, "never-created")
-          : physicalPrefix;
+        const expectedDirectory =
+          name === "absent-child"
+            ? path.join(physicalPrefix, "never-created")
+            : physicalPrefix;
         const context = createProjectInputPathIdentityContext();
         const mode = context.caseSensitive(directory);
-        console.log("native case authority", JSON.stringify({
-          input: name,
-          authority: mode === undefined ? "unavailable" : mode,
-        }));
+        console.log(
+          "native case authority",
+          JSON.stringify({
+            input: name,
+            authority: mode === undefined ? "unavailable" : mode,
+          }),
+        );
         const lower = context.resolve(path.join(directory, "tsconfig.json"));
         const upper = context.resolve(path.join(directory, "TSCONFIG.json"));
         assert.equal(lower.path, path.join(expectedDirectory, "tsconfig.json"));
-        assert.equal(upper.path, path.join(expectedDirectory,
-          mode === false ? "tsconfig.json" : "TSCONFIG.json"));
+        assert.equal(
+          upper.path,
+          path.join(
+            expectedDirectory,
+            mode === false ? "tsconfig.json" : "TSCONFIG.json",
+          ),
+        );
         assert.equal(lower.key === upper.key, mode === false);
       } catch (cause) {
-        failures.push(new Error(`${name} native authority transfer`, { cause }));
+        failures.push(
+          new Error(`${name} native authority transfer`, { cause }),
+        );
       }
     }
   } catch (cause) {

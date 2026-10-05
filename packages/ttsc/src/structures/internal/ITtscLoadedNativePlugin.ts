@@ -4,9 +4,9 @@ import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
 import type { TtscPluginStage } from "../TtscPluginStage";
 
 /**
- * Loaded native plugin entry and the executable selected for its dispatch.
- * A linked transform entry can share a compiler host's executable rather than
- * own a separately built process binary.
+ * Loaded native plugin entry and the executable selected for its dispatch. A
+ * linked transform entry can share a compiler host's executable rather than own
+ * a separately built process binary.
  *
  * @evidence contracts/common.md#principled-implementation Loaded state pairs the built executable with source, original configuration and stage; executable versus linked distinguishes process dispatch from composition into another host.
  * @evidence contracts/common.md#clear-and-simple-design This host-owned record carries resolved descriptor facts needed by later execution without exposing descriptor evaluation or cache machinery to consumers.

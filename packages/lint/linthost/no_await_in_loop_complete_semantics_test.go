@@ -170,7 +170,9 @@ func TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits(t *testing.T) {
   }
   const message = "Unexpected `await` inside a loop — iterations run sequentially; prefer `Promise.all` when independent."
   for index, finding := range findings {
-    if finding.Rule != "no-await-in-loop" || finding.Severity != SeverityError { t.Fatalf("unexpected rule/severity: %+v", finding) }
+    if finding.Rule != "no-await-in-loop" || finding.Severity != SeverityError {
+      t.Fatalf("unexpected rule/severity: %+v", finding)
+    }
     want := expected[index]
     if finding.Pos != want.pos || finding.End != want.end || finding.Message != message {
       target := ""

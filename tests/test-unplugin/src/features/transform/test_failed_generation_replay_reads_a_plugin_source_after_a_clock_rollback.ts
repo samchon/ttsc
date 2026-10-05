@@ -14,11 +14,12 @@ import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/un
 import { createClockRollbackUnitFixture } from "../../internal/transform-project-cache/createClockRollbackUnitFixture";
 
 /**
- * Verifies failedGenerationEnvironmentChanged stops reusing held plugin-source metadata
- * when the current filesystem clock reference falls behind those stamps.
+ * Verifies failedGenerationEnvironmentChanged stops reusing held plugin-source
+ * metadata when the current filesystem clock reference falls behind those
+ * stamps.
  *
- * The bytes change while the supported filesystem view holds source metadata.
- * A newly minted probe under the authored rollback must withdraw the old
+ * The bytes change while the supported filesystem view holds source metadata. A
+ * newly minted probe under the authored rollback must withdraw the old
  * separability premise. Real Go environment inputs are preserved, not mocked.
  *
  * 1. Record real source state and require the unchanged proof's first verdict.
@@ -51,15 +52,15 @@ export async function test_failed_generation_replay_reads_a_plugin_source_after_
   fixture.settle();
   fixture.mintEarlier();
   const recordedState = pluginSourceState(fixture.source);
-  assert.ok(recordedState, "actual source and native environment must be readable");
+  assert.ok(
+    recordedState,
+    "actual source and native environment must be readable",
+  );
   const validation: TtscFailedGenerationValidation = {
     cached,
     declaredInputs: undefined,
     inputStates: new Map([
-      [
-        fixture.source,
-        { state: recordedState, tree: true },
-      ],
+      [fixture.source, { state: recordedState, tree: true }],
     ]),
     projectInputHashes: snapshot.hashes,
     projectWalkComplete: walkSnapshotComplete(snapshot, undefined),

@@ -23,10 +23,10 @@ import (
 // @evidence contracts/testing.md#execution-ownership This selected Go entry and its named subtests call the existing rule snapshot harness directly in one Go process; no installed consumer, executable config or native host is prepared.
 func TestNoMixedOperatorsReportsBothOperatorTokens(t *testing.T) {
   cases := []struct {
-    name string
-    source string
+    name    string
+    source  string
     options json.RawMessage
-    ranges [][2]int
+    ranges  [][2]int
   }{
     {"left logical", "const x = a && b || c;\n", nil, [][2]int{{12, 14}, {17, 19}}},
     {"right logical", "const x = a || b && c;\n", nil, [][2]int{{12, 14}, {17, 19}}},

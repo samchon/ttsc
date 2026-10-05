@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a rejected project-input watch root is reported and retryable.
@@ -16,8 +16,9 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
  * the failed root must not remain rejected for the rest of the session.
  *
  * 1. Reject the first project-root watcher with EMFILE, prove the ordinary watch
- *    error and the distinct uncovered-lane report, and let the recovery microtask
- *    honor the project-root ceiling, then republish unchanged and retry successfully.
+ *    error and the distinct uncovered-lane report, and let the recovery
+ *    microtask honor the project-root ceiling, then republish unchanged and
+ *    retry successfully.
  * 2. Reject watchers for an external input's directory and its parent and prove
  *    recovery installs the next safe ancestor in order.
  * 3. Close the topology from inside the error callback and prove no watcher is
@@ -48,79 +49,83 @@ export async function test_watch_topology_retries_rejected_project_input_roots()
 }
 
 async function verifyRejectedRootRetry(): Promise<void> {
-    const root = TestProject.tmpdir("ttsc-project-input-retry-");
-    const input = path.join(root, "api", "schema.json");
-    const errors: Array<{ error: unknown; location: string }> = [];
-    const unavailable: string[][] = [];
-    let attempts = 0;
-    let activeRoots: readonly string[] = [];
+  const root = TestProject.tmpdir("ttsc-project-input-retry-");
+  const input = path.join(root, "api", "schema.json");
+  const errors: Array<{ error: unknown; location: string }> = [];
+  const unavailable: string[][] = [];
+  let attempts = 0;
+  let activeRoots: readonly string[] = [];
 
-    const openFileWatch = (() => {
-        attempts += 1;
-        if (attempts === 1) {
-          const error = new Error("descriptor limit") as NodeJS.ErrnoException;
-          error.code = "EMFILE";
-          throw error;
-        }
-        return new FakeWatcher() as unknown as fs.FSWatcher;
-      }) as typeof fs.watch;
-
-    const topology = new WatchTopology(
-      {
-        cwd: root,
-        files: [],
-        projectRoot: root,
-        tsconfig: path.join(root, "tsconfig.json"),
-      },
-      {
-        onError: (location, error) => errors.push({ error, location }),
-        onInputChange: () => {
-          throw new Error("watch setup must not report an input change");
-        },
-        onProjectInputWatchUnavailable: (roots) => {
-          unavailable.push([...roots]);
-        },
-        onProjectInputWatchRoots: (roots) => {
-          activeRoots = [...roots];
-        },
-        onTopologyChange: () => {
-          throw new Error("watch setup must not report a topology change");
-        },
-      },
-      // Every directory watch goes through the explicitly supplied subscription operation.
-      (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
-    openFileWatch,
-    );
-    const snapshot = {
-      files: [input],
-      globs: [],
-      root,
-    };
-
-    try {
-      topology.setProjectInputs(snapshot);
-      await Promise.resolve();
-
-      assert.equal(attempts, 1, "recovery must not spin on a rejected root");
-      assert.equal(errors.length, 1);
-      assert.equal((errors[0]?.error as NodeJS.ErrnoException).code, "EMFILE");
-      assert.equal(realpath(errors[0]!.location), realpath(root));
-      assert.deepEqual(unavailable, [[realpath(root)]]);
-      assert.deepEqual(activeRoots, []);
-
-      topology.setProjectInputs(snapshot);
-      assert.equal(attempts, 2, "unchanged snapshot did not retry failed root");
-      assert.deepEqual(activeRoots, [realpath(root)]);
-      assert.deepEqual(
-        unavailable,
-        [[realpath(root)]],
-        "recovery should not repeat an already reported dark-lane warning",
-      );
-    } finally {
-      topology.close();
-
+  const openFileWatch = (() => {
+    attempts += 1;
+    if (attempts === 1) {
+      const error = new Error("descriptor limit") as NodeJS.ErrnoException;
+      error.code = "EMFILE";
+      throw error;
     }
+    return new FakeWatcher() as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
+  const topology = new WatchTopology(
+    {
+      cwd: root,
+      files: [],
+      projectRoot: root,
+      tsconfig: path.join(root, "tsconfig.json"),
+    },
+    {
+      onError: (location, error) => errors.push({ error, location }),
+      onInputChange: () => {
+        throw new Error("watch setup must not report an input change");
+      },
+      onProjectInputWatchUnavailable: (roots) => {
+        unavailable.push([...roots]);
+      },
+      onProjectInputWatchRoots: (roots) => {
+        activeRoots = [...roots];
+      },
+      onTopologyChange: () => {
+        throw new Error("watch setup must not report a topology change");
+      },
+    },
+    // Every directory watch goes through the explicitly supplied subscription operation.
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
+    openFileWatch,
+  );
+  const snapshot = {
+    files: [input],
+    globs: [],
+    root,
+  };
+
+  try {
+    topology.setProjectInputs(snapshot);
+    await Promise.resolve();
+
+    assert.equal(attempts, 1, "recovery must not spin on a rejected root");
+    assert.equal(errors.length, 1);
+    assert.equal((errors[0]?.error as NodeJS.ErrnoException).code, "EMFILE");
+    assert.equal(realpath(errors[0]!.location), realpath(root));
+    assert.deepEqual(unavailable, [[realpath(root)]]);
+    assert.deepEqual(activeRoots, []);
+
+    topology.setProjectInputs(snapshot);
+    assert.equal(attempts, 2, "unchanged snapshot did not retry failed root");
+    assert.deepEqual(activeRoots, [realpath(root)]);
+    assert.deepEqual(
+      unavailable,
+      [[realpath(root)]],
+      "recovery should not repeat an already reported dark-lane warning",
+    );
+  } finally {
+    topology.close();
+  }
 }
 
 async function verifyFallbackChain(): Promise<void> {
@@ -135,13 +140,13 @@ async function verifyFallbackChain(): Promise<void> {
   const unavailable: string[][] = [];
   let activeRoots: readonly string[] = [];
   const openFileWatch = ((location: fs.PathLike) => {
-      const resolved = path.resolve(location.toString());
-      attempts.push(resolved);
-      if (attempts.length <= 2) {
-        throw new Error(`reject ${resolved}`);
-      }
-      return new FakeWatcher() as unknown as fs.FSWatcher;
-    }) as typeof fs.watch;
+    const resolved = path.resolve(location.toString());
+    attempts.push(resolved);
+    if (attempts.length <= 2) {
+      throw new Error(`reject ${resolved}`);
+    }
+    return new FakeWatcher() as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
   const topology = new WatchTopology(
     {
@@ -165,7 +170,13 @@ async function verifyFallbackChain(): Promise<void> {
         throw new Error("watch setup must not report a topology change");
       },
     },
-    (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
     openFileWatch,
   );
   try {
@@ -194,7 +205,6 @@ async function verifyFallbackChain(): Promise<void> {
     );
   } finally {
     topology.close();
-
   }
 }
 
@@ -206,12 +216,12 @@ async function verifyCloseDuringFailure(): Promise<void> {
   let attempts = 0;
 
   const openFileWatch = (() => {
-      attempts += 1;
-      if (attempts === 1) throw new Error("close during watch failure");
-      const watcher = new FakeWatcher();
-      created.push(watcher);
-      return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch;
+    attempts += 1;
+    if (attempts === 1) throw new Error("close during watch failure");
+    const watcher = new FakeWatcher();
+    created.push(watcher);
+    return watcher as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
   let topology: WatchTopology;
   topology = new WatchTopology(
@@ -230,7 +240,13 @@ async function verifyCloseDuringFailure(): Promise<void> {
         throw new Error("watch setup must not report a topology change");
       },
     },
-    (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
     openFileWatch,
   );
   try {
@@ -248,7 +264,6 @@ async function verifyCloseDuringFailure(): Promise<void> {
     assert.deepEqual(created, [], "a watcher was installed after close()");
   } finally {
     topology.close();
-
   }
 }
 
@@ -260,10 +275,10 @@ async function verifyLiveRootReportingSurvivesFailedReplacement(): Promise<void>
   let activeRoots: readonly string[] = [];
   let attempts = 0;
   const openFileWatch = ((location: fs.PathLike) => {
-      attempts += 1;
-      if (attempts === 2) throw new Error("reject replacement");
-      return new FakeWatcher() as unknown as fs.FSWatcher;
-    }) as typeof fs.watch;
+    attempts += 1;
+    if (attempts === 2) throw new Error("reject replacement");
+    return new FakeWatcher() as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
   const topology = new WatchTopology(
     {
@@ -284,7 +299,13 @@ async function verifyLiveRootReportingSurvivesFailedReplacement(): Promise<void>
         throw new Error("watch setup must not report a topology change");
       },
     },
-    (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
     openFileWatch,
   );
   try {
@@ -308,7 +329,6 @@ async function verifyLiveRootReportingSurvivesFailedReplacement(): Promise<void>
     );
   } finally {
     topology.close();
-
   }
   await Promise.resolve();
 }

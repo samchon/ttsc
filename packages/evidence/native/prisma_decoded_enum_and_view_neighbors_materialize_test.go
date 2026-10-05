@@ -16,46 +16,46 @@ import "testing"
  * @evidence contracts/testing.md#execution-ownership TestPrismaDecodedEnumAndViewNeighborsMaterialize is one native Go unit entry registering exactly enum-neighbors and view-neighbors in the current test process. Each subtest owns one decoded fixture and exact table comparison; it starts no Node child, native artifact build, consumer installation or product host. The original bridge tests remain until surviving execution evidence permits their removal.
  */
 func TestPrismaDecodedEnumAndViewNeighborsMaterialize(t *testing.T) {
-	for _, fixture := range []struct {
-		name   string
-		models []prismaModel
-		want   string
-	}{
-		{
-			name: "enum-neighbors",
-			models: []prismaModel{
-				{Name: "Sale", Fields: []prismaField{
-					{Name: "id", Symbol: "column"},
-					{Name: "status", Symbol: "column"},
-				}},
-				{Name: "Seller", Fields: []prismaField{
-					{Name: "id", Symbol: "column"},
-				}},
-			},
-			want: "prisma:Sale=model\nprisma:Sale.id=column\nprisma:Sale.status=column\nprisma:Seller=model\nprisma:Seller.id=column",
-		},
-		{
-			name: "view-neighbors",
-			models: []prismaModel{
-				{Name: "Sale", Fields: []prismaField{
-					{Name: "id", Symbol: "column"},
-				}},
-				{Name: "SaleSummary", Fields: []prismaField{
-					{Name: "id", Symbol: "column"},
-					{Name: "total", Symbol: "column"},
-				}},
-			},
-			want: "prisma:Sale=model\nprisma:Sale.id=column\nprisma:SaleSummary=model\nprisma:SaleSummary.id=column\nprisma:SaleSummary.total=column",
-		},
-	} {
-		t.Run(fixture.name, func(t *testing.T) {
-			units := []*evidenceUnit{}
-			for _, model := range fixture.models {
-				units = append(units, prismaModelUnits(model)...)
-			}
-			if got := prismaUnitIndex(units); got != fixture.want {
-				t.Fatalf("native unit table:\n%s\nwant:\n%s", got, fixture.want)
-			}
-		})
-	}
+  for _, fixture := range []struct {
+    name   string
+    models []prismaModel
+    want   string
+  }{
+    {
+      name: "enum-neighbors",
+      models: []prismaModel{
+        {Name: "Sale", Fields: []prismaField{
+          {Name: "id", Symbol: "column"},
+          {Name: "status", Symbol: "column"},
+        }},
+        {Name: "Seller", Fields: []prismaField{
+          {Name: "id", Symbol: "column"},
+        }},
+      },
+      want: "prisma:Sale=model\nprisma:Sale.id=column\nprisma:Sale.status=column\nprisma:Seller=model\nprisma:Seller.id=column",
+    },
+    {
+      name: "view-neighbors",
+      models: []prismaModel{
+        {Name: "Sale", Fields: []prismaField{
+          {Name: "id", Symbol: "column"},
+        }},
+        {Name: "SaleSummary", Fields: []prismaField{
+          {Name: "id", Symbol: "column"},
+          {Name: "total", Symbol: "column"},
+        }},
+      },
+      want: "prisma:Sale=model\nprisma:Sale.id=column\nprisma:SaleSummary=model\nprisma:SaleSummary.id=column\nprisma:SaleSummary.total=column",
+    },
+  } {
+    t.Run(fixture.name, func(t *testing.T) {
+      units := []*evidenceUnit{}
+      for _, model := range fixture.models {
+        units = append(units, prismaModelUnits(model)...)
+      }
+      if got := prismaUnitIndex(units); got != fixture.want {
+        t.Fatalf("native unit table:\n%s\nwant:\n%s", got, fixture.want)
+      }
+    })
+  }
 }

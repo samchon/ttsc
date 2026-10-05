@@ -54,8 +54,14 @@ import { normalizeAliases } from "./normalizeAliases";
 export function createAliasPaths(aliases: unknown): Record<string, string[]> {
   const paths = new Map<string, string[]>();
   const declarations = normalizeAliases(aliases).map((alias) =>
-    typeof alias.find === "string" && alias.find.endsWith("/") && alias.replacement.endsWith("/")
-      ? { ...alias, find: alias.find.slice(0, -1), replacement: alias.replacement.slice(0, -1) }
+    typeof alias.find === "string" &&
+    alias.find.endsWith("/") &&
+    alias.replacement.endsWith("/")
+      ? {
+          ...alias,
+          find: alias.find.slice(0, -1),
+          replacement: alias.replacement.slice(0, -1),
+        }
       : alias,
   );
   const translated = new Map<(typeof declarations)[number], string[]>();
@@ -121,7 +127,10 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
       );
       continue;
     }
-    translated.set(alias, targets.map((target) => normalizePath(target)));
+    translated.set(
+      alias,
+      targets.map((target) => normalizePath(target)),
+    );
   }
   // TypeScript selects the longest paths key; Vite selects the first matching
   // declaration. Every more-specific key must therefore carry the first
@@ -129,8 +138,10 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
   for (const alias of translated.keys()) {
     const key = alias.find as string;
     const winner = declarations.find((entry) => {
-      if (typeof entry.find === "string") return entry.find === key || key.startsWith(`${entry.find}/`);
-      if (entry.find instanceof RegExp) return new RegExp(entry.find.source, entry.find.flags).test(key);
+      if (typeof entry.find === "string")
+        return entry.find === key || key.startsWith(`${entry.find}/`);
+      if (entry.find instanceof RegExp)
+        return new RegExp(entry.find.source, entry.find.flags).test(key);
       return false;
     });
     const targets = winner === undefined ? undefined : translated.get(winner);
@@ -140,7 +151,10 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
     // A find-only trailing slash is not a normal @x prefix. Its translatable
     // descendants begin with another slash; the bare key is not admitted.
     if (!key.endsWith("/")) paths.set(key, normalized);
-    paths.set(`${key}/*`, normalized.map((target) => `${target}/*`));
+    paths.set(
+      `${key}/*`,
+      normalized.map((target) => `${target}/*`),
+    );
   }
   return Object.fromEntries(paths);
 }

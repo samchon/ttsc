@@ -3,9 +3,8 @@ import type { TtscTurbopackLoaderOptions } from "./TtscTurbopackLoaderOptions";
 /**
  * Subset of the webpack loader context Turbopack provides to loaders wired
  * through `turbopack.rules`. The adapter uses the webpack-compatible loader
- * boundary: source string in, source string out, with
- * `async()` for asynchronous completion and `getOptions()` for the rule's
- * `options` object.
+ * boundary: source string in, source string out, with `async()` for
+ * asynchronous completion and `getOptions()` for the rule's `options` object.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Source/root paths and optional dependency/cache/error capabilities represent

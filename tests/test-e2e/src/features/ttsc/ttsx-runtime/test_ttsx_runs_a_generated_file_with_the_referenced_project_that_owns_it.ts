@@ -20,6 +20,7 @@ import assert from "node:assert/strict";
  * 2. Run `tools/run.ts`, which requires `src/existing.ts`, then writes
  *    `src/generated.ts` and requires it.
  * 3. Assert both files ran with legacy decorators.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs tools code that loads an existing app source, generates another app source, then requires it; both decorator results must be 3.
  * @evidence contracts/testing.md#independent-expectations The authored three-argument legacy decorator is the oracle for both existing and generated app files.
  * @evidence contracts/testing.md#distinguishing-cases A membership cache already consulted for existing source must discover the newly written file and use the referenced app options.
@@ -30,66 +31,66 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage Both exact existing/generated outputs remain in this entry without inferring equivalence from a standalone discovery unit.
  */
 export function test_ttsx_runs_a_generated_file_with_the_referenced_project_that_owns_it() {
-    const probe = (name: string): string =>
-      [
-        `let observed: number = 0;`,
-        `function probe(...args: any[]): void {`,
-        `  observed = args.length;`,
-        `}`,
-        `class Box {`,
-        `  @probe`,
-        `  method(): void {}`,
-        `}`,
-        `new Box();`,
-        `export const ${name}: number = observed;`,
-        ``,
-      ].join("\n");
-    const options = {
-      target: "ES2022",
-      module: "commonjs",
-      strict: true,
-      types: [],
-    };
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "solution", private: true }),
-      "tsconfig.json": JSON.stringify({
-        files: [],
-        references: [
-          { path: "./tsconfig.app.json" },
-          { path: "./tsconfig.node.json" },
-        ],
-      }),
-      "tsconfig.app.json": JSON.stringify({
-        compilerOptions: { ...options, experimentalDecorators: true },
-        include: ["src"],
-      }),
-      "tsconfig.node.json": JSON.stringify({
-        compilerOptions: options,
-        include: ["tools"],
-      }),
-      "src/existing.ts": probe("existing"),
-      "tools/run.ts": [
-        `declare const require: (id: string) => any;`,
-        `declare const __dirname: string;`,
-        `const fs = require("node:fs");`,
-        `const path = require("node:path");`,
-        `const { existing } = require("../src/existing.ts");`,
-        `fs.writeFileSync(`,
-        `  path.join(__dirname, "..", "src", "generated.ts"),`,
-        `  ${JSON.stringify(probe("generated"))},`,
-        `);`,
-        `const { generated } = require("../src/generated.ts");`,
-        `console.log("existing=" + existing + " generated=" + generated);`,
-        `export {};`,
-        ``,
-      ].join("\n"),
-    });
+  const probe = (name: string): string =>
+    [
+      `let observed: number = 0;`,
+      `function probe(...args: any[]): void {`,
+      `  observed = args.length;`,
+      `}`,
+      `class Box {`,
+      `  @probe`,
+      `  method(): void {}`,
+      `}`,
+      `new Box();`,
+      `export const ${name}: number = observed;`,
+      ``,
+    ].join("\n");
+  const options = {
+    target: "ES2022",
+    module: "commonjs",
+    strict: true,
+    types: [],
+  };
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({ name: "solution", private: true }),
+    "tsconfig.json": JSON.stringify({
+      files: [],
+      references: [
+        { path: "./tsconfig.app.json" },
+        { path: "./tsconfig.node.json" },
+      ],
+    }),
+    "tsconfig.app.json": JSON.stringify({
+      compilerOptions: { ...options, experimentalDecorators: true },
+      include: ["src"],
+    }),
+    "tsconfig.node.json": JSON.stringify({
+      compilerOptions: options,
+      include: ["tools"],
+    }),
+    "src/existing.ts": probe("existing"),
+    "tools/run.ts": [
+      `declare const require: (id: string) => any;`,
+      `declare const __dirname: string;`,
+      `const fs = require("node:fs");`,
+      `const path = require("node:path");`,
+      `const { existing } = require("../src/existing.ts");`,
+      `fs.writeFileSync(`,
+      `  path.join(__dirname, "..", "src", "generated.ts"),`,
+      `  ${JSON.stringify(probe("generated"))},`,
+      `);`,
+      `const { generated } = require("../src/generated.ts");`,
+      `console.log("existing=" + existing + " generated=" + generated);`,
+      `export {};`,
+      ``,
+    ].join("\n"),
+  });
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "tools/run.ts"],
-      { cwd: root },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "existing=3 generated=3");
-  }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "tools/run.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "existing=3 generated=3");
+}

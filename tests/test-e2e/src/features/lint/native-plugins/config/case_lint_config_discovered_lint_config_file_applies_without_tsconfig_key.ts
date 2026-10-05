@@ -1,5 +1,9 @@
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
-import { SOURCE, assert, runLint } from "../../../../internal/lint/internal/config-file";
+import {
+  SOURCE,
+  assert,
+  runLint,
+} from "../../../../internal/lint/internal/config-file";
 
 /**
  * Verifies that a `lint.config.json` beside tsconfig.json is auto-discovered
@@ -26,17 +30,19 @@ import { SOURCE, assert, runLint } from "../../../../internal/lint/internal/conf
  * @evidence contracts/e2e.md#preserved-coverage Original no configFile input, failing error exit and exact sole no-console/error list remain executable, including the no-var-off negative. packages/lint/linthost/no_duplicate_imports_preserves_migrated_json_tuple_options_test.go::TestNoDuplicateImportsPreservesMigratedJSONTupleOptions owns the original JSON option tuple and exact option-dependent negative/line-4 positive; packages/lint/linthost/engine_preserves_migrated_disable_directive_population_test.go::TestEnginePreservesMigratedDisableDirectivePopulation owns the complete original ten-line directives and exact lines 1/8/10. Their untagged direct Go bodies are selected by root test:go, with current survivor runtime still unverified. This case owns generic config loading, native diagnostic transport and error exit without claiming to execute those rule-specific inputs.
  */
 export function test_lint_config_discovered_lint_config_file_applies_without_tsconfig_key() {
-    const result = runLint({
-      name: "config-discovered-no-tsconfig-key",
-      source: SOURCE,
-      pluginConfig: {},
-      extraSources: FixtureFiles.read("lint/lint_config_discovered_lint_config_file_applies_without_tsconfig_key/inputs-1"),
-    });
+  const result = runLint({
+    name: "config-discovered-no-tsconfig-key",
+    source: SOURCE,
+    pluginConfig: {},
+    extraSources: FixtureFiles.read(
+      "lint/lint_config_discovered_lint_config_file_applies_without_tsconfig_key/inputs-1",
+    ),
+  });
 
-    assert.notEqual(result.status, 0, result.stderr);
-    assert.deepEqual(
-      result.diagnostics.map((d) => [d.rule, d.severity]),
-      [["no-console", "error"]],
-      result.stderr,
-    );
-  }
+  assert.notEqual(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.diagnostics.map((d) => [d.rule, d.severity]),
+    [["no-console", "error"]],
+    result.stderr,
+  );
+}

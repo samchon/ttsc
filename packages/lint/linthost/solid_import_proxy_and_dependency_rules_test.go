@@ -41,7 +41,7 @@ function App() {
     {Rule: "solid/no-proxy-apis", Severity: SeverityError, Line: 8},
   })
   assertSolidFindings(t, "import { createEffect } from \"solid-js\"; import { render } from \"solid-js/web\"; createEffect(() => {}); void render;\n", RuleConfig{
-    "solid/imports": SeverityError,
+    "solid/imports":       SeverityError,
     "solid/no-proxy-apis": SeverityError,
     "solid/no-react-deps": SeverityError,
   }, nil)

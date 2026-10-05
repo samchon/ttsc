@@ -111,7 +111,6 @@ export interface HostWatchBridge {
    *
    * @param depends Whether the compile depends on a record, by its absolute
    *   path, the one `projectRecordFile` spells and the host was handed.
-   *
    * @evidence contracts/common.md#principled-implementation
    *   The host predicate reports current record dependencies, so retries target
    *   reported recipients. That report alone does not prove watcher health or

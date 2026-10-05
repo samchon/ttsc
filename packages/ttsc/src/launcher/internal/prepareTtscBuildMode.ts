@@ -1,15 +1,16 @@
-import type { parseTtscBuildArgs } from "./parseTtscBuildArgs";
 import type { TtscBuildMode } from "./TtscBuildMode";
+import type { parseTtscBuildArgs } from "./parseTtscBuildArgs";
 
 /**
  * Apply the command constraints before any compiler lane is entered.
  *
- * Watch constraints precede single-file constraints. Watch keeps the parsed emit option for its own check-only adapter;
- * one-shot check, fix and format always pass emit false to their chosen lane.
- * Fix and format record their mode on the supplied invocation options in place;
- * one-shot non-build mode returns a shallow copy with emission suppressed.
- * A later watch or single-file refusal does not roll back those earlier
- * in-place mode/emit assignments; the launcher discards a refused invocation.
+ * Watch constraints precede single-file constraints. Watch keeps the parsed
+ * emit option for its own check-only adapter; one-shot check, fix and format
+ * always pass emit false to their chosen lane. Fix and format record their mode
+ * on the supplied invocation options in place; one-shot non-build mode returns
+ * a shallow copy with emission suppressed. A later watch or single-file refusal
+ * does not roll back those earlier in-place mode/emit assignments; the launcher
+ * discards a refused invocation.
  *
  * @evidence contracts/common.md#principled-implementation Emit-conflict, watch and single-file validation run in that order with fixed error messages; the execution layer consumes this same decision before starting any host.
  * @evidence contracts/common.md#clear-and-simple-design One small mode adapter owns validation and mode flags; project normalization and actual watch/build execution stay with their existing owners.
@@ -40,10 +41,14 @@ export function prepareTtscBuildMode(
   }
   if (options.watch) {
     if (mode === "fix") {
-      throw new Error("ttsc: fix does not support watch mode; use ttsc --noEmit --watch for incremental checks");
+      throw new Error(
+        "ttsc: fix does not support watch mode; use ttsc --noEmit --watch for incremental checks",
+      );
     }
     if (mode === "format") {
-      throw new Error("ttsc: format does not support watch mode; use ttsc --noEmit --watch for incremental checks");
+      throw new Error(
+        "ttsc: format does not support watch mode; use ttsc --noEmit --watch for incremental checks",
+      );
     }
     return options;
   }

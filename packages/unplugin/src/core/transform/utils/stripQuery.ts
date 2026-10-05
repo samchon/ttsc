@@ -10,10 +10,10 @@
  * Farm join the query to the path in one id string, so the two cannot be told
  * apart there, and a `?` or `#` inside a real directory name of such an id is
  * read as a suffix. esbuild, Bun and the webpack-style loader context hand the
- * file's own path with any query held apart, so those adapters pass
- * `exactPath` to `transformTtsc` and never reach this function with a path.
- * Stripping one used to look a project below a directory such as `C#` up as its
- * parent and leave its modules untransformed.
+ * file's own path with any query held apart, so those adapters pass `exactPath`
+ * to `transformTtsc` and never reach this function with a path. Stripping one
+ * used to look a project below a directory such as `C#` up as its parent and
+ * leave its modules untransformed.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Slicing at the first query/fragment delimiter preserves the file spelling

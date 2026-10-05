@@ -29,10 +29,10 @@ import (
 // @evidence contracts/testing.md#execution-ownership Named unit entry TestLinkedProgramRewritesModuleSyntaxWithoutChangingOtherLiterals is in test/unit for the utility overlay. One noLib single-threaded compiler Program and its actual checker execute in this Go process, with fixture-owned linked manifest restored by t.Setenv and checker lease released by Close; no registry replacement, private linkname, native producer or subprocess is used.
 func TestLinkedProgramRewritesModuleSyntaxWithoutChangingOtherLiterals(t *testing.T) {
   root := shared.SeedProject(t, map[string]string{
-    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"ES2022","noLib":true,"rootDir":"src","outDir":"dist","paths":{"@pkg":["./src/pkg"],"@lib/exact":["./src/modules/exact.ts"],"@lib/*":["./src/missing/*","./src/modules/*"]}},"include":["src"]}`,
+    "tsconfig.json":          `{"compilerOptions":{"target":"ES2022","module":"ES2022","noLib":true,"rootDir":"src","outDir":"dist","paths":{"@pkg":["./src/pkg"],"@lib/exact":["./src/modules/exact.ts"],"@lib/*":["./src/missing/*","./src/modules/*"]}},"include":["src"]}`,
     "src/modules/message.ts": `export interface MessageBox { value: string }; export const message = 1;`,
-    "src/modules/exact.ts": `export const exact = 2;`,
-    "src/pkg/index.ts": `export const index = 3;`,
+    "src/modules/exact.ts":   `export const exact = 2;`,
+    "src/pkg/index.ts":       `export const index = 3;`,
     "src/main.ts": `declare const require: (id: string) => unknown;
 import { message } from "@lib/message";
 import { exact } from "@lib/exact";
@@ -53,13 +53,13 @@ declare module "@unmatched/name" {}
 namespace UntouchedNamespace {}
 export const value = message + exact + index;
 void messageModule;`,
-    "src/ambient.ts": `declare function require(id: string): unknown; export const value = require("@lib/message");`,
-    "src/unbound.ts": `export const value = require("@lib/message");`,
+    "src/ambient.ts":   `declare function require(id: string): unknown; export const value = require("@lib/message");`,
+    "src/unbound.ts":   `export const value = require("@lib/message");`,
     "src/parameter.ts": `export const value = (require: (id: string) => string) => require("@lib/message");`,
-    "src/local.ts": `export function value() { const require = (id: string) => id; return require("@lib/message"); }`,
-    "src/shadow.ts": `export const require = (id: string) => id;`,
-    "src/imported.ts": `import { require } from "./shadow.js"; export const value = require("@lib/message");`,
-    "src/global.ts": `declare module "@lib/message" { export const value: number; }`,
+    "src/local.ts":     `export function value() { const require = (id: string) => id; return require("@lib/message"); }`,
+    "src/shadow.ts":    `export const require = (id: string) => id;`,
+    "src/imported.ts":  `import { require } from "./shadow.js"; export const value = require("@lib/message");`,
+    "src/global.ts":    `declare module "@lib/message" { export const value: number; }`,
   })
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"@ttsc/paths","stage":"transform","config":{"transform":"@ttsc/paths"}}]`)
   prog, diagnostics, err := driver.LoadProgram(root, filepath.Join(root, "tsconfig.json"), driver.LoadProgramOptions{SingleThreaded: true, ForceNoEmit: true, TsgoArgs: []string{}})
@@ -85,13 +85,13 @@ void messageModule;`,
     before[filepath.Base(file.FileName())] = collect(file)
   }
   expected := map[string][]string{
-    "main.ts": {"./modules/message.js", "./modules/exact.js", "./pkg/index.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "@lib/message", "@lib/message", "./modules/message.js", "@unmatched/name"},
-    "ambient.ts": {"./modules/message.js"},
-    "unbound.ts": {"./modules/message.js"},
+    "main.ts":      {"./modules/message.js", "./modules/exact.js", "./pkg/index.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "./modules/message.js", "@lib/message", "@lib/message", "./modules/message.js", "@unmatched/name"},
+    "ambient.ts":   {"./modules/message.js"},
+    "unbound.ts":   {"./modules/message.js"},
     "parameter.ts": {"@lib/message"},
-    "local.ts": {"@lib/message"},
-    "imported.ts": {"./shadow.js", "@lib/message"},
-    "global.ts": {"@lib/message"},
+    "local.ts":     {"@lib/message"},
+    "imported.ts":  {"./shadow.js", "@lib/message"},
+    "global.ts":    {"@lib/message"},
   }
   if err := prog.ApplyLinkedPlugins(); err != nil {
     t.Fatal(err)

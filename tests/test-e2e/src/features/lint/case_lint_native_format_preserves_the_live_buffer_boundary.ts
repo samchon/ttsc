@@ -4,13 +4,16 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { E2eProcessTrace } from "../../../../utils/src/E2eProcessTrace";
-import { captureE2eTracePhase, type TracePhaseObservation } from "../../internal/captureE2eTracePhase";
 import type { PreparedAssetSelection } from "../../internal/captureE2ePreparedAssets";
+import {
+  type TracePhaseObservation,
+  captureE2eTracePhase,
+} from "../../internal/captureE2eTracePhase";
 import { readE2eTraceMeasurements } from "../../internal/readE2eTraceMeasurements";
 
 /**
- * Preserves the original shipped-binary dirty/clean buffer contract.
- * Caller supplies the prepared lint sidecar and original formatting selection,
+ * Preserves the original shipped-binary dirty/clean buffer contract. Caller
+ * supplies the prepared lint sidecar and original formatting selection,
  * project/tsconfig and disk file. The actual supported command consumes stdin;
  * no editor/LSP proxy or private buffer API is fabricated.
  *
@@ -32,15 +35,32 @@ export async function case_lint_native_format_preserves_the_live_buffer_boundary
   traceRoot: string;
   producerAssets: readonly PreparedAssetSelection[];
   cacheRoots: readonly string[];
-}): Promise<readonly TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>[]> {
-  assert.ok(path.isAbsolute(input.directory) && path.isAbsolute(input.binary) && path.isAbsolute(input.file));
-  assert.ok(input.producerAssets.some(asset => asset.role === "executable" &&
-    fs.realpathSync.native(asset.file) === fs.realpathSync.native(input.binary)));
+}): Promise<
+  readonly TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>[]
+> {
+  assert.ok(
+    path.isAbsolute(input.directory) &&
+      path.isAbsolute(input.binary) &&
+      path.isAbsolute(input.file),
+  );
+  assert.ok(
+    input.producerAssets.some(
+      (asset) =>
+        asset.role === "executable" &&
+        fs.realpathSync.native(asset.file) ===
+          fs.realpathSync.native(input.binary),
+    ),
+  );
   assert.equal(fs.readFileSync(input.file, "utf8"), "const onDisk = 999;\n");
   const uri = pathToFileURL(input.file).href;
-  const phases: TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>[] = [];
+  const phases: TracePhaseObservation<
+    ReturnType<typeof E2eProcessTrace.spawnSync>
+  >[] = [];
   const failures: unknown[] = [];
-  let cursor = readE2eTraceMeasurements(input.traceRoot, []).lastWriterSequences;
+  let cursor = readE2eTraceMeasurements(
+    input.traceRoot,
+    [],
+  ).lastWriterSequences;
   for (const row of [
     { name: "dirty-buffer", content: "const x = 1\n", edit: true },
     { name: "clean-buffer", content: "const y = 2;\n", edit: false },
@@ -50,16 +70,46 @@ export async function case_lint_native_format_preserves_the_live_buffer_boundary
       // or child boundary. Require the real owning spawn observer, not a
       // fabricated native writer file merely because the child returned a PID.
       const requiredWriterPids = [process.pid];
-      const phase = await captureE2eTracePhase({ label: `format-${row.name}`, traceRoot: input.traceRoot,
-        assets: [...input.producerAssets, { label: "format-disk-input", file: input.file, role: "fixture" }],
-        cacheRoots: input.cacheRoots, afterSequences: cursor, requiredWriterPids,
-      }, async () => {
-        const result = E2eProcessTrace.spawnSync(input.binary, ["lsp-execute-command", "--cwd", input.directory,
-          "--tsconfig", input.tsconfig, "--plugins-json", input.pluginsJSON, "--command", "ttsc.format.document",
-          "--arguments-json", JSON.stringify([uri]), "--content-stdin"],
-          { cwd: input.directory, env: process.env, input: row.content, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-        return result;
-      });
+      const phase = await captureE2eTracePhase(
+        {
+          label: `format-${row.name}`,
+          traceRoot: input.traceRoot,
+          assets: [
+            ...input.producerAssets,
+            { label: "format-disk-input", file: input.file, role: "fixture" },
+          ],
+          cacheRoots: input.cacheRoots,
+          afterSequences: cursor,
+          requiredWriterPids,
+        },
+        async () => {
+          const result = E2eProcessTrace.spawnSync(
+            input.binary,
+            [
+              "lsp-execute-command",
+              "--cwd",
+              input.directory,
+              "--tsconfig",
+              input.tsconfig,
+              "--plugins-json",
+              input.pluginsJSON,
+              "--command",
+              "ttsc.format.document",
+              "--arguments-json",
+              JSON.stringify([uri]),
+              "--content-stdin",
+            ],
+            {
+              cwd: input.directory,
+              env: process.env,
+              input: row.content,
+              encoding: "utf8",
+              maxBuffer: 64 * 1024 * 1024,
+            },
+          );
+          return result;
+        },
+      );
       phases.push(phase);
       if (phase.traces) cursor = phase.traces.lastWriterSequences;
       assert.deepEqual(phase.observationErrors, []);
@@ -73,26 +123,47 @@ export async function case_lint_native_format_preserves_the_live_buffer_boundary
       assert.equal(result.stderr, "");
       assert.ok(phase.traces);
       assert.deepEqual(phase.traces.integrityProblems, []);
-      const processResults = phase.traces.processObservations.filter(({ observation }) =>
-        observation.writerPid === process.pid && observation.event === "process-result" && observation.pid === result.pid);
-      assert.equal(processResults.length, 1, "actual owning synchronous process result");
+      const processResults = phase.traces.processObservations.filter(
+        ({ observation }) =>
+          observation.writerPid === process.pid &&
+          observation.event === "process-result" &&
+          observation.pid === result.pid,
+      );
+      assert.equal(
+        processResults.length,
+        1,
+        "actual owning synchronous process result",
+      );
       if (row.edit) {
         const edit = JSON.parse(String(result.stdout));
         assert.deepEqual(Object.keys(edit.changes), [uri]);
         assert.equal(edit.changes[uri].length, 1);
         assert.equal(edit.changes[uri][0].newText, "const x = 1;\n");
       } else assert.equal(String(result.stdout).trim(), "null");
-      assert.equal(fs.readFileSync(input.file, "utf8"), "const onDisk = 999;\n");
+      assert.equal(
+        fs.readFileSync(input.file, "utf8"),
+        "const onDisk = 999;\n",
+      );
       assert.ok(phase.assetsAfter);
-      const before = phase.assetsBefore.find(asset => asset.label === "format-disk-input")!;
-      const after = phase.assetsAfter.find(asset => asset.label === "format-disk-input")!;
+      const before = phase.assetsBefore.find(
+        (asset) => asset.label === "format-disk-input",
+      )!;
+      const after = phase.assetsAfter.find(
+        (asset) => asset.label === "format-disk-input",
+      )!;
       assert.equal(before.sha256, after.sha256);
       assert.equal(before.realPath, after.realPath);
       assert.deepEqual(before.identityAfter, after.identityBefore);
-    } catch (error) { failures.push(new Error(row.name, { cause: error })); }
+    } catch (error) {
+      failures.push(new Error(row.name, { cause: error }));
+    }
   }
-  try { assert.equal(fs.readFileSync(input.file, "utf8"), "const onDisk = 999;\n"); }
-  catch (error) { failures.push(error); }
-  if (failures.length) throw new AggregateError(failures, "Native live-buffer formatting");
+  try {
+    assert.equal(fs.readFileSync(input.file, "utf8"), "const onDisk = 999;\n");
+  } catch (error) {
+    failures.push(error);
+  }
+  if (failures.length)
+    throw new AggregateError(failures, "Native live-buffer formatting");
   return phases;
 }

@@ -13,8 +13,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * equivalence. Uncertainty must retain metadata validation instead of silently
  * certifying an unchanged input or inventing a membership change.
  *
- * 1. Open an exact-input tracker with a controlled watcher and supplied case policy.
- * 2. Require reproof for unresolved ASCII names and Unicode aliases in both directions.
+ * 1. Open an exact-input tracker with a controlled watcher and supplied case
+ *    policy.
+ * 2. Require reproof for unresolved ASCII names and Unicode aliases in both
+ *    directions.
  * 3. On Windows require revalidation for unmatched ASCII and short-name events,
  *    while a natively resolved existing alias records its definite mutation.
  *
@@ -30,10 +32,12 @@ export async function test_host_input_tracker_rechecks_native_unicode_alias_even
     ["\u00e9.config", "e\u0301.config", true],
     ["\u212a.config", "K.config", true],
     ["\u00e9.config", "unrelated.config", true],
-    ...(process.platform === "win32" ? [
-      ["LongConfig.config", "LONGCO~1.CON", true],
-      ["LONGCO~1.CON", "LongConfig.config", true],
-    ] as const : []),
+    ...(process.platform === "win32"
+      ? ([
+          ["LongConfig.config", "LONGCO~1.CON", true],
+          ["LONGCO~1.CON", "LongConfig.config", true],
+        ] as const)
+      : []),
   ] as const) {
     try {
       await assertTrackerAuthority(name, event, uncertain);
@@ -41,12 +45,19 @@ export async function test_host_input_tracker_rechecks_native_unicode_alias_even
       failures.push(new Error(`${name} -> ${event}`, { cause }));
     }
   }
-  if (failures.length) throw new AggregateError(failures, "Native alias tracker scenarios failed");
+  if (failures.length)
+    throw new AggregateError(failures, "Native alias tracker scenarios failed");
 }
 
 /** Each row owns fresh tracker authority and a finally-closed watch handle. */
-async function assertTrackerAuthority(name: string, event: string, uncertain: boolean): Promise<void> {
-  const directory = fs.realpathSync.native(TestProject.tmpdir("ttsc-unicode-tracker-"));
+async function assertTrackerAuthority(
+  name: string,
+  event: string,
+  uncertain: boolean,
+): Promise<void> {
+  const directory = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-unicode-tracker-"),
+  );
   const input = path.join(directory, name);
   fs.writeFileSync(input, "{}");
   const reported = path.join(directory, event);
@@ -55,7 +66,9 @@ async function assertTrackerAuthority(name: string, event: string, uncertain: bo
     try {
       const expected = fs.statSync(input, { bigint: true });
       const observed = fs.statSync(reported, { bigint: true });
-      resolvedAlias = expected.dev === observed.dev && expected.ino === observed.ino &&
+      resolvedAlias =
+        expected.dev === observed.dev &&
+        expected.ino === observed.ino &&
         fs.realpathSync.native(input) === fs.realpathSync.native(reported);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -63,20 +76,36 @@ async function assertTrackerAuthority(name: string, event: string, uncertain: bo
   }
   let listener: ((event: string, filename: string | null) => void) | undefined;
   let closed = 0;
-  const tracker = await createHostInputMutationTracker([input], {
-    ...DEFAULT_FILESYSTEM_OPERATIONS,
-    caseSensitive: () => true,
-    watch: (_directory, notify) => {
-      listener = notify;
-      return { close: () => { ++closed; } };
+  const tracker = await createHostInputMutationTracker(
+    [input],
+    {
+      ...DEFAULT_FILESYSTEM_OPERATIONS,
+      caseSensitive: () => true,
+      watch: (_directory, notify) => {
+        listener = notify;
+        return {
+          close: () => {
+            ++closed;
+          },
+        };
+      },
     },
-  }, new Set([input]));
+    new Set([input]),
+  );
   try {
     assert.equal(tracker.failed, false);
     assert.ok(listener);
     listener("rename", event);
-    assert.equal(tracker.unverified, uncertain && !resolvedAlias ? true : undefined, "only justified native identity may retain notification authority");
-    assert.equal(tracker.membershipChanged, resolvedAlias, "a resolved existing alias records a mutation; uncertainty alone does not");
+    assert.equal(
+      tracker.unverified,
+      uncertain && !resolvedAlias ? true : undefined,
+      "only justified native identity may retain notification authority",
+    );
+    assert.equal(
+      tracker.membershipChanged,
+      resolvedAlias,
+      "a resolved existing alias records a mutation; uncertainty alone does not",
+    );
     assert.deepEqual([...tracker.changes], resolvedAlias ? [reported] : []);
   } finally {
     tracker.close();

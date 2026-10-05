@@ -25,7 +25,9 @@ export namespace TtscGraphViewSnapshot {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only local parsed facts or diagnostic text are created; ownership transfers to the caller and no process, reader, socket or prior dump is retained.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation parses and validates dump JSON text that the caller already captured; no file, path or process.
    */
-  export function decode(text: string):
+  export function decode(
+    text: string,
+  ):
     | { ok: true; raw: ReturnType<typeof parseDump> }
     | { ok: false; code: 1; diagnostic: string } {
     try {

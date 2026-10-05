@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   computeCacheKey,
@@ -28,10 +27,28 @@ import {
 export function test_computecachekey_changes_when_embedded_data_changes() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
-  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "computecachekey_changes_when_embedded_data_changes", "inputs-1"), root);
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "unit",
+      "computecachekey_changes_when_embedded_data_changes",
+      "inputs-1",
+    ),
+    root,
+  );
   fs.renameSync(path.join(plugin, "main.go.txt"), path.join(plugin, "main.go"));
-  assert.equal(fs.readFileSync(path.join(plugin, "go.mod"), "utf8"), "module example.com/plugin\n\ngo 1.26\n");
-  assert.equal(fs.readFileSync(path.join(plugin, "main.go"), "utf8"), 'package main\n\nimport _ "embed"\n\n//go:embed rules.json\nvar rules string\n');
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "go.mod"), "utf8"),
+    "module example.com/plugin\n\ngo 1.26\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "main.go"), "utf8"),
+    'package main\n\nimport _ "embed"\n\n//go:embed rules.json\nvar rules string\n',
+  );
   const data = path.join(plugin, "rules.json");
   fs.writeFileSync(data, '{"version":1}\n', "utf8");
 

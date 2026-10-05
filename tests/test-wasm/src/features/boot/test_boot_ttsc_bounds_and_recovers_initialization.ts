@@ -25,12 +25,11 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
  *
  * There is no boot deadline to exercise. How long a fetch and instantiation
  * take belongs to the network and the machine, so `signal` is the only way a
- * boot ends early, which makes it the thing that must release the cache
- * entry.
+ * boot ends early, which makes it the thing that must release the cache entry.
  *
  * 1. Stall fetch, abort it, observe the forwarded signal, assert phase-specific
- *    abort ownership and readiness callback cleanup, then retry the same key and
- *    resolve normally.
+ *    abort ownership and readiness callback cleanup, then retry the same key
+ *    and resolve normally.
  * 2. Join and cancel a shared same-key fetch and retry it, and cancel a
  *    different-URL pre-runtime boot and retry after its predecessor.
  * 3. Abort during Go readiness and prove queued and later boots are terminal.

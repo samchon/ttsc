@@ -28,58 +28,62 @@ import { configEvaluatorProcessFailure } from "../../../../../packages/lint/src/
  * @evidence contracts/testing.md#execution-ownership This named source unit invokes only the classifier with process-result values, without starting an evaluator or building a host. Descriptor evaluator failure cases retain the real child-process connection.
  */
 export function test_config_evaluator_process_failures_are_classified_by_cause(): void {
-    const configPath = "/project/lint.config.ts";
+  const configPath = "/project/lint.config.ts";
 
-    const spawn = configEvaluatorProcessFailure(
-      processResult({ error: processError("ENOENT") }),
+  const spawn = configEvaluatorProcessFailure(
+    processResult({ error: processError("ENOENT") }),
+    configPath,
+  );
+  assert.match(spawn?.message ?? "", /failed to spawn ttsx/);
+  assert.match(spawn?.message ?? "", /ENOENT/);
+
+  const signal = configEvaluatorProcessFailure(
+    processResult({ signal: "SIGKILL" }),
+    configPath,
+  );
+  assert.match(signal?.message ?? "", /killed by signal SIGKILL/);
+
+  const exit = configEvaluatorProcessFailure(
+    processResult({ status: 2 }),
+    configPath,
+  );
+  assert.match(exit?.message ?? "", /failed with exit code 2/);
+
+  assert.match(
+    configEvaluatorProcessFailure(processResult({}), configPath)?.message ?? "",
+    /failed with exit code null/,
+  );
+  assert.match(
+    configEvaluatorProcessFailure(
+      processResult({
+        error: processError("ENOENT"),
+        signal: "SIGKILL",
+        status: 2,
+      }),
       configPath,
-    );
-    assert.match(spawn?.message ?? "", /failed to spawn ttsx/);
-    assert.match(spawn?.message ?? "", /ENOENT/);
-
-    const signal = configEvaluatorProcessFailure(
-      processResult({ signal: "SIGKILL" }),
+    )?.message ?? "",
+    /failed to spawn ttsx/,
+  );
+  assert.match(
+    configEvaluatorProcessFailure(
+      processResult({ signal: "SIGKILL", status: 2 }),
       configPath,
-    );
-    assert.match(signal?.message ?? "", /killed by signal SIGKILL/);
+    )?.message ?? "",
+    /killed by signal SIGKILL/,
+  );
 
-    const exit = configEvaluatorProcessFailure(
-      processResult({ status: 2 }),
-      configPath,
-    );
-    assert.match(exit?.message ?? "", /failed with exit code 2/);
-
-    assert.match(
-      configEvaluatorProcessFailure(processResult({}), configPath)?.message ?? "",
-      /failed with exit code null/,
-    );
-    assert.match(
-      configEvaluatorProcessFailure(
-        processResult({ error: processError("ENOENT"), signal: "SIGKILL", status: 2 }),
-        configPath,
-      )?.message ?? "",
-      /failed to spawn ttsx/,
-    );
-    assert.match(
-      configEvaluatorProcessFailure(
-        processResult({ signal: "SIGKILL", status: 2 }),
-        configPath,
-      )?.message ?? "",
-      /killed by signal SIGKILL/,
-    );
-
-    // A kill this process did not order is reported as what it is. Neither a
-    // deadline nor an output ceiling exists to be blamed for it.
-    for (const failure of [spawn, signal, exit]) {
-      assert.doesNotMatch(failure?.message ?? "", /timed out|timeout/i);
-      assert.doesNotMatch(failure?.message ?? "", /output limit|MiB/i);
-    }
-
-    assert.equal(
-      configEvaluatorProcessFailure(processResult({ status: 0 }), configPath),
-      undefined,
-    );
+  // A kill this process did not order is reported as what it is. Neither a
+  // deadline nor an output ceiling exists to be blamed for it.
+  for (const failure of [spawn, signal, exit]) {
+    assert.doesNotMatch(failure?.message ?? "", /timed out|timeout/i);
+    assert.doesNotMatch(failure?.message ?? "", /output limit|MiB/i);
   }
+
+  assert.equal(
+    configEvaluatorProcessFailure(processResult({ status: 0 }), configPath),
+    undefined,
+  );
+}
 
 function processError(code: string): Error {
   return Object.assign(new Error(`spawnSync node ${code}`), { code });

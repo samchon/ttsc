@@ -18,9 +18,12 @@ import { createStringLiteral } from "./createStringLiteral";
  * With a `sourceNode` identifier named `foo`, this prints:
  *
  * ```ts
- * "foo"
+ * "foo";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param sourceNode The node to derive the text from.
+ * @returns The created {@link StringLiteral}.
  * @evidence contracts/common.md#principled-implementation
  *   Each accepted name/literal node carries text. Passing that text to
  *   createStringLiteral preserves content while using its default quoting.
@@ -36,10 +39,6 @@ import { createStringLiteral } from "./createStringLiteral";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc identifies accepted variants, text copying and default quotes,
  *   with a separate example and tags following documentation paragraph rules.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param sourceNode The node to derive the text from.
- * @returns The created {@link StringLiteral}.
  */
 export const createStringLiteralFromNode = (
   sourceNode: Identifier | PrivateIdentifier | StringLiteral | NumericLiteral,

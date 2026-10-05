@@ -39,7 +39,9 @@ func TestProjectContributorWithoutMarkerKeepsTypeChecker(t *testing.T) {
   engine := NewEngineWithResolver(InlineRuleResolver{
     Rules: RuleConfig{adapter.name: SeverityError},
   })
-  if err := engine.ConfigError(); err != nil || len(engine.UnknownRules()) != 0 || !engine.projectSettings[adapter.name].Declared || engine.projectSettings[adapter.name].Severity != SeverityError { t.Fatalf("unmarked project contributor did not bind: %v / %v", err, engine.projectSettings) }
+  if err := engine.ConfigError(); err != nil || len(engine.UnknownRules()) != 0 || !engine.projectSettings[adapter.name].Declared || engine.projectSettings[adapter.name].Severity != SeverityError {
+    t.Fatalf("unmarked project contributor did not bind: %v / %v", err, engine.projectSettings)
+  }
   if !engine.NeedsTypeChecker() {
     t.Fatal("an unmarked project contributor lost its standalone checker")
   }

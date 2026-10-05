@@ -14,7 +14,6 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
  * compile operation, so the public result is not limited to JavaScript.
  *
  * @author Jeongho Nam - https://github.com/samchon
- *
  * @evidence contracts/common.md#principled-implementation The type discriminant separates completed success, completed failure and host exception; emitted text remains available on completed outcomes even when diagnostics prevent success.
  * @evidence contracts/common.md#clear-and-simple-design Three named variants let callers narrow required output, diagnostics and finite error descriptions without interpreting process text.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Variant literals are API states; neither known diagnostic codes nor plugin names substitute for the compiler outcome.
@@ -100,9 +99,8 @@ export namespace ITtscCompilerResult {
      * Any compiler output that was generated despite the diagnostics.
      *
      * This may be partial or empty depending on the severity of the issues and
-     * how far TypeScript-Go progressed before returning diagnostics.
-     * Paths use the same relative or absolute key convention as
-     * {@link ISuccess.output}.
+     * how far TypeScript-Go progressed before returning diagnostics. Paths use
+     * the same relative or absolute key convention as {@link ISuccess.output}.
      */
     output: Record<string, string>;
   }
@@ -119,7 +117,8 @@ export namespace ITtscCompilerResult {
    *
    * Repeated objects use `$ttscReference` JSON-pointer markers. Exceptional
    * scalar values, accessors and failed inspection use `$ttscValue` markers.
-   * Serialization does not invoke getters or copy foreign class internal slots.
+   * Serialization does not invoke getters or copy foreign class internal
+   * slots.
    *
    * @evidence contracts/common.md#principled-implementation Unknown accommodates finite causal descriptions, outcome data and exceptional-value markers; the optional classifier labels recognized message families without authenticating the native failure cause.
    * @evidence contracts/common.md#clear-and-simple-design The exception variant exposes only error and optional origin; completed outputs and diagnostic arrays remain with the completed variants.

@@ -7,7 +7,8 @@ import { selectPluginModuleReplaceDirectories } from "../../../../../packages/tt
  * Verifies local replacement selection preserves observed module boundaries.
  *
  * Supplied physical observations distinguish lexical spelling from containment.
- * They do not prove native link identity or Go's parsing of replace directives.
+ * They do not prove native link identity or Go's parsing of replace
+ * directives.
  *
  * 1. Contrast internal, observed internal aliases and external local targets.
  * 2. Preserve module/version/spelling and sort selected records.
@@ -37,32 +38,92 @@ export function test_plugin_module_replace_selection_preserves_observed_boundari
   ];
   const before = JSON.stringify(records);
   const events: string[] = [];
-  const actual = selectPluginModuleReplaceDirectories(root, records, (location) => {
-    events.push(location);
-    return location === alias ? path.join(root, "internal") : location;
-  });
+  const actual = selectPluginModuleReplaceDirectories(
+    root,
+    records,
+    (location) => {
+      events.push(location);
+      return location === alias ? path.join(root, "internal") : location;
+    },
+  );
   assert.deepEqual(actual, [
-    { directory: absolute, modulePath: "a/module", spelled: absolute, version: "v1" },
-    { directory: outside, modulePath: "z/module", spelled: "../outside", version: "v1" },
-    { directory: outside, modulePath: "z/module", spelled: "../outside", version: "v2" },
+    {
+      directory: absolute,
+      modulePath: "a/module",
+      spelled: absolute,
+      version: "v1",
+    },
+    {
+      directory: outside,
+      modulePath: "z/module",
+      spelled: "../outside",
+      version: "v1",
+    },
+    {
+      directory: outside,
+      modulePath: "z/module",
+      spelled: "../outside",
+      version: "v2",
+    },
   ]);
-  assert.deepEqual(events, [root, outside, path.join(root, "internal"), root, alias, absolute, outside]);
+  assert.deepEqual(events, [
+    root,
+    outside,
+    path.join(root, "internal"),
+    root,
+    alias,
+    absolute,
+    outside,
+  ]);
   assert.equal(JSON.stringify(records), before);
   const separatorTarget = "..\\native-outside";
-  const nativeRows = [{ Old: { Path: "native" }, New: { Path: separatorTarget } }];
+  const nativeRows = [
+    { Old: { Path: "native" }, New: { Path: separatorTarget } },
+  ];
   const nativeEvents: string[] = [];
-  const native = selectPluginModuleReplaceDirectories(root, nativeRows, (location) => {
-    nativeEvents.push(location);
-    return location;
-  });
-  assert.deepEqual(native, process.platform === "win32" ? [{ directory: path.resolve(root, separatorTarget), modulePath: "native", spelled: separatorTarget }] : []);
-  assert.deepEqual(nativeEvents, process.platform === "win32" ? [root, path.resolve(root, separatorTarget)] : [root]);
-  assert.deepEqual(selectPluginModuleReplaceDirectories(root, [], (location) => location), []);
+  const native = selectPluginModuleReplaceDirectories(
+    root,
+    nativeRows,
+    (location) => {
+      nativeEvents.push(location);
+      return location;
+    },
+  );
+  assert.deepEqual(
+    native,
+    process.platform === "win32"
+      ? [
+          {
+            directory: path.resolve(root, separatorTarget),
+            modulePath: "native",
+            spelled: separatorTarget,
+          },
+        ]
+      : [],
+  );
+  assert.deepEqual(
+    nativeEvents,
+    process.platform === "win32"
+      ? [root, path.resolve(root, separatorTarget)]
+      : [root],
+  );
+  assert.deepEqual(
+    selectPluginModuleReplaceDirectories(root, [], (location) => location),
+    [],
+  );
   for (const stage of ["root", "target"]) {
     const failure = new Error(`authored ${stage} observation failure`);
-    assert.throws(() => selectPluginModuleReplaceDirectories(root, [{ Old: { Path: "external" }, New: { Path: "../outside" } }], (location) => {
-      if ((stage === "root") === (location === root)) throw failure;
-      return location;
-    }), (error: unknown) => error === failure);
+    assert.throws(
+      () =>
+        selectPluginModuleReplaceDirectories(
+          root,
+          [{ Old: { Path: "external" }, New: { Path: "../outside" } }],
+          (location) => {
+            if ((stage === "root") === (location === root)) throw failure;
+            return location;
+          },
+        ),
+      (error: unknown) => error === failure,
+    );
   }
 }

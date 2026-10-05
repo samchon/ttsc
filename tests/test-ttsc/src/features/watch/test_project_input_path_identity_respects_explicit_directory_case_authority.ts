@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+
 import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createFilesystemPathIdentityContext";
 import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
 
 /**
- * Verifies project-input identities use explicit filesystem authority for aliases and missing suffixes.
+ * Verifies project-input identities use explicit filesystem authority for
+ * aliases and missing suffixes.
  *
- * Project-input identity must follow the case authority and physical aliases that
- * the filesystem supplies for each directory, including suffixes that do not exist
- * yet, rather than a case policy guessed from the platform name.
+ * Project-input identity must follow the case authority and physical aliases
+ * that the filesystem supplies for each directory, including suffixes that do
+ * not exist yet, rather than a case policy guessed from the platform name.
  *
  * 1. Resolve aliased paths with a missing suffix under an injected
  *    case-insensitive, case-sensitive and unknown authority and compare their
@@ -23,100 +25,96 @@ import { createProjectInputPathIdentityContext } from "../../../../../packages/t
  * @evidence contracts/testing.md#execution-ownership The named src/features/watch entry directly calls authored identity sources with supported explicit filesystem operations; it spawns no native process and performs no volume mutation or actual kernel observation.
  */
 export function test_project_input_path_identity_respects_explicit_directory_case_authority() {
-    const root = path.resolve("virtual-project-input-root");
-    const physical = path.join(root, "Physical");
-    const alias = path.join(root, "Alias");
-    const realpath = (location: string): string => {
-      if (location === physical || location === alias) return physical;
-      throw Object.assign(new Error("missing"), { code: "ENOENT" });
-    };
-    const insensitive = createProjectInputPathIdentityContext({
-      caseSensitive: () => false,
-      realpath,
-    });
-    const sensitive = createProjectInputPathIdentityContext({
-      caseSensitive: () => true,
-      realpath,
-    });
-    const unknown = createProjectInputPathIdentityContext({
-      caseSensitive: () => undefined,
-      realpath,
-    });
+  const root = path.resolve("virtual-project-input-root");
+  const physical = path.join(root, "Physical");
+  const alias = path.join(root, "Alias");
+  const realpath = (location: string): string => {
+    if (location === physical || location === alias) return physical;
+    throw Object.assign(new Error("missing"), { code: "ENOENT" });
+  };
+  const insensitive = createProjectInputPathIdentityContext({
+    caseSensitive: () => false,
+    realpath,
+  });
+  const sensitive = createProjectInputPathIdentityContext({
+    caseSensitive: () => true,
+    realpath,
+  });
+  const unknown = createProjectInputPathIdentityContext({
+    caseSensitive: () => undefined,
+    realpath,
+  });
 
-    const insensitivePath = path.join(physical, "future", "spec.md");
-    const insensitiveVolume = path.parse(insensitivePath).root;
-    assert.deepEqual(
-      insensitive.resolve(path.join(alias, "Future", "Spec.md")),
-      {
-        key:
-          process.platform === "win32"
-            ? `${insensitiveVolume.toLowerCase()}${insensitivePath.slice(insensitiveVolume.length)}`
-            : insensitivePath,
-        path: insensitivePath,
-      },
-    );
-    assert.equal(
-      insensitive.resolve(path.join(alias, "future", "spec.md")).key,
-      insensitive.resolve(path.join(alias, "Future", "Spec.md")).key,
-    );
-    assert.notEqual(
-      sensitive.resolve(path.join(alias, "future", "spec.md")).key,
-      sensitive.resolve(path.join(alias, "Future", "Spec.md")).key,
-    );
-    const unknownUpper = unknown.resolve(path.join(alias, "Future", "Spec.md"));
-    const unknownLower = unknown.resolve(path.join(alias, "future", "spec.md"));
-    assert.equal(unknownUpper.path, path.join(physical, "Future", "Spec.md"));
-    assert.equal(unknownLower.path, path.join(physical, "future", "spec.md"));
-    assert.notEqual(unknownUpper.key, unknownLower.key);
-    assert.equal(
-      unknownUpper.key,
-      unknown.resolve(path.join(physical, "Future", "Spec.md")).key,
-      "unknown suffix authority retains the existing physical alias identity",
-    );
+  const insensitivePath = path.join(physical, "future", "spec.md");
+  const insensitiveVolume = path.parse(insensitivePath).root;
+  assert.deepEqual(insensitive.resolve(path.join(alias, "Future", "Spec.md")), {
+    key:
+      process.platform === "win32"
+        ? `${insensitiveVolume.toLowerCase()}${insensitivePath.slice(insensitiveVolume.length)}`
+        : insensitivePath,
+    path: insensitivePath,
+  });
+  assert.equal(
+    insensitive.resolve(path.join(alias, "future", "spec.md")).key,
+    insensitive.resolve(path.join(alias, "Future", "Spec.md")).key,
+  );
+  assert.notEqual(
+    sensitive.resolve(path.join(alias, "future", "spec.md")).key,
+    sensitive.resolve(path.join(alias, "Future", "Spec.md")).key,
+  );
+  const unknownUpper = unknown.resolve(path.join(alias, "Future", "Spec.md"));
+  const unknownLower = unknown.resolve(path.join(alias, "future", "spec.md"));
+  assert.equal(unknownUpper.path, path.join(physical, "Future", "Spec.md"));
+  assert.equal(unknownLower.path, path.join(physical, "future", "spec.md"));
+  assert.notEqual(unknownUpper.key, unknownLower.key);
+  assert.equal(
+    unknownUpper.key,
+    unknown.resolve(path.join(physical, "Future", "Spec.md")).key,
+    "unknown suffix authority retains the existing physical alias identity",
+  );
 
-    const missing = (): never => {
-      throw Object.assign(new Error("missing"), { code: "ENOENT" });
-    };
-    const windows = createFilesystemPathIdentityContext({
-      platform: "win32",
-      caseSensitive: (directory) =>
-        path.win32.resolve(directory).toLowerCase().startsWith("c:\\sensitive"),
-      realpath: (location) => {
-        const resolved = path.win32.resolve(location);
-        const folded = resolved.toLowerCase();
-        if (folded === "c:\\ordinary") return "C:\\Ordinary";
-        if (folded === "c:\\ordinary\\repo") return "C:\\Ordinary\\Repo";
-        if (resolved === "C:\\Sensitive") return resolved;
-        if (resolved === "C:\\Sensitive\\Project") return resolved;
-        if (resolved === "C:\\Sensitive\\project") return resolved;
-        if (/^\\\\[^\\]+\\[^\\]+\\Work$/i.test(resolved)) return resolved;
-        return missing();
-      },
-    });
-    assert.equal(
-      windows.resolve("C:\\ORDINARY\\repo").key,
-      windows.resolve("c:\\ordinary\\REPO").key,
-      "ordinary Windows aliases converge through physical spelling",
-    );
-    assert.notEqual(
-      windows.resolve("C:\\Sensitive\\Project").key,
-      windows.resolve("C:\\Sensitive\\project").key,
-      "case-sensitive Windows siblings remain distinct",
-    );
-    assert.notEqual(
-      windows.resolve("C:\\Sensitive\\Project\\Future.ts").key,
-      windows.resolve("C:\\Sensitive\\Project\\future.ts").key,
-      "missing descendants inherit sensitive ownership",
-    );
-    assert.equal(
-      windows.resolve("C:\\Ordinary\\Repo\\Future.ts").key,
-      windows.resolve("c:\\ordinary\\repo\\future.ts").key,
-      "missing descendants inherit insensitive ownership",
-    );
-    assert.equal(
-      windows.resolve("\\\\SERVER\\Share\\Work").key,
-      windows.resolve("\\\\server\\share\\Work").key,
-      "UNC authority and share aliases identify one volume",
-    );
-
+  const missing = (): never => {
+    throw Object.assign(new Error("missing"), { code: "ENOENT" });
+  };
+  const windows = createFilesystemPathIdentityContext({
+    platform: "win32",
+    caseSensitive: (directory) =>
+      path.win32.resolve(directory).toLowerCase().startsWith("c:\\sensitive"),
+    realpath: (location) => {
+      const resolved = path.win32.resolve(location);
+      const folded = resolved.toLowerCase();
+      if (folded === "c:\\ordinary") return "C:\\Ordinary";
+      if (folded === "c:\\ordinary\\repo") return "C:\\Ordinary\\Repo";
+      if (resolved === "C:\\Sensitive") return resolved;
+      if (resolved === "C:\\Sensitive\\Project") return resolved;
+      if (resolved === "C:\\Sensitive\\project") return resolved;
+      if (/^\\\\[^\\]+\\[^\\]+\\Work$/i.test(resolved)) return resolved;
+      return missing();
+    },
+  });
+  assert.equal(
+    windows.resolve("C:\\ORDINARY\\repo").key,
+    windows.resolve("c:\\ordinary\\REPO").key,
+    "ordinary Windows aliases converge through physical spelling",
+  );
+  assert.notEqual(
+    windows.resolve("C:\\Sensitive\\Project").key,
+    windows.resolve("C:\\Sensitive\\project").key,
+    "case-sensitive Windows siblings remain distinct",
+  );
+  assert.notEqual(
+    windows.resolve("C:\\Sensitive\\Project\\Future.ts").key,
+    windows.resolve("C:\\Sensitive\\Project\\future.ts").key,
+    "missing descendants inherit sensitive ownership",
+  );
+  assert.equal(
+    windows.resolve("C:\\Ordinary\\Repo\\Future.ts").key,
+    windows.resolve("c:\\ordinary\\repo\\future.ts").key,
+    "missing descendants inherit insensitive ownership",
+  );
+  assert.equal(
+    windows.resolve("\\\\SERVER\\Share\\Work").key,
+    windows.resolve("\\\\server\\share\\Work").key,
+    "UNC authority and share aliases identify one volume",
+  );
 }

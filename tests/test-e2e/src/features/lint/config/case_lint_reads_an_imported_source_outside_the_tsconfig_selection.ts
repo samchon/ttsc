@@ -32,27 +32,29 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original nonzero exit, exactly one no-var finding and every diagnostic filename containing index remain executable; the included clean entry prevents incidental root-file reports from satisfying the case.
  */
 export function test_lint_reads_an_imported_source_outside_the_tsconfig_selection() {
-    const project = createLintProject({
-      name: "imported-source-outside-selection",
-      source:
-        'import { value } from "../packages/api/src/index";\n' +
-        "JSON.stringify(value);\n",
-      extraSources: FixtureFiles.read("lint/lint_reads_an_imported_source_outside_the_tsconfig_selection/inputs-1"),
-    });
-    try {
-      const result = runLintProject(project.tmpdir);
-      assert.notEqual(result.status, 0, result.stderr);
-      assert.deepEqual(
-        result.diagnostics.map((d) => d.rule),
-        ["no-var"],
-        result.stderr,
-      );
-      assert.equal(
-        result.diagnostics.every((d) => d.file.includes("index")),
-        true,
-        result.stderr,
-      );
-    } finally {
-      project.cleanup();
-    }
+  const project = createLintProject({
+    name: "imported-source-outside-selection",
+    source:
+      'import { value } from "../packages/api/src/index";\n' +
+      "JSON.stringify(value);\n",
+    extraSources: FixtureFiles.read(
+      "lint/lint_reads_an_imported_source_outside_the_tsconfig_selection/inputs-1",
+    ),
+  });
+  try {
+    const result = runLintProject(project.tmpdir);
+    assert.notEqual(result.status, 0, result.stderr);
+    assert.deepEqual(
+      result.diagnostics.map((d) => d.rule),
+      ["no-var"],
+      result.stderr,
+    );
+    assert.equal(
+      result.diagnostics.every((d) => d.file.includes("index")),
+      true,
+      result.stderr,
+    );
+  } finally {
+    project.cleanup();
   }
+}

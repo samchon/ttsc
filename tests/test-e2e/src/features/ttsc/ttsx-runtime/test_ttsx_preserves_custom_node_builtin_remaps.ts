@@ -13,6 +13,7 @@ import path from "node:path";
  * 1. Remap `node:sqlite` to a custom URL and `node:custom` to exact `custom`.
  * 2. Run a CommonJS entry that requires both remapped specifiers through ttsx.
  * 3. Assert both custom modules load instead of being rewritten by ttsx.
+ *
  * @evidence contracts/testing.md#behavioral-verification Ttsx with an authored NODE_OPTIONS user hook requires node:sqlite and node:custom and must print custom-remap,non-builtin-exact-strip.
  * @evidence contracts/testing.md#independent-expectations The actual hook returns different literal CommonJS sources for a custom URL and exact custom specifier; their exported values independently distinguish unwanted builtin-prefix correction.
  * @evidence contracts/testing.md#distinguishing-cases A genuine builtin remapped away from its normal URL and a node-shaped non-builtin exact strip both must remain user-owned. The unchanged native builtin branch is complementary coverage outside this case.

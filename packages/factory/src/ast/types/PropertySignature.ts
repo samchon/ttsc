@@ -8,12 +8,11 @@ import type { TypeNode } from "./TypeNode";
  *
  * Built by {@link factory.createPropertySignature}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Name, optional marker and annotation preserve a property signature; the broad shared PropertyName does not validate interface-specific name restrictions.
  * @evidence contracts/common.md#clear-and-simple-design Each property clause has one field using existing modifier, name and type representations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Names and annotations are caller data, without hardcoded consumer properties.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies type-member use and annotation omission; separated member comments follow the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface PropertySignature {
   /** Discriminant tag; always `"PropertySignature"`. */

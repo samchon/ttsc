@@ -12,10 +12,10 @@ import { hostDeclaresPolling } from "../../../../packages/unplugin/src/core/tran
  * watcher is not evidence, and when the host does not poll, the native
  * observers keep their bounded cost. The rows mirror chokidar 3 and 4, where
  * the environment overrides `usePolling`, and Watchpack 2, whose numeric values
- * only force polling when the canonical numeric conversion is truthy.
- * Watchpack 2.5.1 stores that conversion in FORCE_POLLING and tests its
- * truthiness: NaN does not force polling, while nonzero negative and infinite
- * values do. This case identifies declarations, not their timer behavior.
+ * only force polling when the canonical numeric conversion is truthy. Watchpack
+ * 2.5.1 stores that conversion in FORCE_POLLING and tests its truthiness: NaN
+ * does not force polling, while nonzero negative and infinite values do. This
+ * case identifies declarations, not their timer behavior.
  *
  * 1. Evaluate each declaration against the host option it overrides.
  * 2. Assert the verdict is the one the host itself reaches.
@@ -56,7 +56,11 @@ export async function test_host_polling_declarations_follow_each_host(): Promise
     [{ WATCHPACK_POLLING: "" }, undefined, false],
     // Either host declaring polling is enough.
     [{ CHOKIDAR_USEPOLLING: "false", WATCHPACK_POLLING: "true" }, true, true],
-    [{ CHOKIDAR_USEPOLLING: "true", WATCHPACK_POLLING: "NaN" }, undefined, true],
+    [
+      { CHOKIDAR_USEPOLLING: "true", WATCHPACK_POLLING: "NaN" },
+      undefined,
+      true,
+    ],
   ];
   for (const [env, usePolling, expected] of rows) {
     assert.equal(

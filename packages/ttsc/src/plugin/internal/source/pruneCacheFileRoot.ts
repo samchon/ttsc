@@ -15,16 +15,16 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * its modification time: a write sets it, and every hit records a use by
  * setting it again (`recordCacheFileUse`), improving its recent-use priority
  * under the collection policy rather than pinning it indefinitely. A writer
- * publishes an entry by renaming a finished staging file over
- * it, so removing an entry can only make a reader miss and compute the answer
- * again, never read a partial one; a staging file a crashed writer left behind
- * is an entry nobody uses, and ages out like one.
+ * publishes an entry by renaming a finished staging file over it, so removing
+ * an entry can only make a reader miss and compute the answer again, never read
+ * a partial one; a staging file a crashed writer left behind is an entry nobody
+ * uses, and ages out like one.
  *
  * A part absent or nonordinary at admission is left alone. A pass that gets
- * beyond the interval gate attempts marker publication after eviction;
- * physical path validation does not retain a directory handle against
- * concurrent root replacement. Failures are swallowed, since a collection
- * must never fail the launch that triggered it.
+ * beyond the interval gate attempts marker publication after eviction; physical
+ * path validation does not retain a directory handle against concurrent root
+ * replacement. Failures are swallowed, since a collection must never fail the
+ * launch that triggered it.
  *
  * @evidence contracts/common.md#principled-implementation Ordinary-root validation selects physical spelling for the pass, subject to that path retaining its identity during later lookups. Age and oldest-first size eviction operate on atomically published answer files, whose deletion means a cache miss rather than a partial answer; no directory handle freezes the root against concurrent replacement.
  * @evidence contracts/common.md#clear-and-simple-design Admission, age eviction, fresh accounting and size eviction are separate phases, followed by one retry marker publication.

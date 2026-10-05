@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   fs,
@@ -13,8 +12,10 @@ import {
  *
  * TypeScript 5.0 supports an `extends` array where later entries override
  * earlier ones. `readProjectConfig` must honour the same left-to-right
- * precedence: scalar options like `outDir` take the value of the last entry that declares them (an explicit `null` is a reset, owned by lets_a_child_null_reset_an_inherited_outdir), and
- * plugins take the value from the last entry that defines them.
+ * precedence: scalar options like `outDir` take the value of the last entry
+ * that declares them (an explicit `null` is a reset, owned by
+ * lets_a_child_null_reset_an_inherited_outdir), and plugins take the value from
+ * the last entry that defines them.
  *
  * 1. Create `base-a.json` (outDir, rootDir, plugins-a) and `base-b.json` (outDir
  *    override, plugins-b) under a shared config directory.

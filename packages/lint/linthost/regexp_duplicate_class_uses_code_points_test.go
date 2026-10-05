@@ -15,7 +15,10 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases ASCII, accents, repeated accents, escaped equivalents, ranges, negation, astral u/v and legacy surrogate members have independent literal counts.
 // @evidence contracts/testing.md#execution-ownership TestRegexpDuplicateClassUsesCodePoints invokes runRuleFindingsSnapshot in the enrolled rules unit population with the actual parser/Engine; no RegExp runtime replacement, installed consumer or child native producer is involved.
 func TestRegexpDuplicateClassUsesCodePoints(t *testing.T) {
-  cases := []struct { literal string; want int }{
+  cases := []struct {
+    literal string
+    want    int
+  }{
     {`/[ab]/u`, 0}, {`/[aa]/u`, 1}, {`/[éê]/u`, 0}, {`/[éé]/u`, 1},
     {`/[^éê]/u`, 0}, {`/[éê]/`, 0}, {`/[éê]/v`, 0},
     {`/[\u00e9\u00ea]/u`, 0}, {`/[é\u00e9]/u`, 1},
@@ -29,8 +32,10 @@ func TestRegexpDuplicateClassUsesCodePoints(t *testing.T) {
   }
   for _, c := range cases {
     t.Run(c.literal, func(t *testing.T) {
-      _, _, findings := runRuleFindingsSnapshot(t, "regexp/no-dupe-characters-character-class", "const value = " + c.literal + ";", nil)
-      if len(findings) != c.want { t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings) }
+      _, _, findings := runRuleFindingsSnapshot(t, "regexp/no-dupe-characters-character-class", "const value = "+c.literal+";", nil)
+      if len(findings) != c.want {
+        t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings)
+      }
     })
   }
 }

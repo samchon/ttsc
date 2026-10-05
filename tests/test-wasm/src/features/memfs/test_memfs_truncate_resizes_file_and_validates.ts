@@ -52,9 +52,13 @@ export const test_memfs_truncate_resizes_file_and_validates =
     );
     const codes = {
       negative: await expectFsError((cb) => host.fs.truncate("/t.txt", -1, cb)),
-      fractional: await expectFsError((cb) => host.fs.truncate("/t.txt", 0.5, cb)),
+      fractional: await expectFsError((cb) =>
+        host.fs.truncate("/t.txt", 0.5, cb),
+      ),
       nan: await expectFsError((cb) => host.fs.truncate("/t.txt", NaN, cb)),
-      infinite: await expectFsError((cb) => host.fs.truncate("/t.txt", Infinity, cb)),
+      infinite: await expectFsError((cb) =>
+        host.fs.truncate("/t.txt", Infinity, cb),
+      ),
       directory: await expectFsError((cb) => host.fs.truncate("/dir", 0, cb)),
       missing: await expectFsError((cb) => host.fs.truncate("/nope", 0, cb)),
     };

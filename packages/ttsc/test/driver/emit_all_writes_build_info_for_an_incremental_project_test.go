@@ -96,7 +96,9 @@ func TestEmitAllWritesBuildInfoForAnIncrementalProject(t *testing.T) {
       // A `.tsbuildinfo` tsgo can read back is a JSON object carrying the
       // compiler version it was produced by; an empty or truncated write would
       // satisfy a bare existence check and fail every consumer.
-      var document struct { Version string `json:"version"` }
+      var document struct {
+        Version string `json:"version"`
+      }
       if err := json.Unmarshal([]byte(buildInfo), &document); err != nil || document.Version == "" {
         t.Fatalf("build information is not a versioned JSON document: %v\n%s", err, buildInfo)
       }

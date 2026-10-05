@@ -49,5 +49,7 @@ func TestCommandBuildEmitsProjectOutput(t *testing.T) {
   if !strings.Contains(string(data), "exports.value") {
     t.Fatalf("emitted JavaScript missing export: %s", data)
   }
-  if !strings.Contains(string(data), "exports.value = 1;") { t.Fatalf("build lost the authored export value: %s", data) }
+  if !strings.Contains(string(data), "exports.value = 1;") {
+    t.Fatalf("build lost the authored export value: %s", data)
+  }
 }

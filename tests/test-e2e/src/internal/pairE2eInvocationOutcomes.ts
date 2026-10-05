@@ -2,6 +2,7 @@ import type { TraceMeasurements } from "./readE2eTraceMeasurements";
 
 /**
  * Actual named invocation and its observed result, never assertion coverage.
+ *
  * @evidence contracts/common.md#principled-implementation Keeps validated writer/invocation/sequence and actual callable or scenario identity, with an absent result left absent.
  * @evidence contracts/common.md#clear-and-simple-design Distinguishes file/export tests from label/name profiles without inventing a shared source-address grammar.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Outcome metadata does not declare assertion coverage, process counts or resource closure.
@@ -20,7 +21,9 @@ export interface InvocationObservation {
 }
 
 /**
- * Missing or conflicting observations remain explicit instead of expected totals.
+ * Missing or conflicting observations remain explicit instead of expected
+ * totals.
+ *
  * @evidence contracts/common.md#principled-implementation Separates actual invocation records from pairing problems and explicitly limits the result to observations.
  * @evidence contracts/common.md#clear-and-simple-design One records list and one problem list retain successful, skipped, failed and incomplete evidence without collapsing it to a coverage count.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The false certification field prevents treating this shape as proof of expected assertion or callback population.
@@ -47,9 +50,14 @@ export interface InvocationOutcomes {
  * @evidence contracts/performance.md#reuse-equivalent-work Reuses already validated phase metadata without rereading files or payloads; it never reuses a callback outcome for a different invocation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Retains one small record per observed named invocation and each pairing problem. It opens no handle; trace retention and actual runner/child joins remain the coordinator's responsibility.
  */
-export function pairE2eInvocationOutcomes(measurements: TraceMeasurements | undefined): InvocationOutcomes {
+export function pairE2eInvocationOutcomes(
+  measurements: TraceMeasurements | undefined,
+): InvocationOutcomes {
   const output: InvocationOutcomes = {
-    observedOnly: true, assertionCoverageCertified: false, invocations: [], problems: [],
+    observedOnly: true,
+    assertionCoverageCertified: false,
+    invocations: [],
+    problems: [],
   };
   if (!measurements) {
     output.problems.push("Missing phase trace observations");
@@ -59,12 +67,27 @@ export function pairE2eInvocationOutcomes(measurements: TraceMeasurements | unde
   for (const row of measurements.writerObservations) {
     const event = row.observation;
     const kind = event.event.startsWith("test-") ? "test" : "profile";
-    if (event.event !== "test-invocation" && event.event !== "test-result" &&
-      event.event !== "profile-invocation" && event.event !== "profile-result") continue;
+    if (
+      event.event !== "test-invocation" &&
+      event.event !== "test-result" &&
+      event.event !== "profile-invocation" &&
+      event.event !== "profile-result"
+    )
+      continue;
     const identity = kind === "test" ? event.data?.file : event.data?.label;
     const name = event.data?.name;
-    if (typeof identity !== "string" || identity.length === 0 || typeof name !== "string" || name.length === 0) {
-      output.problems.push("Malformed named invocation identity: " + row.writerFile + ":" + event.sequence);
+    if (
+      typeof identity !== "string" ||
+      identity.length === 0 ||
+      typeof name !== "string" ||
+      name.length === 0
+    ) {
+      output.problems.push(
+        "Malformed named invocation identity: " +
+          row.writerFile +
+          ":" +
+          event.sequence,
+      );
       continue;
     }
     const key = row.writerFile + ":" + event.invocation;
@@ -74,21 +97,34 @@ export function pairE2eInvocationOutcomes(measurements: TraceMeasurements | unde
         continue;
       }
       const record: InvocationObservation = {
-        writerFile: row.writerFile, invocation: event.invocation, kind, name,
-        ...(kind === "test" ? { file: identity } : { label: identity }), sequence: event.sequence,
+        writerFile: row.writerFile,
+        invocation: event.invocation,
+        kind,
+        name,
+        ...(kind === "test" ? { file: identity } : { label: identity }),
+        sequence: event.sequence,
       };
       active.set(key, record);
       output.invocations.push(record);
     } else {
       const record = active.get(key);
-      if (!record || record.kind !== kind || record.name !== name ||
+      if (
+        !record ||
+        record.kind !== kind ||
+        record.name !== name ||
         (kind === "test" ? record.file : record.label) !== identity ||
-        record.resultSequence !== undefined || event.sequence <= record.sequence) {
+        record.resultSequence !== undefined ||
+        event.sequence <= record.sequence
+      ) {
         output.problems.push("Unmatched or conflicting named result: " + key);
         continue;
       }
       const outcome = event.data?.outcome;
-      if (outcome !== "returned" && outcome !== "skipped" && outcome !== "threw") {
+      if (
+        outcome !== "returned" &&
+        outcome !== "skipped" &&
+        outcome !== "threw"
+      ) {
         output.problems.push("Invalid named result outcome: " + key);
         continue;
       }
@@ -98,6 +134,11 @@ export function pairE2eInvocationOutcomes(measurements: TraceMeasurements | unde
   }
   for (const record of output.invocations)
     if (record.resultSequence === undefined)
-      output.problems.push("Missing named invocation result: " + record.writerFile + ":" + record.invocation);
+      output.problems.push(
+        "Missing named invocation result: " +
+          record.writerFile +
+          ":" +
+          record.invocation,
+      );
   return output;
 }

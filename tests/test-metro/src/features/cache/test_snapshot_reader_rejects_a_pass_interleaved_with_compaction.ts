@@ -11,10 +11,10 @@ import { assertSnapshotReaderRejectsAPassInterleavedWithCompaction } from "../..
  * published, so the reader counts a pass only when no lock existed before or
  * after it and the main file read the same on both sides.
  *
- * 1. List no worker file in the first pass and show the lock after it, and
- *    assert the pass is retried and the trusted state holds the recorded input.
- * 2. List none while the main text differs between its reads, and assert the
- *    same retry.
+ * 1. List no worker file in the first pass and show the lock after it, and assert
+ *    the pass is retried and the trusted state holds the recorded input.
+ * 2. List none while the main text differs between its reads, and assert the same
+ *    retry.
  * 3. Keep the lock present and assert the state is untrusted after eight bounded
  *    attempts without any listing.
  *

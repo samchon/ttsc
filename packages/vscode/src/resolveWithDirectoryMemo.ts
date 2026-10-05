@@ -22,22 +22,22 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states that undefined results are memoized and that the caller owns
  *   the memo and its lifetime, in separate paragraphs.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   It keys a Map by a caller-supplied string and touches no path or process.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It performs one Map membership check and either one retrieval or one
-  *   store; the supplied resolver owns the computation on a missing key.
-  *
-  * @evidence contracts/performance.md#reuse-equivalent-work
-  *   Equivalent requests share one resolve call per key while the caller's memo
-  *   lives; the caller chooses the key and the memo's lifetime, which bounds
-  *   reuse to one reconciliation so later disk changes are observed.
-  *
-  * @evidence contracts/performance.md#bound-retention-and-release-resources
-  *   The caller owns the memo, which grows by one entry per distinct key and is
-  *   dropped with the reconciliation; the function holds no handle or task.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   It keys a Map by a caller-supplied string and touches no path or process.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   It performs one Map membership check and either one retrieval or one
+ *   store; the supplied resolver owns the computation on a missing key.
+ *
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Equivalent requests share one resolve call per key while the caller's memo
+ *   lives; the caller chooses the key and the memo's lifetime, which bounds
+ *   reuse to one reconciliation so later disk changes are observed.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The caller owns the memo, which grows by one entry per distinct key and is
+ *   dropped with the reconciliation; the function holds no handle or task.
  */
 export function resolveWithDirectoryMemo<T>(
   key: string,

@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { id, print } from "../../internal/helpers";
  * Named export with alias, `export *`, `export type { T } from`, default
  * export, and `export =`.
  *
- * 1. Named alias, star, type-only, default and export-equals forms retain their distinct syntax.
- * 2. Literal export statements independently fix clause names, aliases and assignment/default tokens.
+ * 1. Named alias, star, type-only, default and export-equals forms retain their
+ *    distinct syntax.
+ * 2. Literal export statements independently fix clause names, aliases and
+ *    assignment/default tokens.
  *
  * @evidence contracts/testing.md#behavioral-verification Named alias, star, type-only, default and export-equals forms retain their distinct syntax.
  * @evidence contracts/testing.md#independent-expectations Literal export statements independently fix clause names, aliases and assignment/default tokens.
@@ -54,24 +56,28 @@ export const test_exports = (): void => {
   );
   TestValidator.equals(
     "type-only aliased specifier",
-    print(factory.createExportDeclaration(
-      undefined,
-      false,
-      factory.createNamedExports([
-        factory.createExportSpecifier(true, "Original", "Renamed"),
-      ]),
-      "mod",
-    )),
+    print(
+      factory.createExportDeclaration(
+        undefined,
+        false,
+        factory.createNamedExports([
+          factory.createExportSpecifier(true, "Original", "Renamed"),
+        ]),
+        "mod",
+      ),
+    ),
     'export { type Original as Renamed } from "mod";',
   );
   TestValidator.equals(
     "empty named export",
-    print(factory.createExportDeclaration(
-      undefined,
-      false,
-      factory.createNamedExports([]),
-      undefined,
-    )),
+    print(
+      factory.createExportDeclaration(
+        undefined,
+        false,
+        factory.createNamedExports([]),
+        undefined,
+      ),
+    ),
     "export {};",
   );
   TestValidator.equals(

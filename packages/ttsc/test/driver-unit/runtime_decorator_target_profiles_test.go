@@ -3,8 +3,8 @@ package driver_test
 import (
   "encoding/json"
   "fmt"
-  "path/filepath"
   "os"
+  "path/filepath"
   "strings"
   "testing"
 
@@ -33,17 +33,26 @@ import (
 // or user effects and do not certify the runtime launcher's abort ordering.
 func TestRuntimeDecoratorTargetProfiles(t *testing.T) {
   fixtureBytes, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "tests", "test-ttsc", "src", "internal", "runtime-decorator-fixture.json"))
-  if err != nil { t.Fatal(err) }
-  var fixture struct { Source string `json:"source"`; MemberSource string `json:"memberSource"` }
-  if err := json.Unmarshal(fixtureBytes, &fixture); err != nil { t.Fatal(err) }
-  if fixture.Source == "" { t.Fatal("empty authored decorator fixture") }
+  if err != nil {
+    t.Fatal(err)
+  }
+  var fixture struct {
+    Source       string `json:"source"`
+    MemberSource string `json:"memberSource"`
+  }
+  if err := json.Unmarshal(fixtureBytes, &fixture); err != nil {
+    t.Fatal(err)
+  }
+  if fixture.Source == "" {
+    t.Fatal("empty authored decorator fixture")
+  }
   cases := []struct {
-    name string
-    target string
-    args []string
-    legacy bool
+    name     string
+    target   string
+    args     []string
+    legacy   bool
     optional bool
-    members bool
+    members  bool
   }{
     {name: "default", optional: true},
     {name: "es2025", target: "ES2025", optional: true},
@@ -59,45 +68,75 @@ func TestRuntimeDecoratorTargetProfiles(t *testing.T) {
       write := func(name, text string) {
         t.Helper()
         file := filepath.Join(root, filepath.FromSlash(name))
-        if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil { t.Fatal(err) }
-        if err := os.WriteFile(file, []byte(text), 0o644); err != nil { t.Fatal(err) }
+        if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+          t.Fatal(err)
+        }
+        if err := os.WriteFile(file, []byte(text), 0o644); err != nil {
+          t.Fatal(err)
+        }
       }
       options := map[string]any{"module": "commonjs", "outDir": "dist", "strict": true}
-      if c.target != "" { options["target"] = c.target }
-      if c.legacy { options["experimentalDecorators"] = true }
+      if c.target != "" {
+        options["target"] = c.target
+      }
+      if c.legacy {
+        options["experimentalDecorators"] = true
+      }
       config, err := json.Marshal(map[string]any{"compilerOptions": options, "files": []string{"index.ts"}})
-      if err != nil { t.Fatal(err) }
+      if err != nil {
+        t.Fatal(err)
+      }
       write("tsconfig.json", string(config))
       source := fixture.Source + `
 export {};
 function optional(value?: { answer: number }) { return value?.answer; }
 console.log(optional.toString().includes("?."));
 `
-      if c.legacy { source = `function legacy(target: Function) { console.log(target.name); }
+      if c.legacy {
+        source = `function legacy(target: Function) { console.log(target.name); }
 @legacy
 class Foo {}
 new Foo();
 export {};
 export function optional(value?: { answer: number }) { return value?.answer; }
-` }
-      if c.members { source = fixture.MemberSource + "\nexport {};" }
+`
+      }
+      if c.members {
+        source = fixture.MemberSource + "\nexport {};"
+      }
       write("index.ts", source)
       args := append([]string{}, c.args...)
       prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true, TsgoArgs: args})
-      if err != nil { t.Fatal(err) }
-      if len(diags) != 0 { t.Fatalf("unexpected configuration diagnostics: %#v", diags) }
+      if err != nil {
+        t.Fatal(err)
+      }
+      if len(diags) != 0 {
+        t.Fatalf("unexpected configuration diagnostics: %#v", diags)
+      }
       defer prog.Close()
-      if diagnostics := prog.Diagnostics(); len(diagnostics) != 0 { t.Fatalf("unexpected program diagnostics: %#v", diagnostics) }
+      if diagnostics := prog.Diagnostics(); len(diagnostics) != 0 {
+        t.Fatalf("unexpected program diagnostics: %#v", diagnostics)
+      }
       var output string
       _, emitDiags, err := prog.EmitAllRaw(func(name, text string, _ *shimcompiler.WriteFileData) error {
-        if filepath.Base(name) == "index.js" { output = text }
+        if filepath.Base(name) == "index.js" {
+          output = text
+        }
         return nil
       })
-      if err != nil { t.Fatal(err) }
-      if len(emitDiags) != 0 { t.Fatalf("unexpected emit diagnostics: %#v", emitDiags) }
-      if output == "" { t.Fatal("index.js was not emitted") }
+      if err != nil {
+        t.Fatal(err)
+      }
+      if len(emitDiags) != 0 {
+        t.Fatalf("unexpected emit diagnostics: %#v", emitDiags)
+      }
+      if output == "" {
+        t.Fatal("index.js was not emitted")
+      }
       record, err := json.Marshal(map[string]string{"name": c.name, "javascript": output})
-      if err != nil { t.Fatal(err) }
+      if err != nil {
+        t.Fatal(err)
+      }
       fmt.Printf("TTSC_RUNTIME_EMIT_V1:%s\n", record)
       if got := strings.Contains(output, "?.answer"); !c.members && got != c.optional {
         t.Fatalf("optional chaining: got %v, want %v\n%s", got, c.optional, output)
@@ -116,11 +155,11 @@ export function optional(value?: { answer: number }) { return value?.answer; }
     })
   }
   rejecting := []struct {
-    name string
-    options map[string]any
-    args []string
-    source string
-    code int32
+    name          string
+    options       map[string]any
+    args          []string
+    source        string
+    code          int32
     configuration bool
   }{
     {name: "invalid-decorator", options: map[string]any{}, source: "function invalid() { return 42; }\n@invalid\nclass Foo {}\nconsole.log(\"executed\");", code: 1329},
@@ -133,29 +172,53 @@ export function optional(value?: { answer: number }) { return value?.answer; }
     t.Run(c.name, func(t *testing.T) {
       root := t.TempDir()
       options := map[string]any{"module": "commonjs", "target": "ESNext", "strict": true}
-      for key, value := range c.options { options[key] = value }
+      for key, value := range c.options {
+        options[key] = value
+      }
       config, err := json.Marshal(map[string]any{"compilerOptions": options, "files": []string{"index.ts"}})
-      if err != nil { t.Fatal(err) }
-      if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), config, 0o644); err != nil { t.Fatal(err) }
+      if err != nil {
+        t.Fatal(err)
+      }
+      if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), config, 0o644); err != nil {
+        t.Fatal(err)
+      }
       sourceFile := filepath.Join(root, "index.ts")
-      if err := os.WriteFile(sourceFile, []byte(c.source), 0o644); err != nil { t.Fatal(err) }
+      if err := os.WriteFile(sourceFile, []byte(c.source), 0o644); err != nil {
+        t.Fatal(err)
+      }
       prog, diagnostics, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceNoEmit: true, TsgoArgs: append([]string{}, c.args...)})
-      if err != nil { t.Fatal(err) }
-      if prog != nil { defer prog.Close() }
+      if err != nil {
+        t.Fatal(err)
+      }
+      if prog != nil {
+        defer prog.Close()
+      }
       if c.configuration {
-        if prog != nil { t.Fatal("invalid target constructed a Program") }
+        if prog != nil {
+          t.Fatal("invalid target constructed a Program")
+        }
       } else {
-        if prog == nil || len(diagnostics) != 0 { t.Fatalf("expected program diagnostics after valid option parsing: %#v", diagnostics) }
+        if prog == nil || len(diagnostics) != 0 {
+          t.Fatalf("expected program diagnostics after valid option parsing: %#v", diagnostics)
+        }
         diagnostics = prog.Diagnostics()
       }
       found := false
       for _, diagnostic := range diagnostics {
-        if diagnostic.Code == c.code { found = true }
+        if diagnostic.Code == c.code {
+          found = true
+        }
       }
-      if !found || driver.CountErrors(diagnostics) == 0 { t.Fatalf("expected error TS%d: %#v", c.code, diagnostics) }
+      if !found || driver.CountErrors(diagnostics) == 0 {
+        t.Fatalf("expected error TS%d: %#v", c.code, diagnostics)
+      }
       unchanged, err := os.ReadFile(sourceFile)
-      if err != nil { t.Fatal(err) }
-      if string(unchanged) != c.source { t.Fatal("diagnostic admission changed the authored source") }
+      if err != nil {
+        t.Fatal(err)
+      }
+      if string(unchanged) != c.source {
+        t.Fatal("diagnostic admission changed the authored source")
+      }
     })
   }
 }

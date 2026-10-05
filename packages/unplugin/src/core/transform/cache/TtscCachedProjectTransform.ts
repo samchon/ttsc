@@ -17,9 +17,9 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  * generation before later first deliveries may share that proof. Deliveries
  * reaching source-baseline comparison still cost a text hash and may require
  * disk comparison when they diverge; unrelated modules can return before it.
- * Persistent graph-bearing requests may use derived-input validation
- * only with qualified membership and universal authority; unavailable narrow
- * proof uses the complete recorded snapshot.
+ * Persistent graph-bearing requests may use derived-input validation only with
+ * qualified membership and universal authority; unavailable narrow proof uses
+ * the complete recorded snapshot.
  *
  * @evidence contracts/common.md#principled-implementation Compiler output travels with generation-time hashes, membership policy, physical identities, and proof completeness, preventing a later delivery's reading from silently replacing compile-time evidence.
  * @evidence contracts/common.md#clear-and-simple-design One generation owns its proof snapshots, reporting state, and tracker handles; separate fields represent distinct content, spelling, identity, and lifecycle responsibilities.
@@ -60,8 +60,8 @@ export interface TtscCachedProjectTransform {
    * graph can prove they are transform inputs. A retained generation must keep
    * their authority independently of project hashes. The first delivery of a
    * new epoch proves the complete snapshot; persistent deliveries select their
-   * required scope or complete fallback rather than inferring freshness from
-   * an adapter's process lifetime.
+   * required scope or complete fallback rather than inferring freshness from an
+   * adapter's process lifetime.
    */
   externalInputHashes?: Record<string, string>;
 
@@ -89,10 +89,10 @@ export interface TtscCachedProjectTransform {
 
   /**
    * Optional metadata signature earned around a successful external content or
-   * predicate comparison and recorded only once the observed filesystem's
-   * clock provably left the stamp's tick
-   * (`stampSeparable`). Qualified matching metadata may replace that input's
-   * recorded content or predicate comparison; other authority remains separate.
+   * predicate comparison and recorded only once the observed filesystem's clock
+   * provably left the stamp's tick (`stampSeparable`). Qualified matching
+   * metadata may replace that input's recorded content or predicate comparison;
+   * other authority remains separate.
    *
    * Keyed by lexical spelling rather than by physical identity, for the reason
    * {@link TtscHostInputValidation} states: a symlink or junction spelling and
@@ -149,9 +149,9 @@ export interface TtscCachedProjectTransform {
   tsconfig: string;
 
   /**
-   * Optional metadata signature of an {@link inputHashes} entry earned around
-   * a metadata-bracketed disk read, in a tick the observed
-   * filesystem's clock had provably left (`stampSeparable`).
+   * Optional metadata signature of an {@link inputHashes} entry earned around a
+   * metadata-bracketed disk read, in a tick the observed filesystem's clock had
+   * provably left (`stampSeparable`).
    *
    * The generation's own current file is no exception. The compile reads it
    * from disk, so its recorded hash is the disk's like every other input's, and
@@ -160,12 +160,12 @@ export interface TtscCachedProjectTransform {
   inputSignatures?: Record<string, string>;
 
   /**
-   * Native host-state hashes for source paths named by transform outputs,
-   * keyed by filesystem identity, including paths outside the project walk.
-   * Failed reads of observed directories retain the host-state directory
-   * marker; other failed reads supply no entry. The current source identity is
-   * overwritten with its post-compile walk hash when available, or its delivered
-   * text hash otherwise, even without an output key. That fallback is not
+   * Native host-state hashes for source paths named by transform outputs, keyed
+   * by filesystem identity, including paths outside the project walk. Failed
+   * reads of observed directories retain the host-state directory marker; other
+   * failed reads supply no entry. The current source identity is overwritten
+   * with its post-compile walk hash when available, or its delivered text hash
+   * otherwise, even without an output key. That fallback is not
    * compiler-observed disk proof and cannot grant generation completeness.
    * Unlike {@link inputHashes}, this map does not add output names to the
    * complete project-walk key universe.
@@ -192,8 +192,8 @@ export interface TtscCachedProjectTransform {
   candidateMutationTracker?: TtscProjectMutationTracker;
 
   /**
-   * Universal descriptor/config, absent-path and plugin-tree authority.
-   * Each validator chooses content, native absence/kind/identity or qualified
+   * Universal descriptor/config, absent-path and plugin-tree authority. Each
+   * validator chooses content, native absence/kind/identity or qualified
    * tree/environment proof; metadata alone cannot replace every obligation.
    *
    * Recorded state of the generation, like the input hashes and the directory
@@ -225,8 +225,8 @@ export interface TtscCachedProjectTransform {
   /**
    * Combined reusable-generation proof: stable project/config observations,
    * compiler graph proofs, complete external authority, successful adoption
-   * comparison and universal manifest admission. A complete walk alone does
-   * not set this flag; false cannot authorize narrow or first-delivery reuse.
+   * comparison and universal manifest admission. A complete walk alone does not
+   * set this flag; false cannot authorize narrow or first-delivery reuse.
    */
   projectSnapshotComplete?: boolean;
 
@@ -257,14 +257,15 @@ export interface TtscCachedProjectTransform {
    * first delivery proves the whole generation still matches the filesystem.
    * While it equals the current epoch, later first deliveries can share that
    * whole-generation proof. Delivered source still compares with its selected
-   * baseline; divergent text requires the disk comparison before this shortcut.
+   * baseline; divergent text requires the disk comparison before this
+   * shortcut.
    */
   deliveryEpoch?: number;
 
   /**
-   * Whether this generation's non-error diagnostic reporting was attempted,
-   * and the epoch of the last attempt. The reporter records these before
-   * formatting and writing; they do not certify successful stream output.
+   * Whether this generation's non-error diagnostic reporting was attempted, and
+   * the epoch of the last attempt. The reporter records these before formatting
+   * and writing; they do not certify successful stream output.
    *
    * The diagnostics describe one compile of one program, so they belong to the
    * generation rather than to a delivery; a pass that reuses a retained
@@ -283,12 +284,12 @@ export interface TtscCachedProjectTransform {
 
   /**
    * Admitted module-selection checkpoints, keyed by filesystem identity.
-   * Marking follows watch notification, including a missing-output continuation,
-   * but precedes final host-value construction; it does not certify completed
-   * downstream delivery.
-   * A cache with a delivery epoch uses this to skip persistent validation only
-   * for a module's first delivery inside the current pass; the set is cleared
-   * whenever a new epoch's gate re-proves the generation.
+   * Marking follows watch notification, including a missing-output
+   * continuation, but precedes final host-value construction; it does not
+   * certify completed downstream delivery. A cache with a delivery epoch uses
+   * this to skip persistent validation only for a module's first delivery
+   * inside the current pass; the set is cleared whenever a new epoch's gate
+   * re-proves the generation.
    */
   servedFiles?: Set<string>;
 
@@ -296,8 +297,8 @@ export interface TtscCachedProjectTransform {
    * Absolute path of the adapter-owned scratch directory used for this
    * generation. Capture attempts owned cleanup after compilation and excludes
    * its artifacts from persistent cache/watch inputs by ownership, even when
-   * native removal fails. An adopted publication carries the publisher's,
-   * since that is the directory its envelope names.
+   * native removal fails. An adopted publication carries the publisher's, since
+   * that is the directory its envelope names.
    */
   scratchDirectory?: string;
 

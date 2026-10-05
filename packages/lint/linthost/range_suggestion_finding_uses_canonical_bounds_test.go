@@ -8,7 +8,6 @@ import (
 // suggestion-only reporting surface, which does not pass through the public
 // contributor ReportRange method but feeds the same LSP diagnostic pipeline.
 //
-//
 //  1. Collect an internal range suggestion with malformed diagnostic bounds and a valid authored choice.
 //  2. Require EOF diagnostic bounds and the complete original title, message and 0..5 let edit.
 //
@@ -42,5 +41,7 @@ func TestRangeSuggestionFindingUsesCanonicalBounds(t *testing.T) {
     t.Fatalf("suggestions = %d, want %d: %+v", got, want, finding.Suggestions)
   }
   choice := finding.Suggestions[0]
-  if finding.Message != "bounded suggestion finding" || choice.Title != "Keep the edit separate" || len(choice.Edits) != 1 || choice.Edits[0] != (TextEdit{Pos: 0, End: 5, Text: "let"}) { t.Fatalf("bounded suggestion lost its independent edit or title: %+v", finding) }
+  if finding.Message != "bounded suggestion finding" || choice.Title != "Keep the edit separate" || len(choice.Edits) != 1 || choice.Edits[0] != (TextEdit{Pos: 0, End: 5, Text: "let"}) {
+    t.Fatalf("bounded suggestion lost its independent edit or title: %+v", finding)
+  }
 }

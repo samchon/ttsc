@@ -9,9 +9,9 @@ import "testing"
 // aria-activedescendant only works from a focused container, so the rule ties
 // the attribute to a sibling tabIndex on the same tag.
 //
-// 1. Run only the rule over `<div aria-activedescendant="item-1" />` and
-//    expect one finding whose message contains "tabIndex".
-// 2. Run it over the same div with `tabIndex={0}` and expect none.
+//  1. Run only the rule over `<div aria-activedescendant="item-1" />` and
+//     expect one finding whose message contains "tabIndex".
+//  2. Run it over the same div with `tabIndex={0}` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-activedescendant-has-tabindex enabled. The div without tabIndex yields exactly one ordinary SeverityError finding from that rule whose message contains "tabIndex"; assertJsxA11yRuleSkips requires zero findings for the div with tabIndex={0}.
 // @evidence contracts/testing.md#independent-expectations A tabIndex of zero makes the controlling container focusable, which is what aria-activedescendant requires. The two literal sources and the "tabIndex" fragment are authored from that policy.

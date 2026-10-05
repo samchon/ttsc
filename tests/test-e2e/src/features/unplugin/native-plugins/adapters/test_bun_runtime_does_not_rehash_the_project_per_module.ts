@@ -31,16 +31,18 @@ export async function test_bun_runtime_does_not_rehash_the_project_per_module(
   preparedRoot?: string,
 ): Promise<void> {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
-  const root = preparedRoot ?? TestUnpluginProject.createProject({
-    plugins: [
-      {
-        transform: "./plugin.cjs",
-        name: "fixture",
-        operation: "echo-file",
-        path: "src/secondary.ts",
-      },
-    ],
-  });
+  const root =
+    preparedRoot ??
+    TestUnpluginProject.createProject({
+      plugins: [
+        {
+          transform: "./plugin.cjs",
+          name: "fixture",
+          operation: "echo-file",
+          path: "src/secondary.ts",
+        },
+      ],
+    });
   const secondary = path.join(root, "src", "secondary.ts");
   fs.writeFileSync(secondary, "export const secondary = 1;\n", "utf8");
   const { loader } = await captureBunLoader(unpluginBun());

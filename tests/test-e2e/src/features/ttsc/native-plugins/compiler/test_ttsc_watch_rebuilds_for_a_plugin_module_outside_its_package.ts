@@ -1,7 +1,12 @@
 import { TestProject } from "@ttsc/testing";
 
 import { goPath } from "../../../../internal/ttsc/internal/plugin-corpus";
-import { assert, fs, path, workspaceRoot } from "../../../../internal/ttsc/internal/toolchain";
+import {
+  assert,
+  fs,
+  path,
+  workspaceRoot,
+} from "../../../../internal/ttsc/internal/toolchain";
 import { WatchSession } from "../../../../internal/ttsc/internal/watch";
 
 /**
@@ -110,7 +115,10 @@ export const test_ttsc_watch_rebuilds_for_a_plugin_module_outside_its_package =
     }
     if (failures.length === 1) throw failures[0];
     if (failures.length > 1)
-      throw new AggregateError(failures, "Native source watch and shutdown failed");
+      throw new AggregateError(
+        failures,
+        "Native source watch and shutdown failed",
+      );
   };
 
 /** Make the fixture's `main` package append the sibling package's suffix. */

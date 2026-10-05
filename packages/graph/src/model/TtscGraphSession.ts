@@ -1,16 +1,14 @@
-import type { TtscGraphRequestOptions } from "./TtscGraphRequestOptions";
-import type { TtscGraphSessionOptions } from "./TtscGraphSessionOptions";
-
-import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
-import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
-import { TtscGraphProtocol } from "./TtscGraphProtocol";
-import { TtscGraphSessionState } from "./TtscGraphSessionState";
-
 import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
-import { TtscGraphMemory } from "./TtscGraphMemory";
-import { TtscLintDaemon } from "./TtscLintDaemon";
 import type { IPublishedArtifacts } from "./IPublishedArtifacts";
+import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
+import { TtscGraphMemory } from "./TtscGraphMemory";
+import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
+import { TtscGraphProtocol } from "./TtscGraphProtocol";
+import type { TtscGraphRequestOptions } from "./TtscGraphRequestOptions";
+import type { TtscGraphSessionOptions } from "./TtscGraphSessionOptions";
+import { TtscGraphSessionState } from "./TtscGraphSessionState";
+import { TtscLintDaemon } from "./TtscLintDaemon";
 import {
   artifactsAreStale,
   publishArtifacts,
@@ -85,14 +83,24 @@ export class TtscGraphSession {
       open: (events) => this.open(events),
       decode: TtscGraphProtocol.decode,
       beforeRequest: (signal) => this.republishArtifacts(signal),
-      artifacts: () => this.artifacts === undefined ? undefined : (this.artifacts.file ?? ""),
+      artifacts: () =>
+        this.artifacts === undefined ? undefined : (this.artifacts.file ?? ""),
       close: async () => {
         for (const daemon of this.daemons.values()) this.retireDaemon(daemon);
         this.daemons.clear();
         this.daemonIdentities.clear();
         const results = await Promise.allSettled(this.retiredDaemons);
-        const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected").map((result) => result.reason);
-        if (failures.length > 0) throw new AggregateError(failures, "@ttsc/graph: sidecar shutdown failed");
+        const failures = results
+          .filter(
+            (result): result is PromiseRejectedResult =>
+              result.status === "rejected",
+          )
+          .map((result) => result.reason);
+        if (failures.length > 0)
+          throw new AggregateError(
+            failures,
+            "@ttsc/graph: sidecar shutdown failed",
+          );
       },
     });
   }
@@ -112,7 +120,9 @@ export class TtscGraphSession {
    * @evidence contracts/performance.md#reuse-equivalent-work Current memory is shared only after the native producer confirms unchanged inputs; changed generations replace it and changed artifacts are republished before requesting facts.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns one graph child, current model, shard map and current publisher sidecars; republishing retires removed publishers, while pending/queued demand grows with submitted requests and completion/cancellation remove registrations.
    */
-  public graph(options: TtscGraphRequestOptions = {}): Promise<TtscGraphMemory> {
+  public graph(
+    options: TtscGraphRequestOptions = {},
+  ): Promise<TtscGraphMemory> {
     return this.state.graph(options);
   }
 
@@ -215,14 +225,24 @@ export class TtscGraphSession {
   private retireDaemon(daemon: TtscLintDaemon): Promise<void> {
     const closing = daemon.close();
     this.retiredDaemons.add(closing);
-    void closing.then(() => this.retiredDaemons.delete(closing), () => undefined);
+    void closing.then(
+      () => this.retiredDaemons.delete(closing),
+      () => undefined,
+    );
     return closing;
   }
 
   private open(events: TtscGraphLinePeer.Events): TtscGraphLinePeer.Connection {
-    const artifacts = publishArtifacts({ cwd: this.cwd, tsconfig: this.tsconfig });
+    const artifacts = publishArtifacts({
+      cwd: this.cwd,
+      tsconfig: this.tsconfig,
+    });
     this.artifacts = artifacts;
-    return TtscGraphLinePeer.open(this.binary,
-      TtscGraphNativeArguments.serve(this.cwd, this.tsconfig, artifacts.file), events, { stderr: "capture" });
+    return TtscGraphLinePeer.open(
+      this.binary,
+      TtscGraphNativeArguments.serve(this.cwd, this.tsconfig, artifacts.file),
+      events,
+      { stderr: "capture" },
+    );
   }
 }

@@ -42,8 +42,12 @@ func TestFindLintEntryAcceptsSortedCheckPluginPayload(t *testing.T) {
   if entry.Name != "@ttsc/lint" {
     t.Fatalf("unexpected entry: %+v", entry)
   }
-  if len(entries) != 3 || entry != &entries[1] || entry.Stage != "check" || entry.Config["configFile"] != "./lint.config.ts" { t.Fatalf("descriptor position, payload or ownership lost: %+v", entry) }
+  if len(entries) != 3 || entry != &entries[1] || entry.Stage != "check" || entry.Config["configFile"] != "./lint.config.ts" {
+    t.Fatalf("descriptor position, payload or ownership lost: %+v", entry)
+  }
   for _, absent := range [][]PluginEntry{nil, {entries[0], entries[2]}} {
-    if found, err := FindLintEntry(absent); err != nil || found != nil { t.Fatalf("absent lint descriptor selected: %+v / %v", found, err) }
+    if found, err := FindLintEntry(absent); err != nil || found != nil {
+      t.Fatalf("absent lint descriptor selected: %+v / %v", found, err)
+    }
   }
 }

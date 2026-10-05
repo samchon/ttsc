@@ -31,11 +31,11 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This value does not establish computation equivalence.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The original caller owns the Cmd and discards this observation with that lifecycle; no independent task is acquired.
 type Command struct {
-  cmd *exec.Cmd
+  cmd        *exec.Cmd
   invocation string
-  method string
-  owner string
-  lower time.Time
+  method     string
+  owner      string
+  lower      time.Time
 }
 
 // BeginCommand observes the selected call before its original method executes.
@@ -146,14 +146,14 @@ func (observation *Command) emit(event string, err error, upper time.Time) {
     pid = cmd.Process.Pid
   }
   data := map[string]any{
-    "method": observation.method,
+    "method":             observation.method,
     "selectedExecutable": cmd.Path,
-    "selectedPath": cmd.Path,
-    "argv": cmd.Args,
-    "started": pid > 0,
-    "exitObserved": cmd.ProcessState != nil,
-    "cwdInherited": cmd.Dir == "",
-    "startLowerBound": observation.lower.UTC().Format(time.RFC3339Nano),
+    "selectedPath":       cmd.Path,
+    "argv":               cmd.Args,
+    "started":            pid > 0,
+    "exitObserved":       cmd.ProcessState != nil,
+    "cwdInherited":       cmd.Dir == "",
+    "startLowerBound":    observation.lower.UTC().Format(time.RFC3339Nano),
   }
   if observation.owner != "" {
     data["owner"] = observation.owner
@@ -190,12 +190,12 @@ const failureReserve = 1024 * 1024
 
 var writer = struct {
   sync.Mutex
-  root string
+  root     string
   instance string
-  ordinal uint64
+  ordinal  uint64
   sequence uint64
-  bytes int64
-  failed bool
+  bytes    int64
+  failed   bool
 }{}
 
 func nextInvocation() string {
@@ -232,7 +232,7 @@ func writeEvent(event, invocation string, pid int, argv []string, cwd string, da
     "schema": 1, "event": event, "writerPid": os.Getpid(), "instance": writer.instance,
     "sequence": writer.sequence, "at": time.Now().UTC().Format(time.RFC3339Nano),
     "invocation": writer.instance + ":" + invocation[strings.LastIndexByte(invocation, '-')+1:],
-    "pid": pid, "argv": argv, "cwd": cwd, "data": data,
+    "pid":        pid, "argv": argv, "cwd": cwd, "data": data,
   }
   if lower, ok := data["startLowerBound"]; ok {
     record["startLowerBound"] = lower

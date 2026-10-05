@@ -39,11 +39,11 @@ type fountainSymbol struct {
 // consume. The test binary calls Expose directly; it does not boot a shipped
 // binary, install a consumer or exercise the browser filesystem bridge.
 //
-// 1. Create an authored project at an absolute path in the target filesystem
-//    and acquire a snapshot through the directly exposed API.
-// 2. Query declarations, references, literals, punctuation, trivia and UTF-8
-//    byte offsets, asserting token spans, names and printed types.
-// 3. Reject out-of-range positions, release the snapshot and reject later use.
+//  1. Create an authored project at an absolute path in the target filesystem
+//     and acquire a snapshot through the directly exposed API.
+//  2. Query declarations, references, literals, punctuation, trivia and UTF-8
+//     byte offsets, asserting token spans, names and printed types.
+//  3. Reject out-of-range positions, release the snapshot and reject later use.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the public snapshot, getNodeAtPosition, getTypeAtPosition, getSymbolAtPosition and releaseSnapshot verbs of a real js/wasm Program and asserts kind, text, token span, symbol name, declaration start and printed type for each probed position, so a verb that returns a neighbouring token, a full start including trivia or no answer fails.
 // @evidence contracts/testing.md#independent-expectations The expected kinds, texts and offsets follow the authored source: strings.Index of each literal gives the byte offset the contract names, multi-byte cafe checks that offsets are bytes, and the printed types Point, number and "ok" are what TypeScript specifies for those expressions.

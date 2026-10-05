@@ -21,7 +21,13 @@ type ResidentSample = {
  * Verifies real `ttsc --noEmit --watch` observes lint resident data reuse
  * across compatible source edits.
  *
- * The diagnostics stream is ordinary product telemetry. It requires reported PID and successful cold/full-load count stability while updates advance, then fresh-load telemetry after root transitions. Reused data can still produce new compiler Program objects; these counters are not their total. The final separate one-shot check uses the same producer/cache locations and literal clean source, not an independent implementation or a forced cold artifact cache.
+ * The diagnostics stream is ordinary product telemetry. It requires reported
+ * PID and successful cold/full-load count stability while updates advance, then
+ * fresh-load telemetry after root transitions. Reused data can still produce
+ * new compiler Program objects; these counters are not their total. The final
+ * separate one-shot check uses the same producer/cache locations and literal
+ * clean source, not an independent implementation or a forced cold artifact
+ * cache.
  *
  * 1. Start a failing no-var watch and record its first resident sample.
  * 2. Repair the known source, require one incremental sample, and compare the
@@ -64,7 +70,12 @@ export async function test_plugin_corpus_check_watch_reuses_resident_program(): 
     await session.waitForBuilds(1, 300_000);
     let samples = residentSamples(session.transcript());
     assert.equal(samples.length, 1, session.transcript());
-    assert.ok(Number.isSafeInteger(samples[0]!.pid) && samples[0]!.pid > 0 && samples[0]!.pid !== process.pid, session.transcript());
+    assert.ok(
+      Number.isSafeInteger(samples[0]!.pid) &&
+        samples[0]!.pid > 0 &&
+        samples[0]!.pid !== process.pid,
+      session.transcript(),
+    );
     assert.deepEqual(samples[0], {
       pid: samples[0]!.pid,
       programLoads: 1,
@@ -127,10 +138,15 @@ export async function test_plugin_corpus_check_watch_reuses_resident_program(): 
   } catch (error) {
     failures.push(error);
   } finally {
-    try { await session.close(); } catch (error) { failures.push(error); }
+    try {
+      await session.close();
+    } catch (error) {
+      failures.push(error);
+    }
   }
   if (failures.length === 1) throw failures[0];
-  if (failures.length > 1) throw new AggregateError(failures, "Resident watch and shutdown failed");
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Resident watch and shutdown failed");
   const finalPid = residentSamples(session.transcript()).at(-1)?.pid;
   assert.notEqual(finalPid, undefined, session.transcript());
   await waitForProcessExit(finalPid!);
@@ -152,7 +168,11 @@ export async function test_plugin_corpus_check_watch_reuses_resident_program(): 
 }
 
 function assertFreshSample(sample: ResidentSample, previousPid: number): void {
-  assert.ok(Number.isSafeInteger(sample.pid) && sample.pid > 0 && sample.pid !== process.pid);
+  assert.ok(
+    Number.isSafeInteger(sample.pid) &&
+      sample.pid > 0 &&
+      sample.pid !== process.pid,
+  );
   assert.notEqual(sample.pid, previousPid);
   assert.equal(sample.programLoads, 1);
   assert.equal(sample.programUpdates, 0);

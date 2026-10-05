@@ -22,13 +22,12 @@ import { refreshProjectRecordFile } from "./refreshProjectRecordFile";
  * (`createRollupCachedModuleProof`), and a host that restores nothing proves
  * none.
  *
- * Each call enumerates the directory and refreshes each `.json` name once;
- * host owners invoke it at their restore/start boundaries. An absent directory
- * costs a failed listing, while an existing empty one returns an empty listing.
+ * Each call enumerates the directory and refreshes each `.json` name once; host
+ * owners invoke it at their restore/start boundaries. An absent directory costs
+ * a failed listing, while an existing empty one returns an empty listing.
  *
  * @param toolDirectory The host's tool directory (`hostToolDirectory`).
  * @param bridge The watching session's bridge, when the host has one.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Every persisted project record is refreshed because an opaque host cache can
  *   restore projects other than the current option's project. Absent directories

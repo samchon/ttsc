@@ -2,8 +2,8 @@ package evidence
 
 import (
   "encoding/json"
-  "testing"
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 // TestGraphNodesOmitAWithdrawnUnit verifies the publisher drops a unit that

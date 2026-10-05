@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies a build universe listing one config twice retires the peer before recovery.
+ * Verifies a build universe listing one config twice retires the peer before
+ * recovery.
  *
  * The transaction's universe names tsconfig.json twice while its shards cover
  * that config once plus a second config (hidden.json) the universe does not
@@ -13,7 +20,8 @@ import { sessionTransaction } from "./internal/sessionTransactions";
  * 1. Start a graph request on a recorded line port and deliver the
  *    "duplicateConfig" typed transaction.
  * 2. Require the rejection "config shard disagrees with universe input
- *    tsconfig.json" and the port to be retired (reader detached, then stdio joined).
+ *    tsconfig.json" and the port to be retired (reader detached, then stdio
+ *    joined).
  * 3. Request again, answer the second port with a valid initial transaction, and
  *    require an empty node list and exactly two opened ports.
  *
@@ -29,14 +37,33 @@ export async function test_ttscgraph_duplicate_native_config_universe_restarts_s
     void active.catch(() => undefined);
     const port = await admitted(ports);
     const snapshot = sessionTransaction("duplicateConfig");
-    session.receive(port.peer, { id: Number(port.writes.at(-1)!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
-    await assert.rejects(active, /config shard disagrees with universe input tsconfig\.json/);
+    session.receive(port.peer, {
+      id: Number(port.writes.at(-1)!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot,
+    });
+    await assert.rejects(
+      active,
+      /config shard disagrees with universe input tsconfig\.json/,
+    );
     assertRetired(port);
     const recovered = session.graph();
     void recovered.catch(() => undefined);
     const next = await admitted(ports);
-    session.receive(next.peer, { id: Number(next.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot: sessionTransaction() });
+    session.receive(next.peer, {
+      id: Number(next.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot: sessionTransaction(),
+    });
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

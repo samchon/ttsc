@@ -1,6 +1,11 @@
 import { TestProject } from "@ttsc/testing";
 
-import { assert, fs, loadProjectPlugins, path } from "../../../internal/ttsc/internal/project";
+import {
+  assert,
+  fs,
+  loadProjectPlugins,
+  path,
+} from "../../../internal/ttsc/internal/project";
 import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build";
 
 /**
@@ -36,7 +41,10 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
 export const test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on =
   () => {
     const root = TestProject.tmpdir("ttsc-plugin-build-directories-");
-    TestProject.retainTemporaryDirectory(root, "Source directory preparation descendants are not joined");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "Source directory preparation descendants are not joined",
+    );
     const project = path.join(root, "project");
     const module = path.join(root, "plugin-module");
     const linkedModule = path.join(root, "linked-module");
@@ -125,7 +133,9 @@ export const test_loadprojectplugins_reports_the_directories_its_plugin_builds_k
       assert.deepEqual(inputs, expected);
       assert.deepEqual(Object.keys(loaded.pluginSources).sort(), expected);
     } catch (error) {
-      failures.push(new Error("successful source population", { cause: error }));
+      failures.push(
+        new Error("successful source population", { cause: error }),
+      );
     }
     try {
       // 2. Reported before a build that fails, in a cache that holds no binary.
@@ -141,7 +151,8 @@ export const test_loadprojectplugins_reports_the_directories_its_plugin_builds_k
     } catch (error) {
       failures.push(new Error("failed source population", { cause: error }));
     }
-    if (failures.length) throw new AggregateError(failures, "Build source populations failed");
+    if (failures.length)
+      throw new AggregateError(failures, "Build source populations failed");
   };
 
 function write(file: string, content: string): void {

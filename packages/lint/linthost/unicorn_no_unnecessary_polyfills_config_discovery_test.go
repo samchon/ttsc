@@ -1,10 +1,10 @@
 package linthost
 
 import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   "path/filepath"
   "sort"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // runNoUnnecessaryPolyfillsInProject materializes a project (config files plus

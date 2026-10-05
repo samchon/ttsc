@@ -21,6 +21,9 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param clauses The clauses.
+ * @returns The created {@link CaseBlock}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered case/default clauses retain switch arm ordering and possible
  *   fall-through; the switch subject is represented by its parent node.
@@ -34,10 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc identifies the switch-body boundary and absent subject, with
  *   a multi-arm example and separated acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param clauses The clauses.
- * @returns The created {@link CaseBlock}.
  */
 export const createCaseBlock = (
   clauses: readonly CaseOrDefaultClause[],

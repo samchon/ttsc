@@ -97,7 +97,10 @@ export async function test_brokered_tracker_sink_records_what_its_filters_admit(
   });
   classify.event(directory, "candidate.ts", "rename");
   assert.deepEqual(recorded(classified), {
-    changes: [path.join(directory, "input.d.ts"), path.join(directory, "candidate.ts")],
+    changes: [
+      path.join(directory, "input.d.ts"),
+      path.join(directory, "candidate.ts"),
+    ],
     failed: false,
     membershipChanged: true,
   });

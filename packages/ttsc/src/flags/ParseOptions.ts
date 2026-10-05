@@ -16,7 +16,10 @@ export interface ParseOptions {
   /** Which subcommand's flag subset to accept. */
   readonly subcommand: AnySubcommand;
 
-  /** Current parsing frame; callers remove an explicit leading command when present. */
+  /**
+   * Current parsing frame; callers remove an explicit leading command when
+   * present.
+   */
   readonly argv: readonly string[];
 
   /**
@@ -49,7 +52,8 @@ export interface ParseOptions {
    * When omitted, an unconsumed nonempty bare token in the active parser head
    * is positional, except that runner first-positional mode still forwards
    * unconsumed response-file tokens. Tokens after an honored separator or the
-   * runner entry belong to passthrough or the program tail without this policy.
+   * runner entry belong to passthrough or the program tail without this
+   * policy.
    *
    * When provided, a bare token that fails the predicate is appended to
    * `passthrough` in its original position instead of `positional`, so an
@@ -57,12 +61,13 @@ export interface ParseOptions {
    * order intact. The native occurrence reader consumes compiler-owned operands
    * before this predicate runs, using scalar, list and config-only metadata.
    * Unconsumed lookahead remains a bare token, including whitespace the native
-   * list parser does not consume; empty tokens stay compiler passthrough and
-   * do not become launcher positionals.
+   * list parser does not consume; empty tokens stay compiler passthrough and do
+   * not become launcher positionals.
    *
    * The main loop and schema-known non-native forwarding consult this policy
    * only before program-tail forwarding and after native operand consumption.
-   * Empty-token and runner response-file handling remain separate parser rules.
+   * Empty-token and runner response-file handling remain separate parser
+   * rules.
    *
    * @evidence contracts/common.md#principled-implementation The predicate classifies only bare tokens whose arity is not already owned by the schema or compiler table, preserving their original position when they are forwarded values.
    * @evidence contracts/common.md#clear-and-simple-design One optional callback exposes the caller's positional grammar while parseFlags owns token consumption and result partitioning.

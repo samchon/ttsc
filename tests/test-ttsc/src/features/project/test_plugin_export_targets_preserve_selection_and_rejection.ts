@@ -3,8 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
 import { PluginPackageResolution } from "../../../../../packages/ttsc/src/plugin/internal/load/PluginPackageResolution";
+import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
 
 /**
  * Verifies plugin export targets select descriptors and preserve refusal codes.
@@ -43,7 +43,12 @@ export async function test_plugin_export_targets_preserve_selection_and_rejectio
       numeric: { "0": "./runtime.cjs", ttsc: "./descriptor.cjs" },
       mixed: { ".": { ttsc: "./descriptor.cjs" }, default: "./runtime.cjs" },
       barrel: { ttsc: "./descriptor.cjs", default: "./runtime.cjs" },
-      pattern: { "./plugins/*.js": { ttsc: "./descriptors/*.cjs", default: "./runtime/*.cjs" } },
+      pattern: {
+        "./plugins/*.js": {
+          ttsc: "./descriptors/*.cjs",
+          default: "./runtime/*.cjs",
+        },
+      },
       ordinary: "./runtime.cjs",
     };
     for (const [name, target] of Object.entries(cases)) {
@@ -51,14 +56,23 @@ export async function test_plugin_export_targets_preserve_selection_and_rejectio
       await FileSystemIterator.write(directory, {
         "package.json": JSON.stringify({
           name: `pkg-${name}`,
-          exports: name === "mixed" || name === "pattern" ? target : { ".": target },
+          exports:
+            name === "mixed" || name === "pattern" ? target : { ".": target },
         }),
-        "descriptor.cjs": name === "barrel" ? 'module.exports = { name: "descriptor" };\n' : "",
-        "runtime.cjs": name === "barrel" || name === "ordinary" ? 'throw new Error("TTSC_TEST_RUNTIME_BARREL_LOADED");\n' : "",
-        ...(name === "pattern" ? {
-          "descriptors/prefix.cjs": 'module.exports = { name: "pattern-descriptor" };\n',
-          "runtime/prefix.cjs": 'throw new Error("TTSC_TEST_PATTERN_RUNTIME_LOADED");\n',
-        } : {}),
+        "descriptor.cjs":
+          name === "barrel" ? 'module.exports = { name: "descriptor" };\n' : "",
+        "runtime.cjs":
+          name === "barrel" || name === "ordinary"
+            ? 'throw new Error("TTSC_TEST_RUNTIME_BARREL_LOADED");\n'
+            : "",
+        ...(name === "pattern"
+          ? {
+              "descriptors/prefix.cjs":
+                'module.exports = { name: "pattern-descriptor" };\n',
+              "runtime/prefix.cjs":
+                'throw new Error("TTSC_TEST_PATTERN_RUNTIME_LOADED");\n',
+            }
+          : {}),
         ...(name === "encoded"
           ? {
               "descriptor space.cjs": "decoded",
@@ -67,14 +81,22 @@ export async function test_plugin_export_targets_preserve_selection_and_rejectio
           : {}),
       });
     }
-    const outcomes = Object.fromEntries(Object.keys(cases).map((name) => {
-      try {
-        const request = name === "pattern" ? "pkg-pattern/plugins/prefix.js" : `pkg-${name}`;
-        return [name, `file:${PluginPackageResolution.resolvePluginRequest(request, root)}`];
-      } catch (error) {
-        return [name, `error:${String((error as { code?: unknown }).code)}`];
-      }
-    }));
+    const outcomes = Object.fromEntries(
+      Object.keys(cases).map((name) => {
+        try {
+          const request =
+            name === "pattern"
+              ? "pkg-pattern/plugins/prefix.js"
+              : `pkg-${name}`;
+          return [
+            name,
+            `file:${PluginPackageResolution.resolvePluginRequest(request, root)}`,
+          ];
+        } catch (error) {
+          return [name, `error:${String((error as { code?: unknown }).code)}`];
+        }
+      }),
+    );
     assert.deepEqual(outcomes, {
       valid: `file:${path.join(root, "node_modules", "pkg-valid", "descriptor.cjs")}`,
       blocked: "error:ERR_PACKAGE_PATH_NOT_EXPORTED",

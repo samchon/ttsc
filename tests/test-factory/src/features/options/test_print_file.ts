@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, printer } from "../../internal/helpers";
 
 /**
@@ -9,7 +9,8 @@ import { id, printer } from "../../internal/helpers";
  * The result ends with a trailing newline.
  *
  * 1. TsPrinter.printFile emits main(); and its required final newline.
- * 2. Literal main(); followed by LF fixes file-level termination independently of endsWith.
+ * 2. Literal main(); followed by LF fixes file-level termination independently of
+ *    endsWith.
  *
  * @evidence contracts/testing.md#behavioral-verification TsPrinter.printFile emits main(); and its required final newline.
  * @evidence contracts/testing.md#independent-expectations Literal main(); followed by LF fixes file-level termination independently of endsWith.

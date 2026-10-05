@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
-
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
 import { inspectPluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/inspectPluginBuildLock";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies inspectPluginBuildLock keeps an owner from another host active.
@@ -18,7 +18,8 @@ import { inspectPluginBuildLock } from "../../../../../packages/ttsc/src/plugin/
  * 1. Write a lock directory whose `owner.json` names this process's PID on a
  *    hostname that is not this machine's, and require `active`.
  * 2. Independently require a native signal-zero probe to report ESRCH for a
- *    selected PID, then use it under the foreign hostname and require `active`.
+ *    selected PID, then use it under the foreign hostname and require
+ *    `active`.
  * 3. Name that same absent PID under this machine's own hostname and require
  *    `abandoned`.
  *

@@ -22,6 +22,11 @@ import { make } from "../internal/make";
  * <>Hello</>
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param openingFragment The opening fragment.
+ * @param children The children.
+ * @param closingFragment The closing fragment.
+ * @returns The created {@link JsxFragment}.
  * @evidence contracts/common.md#principled-implementation
  *   Fragment boundaries and ordered children are retained without introducing
  *   a named tag, preserving sibling grouping rather than adding wrapper syntax.
@@ -37,12 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose describes the absence of a wrapping tag and the three inputs;
  *   its example shows the assembled fragment with meaningful text preserved.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param openingFragment The opening fragment.
- * @param children The children.
- * @param closingFragment The closing fragment.
- * @returns The created {@link JsxFragment}.
  */
 export const createJsxFragment = (
   openingFragment: JsxOpeningFragment,

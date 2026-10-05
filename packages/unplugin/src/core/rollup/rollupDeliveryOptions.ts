@@ -20,7 +20,6 @@ import { stableStringify } from "../transform/utils/stableStringify";
  *
  * @param options The plugin instance's resolved options.
  * @param aliasPaths The aliases the compile is handed (`createAliasPaths`).
- *
  * @evidence contracts/common.md#principled-implementation Project selection and opaque JSON of the compiler overlay, plugin payloads and alias mappings identify delivered compile options without erasing declaration order observable by the compiler or plugin.
  * @evidence contracts/common.md#clear-and-simple-design The identity reuses the common serializer and hash helper, leaving tsconfig input state to the project record.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolving the configured project follows actual selection spelling; no target-specific exception drops relevant compile options.

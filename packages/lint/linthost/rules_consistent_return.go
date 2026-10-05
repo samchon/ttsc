@@ -109,7 +109,7 @@ func blockAlwaysExits(body *shimast.Node) bool {
 // possible completion, not proof that a runtime path actually falls through.
 func statementCannotComplete(stmt *shimast.Node, valueOnly bool) bool {
   if valueOnly {
-    return getterStatementCompletion(stmt)&(getterNormal | getterBareReturn | getterBreak | getterContinue | getterUnresolvedTransfer) == 0
+    return getterStatementCompletion(stmt)&(getterNormal|getterBareReturn|getterBreak|getterContinue|getterUnresolvedTransfer) == 0
   }
   if stmt == nil {
     return false
@@ -295,7 +295,7 @@ func getterStatementCompletion(stmt *shimast.Node) getterCompletion {
 
 func getterLoopCompletion(body *shimast.Node, endless, executesOnce bool) getterCompletion {
   result := getterStatementCompletion(body)
-  normal := !endless && (!executesOnce || result&(getterNormal | getterContinue) != 0)
+  normal := !endless && (!executesOnce || result&(getterNormal|getterContinue) != 0)
   if result&getterBreak != 0 {
     normal = true
   }
@@ -317,7 +317,7 @@ func getterSwitchCompletion(stmt *shimast.Node) getterCompletion {
   }
   result, suffix := getterCompletion(0), getterNormal
   hasDefault := false
-  for index := len(block.Clauses.Nodes)-1; index >= 0; index-- {
+  for index := len(block.Clauses.Nodes) - 1; index >= 0; index-- {
     node := block.Clauses.Nodes[index]
     if node == nil {
       return getterNormal
@@ -340,7 +340,7 @@ func getterSwitchCompletion(stmt *shimast.Node) getterCompletion {
   if !hasDefault || result&getterBreak != 0 {
     result |= getterNormal
   }
-  return result&^getterBreak
+  return result &^ getterBreak
 }
 
 // switchCannotComplete handles a `switch` whose every path leaves the function.

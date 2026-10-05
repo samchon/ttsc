@@ -75,10 +75,10 @@ func TestEvidenceBridgeTracePreservesBytesAndIntegrity(t *testing.T) {
         t.Fatalf("one actual result or integrity event must be present: %q", stream)
       }
       var event struct {
-        Schema int `json:"schema"`
-        Event string `json:"event"`
-        WriterPID int `json:"writerPid"`
-        Instance string `json:"instance"`
+        Schema     int    `json:"schema"`
+        Event      string `json:"event"`
+        WriterPID  int    `json:"writerPid"`
+        Instance   string `json:"instance"`
         Invocation string `json:"invocation"`
       }
       if err := json.Unmarshal(lines[0], &event); err != nil {

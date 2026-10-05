@@ -23,9 +23,9 @@ func TestPrismaDecodedActivationPreservesReferenceFailures(t *testing.T) {
     {"type":"prisma","files":["prisma/schema/main.prisma"],"symbol":"model","reference":{"type":"markdown","root":"missing-prisma-docs","files":["**/*.md"],"symbol":"h2"}}
   ]}`
   for _, scenario := range []struct {
-    name string
-    source string
-    document string
+    name        string
+    source      string
+    document    string
     missingRoot string
   }{
     {"three-inactive-hosts", "export const value = 1;\n", "# Claim\n", ""},

@@ -61,8 +61,8 @@ export interface ITtscLintFunctionalParametersRuleOptions extends ITtscLintFunct
 export interface ITtscLintFunctionalImmutableDataRuleOptions extends ITtscLintFunctionalPatternOptions {
   /**
    * Skip the collection-style method names `add`, `clear`, `delete`, and `set`
-   * while still checking array-style method names and property assignments.
-   * The check does not verify the receiver is actually a `Map` or `Set`.
+   * while still checking array-style method names and property assignments. The
+   * check does not verify the receiver is actually a `Map` or `Set`.
    */
   ignoreMapsAndSets?: boolean;
 }
@@ -246,7 +246,8 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscL
 
   /**
    * Skip array and tuple syntax, and references named `Array`, `Map`, `Set`,
-   * `WeakMap`, or `WeakSet`. The rule does not resolve these names to bindings.
+   * `WeakMap`, or `WeakSet`. The rule does not resolve these names to
+   * bindings.
    *
    * @default false
    */

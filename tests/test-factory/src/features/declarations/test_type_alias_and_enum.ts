@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, mod, num, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { kw, mod, num, print } from "../../internal/helpers";
  * `export type ID<T> = string | number;` and an enum whose members break one
  * per line with a trailing comma.
  *
- * 1. The exported generic ID alias and Red/Green enum retain union types, explicit initializer and uninitialized member.
- * 2. Literal alias text and complete four-line enum output specify syntax and trailing-comma policy independently.
+ * 1. The exported generic ID alias and Red/Green enum retain union types, explicit
+ *    initializer and uninitialized member.
+ * 2. Literal alias text and complete four-line enum output specify syntax and
+ *    trailing-comma policy independently.
  *
  * @evidence contracts/testing.md#behavioral-verification The exported generic ID alias and Red/Green enum retain union types, explicit initializer and uninitialized member.
  * @evidence contracts/testing.md#independent-expectations Literal alias text and complete four-line enum output specify syntax and trailing-comma policy independently.

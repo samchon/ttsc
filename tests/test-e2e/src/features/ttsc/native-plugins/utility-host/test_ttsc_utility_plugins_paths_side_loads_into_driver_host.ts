@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../../../internal/ttsc/internal/TestUtilityPlugins";
-import { nativePluginSource } from "../../../../internal/ttsc/internal/plugin-corpus";
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
+import { nativePluginSource } from "../../../../internal/ttsc/internal/plugin-corpus";
 
 /**
  * Verifies ttsc linked plugins: paths side-loads into a driver host.
@@ -29,61 +29,66 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * @evidence contracts/e2e.md#preserved-coverage Original CLI success, exact driver-host-ran.txt value ok and relative import pattern remain with paths-first descriptor order and raw-linked-host producer. Existing producer mapping distinguishes EmitAllRaw from the separate own-transform lane; proposed shared-consumer registration/runtime/survival remains unverified.
  */
 export function test_ttsc_utility_plugins_paths_side_loads_into_driver_host(): void {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "ESNext",
-          moduleResolution: "bundler",
-          strict: true,
-          paths: {
-            "@lib/*": ["./src/lib/*"],
-          },
-          outDir: "dist",
-          rootDir: "src",
-          plugins: [
-            { transform: "@ttsc/paths" },
-            { transform: "./plugins/driver-host.cjs" },
-          ],
+  const root = TestProject.createProject({
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        strict: true,
+        paths: {
+          "@lib/*": ["./src/lib/*"],
         },
-        include: ["src"],
-      }),
-      "plugins/driver-host.cjs": `
+        outDir: "dist",
+        rootDir: "src",
+        plugins: [
+          { transform: "@ttsc/paths" },
+          { transform: "./plugins/driver-host.cjs" },
+        ],
+      },
+      include: ["src"],
+    }),
+    "plugins/driver-host.cjs": `
         module.exports = (context) => ({
           name: "driver-host",
           source: ${JSON.stringify(nativePluginSource("raw-linked-host"))},
         });
       `,
-      "src/lib/value.ts": `export const value = "ok";\n`,
-      "src/main.ts": [
-        `import { value } from "@lib/value";`,
-        `export const result = value;`,
-        ``,
-      ].join("\n"),
-    });
-    TestProject.retainTemporaryDirectory(root, "linked utility host synchronous return does not acknowledge native descendants");
-    TestProject.retainSharedPluginCache("linked utility host native producer has no descendant join acknowledgement");
-    TestUtilityPlugins.seedPackages(root, ["paths"]);
-    const result = TestProject.spawn(
-      TestProject.TTSC_BIN,
-      ["--cwd", root, "--emit"],
-      {
-        cwd: root,
-        env: {
-          PATH: TestUtilityPlugins.goPath(),
-          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-        },
+    "src/lib/value.ts": `export const value = "ok";\n`,
+    "src/main.ts": [
+      `import { value } from "@lib/value";`,
+      `export const result = value;`,
+      ``,
+    ].join("\n"),
+  });
+  TestProject.retainTemporaryDirectory(
+    root,
+    "linked utility host synchronous return does not acknowledge native descendants",
+  );
+  TestProject.retainSharedPluginCache(
+    "linked utility host native producer has no descendant join acknowledgement",
+  );
+  TestUtilityPlugins.seedPackages(root, ["paths"]);
+  const result = TestProject.spawn(
+    TestProject.TTSC_BIN,
+    ["--cwd", root, "--emit"],
+    {
+      cwd: root,
+      env: {
+        PATH: TestUtilityPlugins.goPath(),
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
       },
-    );
-    assert.equal(result.error, undefined, "linked utility host launch error");
-    assert.equal(result.signal, null, "linked utility host terminated by signal");
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(
-      fs.readFileSync(path.join(root, "driver-host-ran.txt"), "utf8"),
-      "ok",
-    );
-    assert.match(
-      fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
-      /from "\.\/lib\/value\.js"/,
-    );
-  }
+    },
+  );
+  assert.equal(result.error, undefined, "linked utility host launch error");
+  assert.equal(result.signal, null, "linked utility host terminated by signal");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    fs.readFileSync(path.join(root, "driver-host-ran.txt"), "utf8"),
+    "ok",
+  );
+  assert.match(
+    fs.readFileSync(path.join(root, "dist", "main.js"), "utf8"),
+    /from "\.\/lib\/value\.js"/,
+  );
+}

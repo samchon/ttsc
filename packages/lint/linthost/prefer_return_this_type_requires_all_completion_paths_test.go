@@ -15,7 +15,10 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases Complete branches, throw branches, bare/implicit returns, finally overrides, nested functions, existing this and absent annotations have authored count oracles.
 // @evidence contracts/testing.md#execution-ownership TestPreferReturnThisTypeRequiresAllCompletionPaths runs named subcases through runRuleFindingsSnapshot and its real Program/Checker in the enrolled Go rules unit batch; fixtures are released by testing without launching a compiler process.
 func TestPreferReturnThisTypeRequiresAllCompletionPaths(t *testing.T) {
-  cases := []struct { name, method string; want int }{
+  cases := []struct {
+    name, method string
+    want         int
+  }{
     {"always", "m(): A { return this; }", 1},
     {"branches", "m(flag: boolean): A { if (flag) return this; else return this; }", 1},
     {"throw", "m(flag: boolean): A { if (flag) return this; throw new Error(); }", 1},
@@ -31,8 +34,10 @@ func TestPreferReturnThisTypeRequiresAllCompletionPaths(t *testing.T) {
   }
   for _, c := range cases {
     t.Run(c.name, func(t *testing.T) {
-      _, _, findings := runRuleFindingsSnapshot(t, "typescript/prefer-return-this-type", "class A { " + c.method + " }", nil)
-      if len(findings) != c.want { t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings) }
+      _, _, findings := runRuleFindingsSnapshot(t, "typescript/prefer-return-this-type", "class A { "+c.method+" }", nil)
+      if len(findings) != c.want {
+        t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings)
+      }
     })
   }
 }

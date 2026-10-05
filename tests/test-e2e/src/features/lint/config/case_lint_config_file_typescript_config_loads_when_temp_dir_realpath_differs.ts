@@ -1,9 +1,9 @@
-import { LintWorkspace } from "../../../internal/lint/LintWorkspace";
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { LintWorkspace } from "../../../internal/lint/LintWorkspace";
 import {
   assert,
   createLintProject,
@@ -37,45 +37,55 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Original successful config evaluation, exact one no-var/error finding and absence of ERR_MODULE_NOT_FOUND remain executable under actual symlink/junction resolution. Independent fs.realpath observations require the alias to reach the authored physical temp directory and its lexical input to differ before invoking the loader; inability to create or resolve it is not a passing outcome.
  */
 export function test_lint_config_file_typescript_config_loads_when_temp_dir_realpath_differs() {
-    const base = LintWorkspace.caseRoot("ttsc-lint-realpath-base-", true);
-    const realTemp = path.join(base, "private", "var");
-    const linkTemp = path.join(base, "var");
-    const projectRoot = path.join(base, "Users", "project");
+  const base = LintWorkspace.caseRoot("ttsc-lint-realpath-base-", true);
+  const realTemp = path.join(base, "private", "var");
+  const linkTemp = path.join(base, "var");
+  const projectRoot = path.join(base, "Users", "project");
 
-    fs.mkdirSync(realTemp, { recursive: true });
-    fs.symlinkSync(
-      realTemp,
-      linkTemp,
-      process.platform === "win32" ? "junction" : "dir",
-    );
-    const physicalTemp = fs.realpathSync(realTemp);
-    assert.equal(fs.realpathSync(linkTemp), physicalTemp, "The temp alias must reach its independently allocated physical directory");
-    assert.notEqual(path.resolve(linkTemp), physicalTemp, "The loader input must retain a different lexical temp path");
+  fs.mkdirSync(realTemp, { recursive: true });
+  fs.symlinkSync(
+    realTemp,
+    linkTemp,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const physicalTemp = fs.realpathSync(realTemp);
+  assert.equal(
+    fs.realpathSync(linkTemp),
+    physicalTemp,
+    "The temp alias must reach its independently allocated physical directory",
+  );
+  assert.notEqual(
+    path.resolve(linkTemp),
+    physicalTemp,
+    "The loader input must retain a different lexical temp path",
+  );
 
-    const project = createLintProject({
-      name: "config-file-ts-realpath-temp",
-      projectRoot,
-      source: "var value = 1;\n",
-      pluginConfig: {
-        configFile: "./lint.config.ts",
-      },
-      extraSources: FixtureFiles.read("lint/lint_config_file_typescript_config_loads_when_temp_dir_realpath_differs/inputs-1"),
+  const project = createLintProject({
+    name: "config-file-ts-realpath-temp",
+    projectRoot,
+    source: "var value = 1;\n",
+    pluginConfig: {
+      configFile: "./lint.config.ts",
+    },
+    extraSources: FixtureFiles.read(
+      "lint/lint_config_file_typescript_config_loads_when_temp_dir_realpath_differs/inputs-1",
+    ),
+  });
+  try {
+    const result = runLintProject(project.tmpdir, [], {
+      TMPDIR: linkTemp,
+      TMP: linkTemp,
+      TEMP: linkTemp,
     });
-    try {
-      const result = runLintProject(project.tmpdir, [], {
-        TMPDIR: linkTemp,
-        TMP: linkTemp,
-        TEMP: linkTemp,
-      });
 
-      assert.notEqual(result.status, 0);
-      assert.deepEqual(
-        result.diagnostics.map((d) => [d.rule, d.severity]),
-        [["no-var", "error"]],
-        result.stderr,
-      );
-      assert(!result.stderr.includes("ERR_MODULE_NOT_FOUND"), result.stderr);
-    } finally {
-      project.cleanup();
-    }
+    assert.notEqual(result.status, 0);
+    assert.deepEqual(
+      result.diagnostics.map((d) => [d.rule, d.severity]),
+      [["no-var", "error"]],
+      result.stderr,
+    );
+    assert(!result.stderr.includes("ERR_MODULE_NOT_FOUND"), result.stderr);
+  } finally {
+    project.cleanup();
   }
+}

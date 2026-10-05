@@ -32,4 +32,3 @@ func TestUnicornDateNowPreservesConstructorArguments(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/prefer-date-now", source) })
   }
 }
-

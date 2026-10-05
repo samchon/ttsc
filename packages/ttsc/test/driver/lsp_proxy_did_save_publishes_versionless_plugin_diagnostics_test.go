@@ -61,7 +61,7 @@ func TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics(t *testing.T) {
     t.Fatalf("unexpected diagnostics publish: %s", body)
   }
   var publication struct {
-    Method string `json:"method"`
+    Method string                     `json:"method"`
     Params map[string]json.RawMessage `json:"params"`
   }
   if err := json.Unmarshal(body, &publication); err != nil {

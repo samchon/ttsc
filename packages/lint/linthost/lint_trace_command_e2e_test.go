@@ -150,7 +150,7 @@ func observeLintCommandFile(observation *lintTraceInvocation, path, owner string
   data := map[string]any{
     "owner": owner, "requestedPath": path,
     "fileObservation": "native-streamed-hash",
-    "binding": "requested-file-before-call", "imageLoadedCertified": false,
+    "binding":         "requested-file-before-call", "imageLoadedCertified": false,
   }
   defer func() { observation.record("selected-file-observation", data) }()
   fail := func(err error) {

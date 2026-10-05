@@ -48,8 +48,8 @@ func TestConfigValueBranches(t *testing.T) {
     t.Fatalf("expected bare-string rejection, got %v", err)
   }
   for label, raw := range map[string]any{
-    "bad raw":  123,
-    "bad text": map[string]any{"text": 123},
+    "bad raw":    123,
+    "bad text":   map[string]any{"text": 123},
     "blank text": map[string]any{"text": " \t\n"},
   } {
     if _, _, err := bannerTextFromConfigValue(raw, label); err == nil {

@@ -1,8 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies a built dependency's published `rootDir` is the physical spelling of
@@ -35,6 +36,7 @@ import path from "node:path";
  *    marker's `rootDir`.
  * 3. Assert both dependencies ran and every published `rootDir` is its own
  *    physical path.
+ *
  * @evidence contracts/testing.md#behavioral-verification Loads dependencies with symlinked and ordinary roots and inspects the live manifest roots alongside dep-values output.
  * @evidence contracts/testing.md#independent-expectations fs.realpathSync.native independently checks that each of the two published root strings is physical; the fixture authors dep-values.
  * @evidence contracts/testing.md#distinguishing-cases Both roots must be physical, but the assertion does not assign each root to a particular dependency; failed link creation returns early.
@@ -46,45 +48,51 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The live manifest is read during the host lifetime before runtime teardown; all sources and links belong to tracked temporary ownership.
  * @evidence contracts/e2e.md#preserved-coverage The two-root physical-spelling and output assertions remain here; exact root-to-dependency association and unavailable symlinks are not certified.
  */
-export function test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink(): void | false {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink/inputs-1"));
-    try {
-      fs.symlinkSync(
-        path.join(root, "node_modules", "dep", "sources"),
-        path.join(root, "node_modules", "dep", "src"),
-        "junction",
-      );
-    } catch {
-      // Without symlink permission the declared and physical spellings never
-      // diverge, and the contract this pins cannot be exercised.
-      return false;
-    }
-
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "src/main.ts"],
-      { cwd: root },
+export function test_ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink():
+  | void
+  | false {
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_publishes_a_physical_root_for_a_dependency_whose_rootdir_is_a_symlink/inputs-1",
+    ),
+  );
+  try {
+    fs.symlinkSync(
+      path.join(root, "node_modules", "dep", "sources"),
+      path.join(root, "node_modules", "dep", "src"),
+      "junction",
     );
-
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /VALUE:dep-value\/dep2-value/);
-
-    const line = result.stdout
-      .split(/\r?\n/)
-      .find((text) => text.startsWith("ROOTS:"));
-    assert.notEqual(line, undefined, result.stdout);
-    const roots = JSON.parse(line!.slice("ROOTS:".length)) as string[];
-    assert.equal(
-      roots.length,
-      2,
-      `the dependency lane did not publish a marker per dependency: ${result.stdout}`,
-    );
-    for (const published of roots) {
-      assert.equal(
-        fs.realpathSync.native(published),
-        published,
-        "a published dependency rootDir is not its own physical path, so the " +
-          "exact-mirror lookup compares two spellings of one directory",
-      );
-    }
+  } catch {
+    // Without symlink permission the declared and physical spellings never
+    // diverge, and the contract this pins cannot be exercised.
+    return false;
   }
+
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "src/main.ts"],
+    { cwd: root },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /VALUE:dep-value\/dep2-value/);
+
+  const line = result.stdout
+    .split(/\r?\n/)
+    .find((text) => text.startsWith("ROOTS:"));
+  assert.notEqual(line, undefined, result.stdout);
+  const roots = JSON.parse(line!.slice("ROOTS:".length)) as string[];
+  assert.equal(
+    roots.length,
+    2,
+    `the dependency lane did not publish a marker per dependency: ${result.stdout}`,
+  );
+  for (const published of roots) {
+    assert.equal(
+      fs.realpathSync.native(published),
+      published,
+      "a published dependency rootDir is not its own physical path, so the " +
+        "exact-mirror lookup compares two spellings of one directory",
+    );
+  }
+}

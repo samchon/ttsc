@@ -1,7 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression } from "../../../../../packages/factory/src/index";
 import ts from "ts-legacy";
 
+import factory, {
+  type Expression,
+} from "../../../../../packages/factory/src/index";
 import { id, print, reparse } from "../../internal/helpers";
 
 const construct = (target: Expression): Expression =>

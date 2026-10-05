@@ -3,9 +3,9 @@
  *
  * Sizes are bytes and ages are milliseconds. Omitted controls use the owned
  * Go-cache retention policy; the clock can be supplied by the invoking owner.
- * Recent age selects a target-sized cohort with the collector's mtime allowance,
- * rather than protecting every recent file. This type imposes no finite-number,
- * range or ordering validation.
+ * Recent age selects a target-sized cohort with the collector's mtime
+ * allowance, rather than protecting every recent file. This type imposes no
+ * finite-number, range or ordering validation.
  *
  * @evidence contracts/common.md#principled-implementation Trigger and target sizes are separate from recent-file protection and the current clock, preserving the collector's independent decisions.
  * @evidence contracts/common.md#clear-and-simple-design One option record supplies overrides to the existing selected-root collector; omitted fields retain its defaults rather than selecting a different maintenance implementation.

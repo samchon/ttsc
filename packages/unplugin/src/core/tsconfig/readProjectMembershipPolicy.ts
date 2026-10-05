@@ -21,11 +21,11 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * `extends` chain for every option the answer depends on.
  *
  * Root files follow TypeScript-Go's selection. `files` and `include` each
- * resolve to one list across `extends` as {@link findDeclaredFileSpecs}
- * decides, a declaring config replacing what it inherits rather than adding to
- * it. A config that declares neither gets the default recursive include spec.
- * The root matcher still applies extension, package and hidden-path admission;
- * this policy does not enumerate every dependency in the compiler program.
+ * resolve to one list across `extends` as {@link findDeclaredFileSpecs} decides,
+ * a declaring config replacing what it inherits rather than adding to it. A
+ * config that declares neither gets the default recursive include spec. The
+ * root matcher still applies extension, package and hidden-path admission; this
+ * policy does not enumerate every dependency in the compiler program.
  *
  * `allowJs` and `resolveJsonModule` extend root-discovery suffixes, not the
  * complete set of imported or externally observed program inputs. `outDir`,

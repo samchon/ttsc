@@ -3,8 +3,9 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
 /**
  * Structured payload inside `ITtscResult.result` for `transform`.
  *
- * `typescript` maps source paths to post-transform TypeScript text for a preview
- * before emit. Paths inside `cwd` are relative; outside sources remain absolute.
+ * `typescript` maps source paths to post-transform TypeScript text for a
+ * preview before emit. Paths inside `cwd` are relative; outside sources remain
+ * absolute.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A path-keyed string record matches the native transform payload, keeping

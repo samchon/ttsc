@@ -6,11 +6,10 @@ import path from "node:path";
  * Both arguments must already be identity keys (see
  * {@link FilesystemPathIdentity.key}). The function performs no filesystem
  * access and no case folding. A root that already ends in a separator (a volume
- * root such as `C:\` or `/`) is used as is, so every path on that volume is inside
- * it.
+ * root such as `C:\` or `/`) is used as is, so every path on that volume is
+ * inside it.
  *
  * @param platform Separator semantics; defaults to the host platform.
- *
  * @evidence contracts/common.md#principled-implementation Equality includes the root itself and a separator-delimited prefix includes only descendants; inputs must already carry canonical identity keys so sibling names and case policy are not guessed here.
  * @evidence contracts/common.md#clear-and-simple-design One equality check and one boundary prefix check keep this lexical predicate separate from the resolver that proves keys.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The volume-root separator rule is path syntax required by containment, not an expected-result exception or a casing workaround.

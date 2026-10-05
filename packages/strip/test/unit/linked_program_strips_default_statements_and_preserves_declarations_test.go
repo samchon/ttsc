@@ -29,7 +29,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership Named unit entry TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations is in test/unit for the utility overlay. A single noLib single-threaded Program runs LoadProgram and ApplyLinkedPlugins in this Go process; an absolute fixture JSON path selects native JSON parsing, t.Setenv restores the manifest and Close releases the checker. No Node config evaluation, native build, command process, private linkname or registry replacement is used.
 func TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations(t *testing.T) {
   root := shared.SeedProject(t, map[string]string{
-    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","noLib":true},"files":["src/main.ts"]}`,
+    "tsconfig.json":     `{"compilerOptions":{"target":"ES2022","module":"commonjs","noLib":true},"files":["src/main.ts"]}`,
     "strip.config.json": `{}`,
     "src/main.ts": `export interface StripBox { value: string }
 const assert = { equal(left: number, right: number): void { if (left !== right) throw new Error("assertion failed"); } };

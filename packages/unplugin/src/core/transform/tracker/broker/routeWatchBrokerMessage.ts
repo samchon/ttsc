@@ -29,12 +29,11 @@ import type { WatchBroker } from "./WatchBroker";
  *   sink hears it.
  *
  * What each call means is the sink's to decide (`WatchBrokerSink`). Sink
- * exceptions propagate and can interrupt remaining dispatch/release work;
- * drain timeout and child lifetime belong to the request/broker owners.
+ * exceptions propagate and can interrupt remaining dispatch/release work; drain
+ * timeout and child lifetime belong to the request/broker owners.
  *
  * @param broker The drains and registrations of the broker the child serves.
  * @param message The message as the IPC channel delivered it.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Message discriminants route exact request and registration ids; each drain
  *   snapshot determines which sinks may receive its partial-coverage verdict.

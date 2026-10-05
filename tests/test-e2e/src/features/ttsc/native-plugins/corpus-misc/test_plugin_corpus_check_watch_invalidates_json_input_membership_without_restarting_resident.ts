@@ -209,7 +209,10 @@ module.exports = {
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Resident check watch and shutdown failed");
+    throw new AggregateError(
+      failures,
+      "Resident check watch and shutdown failed",
+    );
 }
 
 function residentSamples(transcript: string): ResidentSample[] {

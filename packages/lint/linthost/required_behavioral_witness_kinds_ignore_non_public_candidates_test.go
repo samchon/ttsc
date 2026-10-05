@@ -8,7 +8,6 @@ import (
 // TestRequiredBehavioralWitnessKindsIgnoreNonPublicCandidates keeps a test-only
 // platform record from satisfying the public prerequisite requirement.
 //
-//
 //  1. Supply five public prerequisite kinds and a test-only platform record.
 //  2. Require missing-platform rejection until a public platform record completes the required set.
 //
@@ -46,5 +45,7 @@ func TestRequiredBehavioralWitnessKindsIgnoreNonPublicCandidates(t *testing.T) {
   }
   public["fixture/platform"] = struct{}{}
   candidates["fixture/platform"] = []behavioralWitness{{Rule: "fixture/platform", Route: "Testplatform", Kind: behavioralWitnessPlatform, Sources: []string{"fixture_test.go"}}}
-  if err := verifyRequiredBehavioralWitnessKinds(public, candidates); err != nil { t.Fatalf("complete public prerequisite set rejected: %v", err) }
+  if err := verifyRequiredBehavioralWitnessKinds(public, candidates); err != nil {
+    t.Fatalf("complete public prerequisite set rejected: %v", err)
+  }
 }

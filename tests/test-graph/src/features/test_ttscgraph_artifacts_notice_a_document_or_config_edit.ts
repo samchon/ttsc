@@ -1,11 +1,14 @@
-import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import type { IArtifactInputs } from "../../../../packages/graph/src/model/IArtifactInputs";
 import type { IPublishedArtifacts } from "../../../../packages/graph/src/model/IPublishedArtifacts";
-import { artifactsAreStale, fingerprintInputs } from "../../../../packages/graph/src/model/publishedArtifacts";
+import {
+  artifactsAreStale,
+  fingerprintInputs,
+} from "../../../../packages/graph/src/model/publishedArtifacts";
+import { TestProject } from "../../../utils/src/TestProject";
 
 /**
  * Verifies the published artifact answer goes stale on the edits that move it,
@@ -62,7 +65,11 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
     const artifacts = path.join(root, "artifacts.json");
     write(artifacts, "[]");
     let discoveryCurrent = true;
-    const discovery = { status: "resolved" as const, plugins: [], isCurrent: () => discoveryCurrent };
+    const discovery = {
+      status: "resolved" as const,
+      plugins: [],
+      isCurrent: () => discoveryCurrent,
+    };
     const published: IPublishedArtifacts = {
       discovery,
       file: artifacts,
@@ -77,10 +84,25 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
     );
 
     discoveryCurrent = false;
-    assert.equal(artifactsAreStale(published), true, "changed discovery withdraws publication reuse");
+    assert.equal(
+      artifactsAreStale(published),
+      true,
+      "changed discovery withdraws publication reuse",
+    );
     discoveryCurrent = true;
-    assert.equal(artifactsAreStale({ ...published, discovery: undefined }), true, "legacy publication has no discovery authority");
-    assert.equal(artifactsAreStale({ ...published, discovery: { ...discovery, status: "unavailable" } }), true, "unavailable discovery cannot authorize reuse");
+    assert.equal(
+      artifactsAreStale({ ...published, discovery: undefined }),
+      true,
+      "legacy publication has no discovery authority",
+    );
+    assert.equal(
+      artifactsAreStale({
+        ...published,
+        discovery: { ...discovery, status: "unavailable" },
+      }),
+      true,
+      "unavailable discovery cannot authorize reuse",
+    );
 
     // An unrelated source edit is the compiler's business and not this one's.
     // Reporting it here would tie the publisher's cost to the edit loop it was

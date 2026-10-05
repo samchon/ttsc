@@ -23,28 +23,25 @@ import {
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
 export function test_ttscgraph_resolver_applies_candidate_limits_after_ranking(): void {
-    const nodes: ResolverGraphNode[] = Array.from(
-      { length: 5 },
-      (_, index) => ({
-        id: `src/limit-${String(index)}.ts#Bounded:class`,
-        kind: "class",
-        name: "Bounded",
-        file: `src/limit-${String(index)}.ts`,
-        external: false,
-        ...(index === 4 ? { exported: true } : {}),
-      }),
-    );
+  const nodes: ResolverGraphNode[] = Array.from({ length: 5 }, (_, index) => ({
+    id: `src/limit-${String(index)}.ts#Bounded:class`,
+    kind: "class",
+    name: "Bounded",
+    file: `src/limit-${String(index)}.ts`,
+    external: false,
+    ...(index === 4 ? { exported: true } : {}),
+  }));
 
-    for (const [limit, expectedLength] of [
-      [0, 0],
-      [1, 1],
-      [3, 3],
-      [5, 5],
-      [8, 5],
-    ] as const) {
-      const resolved = resolveSyntheticGraph(nodes, "Bounded", limit);
-      assert.strictEqual(resolved.candidates?.length, expectedLength);
-      if (expectedLength > 0)
-        assert.strictEqual(resolved.candidates?.[0]?.id, nodes[4]!.id);
-    }
+  for (const [limit, expectedLength] of [
+    [0, 0],
+    [1, 1],
+    [3, 3],
+    [5, 5],
+    [8, 5],
+  ] as const) {
+    const resolved = resolveSyntheticGraph(nodes, "Bounded", limit);
+    assert.strictEqual(resolved.candidates?.length, expectedLength);
+    if (expectedLength > 0)
+      assert.strictEqual(resolved.candidates?.[0]?.id, nodes[4]!.id);
+  }
 }

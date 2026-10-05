@@ -13,8 +13,8 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
  * nor start a third compile. This case owns the pre-validation replacement
  * branch, not the separate source-validation decision.
  *
- * 1. Supply a literal settled-pass generation, and install a pending stale generation under
- *    its key.
+ * 1. Supply a literal settled-pass generation, and install a pending stale
+ *    generation under its key.
  * 2. Start a delivery, install a newer generation, then resolve the stale one with
  *    mismatching hashes.
  * 3. Assert the delivery is transformed and the newer generation remains cached.

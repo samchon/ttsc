@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { createAliasPaths } from "../../../../../packages/unplugin/src/core/transform/alias/createAliasPaths";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies each Vite alias is forwarded to `paths` only in the meaning Vite

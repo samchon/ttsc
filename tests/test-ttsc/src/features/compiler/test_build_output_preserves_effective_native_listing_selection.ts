@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
 import { CompilerArgumentsInspection } from "../../../../../packages/ttsc/src/compiler/internal/CompilerArgumentsInspection";
+import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
 import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../../../../packages/ttsc/src/compiler/internal/readEffectiveCompilerOptions";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -11,12 +11,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies effective listing selection owns display while metadata survives.
  *
- * The actual production display operation preserves failure status and diagnostics.
- * Literal config and native boolean assignments establish independent selection;
- * observed response projection checks frame consumption without running a compiler.
- * The unit projects observed frames and calls the direct effective reader; it does
- * not exercise the native response-reader branch or certify showConfig omissions.
- * Actual selected-producer response expansion and emission remain E2E-owned.
+ * The actual production display operation preserves failure status and
+ * diagnostics. Literal config and native boolean assignments establish
+ * independent selection; observed response projection checks frame consumption
+ * without running a compiler. The unit projects observed frames and calls the
+ * direct effective reader; it does not exercise the native response-reader
+ * branch or certify showConfig omissions. Actual selected-producer response
+ * expansion and emission remain E2E-owned.
  *
  * 1. Apply config, ordered CLI and observed response selections.
  * 2. Preserve metadata while hiding internal listing or displaying user listing.

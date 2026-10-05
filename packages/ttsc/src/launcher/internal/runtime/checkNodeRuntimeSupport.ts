@@ -8,9 +8,9 @@ import { TTSX_MINIMUM_NODE_VERSION } from "./TTSX_MINIMUM_NODE_VERSION";
  * `--disable-warning` with exit 9 — is what turns an opaque internal failure
  * into a clear version diagnostic.
  *
- * Bun/Deno identity markers select the Node-only support policy even when
- * they also report a compatible-looking Node version. This decision does not
- * probe their current APIs or certify every other runtime as Node; the separate
+ * Bun/Deno identity markers select the Node-only support policy even when they
+ * also report a compatible-looking Node version. This decision does not probe
+ * their current APIs or certify every other runtime as Node; the separate
  * loader capability boundary remains responsible for actual hooks.
  *
  * A null answer passes only this runtime-identity and minimum-API version
@@ -20,7 +20,6 @@ import { TTSX_MINIMUM_NODE_VERSION } from "./TTSX_MINIMUM_NODE_VERSION";
  * @param version - The Node version the runtime reports.
  * @param versions - The runtime's `process.versions`, which names Bun or Deno
  *   when one of them imitates Node.
- *
  * @evidence contracts/common.md#principled-implementation Known non-Node runtime markers are rejected before major/minor/patch comparison with the minimum API floor; unknown version syntax alone does not prove incompatibility. Null does not certify the separate public-hook capability gate.
  * @evidence contracts/common.md#clear-and-simple-design Version parsing and tuple comparison are private helpers under one diagnostic decision; loader behavior probes remain a separate capability owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The minimum release and Bun/Deno markers describe actual supported runtime boundaries, not fixture versions, and no runtime method is replaced to emulate missing hooks.

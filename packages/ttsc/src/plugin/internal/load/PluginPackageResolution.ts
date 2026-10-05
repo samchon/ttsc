@@ -278,7 +278,8 @@ export namespace PluginPackageResolution {
 
   /**
    * Resolve a plugin specifier from the project root, using realpath when
-   * available and retaining selected native spelling on canonicalization failure.
+   * available and retaining selected native spelling on canonicalization
+   * failure.
    *
    * Absolute and relative specifiers are paths. A package specifier honors the
    * package's `ttsc` export condition first, so a package whose main entry is a
@@ -566,12 +567,11 @@ export namespace PluginPackageResolution {
    *
    * A string must be a `./` URL target whose segments name no `.`, `..`, or
    * `node_modules`, and must stay inside the package after URL resolution and
-   * native filename decoding; anything else is an
-   * invalid target. An object tries its keys in package order and returns the
-   * first branch that matches, so a matched `null` ends the search instead of
-   * falling through to `default`. An array returns its first matching entry,
-   * passing over entries that are invalid or `null`, and ends with the last of
-   * those outcomes.
+   * native filename decoding; anything else is an invalid target. An object
+   * tries its keys in package order and returns the first branch that matches,
+   * so a matched `null` ends the search instead of falling through to
+   * `default`. An array returns its first matching entry, passing over entries
+   * that are invalid or `null`, and ends with the last of those outcomes.
    */
   function resolvePackageTarget(
     target: unknown,
@@ -625,7 +625,9 @@ export namespace PluginPackageResolution {
       if (
         entries.some(([key]) => {
           const numeric = Number(key);
-          return String(numeric) === key && numeric >= 0 && numeric < 0xffffffff;
+          return (
+            String(numeric) === key && numeric >= 0 && numeric < 0xffffffff
+          );
         })
       ) {
         throw packageResolutionError(

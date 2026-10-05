@@ -13,8 +13,13 @@ type Profile = {
   files: Files;
   // The actual owning body supplies literal assertions and genuine commands.
   // An emission prediction or metadata simulator is not an admissible body.
-  run(root: string, persistent: string, spawn: typeof TestProject.spawn,
-    ownAsyncProcess: () => () => void, abortReuse: (cause: unknown) => never): void | false | Promise<void | false>;
+  run(
+    root: string,
+    persistent: string,
+    spawn: typeof TestProject.spawn,
+    ownAsyncProcess: () => () => void,
+    abortReuse: (cause: unknown) => never,
+  ): void | false | Promise<void | false>;
 };
 
 /**
@@ -172,11 +177,19 @@ export async function runCanonicalRuntimeProfiles(
         };
         let pendingOwnedProcesses = 0;
         const ownAsyncProcess = (): (() => void) => {
-          assert.equal(safeForCleanup, true, "BLOCKED: previous request has uncertain launcher metadata");
+          assert.equal(
+            safeForCleanup,
+            true,
+            "BLOCKED: previous request has uncertain launcher metadata",
+          );
           pendingOwnedProcesses++;
           let joined = false;
           return () => {
-            assert.equal(joined, false, "owned process join must be acknowledged once");
+            assert.equal(
+              joined,
+              false,
+              "owned process join must be acknowledged once",
+            );
             joined = true;
             pendingOwnedProcesses--;
           };
@@ -186,8 +199,16 @@ export async function runCanonicalRuntimeProfiles(
           throw cause;
         };
         try {
-          await Scenarios.invoke("runtime-canonical", profile.name, profile.run,
-            root, persistent, spawn, ownAsyncProcess, abortReuse);
+          await Scenarios.invoke(
+            "runtime-canonical",
+            profile.name,
+            profile.run,
+            root,
+            persistent,
+            spawn,
+            ownAsyncProcess,
+            abortReuse,
+          );
         } finally {
           // A callback acknowledges only its real owned join. Failure or absence
           // of that acknowledgment retains the exact live input graph.

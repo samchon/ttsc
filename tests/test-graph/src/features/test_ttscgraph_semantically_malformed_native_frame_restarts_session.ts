@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 
 /**
- * Verifies a response that contradicts its own mode retires the peer before recovery.
+ * Verifies a response that contradicts its own mode retires the peer before
+ * recovery.
  *
  * The envelope is shape-valid (mode "initial", a full dump) but is flagged
  * changed: false, which the state's semantic checks must refuse. The peer that
@@ -10,8 +17,8 @@ import { admitted, assertRetired, emptyResponse, sessionState } from "./internal
  *
  * 1. Start a graph request on a recorded line port and deliver an empty initial
  *    dump response whose changed flag is set to false.
- * 2. Require the rejection "an unchanged response carried changed mode or
- *    snapshot state" and the port to be retired (reader detached, then stdio joined).
+ * 2. Require the rejection "an unchanged response carried changed mode or snapshot
+ *    state" and the port to be retired (reader detached, then stdio joined).
  * 3. Request again, answer the second port with a valid empty full-dump response,
  *    and require an empty node list and exactly two opened ports.
  *
@@ -30,7 +37,10 @@ export async function test_ttscgraph_semantically_malformed_native_frame_restart
     const frame = emptyResponse(Number(port.writes[0]!.id));
     frame.changed = false;
     session.receive(port.peer, frame);
-    await assert.rejects(active, /unchanged response carried changed mode or snapshot state/);
+    await assert.rejects(
+      active,
+      /unchanged response carried changed mode or snapshot state/,
+    );
     assertRetired(port);
 
     const recovered = session.graph();
@@ -39,5 +49,7 @@ export async function test_ttscgraph_semantically_malformed_native_frame_restart
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

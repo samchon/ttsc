@@ -1,6 +1,9 @@
 import * as os from "node:os";
 
-import { TtscserverClient, assert } from "../../../internal/ttsc/internal/ttscserver";
+import {
+  TtscserverClient,
+  assert,
+} from "../../../internal/ttsc/internal/ttscserver";
 
 /**
  * Verifies ttscserver ends its process on the LSP `exit` notification while the
@@ -31,35 +34,37 @@ export const test_ttscserver_exits_on_exit_while_stdin_stays_open =
     const client = TtscserverClient.start(os.tmpdir());
     let timer: NodeJS.Timeout | undefined;
     try {
-    await client.request("initialize", {
-      processId: process.pid,
-      rootUri: null,
-      capabilities: {},
-    });
-    client.notify("initialized", {});
-    await client.request("shutdown");
-    client.notify("exit");
+      await client.request("initialize", {
+        processId: process.pid,
+        rootUri: null,
+        capabilities: {},
+      });
+      client.notify("initialized", {});
+      await client.request("shutdown");
+      client.notify("exit");
 
-    const code = await Promise.race([
-      client.waitForExit(),
-      new Promise<"running">((resolve) => {
-        timer = setTimeout(() => resolve("running"), 10_000);
-      }),
-    ]);
-    clearTimeout(timer);
-    if (code === "running") client.endStdin();
-    assert.equal(
-      code,
-      0,
-      `ttscserver must exit on the exit notification with stdin still open (stderr=${client.stderrText()})`,
-    );
+      const code = await Promise.race([
+        client.waitForExit(),
+        new Promise<"running">((resolve) => {
+          timer = setTimeout(() => resolve("running"), 10_000);
+        }),
+      ]);
+      clearTimeout(timer);
+      if (code === "running") client.endStdin();
+      assert.equal(
+        code,
+        0,
+        `ttscserver must exit on the exit notification with stdin still open (stderr=${client.stderrText()})`,
+      );
     } catch (error) {
       clearTimeout(timer);
       const cleanupFailures: unknown[] = [];
       try {
         client.terminate();
       } catch (cause) {
-        cleanupFailures.push(new Error("server termination request failed", { cause }));
+        cleanupFailures.push(
+          new Error("server termination request failed", { cause }),
+        );
       }
       let closeTimer: NodeJS.Timeout | undefined;
       try {
@@ -70,14 +75,19 @@ export const test_ttscserver_exits_on_exit_while_stdin_stays_open =
           }),
         ]);
         if (!closed)
-          throw new Error("server direct close was not joined after termination");
+          throw new Error(
+            "server direct close was not joined after termination",
+          );
       } catch (cause) {
         cleanupFailures.push(cause);
       } finally {
         clearTimeout(closeTimer);
       }
       if (cleanupFailures.length !== 0)
-        throw new AggregateError([error, ...cleanupFailures], "open-stdin exit and cleanup failed");
+        throw new AggregateError(
+          [error, ...cleanupFailures],
+          "open-stdin exit and cleanup failed",
+        );
       throw error;
     }
   };

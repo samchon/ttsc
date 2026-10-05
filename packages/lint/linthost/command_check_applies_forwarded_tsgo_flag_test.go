@@ -41,7 +41,9 @@ func TestCommandCheckAppliesForwardedTsgoFlag(t *testing.T) {
   writeFile(t, filepath.Join(root, "src", "main.ts"),
     "export const len = (x: string | null): number => x.length;\n")
   baseline, baselineOut, baselineErr := captureCommandOutput(t, func() int { return run([]string{"check", "--cwd", root}) })
-  if baseline != 0 || baselineOut != "" || baselineErr != "" { t.Fatalf("authored strict:false baseline should be clean: %d / %q / %q", baseline, baselineOut, baselineErr) }
+  if baseline != 0 || baselineOut != "" || baselineErr != "" {
+    t.Fatalf("authored strict:false baseline should be clean: %d / %q / %q", baseline, baselineOut, baselineErr)
+  }
 
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
@@ -53,5 +55,7 @@ func TestCommandCheckAppliesForwardedTsgoFlag(t *testing.T) {
   if code != 2 || stdout != "" || !strings.Contains(stderr, "possibly") {
     t.Fatalf("forwarded --strict not applied: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
-  if !strings.Contains(stderr, "TS18047") || !strings.Contains(stderr, "null") { t.Fatalf("forwarded strict flag did not produce the expected nullable dereference diagnostic: %q", stderr) }
+  if !strings.Contains(stderr, "TS18047") || !strings.Contains(stderr, "null") {
+    t.Fatalf("forwarded strict flag did not produce the expected nullable dereference diagnostic: %q", stderr)
+  }
 }

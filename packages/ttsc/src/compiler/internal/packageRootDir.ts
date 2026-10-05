@@ -8,7 +8,8 @@ import path from "node:path";
  * existence checks do not parse those entries or validate the command tree.
  *
  * Uses `fs.realpathSync.native` when available to produce the physical anchor
- * passed to the Go build. It does not model every Go toolchain path convention.
+ * passed to the Go build. It does not model every Go toolchain path
+ * convention.
  *
  * Throws when the shipped package metadata and Go module cannot be found,
  * indicating an incomplete installation rather than a missing Go workspace.

@@ -23,20 +23,17 @@ import {
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
  */
 export function test_ttscgraph_resolver_ranks_suffix_candidates_before_limiting(): void {
-    const nodes: ResolverGraphNode[] = Array.from(
-      { length: 13 },
-      (_, index) => ({
-        id: `src/suffix-${String(index).padStart(2, "0")}.ts#Outer${String(index)}.Inner.run:method`,
-        kind: "method",
-        name: "run",
-        qualifiedName: `Outer${String(index)}.Inner.run`,
-        file: `src/suffix-${String(index).padStart(2, "0")}.ts`,
-        external: false,
-        ...(index === 12 ? { exported: true } : {}),
-      }),
-    );
+  const nodes: ResolverGraphNode[] = Array.from({ length: 13 }, (_, index) => ({
+    id: `src/suffix-${String(index).padStart(2, "0")}.ts#Outer${String(index)}.Inner.run:method`,
+    kind: "method",
+    name: "run",
+    qualifiedName: `Outer${String(index)}.Inner.run`,
+    file: `src/suffix-${String(index).padStart(2, "0")}.ts`,
+    external: false,
+    ...(index === 12 ? { exported: true } : {}),
+  }));
 
-    const resolved = resolveSyntheticGraph(nodes, "Inner.run");
-    assert.strictEqual(resolved.candidates?.length, 12);
-    assert.strictEqual(resolved.candidates?.[0]?.id, nodes[12]!.id);
+  const resolved = resolveSyntheticGraph(nodes, "Inner.run");
+  assert.strictEqual(resolved.candidates?.length, 12);
+  assert.strictEqual(resolved.candidates?.[0]?.id, nodes[12]!.id);
 }

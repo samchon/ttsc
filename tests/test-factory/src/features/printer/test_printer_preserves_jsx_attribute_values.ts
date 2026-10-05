@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import ts from "ts-legacy";
 
 import factory, {
-  addSyntheticLeadingComment,
-  addSyntheticTrailingComment,
   SyntaxKind,
   TsPrinter,
+  addSyntheticLeadingComment,
+  addSyntheticTrailingComment,
 } from "../../../../../packages/factory/src/index";
 import { parseClean } from "../../internal/oracle";
 
@@ -14,15 +14,15 @@ import { parseClean } from "../../internal/oracle";
  *
  * JSX quoted text decodes entities but does not decode JavaScript backslash
  * escapes. Reusing ordinary string escaping can therefore break parsing or
- * change a prop even when the same string works inside a JSX expression. A
- * lone surrogate needs that expression form for native decoding; valid pairs
- * must remain unchanged, including when adjacent to an unpaired unit.
+ * change a prop even when the same string works inside a JSX expression. A lone
+ * surrogate needs that expression form for native decoding; valid pairs must
+ * remain unchanged, including when adjacent to an unpaired unit.
  *
  * 1. Build literal and expression attributes for punctuation, entities, line
  *    endings, controls, separators and paired or unpaired surrogates.
  * 2. Print both quote styles at narrow and wide widths, then round-trip UTF-8.
- * 3. Parse and transpile with the independent TypeScript compiler and evaluate
- *    its JSX call, comparing the prop and ordinary string to the original value.
+ * 3. Parse and transpile with the independent TypeScript compiler and evaluate its
+ *    JSX call, comparing the prop and ordinary string to the original value.
  *
  * @evidence contracts/testing.md#behavioral-verification TsPrinter source output must parse and pass each exact input string to the JSX runtime after UTF-8 encoding; ordinary string and expression attributes remain controls.
  * @evidence contracts/testing.md#independent-expectations Original fixture code units supply expected values; the pinned legacy TypeScript parser and transpiler plus V8 interpret output independently of the factory printer.
@@ -40,7 +40,7 @@ export const test_printer_preserves_jsx_attribute_values = (): void => {
     ["named entity text", "&quot;&amp;&apos;"],
     ["numeric entity text", "&#13;&#x2028;"],
     ["unknown entity text", "&unknown;"],
-    ["backslash", "a\\b\\n\\\""],
+    ["backslash", 'a\\b\\n\\"'],
     ["markup", "<tag>{text}>"],
     ["CRLF", "a\r\nb"],
     ["CR", "a\rb"],
@@ -64,7 +64,7 @@ export const test_printer_preserves_jsx_attribute_values = (): void => {
     ["two low units", "\udc00\udfff"],
     ["pair then lone high", "\ud800\udc00\udbff"],
     ["lone low then pair", "\udfff\udbff\udfff"],
-    ["combined lone payload", "\0\r\n\u2028\ud800&quot;\\n\""],
+    ["combined lone payload", '\0\r\n\u2028\ud800&quot;\\n"'],
   ];
   const failures: string[] = [];
   for (const [name, value] of cases)

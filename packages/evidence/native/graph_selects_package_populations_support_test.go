@@ -6,18 +6,6 @@ const packageManifest = `{
   "exports": { ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" } }
 }`
 
-
-
-
-
-
-
-
-
-
-
-
-
 // nestedAccessorPackage is the shape a generated SDK installs: an entry that
 // nests its surface one namespace segment at a time, so the address a consumer
 // writes is several segments longer than the module that declares the symbol.

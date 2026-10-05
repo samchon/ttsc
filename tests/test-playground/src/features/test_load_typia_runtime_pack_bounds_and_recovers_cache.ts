@@ -15,7 +15,8 @@ import { loadTypiaRuntimePack } from "../../../../packages/playground/src/sandbo
  * 3. Join one stalled fetch from two callers, abort the joiner, and require the
  *    shared attempt and forwarded fetch signal to cancel.
  * 4. Retry the shared URL, share a healthy pending and fulfilled load, and retry
- *    HTTP, malformed, fetch and JSON failures without retaining rejected entries.
+ *    HTTP, malformed, fetch and JSON failures without retaining rejected
+ *    entries.
  *
  * @evidence contracts/testing.md#behavioral-verification loadTypiaRuntimePack aborts stalled JSON/fetch, forwards cancellation, evicts failures and shares healthy pending and fulfilled promise/record identity. Repeated calls at the failed URL recover actual authored module-text records.
  * @evidence contracts/testing.md#independent-expectations Controlled fetch counters and authored module-text records fix retry2 and healthy cache reuse. Exact phase diagnostics and cause identity distinguish cancellation; HTTP404, array, nonstring record and authored fetch/JSON errors independently distinguish rejected attempts.
@@ -57,7 +58,11 @@ export const test_load_typia_runtime_pack_bounds_and_recovers_cache =
       const recoveredAgain = loadTypiaRuntimePack(jsonUrl);
       assert.equal(recoveredAgain, recovered);
       assert.equal(await recoveredAgain, await recovered);
-      assert.equal(jsonCalls, 2, "fulfilled runtime packs must not fetch again");
+      assert.equal(
+        jsonCalls,
+        2,
+        "fulfilled runtime packs must not fetch again",
+      );
 
       const sharedUrl = "https://pack.invalid/shared-fetch.json";
       let sharedCalls = 0;
@@ -123,11 +128,23 @@ export const test_load_typia_runtime_pack_bounds_and_recovers_cache =
         Response.json({ "typia/index.js": "RECOVERED" }),
       ];
       let malformedCalls = 0;
-      globalThis.fetch = (async () => malformedResponses[malformedCalls++]!) as typeof fetch;
-      await assert.rejects(loadTypiaRuntimePack(malformedUrl), /failed to fetch .*: 404/);
-      await assert.rejects(loadTypiaRuntimePack(malformedUrl), /expected a source-text record map/);
-      await assert.rejects(loadTypiaRuntimePack(malformedUrl), /expected a source-text record map/);
-      assert.deepEqual(await loadTypiaRuntimePack(malformedUrl), { "typia/index.js": "RECOVERED" });
+      globalThis.fetch = (async () =>
+        malformedResponses[malformedCalls++]!) as typeof fetch;
+      await assert.rejects(
+        loadTypiaRuntimePack(malformedUrl),
+        /failed to fetch .*: 404/,
+      );
+      await assert.rejects(
+        loadTypiaRuntimePack(malformedUrl),
+        /expected a source-text record map/,
+      );
+      await assert.rejects(
+        loadTypiaRuntimePack(malformedUrl),
+        /expected a source-text record map/,
+      );
+      assert.deepEqual(await loadTypiaRuntimePack(malformedUrl), {
+        "typia/index.js": "RECOVERED",
+      });
       assert.equal(malformedCalls, 4);
 
       const rejectedUrl = "https://pack.invalid/runtime-rejected.json";
@@ -137,12 +154,25 @@ export const test_load_typia_runtime_pack_bounds_and_recovers_cache =
       globalThis.fetch = (async () => {
         if (++rejectedCalls === 1) throw fetchError;
         if (rejectedCalls === 2)
-          return { ok: true, json: async () => { throw jsonError; } } as unknown as Response;
+          return {
+            ok: true,
+            json: async () => {
+              throw jsonError;
+            },
+          } as unknown as Response;
         return Response.json({ "typia/index.js": "RETRIED" });
       }) as typeof fetch;
-      await assert.rejects(loadTypiaRuntimePack(rejectedUrl), (error) => error === fetchError);
-      await assert.rejects(loadTypiaRuntimePack(rejectedUrl), (error) => error === jsonError);
-      assert.deepEqual(await loadTypiaRuntimePack(rejectedUrl), { "typia/index.js": "RETRIED" });
+      await assert.rejects(
+        loadTypiaRuntimePack(rejectedUrl),
+        (error) => error === fetchError,
+      );
+      await assert.rejects(
+        loadTypiaRuntimePack(rejectedUrl),
+        (error) => error === jsonError,
+      );
+      assert.deepEqual(await loadTypiaRuntimePack(rejectedUrl), {
+        "typia/index.js": "RETRIED",
+      });
       assert.equal(rejectedCalls, 3);
     } finally {
       globalThis.fetch = originalFetch;

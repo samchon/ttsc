@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,6 +7,7 @@ import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/tra
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 
 /**
@@ -29,6 +29,7 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    invalidated.
  * 2. Emit a rename under the physical directory for a file no program admits, and
  *    assert nothing happens.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Registers project membership under a linked root, injects physical-path rename events and checks new declarations invalidate while unrelated text remains quiet.
  * @evidence contracts/testing.md#independent-expectations

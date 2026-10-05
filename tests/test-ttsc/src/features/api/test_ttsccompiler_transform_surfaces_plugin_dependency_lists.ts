@@ -14,9 +14,12 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * type-only inputs. If the host dropped the field, HMR invalidation for
  * generated code could never work regardless of what plugins report.
  *
- * 1. Decode the valid fixture envelope and assert dependencies equals { "src/main.ts": ["src/consulted.d.ts"] }.
- * 2. Decode envelopes whose dependencies field is null, [], 42, "invalid" or { "src/main.ts": [42, null] }, each with an empty typescript record.
- * 3. Assert every malformed field decodes to undefined dependencies without rejecting the (empty) source output.
+ * 1. Decode the valid fixture envelope and assert dependencies equals {
+ *    "src/main.ts": ["src/consulted.d.ts"] }.
+ * 2. Decode envelopes whose dependencies field is null, [], 42, "invalid" or {
+ *    "src/main.ts": [42, null] }, each with an empty typescript record.
+ * 3. Assert every malformed field decodes to undefined dependencies without
+ *    rejecting the (empty) source output.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls parseNativeTransformOutput with the valid native fixture and requires the exact importer-to-consulted-input dependency record.
  * @evidence contracts/testing.md#independent-expectations The fixture explicitly reports src/main.ts consulting src/consulted.d.ts; the independent literal object establishes importer and input identity without computing graph expansion.
@@ -33,9 +36,22 @@ export const test_ttsccompiler_transform_surfaces_plugin_dependency_lists =
     assert.deepEqual(result.dependencies, {
       "src/main.ts": ["src/consulted.d.ts"],
     });
-    for (const dependencies of [null, [], 42, "invalid", { "src/main.ts": [42, null] }]) {
-      const decoded = parseNativeTransformOutput(JSON.stringify({ typescript: {}, dependencies }), "");
+    for (const dependencies of [
+      null,
+      [],
+      42,
+      "invalid",
+      { "src/main.ts": [42, null] },
+    ]) {
+      const decoded = parseNativeTransformOutput(
+        JSON.stringify({ typescript: {}, dependencies }),
+        "",
+      );
       assert.equal(decoded.dependencies, undefined);
-      assert.deepEqual(decoded.typescript, {}, "malformed advisory data must not reject valid source output");
+      assert.deepEqual(
+        decoded.typescript,
+        {},
+        "malformed advisory data must not reject valid source output",
+      );
     }
   };

@@ -1,6 +1,6 @@
+import type { TtscTransformCache } from "../transform/cache/TtscTransformCache";
 import { beginTtscTransformBuild } from "../transform/cache/beginTtscTransformBuild";
 import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCache";
-import type { TtscTransformCache } from "../transform/cache/TtscTransformCache";
 
 /**
  * Own the started esbuild contexts sharing one transform cache.
@@ -8,7 +8,8 @@ import type { TtscTransformCache } from "../transform/cache/TtscTransformCache";
  * Every start opens a delivery pass, including repeated starts of one context.
  * Only a started identity can release ownership; the last disposal resets the
  * cache before returning true to let the caller clear and close its bridge.
- * Bridge acquisition, sequence tokens and asynchronous close remain caller-owned.
+ * Bridge acquisition, sequence tokens and asynchronous close remain
+ * caller-owned.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Weak owner identities count each started context once. Unknown disposal

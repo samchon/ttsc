@@ -19,9 +19,8 @@ import { make } from "../internal/make";
  * parameter (`...args`), and the `questionToken` marks it optional (`name?`).
  *
  * The `name` accepts a string or an identifier. Binding-pattern names are not
- * represented by this outline signature. The optional `type` prints
- * after a colon, and the optional `initializer` supplies a default value after
- * an `=`.
+ * represented by this outline signature. The optional `type` prints after a
+ * colon, and the optional `initializer` supplies a default value after an `=`.
  *
  * Given a `readonly` modifier, the name `value`, and a `number` type, the
  * printed parameter is:
@@ -30,6 +29,14 @@ import { make } from "../internal/make";
  * readonly value: number
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param dotDotDotToken The rest marker (`...`), if any.
+ * @param name The name.
+ * @param questionToken The optional marker (`?`), if any.
+ * @param type The type.
+ * @param initializer The initializer, if any.
+ * @returns The created {@link ParameterDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   The outline retains modifiers, rest/optional markers, type and initializer
  *   as distinct grammar slots. asName normalizes string names to Identifier;
@@ -46,15 +53,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains constructor properties, inline decorators, rest and
  *   optional markers, and the identifier-name limit in separate paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param dotDotDotToken The rest marker (`...`), if any.
- * @param name The name.
- * @param questionToken The optional marker (`?`), if any.
- * @param type The type.
- * @param initializer The initializer, if any.
- * @returns The created {@link ParameterDeclaration}.
  */
 export const createParameterDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

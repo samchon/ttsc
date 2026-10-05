@@ -2,9 +2,7 @@
  * Convert captured output to UTF-8 text; absent output becomes an empty string.
  *
  * @param value Already decoded text, captured bytes or absent output.
- *
  * @returns Existing text unchanged, UTF-8 decoded bytes or empty text.
- *
  * @evidence contracts/common.md#principled-implementation Nullish outputs denote no captured bytes; existing strings retain their decoded meaning and Buffers use Node's UTF-8 decoder.
  * @evidence contracts/common.md#clear-and-simple-design One narrowing branch distinguishes absence from an already decoded string and raw bytes; no process policy belongs to this accessor.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty text follows the nullish capture representation and never replaces a nonempty Buffer or a filesystem error.

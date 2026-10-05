@@ -12,13 +12,14 @@ const virtualModulePattern = /\0/;
 
 /**
  * Classify whether the supplied module identifier belongs to the transform's
- * TypeScript source syntax. This does not probe native existence or readability.
+ * TypeScript source syntax. This does not probe native existence or
+ * readability.
  *
- * {@link sourceFilePattern} deliberately excludes JavaScript, so a `.js`
- * module reaches no adapter's transform.
+ * {@link sourceFilePattern} deliberately excludes JavaScript, so a `.js` module
+ * reaches no adapter's transform.
  *
- * Also excluded: identifiers containing NUL, declaration basenames, and
- * exact `node_modules` components under either module-id separator spelling.
+ * Also excluded: identifiers containing NUL, declaration basenames, and exact
+ * `node_modules` components under either module-id separator spelling.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared extension predicate admits TypeScript source, then NUL ids,

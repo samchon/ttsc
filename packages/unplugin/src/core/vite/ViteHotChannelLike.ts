@@ -1,7 +1,7 @@
 /**
- * A host channel with an optional full-reload payload operation.
- * Calling it requests transport delivery; this shape exposes no client
- * acknowledgment or connection-liveness certificate.
+ * A host channel with an optional full-reload payload operation. Calling it
+ * requests transport delivery; this shape exposes no client acknowledgment or
+ * connection-liveness certificate.
  *
  * @evidence contracts/common.md#principled-implementation
  *   An optional send capability carries the full-reload protocol discriminant
@@ -30,7 +30,8 @@
 export interface ViteHotChannelLike {
   /**
    * Request delivery of one full-reload payload through the host transport.
-   * Normal return is not an acknowledgment that a client received or applied it.
+   * Normal return is not an acknowledgment that a client received or applied
+   * it.
    *
    * @evidence contracts/common.md#principled-implementation
    *   The literal full-reload discriminant and optional path match the reload

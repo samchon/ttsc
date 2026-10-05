@@ -1,9 +1,9 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"testing"
+  "os"
+  "path/filepath"
+  "testing"
 )
 
 /**
@@ -24,42 +24,42 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkChainBeyondTheResolverIsRefusedForTypeScriptToo(t *testing.T) {
-	workspace := t.TempDir()
-	project := filepath.Join(workspace, "project")
-	if err := os.MkdirAll(project, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	previous := project
-	for hop := range 34 {
-		link := filepath.Join(workspace, "hop"+decimal(hop))
-		if err := linkDirectory(t, previous, link); err != nil {
-			t.Fatalf("this platform refused to create a link: %v", err)
-		}
-		previous = link
-	}
-	head := filepath.Join(workspace, "mirror")
-	if err := linkDirectory(t, previous, head); err != nil {
-		t.Fatalf("this platform refused to create a link: %v", err)
-	}
-	if _, err := os.Stat(head); err != nil {
-		t.Fatalf(
-			"this platform did not follow the chain to a directory either (%v), so the stat gate answers first",
-			err,
-		)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/docs/pricing.md": "## Discounts {#discounts}\n",
-		"project/src/sale.ts":     "export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  previous := project
+  for hop := range 34 {
+    link := filepath.Join(workspace, "hop"+decimal(hop))
+    if err := linkDirectory(t, previous, link); err != nil {
+      t.Fatalf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  head := filepath.Join(workspace, "mirror")
+  if err := linkDirectory(t, previous, head); err != nil {
+    t.Fatalf("this platform refused to create a link: %v", err)
+  }
+  if _, err := os.Stat(head); err != nil {
+    t.Fatalf(
+      "this platform did not follow the chain to a directory either (%v), so the stat gate answers first",
+      err,
+    )
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "root":"../mirror",
     "files":["src/**/*.ts"],
     "symbol":"type",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-	assertProblemContains(
-		t,
-		messages,
-		"found no directory at the end of the typescript root '../mirror'",
-	)
+  assertProblemContains(
+    t,
+    messages,
+    "found no directory at the end of the typescript root '../mirror'",
+  )
 }

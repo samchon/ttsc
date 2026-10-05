@@ -12,21 +12,21 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  * A watch session serializes cycles, but the client still queues replies so a
  * caller cannot accidentally pair a late response with the next request. Any
  * framing failure retires the process; the launcher can fall back to an
- * ordinary one-shot command after joining the original child. An unjoined
- * child cannot authorize that replacement.
+ * ordinary one-shot command after joining the original child. An unjoined child
+ * cannot authorize that replacement.
  *
  * The caller owns disposal. Requests have no deadline, and outstanding request
  * count and reply-line size are not capped; a slow live check remains pending.
  * Retirement ends stdin and waits for actual close. A one-second grace period
  * starts after stdin finishes, followed by forced termination and a one-second
- * join deadline. Pending stdin writes have a one-second flush deadline once
- * the retiring call stack yields. An unjoined deadline releases this client's
+ * join deadline. Pending stdin writes have a one-second flush deadline once the
+ * retiring call stack yields. An unjoined deadline releases this client's
  * pipes, request listeners, timers and event-loop process reference while
- * keeping joining failed; the client object still holds its ChildProcess.
- * It neither kills unrelated descendants nor certifies their termination.
- * A forced or unjoined process is not a graceful shutdown.
- * These delays are event-loop timer policies, not hard elapsed-time bounds;
- * synchronous blocking or callback starvation can postpone their delivery.
+ * keeping joining failed; the client object still holds its ChildProcess. It
+ * neither kills unrelated descendants nor certifies their termination. A forced
+ * or unjoined process is not a graceful shutdown. These delays are event-loop
+ * timer policies, not hard elapsed-time bounds; synchronous blocking or
+ * callback starvation can postpone their delivery.
  *
  * @evidence contracts/common.md#principled-implementation One positional reply consumes one queued cycle; invalid framing or shape retires the stream so a delayed reply cannot answer a different cycle.
  * @evidence contracts/common.md#clear-and-simple-design One client owns its child, line reader, FIFO and failure state; private parsing and settlement keep transport policy separate from the watch coordinator's fallback.
@@ -55,7 +55,12 @@ export class ResidentCheckProcess {
 
   public constructor(options: ResidentCheckProcessOptions) {
     const nativeArgs = [...options.args];
-    const trace = E2ETrace.begin(options.binary, nativeArgs, options, "resident-check");
+    const trace = E2ETrace.begin(
+      options.binary,
+      nativeArgs,
+      options,
+      "resident-check",
+    );
     this.child = spawn(options.binary, nativeArgs, {
       cwd: options.cwd,
       env: options.env,
@@ -132,8 +137,8 @@ export class ResidentCheckProcess {
    * for that cycle.
    *
    * Serialization precedes enqueueing and normally rejects only this call;
-   * exceptional thrown-value conversion can itself fail during normalization.
-   * A closed input retires the host and rejects its other pending calls.
+   * exceptional thrown-value conversion can itself fail during normalization. A
+   * closed input retires the host and rejects its other pending calls.
    *
    * @evidence contracts/common.md#principled-implementation Serialization precedes enqueueing, and each successfully enqueued call keeps its own FIFO slot until a validated reply or shared retirement settles it.
    * @evidence contracts/common.md#clear-and-simple-design Pre-write validation remains local; write failures use the same settlement and retirement operations as pipe and protocol failure.
@@ -195,8 +200,9 @@ export class ResidentCheckProcess {
   }
 
   /**
-   * End the request stream and await the owned child's actual close event.
-   * A forced, signalled or nonzero exit rejects; repeated calls share retirement.
+   * End the request stream and await the owned child's actual close event. A
+   * forced, signalled or nonzero exit rejects; repeated calls share
+   * retirement.
    *
    * @evidence contracts/common.md#principled-implementation EOF is sent on the owned input and success requires the child's actual close with status zero, never merely a successful kill request.
    * @evidence contracts/common.md#clear-and-simple-design Retirement and join are shared with dispose; this awaitable boundary adds exit validation for callers that must release process ownership.
@@ -217,8 +223,8 @@ export class ResidentCheckProcess {
   }
 
   /**
-   * Await actual retirement before a transport-failure fallback starts.
-   * A known failed child may be replaced; an unjoined child may not.
+   * Await actual retirement before a transport-failure fallback starts. A known
+   * failed child may be replaced; an unjoined child may not.
    *
    * @evidence contracts/common.md#principled-implementation A replacement can start only after the original child's close event releases its native ownership.
    * @evidence contracts/common.md#clear-and-simple-design The transport owner exposes joining separately from graceful status validation for the supported recovery policy.
@@ -316,7 +322,12 @@ export class ResidentCheckProcess {
     clearTimeout(this.flushDeadline);
     // Keep output pipes readable until close: destroying them would discard the
     // last reply and confuse a requested EOF with transport truncation.
-    if (this.didClose || this.terminationTimer !== undefined || this.terminationDeadline !== undefined) return;
+    if (
+      this.didClose ||
+      this.terminationTimer !== undefined ||
+      this.terminationDeadline !== undefined
+    )
+      return;
     this.terminationTimer = setTimeout(
       () => this.forceTerminationAndJoin(),
       TERMINATION_GRACE_MS,

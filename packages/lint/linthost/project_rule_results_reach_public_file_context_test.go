@@ -166,5 +166,7 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
   if got := len(findings); got != 3 || findings[0].File != nil || findings[0].Rule != failedName || findings[1].File != nil || findings[1].Rule != panickedName || findings[2].File == nil || findings[2].Rule != fileRuleName {
     t.Fatalf("project findings should be sorted before file findings: %#v", findings)
   }
-  if observed[failedName].Findings[0].Message != "project access rejected" || findings[0].Message != "project access rejected" || findings[2].Message != "file observer ran" || findings[2].engineFailure { t.Fatalf("project/file callback messages or execution identity lost: %#v", findings) }
+  if observed[failedName].Findings[0].Message != "project access rejected" || findings[0].Message != "project access rejected" || findings[2].Message != "file observer ran" || findings[2].engineFailure {
+    t.Fatalf("project/file callback messages or execution identity lost: %#v", findings)
+  }
 }

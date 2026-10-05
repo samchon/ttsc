@@ -16,11 +16,11 @@ import (
  */
 func TestSourceByteDigestsPreserveOriginalBridgeBoundaries(t *testing.T) {
   for _, scenario := range []struct {
-    name string
-    files map[string]string
+    name          string
+    files         map[string]string
     prismaSources []string
     swaggerSource string
-    nonempty bool
+    nonempty      bool
   }{
     {name: "prisma-readable-two-file-set", files: map[string]string{
       "prisma/schema.prisma": prismaBridgeSchema,

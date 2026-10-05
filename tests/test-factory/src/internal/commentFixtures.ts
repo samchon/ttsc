@@ -1,5 +1,4 @@
 import factory, { SyntaxKind } from "../../../../packages/factory/src/index";
-
 import { kw } from "./helpers";
 
 /** A type alias `type ID = string;` for the synthetic comment tests to annotate. */

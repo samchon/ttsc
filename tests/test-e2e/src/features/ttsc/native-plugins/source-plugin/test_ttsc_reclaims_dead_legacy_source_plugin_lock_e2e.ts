@@ -1,17 +1,22 @@
 import { TestProject } from "@ttsc/testing";
-import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import os from "node:os";
 
-import { goPath, spawn, ttscBin } from "../../../../internal/ttsc/internal/plugin-corpus";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
+import {
+  goPath,
+  spawn,
+  ttscBin,
+} from "../../../../internal/ttsc/internal/plugin-corpus";
 import {
   assert,
   buildSourcePlugin,
   fs,
   path,
 } from "../../../../internal/ttsc/internal/source-build";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies ttsc e2e: reclaims a dead legacy source-plugin owner.
@@ -26,6 +31,7 @@ import {
  * 2. Run the real local `ttsc` launcher with that cache directory.
  * 3. Assert the CLI exits successfully and reports reclaiming the abandoned lock
  *    instead of waiting for the ordinary admission budget.
+ *
  * @evidence contracts/testing.md#behavioral-verification The real ttsc noEmit launcher must discover the source plugin, reclaim its seeded dead legacy lock, build the missing binary and exit zero with both reclamation and build diagnostics.
  * @evidence contracts/testing.md#independent-expectations A successfully exited same-host child establishes the dead owner, explicit aged owner bytes establish legacy state, and independent CLI status plus named stderr messages distinguish successful recovery from merely accepting the configuration.
  * @evidence contracts/testing.md#distinguishing-cases The initially selected key is deliberately stripped of its binary and v3 history before an old legacy owner is created. This owns launcher/discovery-to-lock recovery, while direct fake-tool admission and pure owner policies have separate tests.

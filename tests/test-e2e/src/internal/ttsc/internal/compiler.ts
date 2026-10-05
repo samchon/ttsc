@@ -189,8 +189,8 @@ function writePackageSourcePlugin(root: string, packageName: string) {
 /**
  * Install a project-owned package descriptor for the immutable shared backend.
  *
- * These package-discovery cases vary manifest placement and project source,
- * not backend bytes. Source mutation and provenance cases keep private modules.
+ * These package-discovery cases vary manifest placement and project source, not
+ * backend bytes. Source mutation and provenance cases keep private modules.
  *
  * @evidence contracts/common.md#principled-implementation The manifest and descriptor remain inside each consumer package, while their source points to the same immutable authored backend used by configured-plugin cases; discovery ownership changes without changing backend behavior.
  * @evidence contracts/common.md#clear-and-simple-design One helper owns dependency/manifest/descriptor materialization and delegates backend lifetime to getSharedCompilerPluginSource instead of rewriting an identical Go module per consumer.
@@ -272,7 +272,8 @@ let sharedCompilerPluginSource: string | undefined;
  *
  * These consumers vary project inputs and descriptor options, not Go source.
  * Mutation, source-path and cold-build cases keep writeCompilerPlugin instead.
- * TestProject owns the shared source until all this process's consumers finish.
+ * TestProject owns the shared source until all this process's consumers
+ * finish.
  */
 function getSharedCompilerPluginSource(): string {
   if (sharedCompilerPluginSource === undefined) {

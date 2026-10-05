@@ -115,8 +115,9 @@ export const test_memfs_buffer_slices_reject_before_mutating_state =
       "d",
     );
 
-    const [pipeRead, pipeWrite] = await new Promise<number[]>((resolve, reject) =>
-      host.fs.pipe2(0, (err, fds) => (err ? reject(err) : resolve(fds))),
+    const [pipeRead, pipeWrite] = await new Promise<number[]>(
+      (resolve, reject) =>
+        host.fs.pipe2(0, (err, fds) => (err ? reject(err) : resolve(fds))),
     );
     TestValidator.equals(
       "queue authored pipe bytes",

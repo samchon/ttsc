@@ -8,10 +8,9 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
 /**
  * The policy and the walk both spell the project root as it was named, while a
  * native watcher or package `extends` may use another observed root spelling.
- * Match each equivalent project-root spelling
- * without following child links. Keep patterns intact: a glob can begin above
- * the root, and configDir can retain the requested spelling even when a base
- * config uses the physical one.
+ * Match each equivalent project-root spelling without following child links.
+ * Keep patterns intact: a glob can begin above the root, and configDir can
+ * retain the requested spelling even when a base config uses the physical one.
  * Observed root aliases do not establish how native events spell child names.
  *
  * Node's Windows relative-path operation ignores case. A containing spelling is
@@ -22,7 +21,6 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
  * @param caseSensitive An already selected compiler comparison rule. Omission
  *   resolves the policy's reported or predicted rule only when root aliases
  *   exist.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Replacing only a containing root spelling preserves the relative suffix
  *   and child-link semantics while matching regular/native aliases of that root.

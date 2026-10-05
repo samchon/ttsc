@@ -22,6 +22,12 @@ import { make } from "../internal/make";
  * T extends string = string
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The parameter name.
+ * @param constraint The `extends` constraint, if any.
+ * @param defaultType The default type, if any.
+ * @returns The created {@link TypeParameterDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   The identifier, constraint and default remain distinct generic-parameter
  *   fields; defaultType maps to the AST's default field without evaluating constraint satisfaction.
@@ -37,13 +43,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose distinguishes constraint from default; the example now uses
  *   a default satisfying its stated constraint rather than an invalid teaching example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The parameter name.
- * @param constraint The `extends` constraint, if any.
- * @param defaultType The default type, if any.
- * @returns The created {@link TypeParameterDeclaration}.
  */
 export const createTypeParameterDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

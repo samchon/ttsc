@@ -17,6 +17,10 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @param statement The statement.
+ * @returns The created {@link WhileStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Condition and body retain while's pre-test order; zero-iteration behavior
  *   follows emitted grammar rather than an eagerly evaluated condition here.
@@ -30,11 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs state pre-pass testing and zero-or-more execution, with
  *   a loop example separate from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @param statement The statement.
- * @returns The created {@link WhileStatement}.
  */
 export const createWhileStatement = (
   expression: Expression,

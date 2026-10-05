@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 
 /**
@@ -17,13 +18,22 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
 export async function test_e2e_bun_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
-  const result = TestProject.spawn(process.env.TTSC_BUN_BINARY ?? "bun", ["bun-entry.mjs"], {
-    cwd: workspace.root,
-    env: { TTSC_CACHE_DIR: workspace.cache },
-  });
+  const result = TestProject.spawn(
+    process.env.TTSC_BUN_BINARY ?? "bun",
+    ["bun-entry.mjs"],
+    {
+      cwd: workspace.root,
+      env: { TTSC_CACHE_DIR: workspace.cache },
+    },
+  );
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
-  BatchWorkspace.assertResult(BatchWorkspace.readPayload(result.stdout), workspace.expected);
-  BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
+  BatchWorkspace.assertResult(
+    BatchWorkspace.readPayload(result.stdout),
+    workspace.expected,
+  );
+  BatchWorkspace.assertContextReceipts(
+    BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset),
+  );
 }

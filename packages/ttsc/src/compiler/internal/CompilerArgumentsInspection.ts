@@ -24,9 +24,10 @@ export namespace CompilerArgumentsInspection {
   /**
    * Expand observed response frames while preserving native operand positions.
    * Throws when read-only reporting cannot safely extend the original frame.
-   * The producer still receives the caller's original argv and owns diagnostics.
-   * Response text is read separately between two hashed observations; equality
-   * does not establish an atomic snapshot or detect a change restored in between.
+   * The producer still receives the caller's original argv and owns
+   * diagnostics. Response text is read separately between two hashed
+   * observations; equality does not establish an atomic snapshot or detect a
+   * change restored in between.
    *
    * @evidence contracts/common.md#principled-implementation A stack preserves each response frame and occurrence widths skip scalar operands; bare booleans receive an explicit value only in the inspection projection so parent tokens cannot bind across frames.
    * @evidence contracts/common.md#clear-and-simple-design One cursor per frame and one active physical-path set distinguish ordered reuse from cycles, returning projected argv and the observations needed by the emission owner.

@@ -12,7 +12,6 @@ import { createTtscTransformCache } from "./createTtscTransformCache";
  * entry only when no newer pair already owns that key.
  *
  * @param key A serialization preserving the resolved options' JSON order.
- *
  * @evidence contracts/common.md#principled-implementation Equal serialized options select the same process-local cache and lease, while generation validation still decides whether retained output may be served.
  * @evidence contracts/common.md#clear-and-simple-design Lazy lookup creates one cache/lease pair per configuration rather than adding another compilation or filesystem snapshot layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A configuration match establishes sharing identity only; no target-name exception or synthetic successful output changes compile semantics.

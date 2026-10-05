@@ -11,9 +11,12 @@ import { make } from "../internal/make";
  * With `value` of `123`, this prints:
  *
  * ```ts
- * 123n
+ * 123n;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param value The literal value.
+ * @returns The created {@link BigIntLiteral}.
  * @evidence contracts/common.md#principled-implementation
  *   BigIntLiteral stores lexical digit text; appending n only when absent
  *   matches its suffix representation. Callers must supply valid bigint digits.
@@ -28,10 +31,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains suffix normalization and shows its printed form. Prose,
  *   example and acknowledgment tags use separate paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param value The literal value.
- * @returns The created {@link BigIntLiteral}.
  */
 export const createBigIntLiteral = (value: string): BigIntLiteral =>
   make("BigIntLiteral", { text: value.endsWith("n") ? value : `${value}n` });

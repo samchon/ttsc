@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
@@ -20,7 +20,6 @@ import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtsc
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
-import { PluginDescriptorAdmission } from "./PluginDescriptorAdmission";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
@@ -28,21 +27,22 @@ import { pluginModuleReplaceDirectories } from "../source/pluginModuleReplaceDir
 import { pluginSourceState } from "../source/pluginSourceState";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
+import { PluginDescriptorAdmission } from "./PluginDescriptorAdmission";
 import { PluginDescriptorEvaluationCache } from "./PluginDescriptorEvaluationCache";
 import { PluginPackageResolution } from "./PluginPackageResolution";
 import { ProjectPluginEntries } from "./ProjectPluginEntries";
-import { composePluginSources } from "./composePluginSources";
-import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
-import { validatePluginSource } from "./validatePluginSource";
-import { pluginLabel } from "./pluginLabel";
-import { resolveNativeSource } from "./resolveNativeSource";
-import { validatePluginContributors } from "./validatePluginContributors";
 import { collectProjectHostInputs } from "./collectProjectHostInputs";
+import { composePluginSources } from "./composePluginSources";
 import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
+import { pluginLabel } from "./pluginLabel";
 import { realpathHostInput } from "./realpathHostInput";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
+import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
+import { resolveNativeSource } from "./resolveNativeSource";
+import { validatePluginContributors } from "./validatePluginContributors";
+import { validatePluginSource } from "./validatePluginSource";
 import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
 
 /**
@@ -51,20 +51,19 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * Reads the project config, discovers plugin entries (from tsconfig and package
  * auto-discovery), validates and composes their descriptors, then invokes
  * `buildSourcePlugin` to compile each Go source package into a cached binary.
- * Returns the ordered native plugins, parsed project config,
- * recorded JavaScript-host inputs and unresolved selection candidates, and
- * the keyed state of reported Go source directories supplied to the builds
- * (`pluginSources`): each plugin's module root and each
- * contributor's source, with its state (`pluginSourceState`), the sources as
- * the build read them together with the environment a build there is keyed on.
- * Directories within ttsc's installed package, including its overlays and the
- * fallback linked-plugin host, are keyed but omitted from this report under
- * the installed-package/version ownership policy. That policy does not prove
- * the installation cannot be edited in place.
- * Descriptor completeness relies on the runtime recorder's status and the
- * descriptor's explicit external-read declaration. Sequential content,
- * metadata and physical-path observations are not an atomic snapshot or
- * detection of every omitted read.
+ * Returns the ordered native plugins, parsed project config, recorded
+ * JavaScript-host inputs and unresolved selection candidates, and the keyed
+ * state of reported Go source directories supplied to the builds
+ * (`pluginSources`): each plugin's module root and each contributor's source,
+ * with its state (`pluginSourceState`), the sources as the build read them
+ * together with the environment a build there is keyed on. Directories within
+ * ttsc's installed package, including its overlays and the fallback
+ * linked-plugin host, are keyed but omitted from this report under the
+ * installed-package/version ownership policy. That policy does not prove the
+ * installation cannot be edited in place. Descriptor completeness relies on the
+ * runtime recorder's status and the descriptor's explicit external-read
+ * declaration. Sequential content, metadata and physical-path observations are
+ * not an atomic snapshot or detection of every omitted read.
  *
  * @param options.binary - Absolute path to the ttsc native helper binary.
  * @param options.cacheDir - Override the plugin binary cache directory.
@@ -133,10 +132,9 @@ export function loadProjectPlugins(options: {
    * Whether every descriptor reported complete runtime observations and an
    * explicit external-read declaration (`declaresHostInputReads`). This flag
    * does not discover reads omitted by that producer. Without the declaration,
-   * the host inputs cannot
-   * prove the load's answer to a later launch. The runtime
-   * must also explicitly complete its module observations; retained partial
-   * records do not establish that declaration's input graph.
+   * the host inputs cannot prove the load's answer to a later launch. The
+   * runtime must also explicitly complete its module observations; retained
+   * partial records do not establish that declaration's input graph.
    */
   descriptorReadsDeclared: boolean;
 
@@ -1135,9 +1133,8 @@ class CommonJsDescriptorLoadError extends Error {
  *
  * The answer of a descriptor that declares the files it reads is kept across
  * launches while every input the evaluation proved still holds
- * (`PluginDescriptorEvaluationCache`): an
- * unchanged project pays a proof of its descriptor inputs instead of a runtime
- * start and a graph load.
+ * (`PluginDescriptorEvaluationCache`): an unchanged project pays a proof of its
+ * descriptor inputs instead of a runtime start and a graph load.
  */
 function loadCommonJsDescriptor(
   request: string,
@@ -1667,8 +1664,12 @@ function loadDescriptorViaTtsx(
       }),
     );
     fs.writeFileSync(shim, PLUGIN_DESCRIPTOR_SHIM_SOURCE);
-    const trace = E2ETrace.begin(node, [ttsx, "--no-plugins", shim],
-      { cwd: context.projectRoot }, "plugin-descriptor");
+    const trace = E2ETrace.begin(
+      node,
+      [ttsx, "--no-plugins", shim],
+      { cwd: context.projectRoot },
+      "plugin-descriptor",
+    );
     const result = childProcess.spawnSync(node, [ttsx, "--no-plugins", shim], {
       cwd: context.projectRoot,
       encoding: "utf8",
@@ -1993,8 +1994,8 @@ function resolvePluginSource(source: string, projectRoot: string): string {
 
 /**
  * The directories the plugin builds of one load key their binaries on, which a
- * watch session observes: the module root of every plugin
- * built as an executable, since the build copies and keys the whole module
+ * watch session observes: the module root of every plugin built as an
+ * executable, since the build copies and keys the whole module
  * (`computeCacheKey`), the source of every plugin linked into a host, and every
  * contributor's source, which a host build keys as it is. They are the
  * directories the load then reports as `pluginSources`, resolved before any
@@ -2046,9 +2047,6 @@ function pluginBuildDirectories(
 function reportsPluginSource(directory: string): boolean {
   return !isPathWithin(directory, ttscPackageRoot());
 }
-
-
-
 
 function mergeContributors(
   first: readonly ITtscPluginContributor[] | undefined,

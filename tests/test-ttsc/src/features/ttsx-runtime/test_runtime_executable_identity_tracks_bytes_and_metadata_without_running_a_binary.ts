@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 import { runtimeExecutableIdentity } from "../../../../../packages/ttsc/src/internal/runtimeExecutableIdentity";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies executable fingerprint semantics without compiling or executing one.
@@ -22,16 +22,24 @@ import { runtimeExecutableIdentity } from "../../../../../packages/ttsc/src/inte
  * @evidence contracts/testing.md#execution-ownership This named source unit creates small regular-file inputs and calls authored filesystem/crypto logic in process. Files are fingerprint inputs rather than fabricated successful compiler artifacts; no binary is run, native artifact built, installed consumer prepared or product host started. Labeled assertions collect all independent controls.
  */
 export function test_runtime_executable_identity_tracks_bytes_and_metadata_without_running_a_binary(): void {
-  const root = TestProject.createProject({ "candidate": "abc", "empty": "" });
+  const root = TestProject.createProject({ candidate: "abc", empty: "" });
   const file = path.join(root, "candidate");
   const original = runtimeExecutableIdentity(file);
   const failures: unknown[] = [];
   const check = (label: string, work: () => void): void => {
-    try { work(); } catch (error) { failures.push(new Error(label, { cause: error })); }
+    try {
+      work();
+    } catch (error) {
+      failures.push(new Error(label, { cause: error }));
+    }
   };
   check("stable content", () => {
     assert.ok(original);
-    assert.ok(original.includes("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
+    assert.ok(
+      original.includes(
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      ),
+    );
     assert.equal(runtimeExecutableIdentity(file), original);
   });
   const before = fs.statSync(file, { bigint: true });
@@ -42,7 +50,10 @@ export function test_runtime_executable_identity_tracks_bytes_and_metadata_witho
   check("same-path metadata", () => {
     assert.equal(fs.readFileSync(file, "utf8"), "abc");
     assert.equal(fs.statSync(file, { bigint: true }).size, before.size);
-    assert.notEqual(fs.statSync(file, { bigint: true }).mtimeNs, before.mtimeNs);
+    assert.notEqual(
+      fs.statSync(file, { bigint: true }).mtimeNs,
+      before.mtimeNs,
+    );
     assert.ok(changedMetadata);
     assert.notEqual(changedMetadata, original);
   });
@@ -52,15 +63,39 @@ export function test_runtime_executable_identity_tracks_bytes_and_metadata_witho
     const changed = runtimeExecutableIdentity(file);
     assert.ok(changed);
     assert.notEqual(changed, changedMetadata);
-    assert.ok(changed.includes(createHash("sha256").update("abd").digest("hex")));
+    assert.ok(
+      changed.includes(createHash("sha256").update("abd").digest("hex")),
+    );
   });
   const large = Buffer.alloc(64 * 1024 + 17, 0x61);
   large.fill(0x62, 64 * 1024);
   fs.writeFileSync(path.join(root, "large"), large);
-  check("multi-buffer content", () => assert.ok(runtimeExecutableIdentity(path.join(root, "large"))?.includes(createHash("sha256").update(large).digest("hex"))));
-  check("empty regular file", () => assert.ok(runtimeExecutableIdentity(path.join(root, "empty"))?.includes("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")));
-  check("relative path", () => assert.equal(runtimeExecutableIdentity("candidate"), undefined));
-  check("missing path", () => assert.equal(runtimeExecutableIdentity(path.join(root, "missing")), undefined));
-  check("directory", () => assert.equal(runtimeExecutableIdentity(root), undefined));
-  if (failures.length) throw new AggregateError(failures, "executable identity controls failed");
+  check("multi-buffer content", () =>
+    assert.ok(
+      runtimeExecutableIdentity(path.join(root, "large"))?.includes(
+        createHash("sha256").update(large).digest("hex"),
+      ),
+    ),
+  );
+  check("empty regular file", () =>
+    assert.ok(
+      runtimeExecutableIdentity(path.join(root, "empty"))?.includes(
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      ),
+    ),
+  );
+  check("relative path", () =>
+    assert.equal(runtimeExecutableIdentity("candidate"), undefined),
+  );
+  check("missing path", () =>
+    assert.equal(
+      runtimeExecutableIdentity(path.join(root, "missing")),
+      undefined,
+    ),
+  );
+  check("directory", () =>
+    assert.equal(runtimeExecutableIdentity(root), undefined),
+  );
+  if (failures.length)
+    throw new AggregateError(failures, "executable identity controls failed");
 }

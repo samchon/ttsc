@@ -24,22 +24,43 @@ export function test_graph_input_observation_rejects_sparse_entry_lists(): void 
     const partial = new Array<string>(2);
     partial[1] = "observed";
     for (const invalid of [new Array<string>(1), partial, [undefined]]) {
-      const accessibleEntries = { directories: [] as unknown[], files: [] as unknown[] };
+      const accessibleEntries = {
+        directories: [] as unknown[],
+        files: [] as unknown[],
+      };
       accessibleEntries[field] = invalid;
-      assert.equal(normalizeGraphInputObservation({ accessibleEntries }), undefined, `${field}: every entry must be observed string`);
+      assert.equal(
+        normalizeGraphInputObservation({ accessibleEntries }),
+        undefined,
+        `${field}: every entry must be observed string`,
+      );
     }
   }
-  assert.deepEqual(normalizeGraphInputObservation({
-    accessibleEntries: { directories: [], files: [] },
-  }), { accessibleEntries: { directories: [], files: [] } });
-  const input = { accessibleEntries: { directories: ["child"], files: ["entry.ts"] } };
+  assert.deepEqual(
+    normalizeGraphInputObservation({
+      accessibleEntries: { directories: [], files: [] },
+    }),
+    { accessibleEntries: { directories: [], files: [] } },
+  );
+  const input = {
+    accessibleEntries: { directories: ["child"], files: ["entry.ts"] },
+  };
   const normalized = normalizeGraphInputObservation(input);
-  assert.deepEqual(normalized, { accessibleEntries: { directories: ["child"], files: ["entry.ts"] } });
+  assert.deepEqual(normalized, {
+    accessibleEntries: { directories: ["child"], files: ["entry.ts"] },
+  });
   assert.ok(normalized?.accessibleEntries);
   input.accessibleEntries.directories[0] = "caller changed";
   input.accessibleEntries.files.push("caller added");
-  assert.deepEqual(normalized, { accessibleEntries: { directories: ["child"], files: ["entry.ts"] } });
+  assert.deepEqual(normalized, {
+    accessibleEntries: { directories: ["child"], files: ["entry.ts"] },
+  });
   normalized.accessibleEntries.directories.push("consumer added");
   normalized.accessibleEntries.files[0] = "consumer changed";
-  assert.deepEqual(input, { accessibleEntries: { directories: ["caller changed"], files: ["entry.ts", "caller added"] } });
+  assert.deepEqual(input, {
+    accessibleEntries: {
+      directories: ["caller changed"],
+      files: ["entry.ts", "caller added"],
+    },
+  });
 }

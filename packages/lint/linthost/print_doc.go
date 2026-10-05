@@ -111,16 +111,16 @@ const (
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Doc is a declaration of data shape; the code that holds its values owns their lifetime.
 type Doc struct {
   // Kind selects the interpretation of the remaining fields.
-  Kind     DocKind
+  Kind DocKind
 
   // Text is the verbatim payload of docText.
-  Text     string
+  Text string
 
   // Children holds variant operands; callers retain the supplied backing storage.
   Children []Doc
 
   // Width is the indentation increment for docIndent.
-  Width    int
+  Width int
 
   // Break, meaningful only on a docGroup, forces the group to render
   // broken regardless of whether its flat form would fit. A

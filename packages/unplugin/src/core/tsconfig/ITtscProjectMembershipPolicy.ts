@@ -1,11 +1,11 @@
 /**
  * Immutable configuration premises for conservative project-root discovery.
  *
- * Root specifications, admitted extensions and represented directory
- * exclusions drive the project walk. Imported dependencies outside this
- * selection remain compiler inputs and receive separate external proof.
- * Readers keep unsupported exclusion globs conservative rather than claiming
- * that this representation is the compiler's complete membership verdict.
+ * Root specifications, admitted extensions and represented directory exclusions
+ * drive the project walk. Imported dependencies outside this selection remain
+ * compiler inputs and receive separate external proof. Readers keep unsupported
+ * exclusion globs conservative rather than claiming that this representation is
+ * the compiler's complete membership verdict.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Root specs, extension admission, exclusion provenance and config sources

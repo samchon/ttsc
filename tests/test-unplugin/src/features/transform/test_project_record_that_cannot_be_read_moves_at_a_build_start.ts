@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -9,6 +8,7 @@ import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core
 import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
 import { signalProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/signalProjectRecordFile";
 import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a build start moves a project record it cannot read, with a watching
@@ -30,10 +30,10 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/cor
  *    again, which still read as no record.
  * 3. Remove the file and signal it, as a start that listed it before another
  *    process removed it does, and assert it stays removed.
- * 4. Signal readable records starting at zero and two finite values whose
- *    binary64 successor cannot be obtained by adding one. Each of two requests
- *    must move bytes and preserve readable finite signal/project evidence; no
- *    particular counter encoding or concurrent-writer uniqueness is required.
+ * 4. Signal readable records starting at zero and two finite values whose binary64
+ *    successor cannot be obtained by adding one. Each of two requests must move
+ *    bytes and preserve readable finite signal/project evidence; no particular
+ *    counter encoding or concurrent-writer uniqueness is required.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls record writing, signaling and refresh with and without openHostWatchBridge; asserts truncated records become bare signals, both refresh paths change those bytes while remaining unreadable, and signaling a removed file does not recreate it. Readable signal 0, 9007199254740992 and Number.MAX_VALUE each receive two requests; bytes must move each time while the record stays finite/readable with unchanged project proof.
  * @evidence contracts/testing.md#independent-expectations An unreadable record cannot establish cache validity, so the watched signal must move at the next build start. Distinct raw bytes and undefined decoded records express that requirement without reconstructing the signal algorithm. Every finite signal is accepted by the disk schema, so large finite values cannot silently suppress invalidation; immediate before/after raw-byte inequality is the oracle, not a computed successor.

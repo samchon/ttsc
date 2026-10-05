@@ -248,9 +248,9 @@ export function resolveFingerprintBase(
  * selection searches from the base upward, so a config at the base uses that
  * walk and a config above it replaces the base walk with its own directory,
  * which contains the base. An explicit project inside the base uses the base
- * walk; one above the base replaces it; one elsewhere adds its directory. The separate
- * per-file project view can select a nested config below the base. Matching
- * the transform core's validation universe keeps the invariant simple:
+ * walk; one above the base replaces it; one elsewhere adds its directory. The
+ * separate per-file project view can select a nested config below the base.
+ * Matching the transform core's validation universe keeps the invariant simple:
  * everything it treats as an input is fingerprinted by the walk, the recorded
  * snapshot, or both.
  *
@@ -1226,8 +1226,9 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
  * died and whose process id now belongs to a live process, or a lock with an
  * unreadable owner record, is treated as held: every run that meets it takes a
  * nonce key and no reuse is lost silently, but the cache stays unusable until
- * that process exits or `node_modules/.cache/ttsc-metro/snapshot-compaction.lock`
- * is deleted by hand. Readers also treat a held lock as unsettled state.
+ * that process exits or
+ * `node_modules/.cache/ttsc-metro/snapshot-compaction.lock` is deleted by hand.
+ * Readers also treat a held lock as unsettled state.
  */
 function acquireSnapshotCompactionLock(
   directory: string,
@@ -1389,15 +1390,15 @@ function listExpiredKeyBaselines(directory: string): string[] {
  * Read the unioned snapshot state, or `undefined` when the main snapshot is
  * missing, any snapshot file is corrupt (a torn or foreign write means the
  * recorded set cannot be trusted, so the caller degrades to a nonce), or a
- * concurrent compaction keeps renaming worker files so the listing never settles
- * or a compaction lock stays held.
+ * concurrent compaction keeps renaming worker files so the listing never
+ * settles or a compaction lock stays held.
  *
  * `operations` is the read boundary (existence, listing, file text); the
  * default reads the real filesystem, and a test passes its own to interleave a
  * compaction with a listing. A pass is retried at most
- * {@link SNAPSHOT_LISTING_ATTEMPTS} (8) times with a 5 ms pause between
- * passes, so a held lock costs a call at most about 40 ms before the state is
- * reported untrusted; the retry is bounded and holds no resource between passes.
+ * {@link SNAPSHOT_LISTING_ATTEMPTS} (8) times with a 5 ms pause between passes,
+ * so a held lock costs a call at most about 40 ms before the state is reported
+ * untrusted; the retry is bounded and holds no resource between passes.
  *
  * The result contains sorted absolute file and tree paths, the epoch identity,
  * and tainted/volatile flags. It reads persisted evidence without revalidating
@@ -1558,9 +1559,9 @@ function readSnapshotStateOnce(
  * production passes the identity whose immutable baseline was keyed in the main
  * process. An unknown or mismatching baseline marks the snapshot tainted, and
  * since `record` carries no evidence, a run identity always reads it as a
- * mismatch.
- * Listing predicates retain their paths for the next run's key observation; the
- * worker never adds a new disk read to its earlier immutable baseline.
+ * mismatch. Listing predicates retain their paths for the next run's key
+ * observation; the worker never adds a new disk read to its earlier immutable
+ * baseline.
  *
  * Sets and baseline maps live for the recorder's worker lifetime and grow with
  * observed projects and distinct inputs. A flushing delivery serializes the
@@ -2035,8 +2036,8 @@ function uncompactedWorkerEntries(
 /**
  * Read every worker snapshot file in `directory`. A file that disappears
  * mid-read was renamed by a compactor, so the directory is listed again and the
- * claimed copy is read under its new name; `readable` is false when the
- * listing never settles. A file that exists but does not parse is reported in
+ * claimed copy is read under its new name; `readable` is false when the listing
+ * never settles. A file that exists but does not parse is reported in
  * `corruptPaths` so readers can degrade to a nonce and the compactor can sweep
  * it.
  */
@@ -2134,10 +2135,7 @@ function readMainDocument(
 ): SnapshotDocument | undefined {
   let text: string;
   try {
-    text = operations.readFileSync(
-      path.join(directory, MAIN_SNAPSHOT),
-      "utf8",
-    );
+    text = operations.readFileSync(path.join(directory, MAIN_SNAPSHOT), "utf8");
   } catch {
     return undefined;
   }

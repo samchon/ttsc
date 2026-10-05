@@ -18,7 +18,7 @@ import (
 func TestFormatSortImportsRecognizesExactBuiltinSpecifiers(t *testing.T) {
   cases := []struct {
     specifier string
-    builtin bool
+    builtin   bool
   }{
     {"fs", true}, {"node:fs", true},
     {"assert/strict", true}, {"dns/promises", true},
@@ -45,9 +45,9 @@ func TestFormatSortImportsRecognizesExactBuiltinSpecifiers(t *testing.T) {
       candidate := "import candidate from " + strconv.Quote(test.specifier) + ";\n"
       thirdParty := "import external from \"@a/third-party\";\n"
       body := "JSON.stringify({ candidate, external });\n"
-      source, expected := candidate + thirdParty + body, thirdParty + candidate + body
+      source, expected := candidate+thirdParty+body, thirdParty+candidate+body
       if test.builtin {
-        source, expected = thirdParty + candidate + body, candidate + thirdParty + body
+        source, expected = thirdParty+candidate+body, candidate+thirdParty+body
       }
       assertFixSnapshotWithOptions(t, "format/sort-imports", source,
         `{"unsafeSortRuntimeImports":true}`, expected)

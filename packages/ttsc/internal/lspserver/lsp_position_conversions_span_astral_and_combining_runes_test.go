@@ -82,9 +82,23 @@ func TestLSPPositionConversionsSpanAstralAndCombiningRunes(t *testing.T) {
     },
   }
 
-  cases = append(cases, struct { name string; text string; line int; character int; want int; wantOK bool }{
+  cases = append(cases, struct {
+    name      string
+    text      string
+    line      int
+    character int
+    want      int
+    wantOK    bool
+  }{
     "bare CR reaches target line", "a\rconst \U0001D499 = 1;", 1, 8, 12, true,
-  }, struct { name string; text string; line int; character int; want int; wantOK bool }{
+  }, struct {
+    name      string
+    text      string
+    line      int
+    character int
+    want      int
+    wantOK    bool
+  }{
     "CRLF is one line boundary", "a\r\nconst \U0001D499 = 1;", 1, 8, 13, true,
   })
 

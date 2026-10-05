@@ -9,9 +9,9 @@ import { createSyntheticGraph } from "../internal/resolverGraph";
  *
  * An ambiguous name should open on the declaration a caller most likely means:
  * the one the package publishes through several barrels, then the exported one,
- * then one the codebase calls, then an unreferenced authored one, with test-path
- * and dependency declarations last. Identity order would give a different
- * sequence, so the expected order can only come from the scores.
+ * then one the codebase calls, then an unreferenced authored one, with
+ * test-path and dependency declarations last. Identity order would give a
+ * different sequence, so the expected order can only come from the scores.
  *
  * 1. Declare `Handler` six times: re-exported through three barrels, flagged
  *    exported, called once, unreferenced, under a test directory and external.

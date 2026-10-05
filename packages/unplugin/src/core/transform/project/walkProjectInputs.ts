@@ -179,9 +179,7 @@ export function walkProjectInputs(
       .filter(
         (entry) =>
           entry.possible &&
-          (!visit.childDirectories.has(
-            pathApi.join(visit.path, entry.name),
-          ) ||
+          (!visit.childDirectories.has(pathApi.join(visit.path, entry.name)) ||
             relevant.has(pathApi.join(visit.path, entry.name))),
       )
       .map((entry) => `${entry.name}:${entry.kind}`);

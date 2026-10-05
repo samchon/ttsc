@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   fs,
@@ -12,9 +11,9 @@ import {
  * Verifies readProjectConfig accepts JSONC comments and trailing commas.
  *
  * TypeScript's own `tsconfig.json` parser accepts JSONC (JSON with Comments and
- * trailing commas). `readProjectConfig` reads these supported JSONC forms so that
- * plugin configuration embedded in tsconfig follows the same relaxed syntax
- * users already rely on for their compiler options.
+ * trailing commas). `readProjectConfig` reads these supported JSONC forms so
+ * that plugin configuration embedded in tsconfig follows the same relaxed
+ * syntax users already rely on for their compiler options.
  *
  * 1. Write a `tsconfig.json` that contains a `//` comment and a trailing comma in
  *    the plugins array.

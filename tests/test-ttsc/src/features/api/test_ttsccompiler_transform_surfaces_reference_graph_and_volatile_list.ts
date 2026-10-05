@@ -4,8 +4,8 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
 import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies native transform decoding surfaces the envelope's reference graph and
- * volatile list.
+ * Verifies native transform decoding surfaces the envelope's reference graph
+ * and volatile list.
  *
  * Implements the consumer half of samchon/ttsc#716: a transform host stamps a
  * `graph` section (direct resolved reference edges, global-scope files,
@@ -14,8 +14,10 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * inputs and bypass caching. A host that dropped either field would make sound
  * cache invalidation impossible regardless of what plugins emit.
  *
- * 1. Decode the valid fixture envelope, which carries a graph section and a volatile list.
- * 2. Assert the graph keeps its config chain, resolved edge and global source exactly.
+ * 1. Decode the valid fixture envelope, which carries a graph section and a
+ *    volatile list.
+ * 2. Assert the graph keeps its config chain, resolved edge and global source
+ *    exactly.
  * 3. Assert the volatile list is returned as ["src/volatile.ts"].
  *
  * @evidence contracts/testing.md#behavioral-verification Decodes the valid native fixture and asserts the complete config/edge/global graph and separate volatile source list with exact path identities.

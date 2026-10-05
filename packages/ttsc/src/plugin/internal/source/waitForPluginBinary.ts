@@ -7,8 +7,8 @@ import { inspectPluginBuildLock } from "./inspectPluginBuildLock";
 
 /**
  * Poll for binary pathname publication using a monotonic admission budget.
- * `timeoutMs` is checked between observations, not a hard wall-clock limit:
- * the synchronous inspector can retry internally and native calls can block.
+ * `timeoutMs` is checked between observations, not a hard wall-clock limit: the
+ * synchronous inspector can retry internally and native calls can block.
  *
  * Normal release requests reacquisition and an abandoned owner carries the
  * exact observed generation. Expiring the monotonic wait budget throws; it

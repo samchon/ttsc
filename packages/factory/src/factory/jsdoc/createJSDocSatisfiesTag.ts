@@ -21,15 +21,15 @@ import { createIdentifier } from "../names/createIdentifier";
  * @satisfies {Foo} ok
  * ```
  *
- * @evidence contracts/common.md#principled-implementation Retaining the required target type and defaulting an absent identifier to satisfies records annotation intent without calculating assignability or producing an executable satisfies expression.
- * @evidence contracts/common.md#clear-and-simple-design The target remains an existing braced type node; no boolean satisfaction result or second expression representation is stored.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Satisfies is an annotation default rather than a fabricated successful check, and supplied target types do not trigger foreign checker mutations.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains target type, default name and trailing description with an example; paragraph and native-tag separation follows the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `satisfies`.
  * @param typeExpression The type expression.
  * @param comment The trailing comment, if any.
  * @returns The created {@link JSDocSatisfiesTag}.
+ * @evidence contracts/common.md#principled-implementation Retaining the required target type and defaulting an absent identifier to satisfies records annotation intent without calculating assignability or producing an executable satisfies expression.
+ * @evidence contracts/common.md#clear-and-simple-design The target remains an existing braced type node; no boolean satisfaction result or second expression representation is stored.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Satisfies is an annotation default rather than a fabricated successful check, and supplied target types do not trigger foreign checker mutations.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains target type, default name and trailing description with an example; paragraph and native-tag separation follows the documentation guidance.
  */
 export const createJSDocSatisfiesTag = (
   tagName: Identifier | undefined,

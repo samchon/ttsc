@@ -5,8 +5,8 @@ import type { ITtscCapabilityResolutionPlugin } from "./ITtscCapabilityResolutio
  * The answer `resolveCapabilityPlugins` produced for one project, and the exact
  * recorded premises the reader rechecks before reusing it.
  *
- * The answer is serializable: a binary path, a capability map,
- * a manifest string — which is why it is cached here and not one layer down.
+ * The answer is serializable: a binary path, a capability map, a manifest
+ * string — which is why it is cached here and not one layer down.
  * `loadProjectPlugins` returns live plugin descriptors the compiler drives, and
  * writing those to disk would be caching a different, much larger thing.
  *

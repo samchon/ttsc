@@ -1,6 +1,9 @@
 import * as os from "node:os";
 
-import { TtscserverClient, assert } from "../../../internal/ttsc/internal/ttscserver";
+import {
+  TtscserverClient,
+  assert,
+} from "../../../internal/ttsc/internal/ttscserver";
 
 /**
  * Verifies ttscserver completes a full LSP initialize → shutdown → exit cycle.
@@ -29,40 +32,42 @@ export const test_ttscserver_initializes_and_shuts_down = async () => {
   const client = TtscserverClient.start(os.tmpdir());
   let timer: NodeJS.Timeout | undefined;
   try {
-  const result = (await client.request("initialize", {
-    processId: process.pid,
-    rootUri: null,
-    capabilities: {},
-  })) as { capabilities?: unknown };
-  assert.ok(result, "initialize returned a body");
-  assert.ok(
-    result.capabilities,
-    "server response should carry capabilities for the editor to consume",
-  );
+    const result = (await client.request("initialize", {
+      processId: process.pid,
+      rootUri: null,
+      capabilities: {},
+    })) as { capabilities?: unknown };
+    assert.ok(result, "initialize returned a body");
+    assert.ok(
+      result.capabilities,
+      "server response should carry capabilities for the editor to consume",
+    );
 
-  client.notify("initialized", {});
-  // tsgo does not always flush a shutdown response before processing
-  // the follow-up exit notification, so we send the shutdown request
-  // without awaiting its response and rely on the exit notification +
-  // process-level exit assertion. It does not prove a shutdown response arrived.
-  void client.request("shutdown").catch(() => undefined);
-  client.notify("exit");
-  client.endStdin();
+    client.notify("initialized", {});
+    // tsgo does not always flush a shutdown response before processing
+    // the follow-up exit notification, so we send the shutdown request
+    // without awaiting its response and rely on the exit notification +
+    // process-level exit assertion. It does not prove a shutdown response arrived.
+    void client.request("shutdown").catch(() => undefined);
+    client.notify("exit");
+    client.endStdin();
 
-  const code = await Promise.race([
-    client.waitForExit(),
-    new Promise<"running">((resolve) => {
-      timer = setTimeout(() => resolve("running"), 30_000);
-    }),
-  ]);
-  assert.equal(code, 0, "ttscserver should exit 0 after a clean shutdown");
+    const code = await Promise.race([
+      client.waitForExit(),
+      new Promise<"running">((resolve) => {
+        timer = setTimeout(() => resolve("running"), 30_000);
+      }),
+    ]);
+    assert.equal(code, 0, "ttscserver should exit 0 after a clean shutdown");
   } catch (error) {
     clearTimeout(timer);
     const cleanupFailures: unknown[] = [];
     try {
       client.terminate();
     } catch (cause) {
-      cleanupFailures.push(new Error("server termination request failed", { cause }));
+      cleanupFailures.push(
+        new Error("server termination request failed", { cause }),
+      );
     }
     let closeTimer: NodeJS.Timeout | undefined;
     try {
@@ -80,7 +85,10 @@ export const test_ttscserver_initializes_and_shuts_down = async () => {
       clearTimeout(closeTimer);
     }
     if (cleanupFailures.length !== 0)
-      throw new AggregateError([error, ...cleanupFailures], "initialized shutdown and cleanup failed");
+      throw new AggregateError(
+        [error, ...cleanupFailures],
+        "initialized shutdown and cleanup failed",
+      );
     throw error;
   } finally {
     clearTimeout(timer);

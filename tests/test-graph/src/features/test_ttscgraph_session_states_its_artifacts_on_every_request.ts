@@ -1,18 +1,21 @@
 import assert from "node:assert/strict";
+
 import { TtscGraphNativeArguments } from "../../../../packages/graph/src/model/TtscGraphNativeArguments";
 import { admitted, emptyResponse, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies the session writes the host's artifact answer into every request, and the serve argv omits a null overlay.
+ * Verifies the session writes the host's artifact answer into every request,
+ * and the serve argv omits a null overlay.
  *
- * An absent artifacts field would mean the client has no opinion, while an empty
- * string withdraws any overlay. With a host answering the empty string, both the
- * initial and the following unchanged request must carry artifacts: "". The
- * serve argv builder must add no --artifacts flag for a null artifact path.
+ * An absent artifacts field would mean the client has no opinion, while an
+ * empty string withdraws any overlay. With a host answering the empty string,
+ * both the initial and the following unchanged request must carry artifacts:
+ * "". The serve argv builder must add no --artifacts flag for a null artifact
+ * path.
  *
  * 1. Build the serve argv with a null artifact path and require no --artifacts.
- * 2. Complete initial and unchanged requests on the same port, requiring each
- *    of their two writes to carry artifacts equal to "".
+ * 2. Complete initial and unchanged requests on the same port, requiring each of
+ *    their two writes to carry artifacts equal to "".
  * 3. Publish "artifact path.json", then withdraw it with "", completing each
  *    request with an unchanged reply and checking its written artifacts field.
  * 4. Require all four requests to use the same port.
@@ -25,7 +28,11 @@ import { admitted, emptyResponse, sessionState } from "./internal/sessionState";
 export async function test_ttscgraph_session_states_its_artifacts_on_every_request(): Promise<void> {
   const { session, ports, setArtifacts } = sessionState();
   try {
-    const args = TtscGraphNativeArguments.serve("/fixture", "tsconfig.json", null);
+    const args = TtscGraphNativeArguments.serve(
+      "/fixture",
+      "tsconfig.json",
+      null,
+    );
     assert.equal(args.includes("--artifacts"), false);
     const active = session.graph();
     void active.catch(() => undefined);
@@ -35,7 +42,10 @@ export async function test_ttscgraph_session_states_its_artifacts_on_every_reque
     const next = session.graph();
     void next.catch(() => undefined);
     await admitted(ports, 2);
-    session.receive(port.peer, emptyResponse(Number(port.writes[1]!.id), false));
+    session.receive(
+      port.peer,
+      emptyResponse(Number(port.writes[1]!.id), false),
+    );
     await next;
     assert.equal(ports.length, 1);
     assert.equal(port.writes.length, 2);
@@ -51,5 +61,7 @@ export async function test_ttscgraph_session_states_its_artifacts_on_every_reque
       await refresh;
     }
     assert.equal(ports.length, 1);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

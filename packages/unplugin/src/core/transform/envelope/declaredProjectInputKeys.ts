@@ -20,7 +20,10 @@ import { selectDeclaredProjectInputKeys } from "./selectDeclaredProjectInputKeys
  * @evidence contracts/performance.md#reuse-equivalent-work Reuse keys the envelope generation and requires unchanged project hashes, root and scratch exclusions; both a set and the whole-walk undefined outcome are reused.
  */
 export function declaredProjectInputKeys(
-  /** Generation state owning the completed selection and its separate built flag. */
+  /**
+   * Generation state owning the completed selection and its separate built
+   * flag.
+   */
   state: TtscEnvelopeDerivation,
   /** Stable generation root, project hashes, envelope and scratch exclusions. */
   cached: TtscCachedProjectTransform,

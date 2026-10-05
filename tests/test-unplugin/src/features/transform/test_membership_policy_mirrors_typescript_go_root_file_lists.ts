@@ -1,8 +1,8 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the membership policy resolves `files` and `include` exactly as
@@ -24,6 +24,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  *    entries, `${configDir}`, and a leaf that blocks inheritance.
  * 3. Assert each resolves to the lists TypeScript-Go would use, and an unreadable
  *    config keeps the permissive fallback.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored membership reader resolves default root specs and inherited files/include arrays while retaining unreadable-config fallback.
  * @evidence contracts/testing.md#independent-expectations Literal expected files/include arrays follow the config inheritance contract, including owner-relative anchors and leaf configDir substitution, independently of product read results.
  * @evidence contracts/testing.md#distinguishing-cases Each case has its own expected files/include pair: no list, null and non-array lists, files-only, empty include, files plus include with a non-string entry dropped, one inherited list, two extends entries where the later holds null or an array, a leaf null that blocks inheritance, and malformed JSON giving no root specs.

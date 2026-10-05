@@ -9,11 +9,11 @@ import (
 // verifies that the in-process check command rejects a no-restricted-imports
 // configuration containing an invalid regex pattern before linting.
 //
-// 1. Seed a project importing "pkg" and configure two patterns: a valid
-//    `group: ["pkg"]` that would report that import, and `regex: "["`.
-// 2. Run `check` in this process.
-// 3. Assert status 2, empty stdout, the invalid-options and valid-regex
-//    messages, and no [no-restricted-imports] diagnostic.
+//  1. Seed a project importing "pkg" and configure two patterns: a valid
+//     `group: ["pkg"]` that would report that import, and `regex: "["`.
+//  2. Run `check` in this process.
+//  3. Assert status 2, empty stdout, the invalid-options and valid-regex
+//     messages, and no [no-restricted-imports] diagnostic.
 //
 // @evidence contracts/testing.md#behavioral-verification The check command rejects an invalid regex configuration before producing any no-restricted-imports diagnostic.
 // @evidence contracts/testing.md#independent-expectations The literal [ regex is syntactically invalid; expected invalid-options and valid-regex messages plus status 2 and empty stdout follow configuration failure behavior.

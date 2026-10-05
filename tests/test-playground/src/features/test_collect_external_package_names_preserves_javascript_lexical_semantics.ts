@@ -27,10 +27,10 @@ import { installPlaygroundDependencies } from "../../../../packages/playground/s
 export const test_collect_external_package_names_preserves_javascript_lexical_semantics =
   async () => {
     const escapedSource = [
-      "import \"hex\\x2dpackage\";",
-      "export {} from \"fixed\\u002dpackage\";",
-      "void import(\"point\\u{2d}package\");",
-      "require(\"slash\\\\package\");",
+      'import "hex\\x2dpackage";',
+      'export {} from "fixed\\u002dpackage";',
+      'void import("point\\u{2d}package");',
+      'require("slash\\\\package");',
     ].join("\n");
     assert.deepEqual(collectExternalPackageNames(escapedSource, []), [
       "fixed-package",
@@ -63,19 +63,19 @@ export const test_collect_external_package_names_preserves_javascript_lexical_se
       );
     }
     assert.deepEqual(
-      collectExternalPackageNames("require(\"quote\\\"package\");", []),
+      collectExternalPackageNames('require("quote\\"package");', []),
       ['quote"package'],
       "an escaped quote contributes to the value without ending the literal",
     );
     assert.deepEqual(
-      collectExternalPackageNames("require(\"nul\\0package\");", []),
+      collectExternalPackageNames('require("nul\\0package");', []),
       ["nul\0package"],
     );
 
     const malformed = [
-      "import \"bad\\xG1\";",
-      "require(\"bad\\u{}\");",
-      "export {} from \"bad\\u{110000}\";",
+      'import "bad\\xG1";',
+      'require("bad\\u{}");',
+      'export {} from "bad\\u{110000}";',
       'import "unterminated',
       'import "after-malformed";',
     ].join("\n");
@@ -100,10 +100,7 @@ export const test_collect_external_package_names_preserves_javascript_lexical_se
     );
 
     // The cooked name, never its source escape spelling, reaches the installer.
-    const cooked = collectExternalPackageNames(
-      "import \"pkg\\u002dname\";",
-      [],
-    );
+    const cooked = collectExternalPackageNames('import "pkg\\u002dname";', []);
     assert.deepEqual(cooked, ["pkg-name"]);
     const registryCalls: string[] = [];
     await assert.rejects(

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { TestProject } from "../../../../utils/src/TestProject";
 
 import { resolvePluginGoModule } from "../../../../../packages/ttsc/src/plugin/internal/source/resolvePluginGoModule";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies source-plugin module selection before any compiler is started.
@@ -26,30 +26,51 @@ import { resolvePluginGoModule } from "../../../../../packages/ttsc/src/plugin/i
  * @evidence contracts/testing.md#execution-ownership This named exported test is selected from unit/compiler and exercises source selection without native builds, descriptor evaluators or product CLI processes; finally removes its owned temporary tree.
  */
 export function test_source_plugin_module_resolution_preserves_manifest_and_bounded_package_identity(): void {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-module-resolution-"));
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-module-resolution-"),
+  );
   try {
-    const fixtures = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "source_plugin_module_resolution_preserves_manifest_and_bounded_package_identity");
+    const fixtures = path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "unit",
+      "source_plugin_module_resolution_preserves_manifest_and_bounded_package_identity",
+    );
     const manifest = path.join(root, "go.mod");
     TestProject.copyDirectory(path.join(fixtures, "inputs-1"), root);
     const third = path.join(root, "a", "b", "c");
     const fourth = path.join(third, "d");
     fs.mkdirSync(fourth, { recursive: true });
     assert.deepEqual(resolvePluginGoModule(manifest, "manifest"), {
-      entry: ".", moduleRoot: root, packageDir: root,
+      entry: ".",
+      moduleRoot: root,
+      packageDir: root,
     });
     assert.deepEqual(resolvePluginGoModule(root, "directory"), {
-      entry: ".", moduleRoot: root, packageDir: root,
+      entry: ".",
+      moduleRoot: root,
+      packageDir: root,
     });
     assert.deepEqual(resolvePluginGoModule(third, "third"), {
-      entry: "./a/b/c", moduleRoot: root, packageDir: third,
+      entry: "./a/b/c",
+      moduleRoot: root,
+      packageDir: third,
     });
-    assert.throws(() => resolvePluginGoModule(fourth, "go-source-plugin-too-deep"), {
-      message: `ttsc: plugin "go-source-plugin-too-deep" source must be inside a Go module with go.mod within 3 parent directories: ${fourth}`,
-    });
+    assert.throws(
+      () => resolvePluginGoModule(fourth, "go-source-plugin-too-deep"),
+      {
+        message: `ttsc: plugin "go-source-plugin-too-deep" source must be inside a Go module with go.mod within 3 parent directories: ${fourth}`,
+      },
+    );
     const nested = path.join(root, "a");
     TestProject.copyDirectory(path.join(fixtures, "inputs-2"), root);
     assert.deepEqual(resolvePluginGoModule(fourth, "nearest"), {
-      entry: "./b/c/d", moduleRoot: nested, packageDir: fourth,
+      entry: "./b/c/d",
+      moduleRoot: nested,
+      packageDir: fourth,
     });
     const sourceFile = path.join(root, "main.go");
     TestProject.copyDirectory(path.join(fixtures, "inputs-3"), root);

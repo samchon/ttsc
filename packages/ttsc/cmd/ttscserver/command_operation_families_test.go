@@ -54,7 +54,9 @@ func scenarioTestTtscserverCommandDefaultPrintsHelp(t *testing.T) {
   if !strings.Contains(out, "Language Server Protocol host") {
     t.Fatalf("help banner missing:\n%s", out)
   }
-  if errOut != "" { t.Fatalf("default help stderr = %q", errOut) }
+  if errOut != "" {
+    t.Fatalf("default help stderr = %q", errOut)
+  }
 }
 
 // scenarioTestTtscserverCommandHelpAliases verifies the three authored help
@@ -132,7 +134,9 @@ func scenarioTestTtscserverCommandRejectsUnknownFlag(t *testing.T) {
   if !strings.Contains(errOut, "flag provided but not defined") || !strings.Contains(errOut, "garbage-flag") {
     t.Fatalf("expected unknown-flag diagnostic, got %q", errOut)
   }
-  if out != "" { t.Fatalf("unknown flag stdout = %q", out) }
+  if out != "" {
+    t.Fatalf("unknown flag stdout = %q", out)
+  }
 }
 
 // scenarioTestTtscserverCommandVersionAliases verifies the three authored

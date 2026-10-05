@@ -1,4 +1,3 @@
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -13,6 +12,7 @@ import { drainLinuxWatchHelper } from "../../../../../../../packages/unplugin/li
 import { routeLinuxWatchHelperLine } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/linux/routeLinuxWatchHelperLine.mjs";
 import { settleMutationTrackers } from "../../../../../../../packages/unplugin/lib/core/transform/tracker/settleMutationTrackers.mjs";
 import { readProjectMembershipPolicy } from "../../../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.mjs";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 
 /**
  * Verifies every Linux watch lives in the native binary's watch helper, hears
@@ -49,7 +49,12 @@ export async function test_linux_watch_helper_keeps_every_watch_honest(): Promis
     TestProject.tmpdir("ttsc-unplugin-linux-watch-helper-"),
   );
   const at = (...segments: string[]): string => path.join(root, ...segments);
-  TestProject.writeFiles(root, FixtureFiles.read("unplugin/linux_watch_helper_keeps_every_watch_honest/inputs-1"));
+  TestProject.writeFiles(
+    root,
+    FixtureFiles.read(
+      "unplugin/linux_watch_helper_keeps_every_watch_honest/inputs-1",
+    ),
+  );
   const policy = readProjectMembershipPolicy(at("tsconfig.json"));
   const openTrackers = async () => {
     const project = await createProjectMutationTracker(

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import http from "node:http";
 
 /**
- * Verifies remote Swagger admission accepts the byte limit and rejects overflow.
+ * Verifies remote Swagger admission accepts the byte limit and rejects
+ * overflow.
  *
  * A URL source has no stat to admit it, so the limit applies to the bytes the
  * stream actually delivers. A document exactly at the limit must load and one
@@ -42,7 +43,9 @@ export async function test_swagger_source_loader_bounds_remote_response_bytes():
     JSON.stringify({
       openapi: "3.1.0",
       info: { title: "Remote bound", version: "1.0.0" },
-      paths: { "/Members": { post: { responses: { "200": { description: "OK" } } } } },
+      paths: {
+        "/Members": { post: { responses: { "200": { description: "OK" } } } },
+      },
     }),
   );
   const payload = (length: number): Buffer =>
@@ -81,7 +84,10 @@ export async function test_swagger_source_loader_bounds_remote_response_bytes():
       assert.equal(result.documents[0]!.source, `${origin}/exact.json`);
       assert.equal(result.documents[0]!.digest, "");
       assert.deepEqual(
-        result.documents[0]!.operations.map((value) => [value.method, value.path]),
+        result.documents[0]!.operations.map((value) => [
+          value.method,
+          value.path,
+        ]),
         [["POST", "/Members"]],
       );
       assert.equal(result.problems.length, 1);
@@ -109,5 +115,8 @@ export async function test_swagger_source_loader_bounds_remote_response_bytes():
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Remote Swagger bound and cleanup failed.");
+    throw new AggregateError(
+      failures,
+      "Remote Swagger bound and cleanup failed.",
+    );
 }

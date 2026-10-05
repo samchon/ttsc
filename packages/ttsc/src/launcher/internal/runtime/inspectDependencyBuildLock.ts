@@ -13,11 +13,11 @@ import { isLocalProcessGone } from "./isLocalProcessGone";
  *
  * Unreadable generation identity is active uncertainty. A readable owner is
  * abandoned only when the local pid is provably gone; an ownerless generation
- * becomes recoverable after the protocol's stale interval.
- * Failed owner read/parse/validation also uses that owner-missing policy; it is
- * not proof that the file or a running process is absent. Reads and age probes
- * are sequential observations, not an atomic snapshot or incarnation lease.
- * `now` is the caller's millisecond timestamp; age follows observed mtime.
+ * becomes recoverable after the protocol's stale interval. Failed owner
+ * read/parse/validation also uses that owner-missing policy; it is not proof
+ * that the file or a running process is absent. Reads and age probes are
+ * sequential observations, not an atomic snapshot or incarnation lease. `now`
+ * is the caller's millisecond timestamp; age follows observed mtime.
  *
  * @evidence contracts/common.md#principled-implementation Generation identity fences every holder observation; a valid owner requires conservative local liveness evidence, while missing owner data uses the explicit stale-generation policy without stealing an unreadable identity.
  * @evidence contracts/common.md#clear-and-simple-design Separate generation, owner, age and label helpers supply one state classifier; the discriminated result makes recovery authority explicit to callers.

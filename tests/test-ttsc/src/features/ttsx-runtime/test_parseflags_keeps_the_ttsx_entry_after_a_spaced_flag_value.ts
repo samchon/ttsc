@@ -21,8 +21,8 @@ const isEntry = (token: string): boolean =>
  * 1. Parse `--target es2020 --module commonjs entry.ts generate --input X` with
  *    the entry predicate and `forwardAfterFirstPositional`.
  * 2. Assert the entry is the only positional and the two forwarded pairs keep
- *    their order in `passthrough`.
- *    Assert the post-entry tokens are the program `tail`, never forwarded to tsgo.
+ *    their order in `passthrough`. Assert the post-entry tokens are the program
+ *    `tail`, never forwarded to tsgo.
  * 3. Parse two genuinely unknown spaced option pairs before the entry with the
  *    predicate and assert the pairs stay in `passthrough` and only the entry is
  *    positional.

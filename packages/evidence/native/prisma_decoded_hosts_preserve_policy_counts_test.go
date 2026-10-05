@@ -16,10 +16,10 @@ import (
  */
 func TestPrismaDecodedHostsPreservePolicyCounts(t *testing.T) {
   for _, scenario := range []struct {
-    name string
+    name     string
     document string
-    schema string
-    models []string
+    schema   string
+    models   []string
   }{
     {name: "silent-and-positive", document: "## Contract {#contract}\n", models: []string{"Untagged", "Positive"}, schema: `datasource db {
   provider = "sqlite"

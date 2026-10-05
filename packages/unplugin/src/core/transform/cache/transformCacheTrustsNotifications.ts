@@ -8,10 +8,9 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * Neither the host nor the process environment may have declared polling
  * (samchon/ttsc#1395). Otherwise the generation opens no retained watcher and
  * validates each delivery by metadata and content, the path a generation whose
- * watcher failed already takes.
- * True is permission, not unchanged-input evidence: coverage, directory
- * identity, event classification and actual backend authority still qualify
- * the generation's trackers.
+ * watcher failed already takes. True is permission, not unchanged-input
+ * evidence: coverage, directory identity, event classification and actual
+ * backend authority still qualify the generation's trackers.
  *
  * @evidence contracts/common.md#principled-implementation Notification trust requires a cache and no polling declaration from either the cache's host or process environment.
  * @evidence contracts/common.md#clear-and-simple-design One predicate combines the two policy owners; tracker capability and actual notification settlement remain separate proof requirements.

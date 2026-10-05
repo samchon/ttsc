@@ -22,21 +22,21 @@ import { spawnNative } from "./spawnNative";
  * outputs in the project tree. Compiler/plugin caches and plugin side effects
  * remain owned by their normal paths; this is not a no-filesystem-write mode.
  *
- * When no plugins are configured the native path spawns the native ttsc compiler
- * host (`cmd/ttsc api-compile`) which returns a structured JSON response
- * containing diagnostics and an output file map. When plugins are present the
- * plugin path goes through `runBuild` into a temp directory and reads the files
- * back from disk.
+ * When no plugins are configured the native path spawns the native ttsc
+ * compiler host (`cmd/ttsc api-compile`) which returns a structured JSON
+ * response containing diagnostics and an output file map. When plugins are
+ * present the plugin path goes through `runBuild` into a temp directory and
+ * reads the files back from disk.
  *
  * A native response must contain a string-valued output record. Plugin output
- * storage removal is attempted before returning. If removal also fails after a thrown
- * operation failure, both are retained in an AggregateError with the original
- * cause. An unsuccessful returned build retains its diagnostics and partial
- * output in that aggregate; removal failure after success propagates directly.
+ * storage removal is attempted before returning. If removal also fails after a
+ * thrown operation failure, both are retained in an AggregateError with the
+ * original cause. An unsuccessful returned build retains its diagnostics and
+ * partial output in that aggregate; removal failure after success propagates
+ * directly.
  *
  * @returns A map of output path → file content plus a `TtscBuildResult` with
  *   diagnostics and the exit status.
- *
  * @evidence contracts/common.md#principled-implementation The plugin-free API host supplies a required text-output record and structured diagnostics; plugin projects use the existing build owner and read its isolated emitted files with the project's output-key convention.
  * @evidence contracts/common.md#clear-and-simple-design One router separates structured native capture from plugin-backed disk emission while project discovery, native execution and build semantics remain with their owning helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin discovery failure routes through the build's real diagnostic path, and an absent or malformed native output record cannot become an empty successful compile.

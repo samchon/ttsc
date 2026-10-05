@@ -15,10 +15,10 @@ import (
 // `expect` is not a marker, and `typescript/ban-ts-comment` anchors on the
 // suppressor comment that other rules skip over.
 //
-// 1. Parse stacked line and JSX markers followed by one statement, surrounded by
-//    prose that mentions expect.
-// 2. Parse a ban-ts-comment marker followed by a suppressor.
-// 3. Assert each marker resolves to its target line and prose yields none.
+//  1. Parse stacked line and JSX markers followed by one statement, surrounded by
+//     prose that mentions expect.
+//  2. Parse a ban-ts-comment marker followed by a suppressor.
+//  3. Assert each marker resolves to its target line and prose yields none.
 //
 // @evidence contracts/testing.md#behavioral-verification corpusParseExpectations is called on authored source text and its returned rule, severity and target line are compared with literals for both spellings, the stack and the suppressor case.
 // @evidence contracts/testing.md#independent-expectations Line numbers are counted by hand from the authored source (stack target line 8, suppressor target line 10); they follow the documented convention that a marker annotates the next non-blank, non-marker line.

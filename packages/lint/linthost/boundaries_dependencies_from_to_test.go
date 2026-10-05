@@ -9,11 +9,11 @@ import "testing"
 // for one edge affect every dependency from the source. The shared import is
 // the one-property negative twin for the target direction.
 //
-// 1. Import domain and shared elements from the same app file.
-// 2. Scope a source-pattern denial to the app-to-domain edge.
-// 3. Assert only the domain import reports.
-// 4. Widen the dependency path to `../**` so only the `to` selector separates
-//    the two imports, and assert the domain import still alone reports.
+//  1. Import domain and shared elements from the same app file.
+//  2. Scope a source-pattern denial to the app-to-domain edge.
+//  3. Assert only the domain import reports.
+//  4. Widen the dependency path to `../**` so only the `to` selector separates
+//     the two imports, and assert the domain import still alone reports.
 //
 // @evidence contracts/testing.md#behavioral-verification A policy jointly matches app source, domain target and domain dependency path without rejecting shared.
 // @evidence contracts/testing.md#independent-expectations The authored from/to/dependency selectors are conjunctive, so only the literal domain import matches all predicates.

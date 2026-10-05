@@ -6,14 +6,14 @@ import { createRequire } from "node:module";
  *
  * A shared compile outlives its publishing process (samchon/ttsc#1483), and
  * this adapter's code decides adoption proof. Its reported package version
- * therefore contributes to sharedCompileIdentity. A distinct string
- * changes that tuple; unknown fallback does not certify identical adapter code.
- * The configured CommonJS/ES module outputs supply the executing module
- * context, and the package resolves its manifest by name through its exports.
+ * therefore contributes to sharedCompileIdentity. A distinct string changes
+ * that tuple; unknown fallback does not certify identical adapter code. The
+ * configured CommonJS/ES module outputs supply the executing module context,
+ * and the package resolves its manifest by name through its exports.
  *
- * The first accepted string or unknown fallback is retained for the process.
- * An installation changed after that read is not revalidated here; sharing
- * assumes the executing package and its metadata remain stable for that process.
+ * The first accepted string or unknown fallback is retained for the process. An
+ * installation changed after that read is not revalidated here; sharing assumes
+ * the executing package and its metadata remain stable for that process.
  *
  * @evidence contracts/common.md#principled-implementation The self-resolved package's reported version string enters retained-publication identity; missing/nonstring metadata is explicitly unknown. This is package metadata, not an independent code fingerprint, so stable executing installation and separate adoption proof remain premises.
  * @evidence contracts/common.md#clear-and-simple-design A single cached manifest lookup provides the version; compiler-version ownership remains in pluginBuildVersions.

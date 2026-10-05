@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   "encoding/json"
+  "testing"
 )
 
 // TestNoRestrictedTypesFixesWholeQualifiedGenericAndEmptyTypeSurfaces verifies
@@ -40,7 +40,9 @@ type EmptyTuple = [ ];
     t.Fatalf("findings = %d, want 4: %+v", len(findings), findings)
   }
   for _, finding := range findings {
-    if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError { t.Fatalf("restriction identity = %+v", finding) }
+    if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError {
+      t.Fatalf("restriction identity = %+v", finding)
+    }
   }
   rewritten, applied := applyFindingFixesToText(source, findings)
   if applied != 4 {

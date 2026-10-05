@@ -14,7 +14,6 @@ import type { ITransformTsconfigState } from "./ITransformTsconfigState";
  * @param compilerConfigDir The project's config directory as the compiler
  *   spells it, which the wrapper's re-stated `${configDir}` values are anchored
  *   at (samchon/ttsc#1456); the config's own directory as named when absent.
- *
  * @evidence contracts/common.md#principled-implementation Membership policy is always read; materialized wrappers additionally combine effective paths/templates and separately observed source bytes into capture's before/after digest. Digest equality compares those observations without proving the filesystem never changed between reads.
  * @evidence contracts/common.md#clear-and-simple-design Existing readers own configuration interpretation; this operation assembles the required views and skips wrapper-only work when no wrapper is needed.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The signature includes source bytes as well as derived views, rather than letting a quiet watcher or one unchanged option stand in for the entire configuration chain.

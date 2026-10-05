@@ -4,18 +4,22 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, cacheKeyForRun, workerSnapshotFiles } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  cacheKeyForRun,
+  prepareSnapshot,
+  workerSnapshotFiles,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies editing the tsconfig between runs changes the cache key.
  *
- * The project walk no
- * longer hashes files that cannot enter the program, so this pins the outcome
- * that matters, that a compiler-option change still re-keys the run
- * (samchon/ttsc#1307).
+ * The project walk no longer hashes files that cannot enter the program, so
+ * this pins the outcome that matters, that a compiler-option change still
+ * re-keys the run (samchon/ttsc#1307).
  *
- * 1. Transform the default plugin project, retain recorded config and compute the key.
+ * 1. Transform the default plugin project, retain recorded config and compute the
+ *    key.
  * 2. Change a compiler option; compute the key in a fresh transformer module.
  * 3. Assert the keys differ.
  *
@@ -49,12 +53,20 @@ export async function case_metro_cache_key_changes_when_the_tsconfig_changes(
 
   await prepareSnapshot(root);
   const before = await cacheKeyForRun(root);
-  assert.equal(await cacheKeyForRun(root), before, "unchanged recorded config must retain the key");
+  assert.equal(
+    await cacheKeyForRun(root),
+    before,
+    "unchanged recorded config must retain the key",
+  );
 
   const parsed = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
     compilerOptions?: Record<string, unknown>;
   };
-  assert.equal(parsed.compilerOptions?.target, "ES2022", "the authored target must differ from the ES2021 mutation");
+  assert.equal(
+    parsed.compilerOptions?.target,
+    "ES2022",
+    "the authored target must differ from the ES2021 mutation",
+  );
   parsed.compilerOptions = {
     ...(parsed.compilerOptions ?? {}),
     target: "ES2021",

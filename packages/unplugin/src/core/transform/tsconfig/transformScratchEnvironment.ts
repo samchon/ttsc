@@ -4,12 +4,11 @@
  * variables use that temporary root; explicit paths or overridden child
  * environments are not confined by these settings.
  *
- * Capture hands this copy to the compiler as `env` (samchon/ttsc#1488); applying
- * it to workers and inherited child environments belongs to the compiler host.
- * This function leaves the host's own environment unchanged.
+ * Capture hands this copy to the compiler as `env` (samchon/ttsc#1488);
+ * applying it to workers and inherited child environments belongs to the
+ * compiler host. This function leaves the host's own environment unchanged.
  *
  * @param directory The compile's scratch directory.
- *
  * @evidence contracts/common.md#principled-implementation A copied environment preserves host settings and supplies three temporary-root overrides to capture's compiler request. This routes cooperating consumers, not arbitrary plugin writes or independently overridden child environments.
  * @evidence contracts/common.md#clear-and-simple-design One environment object expresses the child-process override without mutating process globals or introducing platform-specific execution wrappers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Temporary routing changes only the launched compile's environment, avoiding global monkeypatches or project-local scratch that would contaminate watched inputs.

@@ -9,7 +9,8 @@ import { id, print } from "../../internal/helpers";
  * decoration.
  *
  * 1. The factory identifier value prints exactly value.
- * 2. The literal supplied identifier is independent of the printer and catches unwanted quoting or token loss.
+ * 2. The literal supplied identifier is independent of the printer and catches
+ *    unwanted quoting or token loss.
  *
  * @evidence contracts/testing.md#behavioral-verification The factory identifier value prints exactly value.
  * @evidence contracts/testing.md#independent-expectations The literal supplied identifier is independent of the printer and catches unwanted quoting or token loss.

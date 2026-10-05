@@ -125,11 +125,11 @@ export namespace WatchPaths {
   }
 
   /**
-   * The lexical watch key for `location`, preserving declaration aliases.
-   * Under proved insensitive parents, ASCII letters in each component are
-   * folded; non-ASCII component characters remain unchanged. Sensitive or
-   * unknown parents preserve component spelling. Native volume-root formatting
-   * remains the shared resolver's separate rule.
+   * The lexical watch key for `location`, preserving declaration aliases. Under
+   * proved insensitive parents, ASCII letters in each component are folded;
+   * non-ASCII component characters remain unchanged. Sensitive or unknown
+   * parents preserve component spelling. Native volume-root formatting remains
+   * the shared resolver's separate rule.
    *
    * @evidence contracts/common.md#principled-implementation The shared component key folds only native evidence of insensitive parents, so sensitive and unknown names remain distinct while lexical symlink ownership is preserved.
    * @evidence contracts/common.md#clear-and-simple-design One delegation uses the transaction's lexical policy without duplicating physical resolution or native probing.

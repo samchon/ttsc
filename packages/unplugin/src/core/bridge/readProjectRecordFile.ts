@@ -67,7 +67,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** A complete string list, rather than a list with some readable members. */
 function isStrings(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === "string")
+  );
 }
 
 /** The membership fields consumed by root-pattern and exclusion replay. */
@@ -79,32 +81,50 @@ function isPolicy(value: unknown): boolean {
     !isStrings(value.sources) ||
     (value.useCaseSensitiveFileNames !== undefined &&
       typeof value.useCaseSensitiveFileNames !== "boolean")
-  ) return false;
+  )
+    return false;
   const specs = value.rootFileSpecs;
   if (specs !== undefined) {
-    if (!isRecord(specs) || !isStrings(specs.files) || !isStrings(specs.include))
+    if (
+      !isRecord(specs) ||
+      !isStrings(specs.files) ||
+      !isStrings(specs.include)
+    )
       return false;
     const root = specs.root;
-    if (root !== undefined &&
-      (!isRecord(root) || typeof root.path !== "string" ||
+    if (
+      root !== undefined &&
+      (!isRecord(root) ||
+        typeof root.path !== "string" ||
         typeof root.realpath !== "string" ||
-        (root.nativepath !== undefined && typeof root.nativepath !== "string")))
+        (root.nativepath !== undefined && typeof root.nativepath !== "string"))
+    )
       return false;
   }
   const origins = value.directoryExclusionOrigins;
-  return origins === undefined ||
-    (isRecord(origins) && isStrings(origins.exclude) &&
-      (origins.declarationDir === undefined || typeof origins.declarationDir === "string") &&
+  return (
+    origins === undefined ||
+    (isRecord(origins) &&
+      isStrings(origins.exclude) &&
+      (origins.declarationDir === undefined ||
+        typeof origins.declarationDir === "string") &&
       (origins.outDir === undefined || typeof origins.outDir === "string") &&
       (origins.useImplicitOutputExclusions === undefined ||
-        typeof origins.useImplicitOutputExclusions === "boolean"));
+        typeof origins.useImplicitOutputExclusions === "boolean"))
+  );
 }
 
 /** The optional walk proof paired with its exact replay policy. */
-function isMembership(value: unknown): value is TtscProjectRecord["membership"] {
-  return value === null ||
-    (isRecord(value) && typeof value.digest === "string" &&
-      isStrings(value.directories) && isPolicy(value.policy));
+function isMembership(
+  value: unknown,
+): value is TtscProjectRecord["membership"] {
+  return (
+    value === null ||
+    (isRecord(value) &&
+      typeof value.digest === "string" &&
+      isStrings(value.directories) &&
+      isPolicy(value.policy))
+  );
 }
 
 /** Every state codec the observer and detached record proof consume. */
@@ -114,8 +134,10 @@ function isInputState(value: unknown): boolean {
     case "host":
       return typeof value.hash === "string";
     case "graph":
-      return typeof value.hash === "string" &&
-        (value.realpath === null || typeof value.realpath === "string");
+      return (
+        typeof value.hash === "string" &&
+        (value.realpath === null || typeof value.realpath === "string")
+      );
     case "predicates":
       return normalizeGraphInputObservation(value.observation) !== undefined;
     case "tree":
@@ -131,11 +153,15 @@ function isInputState(value: unknown): boolean {
 function isInputEvidence(
   value: unknown,
 ): value is TtscProjectRecord["inputs"][string] {
-  return isRecord(value) && typeof value.identity === "string" &&
+  return (
+    isRecord(value) &&
+    typeof value.identity === "string" &&
     typeof value.missing === "boolean" &&
-    (value.unavailable === undefined || value.unavailable === "missing" ||
+    (value.unavailable === undefined ||
+      value.unavailable === "missing" ||
       value.unavailable === "not-file") &&
-    (value.state === undefined || isInputState(value.state));
+    (value.state === undefined || isInputState(value.state))
+  );
 }
 
 /** All own input entries must be interpretable before any are handed off. */

@@ -1,4 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
+
 import factory, {
   SyntaxKind,
   addSyntheticLeadingComment,
@@ -8,13 +9,18 @@ import factory, {
   setSyntheticTrailingComments,
 } from "../../../../../packages/factory/src/index";
 import { print, ref } from "../../internal/helpers";
+
 /**
- * Verifies `addSyntheticLeadingComment` returns the same node, enabling call chaining.
+ * Verifies `addSyntheticLeadingComment` returns the same node, enabling call
+ * chaining.
  *
- * Returning the same node alone would let a no-op adder pass; the attached comment must also be visible.
+ * Returning the same node alone would let a no-op adder pass; the attached
+ * comment must also be visible.
  *
- * 1. addSyntheticLeadingComment retains the identifier identity and print exposes its attached slash-star c star-slash comment.
- * 2. The x identifier and literal slash-star c star-slash x require both mutation and identity preservation; equality alone would miss a no-op.
+ * 1. AddSyntheticLeadingComment retains the identifier identity and print exposes
+ *    its attached slash-star c star-slash comment.
+ * 2. The x identifier and literal slash-star c star-slash x require both mutation
+ *    and identity preservation; equality alone would miss a no-op.
  *
  * @evidence contracts/testing.md#behavioral-verification addSyntheticLeadingComment retains the identifier identity and print exposes its attached slash-star c star-slash comment.
  * @evidence contracts/testing.md#independent-expectations The x identifier and literal slash-star c star-slash x require both mutation and identity preservation; equality alone would miss a no-op.

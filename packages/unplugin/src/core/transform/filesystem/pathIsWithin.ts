@@ -5,9 +5,9 @@ import path from "node:path";
  *
  * Decided through `path.relative`, never by string prefix, so a sibling such as
  * `/repo2` is not inside `/repo` and a path on another drive or share is never
- * inside anything local.
- * The optional platform selects an observed filesystem's path grammar; the
- * host platform supplies the default for ordinary native callers.
+ * inside anything local. The optional platform selects an observed filesystem's
+ * path grammar; the host platform supplies the default for ordinary native
+ * callers.
  *
  * @evidence contracts/common.md#principled-implementation A lexical relative path distinguishes root equality and descendants from parent escapes and unrelated volumes, without confusing siblings sharing a prefix.
  * @evidence contracts/common.md#clear-and-simple-design One native relative-path calculation supplies the boundary decisions; physical alias resolution belongs to callers that require it.

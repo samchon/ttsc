@@ -34,8 +34,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
-import { prepareSnapshot } from "./core/fingerprint";
 import type { TtscMetroOptions } from "./core/TtscMetroOptions";
+import { prepareSnapshot } from "./core/fingerprint";
 import { ENV_KEY, serializeOptions } from "./core/options";
 import { locateProjectUpstreamTransformer } from "./core/upstream";
 
@@ -81,10 +81,10 @@ interface MetroConfigLike {
  * The call also has side effects beyond the returned config, all before Metro
  * forks its workers. It prepares the cache-key snapshot under
  * `<projectRoot>/node_modules/.cache/ttsc-metro` (creating it, merging the
- * previous workers' records into it under a lock, and sweeping stale files), and
- * it opens the shared compile session whose path the workers inherit through
- * the environment. A snapshot that cannot be prepared never fails the call: the
- * run takes a private token that makes its cache key non-reusable.
+ * previous workers' records into it under a lock, and sweeping stale files),
+ * and it opens the shared compile session whose path the workers inherit
+ * through the environment. A snapshot that cannot be prepared never fails the
+ * call: the run takes a private token that makes its cache key non-reusable.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Metro's supported babelTransformerPath boundary installs this adapter by

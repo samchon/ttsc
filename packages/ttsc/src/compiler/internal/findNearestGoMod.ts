@@ -9,9 +9,9 @@ import path from "node:path";
  * Returns the absolute path to the first `go.mod` found, or `null` when no
  * `go.mod` exists within the depth limit or filesystem root is reached first.
  * Only stat-observed regular files qualify; a directory named go.mod is not
- * module metadata. The caller supplies a nonnegative integer parent limit
- * (the maintained plugin caller uses 3). Other native stat errors propagate;
- * a returned path is an observation, not a held identity or parsed module.
+ * module metadata. The caller supplies a nonnegative integer parent limit (the
+ * maintained plugin caller uses 3). Other native stat errors propagate; a
+ * returned path is an observation, not a held identity or parsed module.
  *
  * @evidence contracts/common.md#principled-implementation Searching the starting directory then at most maxDepth parents implements the plugin module's nearest-owner rule; regular-file status distinguishes metadata from an identically named directory.
  * @evidence contracts/common.md#clear-and-simple-design One bounded ancestry walk owns module discovery, while the caller owns plugin-source validation and interpretation of the resulting module root.

@@ -5,8 +5,14 @@ import path from "node:path";
 import { runTtsc } from "../../../../packages/ttsc/src/launcher/internal/runTtsc";
 import { legacyGlobalCacheTargets } from "../../../../packages/ttsc/src/plugin/internal/source/legacyGlobalCacheTargets";
 
-/** Capture one synchronous source dispatcher call with fixture-owned cache inputs. */
-export function withCapturedTtscCacheCommand(root: string, argv: readonly string[]) {
+/**
+ * Capture one synchronous source dispatcher call with fixture-owned cache
+ * inputs.
+ */
+export function withCapturedTtscCacheCommand(
+  root: string,
+  argv: readonly string[],
+) {
   const home = path.join(root, "clean-process-home");
   const temporary = path.join(home, "tmp");
   fs.mkdirSync(temporary, { recursive: true });
@@ -24,10 +30,17 @@ export function withCapturedTtscCacheCommand(root: string, argv: readonly string
   };
   const previous = Object.entries(environment).map(([requested, next]) => {
     const existing = Object.keys(process.env).find((name) =>
-      process.platform === "win32" ? name.toUpperCase() === requested.toUpperCase() : name === requested,
+      process.platform === "win32"
+        ? name.toUpperCase() === requested.toUpperCase()
+        : name === requested,
     );
     const name = existing ?? requested;
-    return { name, next, present: existing !== undefined, value: process.env[name] };
+    return {
+      name,
+      next,
+      present: existing !== undefined,
+      value: process.env[name],
+    };
   });
   const writeOut = process.stdout.write;
   const writeError = process.stderr.write;
@@ -38,22 +51,39 @@ export function withCapturedTtscCacheCommand(root: string, argv: readonly string
     // No cleanup call can reach a migration root outside this owned fixture.
     for (const target of legacyGlobalCacheTargets()) {
       const relative = path.relative(root, target);
-      assert.ok(relative !== "" && !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(".." + path.sep), target);
+      assert.ok(
+        relative !== "" &&
+          !path.isAbsolute(relative) &&
+          relative !== ".." &&
+          !relative.startsWith(".." + path.sep),
+        target,
+      );
     }
     process.stdout.write = ((chunk: string | Uint8Array): boolean => {
-      stdout += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+      stdout +=
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
       return true;
     }) as typeof process.stdout.write;
     process.stderr.write = ((chunk: string | Uint8Array): boolean => {
-      stderr += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+      stderr +=
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
       return true;
     }) as typeof process.stderr.write;
-    return { status: runTtsc(argv), get stdout() { return stdout; }, get stderr() { return stderr; } };
+    return {
+      status: runTtsc(argv),
+      get stdout() {
+        return stdout;
+      },
+      get stderr() {
+        return stderr;
+      },
+    };
   } finally {
     process.stdout.write = writeOut;
     process.stderr.write = writeError;
     for (const record of previous) {
-      if (record.present && record.value !== undefined) process.env[record.name] = record.value;
+      if (record.present && record.value !== undefined)
+        process.env[record.name] = record.value;
       else delete process.env[record.name];
     }
   }

@@ -18,7 +18,8 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
  * 1. Assert containment, identity, and the sibling-prefix counter-example with
  *    native separators.
  * 2. Assert a volume-root directory contains everything on its volume.
- * 3. On Windows, assert slash-form and volume-root case aliases match native paths.
+ * 3. On Windows, assert slash-form and volume-root case aliases match native
+ *    paths.
  * 4. Inject both Windows directory semantics and reject a case-distinct sibling.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual identity context on descendant/self/sibling and volume-root paths. Native Windows inputs vary slash spelling and volume-root case only; injected Windows authorities independently model insensitive and sensitive directory case differences.
@@ -27,71 +28,74 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
  * @evidence contracts/testing.md#execution-ownership Calls the authored identity context directly on native path inputs and supplied Windows authorities. Default resolution can observe existing ancestors and invoke the read-only Windows fsutil case query; no compiler, native build or ttsc host runs. The injected case authorities do not query the host's directory policy.
  */
 export function test_filesystem_identity_within_matches_roots_and_slash_normalized_rootdirs() {
-    const base = path.resolve(path.sep, "a", "b");
-    assert.equal(isWithin(path.join(base, "c.ts"), base), true);
-    assert.equal(isWithin(base, base), true);
-    // Sibling sharing a name prefix must NOT match ("/a/bc" vs "/a/b").
-    assert.equal(isWithin(`${base}c`, base), false);
+  const base = path.resolve(path.sep, "a", "b");
+  assert.equal(isWithin(path.join(base, "c.ts"), base), true);
+  assert.equal(isWithin(base, base), true);
+  // Sibling sharing a name prefix must NOT match ("/a/bc" vs "/a/b").
+  assert.equal(isWithin(`${base}c`, base), false);
 
-    const root = path.parse(process.cwd()).root;
-    assert.equal(isWithin(path.join(root, "anything.ts"), root), true);
+  const root = path.parse(process.cwd()).root;
+  assert.equal(isWithin(path.join(root, "anything.ts"), root), true);
 
-    if (process.platform === "win32") {
-      // Slash-form rootDir from the synthesized tsconfig vs native real path.
-      const native = path.join(root, "a", "b", "c.ts");
-      const slashParent = path.join(root, "a", "b").replaceAll("\\", "/");
-      const slashRoot = root.replaceAll("\\", "/");
-      const caseAliasedParent =
-        slashRoot.toLowerCase() + slashParent.slice(slashRoot.length);
-      assert.equal(isWithin(native, slashParent), true);
-      assert.equal(isWithin(native, slashRoot), true);
-      assert.equal(isWithin(native, caseAliasedParent), true);
-      assert.equal(isWithin(path.join(root, "a", "bc", "d.ts"), slashParent), false);
-    }
-
-    const missing = (): never => {
-      throw Object.assign(new Error("missing"), { code: "ENOENT" });
-    };
-    const windows = createFilesystemPathIdentityContext({
-      platform: "win32",
-      caseSensitive: (directory) =>
-        directory.toLowerCase().startsWith("c:\\sensitive"),
-      realpath: (location) => {
-        const resolved = path.win32.resolve(location);
-        const folded = resolved.toLowerCase();
-        if (folded === "c:\\ordinary") return "C:\\Ordinary";
-        if (folded === "c:\\ordinary\\project") return "C:\\Ordinary\\Project";
-        if (resolved === "C:\\Sensitive") return resolved;
-        if (resolved === "C:\\Sensitive\\Project") return resolved;
-        if (resolved === "C:\\Sensitive\\project") return resolved;
-        return missing();
-      },
-    });
+  if (process.platform === "win32") {
+    // Slash-form rootDir from the synthesized tsconfig vs native real path.
+    const native = path.join(root, "a", "b", "c.ts");
+    const slashParent = path.join(root, "a", "b").replaceAll("\\", "/");
+    const slashRoot = root.replaceAll("\\", "/");
+    const caseAliasedParent =
+      slashRoot.toLowerCase() + slashParent.slice(slashRoot.length);
+    assert.equal(isWithin(native, slashParent), true);
+    assert.equal(isWithin(native, slashRoot), true);
+    assert.equal(isWithin(native, caseAliasedParent), true);
     assert.equal(
-      isWithin(
-        "c:\\ordinary\\PROJECT\\src\\main.ts",
-        "C:\\Ordinary\\Project",
-        windows,
-      ),
-      true,
-    );
-    assert.equal(
-      isWithin(
-        "C:\\Sensitive\\Project\\src\\main.ts",
-        "C:\\Sensitive\\Project",
-        windows,
-      ),
-      true,
-    );
-    assert.equal(
-      isWithin(
-        "C:\\Sensitive\\project\\src\\main.ts",
-        "C:\\Sensitive\\Project",
-        windows,
-      ),
+      isWithin(path.join(root, "a", "bc", "d.ts"), slashParent),
       false,
     );
+  }
+
+  const missing = (): never => {
+    throw Object.assign(new Error("missing"), { code: "ENOENT" });
   };
+  const windows = createFilesystemPathIdentityContext({
+    platform: "win32",
+    caseSensitive: (directory) =>
+      directory.toLowerCase().startsWith("c:\\sensitive"),
+    realpath: (location) => {
+      const resolved = path.win32.resolve(location);
+      const folded = resolved.toLowerCase();
+      if (folded === "c:\\ordinary") return "C:\\Ordinary";
+      if (folded === "c:\\ordinary\\project") return "C:\\Ordinary\\Project";
+      if (resolved === "C:\\Sensitive") return resolved;
+      if (resolved === "C:\\Sensitive\\Project") return resolved;
+      if (resolved === "C:\\Sensitive\\project") return resolved;
+      return missing();
+    },
+  });
+  assert.equal(
+    isWithin(
+      "c:\\ordinary\\PROJECT\\src\\main.ts",
+      "C:\\Ordinary\\Project",
+      windows,
+    ),
+    true,
+  );
+  assert.equal(
+    isWithin(
+      "C:\\Sensitive\\Project\\src\\main.ts",
+      "C:\\Sensitive\\Project",
+      windows,
+    ),
+    true,
+  );
+  assert.equal(
+    isWithin(
+      "C:\\Sensitive\\project\\src\\main.ts",
+      "C:\\Sensitive\\Project",
+      windows,
+    ),
+    false,
+  );
+}
 
 /** Whether `directory` contains `real`, through one identity context. */
 const isWithin = (

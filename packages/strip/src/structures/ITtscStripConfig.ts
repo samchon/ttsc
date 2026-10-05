@@ -41,8 +41,8 @@ export interface ITtscStripConfig {
   /**
    * Dotted callee patterns for whole call-expression statements to remove.
    *
-   * An exact name matches that dotted identifier chain. A trailing `.*`
-   * matches one or more further property segments, so `assert.*` includes
+   * An exact name matches that dotted identifier chain. A trailing `.*` matches
+   * one or more further property segments, so `assert.*` includes
    * `assert.equal()` and `assert.strict.equal()` but excludes `assert()`.
    * Computed access and calls embedded in other expressions remain untouched.
    * Empty or whitespace-only entries, empty dotted segments, a bare `*` and

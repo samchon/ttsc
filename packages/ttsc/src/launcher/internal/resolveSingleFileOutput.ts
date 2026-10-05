@@ -17,8 +17,8 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
  * normalization; an explicit reset selects the default suffix instead of
  * reviving the configured JSX. Placement-setting read failures use the
  * no-project fallback; that fallback does not certify a successful build or
- * valid configuration. Physical spelling is a current native observation,
- * not a pinned filesystem object.
+ * valid configuration. Physical spelling is a current native observation, not a
+ * pinned filesystem object.
  *
  * @evidence contracts/common.md#principled-implementation CLI output wins over project output, supported source extensions choose the emitted suffix, and physical root/file relation preserves project layout through links when the file is contained.
  * @evidence contracts/common.md#clear-and-simple-design Output placement delegates project settings and isolates containment, extension and forwarded-option readers; it does not materialize compiler side products.

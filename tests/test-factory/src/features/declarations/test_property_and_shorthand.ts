@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, num, print } from "../../internal/helpers";
 
 /**
@@ -9,8 +9,10 @@ import { kw, num, print } from "../../internal/helpers";
  * `x?: number;` for a {@link factory.createPropertyDeclaration|property} and `x
  * = 1` for a {@link factory.createShorthandPropertyAssignment|shorthand}.
  *
- * 1. Optional class property x?: number; and shorthand initializer x = 1 print their different punctuation.
- * 2. Exact literal expectations specify the question mark, semicolon and assignment syntax independently.
+ * 1. Optional class property x?: number; and shorthand initializer x = 1 print
+ *    their different punctuation.
+ * 2. Exact literal expectations specify the question mark, semicolon and
+ *    assignment syntax independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Optional class property x?: number; and shorthand initializer x = 1 print their different punctuation.
  * @evidence contracts/testing.md#independent-expectations Exact literal expectations specify the question mark, semicolon and assignment syntax independently.

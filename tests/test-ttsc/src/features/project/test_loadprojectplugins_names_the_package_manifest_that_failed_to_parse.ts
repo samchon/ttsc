@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
-
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
 import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/internal/load/loadProjectPlugins";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a malformed package manifest is reported by name during plugin

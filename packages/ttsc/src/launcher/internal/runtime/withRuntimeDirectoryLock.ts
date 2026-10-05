@@ -22,17 +22,15 @@ import { releaseDependencyBuildLock } from "./releaseDependencyBuildLock";
  * hard completion bound on native IO, work or retirement.
  *
  * Retirement may separately wait for peer filesystem handles; that release path
- * has no independent deadline.
- * Participants must use the same stable physical namespace and valid records.
- * A physical spelling is not a held directory handle. Native acquisition or
- * cleanup failure can leave persisted candidate/current state; this wrapper
- * does not roll back a failed acquisition before it returns a lease.
+ * has no independent deadline. Participants must use the same stable physical
+ * namespace and valid records. A physical spelling is not a held directory
+ * handle. Native acquisition or cleanup failure can leave persisted
+ * candidate/current state; this wrapper does not roll back a failed acquisition
+ * before it returns a lease.
  *
  * @param runtimeRoot The runtime directory, in any filesystem spelling.
  * @param work A synchronous claim or clean operation under the lock.
- *
  * @returns What `work` returned.
- *
  * @evidence contracts/common.md#principled-implementation Resolving the observed physical root selects the cooperative sibling lock; work executes only after a returned lease. Inspector-authorized recovery retires its observed generation, including its owner-missing stale-age policy, without claiming every abandonment decision proves native process death.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous wrapper coordinates root identity, bounded acquisition polling and finally release while delegating the fenced protocol and work/error precedence to shared owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper follows the actual inspector state and generation fence rather than bypassing a recognized active owner. Missing valid ownership follows the shared stale-age policy; work errors retain precedence through runHoldingLock.

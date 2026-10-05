@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/src/launcher/internal/runtime/resolveRuntimeCleanTargets";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the cleanup planner selects absent or empty trees and preserves
@@ -27,16 +27,19 @@ export function test_runtime_cleanup_preserves_unproven_owners_and_selects_an_ab
   const runtime = path.join(cache, "ttsx");
   const runs = path.join(runtime, "project");
   assert.deepEqual(resolveRuntimeCleanTargets(cache), {
-    kept: [], targets: [runtime],
+    kept: [],
+    targets: [runtime],
   });
   fs.mkdirSync(runs, { recursive: true });
   assert.deepEqual(resolveRuntimeCleanTargets(cache), {
-    kept: [], targets: [runtime],
+    kept: [],
+    targets: [runtime],
   });
   const legacy = path.join(fs.realpathSync.native(runs), "legacy");
   fs.mkdirSync(legacy);
   assert.deepEqual(resolveRuntimeCleanTargets(cache), {
-    kept: [legacy], targets: [],
+    kept: [legacy],
+    targets: [],
   });
   const unknown = path.join(fs.realpathSync.native(runs), "unknown");
   fs.mkdirSync(unknown);

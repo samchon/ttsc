@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies default API cleanup removes a dangling runtime cache link.
@@ -22,34 +22,34 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  * @evidence contracts/testing.md#execution-ownership This named source-unit entry imports the authored compiler API and invokes only cleanup over a temporary fixture. No compiler build, consumer install or product host runs; native directory-link input exercises the resolver directly. Missing cleanup candidates can cause the shared identity resolver to query Windows case policy through read-only fsutil, not a compiler or runtime host.
  */
 export function test_ttsccompiler_clean_removes_a_dangling_runtime_link(): void {
-    const root = TestProject.tmpdir("ttsc-dangling-runtime-");
-    const project = path.join(root, "project");
-    const cache = path.join(root, "cache", "ttsc");
-    const runtime = path.join(cache, "ttsx");
-    const target = path.join(root, "target");
-    TestProject.writeFiles(project, {
-      "package.json": JSON.stringify({ private: true }),
-      "tsconfig.json": JSON.stringify({ include: ["src"] }),
-      "src/main.ts": "export const value = 1;\n",
-    });
-    fs.mkdirSync(cache, { recursive: true });
-    fs.mkdirSync(target);
-    fs.symlinkSync(
-      target,
-      runtime,
-      process.platform === "win32" ? "junction" : "dir",
-    );
-    fs.rmdirSync(target);
-    assert.equal(fs.existsSync(runtime), false);
-    assert.equal(fs.lstatSync(runtime).isSymbolicLink(), true);
+  const root = TestProject.tmpdir("ttsc-dangling-runtime-");
+  const project = path.join(root, "project");
+  const cache = path.join(root, "cache", "ttsc");
+  const runtime = path.join(cache, "ttsx");
+  const target = path.join(root, "target");
+  TestProject.writeFiles(project, {
+    "package.json": JSON.stringify({ private: true }),
+    "tsconfig.json": JSON.stringify({ include: ["src"] }),
+    "src/main.ts": "export const value = 1;\n",
+  });
+  fs.mkdirSync(cache, { recursive: true });
+  fs.mkdirSync(target);
+  fs.symlinkSync(
+    target,
+    runtime,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  fs.rmdirSync(target);
+  assert.equal(fs.existsSync(runtime), false);
+  assert.equal(fs.lstatSync(runtime).isSymbolicLink(), true);
 
-    const removed = new TtscCompiler({
-      cwd: project,
-      env: { TTSC_CACHE_DIR: cache },
-    }).clean();
-    assert.ok(removed.some((directory) => path.resolve(directory) === runtime));
-    assert.throws(
-      () => fs.lstatSync(runtime),
-      (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT",
-    );
-  }
+  const removed = new TtscCompiler({
+    cwd: project,
+    env: { TTSC_CACHE_DIR: cache },
+  }).clean();
+  assert.ok(removed.some((directory) => path.resolve(directory) === runtime));
+  assert.throws(
+    () => fs.lstatSync(runtime),
+    (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT",
+  );
+}

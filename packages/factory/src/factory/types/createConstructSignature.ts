@@ -19,6 +19,11 @@ import { make } from "../internal/make";
  * new (x: number): Foo
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param typeParameters The generic type parameters, if any.
+ * @param parameters The parameters.
+ * @param type The return type, if any.
+ * @returns The created {@link ConstructSignatureDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   The ConstructSignature discriminant distinguishes a new-call member from
  *   an ordinary call signature while preserving generics, parameters and return type.
@@ -34,12 +39,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   The prose explains new, optional generics and return punctuation, and links
  *   the real ConstructSignatureDeclaration type rather than the internal kind.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param typeParameters The generic type parameters, if any.
- * @param parameters The parameters.
- * @param type The return type, if any.
- * @returns The created {@link ConstructSignatureDeclaration}.
  */
 export const createConstructSignature = (
   typeParameters: readonly TypeParameterDeclaration[] | undefined,

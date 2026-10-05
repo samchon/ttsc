@@ -1,8 +1,8 @@
 import path from "node:path";
 
 /**
- * Resolve a configured native host root when configuration is received.
- * An omitted root stays omitted so the adapter can distinguish Farm's selected
+ * Resolve a configured native host root when configuration is received. An
+ * omitted root stays omitted so the adapter can distinguish Farm's selected
  * location from the generic fallback. Resolution preserves lexical alias
  * spelling; it does not canonicalize the root through the filesystem.
  *
@@ -34,6 +34,8 @@ export function resolveConfiguredHostRoot(
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The default is queried on each invocation because cwd may change; no computed result is shared here.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Selection owns no retained state, watcher or handle; record and bridge lifetime remain with their callers.
  */
-export function selectBuildHostRoot(configuredRoot: string | undefined): string {
+export function selectBuildHostRoot(
+  configuredRoot: string | undefined,
+): string {
   return configuredRoot ?? process.cwd();
 }

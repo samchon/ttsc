@@ -66,7 +66,10 @@ export function selectTransformAttemptDisposition(props: {
   /** Number of producer-reported host proof failure entries. */
   hostInputProofFailureCount: number;
 
-  /** Optional recorded proof aggregate; absent rejection starts with empty evidence. */
+  /**
+   * Optional recorded proof aggregate; absent rejection starts with empty
+   * evidence.
+   */
   failures?: TtscGenerationProofFailures;
 
   /** Publication origin and refutation, absent for a locally compiled attempt. */
@@ -131,12 +134,11 @@ export function selectTransformAttemptDisposition(props: {
     moved === TRANSFORM_MOVEMENT_ATTEMPTS ||
     props.attempt + 1 === TRANSFORM_MOVEMENT_ATTEMPTS * 2;
   return {
-    kind:
-      !last
-        ? "retry"
-        : props.resultType !== "success" && props.configStateComplete !== false
-          ? "diagnostic"
-          : "terminal",
+    kind: !last
+      ? "retry"
+      : props.resultType !== "success" && props.configStateComplete !== false
+        ? "diagnostic"
+        : "terminal",
     freshDeliveryOnly,
     failures,
     moved,

@@ -5,7 +5,8 @@ import { parseFlags } from "../../flags/parseFlags";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 
 /**
- * Parse launcher build arguments without resolving a project or starting a host.
+ * Parse launcher build arguments without resolving a project or starting a
+ * host.
  *
  * @evidence contracts/common.md#principled-implementation The schema parser and solution-build guard decide ownership of each flag; emit stays tri-state (absent, true, false) with `--emit` taking precedence over `--noEmit`, and forwarded flags and their values keep argv order because the parser routes non-input tokens into passthrough in place.
  * @evidence contracts/common.md#clear-and-simple-design One authored adapter returns launcher-owned values; its two local helpers only resolve emit precedence and identify source extensions.
@@ -73,7 +74,6 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
  * when it is `false`: `--emit=false` is analysis-only and `--noEmit=false`
  * explicitly overrides a project's `noEmit`. `--emit` retains precedence when
  * callers supply both switches.
- *
  */
 function resolveExplicitEmit(
   explicitEmit: boolean | undefined,
@@ -88,7 +88,6 @@ function resolveExplicitEmit(
  * compile in single-file mode. Anything without a TypeScript source extension
  * remains passthrough data rather than a launcher input file; the native
  * compiler decides whether an unowned token is valid.
- *
  */
 function looksLikeInputFile(token: string): boolean {
   return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));

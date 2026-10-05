@@ -4,10 +4,10 @@ import { stripTerminalEscapes } from "./stripTerminalEscapes";
  * Render any thrown value as plain text for a bundler's error channel.
  *
  * Errors and error-shaped objects contribute their message, and anything else
- * is stringified. ANSI CSI escape sequences are stripped, because the
- * text ends up in a Vite overlay, a webpack report, or a CI annotation, where
- * colour codes render as noise around the file and line the reader needs.
- * Other terminal protocols remain outside the escape-removal helper's grammar.
+ * is stringified. ANSI CSI escape sequences are stripped, because the text ends
+ * up in a Vite overlay, a webpack report, or a CI annotation, where colour
+ * codes render as noise around the file and line the reader needs. Other
+ * terminal protocols remain outside the escape-removal helper's grammar.
  *
  * @evidence contracts/common.md#principled-implementation Error instances and message-bearing objects contribute their message; remaining thrown values use JavaScript string conversion before removing terminal control sequences.
  * @evidence contracts/common.md#clear-and-simple-design Three direct representation cases share one escape-removal helper instead of introducing a separate exception taxonomy.

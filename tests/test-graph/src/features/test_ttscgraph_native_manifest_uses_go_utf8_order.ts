@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+
 import { admitted, assertRetired, sessionState } from "./internal/sessionState";
 import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies a manifest ordered by UTF-8 bytes is accepted and the same manifest in UTF-16 order is rejected.
+ * Verifies a manifest ordered by UTF-8 bytes is accepted and the same manifest
+ * in UTF-16 order is rejected.
  *
  * The transaction's two shard keys end in U+E000 and U+10000. UTF-8 byte order
  * (the producer's order) puts U+E000 first, while JavaScript string comparison
@@ -30,10 +32,22 @@ export async function test_ttscgraph_native_manifest_uses_go_utf8_order(): Promi
       void active.catch(() => undefined);
       const port = await admitted(ports);
       const snapshot = sessionTransaction("unicode");
-      assert.deepEqual(snapshot.manifest.map((item) => item.key), ["0:metadata:", "0:metadata:\u{10000}"]);
-      session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
+      assert.deepEqual(
+        snapshot.manifest.map((item) => item.key),
+        ["0:metadata:", "0:metadata:\u{10000}"],
+      );
+      session.receive(port.peer, {
+        id: Number(port.writes[0]!.id),
+        protocolVersion: 1,
+        mode: "initial",
+        changed: true,
+        capabilities: [],
+        snapshot,
+      });
       assert.deepEqual((await active).nodes, []);
-    } finally { await session.close(); }
+    } finally {
+      await session.close();
+    }
   }
   {
     const { session, ports } = sessionState();
@@ -43,10 +57,22 @@ export async function test_ttscgraph_native_manifest_uses_go_utf8_order(): Promi
       const port = await admitted(ports);
       const snapshot = sessionTransaction("unicode");
       snapshot.manifest.reverse();
-      assert.deepEqual(snapshot.manifest.map((item) => item.key), ["0:metadata:\u{10000}", "0:metadata:"]);
-      session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
+      assert.deepEqual(
+        snapshot.manifest.map((item) => item.key),
+        ["0:metadata:\u{10000}", "0:metadata:"],
+      );
+      session.receive(port.peer, {
+        id: Number(port.writes[0]!.id),
+        protocolVersion: 1,
+        mode: "initial",
+        changed: true,
+        capabilities: [],
+        snapshot,
+      });
       await assert.rejects(active, /manifest must be strictly key-sorted/);
       assertRetired(port);
-    } finally { await session.close(); }
+    } finally {
+      await session.close();
+    }
   }
 }

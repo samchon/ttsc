@@ -11,8 +11,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import path from "node:path";
 
@@ -21,6 +19,9 @@ import { inspectDependencyBuildLock } from "../../../../../../packages/ttsc/lib/
 import { readDependencyCache } from "../../../../../../packages/ttsc/lib/launcher/internal/runtime/readDependencyCache.js";
 import { reclaimDependencyBuildLock } from "../../../../../../packages/ttsc/lib/launcher/internal/runtime/reclaimDependencyBuildLock.js";
 import { releaseDependencyBuildLock } from "../../../../../../packages/ttsc/lib/launcher/internal/runtime/releaseDependencyBuildLock.js";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /** Captured output of one dependency-cache lock worker. */
 interface IDependencyCacheWorkerResult {

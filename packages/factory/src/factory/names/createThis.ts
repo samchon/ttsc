@@ -11,9 +11,11 @@ import { createToken } from "./createToken";
  * This prints:
  *
  * ```ts
- * this
+ * this;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link Token}.
  * @evidence contracts/common.md#principled-implementation
  *   ThisKeyword preserves this as an expression token rather than an identifier
  *   named this; binding meaning belongs to the surrounding source context.
@@ -27,8 +29,5 @@ import { createToken } from "./createToken";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose describes the token and expression spelling, with a separate
  *   example and acknowledgment block following documentation guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link Token}.
  */
 export const createThis = (): Token => createToken(SyntaxKind.ThisKeyword);

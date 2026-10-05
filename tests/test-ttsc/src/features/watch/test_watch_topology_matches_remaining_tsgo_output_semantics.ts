@@ -250,7 +250,11 @@ async function expectProjectQuiet(
   const count = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), count);
-  assert.deepEqual(changes, [], "output attention reported a synchronous change");
+  assert.deepEqual(
+    changes,
+    [],
+    "output attention reported a synchronous change",
+  );
 }
 
 async function waitForProjectChange(

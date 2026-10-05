@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestContributorRangeFixBoundsDiagnosticIndependentlyFromEdit verifies the
@@ -32,7 +32,9 @@ func TestContributorRangeFixBoundsDiagnosticIndependentlyFromEdit(t *testing.T) 
 
   findings := NewEngine(RuleConfig{contributor.Name(): SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)
-  if err := validateSemanticRuleFindings(RuleConfig{contributor.Name(): SeverityError}, findings); err != nil { t.Fatal(err) }
+  if err := validateSemanticRuleFindings(RuleConfig{contributor.Name(): SeverityError}, findings); err != nil {
+    t.Fatal(err)
+  }
   if got, want := len(findings), 1; got != want {
     t.Fatalf("findings = %d, want %d: %+v", got, want, findings)
   }
@@ -44,5 +46,7 @@ func TestContributorRangeFixBoundsDiagnosticIndependentlyFromEdit(t *testing.T) 
   if got, want := finding.Fix, []TextEdit{{Pos: 0, End: 5, Text: "let"}}; len(got) != len(want) || got[0] != want[0] {
     t.Fatalf("candidate edit = %+v, want %+v", got, want)
   }
-  if finding.Message != "explicit contributor range" { t.Fatalf("range-fix message changed: %q", finding.Message) }
+  if finding.Message != "explicit contributor range" {
+    t.Fatalf("range-fix message changed: %q", finding.Message)
+  }
 }

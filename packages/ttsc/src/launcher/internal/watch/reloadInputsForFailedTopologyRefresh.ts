@@ -8,8 +8,8 @@ import { WatchPaths } from "./WatchPaths";
 /**
  * Declared reload inputs selected after a topology refresh failed: members
  * conservatively matching the supplied change and members whose native
- * existence check is false. An unrelated triggering path is not added.
- * The topology owner consumes these paths to request recovery; this selector
+ * existence check is false. An unrelated triggering path is not added. The
+ * topology owner consumes these paths to request recovery; this selector
  * installs no watcher and does not prove future event delivery.
  *
  * The supplied identity transaction shares native case observations with the

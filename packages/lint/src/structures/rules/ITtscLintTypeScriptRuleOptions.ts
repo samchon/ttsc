@@ -19,11 +19,11 @@ export interface ITtscLintFileTypeOrValueSpecifier {
   /** Match one or more declared names. */
   name: string | readonly string[];
 
-   /**
-    * Restrict the declaration file by path. Relative paths are resolved from
-    * the rule's current directory; absolute paths are also accepted. Omission
-    * selects non-library declarations within that directory when it is known.
-    */
+  /**
+   * Restrict the declaration file by path. Relative paths are resolved from
+   * the rule's current directory; absolute paths are also accepted. Omission
+   * selects non-library declarations within that directory when it is known.
+   */
   path?: string;
 }
 
@@ -44,7 +44,8 @@ export interface ITtscLintLibTypeOrValueSpecifier {
 }
 
 /**
- * Identifies a type or value by package source-path or ambient-module ownership.
+ * Identifies a type or value by package source-path or ambient-module
+ * ownership.
  *
  * @evidence contracts/common.md#principled-implementation A required package name joins declaration-name selection under the package discriminant, distinguishing same-named declarations with different owners.
  * @evidence contracts/common.md#clear-and-simple-design Package ownership lives only in its source variant rather than an ambiguous generic path/name object.
@@ -172,9 +173,9 @@ export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
  * - `"allow-with-description"` — allow the directive when it is followed by a
  *   description of at least `minimumDescriptionLength` characters.
  * - `{ descriptionFormat }` — a nonempty pattern also requires a minimum-length
- *   description matching Go's RE2 `regexp` syntax, for example
- *   `"^: TS\\d+ because .+$"`. An empty pattern allows the directive; an invalid
- *   nonempty pattern retains the length gate without a regex match gate.
+ *   description matching Go's RE2 `regexp` syntax, for example `"^: TS\\d+
+ *   because .+$"`. An empty pattern allows the directive; an invalid nonempty
+ *   pattern retains the length gate without a regex match gate.
  *
  * @evidence contracts/common.md#principled-implementation Boolean, description-required and regex-object alternatives separate rejection, allowance and text gates; empty and invalid regex policies are documented rather than treated as enforceable patterns.
  * @evidence contracts/common.md#clear-and-simple-design One union carries each directive's policy while the containing options object owns the shared minimum length.

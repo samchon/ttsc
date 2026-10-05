@@ -31,9 +31,9 @@ import { readTtscTransformSession } from "./readTtscTransformSession";
  * temporary directory (`userStateDirectory`). On uid-capable hosts that
  * provider requires private user-owned directories; other hosts rely on native
  * access policy. Its location is independent of project selection, not always
- * outside a project placed in that root. Earlier versions kept one store
- * per process in the same root, removed when it exited; one whose process is
- * gone was left behind by a crash, and is removed here, as is the clock probe
+ * outside a project placed in that root. Earlier versions kept one store per
+ * process in the same root, removed when it exited; one whose process is gone
+ * was left behind by a crash, and is removed here, as is the clock probe
  * directory a crashed process kept there (`refreshProcessClockReference`). A
  * process whose environment already names a live store, because a parent or an
  * earlier call opened the session, keeps that store. The inherited reader
@@ -44,7 +44,6 @@ import { readTtscTransformSession } from "./readTtscTransformSession";
  * workers compiling for themselves, never an error.
  *
  * @returns The store's absolute path, or `undefined` when none could be opened.
- *
  * @evidence contracts/common.md#principled-implementation An inherited absolute directory is preserved; otherwise checked user-state storage is declared before workers spawn. Publication keys and separate input proofs determine reuse, not store existence.
  * @evidence contracts/common.md#clear-and-simple-design New directory ownership stays in userStateDirectory, claiming in claimSharedCompile and adoption proof in generation capture; this operation declares the address and reclaims recognized legacy children.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional store failure leaves real local compilation in place, rather than reusing unproven output or suppressing compiler failure.
@@ -65,7 +64,11 @@ export function openTtscTransformSession(): string | undefined {
     for (const entry of fs.readdirSync(root)) {
       const match = /^([1-9][0-9]*)-(?:clock|[A-Za-z0-9]{6})$/.exec(entry);
       const owner = match === null ? undefined : Number(match[1]);
-      if (owner !== undefined && Number.isSafeInteger(owner) && !processAlive(owner)) {
+      if (
+        owner !== undefined &&
+        Number.isSafeInteger(owner) &&
+        !processAlive(owner)
+      ) {
         fs.rmSync(path.join(root, entry), { force: true, recursive: true });
       }
     }

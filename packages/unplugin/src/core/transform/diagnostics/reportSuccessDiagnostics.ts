@@ -5,8 +5,8 @@ import { formatDiagnostics } from "./formatDiagnostics";
  * Attempt non-fatal diagnostic reporting once per generation per pass.
  *
  * A `success` result may still carry warnings or informational messages from
- * plugins — `@ttsc/lint` reports every rule below error severity this way.
- * The ordinary reporting path uses stderr without turning diagnostics into a
+ * plugins — `@ttsc/lint` reports every rule below error severity this way. The
+ * ordinary reporting path uses stderr without turning diagnostics into a
  * compile error. Failure and exception envelopes are handled by the caller.
  *
  * They describe one compile of one program, so writing them per delivery

@@ -4,10 +4,10 @@ import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationT
 /**
  * Sample notification availability after tracker settlement.
  *
- * Absence is permitted because recorded-state validation retains its proof;
- * any present failed observer withdraws notification transfer as a whole.
- * The caller samples this before subsequent proof admission, preserving the
- * capture operation's established ordering.
+ * Absence is permitted because recorded-state validation retains its proof; any
+ * present failed observer withdraws notification transfer as a whole. The
+ * caller samples this before subsequent proof admission, preserving the capture
+ * operation's established ordering.
  *
  * @evidence contracts/common.md#principled-implementation Every present project, host and candidate tracker must have settled without failure; an absent optional tracker does not invent a failure or coverage claim.
  * @evidence contracts/common.md#clear-and-simple-design One three-field predicate owns the sampled availability verdict consumed by later retention admission.
@@ -23,18 +23,22 @@ export function generationNotificationsAvailable(
   host: TtscProjectMutationTracker | undefined,
   candidate: TtscProjectMutationTracker | undefined,
 ): boolean {
-  return project?.failed !== true && host?.failed !== true && candidate?.failed !== true;
+  return (
+    project?.failed !== true &&
+    host?.failed !== true &&
+    candidate?.failed !== true
+  );
 }
 
 /**
  * Transfer admitted notification authority to one captured generation.
  *
  * Actual observer creation, settlement and proof construction remain in the
- * capture owner. This operation attaches only qualified handles and returns
- * the exact ownership flags that its caller uses for finally cleanup.
- * The caller supplies a newly captured generation without prior tracker
- * ownership. Availability is its earlier settled sample, not a fresh health
- * check performed here; live tracker consumers still qualify current authority.
+ * capture owner. This operation attaches only qualified handles and returns the
+ * exact ownership flags that its caller uses for finally cleanup. The caller
+ * supplies a newly captured generation without prior tracker ownership.
+ * Availability is its earlier settled sample, not a fresh health check
+ * performed here; live tracker consumers still qualify current authority.
  *
  * @evidence contracts/common.md#principled-implementation Retention requires the caller's membership and notification policies, complete generation proof and sampled observer availability together; failure of any premise leaves every tracker with its local cleanup owner.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous admission gate attaches three optional handles and returns their independent ownership flags; acquisition and finally cleanup stay with capture.
@@ -55,11 +59,17 @@ export function retainGenerationNotifications(props: {
   stableProjectSnapshot: boolean;
   notificationsAvailable: boolean;
 }): { project: boolean; host: boolean; candidate: boolean } {
-  const notifying = props.retainProjectMembership && props.retainNotifications &&
-    props.stableProjectSnapshot && props.notificationsAvailable;
-  if (notifying && props.project !== undefined) props.cached.projectMutationTracker = props.project;
-  if (notifying && props.host !== undefined) props.cached.hostInputMutationTracker = props.host;
-  if (notifying && props.candidate !== undefined) props.cached.candidateMutationTracker = props.candidate;
+  const notifying =
+    props.retainProjectMembership &&
+    props.retainNotifications &&
+    props.stableProjectSnapshot &&
+    props.notificationsAvailable;
+  if (notifying && props.project !== undefined)
+    props.cached.projectMutationTracker = props.project;
+  if (notifying && props.host !== undefined)
+    props.cached.hostInputMutationTracker = props.host;
+  if (notifying && props.candidate !== undefined)
+    props.cached.candidateMutationTracker = props.candidate;
   return {
     project: notifying && props.project !== undefined,
     host: notifying && props.host !== undefined,

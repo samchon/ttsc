@@ -8,9 +8,9 @@ import fs from "node:fs";
  * executables the C toolchain commands name, and GOROOT
  * (`hashPluginBuildEnvironment`). Their metadata, taken before their content is
  * read, is what a later observer compares: a process keeping its reading
- * (`processPluginBuildEnvironment`), and a build proving the
- * toolchain it ran is the one its key read. Change time can
- * reveal a write even when size and modification time are restored.
+ * (`processPluginBuildEnvironment`), and a build proving the toolchain it ran
+ * is the one its key read. Change time can reveal a write even when size and
+ * modification time are restored.
  *
  * This witnesses native metadata and link target names, not a second byte
  * comparison. Its change detection assumes the filesystem distinguishes
@@ -106,11 +106,16 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated equal observations reuse the first signature; a different observation refuses the complete reading.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns and releases the record; this operation retains no process or environment handle.
    */
-  export function addEnvironment(witness: Record | undefined, name: string, value: string | undefined): void {
+  export function addEnvironment(
+    witness: Record | undefined,
+    name: string,
+    value: string | undefined,
+  ): void {
     if (witness === undefined) return;
     const key = ENVIRONMENT_PREFIX + name;
     const recorded = JSON.stringify([value ?? null]);
-    if (witness.has(key) && witness.get(key) !== recorded) witness.set(key, UNWITNESSABLE);
+    if (witness.has(key) && witness.get(key) !== recorded)
+      witness.set(key, UNWITNESSABLE);
     else if (!witness.has(key)) witness.set(key, recorded);
   }
 
@@ -133,7 +138,8 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
-   * Whether every native path and ambient variable still matches its observation.
+   * Whether every native path and ambient variable still matches its
+   * observation.
    *
    * @evidence contracts/common.md#principled-implementation Universal comparison requires every dependency to match its pre-read signature and immediately rejects a refused or changed path.
    * @evidence contracts/common.md#clear-and-simple-design Validation uses the same signature helper as capture, keeping identity and timestamp policy in one place.
@@ -151,8 +157,8 @@ export namespace PluginBuildEnvironmentWitness {
         (file.startsWith(ENVIRONMENT_PREFIX)
           ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
           : file.startsWith(LINK_PREFIX)
-          ? linkSignature(file.slice(LINK_PREFIX.length))
-          : signature(file)) !== recorded
+            ? linkSignature(file.slice(LINK_PREFIX.length))
+            : signature(file)) !== recorded
       )
         return false;
     return true;
@@ -165,10 +171,15 @@ export namespace PluginBuildEnvironmentWitness {
   const ENVIRONMENT_PREFIX = "\0environment:";
 
   function environmentSignature(name: string): string {
-    const actualName = process.platform === "win32"
-      ? Object.keys(process.env).find((key) => key.toLowerCase() === name.toLowerCase())
-      : name;
-    return JSON.stringify([actualName === undefined ? null : process.env[actualName] ?? null]);
+    const actualName =
+      process.platform === "win32"
+        ? Object.keys(process.env).find(
+            (key) => key.toLowerCase() === name.toLowerCase(),
+          )
+        : name;
+    return JSON.stringify([
+      actualName === undefined ? null : (process.env[actualName] ?? null),
+    ]);
   }
 
   /** Observe the link before its target, under the same metadata premise. */
@@ -190,7 +201,8 @@ export namespace PluginBuildEnvironmentWitness {
 
   /**
    * The metadata a replacement moves: identity, size, and modification and
-   * change times, following links; `missing` when the native stat is unavailable.
+   * change times, following links; `missing` when the native stat is
+   * unavailable.
    */
   function signature(file: string, observed?: fs.BigIntStats): string {
     try {

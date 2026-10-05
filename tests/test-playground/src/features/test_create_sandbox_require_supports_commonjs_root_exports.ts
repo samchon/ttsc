@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
- * Verifies the Execute sandbox resolves every valid CommonJS root exports shape.
+ * Verifies the Execute sandbox resolves every valid CommonJS root exports
+ * shape.
  *
  * The Execute sandbox must interpret every valid CommonJS root
  * `package.json#exports` shape consistently. Node accepts three: a bare string

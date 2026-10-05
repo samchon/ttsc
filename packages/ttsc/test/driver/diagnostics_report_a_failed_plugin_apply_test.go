@@ -31,6 +31,7 @@ func (diagnosticsApplyErrorPlugin) ApplyProgram(*driver.Program, driver.PluginCo
 //  2. Read the program's source files to perform the registered hook.
 //  3. Ask for diagnostics, and assert the failure is among them as an error,
 //     with the compiler's own findings still beside it.
+//
 // @evidence contracts/testing.md#behavioral-verification Calls SourceFiles to perform the actual failing registered plugin application, then Diagnostics must expose apply boom as an error alongside at least one compiler diagnostic.
 // @evidence contracts/testing.md#independent-expectations The authored plugin returns apply boom, while a literal string-to-number assignment independently owes a compiler error; neither expectation comes from the returned diagnostic list.
 // @evidence contracts/testing.md#distinguishing-cases Plugin failure and a separate semantic error coexist, rejecting replacement of compiler findings by the plugin error; the adjacent clean-plugin entry is the negative control.

@@ -1,4 +1,5 @@
 import typia from "typia";
+
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 
 /**
@@ -40,7 +41,7 @@ export namespace TtscGraphProtocol {
       parsed = JSON.parse(line);
     } catch (error) {
       throw new Error(
-          `@ttsc/graph: native session returned invalid JSON: ${asError(error).message}`,
+        `@ttsc/graph: native session returned invalid JSON: ${asError(error).message}`,
       );
     }
 
@@ -59,11 +60,11 @@ export namespace TtscGraphProtocol {
       // Session-wide: a version mismatch is not one bad frame, it is the wrong
       // binary, and every request against it is equally doomed.
       throw new Error(
-          `@ttsc/graph: ttscgraph speaks serve protocol ${
-            version === undefined ? "an unknown version" : `v${String(version)}`
-          }, this client speaks v${String(PROTOCOL_VERSION)}. ` +
-            "Install a matching `ttsc` (the binary resolves from the target " +
-            "project, or from TTSC_GRAPH_BINARY).",
+        `@ttsc/graph: ttscgraph speaks serve protocol ${
+          version === undefined ? "an unknown version" : `v${String(version)}`
+        }, this client speaks v${String(PROTOCOL_VERSION)}. ` +
+          "Install a matching `ttsc` (the binary resolves from the target " +
+          "project, or from TTSC_GRAPH_BINARY).",
       );
     }
 
@@ -77,7 +78,7 @@ export namespace TtscGraphProtocol {
       response = typia.assert<ITtscGraphSnapshot>(parsed);
     } catch (error) {
       throw new Error(
-          `@ttsc/graph: native session returned an unreadable response: ${asError(error).message}`,
+        `@ttsc/graph: native session returned an unreadable response: ${asError(error).message}`,
       );
     }
     return response;

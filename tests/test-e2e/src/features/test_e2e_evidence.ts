@@ -32,7 +32,13 @@ import { case_evidence_positive_watch_consumers_share_one_watcher } from "./evid
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TransitionProject.enter checks recorded unresolved-reader admission before resetting src/docs/api and configuration. withEvidenceProject calls cleanup after collection, retaining both primary and cleanup errors; cleanup refuses recorded unknown ownership. This is not omniscient proof that every possible descendant closed. Other entries own their separate cleanup and reuse gates.
  * @evidence contracts/e2e.md#preserved-coverage All six scene bodies and their individual assertions remain. Default calls preserve their order; the prepared common consumer runs transitions and the combined corpus, while the explicit Native lifecycle entry runs the positive watcher. Existing loader donors and exact direct counterparts remain recorded separately with authored versus executed ownership distinguished; no unchanged-body relocation or runtime survival is certified by this wrapper. Meaningful duplicate removal still requires actual survivor execution.
  */
-export async function test_e2e_evidence(preparation: { preparedModules?: string; workspaceParent?: string; includeWatch?: boolean } = {}): Promise<void> {
+export async function test_e2e_evidence(
+  preparation: {
+    preparedModules?: string;
+    workspaceParent?: string;
+    includeWatch?: boolean;
+  } = {},
+): Promise<void> {
   await Scenarios.collect("evidence", [
     [
       "transitions",
@@ -84,9 +90,13 @@ export async function test_e2e_evidence(preparation: { preparedModules?: string;
       "consumer_batch_accepts_complete_graphs",
       () => case_evidence_consumer_batch_accepts_complete_graphs(preparation),
     ],
-    ...(preparation.includeWatch === false ? [] : [[
-      "positive_watch_consumers_share_one_watcher",
-      case_evidence_positive_watch_consumers_share_one_watcher,
-    ] as const]),
+    ...(preparation.includeWatch === false
+      ? []
+      : [
+          [
+            "positive_watch_consumers_share_one_watcher",
+            case_evidence_positive_watch_consumers_share_one_watcher,
+          ] as const,
+        ]),
   ]);
 }

@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   acquirePluginBuildLock,
   assert,
@@ -14,11 +13,12 @@ import {
  * just-returned binary.
  *
  * A pass told to evict everything must still protect an entry whose build lock
- * shows an owner that cannot yet be disproven and the entry the caller is about to
- * use, so only the unowned old entry may be removed.
+ * shows an owner that cannot yet be disproven and the entry the caller is about
+ * to use, so only the unowned old entry may be removed.
  *
  * 1. Seed four old cache entries: one under a young metadata-less legacy lock, one
- *    under a live current-protocol (v3) lease, the returned binary and an unowned one.
+ *    under a live current-protocol (v3) lease, the returned binary and an
+ *    unowned one.
  * 2. Prune with a one-byte budget, a zero target and the returned entry protected.
  * 3. Require the locked and returned entries to remain and the unowned one to be
  *    removed.

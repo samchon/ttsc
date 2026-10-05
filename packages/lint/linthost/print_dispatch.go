@@ -51,13 +51,13 @@ import (
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintContext is a declaration of data shape; the code that holds its values owns their lifetime.
 type PrintContext struct {
   // File is the borrowed compiler source file; do not mutate it during reflow.
-  File   *shimast.SourceFile
+  File *shimast.SourceFile
 
   // Source is the same file's original text, using compiler byte positions.
   Source string
 
   // Opts controls layout decisions throughout this reflow.
-  Opts   PrintOptions
+  Opts PrintOptions
 }
 
 // NewPrintContext returns a context wired to `file` and `opts`. The

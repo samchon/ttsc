@@ -270,7 +270,7 @@ var nodeBuiltinModules = map[string]struct{}{
   "_tls_common": {}, "_tls_wrap": {},
   "assert": {}, "async_hooks": {}, "buffer": {}, "child_process": {},
   "assert/strict": {},
-  "cluster": {}, "console": {}, "constants": {}, "crypto": {},
+  "cluster":       {}, "console": {}, "constants": {}, "crypto": {},
   "dgram": {}, "diagnostics_channel": {}, "dns": {}, "domain": {},
   "dns/promises": {}, "events": {}, "fs": {}, "fs/promises": {},
   "http": {}, "http2": {}, "https": {},

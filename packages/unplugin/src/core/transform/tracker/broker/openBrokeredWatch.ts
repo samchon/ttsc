@@ -44,10 +44,9 @@ import { sweepAbandonedWatchProbes } from "./sweepAbandonedWatchProbes";
  *   (samchon/ttsc#1453). A location outside it cannot be proven that way.
  * @param options.sink Where the registration's messages go.
  * @returns `ready`, which ends the opening wait on acknowledgment, failed
- *   timeout or explicit closure without itself certifying success; `close`, which
- *   removes the registration and retires the broker after its last one, and
- *   throws the first cleanup failure; and `drain`, the broker's barrier.
- *
+ *   timeout or explicit closure without itself certifying success; `close`,
+ *   which removes the registration and retires the broker after its last one,
+ *   and throws the first cleanup failure; and `drain`, the broker's barrier.
  * @evidence contracts/common.md#principled-implementation
  *   Opening paths map back to caller spellings, using native realpath or lexical
  *   fallback; duplicate resolved directories keep the last caller spelling.

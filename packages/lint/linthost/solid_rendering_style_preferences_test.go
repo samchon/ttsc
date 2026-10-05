@@ -50,10 +50,10 @@ function Icon() {
     {Rule: "solid/self-closing-comp", Severity: SeverityError, Line: 12},
   })
   assertSolidFindings(t, "import { createSignal } from \"solid-js\"; function App() { createSignal(0); return <div classList={{ active: true }} style={{ \"font-size\": \"12px\" }} />; }\n", RuleConfig{
-    "solid/prefer-classlist": SeverityError,
-    "solid/prefer-for": SeverityError,
-    "solid/prefer-show": SeverityError,
+    "solid/prefer-classlist":  SeverityError,
+    "solid/prefer-for":        SeverityError,
+    "solid/prefer-show":       SeverityError,
     "solid/self-closing-comp": SeverityError,
-    "solid/style-prop": SeverityError,
+    "solid/style-prop":        SeverityError,
   }, nil)
 }

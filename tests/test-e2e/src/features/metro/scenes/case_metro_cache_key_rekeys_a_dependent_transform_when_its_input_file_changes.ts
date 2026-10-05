@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import { prepareSnapshot } from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies the two-run acceptance reproduction of samchon/ttsc#721, in-project
@@ -51,12 +51,19 @@ export async function case_metro_cache_key_rekeys_a_dependent_transform_when_its
     options,
     async (mod) => {
       const key = mod.getCacheKey({ projectRoot: root }) as string;
-      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "unchanged first input must retain the key");
-      return { key, result: await mod.transform({
-        src: TestUnpluginProject.mainSource(root),
-        filename: "src/main.ts",
-        options: { projectRoot: root },
-      }) };
+      assert.equal(
+        mod.getCacheKey({ projectRoot: root }),
+        key,
+        "unchanged first input must retain the key",
+      );
+      return {
+        key,
+        result: await mod.transform({
+          src: TestUnpluginProject.mainSource(root),
+          filename: "src/main.ts",
+          options: { projectRoot: root },
+        }),
+      };
     },
   );
   assert.match(runOne.result.ast.src, /PLUGIN:FIRST/);
@@ -66,12 +73,19 @@ export async function case_metro_cache_key_rekeys_a_dependent_transform_when_its
     options,
     async (mod) => {
       const key = mod.getCacheKey({ projectRoot: root }) as string;
-      assert.equal(mod.getCacheKey({ projectRoot: root }), key, "unchanged second input must retain the key");
-      return { key, result: await mod.transform({
-        src: TestUnpluginProject.mainSource(root),
-        filename: "src/main.ts",
-        options: { projectRoot: root },
-      }) };
+      assert.equal(
+        mod.getCacheKey({ projectRoot: root }),
+        key,
+        "unchanged second input must retain the key",
+      );
+      return {
+        key,
+        result: await mod.transform({
+          src: TestUnpluginProject.mainSource(root),
+          filename: "src/main.ts",
+          options: { projectRoot: root },
+        }),
+      };
     },
   );
   assert.notEqual(runTwo.key, runOne.key);

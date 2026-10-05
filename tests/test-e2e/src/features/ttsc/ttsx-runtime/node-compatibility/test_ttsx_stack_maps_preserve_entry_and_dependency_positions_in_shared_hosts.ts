@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, physicalRealpath, tallCommentThrowerSource } from "../../../../internal/ttsc/internal/ttsx-source-map";
+import {
+  THROWER_THROW_COLUMN,
+  THROWER_THROW_LINE,
+  physicalRealpath,
+  tallCommentThrowerSource,
+} from "../../../../internal/ttsc/internal/ttsx-source-map";
 
 /**
  * Verifies native error stacks consume entry and dependency source maps.
@@ -26,43 +31,110 @@ import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, physicalRealpath, tallComment
  * @evidence contracts/e2e.md#preserved-coverage All three former cases retain nonzero exit plus original boom/depBoom physical-source line/column stderr assertions. The batch strengthens them with independent did-throw flags for both lanes and rechecks the dependency under both root configurations; all frame failures are collected.
  */
 export function test_ttsx_stack_maps_preserve_entry_and_dependency_positions_in_shared_hosts(): void {
-  const options = { target: "ES2022", module: "commonjs", strict: true, sourceMap: true, outDir: "lib", rootDir: "src" };
+  const options = {
+    target: "ES2022",
+    module: "commonjs",
+    strict: true,
+    sourceMap: true,
+    outDir: "lib",
+    rootDir: "src",
+  };
   const root = TestProject.createProject({
     "package.json": JSON.stringify({ private: true }),
-    "tsconfig.json": JSON.stringify({ compilerOptions: options, include: ["src"] }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: options,
+      include: ["src"],
+    }),
     "src/boom.ts": tallCommentThrowerSource("boom", "entry boom"),
-    "node_modules/built-dep/package.json": JSON.stringify({ name: "built-dep", version: "1.0.0", exports: { ".": "./src/index.ts" } }),
-    "node_modules/built-dep/tsconfig.json": JSON.stringify({ compilerOptions: options, include: ["src"] }),
-    "node_modules/built-dep/src/index.ts": tallCommentThrowerSource("depBoom", "dependency boom"),
+    "node_modules/built-dep/package.json": JSON.stringify({
+      name: "built-dep",
+      version: "1.0.0",
+      exports: { ".": "./src/index.ts" },
+    }),
+    "node_modules/built-dep/tsconfig.json": JSON.stringify({
+      compilerOptions: options,
+      include: ["src"],
+    }),
+    "node_modules/built-dep/src/index.ts": tallCommentThrowerSource(
+      "depBoom",
+      "dependency boom",
+    ),
     "src/main.ts": [
-      'import { boom } from "./boom";', 'import { depBoom } from "built-dep";',
+      'import { boom } from "./boom";',
+      'import { depBoom } from "built-dep";',
       "const records: { name: string; threw: boolean; stack?: string }[] = [];",
       "let last: unknown;",
       'for (const [name, fn] of [["boom", boom], ["depBoom", depBoom]] as const) {',
       "  try { fn(); records.push({ name, threw: false }); }",
       "  catch (error) { last = error; console.error((error as Error).stack); records.push({ name, threw: true, stack: (error as Error).stack }); }",
-      "}", "console.log(JSON.stringify(records));", "if (last !== undefined) throw last;", "",
+      "}",
+      "console.log(JSON.stringify(records));",
+      "if (last !== undefined) throw last;",
+      "",
     ].join("\n"),
   });
   const failures: Error[] = [];
   for (const sourceMap of [true, false]) {
-    fs.writeFileSync(path.join(root, "tsconfig.json"), JSON.stringify({ compilerOptions: { ...options, sourceMap }, include: ["src"] }));
-    const result = TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { ...options, sourceMap },
+        include: ["src"],
+      }),
+    );
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/main.ts"],
+      { cwd: root },
+    );
     try {
-      assert.notEqual(result.status, 0, "the actual rethrown error must fail the run");
-      const records = JSON.parse(result.stdout.trim()) as { name: string; threw: boolean; stack?: string }[];
-      assert.deepEqual(records.map(({ name, threw }) => ({ name, threw })), [{ name: "boom", threw: true }, { name: "depBoom", threw: true }]);
-      for (const [name, relative] of [["boom", "src/boom.ts"], ["depBoom", "node_modules/built-dep/src/index.ts"]]) {
+      assert.notEqual(
+        result.status,
+        0,
+        "the actual rethrown error must fail the run",
+      );
+      const records = JSON.parse(result.stdout.trim()) as {
+        name: string;
+        threw: boolean;
+        stack?: string;
+      }[];
+      assert.deepEqual(
+        records.map(({ name, threw }) => ({ name, threw })),
+        [
+          { name: "boom", threw: true },
+          { name: "depBoom", threw: true },
+        ],
+      );
+      for (const [name, relative] of [
+        ["boom", "src/boom.ts"],
+        ["depBoom", "node_modules/built-dep/src/index.ts"],
+      ]) {
         try {
           const frame = `${name} (${physicalRealpath(path.join(root, relative!))}:${THROWER_THROW_LINE}:${THROWER_THROW_COLUMN})`;
-          const stack = records.find((record) => record.name === name)?.stack ?? "";
-          assert.ok(fold(stack).includes(fold(frame)), `stack must contain ${frame}\n${stack}`);
-          assert.ok(fold(result.stderr).includes(fold(frame)), `stderr must contain ${frame}\n${result.stderr}`);
-        } catch (error) { failures.push(new Error(`sourceMap=${sourceMap}: ${name}`, { cause: error })); }
+          const stack =
+            records.find((record) => record.name === name)?.stack ?? "";
+          assert.ok(
+            fold(stack).includes(fold(frame)),
+            `stack must contain ${frame}\n${stack}`,
+          );
+          assert.ok(
+            fold(result.stderr).includes(fold(frame)),
+            `stderr must contain ${frame}\n${result.stderr}`,
+          );
+        } catch (error) {
+          failures.push(
+            new Error(`sourceMap=${sourceMap}: ${name}`, { cause: error }),
+          );
+        }
       }
-    } catch (error) { failures.push(new Error(`sourceMap=${sourceMap}: host`, { cause: error })); }
+    } catch (error) {
+      failures.push(
+        new Error(`sourceMap=${sourceMap}: host`, { cause: error }),
+      );
+    }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "runtime stack map assertions failed");
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "runtime stack map assertions failed");
 }
 
 function fold(value: string): string {

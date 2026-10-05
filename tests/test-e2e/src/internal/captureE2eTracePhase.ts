@@ -1,15 +1,23 @@
 import path from "node:path";
 
-import { captureE2ePreparedAssets, type PreparedAssetSelection, type PreparedAssetObservation } from "./captureE2ePreparedAssets";
 import { E2eCacheObservations } from "./E2eCacheObservations";
-import { readE2eTraceMeasurements, type TraceMeasurements } from "./readE2eTraceMeasurements";
+import {
+  type PreparedAssetObservation,
+  type PreparedAssetSelection,
+  captureE2ePreparedAssets,
+} from "./captureE2ePreparedAssets";
+import {
+  type TraceMeasurements,
+  readE2eTraceMeasurements,
+} from "./readE2eTraceMeasurements";
 
 /**
- * Brackets one explicitly selected operation with file/cache/trace observations.
- * This helper never starts a runner, selects a family or certifies child joins.
- * The operation owner must settle its requests and join its owned writers before
- * returning; callback completion itself is not evidence of that responsibility.
- * Phase labels belong only to this returned coordinator record.
+ * Brackets one explicitly selected operation with file/cache/trace
+ * observations. This helper never starts a runner, selects a family or
+ * certifies child joins. The operation owner must settle its requests and join
+ * its owned writers before returning; callback completion itself is not
+ * evidence of that responsibility. Phase labels belong only to this returned
+ * coordinator record.
  *
  * @evidence contracts/common.md#principled-implementation Preserves the original operation's returned value or thrown error separately from observation failures, using actual monotonic duration and native before/after observations at the unchanged opt-in root.
  * @evidence contracts/common.md#clear-and-simple-design One explicit operation and preparation list produce one phase record. It delegates file, cache and writer observations to their owning helpers rather than inventing expected process populations.
@@ -26,7 +34,7 @@ export async function captureE2eTracePhase<T>(
 ): Promise<TracePhaseObservation<T>> {
   const traceRoot = input.traceRoot;
   const label = input.label;
-  const assets = input.assets.map(asset => ({ ...asset }));
+  const assets = input.assets.map((asset) => ({ ...asset }));
   const cacheRoots = [...input.cacheRoots];
   const afterSequences = { ...input.afterSequences };
   if (!path.isAbsolute(traceRoot) || process.env.TTSC_E2E_TRACE !== traceRoot)
@@ -36,8 +44,11 @@ export async function captureE2eTracePhase<T>(
   const startedAt = new Date().toISOString();
   const start = process.hrtime.bigint();
   let outcome: TracePhaseObservation<T>["outcome"];
-  try { outcome = { returned: true, value: await operation() }; }
-  catch (error) { outcome = { returned: false, error }; }
+  try {
+    outcome = { returned: true, value: await operation() };
+  } catch (error) {
+    outcome = { returned: false, error };
+  }
   const elapsedNanoseconds = (process.hrtime.bigint() - start).toString();
   const finishedAt = new Date().toISOString();
   const observationErrors: { owner: string; error: unknown }[] = [];
@@ -45,20 +56,52 @@ export async function captureE2eTracePhase<T>(
   let cachesAfter: E2eCacheObservations.Snapshot | undefined;
   let traces: TraceMeasurements | undefined;
   // Collect every independent post-operation observation even if another fails.
-  try { assetsAfter = captureE2ePreparedAssets(assets); }
-  catch (error) { observationErrors.push({ owner: "prepared-assets", error }); }
-  try { cachesAfter = E2eCacheObservations.capture(cacheRoots); }
-  catch (error) { observationErrors.push({ owner: "cache-entries", error }); }
-  try { traces = readE2eTraceMeasurements(traceRoot, input.requiredWriterPids, afterSequences); }
-  catch (error) { observationErrors.push({ owner: "trace-writers", error }); }
+  try {
+    assetsAfter = captureE2ePreparedAssets(assets);
+  } catch (error) {
+    observationErrors.push({ owner: "prepared-assets", error });
+  }
+  try {
+    cachesAfter = E2eCacheObservations.capture(cacheRoots);
+  } catch (error) {
+    observationErrors.push({ owner: "cache-entries", error });
+  }
+  try {
+    traces = readE2eTraceMeasurements(
+      traceRoot,
+      input.requiredWriterPids,
+      afterSequences,
+    );
+  } catch (error) {
+    observationErrors.push({ owner: "trace-writers", error });
+  }
   if (process.env.TTSC_E2E_TRACE !== traceRoot)
-    observationErrors.push({ owner: "trace-root", error: new Error("Opt-in root changed during phase") });
+    observationErrors.push({
+      owner: "trace-root",
+      error: new Error("Opt-in root changed during phase"),
+    });
   return {
-    label, traceRoot, startedAt, finishedAt, elapsedNanoseconds,
-    coordinator: { runtimeVersion: process.version, executable: process.execPath, pid: process.pid },
-    outcome, assetsBefore, assetsAfter, cachesBefore, cachesAfter,
-    cacheDelta: cachesAfter ? E2eCacheObservations.difference(cachesBefore, cachesAfter) : undefined,
-    traces, requiredWriterPids: [...input.requiredWriterPids], observationErrors,
+    label,
+    traceRoot,
+    startedAt,
+    finishedAt,
+    elapsedNanoseconds,
+    coordinator: {
+      runtimeVersion: process.version,
+      executable: process.execPath,
+      pid: process.pid,
+    },
+    outcome,
+    assetsBefore,
+    assetsAfter,
+    cachesBefore,
+    cachesAfter,
+    cacheDelta: cachesAfter
+      ? E2eCacheObservations.difference(cachesBefore, cachesAfter)
+      : undefined,
+    traces,
+    requiredWriterPids: [...input.requiredWriterPids],
+    observationErrors,
     completenessCertified: false,
   };
 }

@@ -9,7 +9,8 @@ import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTra
  * own FSEventStream, whose dropped events are reported, rather than one libuv
  * re-creates whenever any watch in the host opens or closes, and whose drops it
  * discards (samchon/ttsc#1418, samchon/ttsc#1425). An embedder that supplies
- * its own `watch` retains that capability, including for a host-filesystem view.
+ * its own `watch` retains that capability, including for a host-filesystem
+ * view.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A supplied filesystem watcher is authoritative; only the native host

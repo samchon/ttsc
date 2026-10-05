@@ -217,7 +217,8 @@ export const getSyntheticTrailingComments = (
  * call chaining.
  *
  * Nonempty input is copied shallowly: later changes to the caller's array do
- * not replace stored membership, while individual comment records remain shared.
+ * not replace stored membership, while individual comment records remain
+ * shared.
  *
  * @evidence contracts/common.md#principled-implementation Empty or absent input deletes the node's entry; nonempty input is shallow-copied into the leading store, preserving order and returning the original node.
  * @evidence contracts/common.md#clear-and-simple-design The setter owns replacement and clearing directly; it does not mix those operations with append or printer layout.
@@ -241,7 +242,8 @@ export const setSyntheticLeadingComments = <T extends Node>(
  * call chaining.
  *
  * Nonempty input is copied shallowly: later changes to the caller's array do
- * not replace stored membership, while individual comment records remain shared.
+ * not replace stored membership, while individual comment records remain
+ * shared.
  *
  * @evidence contracts/common.md#principled-implementation Deletion represents no trailing comments; a shallow copy records nonempty replacement membership without taking ownership of the caller's array.
  * @evidence contracts/common.md#clear-and-simple-design Replacement and deletion are explicit branches over the trailing store, leaving ordered append and formatting to their existing owners.

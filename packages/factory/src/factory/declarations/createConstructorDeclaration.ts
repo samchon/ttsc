@@ -23,6 +23,11 @@ import { make } from "../internal/make";
  * constructor(private readonly value: number) {}
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param parameters The parameters.
+ * @param body The body.
+ * @returns The created {@link ConstructorDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   ConstructorDeclaration retains ordered parameters and an optional Block;
  *   parameter modifiers express property declarations at the constructor context.
@@ -37,12 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains accessibility-based parameter properties and empty-block
  *   layout, with separate example and acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param parameters The parameters.
- * @param body The body.
- * @returns The created {@link ConstructorDeclaration}.
  */
 export const createConstructorDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

@@ -8,7 +8,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // outside this source analysis. No automatic edit is offered.
 type preferReadonly struct{}
 
-func (preferReadonly) Name() string { return "typescript/prefer-readonly" }
+func (preferReadonly) Name() string           { return "typescript/prefer-readonly" }
 func (preferReadonly) NeedsTypeChecker() bool { return true }
 func (preferReadonly) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindPropertyDeclaration}

@@ -49,7 +49,7 @@ func TestLSPProxyExecutesOwnedCommandWithEdit(t *testing.T) {
   body := h.recvEditor()
 
   var response struct {
-    ID int `json:"id"`
+    ID     int                      `json:"id"`
     Result *driver.LSPWorkspaceEdit `json:"result"`
   }
   if err := json.Unmarshal(body, &response); err != nil {

@@ -17,9 +17,9 @@ export type CompilerDirectoryWatchEventPlan = {
 
   /**
    * Tracked files selected for per-file watcher rearming after a rename or an
-   * unnamed event. This plan alone does not establish inode replacement.
-   * Always empty on Windows,
-   * where inputs are observed through their directories only.
+   * unnamed event. This plan alone does not establish inode replacement. Always
+   * empty on Windows, where inputs are observed through their directories
+   * only.
    */
   rearm: string[];
 

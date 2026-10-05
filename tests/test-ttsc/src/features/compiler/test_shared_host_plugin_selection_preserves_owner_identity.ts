@@ -79,5 +79,8 @@ export function test_shared_host_plugin_selection_preserves_owner_identity(): vo
     });
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "shared host selection observations failed");
+    throw new AggregateError(
+      failures,
+      "shared host selection observations failed",
+    );
 }

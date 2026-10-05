@@ -7,7 +7,11 @@ import { E2eProcessTrace } from "./E2eProcessTrace";
 
 const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
   begin(): string | undefined;
-  record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+  record(
+    event: string,
+    invocation: string | undefined,
+    fields: Record<string, unknown>,
+  ): void;
 };
 
 /** Discovers and runs the named feature exports of the package-shaped suites. */
@@ -36,16 +40,21 @@ export namespace TestExecutor {
   export const main = async (props: IProps): Promise<void> => {
     const include = getArguments("include");
     const exclude = getArguments("exclude");
-    const locations = typeof props.location === "string" ? [props.location] : props.location;
+    const locations =
+      typeof props.location === "string" ? [props.location] : props.location;
     const selected = (name: string): boolean =>
-      name.startsWith("test_") && name.endsWith(".ts") &&
+      name.startsWith("test_") &&
+      name.endsWith(".ts") &&
       (!include.length || include.some((value) => name.includes(value))) &&
       exclude.every((value) => !name.includes(value));
     const started = Date.now();
     let finished = false;
     const guard = (code: number): void => {
       if (!finished && code === 0) {
-        fs.writeSync(2, "The runner exited before finishing. Cases after the last printed result were not run.\n");
+        fs.writeSync(
+          2,
+          "The runner exited before finishing. Cases after the last printed result were not run.\n",
+        );
         process.exitCode = 1;
       }
     };
@@ -62,8 +71,12 @@ export namespace TestExecutor {
       const files: string[] = [];
       const visit = (directory: string): void => {
         let entries: fs.Dirent[];
-        try { entries = fs.readdirSync(directory, { withFileTypes: true }); }
-        catch (error) { fail(`Test discovery failed under ${directory}`, error); return; }
+        try {
+          entries = fs.readdirSync(directory, { withFileTypes: true });
+        } catch (error) {
+          fail(`Test discovery failed under ${directory}`, error);
+          return;
+        }
         for (const entry of entries) {
           const file = path.join(directory, entry.name);
           if (entry.isDirectory()) visit(file);
@@ -74,11 +87,17 @@ export namespace TestExecutor {
         if (fs.statSync(location).isFile()) {
           if (selected(path.basename(location))) files.push(location);
         } else visit(location);
-      } catch (error) { fail(`Test discovery failed under ${location}`, error); }
+      } catch (error) {
+        fail(`Test discovery failed under ${location}`, error);
+      }
       for (const file of files) {
         let exports: Record<string, unknown>;
-        try { exports = await import(pathToFileURL(file).href); }
-        catch (error) { fail(`Test import failed: ${file}`, error); continue; }
+        try {
+          exports = await import(pathToFileURL(file).href);
+        } catch (error) {
+          fail(`Test import failed: ${file}`, error);
+          continue;
+        }
         for (const [name, run] of Object.entries(exports)) {
           if (!name.startsWith("test_") || typeof run !== "function") continue;
           const before = Date.now();
@@ -92,18 +111,33 @@ export namespace TestExecutor {
             const value = await run();
             trace.record("test-result", invocation, {
               pid: process.pid,
-              data: { writerRuntime: process.version, file, name,
-                outcome: value === false ? "skipped" : "returned", assertionCoverageCertified: false },
+              data: {
+                writerRuntime: process.version,
+                file,
+                name,
+                outcome: value === false ? "skipped" : "returned",
+                assertionCoverageCertified: false,
+              },
             });
             if (value === false) {
               skipped++;
-              console.log(`  - ${name}: SKIPPED (returned false; no coverage claimed)`);
-            } else console.log(`  - \x1b[32m${name}\x1b[0m: \x1b[33m${(Date.now() - before).toLocaleString()} ms\x1b[0m`);
+              console.log(
+                `  - ${name}: SKIPPED (returned false; no coverage claimed)`,
+              );
+            } else
+              console.log(
+                `  - \x1b[32m${name}\x1b[0m: \x1b[33m${(Date.now() - before).toLocaleString()} ms\x1b[0m`,
+              );
           } catch (error) {
             trace.record("test-result", invocation, {
               pid: process.pid,
-              data: { writerRuntime: process.version, file, name,
-                outcome: "threw", assertionCoverageCertified: false },
+              data: {
+                writerRuntime: process.version,
+                file,
+                name,
+                outcome: "threw",
+                assertionCoverageCertified: false,
+              },
             });
             fail(`Test failed: ${name} (${file})`, error);
           }
@@ -111,9 +145,15 @@ export namespace TestExecutor {
       }
     }
     if (executed === 0)
-      fail(include.length ? `No tests matched --include=${include.join(",")}` : `No tests were discovered under ${locations.join(", ")}`, undefined);
+      fail(
+        include.length
+          ? `No tests matched --include=${include.join(",")}`
+          : `No tests were discovered under ${locations.join(", ")}`,
+        undefined,
+      );
     console.log(failures.length ? "Failed" : "Success");
-    if (skipped) console.log(`${skipped} case(s) skipped; no coverage claimed.`);
+    if (skipped)
+      console.log(`${skipped} case(s) skipped; no coverage claimed.`);
     console.log("Elapsed time", (Date.now() - started).toLocaleString(), "ms");
     finished = true;
     process.removeListener("exit", guard);
@@ -123,8 +163,11 @@ export namespace TestExecutor {
   /** Read repeatable comma-separated filters from the current invocation. */
   function getArguments(key: string): string[] {
     const prefix = `--${key}=`;
-    return process.argv.slice(2).filter((value) => value.startsWith(prefix))
+    return process.argv
+      .slice(2)
+      .filter((value) => value.startsWith(prefix))
       .flatMap((value) => value.slice(prefix.length).split(","))
-      .map((value) => value.trim()).filter(Boolean);
+      .map((value) => value.trim())
+      .filter(Boolean);
   }
 }

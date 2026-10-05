@@ -31,7 +31,7 @@ func TestOneSchemaReachedThroughALinkedDirectoryIsParsedOnce(t *testing.T) {
   root := prismaBridgeRoot(t, map[string]string{
     "store/main.prisma": "/// @evidence https://example.com/sale\nmodel sale {\n  id String @id\n}\n",
   })
-  if err := linkDirectory(t, 
+  if err := linkDirectory(t,
     filepath.Join(root, "store"),
     filepath.Join(root, "mirror"),
   ); err != nil {

@@ -17,7 +17,10 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The table covers hash/static fields, aliases, computed keys, nested callbacks, constructor writes, object mutation, already-readonly and public fields.
 // @evidence contracts/testing.md#execution-ownership TestPreferReadonlyPreservesMutatedPrivateFields runs each named subcase through runRuleFindingsSnapshot in the enrolled rules unit population; a real Checker is supplied when the rule requires one, without a child host or native build.
 func TestPreferReadonlyPreservesMutatedPrivateFields(t *testing.T) {
-  cases := []struct { name, source string; want int }{
+  cases := []struct {
+    name, source string
+    want         int
+  }{
     {"initialized", "class A { private value = 0; read() { return this.value; } }", 1},
     {"increment", "class A { private value = 0; update() { this.value++; } }", 0},
     {"prefix", "class A { private value = 0; update() { --this.value; } }", 0},
@@ -46,7 +49,9 @@ func TestPreferReadonlyPreservesMutatedPrivateFields(t *testing.T) {
   for _, c := range cases {
     t.Run(c.name, func(t *testing.T) {
       _, _, findings := runRuleFindingsSnapshot(t, "typescript/prefer-readonly", c.source, nil)
-      if len(findings) != c.want { t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings) }
+      if len(findings) != c.want {
+        t.Errorf("findings=%d, want %d: %+v", len(findings), c.want, findings)
+      }
     })
   }
 }

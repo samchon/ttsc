@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
-import { hasProjectPluginEntries } from "../../../../../packages/ttsc/src/plugin/internal/load/hasProjectPluginEntries";
 import { ProjectPluginEntries } from "../../../../../packages/ttsc/src/plugin/internal/load/ProjectPluginEntries";
+import { hasProjectPluginEntries } from "../../../../../packages/ttsc/src/plugin/internal/load/hasProjectPluginEntries";
 import type { ITtscProjectPluginConfig } from "../../../../../packages/ttsc/src/structures/ITtscProjectPluginConfig";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -15,13 +15,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * its error. Presence resolves metadata but must not evaluate a descriptor.
  * Full project records come from the actual owned config reader.
  *
- * 1. Require false, empty and all-disabled explicit inputs to remain absent,
- *    and mixed or implicitly enabled inputs to remain present.
+ * 1. Require false, empty and all-disabled explicit inputs to remain absent, and
+ *    mixed or implicitly enabled inputs to remain present.
  * 2. Resolve omitted inputs from configured and automatic entries, including
  *    ordinary absence and disabled automatic markers.
  * 3. Require malformed automatic markers to throw their literal diagnostics.
- * 4. Retain one default automatic strip entry from an own or ancestor manifest;
- *    a configured entry for that package replaces it and preserves configFile.
+ * 4. Retain one default automatic strip entry from an own or ancestor manifest; a
+ *    configured entry for that package replaces it and preserves configFile.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual hasProjectPluginEntries export consumes full readProjectConfig results and native temporary manifests. Explicit selections bypass an automatic marker that throws when omitted; configured and discovered enabled entries return true without descriptor execution, and malformed discovered markers remain errors.
  * @evidence contracts/testing.md#independent-expectations Literal false/true outcomes follow explicit disable, enabled-not-false selection and declared automatic marker semantics. Literal attributed marker diagnostics distinguish resolver errors from fabricated absence. Authored package manifests define the exact sole automatic entry without configFile and the sole configured entry retaining custom configFile; no descriptor is evaluated to derive these expectations.
@@ -90,12 +90,14 @@ export function test_project_plugin_presence_preserves_explicit_selection_and_di
     {
       name: "malformed automatic marker remains an error",
       marker: { plugin: null },
-      error: 'ttsc: package "owned-plugin" declares invalid "ttsc.plugin"; expected an object',
+      error:
+        'ttsc: package "owned-plugin" declares invalid "ttsc.plugin"; expected an object',
     },
     {
       name: "empty automatic transform remains an error",
       marker: { plugin: { transform: "" } },
-      error: 'ttsc: package "owned-plugin" declares invalid "ttsc.plugin.transform"; expected a non-empty string',
+      error:
+        'ttsc: package "owned-plugin" declares invalid "ttsc.plugin.transform"; expected a non-empty string',
     },
   ];
   for (const scenario of cases) {
@@ -106,7 +108,9 @@ export function test_project_plugin_presence_preserves_explicit_selection_and_di
       const config = path.join(root, "tsconfig.json");
       fs.writeFileSync(
         config,
-        JSON.stringify({ compilerOptions: { plugins: scenario.configured ?? [] } }),
+        JSON.stringify({
+          compilerOptions: { plugins: scenario.configured ?? [] },
+        }),
         "utf8",
       );
       fs.writeFileSync(
@@ -157,39 +161,81 @@ export function test_project_plugin_presence_preserves_explicit_selection_and_di
     }
   }
   for (const packageLocation of ["own", "ancestor"] as const) {
-    const workspace = TestProject.physicalPath(TestProject.tmpdir("ttsc-plugin-package-selection-"));
+    const workspace = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-plugin-package-selection-"),
+    );
     try {
       const projectRoot = path.join(workspace, "app");
       fs.mkdirSync(projectRoot);
       const packageRoot = packageLocation === "own" ? projectRoot : workspace;
-      const dependency = path.join(packageRoot, "node_modules", "@ttsc", "strip");
+      const dependency = path.join(
+        packageRoot,
+        "node_modules",
+        "@ttsc",
+        "strip",
+      );
       fs.mkdirSync(dependency, { recursive: true });
-      fs.writeFileSync(path.join(packageRoot, "package.json"), JSON.stringify({
-        name: "owned-consumer", dependencies: { "@ttsc/strip": "1.0.0" },
-      }), "utf8");
-      fs.writeFileSync(path.join(dependency, "package.json"), JSON.stringify({
-        name: "@ttsc/strip", main: "descriptor.cjs",
-        ttsc: { plugin: { transform: "./descriptor.cjs" } },
-      }), "utf8");
-      fs.writeFileSync(path.join(dependency, "descriptor.cjs"), 'throw new Error("selection must not evaluate strip");\n', "utf8");
+      fs.writeFileSync(
+        path.join(packageRoot, "package.json"),
+        JSON.stringify({
+          name: "owned-consumer",
+          dependencies: { "@ttsc/strip": "1.0.0" },
+        }),
+        "utf8",
+      );
+      fs.writeFileSync(
+        path.join(dependency, "package.json"),
+        JSON.stringify({
+          name: "@ttsc/strip",
+          main: "descriptor.cjs",
+          ttsc: { plugin: { transform: "./descriptor.cjs" } },
+        }),
+        "utf8",
+      );
+      fs.writeFileSync(
+        path.join(dependency, "descriptor.cjs"),
+        'throw new Error("selection must not evaluate strip");\n',
+        "utf8",
+      );
       const config = path.join(projectRoot, "tsconfig.json");
       fs.writeFileSync(config, "{}\n", "utf8");
-      const automatic = ProjectPluginEntries.resolvePluginEntries(readProjectConfig({ tsconfig: config }));
-      assert.deepEqual(automatic, [{ baseDir: dependency, config: { transform: "./descriptor.cjs" } }]);
+      const automatic = ProjectPluginEntries.resolvePluginEntries(
+        readProjectConfig({ tsconfig: config }),
+      );
+      assert.deepEqual(automatic, [
+        { baseDir: dependency, config: { transform: "./descriptor.cjs" } },
+      ]);
       assert.equal(Object.hasOwn(automatic[0]!.config, "configFile"), false);
-      const configured = { transform: "@ttsc/strip", configFile: "custom-strip.json" };
-      fs.writeFileSync(config, JSON.stringify({ compilerOptions: { plugins: [configured] } }), "utf8");
+      const configured = {
+        transform: "@ttsc/strip",
+        configFile: "custom-strip.json",
+      };
+      fs.writeFileSync(
+        config,
+        JSON.stringify({ compilerOptions: { plugins: [configured] } }),
+        "utf8",
+      );
       assert.deepEqual(
-        ProjectPluginEntries.resolvePluginEntries(readProjectConfig({ tsconfig: config })),
+        ProjectPluginEntries.resolvePluginEntries(
+          readProjectConfig({ tsconfig: config }),
+        ),
         [{ baseDir: projectRoot, config: configured }],
         `${packageLocation} automatic marker must not duplicate configured strip`,
       );
     } catch (error) {
-      failures.push(new Error(`${packageLocation} package default and configured precedence`, { cause: error }));
+      failures.push(
+        new Error(
+          `${packageLocation} package default and configured precedence`,
+          { cause: error },
+        ),
+      );
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "project plugin presence scenarios failed");
+    throw new AggregateError(
+      failures,
+      "project plugin presence scenarios failed",
+    );
 }

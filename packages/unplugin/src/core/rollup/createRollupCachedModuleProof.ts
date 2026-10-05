@@ -26,15 +26,15 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * exactly those of the projects whose modules it is about to restore. A
  * watching session proves none: its cache holds only what its own deliveries
  * registered with the bridge, which moves their records as their inputs change.
- * An owned module carrying no delivery, or one no cache may serve, runs again, since
- * nothing proves its output.
+ * An owned module carrying no delivery, or one no cache may serve, runs again,
+ * since nothing proves its output.
  *
- * A record read is cached, including unavailable results, until begin clears
- * it or a first proof attempt invalidates it. Deliveries replace the saved
- * digest with their own recorded bytes. A later judgment need not reread a
- * record moved by another process in mid-build; the next pass observes it.
- * A changed proves callback can invalidate an already read digest within this
- * pass. Refresh errors propagate after the key enters the attempted-proof set.
+ * A record read is cached, including unavailable results, until begin clears it
+ * or a first proof attempt invalidates it. Deliveries replace the saved digest
+ * with their own recorded bytes. A later judgment need not reread a record
+ * moved by another process in mid-build; the next pass observes it. A changed
+ * proves callback can invalidate an already read digest within this pass.
+ * Refresh errors propagate after the key enters the attempted-proof set.
  *
  * @param name The plugin's name, the key of its entry in a module's `meta`.
  * @param includes Whether the adapter transforms a module id.
@@ -42,7 +42,6 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  *   (`rollupDeliveryOptions`).
  * @param proves Whether the build proves the records its cached modules name,
  *   which a build without a watching session's bridge does.
- *
  * @evidence contracts/common.md#principled-implementation Adapter-owned modules compare options and pass-observed record digest; matching record-less metadata follows the no-project rule. Missing delivery, malformed record, null or unreadable record requests retransformation.
  * @evidence contracts/common.md#clear-and-simple-design Per-pass proven and digest tables back the existing begin/deliver/moved interface; shared record refresh owns filesystem-state proof.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter uses the host retransformation hook without patching its cache or inventing a record when no proof exists.

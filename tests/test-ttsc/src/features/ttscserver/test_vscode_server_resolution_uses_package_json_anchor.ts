@@ -1,9 +1,10 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server resolution uses the exported `ttsc/package.json`
@@ -28,38 +29,38 @@ import path from "node:path";
 export function test_vscode_server_resolution_uses_package_json_anchor() {
   const root = TestProject.WORKSPACE_ROOT;
   const project = TestProject.physicalPath(
-  TestProject.tmpdir("vscode-server-resolution-"),
+    TestProject.tmpdir("vscode-server-resolution-"),
   );
   const ttscPackage = path.join(project, "node_modules", "ttsc");
   const launcher = path.join(ttscPackage, "lib", "launcher", "ttscserver.js");
   fs.mkdirSync(path.dirname(launcher), { recursive: true });
   fs.writeFileSync(
-  path.join(ttscPackage, "package.json"),
-  JSON.stringify(
-    {
-      bin: {
-        ttscserver: "lib/launcher/ttscserver.js",
+    path.join(ttscPackage, "package.json"),
+    JSON.stringify(
+      {
+        bin: {
+          ttscserver: "lib/launcher/ttscserver.js",
+        },
+        name: "ttsc",
+        exports: {
+          "./package.json": "./package.json",
+        },
       },
-      name: "ttsc",
-      exports: {
-        "./package.json": "./package.json",
-      },
-    },
-    null,
-    2,
-  ),
+      null,
+      2,
+    ),
   );
   fs.writeFileSync(launcher, "module.exports = {};\n");
 
   const requireFromProject = createRequire(
-  path.join(project, "__resolution_test__.cjs"),
+    path.join(project, "__resolution_test__.cjs"),
   );
   assert.throws(
-  () => requireFromProject.resolve("ttsc/lib/launcher/ttscserver.js"),
-  (error: unknown) =>
-    error instanceof Error &&
-    "code" in error &&
-    error.code === "ERR_PACKAGE_PATH_NOT_EXPORTED",
+    () => requireFromProject.resolve("ttsc/lib/launcher/ttscserver.js"),
+    (error: unknown) =>
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "ERR_PACKAGE_PATH_NOT_EXPORTED",
   );
 
   const observed = mod.resolveTtscServerLauncher(project) ?? "";

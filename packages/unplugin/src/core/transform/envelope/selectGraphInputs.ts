@@ -50,7 +50,8 @@ export function selectGraphInputs(
   }
   const output: string[] = [];
   if (!props.complete) {
-    for (const entryToAppend of selectReachableEdges(graph, state, props.file)) output.push(entryToAppend);
+    for (const entryToAppend of selectReachableEdges(graph, state, props.file))
+      output.push(entryToAppend);
     for (const entryToAppend of graph.globals) output.push(entryToAppend);
   }
   for (const entryToAppend of graph.configs) output.push(entryToAppend);

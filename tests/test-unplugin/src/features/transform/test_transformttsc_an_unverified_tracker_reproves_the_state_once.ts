@@ -3,13 +3,16 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { declareTtscTransformPolling } from "../../../../../packages/unplugin/src/core/transform/cache/declareTtscTransformPolling";
 import { resetTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/resetTtscTransformCache";
 import { selectCachedGenerationAction } from "../../../../../packages/unplugin/src/core/transform/cache/selectCachedGenerationAction";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
-import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
-import { generationNotificationsAvailable, retainGenerationNotifications } from "../../../../../packages/unplugin/src/core/transform/generation/retainGenerationNotifications";
+import {
+  generationNotificationsAvailable,
+  retainGenerationNotifications,
+} from "../../../../../packages/unplugin/src/core/transform/generation/retainGenerationNotifications";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import { createProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createProjectMutationTracker";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
@@ -51,27 +54,51 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
   const filesystem = transformFilesystem(cache);
   const result = {
     ...fixture.good.result,
-    graph: { edges: { "src/main.ts": [] }, globals: [], configs: ["tsconfig.json"] },
+    graph: {
+      edges: { "src/main.ts": [] },
+      globals: [],
+      configs: ["tsconfig.json"],
+    },
     hostInputs: [config],
-    hostInputHashes: { [config]: createHash("sha256").update(fs.readFileSync(config)).digest("hex") },
+    hostInputHashes: {
+      [config]: createHash("sha256")
+        .update(fs.readFileSync(config))
+        .digest("hex"),
+    },
     hostInputRealpaths: { [config]: fs.realpathSync.native(config) },
   };
   TRANSFORM_RESULT_FILESYSTEM.set(result, filesystem);
   const cached = observeValidationUnitGeneration(root, result);
   const generation = Promise.resolve(cached);
   cache.set("fixture", generation);
-  const trackers = () => [cached.projectMutationTracker, cached.hostInputMutationTracker]
-    .filter((tracker) => tracker !== undefined);
+  const trackers = () =>
+    [cached.projectMutationTracker, cached.hostInputMutationTracker].filter(
+      (tracker) => tracker !== undefined,
+    );
   try {
     cached.projectMutationTracker = await createProjectMutationTracker(
-      cached.projectDirectories!, new Set([fixture.file]), filesystem, cached.membershipPolicy,
+      cached.projectDirectories!,
+      new Set([fixture.file]),
+      filesystem,
+      cached.membershipPolicy,
     );
     cached.hostInputMutationTracker = await createHostInputMutationTracker(
-      [config], filesystem, new Set([config]), "all", root,
+      [config],
+      filesystem,
+      new Set([config]),
+      "all",
+      root,
     );
-    const decide = () => selectCachedGenerationAction({
-      cache, cached, epoch: undefined, file: fixture.file, generation, key: "fixture", source: fixture.source,
-    });
+    const decide = () =>
+      selectCachedGenerationAction({
+        cache,
+        cached,
+        epoch: undefined,
+        file: fixture.file,
+        generation,
+        key: "fixture",
+        source: fixture.source,
+      });
     const markUnverified = () => {
       assert.ok(trackers().length >= 2, "the generation keeps its watchers");
       for (const tracker of trackers()) tracker!.unverified = true;
@@ -82,38 +109,87 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
     // they do not assert that this scripted backend established it.
     const qualified = {
       ...cached,
-      projectMutationTracker: { ...cached.projectMutationTracker!, contentAuthoritative: true },
-      hostInputMutationTracker: { ...cached.hostInputMutationTracker!, contentAuthoritative: true },
+      projectMutationTracker: {
+        ...cached.projectMutationTracker!,
+        contentAuthoritative: true,
+      },
+      hostInputMutationTracker: {
+        ...cached.hostInputMutationTracker!,
+        contentAuthoritative: true,
+      },
     };
     listings = 0;
-    assert.equal(selectCachedGenerationAction({
-      cache, cached, epoch: undefined, file: outside, generation, key: "fixture",
-      source: fs.readFileSync(outside, "utf8"),
-    }), "serve");
-    assert.ok(listings > 0, "unqualified custom content observations require the snapshot walk");
+    assert.equal(
+      selectCachedGenerationAction({
+        cache,
+        cached,
+        epoch: undefined,
+        file: outside,
+        generation,
+        key: "fixture",
+        source: fs.readFileSync(outside, "utf8"),
+      }),
+      "serve",
+    );
+    assert.ok(
+      listings > 0,
+      "unqualified custom content observations require the snapshot walk",
+    );
     listings = 0;
     for (let delivery = 0; delivery < 20; delivery += 1) {
-      assert.equal(selectCachedGenerationAction({
-        cache, cached: qualified, epoch: undefined, file: outside, generation, key: "fixture",
-        source: fs.readFileSync(outside, "utf8"),
-      }), "serve", "trusted notification proof keeps an excluded delivery's generation");
+      assert.equal(
+        selectCachedGenerationAction({
+          cache,
+          cached: qualified,
+          epoch: undefined,
+          file: outside,
+          generation,
+          key: "fixture",
+          source: fs.readFileSync(outside, "utf8"),
+        }),
+        "serve",
+        "trusted notification proof keeps an excluded delivery's generation",
+      );
     }
-    assert.equal(listings, 0, "trusted excluded deliveries do not repeat the project walk");
+    assert.equal(
+      listings,
+      0,
+      "trusted excluded deliveries do not repeat the project walk",
+    );
     assert.equal(cache.get("fixture"), generation);
     markUnverified();
     assert.equal(decide(), "serve", "an unchanged state keeps the generation");
     assert.equal(cache.get("fixture"), generation);
-    assert.deepEqual(trackers().map((tracker) => tracker!.unverified), trackers().map(() => false), "one proof lets the watchers vouch for the state again");
-    fs.writeFileSync(path.join(root, "src", "appeared.ts"), "export const appeared = 1;\n");
-    assert.equal(decide(), "serve", "a trusted watcher that heard nothing proves the program unchanged");
+    assert.deepEqual(
+      trackers().map((tracker) => tracker!.unverified),
+      trackers().map(() => false),
+      "one proof lets the watchers vouch for the state again",
+    );
+    fs.writeFileSync(
+      path.join(root, "src", "appeared.ts"),
+      "export const appeared = 1;\n",
+    );
+    assert.equal(
+      decide(),
+      "serve",
+      "a trusted watcher that heard nothing proves the program unchanged",
+    );
     markUnverified();
-    assert.equal(decide(), "capture", "after a gap, the root file the watchers never reported is found");
+    assert.equal(
+      decide(),
+      "capture",
+      "after a gap, the root file the watchers never reported is found",
+    );
     assert.equal(cache.size, 0);
   } finally {
     resetTtscTransformCache(cache);
     fixture.dispose();
   }
-  for (const variant of ["callback-failed", "host-registration-failed", "polling-later"] as const) {
+  for (const variant of [
+    "callback-failed",
+    "host-registration-failed",
+    "polling-later",
+  ] as const) {
     const input = createCachedDeliveryUnitFixture();
     const projectRoot = path.dirname(path.dirname(input.file));
     const tsconfig = path.join(projectRoot, "tsconfig.json");
@@ -123,31 +199,61 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
     const owner = createTtscTransformCache({
       watch: (_directory, _listener, onError) => {
         if (variant === "host-registration-failed" && phase === "host") {
-          throw Object.assign(new Error("host registration refused"), { code: "ENOSPC" });
+          throw Object.assign(new Error("host registration refused"), {
+            code: "ENOSPC",
+          });
         }
         callbacks.push(onError);
-        return { close: () => { ++closed; } };
+        return {
+          close: () => {
+            ++closed;
+          },
+        };
       },
     });
     const view = transformFilesystem(owner);
     const literal = {
       ...input.good.result,
       hostInputs: [tsconfig],
-      hostInputHashes: { [tsconfig]: createHash("sha256").update(fs.readFileSync(tsconfig)).digest("hex") },
+      hostInputHashes: {
+        [tsconfig]: createHash("sha256")
+          .update(fs.readFileSync(tsconfig))
+          .digest("hex"),
+      },
       hostInputRealpaths: { [tsconfig]: fs.realpathSync.native(tsconfig) },
     };
     TRANSFORM_RESULT_FILESYSTEM.set(literal, view);
     const observed = observeValidationUnitGeneration(projectRoot, literal);
-    const project = await createProjectMutationTracker(observed.projectDirectories!, new Set([input.file]), view, observed.membershipPolicy);
+    const project = await createProjectMutationTracker(
+      observed.projectDirectories!,
+      new Set([input.file]),
+      view,
+      observed.membershipPolicy,
+    );
     phase = "host";
-    const host = await createHostInputMutationTracker([tsconfig], view, new Set([tsconfig]), "all", projectRoot);
+    const host = await createHostInputMutationTracker(
+      [tsconfig],
+      view,
+      new Set([tsconfig]),
+      "all",
+      projectRoot,
+    );
     try {
-      const available = generationNotificationsAvailable(project, host, undefined);
+      const available = generationNotificationsAvailable(
+        project,
+        host,
+        undefined,
+      );
       assert.equal(available, variant !== "host-registration-failed");
       retainGenerationNotifications({
-        cached: observed, project, host, candidate: undefined,
-        retainProjectMembership: true, retainNotifications: true,
-        stableProjectSnapshot: true, notificationsAvailable: available,
+        cached: observed,
+        project,
+        host,
+        candidate: undefined,
+        retainProjectMembership: true,
+        retainNotifications: true,
+        stableProjectSnapshot: true,
+        notificationsAvailable: available,
       });
       if (variant === "callback-failed") {
         assert.equal(observed.projectMutationTracker, project);
@@ -167,22 +273,56 @@ export async function test_transformttsc_an_unverified_tracker_reproves_the_stat
         assert.equal(observed.projectMutationTracker, project);
         assert.equal(observed.hostInputMutationTracker, host);
         declareTtscTransformPolling(owner, true);
-        assert.equal(closed, 0, "declaration alone does not close retained handles");
-        assert.equal((await input.api.transformTtsc(input.file, input.source,
-          input.options, undefined, owner))?.code, input.code);
+        assert.equal(
+          closed,
+          0,
+          "declaration alone does not close retained handles",
+        );
+        assert.equal(
+          (
+            await input.api.transformTtsc(
+              input.file,
+              input.source,
+              input.options,
+              undefined,
+              owner,
+            )
+          )?.code,
+          input.code,
+        );
         assert.equal(owner.get(key), promise);
         assert.equal(observed.projectMutationTracker, undefined);
         assert.equal(observed.hostInputMutationTracker, undefined);
-        assert.ok(closed > 0, "actual next coordinator delivery withdraws retained watches");
+        assert.ok(
+          closed > 0,
+          "actual next coordinator delivery withdraws retained watches",
+        );
       }
-      const action = () => selectCachedGenerationAction({
-        cache: owner, cached: observed, epoch: undefined, file: input.file,
-        generation: promise, key, source: input.source,
-      });
-      assert.equal(action(), "serve", variant + ": full proof keeps unchanged bytes");
+      const action = () =>
+        selectCachedGenerationAction({
+          cache: owner,
+          cached: observed,
+          epoch: undefined,
+          file: input.file,
+          generation: promise,
+          key,
+          source: input.source,
+        });
+      assert.equal(
+        action(),
+        "serve",
+        variant + ": full proof keeps unchanged bytes",
+      );
       assert.equal(owner.get(key), promise);
-      fs.appendFileSync(input.file, "// actual edit after notification failure\n");
-      assert.equal(action(), "capture", variant + ": disk change still requires capture");
+      fs.appendFileSync(
+        input.file,
+        "// actual edit after notification failure\n",
+      );
+      assert.equal(
+        action(),
+        "capture",
+        variant + ": disk change still requires capture",
+      );
       assert.equal(owner.has(key), false);
     } finally {
       project.close();

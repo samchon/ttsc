@@ -24,6 +24,7 @@ import (
 //     EmitWithPluginTransformers (no transforms).
 //  3. Assert the project's main.js is written under outDir and no write
 //     targets the dependency's source tree.
+//
 // @evidence contracts/testing.md#behavioral-verification Calls actual EmitWithPluginTransformers for a self-referenced dependency layout, requiring main.js and every captured write inside project dist.
 // @evidence contracts/testing.md#independent-expectations The authored outDir and project source independently define permitted paths, checked by a test-local prefix predicate.
 // @evidence contracts/testing.md#distinguishing-cases Project output is required while dependency-source writes are forbidden; raw and rewrite-lane siblings own their separate emit funnels.

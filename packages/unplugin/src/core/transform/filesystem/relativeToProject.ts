@@ -15,7 +15,6 @@ import { pathIsWithin } from "./pathIsWithin";
  * @param file The absolute path to place.
  * @param project The project root's two spellings.
  * @param platform The observed path grammar; the host platform by default.
- *
  * @evidence contracts/common.md#principled-implementation Both named and physical roots can place an input inside the same project; an empty relative path explicitly identifies the root itself.
  * @evidence contracts/common.md#clear-and-simple-design At most two existing lexical-containment checks produce the relative spelling, without resolving every input again.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Link-root aliases are not repaired with prefix substitution or a platform-specific temporary-directory exception.

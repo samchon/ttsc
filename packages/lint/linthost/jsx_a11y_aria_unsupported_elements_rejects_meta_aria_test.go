@@ -9,9 +9,9 @@ import "testing"
 // Elements such as meta cannot expose ARIA semantics, so the rule guards the
 // tag rather than the attribute.
 //
-// 1. Run only the rule over `<meta aria-label="description" />` and expect one
-//    finding whose message contains "ARIA".
-// 2. Run it over `<div aria-label="description" />` and expect none.
+//  1. Run only the rule over `<meta aria-label="description" />` and expect one
+//     finding whose message contains "ARIA".
+//  2. Run it over `<div aria-label="description" />` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-unsupported-elements enabled. The meta element with aria-label yields exactly one ordinary SeverityError finding from that rule whose message contains "ARIA"; assertJsxA11yRuleSkips requires zero findings for a div with the same attribute.
 // @evidence contracts/testing.md#independent-expectations The metadata-tag restriction prohibits explicit ARIA on meta, while this rule does not classify div as an unsupported tag. The authored tag pair pins that rule boundary; accepting div here does not certify its accessible name or compliance with other ARIA rules.

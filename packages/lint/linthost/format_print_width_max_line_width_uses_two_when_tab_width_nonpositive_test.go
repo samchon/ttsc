@@ -23,8 +23,8 @@ func TestFormatPrintWidthMaxLineWidthUsesTwoWhenTabWidthNonpositive(t *testing.T
     t.Fatalf("tab with default tabWidth: want 4, got %d", got)
   }
   cases := []struct {
-    name string
-    text string
+    name                           string
+    text                           string
     prefix, suffix, tabWidth, want int
   }{
     {"empty", "", 0, 0, 2, 0},

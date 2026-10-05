@@ -146,7 +146,9 @@ export const test_spawn_sync_resilient_broker_preserves_process_contract =
           "the broker result file must be removed after every outcome",
         );
       } catch (error) {
-        failures.push(new Error("Broker final report population", { cause: error }));
+        failures.push(
+          new Error("Broker final report population", { cause: error }),
+        );
       }
     } finally {
       try {
@@ -155,5 +157,6 @@ export const test_spawn_sync_resilient_broker_preserves_process_contract =
         failures.push(new Error("Broker owned root cleanup", { cause: error }));
       }
     }
-    if (failures.length) throw new AggregateError(failures, "Broker process contract outcomes");
+    if (failures.length)
+      throw new AggregateError(failures, "Broker process contract outcomes");
   };

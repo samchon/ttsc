@@ -25,9 +25,9 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  *
  * The delivered module is compared from disk like every other input: the
  * compile read it from disk, so a delivered text that differs is not the file's
- * state (samchon/ttsc#1394).
- * The delivery caller refreshes the generation's native clock reference before
- * this operation; this validator does not mint a reference itself.
+ * state (samchon/ttsc#1394). The delivery caller refreshes the generation's
+ * native clock reference before this operation; this validator does not mint a
+ * reference itself.
  *
  * @evidence contracts/common.md#principled-implementation Universal authority, declared project membership, content hashes and external physical targets must all match before project/external signatures and directory observations are adopted. Universal entry validators may independently refresh already qualified entry witnesses along the way.
  * @evidence contracts/common.md#clear-and-simple-design One complete-proof boundary composes domain validators and adopts aggregate project/external witnesses after combined success, while universal entry qualification stays with its owner.
@@ -45,7 +45,10 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  * @evidence contracts/performance.md#reuse-equivalent-work Qualified separable signatures avoid repeated content reads under the caller's refreshed clock. Successful aggregate proof adopts earned project/external signatures and clears unverified flags; it neither clears recorded changes/failed flags nor makes later quiet notifications sufficient without their other admission conditions.
  */
 export function matchesCompleteInputSnapshot(
-  /** Generation with a complete capture baseline and caller-refreshed clock proof. */
+  /**
+   * Generation with a complete capture baseline and caller-refreshed clock
+   * proof.
+   */
   cached: TtscCachedProjectTransform,
 ): boolean {
   if (

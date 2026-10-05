@@ -6,7 +6,6 @@ import type { BunRuntimeGlobal } from "./BunRuntimeGlobal";
  *
  * @returns `undefined` off Bun, which lets the import-time registration stay a
  *   silent no-op under Node while an explicit `register` call throws.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Requiring a present callable plugin member detects the capability this
  *   registration needs without assuming that every process exposes Bun.

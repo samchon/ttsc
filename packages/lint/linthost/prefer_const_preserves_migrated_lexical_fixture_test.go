@@ -11,11 +11,11 @@ import (
 // TestPreferConstPreservesMigratedLexicalFixture retains the original lexical
 // consumer's four authored file contents at the direct Go check boundary.
 //
-// 1. Materialize the original case.ts, NodeNext configuration, package marker
-//    and scalar error rule setting without an installed consumer.
-// 2. Run check through the existing manifest and real Program/Checker.
-// 3. Require precisely the stable sibling, single later assignment and stable
-//    destructuring binding; the same-spelled reassigned sibling stays silent.
+//  1. Materialize the original case.ts, NodeNext configuration, package marker
+//     and scalar error rule setting without an installed consumer.
+//  2. Run check through the existing manifest and real Program/Checker.
+//  3. Require precisely the stable sibling, single later assignment and stable
+//     destructuring binding; the same-spelled reassigned sibling stays silent.
 //
 // @evidence contracts/testing.md#behavioral-verification The direct check must return 2 with empty stdout and exactly prefer-const errors at case.ts 3:7, 15:1 and 19:14. Same-spelled reassigned value and destructuring first receive no diagnostic.
 // @evidence contracts/testing.md#independent-expectations Four literal file contents preserve lint-prefer-const-lexical's source, NodeNext/noEmit/strict settings, package marker and scalar error configuration; the three line/column/rule/severity expectations are authored from its annotations rather than findings.

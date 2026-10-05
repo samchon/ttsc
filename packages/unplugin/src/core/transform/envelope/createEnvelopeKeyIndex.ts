@@ -31,7 +31,10 @@ export function createEnvelopeKeyIndex<T>(
   state: TtscEnvelopeDerivation,
   /** Stable native root used to expand this producer's relative keys. */
   projectRoot: string,
-  /** Immutable producer record; own enumeration order determines alias precedence. */
+  /**
+   * Immutable producer record; own enumeration order determines alias
+   * precedence.
+   */
   keyed: Record<string, T>,
 ): Map<string, T> {
   const index = new Map<string, T>();

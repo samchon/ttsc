@@ -41,12 +41,20 @@ func (unicornRelativeURLStyle) Check(ctx *Context, node *shimast.Node) {
 func unicornRelativeURLPrefixIsRedundant(rest string, args []*shimast.Node) bool {
   // Leading C0 bytes and space are trimmed by the URL parser. They were
   // interior path content behind ./, so exposing them changes URL identity.
-  if len(rest) != 0 && rest[0] <= 0x20 { return false }
-  if strings.HasPrefix(rest, "/") || strings.HasPrefix(rest, "\\") { return false }
+  if len(rest) != 0 && rest[0] <= 0x20 {
+    return false
+  }
+  if strings.HasPrefix(rest, "/") || strings.HasPrefix(rest, "\\") {
+    return false
+  }
   first := strings.SplitN(rest, "/", 2)[0]
-  if strings.Contains(first, ":") { return false }
+  if strings.Contains(first, ":") {
+    return false
+  }
   if rest == "" || strings.HasPrefix(rest, "?") || strings.HasPrefix(rest, "#") {
-    if len(args) < 2 { return false }
+    if len(args) < 2 {
+      return false
+    }
     base := stringLiteralText(stripParens(args[1]))
     // A literal directory base is the only source-level proof this form
     // retains the same pathname; a dynamic or file base supplies none.

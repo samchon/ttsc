@@ -15,9 +15,15 @@ import (
 // is the source's actual command owner, not a transport or producer substitute.
 // Cost includes edit bytes and the delegated ownership lookup; no state is retained.
 func nativeCodeActionRejection(plugin NativeLSPPluginEntry, action LSPCodeAction, owns func(string) bool) string {
-  if hasDirectCodeActionEdit(action.Edit) { return fmt.Sprintf("ttscserver: %s returned direct LSP edit for action %q; command-backed actions are required", pluginLabel(plugin), action.Title) }
-  if action.Command == nil { return fmt.Sprintf("ttscserver: %s returned commandless LSP action %q; command-backed actions are required", pluginLabel(plugin), action.Title) }
-  if !owns(action.Command.Command) { return fmt.Sprintf("ttscserver: %s returned unowned LSP command %q", pluginLabel(plugin), action.Command.Command) }
+  if hasDirectCodeActionEdit(action.Edit) {
+    return fmt.Sprintf("ttscserver: %s returned direct LSP edit for action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
+  }
+  if action.Command == nil {
+    return fmt.Sprintf("ttscserver: %s returned commandless LSP action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
+  }
+  if !owns(action.Command.Command) {
+    return fmt.Sprintf("ttscserver: %s returned unowned LSP command %q", pluginLabel(plugin), action.Command.Command)
+  }
   return ""
 }
 
@@ -28,8 +34,12 @@ func nativeCodeActionRejection(plugin NativeLSPPluginEntry, action LSPCodeAction
 // retain the real discovery input. Maps belong to the source and are modified
 // in place, with one lookup and at most two insertions per identifier.
 func registerNativeCommandID(id string, plugin NativeLSPPluginEntry, seen map[string]struct{}, commandIDs *[]string, owners map[string]NativeLSPPluginEntry) (accepted bool, warning string) {
-  if id == "" { return false, "" }
-  if _, ok := seen[id]; ok { return false, fmt.Sprintf("ttscserver: duplicate LSP command id %q from %s ignored", id, pluginLabel(plugin)) }
+  if id == "" {
+    return false, ""
+  }
+  if _, ok := seen[id]; ok {
+    return false, fmt.Sprintf("ttscserver: duplicate LSP command id %q from %s ignored", id, pluginLabel(plugin))
+  }
   seen[id] = struct{}{}
   *commandIDs = append(*commandIDs, id)
   owners[id] = plugin
@@ -49,20 +59,38 @@ func discoverNativeCommandRegistry(plugins []NativeLSPPluginEntry, query func(Na
   kindSeen := map[string]struct{}{}
   for _, plugin := range plugins {
     body, err := query(plugin, "lsp-command-ids")
-    if err != nil { log(fmt.Sprintf("%v", err)); continue }
+    if err != nil {
+      log(fmt.Sprintf("%v", err))
+      continue
+    }
     var ids []string
-    if err := json.Unmarshal(body, &ids); err != nil { log(fmt.Sprintf("ttscserver: %s lsp-command-ids returned invalid JSON: %v", pluginLabel(plugin), err)); continue }
+    if err := json.Unmarshal(body, &ids); err != nil {
+      log(fmt.Sprintf("ttscserver: %s lsp-command-ids returned invalid JSON: %v", pluginLabel(plugin), err))
+      continue
+    }
     for _, id := range ids {
       _, warning := registerNativeCommandID(id, plugin, seen, commandIDs, owners)
-      if warning != "" { log(warning) }
+      if warning != "" {
+        log(warning)
+      }
     }
     body, err = query(plugin, "lsp-code-action-kinds")
-    if err != nil { log(fmt.Sprintf("%v", err)); continue }
+    if err != nil {
+      log(fmt.Sprintf("%v", err))
+      continue
+    }
     var kinds []string
-    if err := json.Unmarshal(body, &kinds); err != nil { log(fmt.Sprintf("ttscserver: %s lsp-code-action-kinds returned invalid JSON: %v", pluginLabel(plugin), err)); continue }
+    if err := json.Unmarshal(body, &kinds); err != nil {
+      log(fmt.Sprintf("ttscserver: %s lsp-code-action-kinds returned invalid JSON: %v", pluginLabel(plugin), err))
+      continue
+    }
     for _, kind := range kinds {
-      if kind == "" { continue }
-      if _, ok := kindSeen[kind]; ok { continue }
+      if kind == "" {
+        continue
+      }
+      if _, ok := kindSeen[kind]; ok {
+        continue
+      }
       kindSeen[kind] = struct{}{}
       *codeActionKinds = append(*codeActionKinds, kind)
     }
@@ -77,8 +105,10 @@ func discoverNativeCommandRegistry(plugins []NativeLSPPluginEntry, query func(Na
 // follows argument bytes; the returned slice and reader transfer to the caller.
 func nativeExecuteCommandInput(command string, args []json.RawMessage, content string, hasContent bool) ([]string, io.Reader, error) {
   argsJSON, encodeErr := json.Marshal(args)
-  if encodeErr != nil { return nil, nil, fmt.Errorf("ttscserver: encode command arguments: %w", encodeErr) }
-  cmdArgs := []string{"--command="+command, "--arguments-json="+string(argsJSON)}
+  if encodeErr != nil {
+    return nil, nil, fmt.Errorf("ttscserver: encode command arguments: %w", encodeErr)
+  }
+  cmdArgs := []string{"--command=" + command, "--arguments-json=" + string(argsJSON)}
   var stdin io.Reader
   if hasContent {
     cmdArgs = append(cmdArgs, "--content-stdin")
@@ -94,8 +124,10 @@ func nativeExecuteCommandInput(command string, args []json.RawMessage, content s
 // this function does not authenticate them. Cost and returned allocation follow
 // token bytes and count, with no cached result or process resource retained.
 func nativePluginCommandArgs(plugin NativeLSPPluginEntry, command, cwd, tsconfig, pluginsJSON, projectContextJSON string, args []string) []string {
-  allArgs := []string{command, "--cwd="+cwd, "--tsconfig="+tsconfig, "--plugins-json="+pluginsJSON}
-  if plugin.ProjectContextArgs && strings.TrimSpace(projectContextJSON) != "" { allArgs = append(allArgs, "--project-context-json="+projectContextJSON) }
+  allArgs := []string{command, "--cwd=" + cwd, "--tsconfig=" + tsconfig, "--plugins-json=" + pluginsJSON}
+  if plugin.ProjectContextArgs && strings.TrimSpace(projectContextJSON) != "" {
+    allArgs = append(allArgs, "--project-context-json="+projectContextJSON)
+  }
   return append(allArgs, args...)
 }
 
@@ -106,12 +138,18 @@ func nativePluginCommandArgs(plugin NativeLSPPluginEntry, command, cwd, tsconfig
 func nativeSidecarContext(cwd, tsconfig string, context json.RawMessage) (string, string, error) {
   if len(context) > 0 {
     var identity struct {
-      PhysicalConfigPath string `json:"physicalConfigPath"`
+      PhysicalConfigPath  string `json:"physicalConfigPath"`
       PhysicalProjectRoot string `json:"physicalProjectRoot"`
     }
-    if err := json.Unmarshal(context, &identity); err != nil { return "", "", fmt.Errorf("ttscserver: decode project context: %w", err) }
-    if strings.TrimSpace(identity.PhysicalProjectRoot) != "" { cwd = identity.PhysicalProjectRoot }
-    if strings.TrimSpace(identity.PhysicalConfigPath) != "" { tsconfig = identity.PhysicalConfigPath }
+    if err := json.Unmarshal(context, &identity); err != nil {
+      return "", "", fmt.Errorf("ttscserver: decode project context: %w", err)
+    }
+    if strings.TrimSpace(identity.PhysicalProjectRoot) != "" {
+      cwd = identity.PhysicalProjectRoot
+    }
+    if strings.TrimSpace(identity.PhysicalConfigPath) != "" {
+      tsconfig = identity.PhysicalConfigPath
+    }
   }
   return cwd, tsconfig, nil
 }
@@ -125,10 +163,16 @@ func nativeSidecarContext(cwd, tsconfig string, context json.RawMessage) (string
 func nativePluginCommandResult(plugin NativeLSPPluginEntry, command string, runErr error, stdout, stderr *limitedBuffer) ([]byte, error) {
   if runErr != nil {
     msg := strings.TrimSpace(stderr.String())
-    if msg == "" { msg = runErr.Error() } else if stderr.truncated || stderr.Len() >= nativePluginCommandStderrLimit { msg += " (stderr truncated)" }
+    if msg == "" {
+      msg = runErr.Error()
+    } else if stderr.truncated || stderr.Len() >= nativePluginCommandStderrLimit {
+      msg += " (stderr truncated)"
+    }
     return nil, fmt.Errorf("ttscserver: %s %s failed: %s", pluginLabel(plugin), command, msg)
   }
-  if stdout.truncated { return nil, fmt.Errorf("ttscserver: %s %s produced more than %d bytes on stdout", pluginLabel(plugin), command, nativePluginCommandStdoutLimit) }
+  if stdout.truncated {
+    return nil, fmt.Errorf("ttscserver: %s %s produced more than %d bytes on stdout", pluginLabel(plugin), command, nativePluginCommandStdoutLimit)
+  }
   return bytes.TrimSpace(stdout.Bytes()), nil
 }
 
@@ -167,8 +211,12 @@ func runNativePluginRead(
 // the copied result, while this operation retains no transport or session.
 func decodeNativeResidentReply(reply []byte) ([]byte, int, error) {
   var response serveClientResponse
-  if err := json.Unmarshal(reply, &response); err != nil { return nil, 0, err }
-  if len(response.Result) > nativePluginCommandStdoutLimit { return nil, 0, fmt.Errorf("resident result exceeds %d bytes", nativePluginCommandStdoutLimit) }
+  if err := json.Unmarshal(reply, &response); err != nil {
+    return nil, 0, err
+  }
+  if len(response.Result) > nativePluginCommandStdoutLimit {
+    return nil, 0, fmt.Errorf("resident result exceeds %d bytes", nativePluginCommandStdoutLimit)
+  }
   return response.Result, response.Code, nil
 }
 
@@ -177,6 +225,8 @@ func decodeNativeResidentReply(reply []byte) ([]byte, int, error) {
 // a supplied status authenticates neither a peer nor an OS exit. Allocation
 // follows plugin/verb text, with no retained task or native resource.
 func nativeResidentResult(plugin NativeLSPPluginEntry, verb string, body []byte, code int) ([]byte, bool, error) {
-  if code != 0 { return nil, true, fmt.Errorf("ttscserver: %s %s (resident) exit %d", pluginLabel(plugin), verb, code) }
+  if code != 0 {
+    return nil, true, fmt.Errorf("ttscserver: %s %s (resident) exit %d", pluginLabel(plugin), verb, code)
+  }
   return body, true, nil
 }

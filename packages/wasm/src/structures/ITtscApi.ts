@@ -73,9 +73,8 @@ export interface ITtscApi {
 
   /**
    * Return source text keyed by project-relative path inside cwd and absolute
-   * path outside it.
-   * Used by playgrounds that want to render the TypeScript view after a source
-   * rewriter (e.g. paths) has run. `result` is JSON; use
+   * path outside it. Used by playgrounds that want to render the TypeScript
+   * view after a source rewriter (e.g. paths) has run. `result` is JSON; use
    * `parseResult<ITtscTransformResult>` to deserialize.
    *
    * @evidence contracts/common.md#principled-implementation Native Transform projects post-plugin text through the shared project request.

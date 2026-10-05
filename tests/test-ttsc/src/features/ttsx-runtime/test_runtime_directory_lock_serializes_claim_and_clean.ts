@@ -11,7 +11,8 @@ import { fileURLToPath } from "node:url";
  * Workers load authored production TypeScript through the existing unit loader.
  * They call only withRuntimeDirectoryLock, not claim/clean CLIs or an installed
  * host. The 300ms non-entry witness is bounded and does not prove exclusion at
- * every possible scheduling interval; later entry distinguishes permanent wait.
+ * every possible scheduling interval; later entry distinguishes permanent
+ * wait.
  *
  * @evidence contracts/testing.md#behavioral-verification Two native Node workers require the actual withRuntimeDirectoryLock module and contend over one runtime path. Retains ready/attempting/release/entered filenames and literal bytes, the 300ms entered-absent observation, finally release and allSettled collection, both zero exits and eventual entered existence.
  * @evidence contracts/testing.md#independent-expectations Authored barrier files establish holder acquisition, contender attempt and release independently of lock decoding. Literal marker bytes, negative/positive existence and native process outcomes supply expectations; no script substitutes for the lock implementation.
@@ -54,29 +55,33 @@ export async function test_runtime_directory_lock_serializes_claim_and_clean(): 
   let results: PromiseSettledResult<Outcome>[] = [];
   try {
     try {
-      fs.writeFileSync(worker, [
-        'const fs = require("node:fs");',
-        `const { withRuntimeDirectoryLock } = require(${JSON.stringify(modulePath)});`,
-        `const runtime = ${JSON.stringify(runtime)};`,
-        `const ready = ${JSON.stringify(ready)};`,
-        `const attempting = ${JSON.stringify(attempting)};`,
-        `const release = ${JSON.stringify(release)};`,
-        `const entered = ${JSON.stringify(entered)};`,
-        'if (process.argv[2] === "holder") {',
-        "  withRuntimeDirectoryLock(runtime, () => {",
-        '    fs.writeFileSync(ready, "ready");',
-        "    while (!fs.existsSync(release)) {",
-        "      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);",
-        "    }",
-        "  });",
-        "} else {",
-        '  fs.writeFileSync(attempting, "attempting");',
-        "  withRuntimeDirectoryLock(runtime, () => {",
-        '    fs.writeFileSync(entered, "entered");',
-        "  });",
-        "}",
-        "",
-      ].join("\n"), "utf8");
+      fs.writeFileSync(
+        worker,
+        [
+          'const fs = require("node:fs");',
+          `const { withRuntimeDirectoryLock } = require(${JSON.stringify(modulePath)});`,
+          `const runtime = ${JSON.stringify(runtime)};`,
+          `const ready = ${JSON.stringify(ready)};`,
+          `const attempting = ${JSON.stringify(attempting)};`,
+          `const release = ${JSON.stringify(release)};`,
+          `const entered = ${JSON.stringify(entered)};`,
+          'if (process.argv[2] === "holder") {',
+          "  withRuntimeDirectoryLock(runtime, () => {",
+          '    fs.writeFileSync(ready, "ready");',
+          "    while (!fs.existsSync(release)) {",
+          "      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);",
+          "    }",
+          "  });",
+          "} else {",
+          '  fs.writeFileSync(attempting, "attempting");',
+          "  withRuntimeDirectoryLock(runtime, () => {",
+          '    fs.writeFileSync(entered, "entered");',
+          "  });",
+          "}",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
       const start = (mode: string): Promise<Outcome> => {
         const child = childProcess.spawn(
           process.execPath,
@@ -95,7 +100,9 @@ export async function test_runtime_directory_lock_serializes_claim_and_clean(): 
         });
         return new Promise((resolve, reject) => {
           child.once("error", reject);
-          child.once("close", (code, signal) => resolve({ code, signal, output }));
+          child.once("close", (code, signal) =>
+            resolve({ code, signal, output }),
+          );
         });
       };
       const waitFor = async (file: string): Promise<void> => {
@@ -149,7 +156,9 @@ export async function test_runtime_directory_lock_serializes_claim_and_clean(): 
       try {
         fs.writeFileSync(release, "release", "utf8");
       } catch (cause) {
-        failures.push(new Error("runtime lock release barrier write", { cause }));
+        failures.push(
+          new Error("runtime lock release barrier write", { cause }),
+        );
       } finally {
         results = await Promise.allSettled(workers);
       }
@@ -161,7 +170,9 @@ export async function test_runtime_directory_lock_serializes_claim_and_clean(): 
       const role = index === 0 ? "holder" : "contender";
       if (result.status === "rejected") {
         failures.push(
-          new Error(`${role} worker launch/completion`, { cause: result.reason }),
+          new Error(`${role} worker launch/completion`, {
+            cause: result.reason,
+          }),
         );
         continue;
       }
@@ -188,5 +199,8 @@ export async function test_runtime_directory_lock_serializes_claim_and_clean(): 
     });
   }
   if (failures.length !== 0)
-    throw new AggregateError(failures, "runtime lock worker observations failed");
+    throw new AggregateError(
+      failures,
+      "runtime lock worker observations failed",
+    );
 }

@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   computeCacheKey,
@@ -28,39 +27,83 @@ import {
 export function test_computecachekey_includes_standard_go_source_directories() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
   const plugin = path.join(root, "plugin");
-  const fixture = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "computecachekey_includes_standard_go_source_directories");
+  const fixture = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "test",
+    "fixtures",
+    "unit",
+    "computecachekey_includes_standard_go_source_directories",
+  );
   TestProject.copyDirectory(path.join(fixture, "inputs-1"), root);
   fs.renameSync(path.join(plugin, "main.go.txt"), path.join(plugin, "main.go"));
-  assert.equal(fs.readFileSync(path.join(plugin, "go.mod"), "utf8"), "module example.com/plugin\n\ngo 1.26\n");
-  assert.equal(fs.readFileSync(path.join(plugin, "main.go"), "utf8"), "package main\n");
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "go.mod"), "utf8"),
+    "module example.com/plugin\n\ngo 1.26\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(plugin, "main.go"), "utf8"),
+    "package main\n",
+  );
 
   const failures: unknown[] = [];
   for (const dirName of ["vendor", "lib", "dist", "build"]) {
     try {
-    const file = path.join(plugin, dirName, "helper.go");
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.copyFileSync(path.join(fixture, `inputs-${dirName}-1`, "plugin", dirName, "helper.go.txt"), file);
-    assert.equal(fs.readFileSync(file, "utf8"), `package ${dirName}\nconst Value = 1\n`);
+      const file = path.join(plugin, dirName, "helper.go");
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.copyFileSync(
+        path.join(
+          fixture,
+          `inputs-${dirName}-1`,
+          "plugin",
+          dirName,
+          "helper.go.txt",
+        ),
+        file,
+      );
+      assert.equal(
+        fs.readFileSync(file, "utf8"),
+        `package ${dirName}\nconst Value = 1\n`,
+      );
 
-    const first = computeCacheKey({
-      dir: plugin,
-      entry: ".",
-      env: {},
-      ttscVersion: "1.0.0",
-      tsgoVersion: "7.0.0-dev",
-    });
-    fs.copyFileSync(path.join(fixture, `inputs-${dirName}-2`, "plugin", dirName, "helper.go.txt"), file);
-    assert.equal(fs.readFileSync(file, "utf8"), `package ${dirName}\nconst Value = 2\n`);
-    const second = computeCacheKey({
-      dir: plugin,
-      entry: ".",
-      env: {},
-      ttscVersion: "1.0.0",
-      tsgoVersion: "7.0.0-dev",
-    });
+      const first = computeCacheKey({
+        dir: plugin,
+        entry: ".",
+        env: {},
+        ttscVersion: "1.0.0",
+        tsgoVersion: "7.0.0-dev",
+      });
+      fs.copyFileSync(
+        path.join(
+          fixture,
+          `inputs-${dirName}-2`,
+          "plugin",
+          dirName,
+          "helper.go.txt",
+        ),
+        file,
+      );
+      assert.equal(
+        fs.readFileSync(file, "utf8"),
+        `package ${dirName}\nconst Value = 2\n`,
+      );
+      const second = computeCacheKey({
+        dir: plugin,
+        entry: ".",
+        env: {},
+        ttscVersion: "1.0.0",
+        tsgoVersion: "7.0.0-dev",
+      });
 
-    assert.notEqual(first, second, `${dirName} was excluded from the key`);
-    } catch (error) { failures.push(error); }
+      assert.notEqual(first, second, `${dirName} was excluded from the key`);
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "Selected source directory identity failures");
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "Selected source directory identity failures",
+    );
 }

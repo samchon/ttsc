@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -9,6 +8,7 @@ import { projectMembershipDigest } from "../../../../../packages/unplugin/src/co
 import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
 import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the input observer tells its owner which owners' inputs changed, and
@@ -32,6 +32,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * 4. Register all three again, then change the file and add another root file in
  *    the same batch, and assert one report reloads the file's owners and
  *    invalidates only the membership's owner that is not reloaded.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored createInputObserver receives injected notification operations and fixture file/membership proofs; assertions distinguish reload owners from membership-only invalidation owners and coalesce both into one report.
  * @evidence contracts/testing.md#independent-expectations

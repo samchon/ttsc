@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
 import { isPackageDirectory } from "../../../../../packages/unplugin/src/core/tsconfig/isPackageDirectory";
 import { matchesProjectRootFile } from "../../../../../packages/unplugin/src/core/tsconfig/matchesProjectRootFile";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies root-file matching follows TypeScript-Go's wildcard rules for tool
@@ -28,6 +28,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  *    classification consumes the whole bare name: trailing line terminators
  *    form different names, admitted by a POSIX wildcard rather than excluded.
  *    The explicit view is authored; no native filename or Go run is measured.
+ *
  * @evidence contracts/testing.md#behavioral-verification Authored root matching applies TypeScript-Go wildcard admission to source/package/hidden/JSON/minified paths and distinguishes file from directory matching.
  * @evidence contracts/testing.md#independent-expectations Pinned TypeScript-Go isPackageFolder uses full-name length and EqualFold for the three package names. Literal table rows specify this full-name boundary, supported default glob, explicit files, JSON-spec and minified-file expectations; expected booleans are not obtained from the matcher.
  * @evidence contracts/testing.md#distinguishing-cases Default include, named hidden/package directories, literal JSON, shallow JSON patterns and explicit .min. patterns preserve every positive and adjacent negative row. Complete package names and mixed case are contrasted with empty, prefixed, suffixed and five line-terminator endings; explicit POSIX wildcard directory/file admission distinguishes their downstream effect.

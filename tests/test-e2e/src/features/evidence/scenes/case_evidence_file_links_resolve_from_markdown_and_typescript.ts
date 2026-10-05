@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 import {
   type ITtscEvidenceProject,
   assertFailure,
@@ -9,7 +10,6 @@ import {
   assertStatus,
   runCheck,
 } from "../../../internal/evidence/internal/index";
-import { TransitionProject } from "../../../internal/evidence/internal/TransitionProject";
 
 /**
  * Verifies file-qualified citations reach local and external code through ttsc.
@@ -40,7 +40,9 @@ export function case_evidence_file_links_resolve_from_markdown_and_typescript(
     compilerOptions: { noUnusedLocals: true },
     lintConfig: lintConfig!,
     files,
-    workspaceFiles: FixtureFiles.read("evidence/transitions/file-links/workspace"),
+    workspaceFiles: FixtureFiles.read(
+      "evidence/transitions/file-links/workspace",
+    ),
   });
   assertStatus(
     runCheck(project.directory),
@@ -58,6 +60,14 @@ export function case_evidence_file_links_resolve_from_markdown_and_typescript(
     "Missing TypeScript evidence member",
     "A renamed namespace property must invalidate both citations.",
   );
-  assertIncludes(result, "docs/review.md", "The Markdown citation must be diagnosed.");
-  assertIncludes(result, "src/review.ts", "The TypeScript citation must be diagnosed.");
+  assertIncludes(
+    result,
+    "docs/review.md",
+    "The Markdown citation must be diagnosed.",
+  );
+  assertIncludes(
+    result,
+    "src/review.ts",
+    "The TypeScript citation must be diagnosed.",
+  );
 }

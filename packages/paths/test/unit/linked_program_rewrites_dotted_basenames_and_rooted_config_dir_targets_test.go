@@ -32,9 +32,9 @@ import (
 // @evidence contracts/testing.md#execution-ownership This named test/unit entry joins the shared utility Go process with one noLib single-threaded Program on the default filesystem, a t-owned temporary project, a t.Setenv-restored linked manifest and a checker lease released by Close. No native producer, installer or subprocess is involved.
 func TestLinkedProgramRewritesDottedBasenamesAndRootedConfigDirTargets(t *testing.T) {
   root := shared.SeedProject(t, map[string]string{
-    "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"CommonJS","moduleResolution":"Bundler","noLib":true,"paths":{"@/*":["${configDir}/src/*"],"@rel/*":["./src/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
+    "tsconfig.json":             `{"compilerOptions":{"target":"ES2022","module":"CommonJS","moduleResolution":"Bundler","noLib":true,"paths":{"@/*":["${configDir}/src/*"],"@rel/*":["./src/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
     "src/users/user.service.ts": `export const service = 1;`,
-    "src/plain.ts": `export const plain = 2;`,
+    "src/plain.ts":              `export const plain = 2;`,
     "src/main.ts": `import { service as dotted } from "@rel/users/user.service";
 import { service as explicit } from "@rel/users/user.service.js";
 import { service as rooted } from "@/users/user.service";

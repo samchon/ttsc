@@ -43,66 +43,72 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Post-kill directory retention, conditional live-child preservation, each done status/output and final empty run index remain; native child-survival coverage is explicitly conditional.
  */
 export async function test_ttsx_reclaims_the_directory_of_a_force_terminated_run(): Promise<void> {
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "killed-run", private: true, workspaces: ["packages/*"] }),
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-          outDir: "lib",
-          types: [],
-        },
-        include: ["src"],
-      }),
-      "src/waiting.ts": WAITING_PROGRAM,
-      "src/done.ts": `console.log("done");\nexport {};\n`,
-    });
-    const runs = runtimeRunsDirectory(root);
-    const runToCompletion = (): void => {
-      const result = TestProject.spawn(
-        TestProject.TTSX_BIN,
-        ["--cwd", root, "src/done.ts"],
-        { cwd: root, env: isolatedCacheEnvironment(root) },
-      );
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), "done");
-    };
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({
+      name: "killed-run",
+      private: true,
+      workspaces: ["packages/*"],
+    }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "lib",
+        types: [],
+      },
+      include: ["src"],
+    }),
+    "src/waiting.ts": WAITING_PROGRAM,
+    "src/done.ts": `console.log("done");\nexport {};\n`,
+  });
+  const runs = runtimeRunsDirectory(root);
+  const runToCompletion = (): void => {
+    const result = TestProject.spawn(
+      TestProject.TTSX_BIN,
+      ["--cwd", root, "src/done.ts"],
+      { cwd: root, env: isolatedCacheEnvironment(root) },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), "done");
+  };
 
-    const killed = await startWaitingRun(root, "src/waiting.ts");
-    let primaryFailure: unknown;
+  const killed = await startWaitingRun(root, "src/waiting.ts");
+  let primaryFailure: unknown;
+  try {
+    await forceTerminate(killed.launcher.pid!);
+    const directory = runDirectory(runs, killed.launcher.pid!);
+    assert.equal(fs.existsSync(directory), true, killed.output());
+
+    runToCompletion();
+    if (isRunning(killed.program)) {
+      assert.equal(
+        fs.existsSync(directory),
+        true,
+        "a later run removed the directory of a program still running",
+      );
+    }
+
+    await forceTerminate(killed.program);
+    runToCompletion();
+    assert.deepEqual(
+      fs.readdirSync(runs),
+      [],
+      "the directory of a force-terminated run remained",
+    );
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
+  } finally {
     try {
-      await forceTerminate(killed.launcher.pid!);
-      const directory = runDirectory(runs, killed.launcher.pid!);
-      assert.equal(fs.existsSync(directory), true, killed.output());
-
-      runToCompletion();
-      if (isRunning(killed.program)) {
-        assert.equal(
-          fs.existsSync(directory),
-          true,
-          "a later run removed the directory of a program still running",
+      await stopWaitingRun(killed);
+    } catch (cleanupError) {
+      if (primaryFailure !== undefined)
+        throw new AggregateError(
+          [primaryFailure, cleanupError],
+          "terminated run failed and cleanup failed",
         );
-      }
-
-      await forceTerminate(killed.program);
-      runToCompletion();
-      assert.deepEqual(
-        fs.readdirSync(runs),
-        [],
-        "the directory of a force-terminated run remained",
-      );
-    } catch (error) {
-      primaryFailure = error;
-      throw error;
-    } finally {
-      try {
-        await stopWaitingRun(killed);
-      } catch (cleanupError) {
-        if (primaryFailure !== undefined) throw new AggregateError(
-          [primaryFailure, cleanupError], "terminated run failed and cleanup failed",
-        );
-        throw cleanupError;
-      }
+      throw cleanupError;
     }
   }
+}

@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "ts-legacy";
 
-import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
 import { privateRuntimeRootDir } from "../../../../../packages/ttsc/src/compiler/internal/build/privateRuntimeRootDir";
+import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
 import { readEffectiveCompilerOptions } from "../../../../../packages/ttsc/src/compiler/internal/readEffectiveCompilerOptions";
 import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createFilesystemPathIdentityContext";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -62,7 +62,12 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
       "privateRuntimeRootDir",
       "path",
       javascript + "\nreturn resolveRuntimeSourceRoot;",
-    )(reader, createFilesystemPathIdentityContext, privateRuntimeRootDir, path) as RootOperation;
+    )(
+      reader,
+      createFilesystemPathIdentityContext,
+      privateRuntimeRootDir,
+      path,
+    ) as RootOperation;
   const resolveRoot = bind(readEffectiveCompilerOptions);
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-runtime-root-reset-"),
@@ -122,10 +127,19 @@ export function test_runtime_source_root_preserves_explicit_compiler_resets(): v
   });
   check("composite absent root retains project coordinate", () => {
     const config = path.join(root, "composite.json");
-    fs.writeFileSync(config, JSON.stringify({ compilerOptions: { composite: true }, files: ["src/main.ts"] }));
+    fs.writeFileSync(
+      config,
+      JSON.stringify({
+        compilerOptions: { composite: true },
+        files: ["src/main.ts"],
+      }),
+    );
     const composite = readProjectConfig({ cwd: root, tsconfig: config });
     assert.equal(resolveRoot(composite, { passthrough: [] }), root);
-    assert.equal(resolveRoot(composite, { passthrough: ["--rootDir", "other"] }), fs.realpathSync.native(path.join(root, "other")));
+    assert.equal(
+      resolveRoot(composite, { passthrough: ["--rootDir", "other"] }),
+      fs.realpathSync.native(path.join(root, "other")),
+    );
   });
   check("nonmutation", () => {
     assert.equal(fs.readFileSync(config, "utf8"), bytes);

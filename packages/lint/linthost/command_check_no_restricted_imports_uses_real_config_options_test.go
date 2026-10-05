@@ -9,11 +9,11 @@ import (
 // in-process check command carries a lint.config.json no-restricted-imports
 // tuple (patterns group, importNames, message) through to the rule.
 //
-// 1. Seed a project importing `unsafe` and `safe` from "pkg/private".
-// 2. Write a lint.config.json restricting only the name `unsafe` for "pkg/*"
-//    with a custom message, then run `check` in this process.
-// 3. Assert status 2, empty stdout, exactly one diagnostic for `unsafe`
-//    carrying the custom message and none for `safe`.
+//  1. Seed a project importing `unsafe` and `safe` from "pkg/private".
+//  2. Write a lint.config.json restricting only the name `unsafe` for "pkg/*"
+//     with a custom message, then run `check` in this process.
+//  3. Assert status 2, empty stdout, exactly one diagnostic for `unsafe`
+//     carrying the custom message and none for `safe`.
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process check command reads a real JSON rule tuple, reports unsafe once, leaves safe clean and returns status 2 with empty stdout.
 // @evidence contracts/testing.md#independent-expectations The fixture policy forbids only unsafe in pkg/* and supplies the literal custom message. The fixture supplies no pkg/private declaration, so status two is not asserted to arise solely from lint; the configured rule text is the option-transport oracle.

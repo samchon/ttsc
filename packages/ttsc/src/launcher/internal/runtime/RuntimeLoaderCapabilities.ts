@@ -13,8 +13,8 @@ import { Worker } from "node:worker_threads";
  * both directions, so this helper instance memoizes actual public-API probes.
  * Main-thread temporary hooks deregister afterwards; the separate worker owns
  * its hooks until termination. The runtime installer invokes these before its
- * own hooks exist, so nothing they load
- * is recorded as an input of the program.
+ * own hooks exist, so nothing they load is recorded as an input of the
+ * program.
  *
  * @evidence contracts/common.md#principled-implementation Public loader probes observe the actual require.resolve, namespace and hooked-import behavior instead of deriving it from a release number; each boolean selects the runtime path matching that observed capability.
  * @evidence contracts/common.md#clear-and-simple-design One namespace owns three independent lazy capability answers and their private probes, keeping loader adaptation choices with the hook consumer.
@@ -101,9 +101,8 @@ export namespace RuntimeLoaderCapabilities {
    * whose CommonJS dependency the ESM loader evaluates from a hook's source. A
    * synchronous `require()` path is not the asynchronous import path whose
    * behavior this probe asks about. The import runs in a worker thread with
-   * hooks of its own
-   * that answer only the probe's two virtual modules, while this thread waits
-   * for its answer.
+   * hooks of its own that answer only the probe's two virtual modules, while
+   * this thread waits for its answer.
    */
   function probeHookedCommonJsRequire(): boolean {
     const answer = new Int32Array(new SharedArrayBuffer(4));
@@ -183,16 +182,17 @@ export namespace RuntimeLoaderCapabilities {
 }
 
 /**
- * How long the probe waits for its worker. No startup latency is guaranteed; the answer wait is ten seconds after
- * construction and does not bound worker creation or completed termination.
+ * How long the probe waits for its worker. No startup latency is guaranteed;
+ * the answer wait is ten seconds after construction and does not bound worker
+ * creation or completed termination.
  */
 const HOOKED_COMMONJS_REQUIRE_PROBE_TIMEOUT_MS = 10_000;
 
 /**
  * The worker body of `probeHookedCommonJsRequire`: an ES module importing a
- * CommonJS module that reports whether cache/extensions are objects,
- * both served from source by the worker's own hooks. It stores 1 when kept, 2
- * when narrowed, and 3 when the import failed.
+ * CommonJS module that reports whether cache/extensions are objects, both
+ * served from source by the worker's own hooks. It stores 1 when kept, 2 when
+ * narrowed, and 3 when the import failed.
  */
 const HOOKED_COMMONJS_REQUIRE_PROBE = `
 const { workerData } = require("node:worker_threads");

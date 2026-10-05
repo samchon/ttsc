@@ -27,12 +27,18 @@ func TestRegexOptimizerDistinguishesAZeroUpperBoundFromAnOpenRange(t *testing.T)
   } {
     t.Run(pair[0], func(t *testing.T) {
       got, err := regexOptimizeLiteral(pair[0], nil)
-      if err != nil || got != pair[1] { t.Fatalf("optimize %s: got %q, error %v; want %q", pair[0], got, err, pair[1]) }
+      if err != nil || got != pair[1] {
+        t.Fatalf("optimize %s: got %q, error %v; want %q", pair[0], got, err, pair[1])
+      }
     })
   }
   q := &regexQuantifierNode{Kind: "Range", From: 0, To: 0, HasTo: true, Greedy: true, FieldOrder: "ft"}
   from, to, finite := regexExtractFromTo(q)
-  if from != 0 || to != 0 || !finite || regexIsGreedyOpenRange(q) { t.Fatalf("closed zero lost its finite bound: %+v", q) }
+  if from != 0 || to != 0 || !finite || regexIsGreedyOpenRange(q) {
+    t.Fatalf("closed zero lost its finite bound: %+v", q)
+  }
   regexIncreaseQuantifierByOne(q)
-  if q.From != 1 || q.To != 1 || !q.HasTo { t.Fatalf("increment must yield exactly one: %+v", q) }
+  if q.From != 1 || q.To != 1 || !q.HasTo {
+    t.Fatalf("increment must yield exactly one: %+v", q)
+  }
 }

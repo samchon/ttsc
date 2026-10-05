@@ -16,9 +16,9 @@ import (
  */
 func TestPrismaDecodedRelationsPreserveOriginalUnitTables(t *testing.T) {
   for _, scenario := range []struct {
-    name string
+    name   string
     models []prismaModel
-    want string
+    want   string
   }{
     {name: "explicit-relation-spellings", models: []prismaModel{
       {Name: "User", Fields: []prismaField{{Name: "id", Symbol: "column"}, {Name: "orders", Symbol: "relation"}}},

@@ -15,8 +15,9 @@ export namespace TestMetroRuntime {
   const SESSION_ENV = "TTSC_UNPLUGIN_TRANSFORM_SESSION";
 
   /**
-   * Run `body` with a temporary directory of its own, then restore the transform
-   * session environment a `withTtsc` call inside it changed (samchon/ttsc#1390).
+   * Run `body` with a temporary directory of its own, then restore the
+   * transform session environment a `withTtsc` call inside it changed
+   * (samchon/ttsc#1390).
    *
    * `withTtsc` opens the session Metro's workers inherit by setting a
    * process-wide variable. This suite shares one process among every case, so a
@@ -65,11 +66,13 @@ export namespace TestMetroRuntime {
   /** Source units load authored owners; boundary entries load emitted modules. */
   function runtimeUrl(entry: string): string {
     return process.env.TTSC_TEST_LAYER === "unit"
-      ? pathToFileURL(path.resolve(
-          TestProject.WORKSPACE_ROOT,
-          "packages/metro/src",
-          `${entry}.ts`,
-        )).href
+      ? pathToFileURL(
+          path.resolve(
+            TestProject.WORKSPACE_ROOT,
+            "packages/metro/src",
+            `${entry}.ts`,
+          ),
+        ).href
       : libUrl(entry);
   }
 

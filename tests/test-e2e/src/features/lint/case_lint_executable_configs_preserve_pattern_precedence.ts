@@ -5,13 +5,17 @@ import path from "node:path";
 import { E2eProcessTrace } from "../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "../../../../utils/src/TestProject";
 import { EvidenceProcessOwnership } from "../../../../utils/src/evidence/EvidenceProcessOwnership";
-import { captureE2eTracePhase, type TracePhaseObservation } from "../../internal/captureE2eTracePhase";
 import type { PreparedAssetSelection } from "../../internal/captureE2ePreparedAssets";
+import {
+  type TracePhaseObservation,
+  captureE2eTracePhase,
+} from "../../internal/captureE2eTracePhase";
 import { readE2eTraceMeasurements } from "../../internal/readE2eTraceMeasurements";
 import { case_lint_loader_preserves_observed_raw_normalization } from "./case_lint_loader_preserves_observed_raw_normalization";
 
 /**
- * Verifies CJS and TypeScript loader options retain pattern precedence in fixes.
+ * Verifies CJS and TypeScript loader options retain pattern precedence in
+ * fixes.
  *
  * The already prepared native lint binary and installed consumer are supplied
  * by the common experiment. Each extension uses its real loader, then the
@@ -39,79 +43,178 @@ export async function case_lint_executable_configs_preserve_pattern_precedence(
     cacheRoots: readonly string[];
     cacheOutcomes: { cjs: readonly string[]; ts: readonly string[] };
   },
-): Promise<readonly TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>[]> {
+): Promise<
+  readonly TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>[]
+> {
   assert.ok(path.isAbsolute(directory) && path.isAbsolute(binary));
   EvidenceProcessOwnership.assertAvailable(directory);
-  const fixture = path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/fixtures/lint/ordered-loader-options");
-  const controlled = ["tsconfig.json", "loader-main.ts", "lint.config.cjs", "lint.config.ts"];
-  const previous = controlled.map(name => {
+  const fixture = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "tests/test-e2e/fixtures/lint/ordered-loader-options",
+  );
+  const controlled = [
+    "tsconfig.json",
+    "loader-main.ts",
+    "lint.config.cjs",
+    "lint.config.ts",
+  ];
+  const previous = controlled.map((name) => {
     const file = path.join(directory, name);
     try {
       const stat = fs.lstatSync(file);
-      assert.ok(stat.isFile(), "controlled input must be an owned regular file");
+      assert.ok(
+        stat.isFile(),
+        "controlled input must be an owned regular file",
+      );
       return { bytes: fs.readFileSync(file), mode: stat.mode & 0o777 };
-    }
-    catch (error) {
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
       throw error;
     }
   });
   const failures: unknown[] = [];
-  const phases: TracePhaseObservation<ReturnType<typeof E2eProcessTrace.spawnSync>>[] = [];
-  let cursor = readE2eTraceMeasurements(observation.traceRoot, []).lastWriterSequences;
-  assert.ok(observation.producerAssets.some(asset => asset.role === "executable" &&
-    fs.realpathSync.native(asset.file) === fs.realpathSync.native(binary)), "selected native executable asset");
+  const phases: TracePhaseObservation<
+    ReturnType<typeof E2eProcessTrace.spawnSync>
+  >[] = [];
+  let cursor = readE2eTraceMeasurements(
+    observation.traceRoot,
+    [],
+  ).lastWriterSequences;
+  assert.ok(
+    observation.producerAssets.some(
+      (asset) =>
+        asset.role === "executable" &&
+        fs.realpathSync.native(asset.file) === fs.realpathSync.native(binary),
+    ),
+    "selected native executable asset",
+  );
   try {
     for (const name of ["lint.config.cjs", "lint.config.ts"]) {
       EvidenceProcessOwnership.assertAvailable(directory);
       try {
-        fs.copyFileSync(path.join(fixture, "tsconfig.json"), path.join(directory, "tsconfig.json"));
-        fs.copyFileSync(path.join(fixture, "main.ts"), path.join(directory, "loader-main.ts"));
+        fs.copyFileSync(
+          path.join(fixture, "tsconfig.json"),
+          path.join(directory, "tsconfig.json"),
+        );
+        fs.copyFileSync(
+          path.join(fixture, "main.ts"),
+          path.join(directory, "loader-main.ts"),
+        );
         fs.copyFileSync(path.join(fixture, name), path.join(directory, name));
         const requiredWriterPids: number[] = [];
-        const phase = await captureE2eTracePhase({
-          label: `ordered-loader-${name}`, traceRoot: observation.traceRoot,
-          assets: [...observation.producerAssets,
-            { label: `ordered-${name}-config`, file: path.join(directory, name), role: "configuration" },
-            { label: `ordered-${name}-source`, file: path.join(directory, "loader-main.ts"), role: "fixture" },
-            { label: `ordered-${name}-tsconfig`, file: path.join(directory, "tsconfig.json"), role: "configuration" }],
-          cacheRoots: observation.cacheRoots, afterSequences: cursor, requiredWriterPids,
-        }, async () => {
-          const result = E2eProcessTrace.spawnSync(binary, [
-            "fix", "--cwd", directory, "--tsconfig", "tsconfig.json", "--plugins-json",
-            JSON.stringify([{ name: "@ttsc/lint", config: { configFile: name } }]),
-          ], { cwd: directory, encoding: "utf8", env: process.env, maxBuffer: 64 * 1024 * 1024 });
-          if (Number.isSafeInteger(result.pid) && result.pid > 0) requiredWriterPids.push(result.pid);
-          return result;
-        });
+        const phase = await captureE2eTracePhase(
+          {
+            label: `ordered-loader-${name}`,
+            traceRoot: observation.traceRoot,
+            assets: [
+              ...observation.producerAssets,
+              {
+                label: `ordered-${name}-config`,
+                file: path.join(directory, name),
+                role: "configuration",
+              },
+              {
+                label: `ordered-${name}-source`,
+                file: path.join(directory, "loader-main.ts"),
+                role: "fixture",
+              },
+              {
+                label: `ordered-${name}-tsconfig`,
+                file: path.join(directory, "tsconfig.json"),
+                role: "configuration",
+              },
+            ],
+            cacheRoots: observation.cacheRoots,
+            afterSequences: cursor,
+            requiredWriterPids,
+          },
+          async () => {
+            const result = E2eProcessTrace.spawnSync(
+              binary,
+              [
+                "fix",
+                "--cwd",
+                directory,
+                "--tsconfig",
+                "tsconfig.json",
+                "--plugins-json",
+                JSON.stringify([
+                  { name: "@ttsc/lint", config: { configFile: name } },
+                ]),
+              ],
+              {
+                cwd: directory,
+                encoding: "utf8",
+                env: process.env,
+                maxBuffer: 64 * 1024 * 1024,
+              },
+            );
+            if (Number.isSafeInteger(result.pid) && result.pid > 0)
+              requiredWriterPids.push(result.pid);
+            return result;
+          },
+        );
         phases.push(phase);
         if (phase.traces) cursor = phase.traces.lastWriterSequences;
         assert.equal(phase.outcome.returned, true);
         if (!phase.outcome.returned) throw phase.outcome.error;
         const result = phase.outcome.value;
         if (result.error || result.status === null || result.signal !== null)
-          EvidenceProcessOwnership.retain(directory, new Error("Native fix inputs retained without a normal native exit", {
-            cause: result.error ?? result.signal,
-          }));
+          EvidenceProcessOwnership.retain(
+            directory,
+            new Error(
+              "Native fix inputs retained without a normal native exit",
+              {
+                cause: result.error ?? result.signal,
+              },
+            ),
+          );
         assert.deepEqual(phase.observationErrors, []);
         assert.equal(result.error, undefined);
         assert.equal(result.signal, null);
         assert.equal(result.status, 0, String(result.stderr));
         assert.ok(Number.isSafeInteger(result.pid) && result.pid > 0);
-        assert.equal(fs.readFileSync(path.join(directory, "loader-main.ts"), "utf8"),
-          'const value = "first";\nconst untouched = "untouched";\n');
+        assert.equal(
+          fs.readFileSync(path.join(directory, "loader-main.ts"), "utf8"),
+          'const value = "first";\nconst untouched = "untouched";\n',
+        );
         assert.ok(phase.traces);
-        case_lint_loader_preserves_observed_raw_normalization(observation.traceRoot, phase.traces, {
-          writerPid: result.pid, location: path.join(directory, name),
-          label: name.endsWith(".ts") ? "TypeScript config file" : "config file",
-          evaluations: [{
-            value: { rules: { "unicorn/string-content": ["error", { patterns: { "foo$": "first", foo: "second" } }] } },
-            rawDependencies: [], normalizedDependencies: [], absentRawPaths: [], absentNormalizedPaths: [],
-            cacheOutcomes: name.endsWith(".ts") ? observation.cacheOutcomes.ts : observation.cacheOutcomes.cjs,
-          }],
-          fixedOutputs: [{ file: path.join(directory, "loader-main.ts"),
-            text: 'const value = "first";\nconst untouched = "untouched";\n' }],
-        });
+        case_lint_loader_preserves_observed_raw_normalization(
+          observation.traceRoot,
+          phase.traces,
+          {
+            writerPid: result.pid,
+            location: path.join(directory, name),
+            label: name.endsWith(".ts")
+              ? "TypeScript config file"
+              : "config file",
+            evaluations: [
+              {
+                value: {
+                  rules: {
+                    "unicorn/string-content": [
+                      "error",
+                      { patterns: { foo$: "first", foo: "second" } },
+                    ],
+                  },
+                },
+                rawDependencies: [],
+                normalizedDependencies: [],
+                absentRawPaths: [],
+                absentNormalizedPaths: [],
+                cacheOutcomes: name.endsWith(".ts")
+                  ? observation.cacheOutcomes.ts
+                  : observation.cacheOutcomes.cjs,
+              },
+            ],
+            fixedOutputs: [
+              {
+                file: path.join(directory, "loader-main.ts"),
+                text: 'const value = "first";\nconst untouched = "untouched";\n',
+              },
+            ],
+          },
+        );
       } catch (error) {
         failures.push(new Error(`ordered loader ${name}`, { cause: error }));
       }
@@ -128,22 +231,33 @@ export async function case_lint_executable_configs_preserve_pattern_precedence(
         try {
           if (saved === undefined) {
             fs.rmSync(file, { force: true });
-            assert.equal(fs.lstatSync(file, { throwIfNoEntry: false }), undefined);
+            assert.equal(
+              fs.lstatSync(file, { throwIfNoEntry: false }),
+              undefined,
+            );
           } else {
             fs.writeFileSync(file, saved.bytes);
             fs.chmodSync(file, saved.mode);
             assert.deepEqual(fs.readFileSync(file), saved.bytes);
             assert.equal(fs.statSync(file).mode & 0o777, saved.mode);
           }
-        } catch (error) { cleanupErrors.push(error); }
+        } catch (error) {
+          cleanupErrors.push(error);
+        }
       }
       if (cleanupErrors.length) {
-        const error = new AggregateError(cleanupErrors, "Controlled input restoration");
+        const error = new AggregateError(
+          cleanupErrors,
+          "Controlled input restoration",
+        );
         EvidenceProcessOwnership.retain(directory, error);
         throw error;
       }
-    } catch (error) { failures.push(error); }
+    } catch (error) {
+      failures.push(error);
+    }
   }
-  if (failures.length) throw new AggregateError(failures, "Executable config pattern precedence");
+  if (failures.length)
+    throw new AggregateError(failures, "Executable config pattern precedence");
   return phases;
 }

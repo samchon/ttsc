@@ -1,8 +1,9 @@
-import * as mod from "../../../../../packages/vscode/src/serverResolution";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code multi-root planning keeps project roots separate.
@@ -27,52 +28,64 @@ import path from "node:path";
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the pure resolution helpers over files written to a TestProject.tmpdir, with a fake RelativePattern class, and starts no VS Code extension host, language client or child process.
  */
 export function test_vscode_multi_root_client_specs_scope_document_selectors() {
-    const repo = TestProject.WORKSPACE_ROOT;
-    const workspace = TestProject.tmpdir("vscode-multi-root-");
-    const left = path.join(workspace, "pkg[one]");
-    const right = path.join(workspace, "right");
-    for (const root of [left, right]) {
-      fs.mkdirSync(path.join(root, "src"), { recursive: true });
-      fs.writeFileSync(path.join(root, "tsconfig.json"), "{}\n");
-      fs.writeFileSync(path.join(root, "src", "main.ts"), "export {};\n");
-    }
+  const repo = TestProject.WORKSPACE_ROOT;
+  const workspace = TestProject.tmpdir("vscode-multi-root-");
+  const left = path.join(workspace, "pkg[one]");
+  const right = path.join(workspace, "right");
+  for (const root of [left, right]) {
+    fs.mkdirSync(path.join(root, "src"), { recursive: true });
+    fs.writeFileSync(path.join(root, "tsconfig.json"), "{}\n");
+    fs.writeFileSync(path.join(root, "src", "main.ts"), "export {};\n");
+  }
 
-    class FakeRelativePattern {
-      constructor(public base: string, public pattern: string) {}
-    }
-    const observed = (() => {
-      const candidates = mod.createResolutionCandidates({
-        activeFile: (path.join(right, "src", "main.ts")),
-        activeWorkspaceRoot: (right),
-        workspaceRoots: [(left), (right)],
-      });
-      
-      const unique = [...new Map(candidates.map((entry) => [
-        entry.cwd,
-        {
-          cwd: entry.cwd,
-          pattern: mod.createDocumentSelectorPattern(FakeRelativePattern, entry.cwd),
-          tsconfig: entry.tsconfig,
-        },
-      ])).values()];
-      return unique;
-    
+  class FakeRelativePattern {
+    constructor(
+      public base: string,
+      public pattern: string,
+    ) {}
+  }
+  const observed = (() => {
+    const candidates = mod.createResolutionCandidates({
+      activeFile: path.join(right, "src", "main.ts"),
+      activeWorkspaceRoot: right,
+      workspaceRoots: [left, right],
+    });
+
+    const unique = [
+      ...new Map(
+        candidates.map((entry) => [
+          entry.cwd,
+          {
+            cwd: entry.cwd,
+            pattern: mod.createDocumentSelectorPattern(
+              FakeRelativePattern,
+              entry.cwd,
+            ),
+            tsconfig: entry.tsconfig,
+          },
+        ]),
+      ).values(),
+    ];
+    return unique;
   })();
-    const roots = observed as {
-      cwd: string;
-      pattern: { base: string; pattern: string };
-      tsconfig: string;
-    }[];
-    assert.deepEqual(
-      roots.map((entry) => path.normalize(entry.cwd)).sort(),
-      [left, right].map((entry) => path.normalize(entry)).sort(),
+  const roots = observed as {
+    cwd: string;
+    pattern: { base: string; pattern: string };
+    tsconfig: string;
+  }[];
+  assert.deepEqual(
+    roots.map((entry) => path.normalize(entry.cwd)).sort(),
+    [left, right].map((entry) => path.normalize(entry)).sort(),
+  );
+  for (const entry of roots) {
+    assert.equal(
+      path.normalize(entry.tsconfig),
+      path.normalize(path.join(entry.cwd, "tsconfig.json")),
     );
-    for (const entry of roots) {
-      assert.equal(
-        path.normalize(entry.tsconfig),
-        path.normalize(path.join(entry.cwd, "tsconfig.json")),
-      );
-      assert.ok(entry.pattern instanceof FakeRelativePattern);
-      assert.deepEqual({ ...entry.pattern }, { base: entry.cwd, pattern: "**/*" });
-    }
+    assert.ok(entry.pattern instanceof FakeRelativePattern);
+    assert.deepEqual(
+      { ...entry.pattern },
+      { base: entry.cwd, pattern: "**/*" },
+    );
+  }
 }

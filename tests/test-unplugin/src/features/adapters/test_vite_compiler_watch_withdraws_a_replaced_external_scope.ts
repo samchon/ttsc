@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the Vite serve watcher notices an external scope whose root was
@@ -21,6 +21,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * 2. Tick once with the external root untouched and assert nothing is invalidated.
  * 3. Replace the external root with a copy whose input differs, tick, and assert
  *    the importer is invalidated.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Registers an external declaration, checks an unchanged poll is quiet, replaces its directory with changed declaration bytes and requires the importer to invalidate at the next poll.
  * @evidence contracts/testing.md#independent-expectations
@@ -48,7 +49,11 @@ export async function test_vite_compiler_watch_withdraws_a_replaced_external_sco
       poll = listener;
       return { close: () => (poll = undefined) };
     },
-    watch: (scope) => ({ close: () => { closed.push(path.resolve(scope)); } }),
+    watch: (scope) => ({
+      close: () => {
+        closed.push(path.resolve(scope));
+      },
+    }),
   });
   const importer = path.join(root, "main.ts").replace(/\\/g, "/");
   watch.attach({
@@ -76,7 +81,11 @@ export async function test_vite_compiler_watch_withdraws_a_replaced_external_sco
       [importer],
       "a replaced external root must hand its inputs to the poll at once",
     );
-    assert.deepEqual(closed, [external], "the replaced external scope must release its old handle exactly once");
+    assert.deepEqual(
+      closed,
+      [external],
+      "the replaced external scope must release its old handle exactly once",
+    );
   } finally {
     await watch.dispose();
   }

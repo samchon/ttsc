@@ -22,11 +22,11 @@ import {
  * over the two modules and both views without installing a consumer. The
  * remaining cases own public configuration and compiler connections. Hierarchy,
  * checklist and strict-policy literals are actual Go-unit owned; typed-config
- * retains their public option/type transport in this consumer.
- * Inactive TypeScript function selection has its own literal rule unit;
- * the existing Prisma no-model and first-model bridge cases reuse their real
- * inventories for whole-graph activation and independent missing-reference
- * controls. Their rule verdicts complement the retained CLI status transport.
+ * retains their public option/type transport in this consumer. Inactive
+ * TypeScript function selection has its own literal rule unit; the existing
+ * Prisma no-model and first-model bridge cases reuse their real inventories for
+ * whole-graph activation and independent missing-reference controls. Their rule
+ * verdicts complement the retained CLI status transport.
  *
  * @evidence contracts/common.md#principled-implementation Original authored source/config bytes and literal assertions remain maintained executable fixtures, with entry names recording their previous owners. Compiler outcomes are supplied only by actual batch entries.
  * @evidence contracts/common.md#clear-and-simple-design One typed table couples each scene's original inputs to its callback; assembly and compiler lifetime belong to ConsumerBatch and its selected E2E caller.

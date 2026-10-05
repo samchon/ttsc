@@ -27,48 +27,143 @@ import { createSyntheticGraph } from "../internal/resolverGraph";
  */
 export function test_ttscgraph_tour_keeps_flows_after_self_recursion(): void {
   const file = "src/recursive-tour.ts";
-  const module = { id: `${file}#module:module`, name: file, kind: "module" as const, file, external: false };
-  const attempt = { id: "src/recursive-tour.ts#attempt:function", name: "attempt", kind: "function" as const, file, external: false, exported: true, evidence: { startLine: 1 } };
-  const handle = { id: "src/recursive-tour.ts#handle:function", name: "handle", kind: "function" as const, file, external: false, exported: true, evidence: { startLine: 2 } };
-  const work = { id: "src/recursive-tour.ts#work:function", name: "work", kind: "function" as const, file, external: false, exported: true, evidence: { startLine: 3 } };
+  const module = {
+    id: `${file}#module:module`,
+    name: file,
+    kind: "module" as const,
+    file,
+    external: false,
+  };
+  const attempt = {
+    id: "src/recursive-tour.ts#attempt:function",
+    name: "attempt",
+    kind: "function" as const,
+    file,
+    external: false,
+    exported: true,
+    evidence: { startLine: 1 },
+  };
+  const handle = {
+    id: "src/recursive-tour.ts#handle:function",
+    name: "handle",
+    kind: "function" as const,
+    file,
+    external: false,
+    exported: true,
+    evidence: { startLine: 2 },
+  };
+  const work = {
+    id: "src/recursive-tour.ts#work:function",
+    name: "work",
+    kind: "function" as const,
+    file,
+    external: false,
+    exported: true,
+    evidence: { startLine: 3 },
+  };
   const nodes = [handle, work];
   const edges = [
-    ...nodes.map((node) => ({ from: module.id, to: node.id, kind: "exports" as const })),
+    ...nodes.map((node) => ({
+      from: module.id,
+      to: node.id,
+      kind: "exports" as const,
+    })),
     { from: handle.id, to: work.id, kind: "calls" as const },
   ];
-  const recursive = createSyntheticGraph([module, attempt, ...nodes], [
-    { from: module.id, to: attempt.id, kind: "exports" },
-    { from: attempt.id, to: attempt.id, kind: "calls" },
-    ...edges,
-  ]);
+  const recursive = createSyntheticGraph(
+    [module, attempt, ...nodes],
+    [
+      { from: module.id, to: attempt.id, kind: "exports" },
+      { from: attempt.id, to: attempt.id, kind: "calls" },
+      ...edges,
+    ],
+  );
   const counterpart = createSyntheticGraph([module, ...nodes], edges);
   const failures: unknown[] = [];
   try {
-    const self = runTrace(recursive, { type: "trace", from: attempt.id, direction: "forward", focus: "execution" }).result;
-    assert.deepEqual(self.hops.map(({ from, to, kind }) => [from, to, kind]), [
-      ["src/recursive-tour.ts#attempt:function", "src/recursive-tour.ts#attempt:function", "calls"],
-    ]);
+    const self = runTrace(recursive, {
+      type: "trace",
+      from: attempt.id,
+      direction: "forward",
+      focus: "execution",
+    }).result;
+    assert.deepEqual(
+      self.hops.map(({ from, to, kind }) => [from, to, kind]),
+      [
+        [
+          "src/recursive-tour.ts#attempt:function",
+          "src/recursive-tour.ts#attempt:function",
+          "calls",
+        ],
+      ],
+    );
     assert.deepEqual(self.reached, []);
-  } catch (error) { failures.push(new Error("self trace premise", { cause: error })); }
+  } catch (error) {
+    failures.push(new Error("self trace premise", { cause: error }));
+  }
   const tours: ITtscGraphTour[] = [];
   for (const [label, graph, names, question] of [
-    ["self-recursion first", recursive, ["attempt", "handle"], "Show `attempt` and `handle`."],
+    [
+      "self-recursion first",
+      recursive,
+      ["attempt", "handle"],
+      "Show `attempt` and `handle`.",
+    ],
     ["no recursion", counterpart, ["handle"], "Show `handle`."],
   ] as const) {
     try {
-      const tour = runTour(graph, { type: "tour", reinterpretations: [...names] }, question).result;
-      if (label === "self-recursion first") assert.equal(tour.entrypoints[0]?.id, "src/recursive-tour.ts#attempt:function");
-      assert.ok(tour.primaryFlow.some((flow) => flow.reached.some((node) => node.name === "work")));
-      for (const flow of tour.primaryFlow) assert.ok(flow.reached.length > 0, `${label}: a flow reached nothing`);
-      assert.deepEqual(tour.primaryFlow.map((flow) => [flow.start.name, flow.reached.map((node) => node.name).sort()]), [["handle", ["work"]]]);
+      const tour = runTour(
+        graph,
+        { type: "tour", reinterpretations: [...names] },
+        question,
+      ).result;
+      if (label === "self-recursion first")
+        assert.equal(
+          tour.entrypoints[0]?.id,
+          "src/recursive-tour.ts#attempt:function",
+        );
+      assert.ok(
+        tour.primaryFlow.some((flow) =>
+          flow.reached.some((node) => node.name === "work"),
+        ),
+      );
+      for (const flow of tour.primaryFlow)
+        assert.ok(flow.reached.length > 0, `${label}: a flow reached nothing`);
+      assert.deepEqual(
+        tour.primaryFlow.map((flow) => [
+          flow.start.name,
+          flow.reached.map((node) => node.name).sort(),
+        ]),
+        [["handle", ["work"]]],
+      );
       tours.push(tour);
-    } catch (error) { failures.push(new Error(label, { cause: error })); }
+    } catch (error) {
+      failures.push(new Error(label, { cause: error }));
+    }
   }
   if (tours.length === 2) {
-    const shape = (tour: ITtscGraphTour): string => JSON.stringify(tour.primaryFlow.map((flow) => [flow.start.name, flow.reached.map((node) => node.name).sort()]));
+    const shape = (tour: ITtscGraphTour): string =>
+      JSON.stringify(
+        tour.primaryFlow.map((flow) => [
+          flow.start.name,
+          flow.reached.map((node) => node.name).sort(),
+        ]),
+      );
     try {
-      assert.equal(shape(tours[0]!), shape(tours[1]!), "the self-edge must not change the reported moving flows");
-    } catch (error) { failures.push(new Error("recursive/nonrecursive shape equality", { cause: error })); }
+      assert.equal(
+        shape(tours[0]!),
+        shape(tours[1]!),
+        "the self-edge must not change the reported moving flows",
+      );
+    } catch (error) {
+      failures.push(
+        new Error("recursive/nonrecursive shape equality", { cause: error }),
+      );
+    }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "closed-universe recursive tour scenarios failed");
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "closed-universe recursive tour scenarios failed",
+    );
 }

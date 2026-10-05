@@ -8,7 +8,8 @@ import { assertWithTtscResolvesUpstreamFromTheProject } from "../../internal/met
  * adapter is linked from outside its `node_modules` failed every module with
  * "Could not find an upstream Metro transformer".
  *
- * 1. Install automatic and explicit upstream module fixtures only beneath their project roots.
+ * 1. Install automatic and explicit upstream module fixtures only beneath their
+ *    project roots.
  * 2. Call authored withTtsc for each project.
  * 3. Assert the worker payload contains the exact resolved project module path.
  *

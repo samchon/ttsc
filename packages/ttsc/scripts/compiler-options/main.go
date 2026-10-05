@@ -11,11 +11,11 @@ import (
 )
 
 type option struct {
-  Name string `json:"name"`
-  Alias string `json:"alias,omitempty"`
-  Kind string `json:"kind"`
-  Element string `json:"element,omitempty"`
-  ConfigOnly bool `json:"configOnly"`
+  Name       string `json:"name"`
+  Alias      string `json:"alias,omitempty"`
+  Kind       string `json:"kind"`
+  Element    string `json:"element,omitempty"`
+  ConfigOnly bool   `json:"configOnly"`
 }
 
 // Read exported declarations from the same pinned module as ParseCommandLine.
@@ -43,9 +43,9 @@ func main() {
     }
   }
   result := struct {
-    Options []option `json:"options"`
-    AsciiFolds map[string]string `json:"asciiFolds"`
-    EnumWhitespace []string `json:"enumWhitespace"`
+    Options        []option          `json:"options"`
+    AsciiFolds     map[string]string `json:"asciiFolds"`
+    EnumWhitespace []string          `json:"enumWhitespace"`
   }{options, folds, enumWhitespace}
   if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
     panic(err)

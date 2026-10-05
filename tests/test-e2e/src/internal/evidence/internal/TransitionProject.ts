@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
-import { createProject } from "../../../../../utils/src/evidence/createProject";
 import type { ITtscEvidenceProject } from "../../../../../utils/src/evidence/ITtscEvidenceProject";
+import { createProject } from "../../../../../utils/src/evidence/createProject";
 
 /**
  * One linked Evidence consumer that successive scenarios take over.
@@ -36,7 +36,8 @@ export namespace TransitionProject {
   const bases = new WeakMap<ITtscEvidenceProject, Record<string, unknown>>();
 
   /**
-   * Link one consumer with the authored lint snapshot, compiler and Evidence package.
+   * Link one consumer with the authored lint snapshot, compiler and Evidence
+   * package.
    *
    * @evidence contracts/common.md#principled-implementation The consumer comes from the same createProject owner as every other Evidence case, with the byte-proven authored lint snapshot, so scenarios exercise the actual packaged contributor; the strict base tsconfig is captured once so entering never invents compiler options.
    * @evidence contracts/common.md#clear-and-simple-design One call prepares the single consumer and records its defaults; scenarios own their authored inputs.
@@ -47,7 +48,9 @@ export namespace TransitionProject {
    * @evidence contracts/performance.md#reuse-equivalent-work The one linked consumer replaces one per scenario; the content-keyed native cache serves every check.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the returned project and releases it through its cleanup after the last scenario.
    */
-  export function open(preparation: { preparedModules?: string; workspaceParent?: string } = {}): ITtscEvidenceProject {
+  export function open(
+    preparation: { preparedModules?: string; workspaceParent?: string } = {},
+  ): ITtscEvidenceProject {
     const project = createProject({
       ...preparation,
       nativeProducer: "snapshot",
@@ -67,7 +70,8 @@ export namespace TransitionProject {
    *
    * The reset removes only the directories scenarios populate (`src`, `docs`,
    * the workspace `api` directory) and rewrites `tsconfig.json` and
-   * `lint.config.ts`; links, `node_modules` and the plugin cache are untouched.
+   * `lint.config.ts`; links, `node_modules` and the plugin cache are
+   * untouched.
    *
    * @evidence contracts/common.md#principled-implementation Removing and rewriting exactly the authored inputs leaves no earlier source, so a check observes only the entering scenario's files while compiler, package links and cache stay valid.
    * @evidence contracts/common.md#clear-and-simple-design A bounded reset of three directories and two files replaces creating another consumer.
@@ -78,18 +82,21 @@ export namespace TransitionProject {
    * @evidence contracts/performance.md#reuse-equivalent-work Reuses the consumer's links and native cache instead of rebuilding them per scenario.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Asserts no process owns the project before mutating it, and leaves only the files the new scenario authors.
    */
-  export function enter(
-    project: ITtscEvidenceProject,
-    state: IState,
-  ): void {
+  export function enter(project: ITtscEvidenceProject, state: IState): void {
     EvidenceProcessOwnership.assertAvailable(project.directory);
     const reset = (directory: string): void =>
-      fs.rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      fs.rmSync(directory, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 100,
+      });
     reset(path.join(project.directory, "src"));
     reset(path.join(project.directory, "docs"));
     reset(path.join(project.workspace, "api"));
     const base = bases.get(project);
-    if (base === undefined) throw new Error("Project was not opened by TransitionProject");
+    if (base === undefined)
+      throw new Error("Project was not opened by TransitionProject");
     const write = (root: string, relative: string, text: string): void => {
       const file = path.join(root, relative);
       fs.mkdirSync(path.dirname(file), { recursive: true });

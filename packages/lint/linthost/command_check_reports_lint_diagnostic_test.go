@@ -37,6 +37,8 @@ func TestCommandCheckReportsLintDiagnostic(t *testing.T) {
   if code != 2 || stdout != "" || !strings.Contains(stderr, "[no-var]") {
     t.Fatalf("check diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
-  if strings.Count(stderr, "[no-var]") != 1 { t.Fatalf("check should render exactly one authored no-var finding: %q", stderr) }
+  if strings.Count(stderr, "[no-var]") != 1 {
+    t.Fatalf("check should render exactly one authored no-var finding: %q", stderr)
+  }
   assertFileText(t, filepath.Join(root, "src", "main.ts"), "var legacy = 1;\nJSON.stringify(legacy);\n")
 }

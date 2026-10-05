@@ -1,16 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { print, ref } from "../../internal/helpers";
 
 /**
- * Verifies printing of a generic {@link factory.createTypeParameterDeclaration|type parameter}.
+ * Verifies printing of a generic
+ * {@link factory.createTypeParameterDeclaration|type parameter}.
  *
  * A parameter carrying both a constraint and a default renders as `<T extends
  * Base = Fallback>` inside a type alias.
  *
- * 1. A T parameter preserves both extends Base constraint and = Fallback default inside Wrap.
- * 2. Literal type Wrap<T extends Base = Fallback> = T; independently defines constraint/default order and identity.
+ * 1. A T parameter preserves both extends Base constraint and = Fallback default
+ *    inside Wrap.
+ * 2. Literal type Wrap<T extends Base = Fallback> = T; independently defines
+ *    constraint/default order and identity.
  *
  * @evidence contracts/testing.md#behavioral-verification A T parameter preserves both extends Base constraint and = Fallback default inside Wrap.
  * @evidence contracts/testing.md#independent-expectations Literal type Wrap<T extends Base = Fallback> = T; independently defines constraint/default order and identity.

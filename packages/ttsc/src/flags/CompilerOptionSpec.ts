@@ -22,6 +22,9 @@ export interface CompilerOptionSpec {
   /** List element kind; absent for non-list declarations. */
   readonly element?: "string" | "enum" | "object";
 
-  /** Whether CLI admission allows only false/null for booleans and null for other kinds. */
+  /**
+   * Whether CLI admission allows only false/null for booleans and null for
+   * other kinds.
+   */
   readonly configOnly: boolean;
 }

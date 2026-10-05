@@ -20,8 +20,8 @@ import {
  * One project and one stub serve four requests whose subject is how ttsc and
  * ttsx invoke the compiler, not what TypeScript means: a no-plugin build of a
  * `noEmit` project, a no-plugin emit that must use exactly one invocation, a
- * ttsx run that must execute the stub's output, and (on POSIX) a version
- * banner from a compiler binary whose executable bits were removed.
+ * ttsx run that must execute the stub's output, and (on POSIX) a version banner
+ * from a compiler binary whose executable bits were removed.
  *
  * 1. Install the stub; configure `noEmit: true`; run `ttsc` and read the log.
  * 2. Configure emission; run `ttsc --emit` and read the reset log.
@@ -37,10 +37,14 @@ import {
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The invocation log and the configuration are reset before each request; the version request runs last because it removes executable bits; the isolated cache selectors keep ttsx state inside the project. Synchronous result/expected status checks do not certify arbitrary descendant closure or loaded executable image; normal tracked root cleanup does not prove forced-interruption cleanup.
  * @evidence contracts/e2e.md#preserved-coverage Replaces the former separate entries for no-plugin noEmit build, no-plugin single-invocation emit, ttsx consumer-local compiler execution and the POSIX non-executable version banner, keeping every status, count, flag, output and mode assertion. The version request keeps its POSIX-only scope by skipping inside the entry on Windows.
  */
-export function test_compiler_consumer_local_native_compiler_receives_the_launcher_contract(preparedRoot?: string, provenanceRecorder?: string, observe?: (result: ReturnType<typeof spawnWithoutTsgoOverride>) => void): void {
-  const root = preparedRoot ?? createProject(
-    FixtureFiles.read("ttsc/compiler/consumer-fake"),
-  );
+export function test_compiler_consumer_local_native_compiler_receives_the_launcher_contract(
+  preparedRoot?: string,
+  provenanceRecorder?: string,
+  observe?: (result: ReturnType<typeof spawnWithoutTsgoOverride>) => void,
+): void {
+  const root =
+    preparedRoot ??
+    createProject(FixtureFiles.read("ttsc/compiler/consumer-fake"));
   const logFile = path.join(root, "tsgo-invocations.jsonl");
   const writeConfig = (compilerOptions: Record<string, unknown>): void =>
     fs.writeFileSync(
@@ -172,14 +176,19 @@ ${provenanceRecorder ? "}" : ""}
     env: isolatedCacheEnvironment(root),
   });
   observe?.(ttsx);
-  check("ttsx executes JavaScript emitted by the consumer-local compiler", () => {
-    assert.equal(ttsx.status, 0, ttsx.stderr);
-    assert.equal(ttsx.stdout.trim(), "consumer-local-tsgo");
-    const text = invocations().map((args) => args.join(" ")).join("\n");
-    assert.match(text, /--outDir/);
-    assert.match(text, /--showConfig/);
-    assert.match(text, /--listFilesOnly true/);
-  });
+  check(
+    "ttsx executes JavaScript emitted by the consumer-local compiler",
+    () => {
+      assert.equal(ttsx.status, 0, ttsx.stderr);
+      assert.equal(ttsx.stdout.trim(), "consumer-local-tsgo");
+      const text = invocations()
+        .map((args) => args.join(" "))
+        .join("\n");
+      assert.match(text, /--outDir/);
+      assert.match(text, /--showConfig/);
+      assert.match(text, /--listFilesOnly true/);
+    },
+  );
 
   if (process.platform !== "win32") {
     const tsgo = path.join(

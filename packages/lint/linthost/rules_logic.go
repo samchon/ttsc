@@ -16,7 +16,7 @@ import (
 // https://eslint.org/docs/latest/rules/no-extra-boolean-cast
 type noExtraBooleanCast struct{}
 
-func (noExtraBooleanCast) Name() string { return "no-extra-boolean-cast" }
+func (noExtraBooleanCast) Name() string           { return "no-extra-boolean-cast" }
 func (noExtraBooleanCast) NeedsTypeChecker() bool { return true }
 func (noExtraBooleanCast) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindCallExpression, shimast.KindPrefixUnaryExpression}
@@ -95,7 +95,9 @@ func isGlobalBooleanConverter(ctx *Context, callee *shimast.Node) bool {
     return false
   }
   for _, declaration := range ctx.Checker.GetMergedSymbol(resolved).Declarations {
-    if declaration == nil { continue }
+    if declaration == nil {
+      continue
+    }
     file := shimast.GetSourceFileOfNode(declaration)
     if file != nil && !file.IsDeclarationFile {
       switch declaration.Kind {

@@ -5,9 +5,9 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
  * host that discovers roots after hook installation.
  *
  * The directories and actual compiler emit observations describe already-built
- * output; the hooks use them to establish which preparation owns a source.
- * This transport shape does not authenticate its producer or current artifact
- * bytes; trusted preparation and immutable emit are registry/index premises.
+ * output; the hooks use them to establish which preparation owns a source. This
+ * transport shape does not authenticate its producer or current artifact bytes;
+ * trusted preparation and immutable emit are registry/index premises.
  *
  * @evidence contracts/common.md#principled-implementation Native source/emit roots, actual output-to-source observations and owning format options bind serving to one checked preparation; optional entry/output-list/policy fields cannot replace the required compiler provenance.
  * @evidence contracts/common.md#clear-and-simple-design One serializable build manifest groups serving identity and its run-owned caches, keeping loader callbacks and mutable lock state outside the transport.
@@ -28,7 +28,10 @@ export interface RuntimeManifest {
   /** Directory holding the entry project's emitted JavaScript. */
   readonly emitDir: string;
 
-  /** Selected TypeScript entry coordinate whose preparation created this manifest. */
+  /**
+   * Selected TypeScript entry coordinate whose preparation created this
+   * manifest.
+   */
   readonly entrySource?: string;
 
   /** Exact JavaScript emitted for `entrySource`. */

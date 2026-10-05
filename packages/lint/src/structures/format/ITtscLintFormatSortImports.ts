@@ -21,8 +21,8 @@ export interface ITtscLintFormatSortImports {
    *   group. Injected implicitly at the front when omitted.
    * - `<TYPES>`: `import type` declarations. Combine with a regex to scope it,
    *   e.g. `<TYPES>^[.]` groups type-only relative imports.
-   * - `""` (empty string): emit one blank line at this position. An array with
-   *   no `""` entry produces no blank lines between groups.
+   * - `""` (empty string): emit one blank line at this position. An array with no
+   *   `""` entry produces no blank lines between groups.
    *
    * Named specifiers inside each eligible declaration are sorted; comments
    * between specifiers preserve their order. Omit for the default grouping.

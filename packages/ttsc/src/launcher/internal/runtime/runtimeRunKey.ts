@@ -9,12 +9,11 @@ import crypto from "node:crypto";
  * another host sharing the cache root can have the same id, and a later process
  * given the id of one that was killed would claim the directory a sweep is
  * removing as abandoned (`ProcessOwnedDirectory.sweep`). The nonce lowers this
- * collision risk; a finite random identifier cannot guarantee uniqueness.
- * The memoized key belongs to this loaded module instance. Another instance or
+ * collision risk; a finite random identifier cannot guarantee uniqueness. The
+ * memoized key belongs to this loaded module instance. Another instance or
  * worker can own another key even when Node reports the same process id.
  *
  * @returns The same key for every call to this module instance.
- *
  * @evidence contracts/common.md#principled-implementation Combining the diagnostic pid with a random 64-bit nonce distinguishes successive and cross-host runs that may share a pid; the identifier is probabilistic rather than a security credential.
  * @evidence contracts/common.md#clear-and-simple-design One module-local lazy value supplies its callers' run identity without caller-specific naming schemes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cryptographic randomness avoids a pid-only identity policy without certifying collision absence; the pid remains explanatory metadata rather than globally unique authority.

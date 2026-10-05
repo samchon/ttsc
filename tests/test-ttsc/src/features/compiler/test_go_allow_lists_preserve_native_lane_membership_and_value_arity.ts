@@ -6,8 +6,8 @@ import { buildGoAllowList } from "../../../../../packages/ttsc/src/flags/buildGo
  * Verifies native allow-list derivation preserves lane membership and arity.
  *
  * Literal maps describe the public host and lint argument contracts, rather
- * than deriving expectations from FLAG_SCHEMA or comparing generated files.
- * A caller may mutate its returned map without changing later derivations.
+ * than deriving expectations from FLAG_SCHEMA or comparing generated files. A
+ * caller may mutate its returned map without changing later derivations.
  *
  * 1. Require every host key, project alias and boolean/value classification.
  * 2. Require the lint-only inputs and exclude the host-only manifest key.

@@ -1,8 +1,8 @@
 /**
  * The ESM source that stands in for a CommonJS module an ESM `import` reaches.
  *
- * The caller selects this adaptation when hook-served CommonJS source needs
- * the ordinary CommonJS loading lane rather than an ESM loader's narrower
+ * The caller selects this adaptation when hook-served CommonJS source needs the
+ * ordinary CommonJS loading lane rather than an ESM loader's narrower
  * module-local require. The generated source uses public `createRequire` and
  * the caller's source-aware load boundary, sharing Node's CommonJS cache.
  * Evaluation occurs with the importer; native load failures still propagate.
@@ -11,15 +11,14 @@
  * properties, once after loading; missing/inherited properties and throwing
  * getters yield undefined, as Node's translator does. Own-property inspection
  * errors propagate. The supplied marker capability selects either a namespace
- * `module.exports` alias or the older ordinary named-property behavior, including
- * its own-property check for a detected `default` name.
+ * `module.exports` alias or the older ordinary named-property behavior,
+ * including its own-property check for a detected `default` name.
  *
  * @param url The module's URL, which its `require` resolves from.
  * @param filename The module's path, which the CommonJS loader loads.
  * @param names The names Node's static export detection finds for it.
  * @param moduleExportsKey Whether the runtime's namespace carries
  *   `module.exports`.
- *
  * @evidence contracts/common.md#principled-implementation Public createRequire routes loading through the shared CommonJS cache; deduplicated detected names preserve Node's own-only projection, getter-error suppression and capability-selected marker behavior without guessing dynamic exports.
  * @evidence contracts/common.md#clear-and-simple-design One source builder isolates the ESM-to-CommonJS adaptation; callers supply actual detected names and loader capability rather than embedding another compatibility policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported createRequire and generated ESM adapt the selected public loader lane. JSON quoting protects caller text; only named-property getter errors are suppressed by the specified Node policy, while native load and own-inspection failures propagate.

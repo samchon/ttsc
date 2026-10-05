@@ -50,7 +50,9 @@ func TestProjectContributorOptionlessMarkerRejectsPayload(t *testing.T) {
     t.Fatalf("optionless project contributor payload was not rejected: %v", err)
   }
   valid := NewEngineWithResolver(InlineRuleResolver{Rules: RuleConfig{adapter.name: SeverityError}})
-  if err := valid.ConfigError(); err != nil || !valid.projectSettings[adapter.name].Declared || valid.projectSettings[adapter.name].Severity != SeverityError { t.Fatalf("optionless project contributor without payload should bind: %v / %v", err, valid.projectSettings) }
+  if err := valid.ConfigError(); err != nil || !valid.projectSettings[adapter.name].Declared || valid.projectSettings[adapter.name].Severity != SeverityError {
+    t.Fatalf("optionless project contributor without payload should bind: %v / %v", err, valid.projectSettings)
+  }
 }
 
 type optionlessProjectContributor struct{}

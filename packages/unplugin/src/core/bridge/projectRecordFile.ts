@@ -10,12 +10,12 @@ import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
  * A generation compiles the whole project, so a module's output depends on the
  * recorded project state. Adapters request a coarse project-record dependency
  * alongside the module itself when their host channel and record writer permit
- * it. The host's watcher or persistent-cache snapshot observes that file through
- * its ordinary dependency channel; naming alone guarantees neither delivery
- * writes nor host receipt. This channel registers the project record rather
- * than the compiler's individual inputs, whose
- * number, kind, and place each host's channels observe imprecisely or refuse,
- * and whose flaws the adapter used to measure and compensate host by host.
+ * it. The host's watcher or persistent-cache snapshot observes that file
+ * through its ordinary dependency channel; naming alone guarantees neither
+ * delivery writes nor host receipt. This channel registers the project record
+ * rather than the compiler's individual inputs, whose number, kind, and place
+ * each host's channels observe imprecisely or refuse, and whose flaws the
+ * adapter used to measure and compensate host by host.
  *
  * Its name is the resolved lexical tsconfig path's truncated digest. Distinct
  * spellings may name distinct records even for one physical config; separation
@@ -23,7 +23,6 @@ import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
  *
  * @param toolDirectory The host's tool directory (`hostToolDirectory`).
  * @param tsconfig The project's tsconfig, as the adapter names it.
- *
  * @evidence contracts/common.md#principled-implementation
  *   A resolved-tsconfig digest identifies the project within one host tool root;
  *   the deterministic filename persists across processes that restore host caches.

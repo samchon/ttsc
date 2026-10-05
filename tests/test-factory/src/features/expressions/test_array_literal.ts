@@ -1,16 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { num, print } from "../../internal/helpers";
 
 /**
- * Verifies printing of {@link factory.createArrayLiteralExpression|array literals}.
+ * Verifies printing of
+ * {@link factory.createArrayLiteralExpression|array literals}.
  *
  * Empty arrays render as `[]`, short arrays inline, and the `multiLine` flag
  * forces one element per line with a trailing comma.
  *
- * 1. Empty, inline two-element and explicitly multiline arrays preserve brackets, elements and requested layout.
- * 2. Literal [], [1, 2] and explicit broken-array lines specify output independently.
+ * 1. Empty, inline two-element and explicitly multiline arrays preserve brackets,
+ *    elements and requested layout.
+ * 2. Literal [], [1, 2] and explicit broken-array lines specify output
+ *    independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Empty, inline two-element and explicitly multiline arrays preserve brackets, elements and requested layout.
  * @evidence contracts/testing.md#independent-expectations Literal [], [1, 2] and explicit broken-array lines specify output independently.

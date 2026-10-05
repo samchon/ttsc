@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 
 import type { TracePhaseObservation } from "../../internal/captureE2eTracePhase";
-import { pairE2eTraceWriterManifest, type TraceBoundaryRequirement } from "../../internal/pairE2eTraceWriterManifest";
+import {
+  type TraceBoundaryRequirement,
+  pairE2eTraceWriterManifest,
+} from "../../internal/pairE2eTraceWriterManifest";
 import { requireE2eBaselinePreparation } from "../../internal/requireE2eBaselinePreparation";
 import { case_lint_executable_configs_preserve_pattern_precedence } from "./case_lint_executable_configs_preserve_pattern_precedence";
 import { case_lint_native_format_preserves_the_live_buffer_boundary } from "./case_lint_native_format_preserves_the_live_buffer_boundary";
@@ -25,35 +28,85 @@ export async function case_lint_transport_profiles_share_explicit_preparation(in
   baseline: TracePhaseObservation<unknown>;
   directory: string;
   binary: string;
-  observation: Parameters<typeof case_lint_executable_configs_preserve_pattern_precedence>[2];
-  format: Pick<Parameters<typeof case_lint_native_format_preserves_the_live_buffer_boundary>[0],
-    "directory" | "file" | "tsconfig" | "pluginsJSON">;
+  observation: Parameters<
+    typeof case_lint_executable_configs_preserve_pattern_precedence
+  >[2];
+  format: Pick<
+    Parameters<
+      typeof case_lint_native_format_preserves_the_live_buffer_boundary
+    >[0],
+    "directory" | "file" | "tsconfig" | "pluginsJSON"
+  >;
   baselineProducerLabels: Readonly<Record<string, string>>;
-  requirements: Readonly<Record<string, readonly Omit<TraceBoundaryRequirement, "writerPid">[]>>;
-}): Promise<{ phases: Awaited<ReturnType<typeof case_lint_executable_configs_preserve_pattern_precedence>>;
-  pairing: ReturnType<typeof pairE2eTraceWriterManifest>[]; completenessCertified: false }> {
-  const labels = ["ordered-loader-lint.config.cjs", "ordered-loader-lint.config.ts", "format-dirty-buffer", "format-clean-buffer"];
+  requirements: Readonly<
+    Record<string, readonly Omit<TraceBoundaryRequirement, "writerPid">[]>
+  >;
+}): Promise<{
+  phases: Awaited<
+    ReturnType<typeof case_lint_executable_configs_preserve_pattern_precedence>
+  >;
+  pairing: ReturnType<typeof pairE2eTraceWriterManifest>[];
+  completenessCertified: false;
+}> {
+  const labels = [
+    "ordered-loader-lint.config.cjs",
+    "ordered-loader-lint.config.ts",
+    "format-dirty-buffer",
+    "format-clean-buffer",
+  ];
   assert.deepEqual(Object.keys(input.requirements).sort(), [...labels].sort());
-  for (const label of labels) assert.ok(input.requirements[label]!.length > 0, `named population ${label}`);
-  requireE2eBaselinePreparation(input.baseline, input.observation.traceRoot,
-    input.observation.producerAssets, input.baselineProducerLabels);
-  const ordered = await case_lint_executable_configs_preserve_pattern_precedence(input.directory, input.binary, input.observation);
-  requireE2eBaselinePreparation(input.baseline, input.observation.traceRoot,
-    input.observation.producerAssets, input.baselineProducerLabels);
-  const format = await case_lint_native_format_preserves_the_live_buffer_boundary({ ...input.format,
-    binary: input.binary, traceRoot: input.observation.traceRoot,
-    producerAssets: input.observation.producerAssets, cacheRoots: input.observation.cacheRoots });
+  for (const label of labels)
+    assert.ok(
+      input.requirements[label]!.length > 0,
+      `named population ${label}`,
+    );
+  requireE2eBaselinePreparation(
+    input.baseline,
+    input.observation.traceRoot,
+    input.observation.producerAssets,
+    input.baselineProducerLabels,
+  );
+  const ordered =
+    await case_lint_executable_configs_preserve_pattern_precedence(
+      input.directory,
+      input.binary,
+      input.observation,
+    );
+  requireE2eBaselinePreparation(
+    input.baseline,
+    input.observation.traceRoot,
+    input.observation.producerAssets,
+    input.baselineProducerLabels,
+  );
+  const format =
+    await case_lint_native_format_preserves_the_live_buffer_boundary({
+      ...input.format,
+      binary: input.binary,
+      traceRoot: input.observation.traceRoot,
+      producerAssets: input.observation.producerAssets,
+      cacheRoots: input.observation.cacheRoots,
+    });
   const phases = [...ordered, ...format];
-  assert.deepEqual(phases.map(phase => phase.label), labels);
-  const pairing = phases.map(phase => {
+  assert.deepEqual(
+    phases.map((phase) => phase.label),
+    labels,
+  );
+  const pairing = phases.map((phase) => {
     assert.equal(phase.outcome.returned, true);
     if (!phase.outcome.returned) throw phase.outcome.error;
-    const paired = pairE2eTraceWriterManifest(phase, input.requirements[phase.label]!.map(requirement => ({
-      ...requirement,
-      writerPid: phase.label.startsWith("ordered-loader-") ?
-        (phase.outcome.returned ? phase.outcome.value.pid : 0) : process.pid,
-    })));
-    for (const boundary of paired.boundaries) assert.deepEqual(boundary.problems, [], boundary.boundary);
+    const paired = pairE2eTraceWriterManifest(
+      phase,
+      input.requirements[phase.label]!.map((requirement) => ({
+        ...requirement,
+        writerPid: phase.label.startsWith("ordered-loader-")
+          ? phase.outcome.returned
+            ? phase.outcome.value.pid
+            : 0
+          : process.pid,
+      })),
+    );
+    for (const boundary of paired.boundaries)
+      assert.deepEqual(boundary.problems, [], boundary.boundary);
     return paired;
   });
   return { phases, pairing, completenessCertified: false };

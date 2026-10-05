@@ -8,10 +8,11 @@ import { linkDirectory } from "../../../utils/src/evidence/linkDirectory";
 import { pluginCacheDirectory } from "../../../utils/src/evidence/pluginCacheDirectory";
 
 /**
- * Verifies cache admission stays refused for a used cache path and link spelling after retargeting and replacement.
+ * Verifies cache admission stays refused for a used cache path and link
+ * spelling after retargeting and replacement.
  *
- * The case creates a real directory link (junction on Windows) and registers both
- * the cache path and the link path for the first fixture through the cache
+ * The case creates a real directory link (junction on Windows) and registers
+ * both the cache path and the link path for the first fixture through the cache
  * selector, so the registry holds each spelling and the native identity of the
  * linked directory. It does not prepare a compiler or supply a synthetic SDK or
  * native protocol response.
@@ -31,14 +32,18 @@ import { pluginCacheDirectory } from "../../../utils/src/evidence/pluginCacheDir
  * @evidence contracts/testing.md#execution-ownership The matching src/features export is discovered by the unit runner and central function claim. It executes actual native filesystem identity/link operations in that Node process; no CLI, Go binary, installer or additional product host is created.
  */
 export function test_evidence_unknown_reader_cache_identity_blocks_native_alias_reuse(): void {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "evidence-native-cache-identity-"));
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "evidence-native-cache-identity-"),
+  );
   const previous = process.env.TTSC_TEST_CACHE_DIR;
   const cache = path.join(root, "cache");
   const other = path.join(root, "other");
   const alias = path.join(root, "alias");
   const freshAlias = path.join(root, "fresh-alias");
   const delegated: string[] = [];
-  const ownership = EvidenceProcessOwnership.create((reason) => delegated.push(reason));
+  const ownership = EvidenceProcessOwnership.create((reason) =>
+    delegated.push(reason),
+  );
   const first = path.join(root, "first-fixture");
   const second = path.join(root, "second-fixture");
   const reason = new Error("Authored unresolved-reader identity input.");
@@ -54,17 +59,29 @@ export function test_evidence_unknown_reader_cache_identity_blocks_native_alias_
     assert.equal(pluginCacheDirectory(first, ownership), alias);
     ownership.retain(first, reason);
     linkDirectory(cache, freshAlias);
-    assert.equal(fs.realpathSync.native(freshAlias), fs.realpathSync.native(cache));
+    assert.equal(
+      fs.realpathSync.native(freshAlias),
+      fs.realpathSync.native(cache),
+    );
     process.env.TTSC_TEST_CACHE_DIR = freshAlias;
-    assert.throws(() => pluginCacheDirectory(second, ownership), { cause: reason });
+    assert.throws(() => pluginCacheDirectory(second, ownership), {
+      cause: reason,
+    });
     fs.unlinkSync(freshAlias);
     process.env.TTSC_TEST_CACHE_DIR = alias;
-    assert.throws(() => pluginCacheDirectory(second, ownership), { cause: reason });
-    assert.equal(fs.readFileSync(path.join(cache, "sentinel"), "utf8"), "original bytes");
+    assert.throws(() => pluginCacheDirectory(second, ownership), {
+      cause: reason,
+    });
+    assert.equal(
+      fs.readFileSync(path.join(cache, "sentinel"), "utf8"),
+      "original bytes",
+    );
     fs.unlinkSync(alias);
     linkDirectory(other, alias);
     assert.equal(fs.realpathSync.native(alias), fs.realpathSync.native(other));
-    assert.throws(() => pluginCacheDirectory(second, ownership), { cause: reason });
+    assert.throws(() => pluginCacheDirectory(second, ownership), {
+      cause: reason,
+    });
     process.env.TTSC_TEST_CACHE_DIR = other;
     assert.equal(pluginCacheDirectory(second, ownership), other);
     fs.unlinkSync(alias);
@@ -72,8 +89,13 @@ export function test_evidence_unknown_reader_cache_identity_blocks_native_alias_
     fs.mkdirSync(cache);
     fs.writeFileSync(path.join(cache, "sentinel"), "replacement bytes");
     process.env.TTSC_TEST_CACHE_DIR = cache;
-    assert.throws(() => pluginCacheDirectory(second, ownership), { cause: reason });
-    assert.equal(fs.readFileSync(path.join(cache, "sentinel"), "utf8"), "replacement bytes");
+    assert.throws(() => pluginCacheDirectory(second, ownership), {
+      cause: reason,
+    });
+    assert.equal(
+      fs.readFileSync(path.join(cache, "sentinel"), "utf8"),
+      "replacement bytes",
+    );
     assert.deepEqual(delegated, [reason.message]);
   } finally {
     if (previous === undefined) delete process.env.TTSC_TEST_CACHE_DIR;

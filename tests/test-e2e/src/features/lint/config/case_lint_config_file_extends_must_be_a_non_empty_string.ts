@@ -27,9 +27,14 @@ export function test_lint_config_file_extends_must_be_a_non_empty_string(): void
   const result = runLint({
     name: "config-file-extends-empty-string",
     source: "export const ok = 1;\n",
-    extraSources: FixtureFiles.read("lint/lint_config_file_extends_must_be_a_non_empty_string/inputs-1"),
+    extraSources: FixtureFiles.read(
+      "lint/lint_config_file_extends_must_be_a_non_empty_string/inputs-1",
+    ),
   });
 
   assert.notEqual(result.status, 0, result.stderr);
-  assert.match(result.stderr, /extends must be a non-empty string path to another config file/);
+  assert.match(
+    result.stderr,
+    /extends must be a non-empty string path to another config file/,
+  );
 }

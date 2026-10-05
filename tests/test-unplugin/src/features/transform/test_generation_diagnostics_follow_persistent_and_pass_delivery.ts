@@ -29,8 +29,14 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * @evidence contracts/testing.md#execution-ownership This source entry constructs literal protocol results and observed cache generations, calls delivery directly and captures stderr in the sequential runner. Finally restores the exact original stderr-write descriptor and resets each cache. No compiler, Go process, plugin binary or native consumer host runs; real envelope production stays with E2E.
  */
 export async function test_generation_diagnostics_follow_persistent_and_pass_delivery(): Promise<void> {
-  for (const [persistent, count] of [[true, 4], [false, 6]] as const) {
-    const modules = Array.from({ length: count }, (_, index) => `src/mod${index}.ts`);
+  for (const [persistent, count] of [
+    [true, 4],
+    [false, 6],
+  ] as const) {
+    const modules = Array.from(
+      { length: count },
+      (_, index) => `src/mod${index}.ts`,
+    );
     const source = "export const value = 1;\n";
     const output = 'export const value = "delivered";\n';
     const root = TestProject.createProject({
@@ -45,21 +51,34 @@ export async function test_generation_diagnostics_follow_persistent_and_pass_del
       plugins: options.plugins,
       tsconfig: path.join(root, "tsconfig.json"),
     });
-    const marker = persistent ? "TTSC-TEST-PERSISTENT-WARNING" : "TTSC-TEST-PROJECT-WIDE-WARNING";
+    const marker = persistent
+      ? "TTSC-TEST-PERSISTENT-WARNING"
+      : "TTSC-TEST-PROJECT-WIDE-WARNING";
     const line = `src/mod0.ts: 1:1: ${marker}\n`;
     const seed = (warning: boolean): void => {
-      cache.set(key, Promise.resolve(observeValidationUnitGeneration(root, {
-        type: "success",
-        typescript: Object.fromEntries(modules.map((file) => [file, output])),
-        diagnostics: warning ? [{
-          category: "warning",
-          code: marker,
-          file: "src/mod0.ts",
-          line: 1,
-          character: 1,
-          messageText: marker,
-        }] : [],
-      })));
+      cache.set(
+        key,
+        Promise.resolve(
+          observeValidationUnitGeneration(root, {
+            type: "success",
+            typescript: Object.fromEntries(
+              modules.map((file) => [file, output]),
+            ),
+            diagnostics: warning
+              ? [
+                  {
+                    category: "warning",
+                    code: marker,
+                    file: "src/mod0.ts",
+                    line: 1,
+                    character: 1,
+                    messageText: marker,
+                  },
+                ]
+              : [],
+          }),
+        ),
+      );
     };
     const descriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
     const captured: string[] = [];
@@ -72,7 +91,18 @@ export async function test_generation_diagnostics_follow_persistent_and_pass_del
       seed(true);
       const deliverAll = async (): Promise<void> => {
         for (const file of modules) {
-          assert.equal((await transformTtsc(path.join(root, file), source, options, undefined, cache))?.code, output);
+          assert.equal(
+            (
+              await transformTtsc(
+                path.join(root, file),
+                source,
+                options,
+                undefined,
+                cache,
+              )
+            )?.code,
+            output,
+          );
         }
       };
       await deliverAll();
@@ -85,9 +115,14 @@ export async function test_generation_diagnostics_follow_persistent_and_pass_del
       assert.deepEqual(captured, [line, line]);
       seed(false);
       await deliverAll();
-      assert.deepEqual(captured, [line, line], "empty success diagnostics add no text");
+      assert.deepEqual(
+        captured,
+        [line, line],
+        "empty success diagnostics add no text",
+      );
     } finally {
-      if (descriptor === undefined) delete (process.stderr as { write?: unknown }).write;
+      if (descriptor === undefined)
+        delete (process.stderr as { write?: unknown }).write;
       else Object.defineProperty(process.stderr, "write", descriptor);
       resetTtscTransformCache(cache);
     }

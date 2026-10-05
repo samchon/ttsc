@@ -11,9 +11,11 @@ import { make } from "../internal/make";
  * The printer renders:
  *
  * ```ts
- * this
+ * this;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link ThisTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   ThisTypeNode identifies polymorphic this in a type position rather than a
  *   value ThisExpression; contextual type legality belongs to its enclosing declaration.
@@ -29,8 +31,5 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc describes the type-level keyword and supplies a standalone example
  *   with the return type documented and tags separated from native prose.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link ThisTypeNode}.
  */
 export const createThisTypeNode = (): ThisTypeNode => make("ThisTypeNode", {});

@@ -17,7 +17,7 @@ package host
 // @evidenceExclude contracts/portability.md#os-neutral-implementation APIResult is a data type and performs no native filesystem, path or process operation.
 type APIResult struct {
   // Code is the plugin's CLI exit status.
-  Code   int    `json:"code"`
+  Code int `json:"code"`
 
   // Stdout contains this invocation's standard output.
   Stdout string `json:"stdout"`
@@ -62,7 +62,7 @@ type TransformResult struct {
   Diagnostics []CompileDiagnostic `json:"diagnostics,omitempty"`
 
   // TypeScript holds post-plugin text under project-relative or outside absolute paths.
-  TypeScript  map[string]string   `json:"typescript"`
+  TypeScript map[string]string `json:"typescript"`
 }
 
 // CompileDiagnostic is the public TypeScript-side diagnostic DTO. Mirrors the
@@ -83,26 +83,26 @@ type TransformResult struct {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation CompileDiagnostic is a data type and performs no native filesystem, path or process operation.
 type CompileDiagnostic struct {
   // File is an absolute slash path, or nil for a project-wide message.
-  File        *string `json:"file"`
+  File *string `json:"file"`
 
   // Category is error or warning; errors affect the command exit code.
-  Category    string  `json:"category"`
+  Category string `json:"category"`
 
   // Code is the compiler or plugin diagnostic identifier.
-  Code        int32   `json:"code"`
+  Code int32 `json:"code"`
 
   // Start is the optional inclusive UTF-8 byte offset.
-  Start       *int    `json:"start,omitempty"`
+  Start *int `json:"start,omitempty"`
 
   // Length is the optional span length in UTF-8 bytes.
-  Length      *int    `json:"length,omitempty"`
+  Length *int `json:"length,omitempty"`
 
   // Line is 1-based and omitted without a display location.
-  Line        int     `json:"line,omitempty"`
+  Line int `json:"line,omitempty"`
 
   // Character is a 1-based UTF-8 byte column, omitted without a location.
-  Character   int     `json:"character,omitempty"`
+  Character int `json:"character,omitempty"`
 
   // MessageText is the complete compiler or plugin message.
-  MessageText string  `json:"messageText"`
+  MessageText string `json:"messageText"`
 }

@@ -49,9 +49,6 @@ const packCaches = new WeakMap<
  *   eviction and why an arbitrary timeout is not the network policy. Purpose
  *   and reasons use separate native paragraphs under the documentation skill;
  *   IInstallTypiaSourcePackOptions owns option documentation.
- *
- *
- *
  */
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,
@@ -110,7 +107,9 @@ export function loadTypiaSourcePack(
       Array.isArray(pack) ||
       !Object.values(pack).every((value) => typeof value === "string")
     ) {
-      throw new Error("loadTypiaSourcePack: expected a source-text record map.");
+      throw new Error(
+        "loadTypiaSourcePack: expected a source-text record map.",
+      );
     }
     return pack as Record<string, string>;
   })()

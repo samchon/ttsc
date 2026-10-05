@@ -10,11 +10,12 @@ import { privateRuntimeRootDir } from "./privateRuntimeRootDir";
  * The argv ttsc hands to TypeScript-Go, directly or through a native host.
  *
  * One place composes the forwarded user flags with the flags ttsc itself must
- * add: the pinned `rootDir` for an injected `outDir`, the compiler-output isolation of a
- * private build, threading, and emitted-file listing. Ordering is part of the
- * contract. Ordinary defaults precede forwarded arguments; direct commands then
- * append output isolation and the requested noEmitOnError guard. Native JSON
- * payloads likewise append isolation, while their host owns its emit-error policy.
+ * add: the pinned `rootDir` for an injected `outDir`, the compiler-output
+ * isolation of a private build, threading, and emitted-file listing. Ordering
+ * is part of the contract. Ordinary defaults precede forwarded arguments;
+ * direct commands then append output isolation and the requested noEmitOnError
+ * guard. Native JSON payloads likewise append isolation, while their host owns
+ * its emit-error policy.
  *
  * @evidence contracts/common.md#principled-implementation Shared composition orders defaults before forwarded options and places private-output overrides last in direct argv and native payloads; the requested noEmitOnError guard is appended by the direct composer, while native host emission policy has its own owner.
  * @evidence contracts/common.md#clear-and-simple-design Compiler argument policy has one grouping, with separate helpers for diagnostics, threading, inferred layout and output isolation rather than lane-specific copies.
@@ -91,9 +92,9 @@ export namespace TsgoArguments {
    *   helper does not independently verify that an outDir was injected;
    * - This pass emits, because a no-emit pass has no layout to pin (tsgo skips
    *   the check for `noEmit` too);
-   * - The runtime supplies its already selected effective layout, or the
-   *   project declares no root of its own. Without runtime selection a declared
-   *   layout is left to the compiler; supplied selection preserves the effective
+   * - The runtime supplies its already selected effective layout, or the project
+   *   declares no root of its own. Without runtime selection a declared layout
+   *   is left to the compiler; supplied selection preserves the effective
    *   declared root or explicit reset and is replayed before user arguments.
    *
    * An ordinary undeclared root uses the native volume root for private output,
@@ -129,8 +130,8 @@ export namespace TsgoArguments {
    * `--pretty false` shadow is dropped so the user wins on the surface. ttsc's
    * own diagnostic parser then sees the user-selected rendering and preserves
    * text it cannot parse; an explicit false still selects nonpretty output.
-   * Presence is recognized even for a
-   * malformed inline spelling, which remains for the compiler to reject.
+   * Presence is recognized even for a malformed inline spelling, which remains
+   * for the compiler to reject.
    *
    * @evidence contracts/common.md#principled-implementation Structured output requests add nonpretty rendering only when the user supplied no pretty option identity; explicit or malformed user spelling stays under compiler ownership.
    * @evidence contracts/common.md#clear-and-simple-design One guard delegates shadow identity to PassthroughFlags and returns the protocol's two-token default or no additions.
@@ -219,9 +220,9 @@ export namespace TsgoArguments {
    * driver's LoadProgram read this environment fallback only when their caller
    * supplied no explicit argv; an explicit empty argv also overrides it.
    * Recognized visible diagnostics assignments are omitted for the host's own
-   * timing channel. Response-file contents remain under native expansion.
-   * This transport preserves remaining argv boundaries, not a guarantee that
-   * every third-party host consumes the fallback or accepts every forwarded flag.
+   * timing channel. Response-file contents remain under native expansion. This
+   * transport preserves remaining argv boundaries, not a guarantee that every
+   * third-party host consumes the fallback or accepts every forwarded flag.
    *
    * Returns the JSON payload, or `undefined` when this lane forwards nothing.
    *
@@ -259,11 +260,10 @@ export namespace TsgoArguments {
    * They null each separately located output (`outFile`, `declarationDir`,
    * `tsBuildInfoFile`) and pin `outDir`, so declarations and build information
    * land beside the JavaScript. Callers append them after the forwarded flags,
-   * which applies the final compiler destination assignments after user locations.
-   * This is compiler output policy, not an OS sandbox for plugin or cache writes.
-   * A `--noEmit`
-   * pass needs them as much as an emitting one: the compiler still writes build
-   * information for an `incremental` project.
+   * which applies the final compiler destination assignments after user
+   * locations. This is compiler output policy, not an OS sandbox for plugin or
+   * cache writes. A `--noEmit` pass needs them as much as an emitting one: the
+   * compiler still writes build information for an `incremental` project.
    *
    * @evidence contracts/common.md#principled-implementation Disabling separately located outputs and pinning outDir closes declaration, bundled and build-info escape paths, including no-emit incremental writes.
    * @evidence contracts/common.md#clear-and-simple-design A fixed compiler-option bundle owns sandbox output policy and both direct and native payload composers place it after forwarded options.

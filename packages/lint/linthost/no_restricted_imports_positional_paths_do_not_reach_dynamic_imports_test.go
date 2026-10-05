@@ -9,9 +9,9 @@ import (
 // positional restricted path reports a static import but not `import()` or
 // `require()` of the same module.
 //
-// 1. Run the rule with the positional path "blocked" over a source that loads
-//    "blocked" statically, dynamically and through require().
-// 2. Compare the reported ranges with the single literal target.
+//  1. Run the rule with the positional path "blocked" over a source that loads
+//     "blocked" statically, dynamically and through require().
+//  2. Compare the reported ranges with the single literal target.
 //
 // @evidence contracts/testing.md#behavioral-verification Exactly one finding is reported, at the specifier of the static `import direct from "blocked"`; the dynamic import() call and the CommonJS require() call on the following lines are not reported.
 // @evidence contracts/testing.md#independent-expectations no-restricted-imports concerns static import and export syntax, so one literal static target is expected although the same module string is loaded elsewhere in the source.

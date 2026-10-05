@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   computeCacheKey,
@@ -27,13 +26,31 @@ import {
  */
 export function test_computecachekey_includes_linked_contributor_sources_order_stably() {
   const root = TestProject.tmpdir("ttsc-source-cache-");
-  const fixture = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "computecachekey_includes_linked_contributor_sources_order_stably");
+  const fixture = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "test",
+    "fixtures",
+    "unit",
+    "computecachekey_includes_linked_contributor_sources_order_stably",
+  );
   TestProject.copyDirectory(path.join(fixture, "inputs-1"), root);
-  for (const [name, packageName, body] of [["host", "main", "const Host = 1\n"], ["left", "left", "const Value = 1\n"], ["right", "right", "const Value = 2\n"]] as const) {
+  for (const [name, packageName, body] of [
+    ["host", "main", "const Host = 1\n"],
+    ["left", "left", "const Value = 1\n"],
+    ["right", "right", "const Value = 2\n"],
+  ] as const) {
     const dir = path.join(root, name);
     fs.renameSync(path.join(dir, "value.go.txt"), path.join(dir, "value.go"));
-    assert.equal(fs.readFileSync(path.join(dir, "go.mod"), "utf8"), `module example.com/${name}\n\ngo 1.26\n`);
-    assert.equal(fs.readFileSync(path.join(dir, "value.go"), "utf8"), `package ${packageName}\n${body}`);
+    assert.equal(
+      fs.readFileSync(path.join(dir, "go.mod"), "utf8"),
+      `module example.com/${name}\n\ngo 1.26\n`,
+    );
+    assert.equal(
+      fs.readFileSync(path.join(dir, "value.go"), "utf8"),
+      `package ${packageName}\n${body}`,
+    );
   }
   const host = path.join(root, "host");
   const left = path.join(root, "left");
@@ -63,8 +80,14 @@ export function test_computecachekey_includes_linked_contributor_sources_order_s
   });
   assert.equal(reordered, first);
 
-  fs.copyFileSync(path.join(fixture, "inputs-2", "right", "value.go.txt"), path.join(right, "value.go"));
-  assert.equal(fs.readFileSync(path.join(right, "value.go"), "utf8"), "package right\nconst Value = 3\n");
+  fs.copyFileSync(
+    path.join(fixture, "inputs-2", "right", "value.go.txt"),
+    path.join(right, "value.go"),
+  );
+  assert.equal(
+    fs.readFileSync(path.join(right, "value.go"), "utf8"),
+    "package right\nconst Value = 3\n",
+  );
   const changed = computeCacheKey({
     contributors: [
       { name: "left", source: left },

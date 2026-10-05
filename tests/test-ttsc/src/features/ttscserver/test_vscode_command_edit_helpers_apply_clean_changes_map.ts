@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import * as mod from "../../../../../packages/vscode/src/commandEdits";
 
 /**
@@ -23,108 +24,115 @@ import * as mod from "../../../../../packages/vscode/src/commandEdits";
 export async function test_vscode_command_edit_helpers_apply_clean_changes_map() {
   const cleanUri = "file:///clean.ts";
   const dirtyUri = "file:///dirty.ts";
-  const actual = JSON.parse(JSON.stringify(await (async () => {
-    const edit = {
-      changes: {
-        [cleanUri]: [
-          {
-            range: {
-              start: { line: 0, character: 1 },
-              end: { line: 0, character: 4 },
-            },
-            newText: "ok",
+  const actual = JSON.parse(
+    JSON.stringify(
+      await (async () => {
+        const edit = {
+          changes: {
+            [cleanUri]: [
+              {
+                range: {
+                  start: { line: 0, character: 1 },
+                  end: { line: 0, character: 4 },
+                },
+                newText: "ok",
+              },
+              {
+                range: { start: { line: 0 }, end: { line: 0, character: 4 } },
+                newText: "skip",
+              },
+              {
+                range: {
+                  start: { line: 2, character: 0 },
+                  end: { line: 2, character: 0 },
+                },
+                newText: "zero",
+              },
+              {
+                range: {
+                  start: { line: 3, character: 1 },
+                  end: { line: 4, character: 0 },
+                },
+                newText: "multi",
+              },
+              {
+                range: {
+                  start: { line: 5, character: 4 },
+                  end: { line: 5, character: 1 },
+                },
+                newText: "skip-same-line-reversed",
+              },
+            ],
+            [dirtyUri]: [
+              {
+                range: {
+                  start: { line: 1, character: 0 },
+                  end: { line: 1, character: 1 },
+                },
+                newText: "dirty",
+              },
+            ],
+            "file:///ignored.ts": "not-an-array",
+            "file:///negative.ts": [
+              {
+                range: {
+                  start: { line: -1, character: 0 },
+                  end: { line: 0, character: 1 },
+                },
+                newText: "skip-negative",
+              },
+            ],
+            "file:///reversed.ts": [
+              {
+                range: {
+                  start: { line: 2, character: 0 },
+                  end: { line: 1, character: 0 },
+                },
+                newText: "skip-reversed",
+              },
+            ],
           },
-          {
-            range: { start: { line: 0 }, end: { line: 0, character: 4 } },
-            newText: "skip",
-          },
-          {
-            range: {
-              start: { line: 2, character: 0 },
-              end: { line: 2, character: 0 },
-            },
-            newText: "zero",
-          },
-          {
-            range: {
-              start: { line: 3, character: 1 },
-              end: { line: 4, character: 0 },
-            },
-            newText: "multi",
-          },
-          {
-            range: {
-              start: { line: 5, character: 4 },
-              end: { line: 5, character: 1 },
-            },
-            newText: "skip-same-line-reversed",
-          },
-        ],
-        [dirtyUri]: [
-          {
-            range: {
-              start: { line: 1, character: 0 },
-              end: { line: 1, character: 1 },
-            },
-            newText: "dirty",
-          },
-        ],
-        "file:///ignored.ts": "not-an-array",
-        "file:///negative.ts": [
-          {
-            range: {
-              start: { line: -1, character: 0 },
-              end: { line: 0, character: 1 },
-            },
-            newText: "skip-negative",
-          },
-        ],
-        "file:///reversed.ts": [
-          {
-            range: {
-              start: { line: 2, character: 0 },
-              end: { line: 1, character: 0 },
-            },
-            newText: "skip-reversed",
-          },
-        ],
-      },
-    };
-    const changes = mod.collectWorkspaceEditChanges(edit);
-    assert.notEqual(changes, undefined);
-    if (changes === undefined) throw new Error("Valid authored edits were not collected");
-    return {
-      changes,
-      nullResult: mod.collectWorkspaceEditChanges(null),
-      invalidResult: mod.collectWorkspaceEditChanges({ changes: [] }),
-      dirtyArg: mod.commandArgumentsContainDirtyURI([
-        { nested: [dirtyUri] },
-      ], new Set([dirtyUri])),
-      cleanArg: mod.commandArgumentsContainDirtyURI([
-        cleanUri,
-      ], new Set([dirtyUri])),
-      dirtyEdit: mod.workspaceEditChangesTouchDirtyURI(
-        changes,
-        new Set([dirtyUri]),
-      ),
-      cleanEdit: mod.workspaceEditChangesTouchDirtyURI(
-        changes.filter((entry) => entry.uri !== dirtyUri),
-        new Set([dirtyUri]),
-      ),
-      prefixedCommand: mod.shouldApplyCommandWorkspaceEdit(
-        "ttsc.vscode.root.ttsc.custom.fix",
-        "ttsc.vscode.root.",
-      ),
-      unprefixedCommand: mod.shouldApplyCommandWorkspaceEdit(
-        "tsgo.refactor.extract",
-        "ttsc.vscode.root.",
-      ),
-      emptyPrefixCommand: mod.shouldApplyCommandWorkspaceEdit(
-        "ttsc.vscode.root.ttsc.custom.fix",
-        "",
-      ),
-    };
-  })())) as {
+        };
+        const changes = mod.collectWorkspaceEditChanges(edit);
+        assert.notEqual(changes, undefined);
+        if (changes === undefined)
+          throw new Error("Valid authored edits were not collected");
+        return {
+          changes,
+          nullResult: mod.collectWorkspaceEditChanges(null),
+          invalidResult: mod.collectWorkspaceEditChanges({ changes: [] }),
+          dirtyArg: mod.commandArgumentsContainDirtyURI(
+            [{ nested: [dirtyUri] }],
+            new Set([dirtyUri]),
+          ),
+          cleanArg: mod.commandArgumentsContainDirtyURI(
+            [cleanUri],
+            new Set([dirtyUri]),
+          ),
+          dirtyEdit: mod.workspaceEditChangesTouchDirtyURI(
+            changes,
+            new Set([dirtyUri]),
+          ),
+          cleanEdit: mod.workspaceEditChangesTouchDirtyURI(
+            changes.filter((entry) => entry.uri !== dirtyUri),
+            new Set([dirtyUri]),
+          ),
+          prefixedCommand: mod.shouldApplyCommandWorkspaceEdit(
+            "ttsc.vscode.root.ttsc.custom.fix",
+            "ttsc.vscode.root.",
+          ),
+          unprefixedCommand: mod.shouldApplyCommandWorkspaceEdit(
+            "tsgo.refactor.extract",
+            "ttsc.vscode.root.",
+          ),
+          emptyPrefixCommand: mod.shouldApplyCommandWorkspaceEdit(
+            "ttsc.vscode.root.ttsc.custom.fix",
+            "",
+          ),
+        };
+      })(),
+    ),
+  ) as {
     changes: Array<{
       newText: string;
       range: {

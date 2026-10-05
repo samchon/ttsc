@@ -1,9 +1,9 @@
 package linthost
 
 import (
-  "testing"
   "encoding/json"
   "strings"
+  "testing"
 )
 
 // TestNoRestrictedTypesUsesConfiguredSurfaceSpellingAcrossSymbols verifies
@@ -60,10 +60,14 @@ type Use = Imported;
       }
       if test.want == 1 {
         name := "Shadowed"
-        if strings.Contains(test.source, "Imported") { name = "Imported" }
+        if strings.Contains(test.source, "Imported") {
+          name = "Imported"
+        }
         start := strings.LastIndex(test.source, name)
         finding := findings[0]
-        if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError || finding.Pos != start || finding.End != start+len(name) || finding.Message != "Don't use "+string(rune(96))+name+string(rune(96))+" as a type." { t.Fatalf("surface spelling finding = %+v, want %q at %d", finding, name, start) }
+        if finding.Rule != noRestrictedTypesRuleName || finding.Severity != SeverityError || finding.Pos != start || finding.End != start+len(name) || finding.Message != "Don't use "+string(rune(96))+name+string(rune(96))+" as a type." {
+          t.Fatalf("surface spelling finding = %+v, want %q at %d", finding, name, start)
+        }
       }
     })
   }

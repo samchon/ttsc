@@ -33,7 +33,9 @@ func TestRuleSnapshotEngineRequiresAValidActiveRule(t *testing.T) {
     t.Fatalf("optionless payload must fail: engine=%v error=%v", engine, err)
   }
   engine, err := newRuleSnapshotEngine("no-var", nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   for _, source := range []string{"var value = 1;\n", "const value = 1;\n"} {
     file := parseTS(t, source)
     findings := engine.Run([]*shimast.SourceFile{file}, nil)
@@ -46,7 +48,9 @@ func TestRuleSnapshotEngineRequiresAValidActiveRule(t *testing.T) {
     }
   }
   optionEngine, err := newRuleSnapshotEngine("format/arrow-parens", json.RawMessage("{\"prefer\":\"avoid\"}"))
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   file := parseTS(t, "const identity = (value) => value;\n")
   findings := optionEngine.Run([]*shimast.SourceFile{file}, nil)
   if len(findings) != 1 || findings[0].Rule != "format/arrow-parens" || findings[0].Severity != SeverityError {

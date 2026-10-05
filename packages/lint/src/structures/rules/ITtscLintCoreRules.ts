@@ -165,9 +165,10 @@ export interface ITtscLintCoreRules {
   "grouped-accessor-pairs"?: TtscLintCoreGroupedAccessorPairsRuleSetting;
 
   /**
-   * Require a recognized structural guard in a nonempty for-in body: a sole
-   * if statement or a leading if whose consequent is a bare or single-block
-   * continue. The native rule does not prove that the predicate checks own keys.
+   * Require a recognized structural guard in a nonempty for-in body: a sole if
+   * statement or a leading if whose consequent is a bare or single-block
+   * continue. The native rule does not prove that the predicate checks own
+   * keys.
    *
    * Without the guard the loop processes every enumerable name on the prototype
    * chain — including monkey-patches someone else attached to
@@ -288,9 +289,8 @@ export interface ITtscLintCoreRules {
    * Reject `await` expressions evaluated inside a loop body. The loop runs
    * strictly serially because each iteration blocks on the previous one's
    * microtask hop; independent operations may instead be started concurrently.
-   * The rule intentionally exempts
-   * `for await … of` because the awaitable iterator is the loop's whole reason
-   * for existing.
+   * The rule intentionally exempts `for await … of` because the awaitable
+   * iterator is the loop's whole reason for existing.
    *
    * @reference https://eslint.org/docs/latest/rules/no-await-in-loop
    */
@@ -362,8 +362,8 @@ export interface ITtscLintCoreRules {
   /**
    * Reject calls to `console.*`.
    *
-   * Typically configured as `"warn"` so leftover logging stays visible
-   * without breaking the build.
+   * Typically configured as `"warn"` so leftover logging stays visible without
+   * breaking the build.
    *
    * @reference https://eslint.org/docs/latest/rules/no-console
    */
@@ -374,8 +374,8 @@ export interface ITtscLintCoreRules {
    * (true)` or `if (false)`, in `if`, `while`, `do/while`, `for`, and ternary
    * expressions.
    *
-   * This severity-only native policy exempts literal `while (true)` and
-   * omitted for conditions; it does not expose upstream's checkLoops option.
+   * This severity-only native policy exempts literal `while (true)` and omitted
+   * for conditions; it does not expose upstream's checkLoops option.
    *
    * @reference https://eslint.org/docs/latest/rules/no-constant-condition
    */
@@ -639,9 +639,9 @@ export interface ITtscLintCoreRules {
    * Reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of
    * the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
    *
-   * This is a style preference, with no automatic edits. Number accepts
-   * BigInt while unary + rejects it; String uses a string primitive hint
-   * instead of concatenation's default hint. Choose the intended conversion.
+   * This is a style preference, with no automatic edits. Number accepts BigInt
+   * while unary + rejects it; String uses a string primitive hint instead of
+   * concatenation's default hint. Choose the intended conversion.
    *
    * @reference https://eslint.org/docs/latest/rules/no-implicit-coercion
    */
@@ -716,8 +716,8 @@ export interface ITtscLintCoreRules {
   "no-lone-blocks"?: TtscLintRuleSetting;
 
   /**
-   * Reject `if (cond) { ... } else { if (...) { ... } }` where the inner if
-   * is the only statement in the else block; prefer `else if`.
+   * Reject `if (cond) { ... } else { if (...) { ... } }` where the inner if is
+   * the only statement in the else block; prefer `else if`.
    *
    * @reference https://eslint.org/docs/latest/rules/no-lonely-if
    */
@@ -758,10 +758,10 @@ export interface ITtscLintCoreRules {
   "no-misleading-character-class"?: TtscLintRuleSetting;
 
   /**
-   * Reject unparenthesized mixes of distinct operators in one configured
-   * group when their precedence differs, or when allowSamePrecedence is false.
-   * The famous case is `a && b || c`: readers expect left-to-right grouping but
-   * the parser sees `(a && b) || c` because `&&` binds tighter than `||`.
+   * Reject unparenthesized mixes of distinct operators in one configured group
+   * when their precedence differs, or when allowSamePrecedence is false. The
+   * famous case is `a && b || c`: readers expect left-to-right grouping but the
+   * parser sees `(a && b) || c` because `&&` binds tighter than `||`.
    *
    * The default groups cover arithmetic, bitwise, comparison, logical, and
    * relational operators, matching ESLint. A custom `groups` option replaces
@@ -1125,9 +1125,9 @@ export interface ITtscLintCoreRules {
   "no-unsafe-optional-chaining"?: TtscLintRuleSetting;
 
   /**
-   * Reject expression statements classified as unused, such as a bare `x;`
-   * or `a === b;`. Tagged template statements are rejected by default and
-   * accepted when allowTaggedTemplates is true; this is a syntax policy.
+   * Reject expression statements classified as unused, such as a bare `x;` or
+   * `a === b;`. Tagged template statements are rejected by default and accepted
+   * when allowTaggedTemplates is true; this is a syntax policy.
    *
    * Directive prologues — the leading run of string-literal statements at the
    * top of a script, module, namespace body, or function body — are accepted
@@ -1425,9 +1425,9 @@ export interface ITtscLintCoreRules {
   "use-isnan"?: TtscLintRuleSetting;
 
   /**
-   * Check string literals on either side of an equality comparison with
-   * typeof against the documented result vocabulary, catching spellings such
-   * as `"undefiend"`. Ordering comparisons are outside this native policy.
+   * Check string literals on either side of an equality comparison with typeof
+   * against the documented result vocabulary, catching spellings such as
+   * `"undefiend"`. Ordering comparisons are outside this native policy.
    *
    * @reference https://eslint.org/docs/latest/rules/valid-typeof
    */

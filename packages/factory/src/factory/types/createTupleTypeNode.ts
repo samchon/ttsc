@@ -12,9 +12,12 @@ import { make } from "../internal/make";
  * Given the elements `string` and `number`, the printer renders:
  *
  * ```ts
- * [string, number]
+ * [string, number];
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param elements The tuple element types.
+ * @returns The created {@link TupleTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Element order remains part of TupleTypeNode's structure, including explicit
  *   named, optional and rest wrappers. The caller supplies valid member combinations.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains ordering, supported wrappers and width-dependent
  *   commas; the example shows the bare tuple type.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param elements The tuple element types.
- * @returns The created {@link TupleTypeNode}.
  */
 export const createTupleTypeNode = (
   elements: readonly TypeNode[],

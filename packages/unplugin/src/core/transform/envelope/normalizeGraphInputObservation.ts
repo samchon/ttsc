@@ -10,8 +10,8 @@ import { graphInputObservationCompatible } from "./graphInputObservationCompatib
  * Malformed, empty or contradictory records return undefined. Present directory
  * lists require a string in every slot and are copied. Successful read hashes
  * must be lowercase SHA-256 text, and successful realpaths must be absolute in
- * the producer's platform semantics.
- * Unknown fields are ignored; absent supported predicates remain unknown.
+ * the producer's platform semantics. Unknown fields are ignored; absent
+ * supported predicates remain unknown.
  *
  * @evidence contracts/common.md#principled-implementation Own-property checks distinguish an omitted predicate from an explicit result, schema checks establish supported value shapes, and compatibility rejects contradictory normalized states without adding new observations.
  * @evidence contracts/common.md#clear-and-simple-design Parsing produces one detached observation and delegates cross-predicate meaning to graphInputObservationCompatible, keeping host filesystem replay outside this boundary.

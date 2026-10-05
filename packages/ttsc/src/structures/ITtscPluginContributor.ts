@@ -32,9 +32,9 @@ export interface ITtscPluginContributor {
    * rejected because contributors are packages, not modules.
    *
    * The snapshot omits links, the `node_modules`, `.git` and `.ttsc`
-   * directories, generated workspace files and named local artifacts. A
-   * regular `.git` file remains included. Package data using excluded names
-   * remains excluded even when a Go embed directive references it.
+   * directories, generated workspace files and named local artifacts. A regular
+   * `.git` file remains included. Package data using excluded names remains
+   * excluded even when a Go embed directive references it.
    */
   source: string;
 }

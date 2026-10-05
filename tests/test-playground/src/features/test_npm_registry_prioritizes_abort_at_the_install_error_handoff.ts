@@ -12,6 +12,7 @@ import { installPlaygroundDependencies } from "../../../../packages/playground/s
  * 1. Control metadata JSON rejection and a successful tarball response.
  * 2. Queue cancellation across each stage-error handoff in turn.
  * 3. Assert both installs reject with their exact signal reason.
+ *
  * @evidence contracts/testing.md#behavioral-verification installPlaygroundDependencies must reject with the caller AbortError identity when cancellation arrives across metadata-JSON rejection or tarball-header failure handoff.
  * @evidence contracts/testing.md#independent-expectations Two independently authored DOMException instances are compared by identity; controlled microtask gates create the handoff without deriving an expected wrapper error from installation output.
  * @evidence contracts/testing.md#distinguishing-cases Metadata rejection and successful-response/header throwing paths exercise distinct catch boundaries, and exact signal reason prevents either older stage error from replacing cancellation.

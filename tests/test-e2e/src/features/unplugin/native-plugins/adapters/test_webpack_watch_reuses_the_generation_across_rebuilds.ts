@@ -4,9 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import webpack from "webpack";
 
+import { MYTYPE_V2 } from "../../../../internal/unplugin/internal/adapter-webpack/MYTYPE_V2";
 import { createTypeEdgeProject } from "../../../../internal/unplugin/internal/adapter-webpack/createTypeEdgeProject";
 import { createWebpackConfig } from "../../../../internal/unplugin/internal/adapter-webpack/createWebpackConfig";
-import { MYTYPE_V2 } from "../../../../internal/unplugin/internal/adapter-webpack/MYTYPE_V2";
 
 /**
  * Verifies a real webpack watch session reuses the generation across rebuilds
@@ -37,7 +37,11 @@ import { MYTYPE_V2 } from "../../../../internal/unplugin/internal/adapter-webpac
  */
 export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
   includeTypeEdit = false,
-  afterClose?: (prepared: { root: string; runLog: string; originalType: Buffer }) => Promise<void>,
+  afterClose?: (prepared: {
+    root: string;
+    runLog: string;
+    originalType: Buffer;
+  }) => Promise<void>,
 ): Promise<void> {
   const runLog = path.join(
     TestProject.tmpdir("ttsc-unplugin-webpack-watch-log-"),
@@ -49,7 +53,8 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
   // rebuilt entry is therefore recognized by identity.
   const entry = fs.realpathSync.native(TestUnpluginProject.mainFile(root));
   const typeOnly = path.join(root, "src", "mytype.ts");
-  const originalType = afterClose === undefined ? undefined : fs.readFileSync(typeOnly);
+  const originalType =
+    afterClose === undefined ? undefined : fs.readFileSync(typeOnly);
   const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0);
   const config = await createWebpackConfig(root);
   // Watch invalidation is the channel under test, so the persistent cache must
@@ -109,7 +114,10 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
             builds += 1;
             if (builds === 1) {
               if (includeTypeEdit)
-                assert.match(fs.readFileSync(path.join(root, "out", "bundle.js"), "utf8"), /ID: STRING/);
+                assert.match(
+                  fs.readFileSync(path.join(root, "out", "bundle.js"), "utf8"),
+                  /ID: STRING/,
+                );
               assert.equal(
                 compiles(),
                 1,
@@ -121,7 +129,11 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
               return;
             }
             if (contentEdited) {
-              if (!/AGE: NUMBER/.test(fs.readFileSync(path.join(root, "out", "bundle.js"), "utf8")))
+              if (
+                !/AGE: NUMBER/.test(
+                  fs.readFileSync(path.join(root, "out", "bundle.js"), "utf8"),
+                )
+              )
                 return;
               finish();
               return;
@@ -163,7 +175,7 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
     });
   } finally {
     await new Promise<void>((resolve, reject) => {
-      compiler.close((error) => error ? reject(error) : resolve());
+      compiler.close((error) => (error ? reject(error) : resolve()));
     });
   }
   if (afterClose !== undefined && originalType !== undefined)

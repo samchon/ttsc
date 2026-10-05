@@ -19,19 +19,25 @@ export function test_lint_contributor_plugin_rule_fires_through_single_diagnosti
   const result = contributorBoundaryResult();
   assert.notEqual(result.status, 0, result.stderr);
   assert.deepEqual(
-    result.diagnostics.filter((diagnostic) => path.basename(diagnostic.file) === "diagnostic-stream.ts" && diagnostic.rule === "demo/no-todo-comment").map(({ rule, severity, message }) => ({ rule, severity, message })),
+    result.diagnostics
+      .filter(
+        (diagnostic) =>
+          path.basename(diagnostic.file) === "diagnostic-stream.ts" &&
+          diagnostic.rule === "demo/no-todo-comment",
+      )
+      .map(({ rule, severity, message }) => ({ rule, severity, message })),
     [
-  {
-    "rule": "demo/no-todo-comment",
-    "severity": "error",
-    "message": "TODO comment is not allowed."
-  },
-  {
-    "rule": "demo/no-todo-comment",
-    "severity": "error",
-    "message": "FIXME comment is not allowed."
-  }
-],
+      {
+        rule: "demo/no-todo-comment",
+        severity: "error",
+        message: "TODO comment is not allowed.",
+      },
+      {
+        rule: "demo/no-todo-comment",
+        severity: "error",
+        message: "FIXME comment is not allowed.",
+      },
+    ],
     result.stderr,
   );
 }

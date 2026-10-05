@@ -3,8 +3,8 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
 /**
  * How the adapter answers Rollup's cache for the modules it delivers
  * (`createRollupCachedModuleProof`): each delivery leaves its project record's
- * state in the module's `meta`, and cached-module judgment compares it with
- * the pass's observed record digest. That reused observation is not a fresh
+ * state in the module's `meta`, and cached-module judgment compares it with the
+ * pass's observed record digest. That reused observation is not a fresh
  * filesystem read for every module; a matching record-less delivery has a
  * separate no-project meaning.
  *
@@ -56,7 +56,6 @@ export interface RollupCachedModuleProof {
    *
    * @param delivery The options the delivery was compiled under and the record
    *   it was handed, or `null` for a delivery no cache may serve.
-   *
    * @evidence contracts/common.md#principled-implementation Delivery records the options and record bytes actually handed to that module, or null when no retained output can be proven.
    * @evidence contracts/common.md#clear-and-simple-design The operation returns plain metadata in the host's existing format without another module cache.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A null delivery preserves uncacheability instead of inventing a digest or hiding volatile inputs.
@@ -83,7 +82,6 @@ export interface RollupCachedModuleProof {
    * does not transform is not its to answer.
    *
    * @param module The module as Rollup's cache holds it.
-   *
    * @evidence contracts/common.md#principled-implementation The predicate compares current option identity and pass-observed record bytes with delivered metadata; matching record-less delivery follows the separate no-project rule.
    * @evidence contracts/common.md#clear-and-simple-design A boolean answers Rollup's own retransformation hook; the host retains ownership of its module cache.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported metadata requires retransformation, and modules outside the adapter's filter remain the host's responsibility.

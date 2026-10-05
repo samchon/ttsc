@@ -28,7 +28,9 @@ func TestBehavioralWitnessAuditRejectsInvalidNonCanonicalCandidate(t *testing.T)
     t.Fatalf("invalid non-canonical candidate was not rejected: %v", err)
   }
   valid := candidates["fixture/rule"][0]
-  if _, err := auditBehavioralWitnesses(public, map[string][]behavioralWitness{"fixture/rule": {valid}}); err != nil { t.Fatalf("valid canonical candidate rejected: %v", err) }
+  if _, err := auditBehavioralWitnesses(public, map[string][]behavioralWitness{"fixture/rule": {valid}}); err != nil {
+    t.Fatalf("valid canonical candidate rejected: %v", err)
+  }
   for _, mutate := range []func(*behavioralWitness){
     func(w *behavioralWitness) { w.Route = "" },
     func(w *behavioralWitness) { w.Kind = "unsupported" },
@@ -40,6 +42,8 @@ func TestBehavioralWitnessAuditRejectsInvalidNonCanonicalCandidate(t *testing.T)
     invalid := valid
     invalid.Route = "TestZulu"
     mutate(&invalid)
-    if _, err := auditBehavioralWitnesses(public, map[string][]behavioralWitness{"fixture/rule": {valid, invalid}}); err == nil || !strings.Contains(err.Error(), "invalid witness records") { t.Fatalf("invalid candidate accepted: %+v %v", invalid, err) }
+    if _, err := auditBehavioralWitnesses(public, map[string][]behavioralWitness{"fixture/rule": {valid, invalid}}); err == nil || !strings.Contains(err.Error(), "invalid witness records") {
+      t.Fatalf("invalid candidate accepted: %+v %v", invalid, err)
+    }
   }
 }

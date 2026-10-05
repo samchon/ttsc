@@ -11,7 +11,8 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
  * key is the file's full identity. Both use forward slashes and the
  * filesystem's identity rules, so two spellings of one file map to one key
  * within the compiler's path protocol. Literal backslashes are interpreted as
- * separators by that protocol rather than encoded as POSIX filename characters.
+ * separators by that protocol rather than encoded as POSIX filename
+ * characters.
  *
  * @evidence contracts/common.md#principled-implementation The supplied native identity context decides containment and address equivalence; inside-root identities become relative keys while outside-root identities retain their full address.
  * @evidence contracts/common.md#clear-and-simple-design The operation separates native identity from slash protocol encoding and delegates each to its existing helper.

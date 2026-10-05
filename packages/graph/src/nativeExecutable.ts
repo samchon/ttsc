@@ -1,8 +1,8 @@
-import type { CapturedProcessOutput } from "./CapturedProcessOutput";
-
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import type { CapturedProcessOutput } from "./CapturedProcessOutput";
 
 /**
  * Ensure a resolved native binary can be executed on POSIX installs.

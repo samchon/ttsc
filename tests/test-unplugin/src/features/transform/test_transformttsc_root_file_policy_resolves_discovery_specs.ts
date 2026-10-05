@@ -1,12 +1,13 @@
-import { mergeMembershipPolicyOverlay } from "../../../../../packages/unplugin/src/core/tsconfig/mergeMembershipPolicyOverlay";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
-import { collectProjectInputHashSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashSnapshot";
-import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
-import { collectProjectInputHashes } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashes";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { collectProjectInputHashSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashSnapshot";
+import { collectProjectInputHashes } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputHashes";
+import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
+import { mergeMembershipPolicyOverlay } from "../../../../../packages/unplugin/src/core/tsconfig/mergeMembershipPolicyOverlay";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies inherited root specs agree with snapshot and path classification.
@@ -16,7 +17,8 @@ import path from "node:path";
  * meanings, and a skipped source must move to external-input validation.
  *
  * 1. Materialize a tree and base/leaf configs with contrasting specifications.
- * 2. Collect authored-source snapshots and compare exact keys for each configuration.
+ * 2. Collect authored-source snapshots and compare exact keys for each
+ *    configuration.
  * 3. Require out-of-walk classification and compiler-option overlays to agree.
  *
  * @evidence contracts/testing.md#behavioral-verification Authored policy, overlay, walk snapshot and path classification select exact source keys across discovery specs, inheritance, links and explicit compiler case policies.
@@ -25,7 +27,13 @@ import path from "node:path";
  * @evidence contracts/testing.md#execution-ownership The named source unit imports actual authored policy/snapshot/path owners and creates only resolver fixture files/links. No native artifact, process session or compiler runs to produce policy facts.
  */
 export async function test_transformttsc_root_file_policy_resolves_discovery_specs(): Promise<void> {
-  const api = { mergeMembershipPolicyOverlay, readProjectMembershipPolicy, collectProjectInputHashSnapshot, isProjectWalkPath, collectProjectInputHashes };
+  const api = {
+    mergeMembershipPolicyOverlay,
+    readProjectMembershipPolicy,
+    collectProjectInputHashSnapshot,
+    isProjectWalkPath,
+    collectProjectInputHashes,
+  };
   const root = TestProject.tmpdir("ttsc-root-file-policy-");
   const physicalRoot = fs.realpathSync.native(root);
   const files = [

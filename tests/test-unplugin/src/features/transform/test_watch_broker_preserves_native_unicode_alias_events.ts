@@ -28,16 +28,36 @@ export function test_watch_broker_preserves_native_unicode_alias_events(): void 
   const closed = [0, 0, 0, 0, 0];
   const broker = runWatchBrokerProgram(watchBrokerSource(), {
     "node:fs": {
-      watch: (_directory: string, _options: object, listener: (event: string, filename: string | null) => void) => {
+      watch: (
+        _directory: string,
+        _options: object,
+        listener: (event: string, filename: string | null) => void,
+      ) => {
         const index = listeners.length;
         listeners.push(listener);
-        return { close: () => { closed[index] = closed[index]! + 1; }, on: () => undefined };
+        return {
+          close: () => {
+            closed[index] = closed[index]! + 1;
+          },
+          on: () => undefined,
+        };
       },
     },
   });
   try {
-    for (const [index, name] of ["\u00e9.config", "K.config", "\u212a.config", "LongConfig.config", "LONGCO~1.CON"].entries())
-      broker.receive({ allEvents: false, id: index + 1, locations: [{ directory, names: [name] }], op: "add" });
+    for (const [index, name] of [
+      "\u00e9.config",
+      "K.config",
+      "\u212a.config",
+      "LongConfig.config",
+      "LONGCO~1.CON",
+    ].entries())
+      broker.receive({
+        allEvents: false,
+        id: index + 1,
+        locations: [{ directory, names: [name] }],
+        op: "add",
+      });
     assert.equal(listeners.length, 5);
     const start = broker.sent.length;
     listeners[1]!("change", "K.config");
@@ -56,10 +76,17 @@ export function test_watch_broker_preserves_native_unicode_alias_events(): void 
       { directory, eventType: "rename", filename: "\u212a.config", id: 2 },
       { directory, eventType: "rename", filename: "K.config", id: 3 },
       { directory, eventType: "rename", filename: "unrelated.config", id: 1 },
-      ...(process.platform === "win32" ? [
-        { directory, eventType: "rename", filename: "LONGCO~1.CON", id: 4 },
-        { directory, eventType: "rename", filename: "LongConfig.config", id: 5 },
-      ] : []),
+      ...(process.platform === "win32"
+        ? [
+            { directory, eventType: "rename", filename: "LONGCO~1.CON", id: 4 },
+            {
+              directory,
+              eventType: "rename",
+              filename: "LongConfig.config",
+              id: 5,
+            },
+          ]
+        : []),
     ]);
   } finally {
     for (const id of [1, 2, 3, 4, 5]) {

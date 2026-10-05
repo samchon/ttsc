@@ -42,7 +42,9 @@ func TestParsePluginsRoundTrip(t *testing.T) {
   if entry.Stage != "check" {
     t.Errorf("entry.Stage: want check, got %q", entry.Stage)
   }
-  if entry.Name != "@ttsc/lint" || entry != &entries[0] { t.Fatalf("selected descriptor identity or caller ownership lost: %+v", entry) }
+  if entry.Name != "@ttsc/lint" || entry != &entries[0] {
+    t.Fatalf("selected descriptor identity or caller ownership lost: %+v", entry)
+  }
   if got, _ := entry.Config["configFile"].(string); got != "./lint.config.ts" {
     t.Errorf("configFile: want ./lint.config.ts, got %q", got)
   }

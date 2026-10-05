@@ -1,8 +1,8 @@
 package linthost
 
 import (
-  "testing"
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "testing"
 )
 
 // TestContributorWithoutTagMarkerLeavesFindingsUntagged verifies a rule that
@@ -33,7 +33,9 @@ func TestContributorWithoutTagMarkerLeavesFindingsUntagged(t *testing.T) {
   findings := NewEngineWithResolver(InlineRuleResolver{
     Rules: RuleConfig{"demo/tagged": SeverityWarn},
   }).Run([]*shimast.SourceFile{file}, nil)
-  if err := validateSemanticRuleFindings(RuleConfig{"demo/tagged": SeverityWarn}, findings); err != nil { t.Fatal(err) }
+  if err := validateSemanticRuleFindings(RuleConfig{"demo/tagged": SeverityWarn}, findings); err != nil {
+    t.Fatal(err)
+  }
 
   if len(findings) != 1 {
     t.Fatalf("want one finding, got %d", len(findings))
@@ -45,9 +47,15 @@ func TestContributorWithoutTagMarkerLeavesFindingsUntagged(t *testing.T) {
     t.Fatalf("nil-tag contributor message lost: %q", findings[0].Message)
   }
   metadata, err = inspectContributor(untaggedContributor{})
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   registered.rules[metadata.name] = newContributorAdapter(metadata)
   findings = NewEngine(RuleConfig{"demo/tagged": SeverityWarn}).Run([]*shimast.SourceFile{file}, nil)
-  if err := validateSemanticRuleFindings(RuleConfig{"demo/tagged": SeverityWarn}, findings); err != nil { t.Fatal(err) }
-  if len(findings) != 1 || findings[0].Tags != nil || findings[0].Message != "flagged" { t.Fatalf("absent tag capability must preserve an untagged real finding: %+v", findings) }
+  if err := validateSemanticRuleFindings(RuleConfig{"demo/tagged": SeverityWarn}, findings); err != nil {
+    t.Fatal(err)
+  }
+  if len(findings) != 1 || findings[0].Tags != nil || findings[0].Message != "flagged" {
+    t.Fatalf("absent tag capability must preserve an untagged real finding: %+v", findings)
+  }
 }

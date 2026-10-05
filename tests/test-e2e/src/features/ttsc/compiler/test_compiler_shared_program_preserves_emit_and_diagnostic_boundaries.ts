@@ -24,9 +24,9 @@ import { WatchSession } from "../../../internal/ttsc/internal/watch";
  * compile together. The same project then changes its emit policy and receives
  * syntax, bind and semantic failures. Syntax errors prevent the compiler from
  * collecting semantic diagnostics, so syntax needs its own command; bind and
- * semantic errors share the same invalid compiler request. The selected native compiler
- * rejects removed AMD/outFile options. One negative rebuild preserves that
- * refusal, then a supported CommonJS incremental rebuild verifies
+ * semantic errors share the same invalid compiler request. The selected native
+ * compiler rejects removed AMD/outFile options. One negative rebuild preserves
+ * that refusal, then a supported CommonJS incremental rebuild verifies
  * config-relative build info and quiet output.
  *
  * 1. Emit every valid module together with spaced target/module flags, checker
@@ -56,14 +56,14 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
   preparedWorkspace?: string,
 ): Promise<void> {
   const files = Object.fromEntries([
-      ...Object.entries(FixtureFiles.read("ttsc/compiler/corpus")).map(
-        ([name, contents]) => [`project/${name}`, contents],
-      ),
-      ...Object.entries(FixtureFiles.read("ttsc/compiler/watch")),
-      ...Object.entries(FixtureFiles.read("ttsc/compiler/subprojects")).map(
-        ([name, contents]) => [`subprojects/${name}`, contents],
-      ),
-    ]);
+    ...Object.entries(FixtureFiles.read("ttsc/compiler/corpus")).map(
+      ([name, contents]) => [`project/${name}`, contents],
+    ),
+    ...Object.entries(FixtureFiles.read("ttsc/compiler/watch")),
+    ...Object.entries(FixtureFiles.read("ttsc/compiler/subprojects")).map(
+      ([name, contents]) => [`subprojects/${name}`, contents],
+    ),
+  ]);
   const workspace = preparedWorkspace ?? TestProject.createProject(files);
   if (preparedWorkspace) {
     for (const [relative, bytes] of Object.entries(files)) {
@@ -149,19 +149,22 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
         );
       }
       const publicHelp = spawn(ttscBin, ["--help"], { cwd: workspaceRoot });
-      check("public command help lists every command and the plugin contract", () => {
-        assert.equal(publicHelp.status, 0, publicHelp.stderr);
-        assert.match(
-          publicHelp.stdout,
-          /standalone compiler adapter and plugin host/,
-        );
-        assert.match(publicHelp.stdout, /ttsc prepare \[options\]/);
-        assert.match(publicHelp.stdout, /ttsc clean \[options\]/);
-        assert.match(publicHelp.stdout, /ttsc fix \[options\]/);
-        assert.match(publicHelp.stdout, /ttsc format \[options\]/);
-        assert.match(publicHelp.stdout, /ttsc cache paths --json/);
-        assert.match(publicHelp.stdout, /Plugin contract:/);
-      });
+      check(
+        "public command help lists every command and the plugin contract",
+        () => {
+          assert.equal(publicHelp.status, 0, publicHelp.stderr);
+          assert.match(
+            publicHelp.stdout,
+            /standalone compiler adapter and plugin host/,
+          );
+          assert.match(publicHelp.stdout, /ttsc prepare \[options\]/);
+          assert.match(publicHelp.stdout, /ttsc clean \[options\]/);
+          assert.match(publicHelp.stdout, /ttsc fix \[options\]/);
+          assert.match(publicHelp.stdout, /ttsc format \[options\]/);
+          assert.match(publicHelp.stdout, /ttsc cache paths --json/);
+          assert.match(publicHelp.stdout, /Plugin contract:/);
+        },
+      );
       const versionBanner = spawn(ttscBin, ["--version"], {
         cwd: workspaceRoot,
       });
@@ -381,7 +384,10 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
     );
     check("single-file --noEmit preserves diagnostics", () => {
       assert.notEqual(brokenAnalysis.status, 0, "invalid TypeScript must fail");
-      assert.match(`${brokenAnalysis.stdout}${brokenAnalysis.stderr}`, /TS2322/);
+      assert.match(
+        `${brokenAnalysis.stdout}${brokenAnalysis.stderr}`,
+        /TS2322/,
+      );
       assert.equal(fs.existsSync(output("negative/broken.js")), false);
     });
     reset();
@@ -451,14 +457,17 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       ],
       { cwd: root },
     );
-    check("forwarded incremental flags are not refused as solution mode", () => {
-      assert.equal(
-        forwardedBuildInfo.status,
-        0,
-        `${forwardedBuildInfo.stdout}${forwardedBuildInfo.stderr}`,
-      );
-      assert.doesNotMatch(forwardedBuildInfo.stderr, /solution mode/);
-    });
+    check(
+      "forwarded incremental flags are not refused as solution mode",
+      () => {
+        assert.equal(
+          forwardedBuildInfo.status,
+          0,
+          `${forwardedBuildInfo.stdout}${forwardedBuildInfo.stderr}`,
+        );
+        assert.doesNotMatch(forwardedBuildInfo.stderr, /solution mode/);
+      },
+    );
 
     const negatives = FixtureFiles.read("ttsc/compiler/negative");
     for (const phases of [["syntax"], ["semantic", "bind"]] as const) {
@@ -570,10 +579,13 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
     fs.rmSync(path.join(root, "single"), { recursive: true, force: true });
     reset();
     const singleRewrite = command(["src/extensions.ts"]);
-    check("single-file emit rewrites allowImportingTsExtensions imports", () => {
-      assert.equal(singleRewrite.status, 0, singleRewrite.stderr);
-      assert.match(read("extensions.js"), /helper\.js/);
-    });
+    check(
+      "single-file emit rewrites allowImportingTsExtensions imports",
+      () => {
+        assert.equal(singleRewrite.status, 0, singleRewrite.stderr);
+        assert.match(read("extensions.js"), /helper\.js/);
+      },
+    );
 
     // Sparse original layouts must not inherit the ordinary corpus's rootDir,
     // extension-import or declaration options. Only these staged sources belong
@@ -774,7 +786,10 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       path.join(workspace, "subprojects", name);
     const strictForwarding = subproject("strict-forwarding");
     for (const [name, argv] of [
-      ["single-file lane", ["--cwd", strictForwarding, "--strict", "src/main.ts"]],
+      [
+        "single-file lane",
+        ["--cwd", strictForwarding, "--strict", "src/main.ts"],
+      ],
       [
         "check subcommand",
         ["check", "--cwd", strictForwarding, "--strict", "src/main.ts"],
@@ -793,9 +808,12 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
     const pathsCheck = spawn(ttscBin, ["check", "--cwd", pathsPolicy], {
       cwd: pathsPolicy,
     });
-    check("check resolves paths mappings under the native compiler policy", () => {
-      assert.equal(pathsCheck.status, 0, pathsCheck.stderr);
-    });
+    check(
+      "check resolves paths mappings under the native compiler policy",
+      () => {
+        assert.equal(pathsCheck.status, 0, pathsCheck.stderr);
+      },
+    );
     const solution = subproject("solution");
     for (const argv of [
       ["--build", ".", "--cwd", solution],
@@ -804,20 +822,23 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       ["check", "--build", "--cwd", solution],
     ]) {
       const refused = spawn(ttscBin, argv, { cwd: solution });
-      check(`solution build is refused by ttsc itself / ${argv.join(" ")}`, () => {
-        const text = `${refused.stdout}${refused.stderr}`;
-        assert.equal(refused.status, 2, text);
-        assert.match(
-          refused.stderr,
-          /ttsc: --build \(solution mode\) is not supported/,
-        );
-        assert.match(refused.stderr, /ttsc -p <tsconfig>/);
-        assert.doesNotMatch(
-          text,
-          /TS6369|must be the first command line argument/,
-          "the request must not reach the native compiler",
-        );
-      });
+      check(
+        `solution build is refused by ttsc itself / ${argv.join(" ")}`,
+        () => {
+          const text = `${refused.stdout}${refused.stderr}`;
+          assert.equal(refused.status, 2, text);
+          assert.match(
+            refused.stderr,
+            /ttsc: --build \(solution mode\) is not supported/,
+          );
+          assert.match(refused.stderr, /ttsc -p <tsconfig>/);
+          assert.doesNotMatch(
+            text,
+            /TS6369|must be the first command line argument/,
+            "the request must not reach the native compiler",
+          );
+        },
+      );
     }
     check("refused solution builds create no package output", () => {
       for (const pkg of ["pkg-a", "pkg-b"])
@@ -827,26 +848,32 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
     const outside = spawn(ttscBin, ["--cwd", singleFile, "scripts/index.ts"], {
       cwd: singleFile,
     });
-    check("single-file mode refuses a file outside the project file set", () => {
-      assert.notEqual(outside.status, 0, outside.stdout);
-      assert.match(
-        outside.stderr,
-        /ttsc single-file emit: .*tsconfig\.json emitted no JavaScript owned by .*scripts[\\/]index\.ts;/,
-      );
-      assert.equal(fs.existsSync(path.join(singleFile, "lib")), false);
-    });
+    check(
+      "single-file mode refuses a file outside the project file set",
+      () => {
+        assert.notEqual(outside.status, 0, outside.stdout);
+        assert.match(
+          outside.stderr,
+          /ttsc single-file emit: .*tsconfig\.json emitted no JavaScript owned by .*scripts[\\/]index\.ts;/,
+        );
+        assert.equal(fs.existsSync(path.join(singleFile, "lib")), false);
+      },
+    );
     const inside = spawn(ttscBin, ["--cwd", singleFile, "src/index.ts"], {
       cwd: singleFile,
     });
-    check("single-file mode emits the included same-stem file's own code", () => {
-      assert.equal(inside.status, 0, `${inside.stdout}${inside.stderr}`);
-      const emitted = fs.readFileSync(
-        path.join(singleFile, "lib", "src", "index.js"),
-        "utf8",
-      );
-      assert.match(emitted, /ran src\/index\.ts/);
-      assert.doesNotMatch(emitted, /ran scripts/);
-    });
+    check(
+      "single-file mode emits the included same-stem file's own code",
+      () => {
+        assert.equal(inside.status, 0, `${inside.stdout}${inside.stderr}`);
+        const emitted = fs.readFileSync(
+          path.join(singleFile, "lib", "src", "index.js"),
+          "utf8",
+        );
+        assert.match(emitted, /ran src\/index\.ts/);
+        assert.doesNotMatch(emitted, /ran scripts/);
+      },
+    );
     fs.rmSync(path.join(singleFile, "lib"), { recursive: true, force: true });
     const singleLink = path.join(workspace, "linked-single-file");
     let linkedSingle: ReturnType<typeof spawn> | undefined;
@@ -868,7 +895,10 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
         true,
         linkedSingle.stdout,
       );
-      assert.equal(fs.existsSync(path.join(singleFile, "lib", "index.js")), false);
+      assert.equal(
+        fs.existsSync(path.join(singleFile, "lib", "index.js")),
+        false,
+      );
       assert.equal(
         linkedSingle.stdout.trim(),
         path.join("lib", "src", "index.js"),
@@ -881,21 +911,31 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       ["--cwd", sandbox, "--outFile", cliBundle, "src/input.ts"],
       { cwd: sandbox },
     );
-    check("single-file mode keeps every compiler side product in its sandbox", () => {
-      assert.equal(sandboxed.status, 0, `${sandboxed.stdout}${sandboxed.stderr}`);
-      assert.equal(fs.existsSync(path.join(sandbox, "src", "input.js")), true);
-      for (const escaped of [
-        cliBundle,
-        path.join(sandbox, "configured-bundle.js"),
-        path.join(sandbox, "types", "input.d.ts"),
-        path.join(sandbox, "state", "configured.tsbuildinfo"),
-      ])
+    check(
+      "single-file mode keeps every compiler side product in its sandbox",
+      () => {
         assert.equal(
-          fs.existsSync(escaped),
-          false,
-          `private compiler leaked ${escaped}\n${sandboxed.stdout}${sandboxed.stderr}`,
+          sandboxed.status,
+          0,
+          `${sandboxed.stdout}${sandboxed.stderr}`,
         );
-    });
+        assert.equal(
+          fs.existsSync(path.join(sandbox, "src", "input.js")),
+          true,
+        );
+        for (const escaped of [
+          cliBundle,
+          path.join(sandbox, "configured-bundle.js"),
+          path.join(sandbox, "types", "input.d.ts"),
+          path.join(sandbox, "state", "configured.tsbuildinfo"),
+        ])
+          assert.equal(
+            fs.existsSync(escaped),
+            false,
+            `private compiler leaked ${escaped}\n${sandboxed.stdout}${sandboxed.stderr}`,
+          );
+      },
+    );
     const outDirOracleRoot = subproject("outdir-oracle");
     const outDirOracle = spawn(
       tsgoBinary,
@@ -907,20 +947,23 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       ["--cwd", outDirOracleRoot, "--outDir", "ttsc-dist"],
       { cwd: outDirOracleRoot },
     );
-    check("outDir flag keeps the native answer for a project without rootDir", () => {
-      const oracleText = `${outDirOracle.stdout}${outDirOracle.stderr}`;
-      const builtText = `${outDirBuilt.stdout}${outDirBuilt.stderr}`;
-      assert.equal(
-        outDirBuilt.status === 0,
-        outDirOracle.status === 0,
-        `ttsc and tsgo disagree on --outDir\ntsgo: ${oracleText}\nttsc: ${builtText}`,
-      );
-      assert.equal(
-        /rootDir/.test(builtText),
-        /rootDir/.test(oracleText),
-        `ttsc and tsgo disagree on the layout diagnostic\ntsgo: ${oracleText}\nttsc: ${builtText}`,
-      );
-    });
+    check(
+      "outDir flag keeps the native answer for a project without rootDir",
+      () => {
+        const oracleText = `${outDirOracle.stdout}${outDirOracle.stderr}`;
+        const builtText = `${outDirBuilt.stdout}${outDirBuilt.stderr}`;
+        assert.equal(
+          outDirBuilt.status === 0,
+          outDirOracle.status === 0,
+          `ttsc and tsgo disagree on --outDir\ntsgo: ${oracleText}\nttsc: ${builtText}`,
+        );
+        assert.equal(
+          /rootDir/.test(builtText),
+          /rootDir/.test(oracleText),
+          `ttsc and tsgo disagree on the layout diagnostic\ntsgo: ${oracleText}\nttsc: ${builtText}`,
+        );
+      },
+    );
 
     // Cache commands share the same project. Their sentinels are input state,
     // not another compiler project or installation.

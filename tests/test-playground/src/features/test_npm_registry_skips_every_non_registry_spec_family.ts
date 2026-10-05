@@ -18,6 +18,7 @@ import { createTarball } from "../internal/tarball";
  * 2. Assert only supported dependency names enter the queue.
  * 3. Install a tarball carrying the same mix through a fake registry.
  * 4. Assert no unsupported name triggers a metadata request.
+ *
  * @evidence contracts/testing.md#behavioral-verification enqueuePackageDependencies and installPlaygroundDependencies omit file/link/workspace/portal/URL/git/hosted/path/archive/malformed specs while keeping literal alias,exact,range,tag queue entries and installing root plus supported.
  * @evidence contracts/testing.md#independent-expectations The authored unsupported-spec table and exact queued/requested/package name arrays independently specify the supported registry grammar; fixture responses cannot supply omitted source packages.
  * @evidence contracts/testing.md#distinguishing-cases Twenty-four named unsupported entries include POSIX, drive and UNC spellings, contrasted with four supported queue controls and an actual tarball carrying the same mix.

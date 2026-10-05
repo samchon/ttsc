@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/internal/linkVirtualEntry";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies `linkVirtualEntry` never fails on a dangling symlink entry.
@@ -29,40 +29,43 @@ import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/inte
  * @evidence contracts/testing.md#execution-ownership A unit test calling linkVirtualEntry directly on a real dangling link in private temp directories; no ttsx run, native build or installed package.
  */
 export function test_linkvirtualentry_never_fails_on_a_dangling_symlink_entry() {
-    const realDir = TestProject.tmpdir("ttsc-linkvirtualentry-dangling-");
-    const target = path.join(realDir, "target");
-    fs.mkdirSync(target);
-    const entryName = "entry.link";
-    const realEntry = path.join(realDir, entryName);
-    fs.symlinkSync(
-      target,
-      realEntry,
-      process.platform === "win32" ? "junction" : undefined,
-    );
-    fs.rmdirSync(target);
-    const entry = fs
-      .readdirSync(realDir, { withFileTypes: true })
-      .find((candidate) => candidate.name === entryName);
-    assert.ok(entry, "fixture entry must exist");
-    assert.ok(entry.isSymbolicLink(), "fixture must be a symlink entry");
+  const realDir = TestProject.tmpdir("ttsc-linkvirtualentry-dangling-");
+  const target = path.join(realDir, "target");
+  fs.mkdirSync(target);
+  const entryName = "entry.link";
+  const realEntry = path.join(realDir, entryName);
+  fs.symlinkSync(
+    target,
+    realEntry,
+    process.platform === "win32" ? "junction" : undefined,
+  );
+  fs.rmdirSync(target);
+  const entry = fs
+    .readdirSync(realDir, { withFileTypes: true })
+    .find((candidate) => candidate.name === entryName);
+  assert.ok(entry, "fixture entry must exist");
+  assert.ok(entry.isSymbolicLink(), "fixture must be a symlink entry");
 
-    const virtualDir = TestProject.tmpdir("ttsc-linkvirtualentry-virtual-");
-    const virtualEntry = path.join(virtualDir, entryName);
+  const virtualDir = TestProject.tmpdir("ttsc-linkvirtualentry-virtual-");
+  const virtualEntry = path.join(virtualDir, entryName);
 
-    linkVirtualEntry(realEntry, virtualEntry, entry);
+  linkVirtualEntry(realEntry, virtualEntry, entry);
 
-    const outcome = (() => {
-      try {
-        if (!fs.lstatSync(virtualEntry).isSymbolicLink()) return "clobbered";
-        assert.equal(path.resolve(path.dirname(virtualEntry), fs.readlinkSync(virtualEntry)), realEntry);
-        return "mirrored";
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-        return "skipped";
-      }
-    })();
-    assert.ok(
-      outcome === "mirrored" || outcome === "skipped",
-      `dangling entry must be re-linked or skipped, got ${outcome}`,
-    );
+  const outcome = (() => {
+    try {
+      if (!fs.lstatSync(virtualEntry).isSymbolicLink()) return "clobbered";
+      assert.equal(
+        path.resolve(path.dirname(virtualEntry), fs.readlinkSync(virtualEntry)),
+        realEntry,
+      );
+      return "mirrored";
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      return "skipped";
+    }
+  })();
+  assert.ok(
+    outcome === "mirrored" || outcome === "skipped",
+    `dangling entry must be re-linked or skipped, got ${outcome}`,
+  );
 }

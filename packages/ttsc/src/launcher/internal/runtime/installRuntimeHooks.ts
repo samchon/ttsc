@@ -16,8 +16,8 @@ import { readProjectConfig } from "../../../compiler/internal/project/readProjec
 import { resolveOwningProjectConfig } from "../../../compiler/internal/project/resolveOwningProjectConfig";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
 import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
@@ -27,21 +27,21 @@ import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
 import { parseCommonJsExports } from "../parseCommonJsExports";
 import { runtimeCompilerArgs } from "../runtimeCompilerArgs";
-import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
+import { CommonJsRuntimeSource } from "./CommonJsRuntimeSource";
 import { DependencyBuildAdmission } from "./DependencyBuildAdmission";
-import type { OwningModuleOptions } from "./OwningModuleOptions";
+import { DependencyBuildGeneration } from "./DependencyBuildGeneration";
 import { OwnedProjectSource } from "./OwnedProjectSource";
+import type { OwningModuleOptions } from "./OwningModuleOptions";
+import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
 import type { ResolveResult } from "./ResolveResult";
+import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
-import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
 import type { RuntimeHookOptions } from "./RuntimeHookOptions";
+import { RuntimeIsolatedEmit } from "./RuntimeIsolatedEmit";
 import { RuntimeLoaderCapabilities } from "./RuntimeLoaderCapabilities";
 import type { RuntimeManifest } from "./RuntimeManifest";
 import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
 import { RuntimeModuleFormat } from "./RuntimeModuleFormat";
-import { RuntimeEmitProvenance } from "./RuntimeEmitProvenance";
-import { PluginDescriptorInputObservation } from "./PluginDescriptorInputObservation";
-import { CommonJsRuntimeSource } from "./CommonJsRuntimeSource";
 import { checkNodeRuntimeSupport } from "./checkNodeRuntimeSupport";
 import { commonJsImportFacade } from "./commonJsImportFacade";
 import { dependencyCacheKey } from "./dependencyCacheKey";
@@ -60,10 +60,10 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  *
  * Prepared entries use their owner's build, including its selected transform
  * plugins, under source URLs so `__dirname`/`import.meta.url` keep source-tree
- * coordinates. Callback-prepared and direct prebuilt entry admission are distinct
- * from dependency builds and orphan recovery; this installer does not certify
- * that every dynamically loaded module has passed an entry type-check gate.
- * Three load paths:
+ * coordinates. Callback-prepared and direct prebuilt entry admission are
+ * distinct from dependency builds and orphan recovery; this installer does not
+ * certify that every dynamically loaded module has passed an entry type-check
+ * gate. Three load paths:
  *
  * 1. A `.ts` belonging to the entry project: serve the pre-built emitted JS
  *    (transform plugins already applied) under the producer's captured physical
@@ -83,17 +83,16 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * `require.resolve(..., { paths })` inside `runBuild`'s plugin loader behave.
  *
  * Both graphs go through `registerHooks`, the supported customization API. A
- * CommonJS module an ESM `import` reaches may need an ESM facade that loads
- * it through the CommonJS loader (`commonJsImportFacade`): handed to the ESM
+ * CommonJS module an ESM `import` reaches may need an ESM facade that loads it
+ * through the CommonJS loader (`commonJsImportFacade`): handed to the ESM
  * loader with source, the module's own `require()` bypasses the hooks on some
  * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there.
- * Capability and entry predicates also admit direct CommonJS source lanes.
- * One reach the API lacks on some releases is
- * `require.resolve`, which is probed before installation. Served CommonJS
- * bodies receive an owned require function whose resolve member applies the
- * same source policy on those releases. Its copied extension registry
- * advertises the supported source extensions; foreign resolver methods and
- * global extension registries are never replaced.
+ * Capability and entry predicates also admit direct CommonJS source lanes. One
+ * reach the API lacks on some releases is `require.resolve`, which is probed
+ * before installation. Served CommonJS bodies receive an owned require function
+ * whose resolve member applies the same source policy on those releases. Its
+ * copied extension registry advertises the supported source extensions; foreign
+ * resolver methods and global extension registries are never replaced.
  *
  * Direct descriptor evaluation records user preloads after hook installation.
  * Only the generated CommonJS output sibling takes Node's native resolve/load
@@ -119,7 +118,8 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   assertNodeRuntimeSupport();
   // Probed before the runtime's hooks exist, so nothing the probes load is
   // served or recorded as an input of the program.
-  nativeRequireResolveHooks = RuntimeLoaderCapabilities.requireResolveConsultsHooks();
+  nativeRequireResolveHooks =
+    RuntimeLoaderCapabilities.requireResolveConsultsHooks();
   CommonJsRuntimeSource.configure(resolveCommonJsRequest);
   RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   // Error stacks use the served source maps. This supported switch is applied
@@ -132,10 +132,16 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   installed = true;
 }
 
-/** Actual public-hook coverage determines whether module-local resolve needs adaptation. */
+/**
+ * Actual public-hook coverage determines whether module-local resolve needs
+ * adaptation.
+ */
 let nativeRequireResolveHooks = true;
 
-/** Preserve native resolution first and apply the existing source policy to an owned require. */
+/**
+ * Preserve native resolution first and apply the existing source policy to an
+ * owned require.
+ */
 function resolveCommonJsRequest(
   native: NodeJS.RequireResolve,
   specifier: string,
@@ -148,16 +154,23 @@ function resolveCommonJsRequest(
     ? [undefined]
     : options?.paths === undefined
       ? [pathToFileURL(filename).href]
-      : Array.isArray(options.paths) && options.paths.every((entry) => typeof entry === "string")
-        ? options.paths.map((entry) => pathToFileURL(path.join(path.resolve(entry), "index.js")).href)
+      : Array.isArray(options.paths) &&
+          options.paths.every((entry) => typeof entry === "string")
+        ? options.paths.map(
+            (entry) =>
+              pathToFileURL(path.join(path.resolve(entry), "index.js")).href,
+          )
         : [];
-  const observations = parents.map((parent) => observePluginDescriptorResolutionCandidates(specifier, parent));
+  const observations = parents.map((parent) =>
+    observePluginDescriptorResolutionCandidates(specifier, parent),
+  );
   let selected: string | undefined;
   try {
     try {
       const resolved = native(specifier, options);
       if (path.isAbsolute(resolved)) selected = pathToFileURL(resolved).href;
-      if (selected !== undefined) recordPluginDescriptorResolution(specifier, parents[0], selected);
+      if (selected !== undefined)
+        recordPluginDescriptorResolution(specifier, parents[0], selected);
       return resolved;
     } catch (error) {
       for (const parent of parents) {
@@ -537,8 +550,9 @@ function observePluginDescriptorResolutionCandidates(
 /**
  * Report one resolved descriptor edge to the parent loader. The channel is
  * active for direct-evaluator user preloads after hook installation. The exact
- * generated evaluator entry bypasses these hooks and suspends recording only while its
- * synchronous implementation imports load; descriptor imports then resume it.
+ * generated evaluator entry bypasses these hooks and suspends recording only
+ * while its synchronous implementation imports load; descriptor imports then
+ * resume it.
  */
 function recordPluginDescriptorResolution(
   specifier: string,
@@ -827,12 +841,22 @@ function load(
   // (`commonJsImportFacade`); entry predicates can instead admit served source.
   if (format === "commonjs" && !hasCondition(context, "require")) {
     if (servesCommonJsFromSource(url)) {
-      E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-import", {
-        emittedFile: served.emittedFile,
-        moduleOptions: served.moduleOptions,
-        sourceFile: served.sourceFile,
-      });
-      return { format, shortCircuit: true, source: CommonJsRuntimeSource.prepare(served.source, filename) };
+      E2ETrace.runtimePreparation(
+        served.source,
+        filename,
+        format,
+        "ttsx-commonjs-source-import",
+        {
+          emittedFile: served.emittedFile,
+          moduleOptions: served.moduleOptions,
+          sourceFile: served.sourceFile,
+        },
+      );
+      return {
+        format,
+        shortCircuit: true,
+        source: CommonJsRuntimeSource.prepare(served.source, filename),
+      };
     }
     return {
       format: "module",
@@ -850,22 +874,35 @@ function load(
     };
   }
   if (format === "commonjs")
-    E2ETrace.runtimePreparation(served.source, filename, format, "ttsx-commonjs-source-load", {
-      emittedFile: served.emittedFile,
-      moduleOptions: served.moduleOptions,
-      sourceFile: served.sourceFile,
-    });
-  return { format, shortCircuit: true, source: format === "commonjs" ? CommonJsRuntimeSource.prepare(served.source, filename) : served.source };
+    E2ETrace.runtimePreparation(
+      served.source,
+      filename,
+      format,
+      "ttsx-commonjs-source-load",
+      {
+        emittedFile: served.emittedFile,
+        moduleOptions: served.moduleOptions,
+        sourceFile: served.sourceFile,
+      },
+    );
+  return {
+    format,
+    shortCircuit: true,
+    source:
+      format === "commonjs"
+        ? CommonJsRuntimeSource.prepare(served.source, filename)
+        : served.source,
+  };
 }
 
 /**
  * Load a JavaScript module, handing a CommonJS one an ESM import reaches to the
  * CommonJS loader through the facade where Node would otherwise evaluate it
- * with its narrower `require`. A runtime that gives a
- * hook-served CommonJS module that `require` gives it to every CommonJS module
- * an import reaches once any load hook exists, so without the facade such a
- * module had no `require.cache`, `require.extensions` or
- * `require.resolve.paths`, and could not `require()` a TypeScript source.
+ * with its narrower `require`. A runtime that gives a hook-served CommonJS
+ * module that `require` gives it to every CommonJS module an import reaches
+ * once any load hook exists, so without the facade such a module had no
+ * `require.cache`, `require.extensions` or `require.resolve.paths`, and could
+ * not `require()` a TypeScript source.
  */
 function loadJavaScript(
   url: string,
@@ -874,10 +911,7 @@ function loadJavaScript(
   nextLoad: NextLoad,
 ): LoadResult {
   const loaded = nextLoad(url, context);
-  if (
-    loaded.format !== "commonjs"
-  )
-    return loaded;
+  if (loaded.format !== "commonjs") return loaded;
   const source =
     typeof loaded.source === "string"
       ? loaded.source
@@ -891,7 +925,12 @@ function loadJavaScript(
     servesCommonJsFromSource(url)
   ) {
     const preparedSource = inlineServedSourceMap(source, filename, filename);
-    E2ETrace.runtimePreparation(preparedSource, filename, loaded.format, "ttsx-commonjs-javascript-load");
+    E2ETrace.runtimePreparation(
+      preparedSource,
+      filename,
+      loaded.format,
+      "ttsx-commonjs-javascript-load",
+    );
     return {
       ...loaded,
       shortCircuit: true,
@@ -981,11 +1020,11 @@ function hasCondition(
 }
 
 /**
- * Identify only the direct evaluator's generated CommonJS output sibling.
- * The parent supplies an absolute output under a canonical private directory;
- * URL conversion and native path resolution preserve that exact spelling.
- * No directory-wide exclusion or user preload/descriptor path is selected.
- * This comparison performs no filesystem read and retains no additional state.
+ * Identify only the direct evaluator's generated CommonJS output sibling. The
+ * parent supplies an absolute output under a canonical private directory; URL
+ * conversion and native path resolution preserve that exact spelling. No
+ * directory-wide exclusion or user preload/descriptor path is selected. This
+ * comparison performs no filesystem read and retains no additional state.
  */
 function isDescriptorEvaluatorBootstrap(value: string): boolean {
   const out = process.env.TTSC_PLUGIN_DESCRIPTOR_OUT;
@@ -1159,8 +1198,8 @@ function recordPluginDescriptorProjectInputs(
  * `load` hook and the CommonJS `require` handler.
  *
  * A file runs only from JavaScript a build provably compiled from that very
- * file, never from another file's output that shares its name.
- * The lanes, in order:
+ * file, never from another file's output that shares its name. The lanes, in
+ * order:
  *
  * 1. A checked entry build that compiled it (`ttsx`'s entry project, or a root
  *    `ttsc/register` prepared).
@@ -1362,7 +1401,12 @@ function emitCommonJsForNameScan(filename: string): string | null {
     if (served !== null) fs.writeFileSync(input, served.source);
     spawnNative(
       tsgo,
-      RuntimeIsolatedEmit.compilerArgs(input, outDir, "commonjs", "export-scan"),
+      RuntimeIsolatedEmit.compilerArgs(
+        input,
+        outDir,
+        "commonjs",
+        "export-scan",
+      ),
       { cwd: outDir, encoding: "utf8" },
     );
     const emitted = isolatedEmitOf(input, outDir);
@@ -1384,8 +1428,8 @@ function emitCommonJsForNameScan(filename: string): string | null {
  * A run prepared by ttsx or `ttsc/register` names it in its manifest, under the
  * run's resolved cache root (`--cache-dir`, `TTSC_CACHE_DIR`, or the default
  * project-local root), where it outlives the run and is collected and cleaned
- * with the rest of that root. A runtime without a manifest
- * has no cache root to name, so its lowerings go where its dependency builds go
+ * with the rest of that root. A runtime without a manifest has no cache root to
+ * name, so its lowerings go where its dependency builds go
  * (`dependencyCacheRoot`), which is removed with the evaluation or the process
  * that made them.
  */
@@ -1440,13 +1484,12 @@ let ownPackageVersionCache: string | undefined;
  * source cannot be read.
  *
  * The cache outlives the run in its cache root, so a hit has to prove the
- * current inputs would produce the cached text. The key
- * holds everything that decides it: the source's bytes and path (the inlined
- * map names the path), the module format, the emit arguments, the compiler that
- * lowers it, and the ttsc that post-processes it. The compiler is keyed by what
- * it is, not where it is: a flat `node_modules` upgrade replaces the binary at
- * the same path, and a key of the path alone kept serving the old compiler's
- * output.
+ * current inputs would produce the cached text. The key holds everything that
+ * decides it: the source's bytes and path (the inlined map names the path), the
+ * module format, the emit arguments, the compiler that lowers it, and the ttsc
+ * that post-processes it. The compiler is keyed by what it is, not where it is:
+ * a flat `node_modules` upgrade replaces the binary at the same path, and a key
+ * of the path alone kept serving the old compiler's output.
  *
  * The source is read here, and the emit reads it again. The answer carries the
  * bytes and the file's metadata before they were read, so `orphanSourceHeld`
@@ -1972,9 +2015,10 @@ function buildRoot(
 }
 
 /**
- * The plugin policy a project or root compiled at run time inherits: none while a plugin
- * descriptor is being loaded, because its own transform would re-enter plugin
- * loading, and none when the run itself disabled them (`ttsx --no-plugins`).
+ * The plugin policy a project or root compiled at run time inherits: none while
+ * a plugin descriptor is being loaded, because its own transform would re-enter
+ * plugin loading, and none when the run itself disabled them (`ttsx
+ * --no-plugins`).
  */
 function runtimePluginPolicy(): false | undefined {
   return selectRuntimePluginPolicy(
@@ -2135,11 +2179,12 @@ function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
  * Compile a dependency project into a fresh generation directory and publish
  * its completion marker atomically.
  *
- * Under cooperative cache ownership and noncolliding generation ids, emit
- * lands in a fresh `<cacheDir>/gen-<generation>` rather than replacing a
- * reader's generation in place. Emit presence and provenance are checked before
- * temp-and-rename publication. Failure attempts to remove the partial directory;
- * refused cleanup can leave it behind without publishing a successful marker.
+ * Under cooperative cache ownership and noncolliding generation ids, emit lands
+ * in a fresh `<cacheDir>/gen-<generation>` rather than replacing a reader's
+ * generation in place. Emit presence and provenance are checked before
+ * temp-and-rename publication. Failure attempts to remove the partial
+ * directory; refused cleanup can leave it behind without publishing a
+ * successful marker.
  */
 function buildDependency(
   tsconfig: string,
@@ -2321,8 +2366,7 @@ interface ITsconfigLookup {
 /**
  * The config of the project that owns `real`: its nearest `tsconfig.json`, or,
  * when that config is a solution that does not contain the file, the referenced
- * project that does. `null` when no config owns the file at
- * all.
+ * project that does. `null` when no config owns the file at all.
  */
 function owningTsconfig(real: string): string | null {
   const nearest = nearestTsconfig(real);

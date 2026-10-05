@@ -43,7 +43,10 @@ export function test_terminal_flags_preserve_effective_boolean_and_project_owner
   const failures: Error[] = [];
   try {
     assert.equal(PassthroughFlags.forwardsTerminalTsgoFlag({}), false);
-    assert.equal(PassthroughFlags.forwardsProjectFreeTerminalTsgoFlag({}), false);
+    assert.equal(
+      PassthroughFlags.forwardsProjectFreeTerminalTsgoFlag({}),
+      false,
+    );
   } catch (cause) {
     failures.push(new Error("absent forwarded argv", { cause }));
   }

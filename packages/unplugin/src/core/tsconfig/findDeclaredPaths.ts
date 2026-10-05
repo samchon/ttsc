@@ -5,9 +5,9 @@ import { findDeclaredValue } from "./findDeclaredValue";
  * Locate the nearest `compilerOptions.paths` declaration in the `extends` chain
  * rooted at `tsconfig`. The own config wins over its bases; within an `extends`
  * array, later entries win over earlier ones. `seen` breaks circular chains;
- * the compiler reports the actual config error.
- * Optional decoded sources can be shared only within the caller's current
- * read transaction; physical cycle guards remain branch-local.
+ * the compiler reports the actual config error. Optional decoded sources can be
+ * shared only within the caller's current read transaction; physical cycle
+ * guards remain branch-local.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The selector accepts a non-array paths record and the shared value reader

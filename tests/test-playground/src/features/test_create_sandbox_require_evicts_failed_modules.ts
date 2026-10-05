@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
- * Verifies the sandbox require evicts only the provisional cache entries of failed
- * modules.
+ * Verifies the sandbox require evicts only the provisional cache entries of
+ * failed modules.
  *
  * Failed CommonJS and JSON evaluations must evict only their provisional cache
  * entries. Retrying a failed child or parent must evaluate it again, while the

@@ -4,14 +4,15 @@ import { createHash } from "node:crypto";
 import { TtscGraphSourceReader } from "../../../../packages/graph/src/model/TtscGraphSourceReader";
 import { docOf } from "../../../../packages/graph/src/server/runDetails";
 
-const digest = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
+const digest = (value: string | Buffer): string =>
+  createHash("sha256").update(value).digest("hex");
 
 /**
  * Verifies graph source display splits checker-identical snapshots at every
  * ECMAScript line terminator.
  *
- * The native compiler reports lines for CR, LS and PS as well as LF and CRLF.
- * A provenance-approved source split only at LF and CRLF would index a short line
+ * The native compiler reports lines for CR, LS and PS as well as LF and CRLF. A
+ * provenance-approved source split only at LF and CRLF would index a short line
  * array with a later compiler line and silently lose its JSDoc.
  *
  * 1. Build one digest-approved reader for each of the five terminators.

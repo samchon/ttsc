@@ -1,9 +1,9 @@
-import unpluginBun from "../../../../../packages/unplugin/src/bun";
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import unpluginBun from "../../../../../packages/unplugin/src/bun";
+import { TestProject } from "../../../../utils/src/TestProject";
 import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
 
 /**
@@ -19,6 +19,7 @@ import { captureBunLoader } from "../../internal/adapter-bun/captureBunLoader";
  *    JavaScript, other extensions, and a `\0`-prefixed virtual id.
  * 3. Load one file per accepted extension and assert the parser Bun is told to
  *    use.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls the authored Bun adapter setup against a capturing onLoad interface,
  *   tests its registered filter and invokes its handler on real fixture bytes.

@@ -17,8 +17,8 @@ const O_RDWR = 2;
  * its bytes, and a following small write must still succeed.
  *
  * 1. Seed `/f.txt`="abcdef" and open it read-write.
- * 2. Write one byte at position 2^40 and at the cursor-independent position
- *    2^40 + 1.
+ * 2. Write one byte at position 2^40 and at the cursor-independent position 2^40 +
+ *    1.
  * 3. Read the file and the cursor, then write inside the file to prove the
  *    descriptor still works.
  *

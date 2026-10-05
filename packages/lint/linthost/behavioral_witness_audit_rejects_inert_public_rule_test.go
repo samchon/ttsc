@@ -1,9 +1,9 @@
 package linthost
 
 import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   "strings"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // TestBehavioralWitnessAuditRejectsInertPublicRule is the regression sentinel.
@@ -26,7 +26,9 @@ func TestBehavioralWitnessAuditRejectsInertPublicRule(t *testing.T) {
   })
   file := parseTS(t, "const value = 1;\nvoid value;\n")
   engine, err := newRuleSnapshotEngine(inert.Name(), nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   findings := engine.Run(
     []*shimast.SourceFile{file},
     nil,

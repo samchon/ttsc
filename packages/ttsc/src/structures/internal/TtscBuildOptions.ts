@@ -30,17 +30,17 @@ export interface TtscBuildOptions extends TtscCommonOptions {
 
   /**
    * Request the fix command from configured check-stage hosts. A host may
-   * reject unsupported commands. Source files may be rewritten.
-   * The launcher also sets `emit: false`; API callers select emission separately.
+   * reject unsupported commands. Source files may be rewritten. The launcher
+   * also sets `emit: false`; API callers select emission separately.
    */
   fix?: boolean;
 
   /**
    * Request the format command from configured check-stage hosts. Source files
-   * may be rewritten, and a host may reject unsupported commands. With
-   * `emit: false`, the dispatcher adds no later type-check or transform pass.
-   * The launcher sets that emit selection for `ttsc format` and rejects watch
-   * mode, single-file mode, or an explicit enabled `--emit`.
+   * may be rewritten, and a host may reject unsupported commands. With `emit:
+   * false`, the dispatcher adds no later type-check or transform pass. The
+   * launcher sets that emit selection for `ttsc format` and rejects watch mode,
+   * single-file mode, or an explicit enabled `--emit`.
    */
   format?: boolean;
 

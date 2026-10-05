@@ -57,8 +57,8 @@ const FILESYSTEM_CLOCK_REFERENCES = new WeakMap<
  * signature. A device with no entry proves nothing, so its inputs keep being
  * compared by content. The map is held per operations object; a distinct view
  * object gets an independent table. The view owner must keep observations
- * coherent when its backing state or methods change: object identity alone
- * does not establish equivalent filesystem evidence.
+ * coherent when its backing state or methods change: object identity alone does
+ * not establish equivalent filesystem evidence.
  *
  * @evidence contracts/common.md#principled-implementation Device-keyed references are partitioned by observing operation object; refresh and metadata owners must maintain that view's coherence before its table can qualify a signature. Table identity alone proves no observation equivalence.
  * @evidence contracts/common.md#clear-and-simple-design One WeakMap owns reference tables by operation identity; refresh and separability consumers retain their own write and comparison responsibilities.

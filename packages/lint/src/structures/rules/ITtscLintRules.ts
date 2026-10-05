@@ -35,10 +35,9 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  * - Bare kebab-case ids (`eqeqeq`, `no-console`) belong to
  *   {@link ITtscLintCoreRules}, generic ESLint-compatible rules that apply to
  *   both JS and TS source.
- * - `typescript/*` ids belong to {@link ITtscLintTypeScriptRules},
- *   TypeScript-only and `@typescript-eslint` plugin rules. `@ttsc/lint` does
- *   not accept legacy bare names or `@typescript-eslint/*` aliases for these
- *   rules.
+ * - `typescript/*` ids belong to {@link ITtscLintTypeScriptRules}, TypeScript-only
+ *   and `@typescript-eslint` plugin rules. `@ttsc/lint` does not accept legacy
+ *   bare names or `@typescript-eslint/*` aliases for these rules.
  * - `react/*` ids in {@link ITtscLintReactRules} bundle `eslint-plugin-react`,
  *   `eslint-plugin-react-hooks`, and `eslint-plugin-react-refresh`.
  *   Performance-only React rules live separately in
@@ -53,9 +52,9 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  * - Any other `"<namespace>/<rule>"` key is accepted via
  *   {@link ITtscLintContributorRules} so plugin-shipped rules compose cleanly
  *   without ambient module augmentation. A plugin publishes an exported rule
- *   interface that the user passes to `ITtscLintConfig` as its generic argument;
- *   {@link TtscLintContributorOverlay} then tightens those rules' options while
- *   the open fallback remains for unlisted contributor names.
+ *   interface that the user passes to `ITtscLintConfig` as its generic
+ *   argument; {@link TtscLintContributorOverlay} then tightens those rules'
+ *   options while the open fallback remains for unlisted contributor names.
  *
  * @evidence contracts/common.md#principled-implementation Intersecting family maps and the contributor overlay preserves concrete built-in properties while keeping the open contributor fallback for unlisted names; the typed contributor overlay is added by the config type that uses this alias.
  * @evidence contracts/common.md#clear-and-simple-design One composition alias assembles independently owned rule families and the contributor extension boundary.

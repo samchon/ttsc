@@ -19,6 +19,10 @@ import { make } from "../internal/make";
  * "type": "json"
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param name The attribute name.
+ * @param value The attribute value.
+ * @returns The created {@link ImportAttribute}.
  * @evidence contracts/common.md#principled-implementation
  *   ImportAttribute preserves its identifier/string key and expression value
  *   as distinct fields; the caller supplies a grammar-valid attribute value.
@@ -33,11 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc identifies key/value representations and common string usage,
  *   followed by a separate colon-entry example and acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param name The attribute name.
- * @param value The attribute value.
- * @returns The created {@link ImportAttribute}.
  */
 export const createImportAttribute = (
   name: ImportAttributeName,

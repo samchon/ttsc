@@ -23,8 +23,8 @@ import {
  *    exports package whose inactive condition throws, exercising both local
  *    candidate capture and the descriptor extractor's package-topology mirror.
  * 3. Run `ttsc prepare` with TTSC_TTSX_BINARY removed from the environment.
- * 4. Assert prepare succeeds and does not report a missing `ttsx` executable.
- *    This input does not independently witness that PATH contains no ttsx.
+ * 4. Assert prepare succeeds and does not report a missing `ttsx` executable. This
+ *    input does not independently witness that PATH contains no ttsx.
  *
  * @evidence contracts/testing.md#behavioral-verification ttsc prepare loads the TypeScript lint config and succeeds without spawn ttsx ENOENT.
  * @evidence contracts/testing.md#independent-expectations The active package export returns error while the inactive export throws; successful prepare distinguishes active evaluation from the authored inactive throw, but does not independently trace every selected loader or PATH candidate.

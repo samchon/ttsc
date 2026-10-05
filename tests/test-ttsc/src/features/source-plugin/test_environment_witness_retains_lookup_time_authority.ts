@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/plugin/internal/source/PluginBuildEnvironmentWitness";
 
 /**

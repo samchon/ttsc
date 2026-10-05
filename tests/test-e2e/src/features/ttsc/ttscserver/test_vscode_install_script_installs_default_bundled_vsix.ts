@@ -1,9 +1,11 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Verifies VS Code install script forwards the bundled VSIX by default.
@@ -28,7 +30,9 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The recording root is retained before preparation and child-only PATH/output prevent other profiles supplying its log. Returned error and signal are checked before status and argv; this synchronous result is not arbitrary descendant closure. Inputs remain retained for later lifecycle verification.
  * @evidence contracts/e2e.md#preserved-coverage The npm install entry invokes a recording code command with --install-extension, the versioned bundled VSIX path and --force. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
-export const test_vscode_install_script_installs_default_bundled_vsix = (): void | false => {
+export const test_vscode_install_script_installs_default_bundled_vsix = ():
+  | void
+  | false => {
   if (process.platform === "win32") return false;
 
   const repo = TestProject.WORKSPACE_ROOT;

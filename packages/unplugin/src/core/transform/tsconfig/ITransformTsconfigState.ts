@@ -37,8 +37,8 @@ export interface ITransformTsconfigState {
   membershipPolicy: ITtscProjectMembershipPolicy;
 
   /**
-   * Hash of every view plus decoded chain source text; absent when no wrapper is
-   * materialized.
+   * Hash of every view plus decoded chain source text; absent when no wrapper
+   * is materialized.
    */
   signature?: string;
 

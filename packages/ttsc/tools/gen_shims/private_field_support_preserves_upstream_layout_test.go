@@ -40,22 +40,34 @@ type NodeBuilder struct {
   verbosity *Verbosity
 }
 `, 0)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   upstream, err := (&types.Config{}).Check(tsgoInternalPrefix+"checker", fset, []*ast.File{upstreamFile}, nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   named := upstream.Scope().Lookup("NodeBuilder").Type().(*types.Named)
   output, err := generatePrivateFieldSupport(named, []string{"impl"}, "checker")
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   generated, err := parser.ParseFile(fset, "generated.go", output, 0)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   checked, err := (&types.Config{Importer: fieldSupportImporter{upstream}}).Check("fixture/shim/checker", fset, []*ast.File{generated}, nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   mirror := checked.Scope().Lookup("extra_NodeBuilder").Type().Underlying().(*types.Struct)
   original := named.Underlying().(*types.Struct)
   expected := []string{"contexts", "host", "impl", "verbosity"}
   originalFields := make([]*types.Var, 4)
   mirrorFields := make([]*types.Var, 4)
-  if mirror.NumFields() != len(expected) { t.Fatalf("mirror fields = %d", mirror.NumFields()) }
+  if mirror.NumFields() != len(expected) {
+    t.Fatalf("mirror fields = %d", mirror.NumFields())
+  }
   for index, name := range expected {
     if mirror.Field(index).Name() != name || !types.Identical(mirror.Field(index).Type(), original.Field(index).Type()) {
       t.Fatalf("field %d lost the authored %s identity", index, name)
@@ -71,14 +83,22 @@ type NodeBuilder struct {
     t.Fatal("field support must expose only a private accessor")
   }
   signature := getter.Type().(*types.Signature)
-  if !types.Identical(signature.Results().At(0).Type(), original.Field(2).Type()) { t.Fatal("getter result lost impl type") }
-  if strings.Count(string(output), "func ") != 1 { t.Fatal("unrequested field accessor generated") }
-  if _, err := generatePrivateFieldSupport(named, []string{"missing"}, "checker"); err == nil { t.Fatal("absent field was accepted") }
+  if !types.Identical(signature.Results().At(0).Type(), original.Field(2).Type()) {
+    t.Fatal("getter result lost impl type")
+  }
+  if strings.Count(string(output), "func ") != 1 {
+    t.Fatal("unrequested field accessor generated")
+  }
+  if _, err := generatePrivateFieldSupport(named, []string{"missing"}, "checker"); err == nil {
+    t.Fatal("absent field was accepted")
+  }
 }
 
-type fieldSupportImporter struct { upstream *types.Package }
+type fieldSupportImporter struct{ upstream *types.Package }
 
 func (i fieldSupportImporter) Import(path string) (*types.Package, error) {
-  if path == i.upstream.Path() { return i.upstream, nil }
+  if path == i.upstream.Path() {
+    return i.upstream, nil
+  }
   return importer.Default().Import(path)
 }

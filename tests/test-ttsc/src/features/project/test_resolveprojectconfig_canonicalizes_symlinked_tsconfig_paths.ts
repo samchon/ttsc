@@ -1,5 +1,4 @@
 import { TestProject } from "../../../../utils/src/TestProject";
-
 import {
   assert,
   fs,
@@ -33,7 +32,11 @@ export const test_resolveprojectconfig_canonicalizes_symlinked_tsconfig_paths =
     const link = path.join(root, "link");
     fs.mkdirSync(real, { recursive: true });
     fs.writeFileSync(path.join(real, "tsconfig.json"), "{}\n", "utf8");
-    fs.symlinkSync(real, link, process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(
+      real,
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    );
 
     const resolved = resolveProjectConfig({
       tsconfig: path.join(link, "tsconfig.json"),

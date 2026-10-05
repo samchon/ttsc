@@ -1,19 +1,22 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
 import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceState";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies a native Go environment-file race cannot qualify a stale kept reading.
+ * Verifies a native Go environment-file race cannot qualify a stale kept
+ * reading.
  *
  * A real Node wrapper edits GOENV once immediately after real go env -json has
- * read it. The kept state must equal the explicit fresh reading after that edit;
- * this comparison uses an independent read path, not an independent hash algorithm.
+ * read it. The kept state must equal the explicit fresh reading after that
+ * edit; this comparison uses an independent read path, not an independent hash
+ * algorithm.
  *
- * 1. Copy the package-owned Go inputs and select a real-Go Node wrapper and empty GOENV.
+ * 1. Copy the package-owned Go inputs and select a real-Go Node wrapper and empty
+ *    GOENV.
  * 2. Place a one-shot edit and marker immediately after the Go environment query.
  * 3. Require the marker and kept/fresh equality, restoring both process variables.
  *
@@ -40,7 +43,10 @@ export const test_pluginsourcestate_witnesses_the_go_environment_file_before_rea
       ),
       plugin,
     );
-    fs.renameSync(path.join(plugin, "main.go.txt"), path.join(plugin, "main.go"));
+    fs.renameSync(
+      path.join(plugin, "main.go.txt"),
+      path.join(plugin, "main.go"),
+    );
     const goEnvFile = path.join(root, "go-env");
     fs.writeFileSync(goEnvFile, "");
     const edited = path.join(root, "edited");

@@ -48,32 +48,31 @@ const HANDED = new WeakMap<
  *
  * The generation's inputs are read once per generation and process, and the
  * record below the root of each host the generation is delivered to is written
- * from them until a write lands. Configs consulted while routing another
- * module are added to the same generation's input set. Only that expansion
- * replaces the watching snapshot and requires another write at each host.
+ * from them until a write lands. Configs consulted while routing another module
+ * are added to the same generation's input set. Only that expansion replaces
+ * the watching snapshot and requires another write at each host.
  *
  * A fresh-only result with unavailable host observations has no complete
  * dependency closure to put in a record. It returns false without writing or
  * handing over an older record; its delivery marks the host cache volatile.
  *
- * The record's path is the host root's, while a generation is the cache's,
- * and one cache can reach hosts
- * whose roots differ: a caller of `transformTtsc` can hand one cache to hosts
- * of its own, and the adapters' process-wide cache names the root of each
- * delivery by the directory the process runs in at the time. Each host takes
- * the record below its own root, the one place it accepts one. An input the
- * generation recorded no state for, a failed compile's recovery input or a walk
- * file no graph names, is read now, so a refresh at the next build start has a
- * state to compare against. A failed byte read can record an observed directory
- * kind or unavailable-content marker; that marker does not certify physical
- * absence.
+ * The record's path is the host root's, while a generation is the cache's, and
+ * one cache can reach hosts whose roots differ: a caller of `transformTtsc` can
+ * hand one cache to hosts of its own, and the adapters' process-wide cache
+ * names the root of each delivery by the directory the process runs in at the
+ * time. Each host takes the record below its own root, the one place it accepts
+ * one. An input the generation recorded no state for, a failed compile's
+ * recovery input or a walk file no graph names, is read now, so a refresh at
+ * the next build start has a state to compare against. A failed byte read can
+ * record an observed directory kind or unavailable-content marker; that marker
+ * does not certify physical absence.
  *
  * Persistence writes changed bytes or accepts an identical existing record
  * before initial handoff. Later deliveries reuse that accepted revision without
  * rechecking the file here; hosts and bridge readers own current record proof,
- * including concurrent changes and unreadable/torn bytes. A
- * host that keeps no snapshot of the file, Rollup's cache, is handed the digest
- * of the bytes written for the generation to compare against instead
+ * including concurrent changes and unreadable/torn bytes. A host that keeps no
+ * snapshot of the file, Rollup's cache, is handed the digest of the bytes
+ * written for the generation to compare against instead
  * (`TtscProjectRegistration.digest`).
  *
  * A record lives below the host's tool directory, or, when that cannot be
@@ -99,7 +98,6 @@ const HANDED = new WeakMap<
  * @returns Whether the host was handed the record.
  * @throws {TtscProjectRecordUnwritableError} When a watching session's
  *   successful delivery can be handed no record.
- *
  * @evidence contracts/common.md#principled-implementation Generation observations are retained by lexical input spelling and extended with new routing inputs; each host record is reusable only for the same evidenced snapshot, and bridge registrations receive a new array when that snapshot expands.
  * @evidence contracts/common.md#clear-and-simple-design One generation-owned handoff state separates evidenced inputs, watching snapshot and per-record written version; record serialization and unrecorded host-byte capture remain private helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A fresh-only result cannot manufacture persistent proof from current bytes or an older record; fallback remains an explicit host capability, and other unwritten or missing records preserve the supported volatility or watching error path.

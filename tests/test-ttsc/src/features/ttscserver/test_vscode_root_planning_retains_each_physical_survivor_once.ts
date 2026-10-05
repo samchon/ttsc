@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { filterCandidatesByPhysicalRoots } from "../../../../../packages/vscode/src/clientRootPlanning";
 import type { ResolutionCandidate } from "../../../../../packages/vscode/src/ResolutionCandidate";
+import { filterCandidatesByPhysicalRoots } from "../../../../../packages/vscode/src/clientRootPlanning";
 import { createServerRootPathIdentityContext } from "../../../../../packages/vscode/src/serverResolution";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -15,7 +15,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * while an ancestor loses to its deeper descendant regardless of that order.
  *
  * 1. Create an ancestor, descendant, sibling and actual directory alias.
- * 2. Compare repeated references and distinct alias candidates with literal survivors.
+ * 2. Compare repeated references and distinct alias candidates with literal
+ *    survivors.
  * 3. Contrast disjoint-root order with ancestor/descendant selection.
  *
  * @evidence contracts/testing.md#behavioral-verification Directly imports filterCandidatesByPhysicalRoots, supplying the actual shared identity context; observes exact result multiplicity, reference identity, original ordering and unmodified inputs.
@@ -31,19 +32,36 @@ export function test_vscode_root_planning_retains_each_physical_survivor_once():
   const alias = path.join(root, "alias");
   fs.mkdirSync(descendant, { recursive: true });
   fs.mkdirSync(sibling);
-  fs.symlinkSync(descendant, alias, process.platform === "win32" ? "junction" : "dir");
-  assert.equal(fs.realpathSync.native(alias), fs.realpathSync.native(descendant));
+  fs.symlinkSync(
+    descendant,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  assert.equal(
+    fs.realpathSync.native(alias),
+    fs.realpathSync.native(descendant),
+  );
 
-  const first: ResolutionCandidate = { cwd: descendant, resolveFrom: descendant };
+  const first: ResolutionCandidate = {
+    cwd: descendant,
+    resolveFrom: descendant,
+  };
   const second: ResolutionCandidate = { cwd: alias, resolveFrom: alias };
   const parent: ResolutionCandidate = { cwd: ancestor, resolveFrom: ancestor };
   const other: ResolutionCandidate = { cwd: sibling, resolveFrom: sibling };
   const select = (candidates: readonly ResolutionCandidate[]) =>
-    filterCandidatesByPhysicalRoots(candidates, createServerRootPathIdentityContext(), process.platform);
+    filterCandidatesByPhysicalRoots(
+      candidates,
+      createServerRootPathIdentityContext(),
+      process.platform,
+    );
   const failures: Error[] = [];
   const check = (name: string, run: () => void): void => {
-    try { run(); }
-    catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      run();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
   check("repeated reference", () => {
     const input = [first, first];
@@ -69,5 +87,9 @@ export function test_vscode_root_planning_retains_each_physical_survivor_once():
     assert.deepEqual(select([parent, first]), [first]);
     assert.deepEqual(select([first, parent]), [first]);
   });
-  if (failures.length) throw new AggregateError(failures, "Physical root survivor distinctions failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Physical root survivor distinctions failed",
+    );
 }

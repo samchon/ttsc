@@ -93,8 +93,8 @@ export function recordWatchers(adapter: RecordedDirectoryAdapter): {
  * A listener may retire and reinstall subscriptions while handling the event,
  * as the topology does on a backend whose handle stays bound to a replaced
  * directory. An operating system never delivers an event that already happened
- * to a watcher installed after it, so the delivery set is fixed before the first
- * listener runs. Walking the live registration array would revisit every
+ * to a watcher installed after it, so the delivery set is fixed before the
+ * first listener runs. Walking the live registration array would revisit every
  * reinstalled watcher without end.
  */
 export function deliverWatchEvent(

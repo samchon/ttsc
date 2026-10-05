@@ -39,7 +39,6 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *
  * @param file The project record (`projectRecordFile`).
  * @param bridge The watching session's bridge, when the host has one.
- *
  * @evidence contracts/common.md#principled-implementation
  *   An unreadable record proves nothing and is signaled; a vanished project is
  *   removed. Watching restoration transfers evidence to the bridge, while a

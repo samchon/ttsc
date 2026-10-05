@@ -19,19 +19,19 @@ const GENERATION_WATCH_INPUTS = new WeakMap<
  * Every input of a generation, with the evidence it recorded: what the
  * project's record holds and a watching session's bridge observes.
  *
- * The record uses a conservative generation-wide selection: every realized
- * or resolver-input path of the graph (edge sources and targets, globals, the
+ * The record uses a conservative generation-wide selection: every realized or
+ * resolver-input path of the graph (edge sources and targets, globals, the
  * config chain, resolution inputs, and every candidate), every plugin-reported
  * dependency, universal host input and plugin source directory. Graph sources
  * are retained directly even when a per-file list excludes its own delivered
  * spelling or admits a complete plugin declaration. This is not an exact union
- * of all narrowed per-file watch lists.
- * The disposed transform scratch tree is dropped, and so is the temporary
- * tsconfig the compile ran under.
+ * of all narrowed per-file watch lists. The disposed transform scratch tree is
+ * dropped, and so is the temporary tsconfig the compile ran under.
  *
  * Memoized per generation. Project-record delivery can separately add configs
  * consulted while routing another module; this generation-wide input union
- * retains one readonly snapshot. Consumers must not mutate its array or entries.
+ * retains one readonly snapshot. Consumers must not mutate its array or
+ * entries.
  *
  * Every path is the compiler's own spelling: the record is read by the adapter
  * alone, and the host is handed only the record.

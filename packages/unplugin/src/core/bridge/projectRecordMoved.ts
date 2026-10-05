@@ -8,11 +8,10 @@ import { membershipRecordDigest } from "./membershipRecordDigest";
 
 /**
  * The first recorded input or membership state that current replay cannot
- * establish as unchanged, or nothing when all recorded checks hold. This is
- * the proof a build start makes of a
- * record (`refreshProjectRecordFiles`), separable from the move it follows
- * with, so a harness or a maintainer can ask the same question of a record
- * without moving it.
+ * establish as unchanged, or nothing when all recorded checks hold. This is the
+ * proof a build start makes of a record (`refreshProjectRecordFiles`),
+ * separable from the move it follows with, so a harness or a maintainer can ask
+ * the same question of a record without moving it.
  *
  * Each recorded input is proven against the disk the way a delivery proves a
  * generation (`watchInputEvidenceMatchesDisk`), and the walk is run again under
@@ -26,7 +25,6 @@ import { membershipRecordDigest } from "./membershipRecordDigest";
  * @returns The tsconfig when it is gone, which a build start answers by
  *   removing the record rather than moving it, the first input whose state
  *   moved, the project root when the root files did, or `undefined`.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Each codec is re-proved against the same filesystem view and membership is
  *   re-walked under the stored policy. A fresh process clock reference prevents

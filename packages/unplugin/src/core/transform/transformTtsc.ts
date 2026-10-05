@@ -12,8 +12,6 @@ import { awaitOrEvict } from "./cache/awaitOrEvict";
 import { createTransformCacheKey } from "./cache/createTransformCacheKey";
 import { disposeCachedTransform } from "./cache/disposeCachedTransform";
 import { evictGeneration } from "./cache/evictGeneration";
-import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
-import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
 import { selectCachedGenerationAction } from "./cache/selectCachedGenerationAction";
 import { selectOrEvict } from "./cache/selectOrEvict";
@@ -25,7 +23,9 @@ import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOu
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
 import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
+import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { transformProject } from "./generation/transformProject";
+import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
 import { resolveProjectSelection } from "./tsconfig/resolveProjectSelection";
@@ -75,7 +75,6 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
- *
  * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified cache admission preserve compiler disk authority; fresh-only success additionally needs an explicit nonwatching lifecycle, coherent project declaration and actual host-cache withdrawal, because incomplete observation cannot support watch invalidation.
  * @evidence contracts/common.md#clear-and-simple-design One delivery coordinator composes project selection, cache admission, compilation, output selection and host notifications; dedicated owners handle proof and lifetime internals.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines and incomplete generations cannot authorize reuse; a separately admitted fresh-only result is evicted before capability checks, unknown or watching lifecycles fail explicitly, and unsupported withdrawal cannot be replaced by a fake record or guessed dependency closure.
@@ -160,7 +159,10 @@ export async function transformTtsc(
       const terminal = TERMINAL_TRANSFORM_GENERATIONS.get(transformed);
       if (terminal !== undefined) {
         if (terminal instanceof TtscUnstableGenerationError) {
-          await preparePluginBuildEnvironments(terminal.validation.cached.result, filesystem);
+          await preparePluginBuildEnvironments(
+            terminal.validation.cached.result,
+            filesystem,
+          );
           if (cache?.get(key) !== transformed) continue;
         }
         // A terminal verdict is an answer about one observed environment, not an

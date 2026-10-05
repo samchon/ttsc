@@ -4,11 +4,12 @@ import ts from "ts-legacy";
 import { TTSX_EXTRACTOR_SCRIPT } from "../../../../../packages/lint/src/createTtscPlugin";
 
 /**
- * Verifies the extractor's generated TypeScript parses after its input substitution.
+ * Verifies the extractor's generated TypeScript parses after its input
+ * substitution.
  *
- * Template escape consumption can insert a raw newline into a generated literal.
- * A real TypeScript parser validates what the evaluator receives, rather than a
- * quote-counting approximation of the emitted grammar.
+ * Template escape consumption can insert a raw newline into a generated
+ * literal. A real TypeScript parser validates what the evaluator receives,
+ * rather than a quote-counting approximation of the emitted grammar.
  *
  * 1. Substitute POSIX and Windows-shaped import, output and root values, including
  *    a quote and backslashes, into the extractor template.
@@ -25,10 +26,18 @@ import { TTSX_EXTRACTOR_SCRIPT } from "../../../../../packages/lint/src/createTt
 export function test_lint_config_descriptor_extractor_emits_parseable_source(): void {
   for (const values of [
     ["file:///project/lint.config.ts", "/project/result.json", "/project"],
-    ['file:///C:/project/lint.config.ts', 'C:\\project\\quoted"result.json', 'C:\\project'],
+    [
+      "file:///C:/project/lint.config.ts",
+      'C:\\project\\quoted"result.json',
+      "C:\\project",
+    ],
   ]) {
     let source = TTSX_EXTRACTOR_SCRIPT;
-    for (const [index, token] of ["%CONFIG_IMPORT%", "%CONFIG_OUTPUT%", "%CONFIG_ROOT%"].entries()) {
+    for (const [index, token] of [
+      "%CONFIG_IMPORT%",
+      "%CONFIG_OUTPUT%",
+      "%CONFIG_ROOT%",
+    ].entries()) {
       assert.ok(source.includes(token), token);
       source = source.replace(token, JSON.stringify(values[index]));
     }
@@ -38,6 +47,14 @@ export function test_lint_config_descriptor_extractor_emits_parseable_source(): 
 }
 
 function parseDiagnostics(source: string): readonly ts.Diagnostic[] {
-  const parsed = ts.createSourceFile("extractor.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  return (parsed as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }).parseDiagnostics;
+  const parsed = ts.createSourceFile(
+    "extractor.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return (
+    parsed as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+  ).parseDiagnostics;
 }

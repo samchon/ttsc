@@ -26,7 +26,10 @@ export interface IBootTtscOptions {
   /** Cancel this boot attempt, including a shared in-flight attempt. */
   signal?: AbortSignal;
 
-  /** URL of wasm_exec.js; defaults to a sibling URL without the binary's query/fragment. */
+  /**
+   * URL of wasm_exec.js; defaults to a sibling URL without the binary's
+   * query/fragment.
+   */
   wasmExecUrl?: string;
 
   /**

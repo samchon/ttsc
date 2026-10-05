@@ -20,12 +20,12 @@ import (
 // A separate, initially missing consumer candidate appears as a regular file
 // before the directory transition; these are different filesystem states.
 //
-// 1. Place OUTER BANNER above a nearer config-shaped directory and consumer.
-// 2. Resolve twice and assert outer text, directory proofs and missing proofs.
-// 3. Create the same formerly missing consumer config and assert its selection,
-//    content/physical proofs and withdrawal of ancestor observations; repeat.
-// 4. Remove that consumer config, replace the directory with NEARER BANNER and
-//    assert new text/file proofs and unchanged replacement observations.
+//  1. Place OUTER BANNER above a nearer config-shaped directory and consumer.
+//  2. Resolve twice and assert outer text, directory proofs and missing proofs.
+//  3. Create the same formerly missing consumer config and assert its selection,
+//     content/physical proofs and withdrawal of ancestor observations; repeat.
+//  4. Remove that consumer config, replace the directory with NEARER BANNER and
+//     assert new text/file proofs and unchanged replacement observations.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls the actual native resolveBannerTextWithReporters through the existing shared test bridge. OUTER BANNER survives a nearer directory candidate with its kind/physical proofs. The same initially missing consumer path appearing as a regular JSON config selects NEARER BANNER with exact content/physical proofs and withdraws ancestor observations. After removing that consumer config, replacing the directory also selects NEARER BANNER with file proofs. Unchanged repetitions preserve each state's observations.
 // @evidence contracts/testing.md#independent-expectations Authored OUTER BANNER and NEARER BANNER literals define selection. SHA-256 over the documented ttsc:host-input:directory NUL marker and literal replacement bytes defines hashes independently; filepath.EvalSymlinks observes physical identity. No expected observation comes from the prior product result, except the separate unchanged-state equality assertions.

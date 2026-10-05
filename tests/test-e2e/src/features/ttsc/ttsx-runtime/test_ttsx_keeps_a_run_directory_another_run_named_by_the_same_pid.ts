@@ -1,9 +1,9 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { spawnNodeWorker } from "../../../internal/ttsc/internal/source-build";
 
 /**
@@ -33,68 +33,72 @@ import { spawnNodeWorker } from "../../../internal/ttsc/internal/source-build";
  * @evidence contracts/e2e.md#preserved-coverage Worker success, other-run file preservation and distinct resolved path strings remain here; this case does not independently check nonce randomness or remote process liveness.
  */
 export async function test_ttsx_keeps_a_run_directory_another_run_named_by_the_same_pid(): Promise<void> {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_keeps_a_run_directory_another_run_named_by_the_same_pid/inputs-1"));
-    const cache = TestProject.tmpdir("ttsx-shared-pid-cache-");
-    const worker = path.join(root, "prepare-worker.cjs");
-    fs.writeFileSync(
-      worker,
-      [
-        'const fs = require("node:fs");',
-        'const os = require("node:os");',
-        'const path = require("node:path");',
-        `const { prepareExecution } = require(${JSON.stringify(
-          path.join(
-            TestProject.WORKSPACE_ROOT,
-            "packages",
-            "ttsc",
-            "lib",
-            "launcher",
-            "internal",
-            "prepareExecution.js",
-          ),
-        )});`,
-        `const cache = ${JSON.stringify(cache)};`,
-        'const other = path.join(cache, "project", String(process.pid));',
-        "fs.mkdirSync(other, { recursive: true });",
-        "fs.writeFileSync(",
-        '  path.join(other, "owner-" + process.pid + ".json"),',
-        '  JSON.stringify({ hostname: os.hostname() + "-elsewhere", pid: process.pid }),',
-        ");",
-        'fs.writeFileSync(path.join(other, "in-use.txt"), "in use");',
-        `const execution = prepareExecution(${JSON.stringify(
-          path.join(root, "src", "main.ts"),
-        )}, { cacheDir: cache });`,
-        "process.stdout.write(JSON.stringify({",
-        "  other,",
-        '  otherKept: fs.existsSync(path.join(other, "in-use.txt")),',
-        "  runDirectory: execution.cleanupDir,",
-        "}));",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_keeps_a_run_directory_another_run_named_by_the_same_pid/inputs-1",
+    ),
+  );
+  const cache = TestProject.tmpdir("ttsx-shared-pid-cache-");
+  const worker = path.join(root, "prepare-worker.cjs");
+  fs.writeFileSync(
+    worker,
+    [
+      'const fs = require("node:fs");',
+      'const os = require("node:os");',
+      'const path = require("node:path");',
+      `const { prepareExecution } = require(${JSON.stringify(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages",
+          "ttsc",
+          "lib",
+          "launcher",
+          "internal",
+          "prepareExecution.js",
+        ),
+      )});`,
+      `const cache = ${JSON.stringify(cache)};`,
+      'const other = path.join(cache, "project", String(process.pid));',
+      "fs.mkdirSync(other, { recursive: true });",
+      "fs.writeFileSync(",
+      '  path.join(other, "owner-" + process.pid + ".json"),',
+      '  JSON.stringify({ hostname: os.hostname() + "-elsewhere", pid: process.pid }),',
+      ");",
+      'fs.writeFileSync(path.join(other, "in-use.txt"), "in use");',
+      `const execution = prepareExecution(${JSON.stringify(
+        path.join(root, "src", "main.ts"),
+      )}, { cacheDir: cache });`,
+      "process.stdout.write(JSON.stringify({",
+      "  other,",
+      '  otherKept: fs.existsSync(path.join(other, "in-use.txt")),',
+      "  runDirectory: execution.cleanupDir,",
+      "}));",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
 
-    const result = await spawnNodeWorker({
-      env: {
-        TTSC_BINARY: TestProject.NATIVE_BINARY,
-        TTSC_TSGO_BINARY: TestProject.TSGO_BINARY,
-      },
-      script: worker,
-    });
-    assert.equal(result.status, 0, result.stderr);
-    const report = JSON.parse(result.stdout) as {
-      other: string;
-      otherKept: boolean;
-      runDirectory: string;
-    };
-    assert.equal(
-      report.otherKept,
-      true,
-      "a run erased the directory of another run with its process id",
-    );
-    assert.notEqual(
-      path.resolve(report.runDirectory),
-      path.resolve(report.other),
-      "a run claimed the directory of another run with its process id",
-    );
-  }
+  const result = await spawnNodeWorker({
+    env: {
+      TTSC_BINARY: TestProject.NATIVE_BINARY,
+      TTSC_TSGO_BINARY: TestProject.TSGO_BINARY,
+    },
+    script: worker,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout) as {
+    other: string;
+    otherKept: boolean;
+    runDirectory: string;
+  };
+  assert.equal(
+    report.otherKept,
+    true,
+    "a run erased the directory of another run with its process id",
+  );
+  assert.notEqual(
+    path.resolve(report.runDirectory),
+    path.resolve(report.other),
+    "a run claimed the directory of another run with its process id",
+  );
+}

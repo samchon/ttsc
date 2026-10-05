@@ -61,9 +61,7 @@ export function insideExcludedProjectDirectory(
   if (patterns === undefined) {
     patterns = policy.excludedDirectories.map((excluded) => {
       const target = pathApi.resolve(excluded);
-      return (
-        target.endsWith(pathApi.sep) ? target.slice(0, -1) : target
-      )
+      return (target.endsWith(pathApi.sep) ? target.slice(0, -1) : target)
         .split(pathApi.sep)
         .map((part) =>
           caseSensitive

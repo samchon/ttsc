@@ -24,7 +24,6 @@ import { normalizeCompilerOptionsForGeneratedTsconfig } from "./normalizeCompile
  *
  * @param compiler The project's config path and directory as the compiler
  *   spells them.
- *
  * @evidence contracts/common.md#principled-implementation The unchanged-config path avoids unnecessary wrapping; a needed wrapper extends the selected compiler config and reanchors supported inherited templates and aliases to its current directory so scratch placement does not move those paths.
  * @evidence contracts/common.md#clear-and-simple-design Existing alias and normalization helpers construct one overlay, while this operation owns only deciding whether to write and materializing the wrapper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper preserves inherited template semantics instead of adding synthetic baseUrl, rewriting project files or compensating for scratch-directory misanchoring.

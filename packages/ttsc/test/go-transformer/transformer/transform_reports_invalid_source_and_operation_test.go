@@ -29,7 +29,13 @@ func TestTransformReportsInvalidSourceAndOperation(t *testing.T) {
     t.Fatalf("unsupported operation error mismatch: %v", err)
   }
 
-  if _, err := Transform(`export const message = "hello";`, nil); err == nil || err.Error() != `go transformer: expected export const value = goUpper("...")` { t.Fatalf("source diagnostic = %v", err) }
-  if _, err := Transform(`export const message: string = goUpper("hello");`, []Plugin{{Operation:"go-reverse"}}); err == nil || err.Error() != `go transformer: unsupported operation "go-reverse"` { t.Fatalf("operation diagnostic = %v", err) }
-  if _, err := Transform(`export const message: string = goUpper("hello");`, []Plugin{{Operation:"go-uppercase"}}); err != nil { t.Fatalf("valid operation rejected: %v", err) }
+  if _, err := Transform(`export const message = "hello";`, nil); err == nil || err.Error() != `go transformer: expected export const value = goUpper("...")` {
+    t.Fatalf("source diagnostic = %v", err)
+  }
+  if _, err := Transform(`export const message: string = goUpper("hello");`, []Plugin{{Operation: "go-reverse"}}); err == nil || err.Error() != `go transformer: unsupported operation "go-reverse"` {
+    t.Fatalf("operation diagnostic = %v", err)
+  }
+  if _, err := Transform(`export const message: string = goUpper("hello");`, []Plugin{{Operation: "go-uppercase"}}); err != nil {
+    t.Fatalf("valid operation rejected: %v", err)
+  }
 }

@@ -37,9 +37,7 @@ export const test_memfs_truncate_reports_efbig_for_an_unallocatable_length =
       fdSafe: await expectFsError((cb) =>
         host.fs.ftruncate(fd, Number.MAX_SAFE_INTEGER, cb),
       ),
-      fdUnsafe: await expectFsError((cb) =>
-        host.fs.ftruncate(fd, 2 ** 53, cb),
-      ),
+      fdUnsafe: await expectFsError((cb) => host.fs.ftruncate(fd, 2 ** 53, cb)),
     };
     TestValidator.equals("oversized lengths", codes, {
       pathSafe: "EFBIG",
@@ -54,7 +52,11 @@ export const test_memfs_truncate_reports_efbig_for_an_unallocatable_length =
     );
 
     await callMutation((cb) => host.fs.truncate("/t.txt", 3, cb));
-    TestValidator.equals("accepted path size", host.readFileText("/t.txt"), "abc");
+    TestValidator.equals(
+      "accepted path size",
+      host.readFileText("/t.txt"),
+      "abc",
+    );
     await callMutation((cb) => host.fs.ftruncate(fd, 5, cb));
     const grown = host.readFile("/t.txt");
     TestValidator.equals(

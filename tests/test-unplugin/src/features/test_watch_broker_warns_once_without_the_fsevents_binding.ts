@@ -13,8 +13,8 @@ import { warnMissingFseventsBinding } from "../../../../packages/unplugin/src/co
  * slowness.
  *
  * 1. Listen for Node process warnings, and warn twice.
- * 2. Assert exactly one warning with its code, whose message names the
- *    `fsevents` binding and the word `optional`.
+ * 2. Assert exactly one warning with its code, whose message names the `fsevents`
+ *    binding and the word `optional`.
  *
  * @evidence contracts/testing.md#behavioral-verification warnMissingFseventsBinding emits exactly one process warning, with the TTSC_FSEVENTS_MISSING code, whose message contains `fsevents` and the word optional, after two calls.
  * @evidence contracts/testing.md#independent-expectations The literal TTSC_FSEVENTS_MISSING code and the one-message requirement identify the documented capability warning; the message is checked only for the substrings `fsevents` (with backticks) and `optional`, so the remedy wording is not pinned.

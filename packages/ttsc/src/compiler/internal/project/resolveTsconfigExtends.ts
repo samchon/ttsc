@@ -9,8 +9,8 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * Resolve one `extends` specifier using ttsc's shared file-candidate rule and
  * Node package resolution from the declaring config.
  *
- * - A specifier naming a file (host-absolute, `./`, or `../`, after `\` is
- *   folded into `/`) resolves to the first candidate that is a regular file
+ * - A specifier naming a file (host-absolute, `./`, or `../`, after `\` is folded
+ *   into `/`) resolves to the first candidate that is a regular file
  *   (`tsconfigExtendsFileCandidates`), under the spelling it was reached by.
  * - Any other specifier is resolved like a module from the declaring config: a
  *   bare package root selects its preset through `package.json#tsconfig`, then
@@ -20,21 +20,18 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  *   reproduce every TypeScript-Go module condition or expose its full search
  *   topology; observers therefore cannot certify module-chain freshness.
  *
- * The one rule both of the workspace's config readers use:
- * ttsc's project reader canonicalizes the answer before it reads the chain
- * further, and `@ttsc/unplugin` keeps the spelling, since TypeScript anchors a
- * relatively extended config at the path it was reached by.
+ * The one rule both of the workspace's config readers use: ttsc's project
+ * reader canonicalizes the answer before it reads the chain further, and
+ * `@ttsc/unplugin` keeps the spelling, since TypeScript anchors a relatively
+ * extended config at the path it was reached by.
  *
  * @param tsconfig The declaring config, as the reader named it.
  * @param specifier The `extends` value as written.
  * @param onInput Optional observer of lexical file candidates and selected
  *   module/manifest paths. Module search topology is not completely observed.
- *
  * @returns The extended config's path.
- *
  * @throws When the specifier names nothing, or a preset's `package.json` does
  *   not parse, naming what failed in ttsc's voice.
- *
  * @evidence contracts/common.md#principled-implementation File inheritance uses exact/.json candidates within the shared host-native classification; bare preset manifests and Node's module resolver supply package selection without claiming universal compiler module-condition parity or complete observed search topology.
  * @evidence contracts/common.md#clear-and-simple-design One shared config resolver owns file-versus-module selection, with a small manifest-preset helper and an optional input observer rather than a parallel package resolver.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The .json fallback and manifest tsconfig field address supported compiler differences; selected malformed manifests are errors rather than swallowed faults or fixture-specific paths.

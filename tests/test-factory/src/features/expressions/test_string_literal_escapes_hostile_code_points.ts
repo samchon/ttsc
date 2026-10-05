@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { cook, print } from "../../internal/helpers";
 
 /**
@@ -48,7 +48,11 @@ export const test_string_literal_escapes_hostile_code_points = (): void => {
   for (const [name, code, escape] of escapes) {
     TestValidator.equals(name, lit(around(code)), `"a${escape}b"`);
     const recovered = Buffer.from(lit(around(code)), "utf8").toString("utf8");
-    TestValidator.equals(`${name} survives UTF-8 and evaluation`, cook(recovered), around(code));
+    TestValidator.equals(
+      `${name} survives UTF-8 and evaluation`,
+      cook(recovered),
+      around(code),
+    );
   }
 
   // A well-formed astral pair is one character and needs no escape.

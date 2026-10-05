@@ -24,9 +24,14 @@ import { make } from "../internal/make";
  * Given a default binding `Def` plus named import `a`, this prints:
  *
  * ```ts
- * Def, { a }
+ * (Def, { a });
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param phaseModifier The `type` or `defer` keyword, if any.
+ * @param name The name.
+ * @param namedBindings The named or namespace bindings, if any.
+ * @returns The created {@link ImportClause}.
  * @evidence contracts/common.md#principled-implementation
  *   The phase kind distinguishes type from defer; optional default and named
  *   bindings occupy different slots so the printer joins both in source order.
@@ -42,12 +47,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes binding slots and phase keywords, with the corrected
  *   bare-clause example separated from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param phaseModifier The `type` or `defer` keyword, if any.
- * @param name The name.
- * @param namedBindings The named or namespace bindings, if any.
- * @returns The created {@link ImportClause}.
  */
 export const createImportClause = (
   phaseModifier?: SyntaxKind.TypeKeyword | SyntaxKind.DeferKeyword,

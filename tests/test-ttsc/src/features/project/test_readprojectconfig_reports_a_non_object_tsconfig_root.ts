@@ -1,6 +1,5 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
-
+import { TestProject } from "../../../../utils/src/TestProject";
 import { assert, path, readProjectConfig } from "../../internal/project-unit";
 
 /**
@@ -22,27 +21,28 @@ import { assert, path, readProjectConfig } from "../../internal/project-unit";
  * @evidence contracts/testing.md#distinguishing-cases Four non-object root kinds (null, array, string, number) and a child extending the null one are each rejected with a plain Error naming the offending file; the matching acceptance of object roots and of empty text is exercised only by other tests.
  * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on tsconfig files whose root values are null, an array, a string or a number in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
-export const test_readprojectconfig_reports_a_non_object_tsconfig_root = async () => {
-  const root = TestProject.tmpdir("ttsc-project-");
-  const roots = {
-    "null.json": "null",
-    "array.json": "[]",
-    "string.json": '"x"',
-    "number.json": "1",
+export const test_readprojectconfig_reports_a_non_object_tsconfig_root =
+  async () => {
+    const root = TestProject.tmpdir("ttsc-project-");
+    const roots = {
+      "null.json": "null",
+      "array.json": "[]",
+      "string.json": '"x"',
+      "number.json": "1",
+    };
+    await FileSystemIterator.write(root, {
+      ...roots,
+      "child.json": JSON.stringify({ extends: "./null.json" }),
+    });
+    for (const name of [...Object.keys(roots), "child.json"]) {
+      assert.throws(
+        () => readProjectConfig({ tsconfig: path.join(root, name) }),
+        (error: unknown) =>
+          error instanceof Error &&
+          error.constructor === Error &&
+          /must be an object/.test(error.message) &&
+          error.message.includes(name === "child.json" ? "null.json" : name),
+        name,
+      );
+    }
   };
-  await FileSystemIterator.write(root, {
-    ...roots,
-    "child.json": JSON.stringify({ extends: "./null.json" }),
-  });
-  for (const name of [...Object.keys(roots), "child.json"]) {
-    assert.throws(
-      () => readProjectConfig({ tsconfig: path.join(root, name) }),
-      (error: unknown) =>
-        error instanceof Error &&
-        error.constructor === Error &&
-        /must be an object/.test(error.message) &&
-        error.message.includes(name === "child.json" ? "null.json" : name),
-      name,
-    );
-  }
-};

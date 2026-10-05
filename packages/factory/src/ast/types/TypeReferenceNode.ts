@@ -6,12 +6,11 @@ import type { TypeNode } from "./TypeNode";
  *
  * Built by {@link factory.createTypeReferenceNode}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation EntityName and optional ordered type arguments preserve named generic reference spelling without resolving names or checking generic arity.
  * @evidence contracts/common.md#clear-and-simple-design Name qualification belongs to EntityName; the reference only attaches generic arguments.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Referenced names and arguments are supplied syntax, with no consumer-specific type mapping.
  * @evidence contracts/common.md#meaningful-documentation JSDoc gives Array<T> and describes absent generic arguments; member spacing follows the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface TypeReferenceNode {
   /** Discriminant tag; always `"TypeReferenceNode"`. */

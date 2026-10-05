@@ -163,7 +163,11 @@ export async function assertOptionsCarryOnlyANonEmptyPrivateRunIdentity(): Promi
     project: "tsconfig.json",
     __snapshotRunId: "run-1",
   });
-  assert.deepEqual(user, { project: "tsconfig.json" }, "options stay unmutated");
+  assert.deepEqual(
+    user,
+    { project: "tsconfig.json" },
+    "options stay unmutated",
+  );
   assert.equal(process.env[options.ENV_KEY], published, "nothing is published");
   assert.deepEqual(JSON.parse(options.serializeOptions(user)), user);
 
@@ -183,11 +187,7 @@ export async function assertOptionsCarryOnlyANonEmptyPrivateRunIdentity(): Promi
     "{}",
   ]) {
     await withEnv(raw, async (mod) => {
-      assert.equal(
-        "snapshotRunId" in mod.resolveOptionsFromEnv(),
-        false,
-        raw,
-      );
+      assert.equal("snapshotRunId" in mod.resolveOptionsFromEnv(), false, raw);
     });
   }
 }

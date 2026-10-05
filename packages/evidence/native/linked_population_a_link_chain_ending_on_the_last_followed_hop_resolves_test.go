@@ -1,10 +1,10 @@
 package evidence
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
 )
 
 /**
@@ -28,40 +28,40 @@ import (
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestALinkChainEndingOnTheLastFollowedHopResolves(t *testing.T) {
-	workspace := t.TempDir()
-	project := filepath.Join(workspace, "project")
-	if err := os.MkdirAll(project, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	previous := project
-	head := ""
-	for hop := range 32 {
-		head = "hop" + decimal(hop)
-		link := filepath.Join(workspace, head)
-		if err := linkDirectory(t, previous, link); err != nil {
-			t.Fatalf("this platform refused to create a link: %v", err)
-		}
-		previous = link
-	}
-	declared := "../" + head
-	if _, err := os.Stat(filepath.Join(workspace, head)); err != nil {
-		t.Fatalf("this platform does not follow a chain this long either (%v)", err)
-	}
-	messages := runRootedGraphIn(t, workspace, map[string]string{
-		"project/docs/pricing.md": "## Discounts {#discounts}\n",
-		"project/src/sale.ts":     "export interface ISale {}\n",
-	}, `{"claims":[{
+  workspace := t.TempDir()
+  project := filepath.Join(workspace, "project")
+  if err := os.MkdirAll(project, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  previous := project
+  head := ""
+  for hop := range 32 {
+    head = "hop" + decimal(hop)
+    link := filepath.Join(workspace, head)
+    if err := linkDirectory(t, previous, link); err != nil {
+      t.Fatalf("this platform refused to create a link: %v", err)
+    }
+    previous = link
+  }
+  declared := "../" + head
+  if _, err := os.Stat(filepath.Join(workspace, head)); err != nil {
+    t.Fatalf("this platform does not follow a chain this long either (%v)", err)
+  }
+  messages := runRootedGraphIn(t, workspace, map[string]string{
+    "project/docs/pricing.md": "## Discounts {#discounts}\n",
+    "project/src/sale.ts":     "export interface ISale {}\n",
+  }, `{"claims":[{
     "type":"typescript",
     "root":"`+declared+`",
     "files":["src/**/*.ts"],
     "symbol":"type",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
   }]}`)
-	for _, message := range messages {
-		if strings.Contains(message, "found no directory at the end of") {
-			t.Fatalf("a chain of exactly the followed length resolves:\n%s", strings.Join(messages, "\n"))
-		}
-	}
-	// The population loaded, so the claim owes what any loaded population owes.
-	assertProblemContains(t, messages, "Missing acknowledgement for 'docs/pricing.md#discounts'")
+  for _, message := range messages {
+    if strings.Contains(message, "found no directory at the end of") {
+      t.Fatalf("a chain of exactly the followed length resolves:\n%s", strings.Join(messages, "\n"))
+    }
+  }
+  // The population loaded, so the claim owes what any loaded population owes.
+  assertProblemContains(t, messages, "Missing acknowledgement for 'docs/pricing.md#discounts'")
 }

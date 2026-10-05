@@ -15,10 +15,10 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  * The default cache lives inside the workspace, at
  * `<workspaceRoot>/node_modules/.cache/ttsc`, so removing `node_modules` (or
  * the repository) reclaims the binaries and default Go objects stored there.
- * Dedicated or caller-owned Go cache overrides can live elsewhere.
- * This is the `find-cache-dir` convention (Babel, webpack, ESLint, Nuxt): a
- * disposable build cache under `node_modules/.cache/<tool>`. ttsc keeps no
- * automatic global (`~/.cache`) cache, because a machine-wide one would grow across tsgo
+ * Dedicated or caller-owned Go cache overrides can live elsewhere. This is the
+ * `find-cache-dir` convention (Babel, webpack, ESLint, Nuxt): a disposable
+ * build cache under `node_modules/.cache/<tool>`. ttsc keeps no automatic
+ * global (`~/.cache`) cache, because a machine-wide one would grow across tsgo
  * and plugin version bumps without an owner to reclaim it. See
  * `resolveSourceBuildCachePaths` for the override-then-workspace priority.
  *
@@ -79,8 +79,9 @@ export namespace SourceBuildCacheLayout {
    * Run the opportunistic pruning of the plugin cache, of ttsc's Go object
    * cache, and of the single-file caches (`CACHE_FILE_DIRNAMES`), but only for
    * the default workspace-local location. A root the caller named through
-   * `cacheDir` or `TTSC_CACHE_DIR` is theirs, and this opportunistic maintenance
-   * skips it. Explicit clean requests follow the separate cleanup contract.
+   * `cacheDir` or `TTSC_CACHE_DIR` is theirs, and this opportunistic
+   * maintenance skips it. Explicit clean requests follow the separate cleanup
+   * contract.
    *
    * @evidence contracts/common.md#principled-implementation Pruning is admitted only for an unoverridden workspace root, and Go objects are admitted only when their provenance is ttsc-cache.
    * @evidence contracts/common.md#clear-and-simple-design This ownership gate dispatches to dedicated binary, object and file collectors without duplicating their eviction policy.
@@ -200,8 +201,8 @@ export namespace SourceBuildCacheLayout {
   /**
    * Resolve the current default plugin cache to an ordinary physical spelling.
    * Missing root directories are created. Returned spelling avoids following
-   * the caller's original ancestor alias again, but no retained directory handle
-   * prevents later replacement of the physical path.
+   * the caller's original ancestor alias again, but no retained directory
+   * handle prevents later replacement of the physical path.
    *
    * @evidence contracts/common.md#principled-implementation lstat rejects an aliased leaf and realpath checks the current root against its observed physical parent. The returned spelling removes the original ancestor alias from later lookups, subject to path identity remaining stable after these non-atomic metadata observations.
    * @evidence contracts/common.md#clear-and-simple-design This boundary returns a physical spelling or throws; downstream collectors receive no partially validated path state.

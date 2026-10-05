@@ -1,7 +1,8 @@
 import { nativeLintConnections } from "../../internal/lint/nativeLintConnections";
 
 /**
- * Selects the package-owned lint evaluator, formatter and stdin observation population.
+ * Selects the package-owned lint evaluator, formatter and stdin observation
+ * population.
  *
  * The current sixteen names include real evaluator/binary connections and
  * direct owning operations with independent Node oracles. One Go test command

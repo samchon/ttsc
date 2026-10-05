@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher/internal/inlineServedSourceMap";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the source-map inliner's boundary behavior on the map shapes a
@@ -89,7 +89,9 @@ export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_
     assert.equal(inlineDecoded.file, "a.js");
     assert.deepEqual(inlineDecoded.names, []);
     assert.equal(inlineDecoded.mappings, "AAAA");
-    assert.ok(reinlined.startsWith("exports.x = 1;\n//# sourceMappingURL=data:"));
+    assert.ok(
+      reinlined.startsWith("exports.x = 1;\n//# sourceMappingURL=data:"),
+    );
 
     // 4. Multi-source map → each relative source absolutized against map dir.
     const multiEmitted = path.join(dir, "multi.js");
@@ -115,7 +117,9 @@ export const test_ttsx_inline_source_map_handles_absent_inline_and_multi_source_
     assert.equal(multiDecoded.file, "multi.js");
     assert.deepEqual(multiDecoded.names, []);
     assert.equal(multiDecoded.mappings, "AAAA");
-    assert.ok(multiOut.startsWith("exports.x = 1;\n//# sourceMappingURL=data:"));
+    assert.ok(
+      multiOut.startsWith("exports.x = 1;\n//# sourceMappingURL=data:"),
+    );
     assert.deepEqual(
       multiDecoded.sources,
       [

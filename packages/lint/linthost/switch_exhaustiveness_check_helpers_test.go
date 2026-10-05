@@ -77,11 +77,23 @@ func assertSwitchExhaustivenessCheckResultForTest(
   rendered := noMisusedPromisesANSI.ReplaceAllString(stderr, "")
   pattern := regexp.MustCompile("(?m)main\\.ts:\\d+:\\d+\\s+-\\s+(error|warning)\\s+TS\\d+:\\s*\\[" + regexp.QuoteMeta(switchExhaustivenessCheckRuleName) + "\\]\\s*([^\\r\\n]*)")
   matches := pattern.FindAllStringSubmatch(rendered, -1)
-  if len(matches) != wantFindings { t.Fatalf("switch rule errors = %v, want %d", matches, wantFindings) }
-  for _, match := range matches { if match[1] != "error" { t.Fatalf("switch rule severity = %q, want error", match[1]) } }
+  if len(matches) != wantFindings {
+    t.Fatalf("switch rule errors = %v, want %d", matches, wantFindings)
+  }
+  for _, match := range matches {
+    if match[1] != "error" {
+      t.Fatalf("switch rule severity = %q, want error", match[1])
+    }
+  }
   for text, want := range wantOccurrences {
     got := 0
-    for _, match := range matches { if strings.Contains(match[2], text) { got++ } }
-    if got != want { t.Fatalf("switch rule diagnostic message %q: got %d, want %d; diagnostics=%v", text, got, want, matches) }
+    for _, match := range matches {
+      if strings.Contains(match[2], text) {
+        got++
+      }
+    }
+    if got != want {
+      t.Fatalf("switch rule diagnostic message %q: got %d, want %d; diagnostics=%v", text, got, want, matches)
+    }
   }
 }

@@ -1,11 +1,13 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies ttsx forwards termination signals to the program, reports how it
@@ -18,8 +20,8 @@ import path from "node:path";
  * runtime directory behind; a program that died of a signal made ttsx exit 1
  * instead of dying of the same signal.
  *
- * 1. Create a program that prints authenticated readiness and waits, with or without a
- *    `SIGTERM`/`SIGINT` handler that exits 3.
+ * 1. Create a program that prints authenticated readiness and waits, with or
+ *    without a `SIGTERM`/`SIGINT` handler that exits 3.
  * 2. Send `SIGTERM` to the launcher's pid alone, and `SIGINT` to its process
  *    group, once the program is ready.
  * 3. Assert the handler ran and its code came back, an unhandled `SIGTERM` ended
@@ -36,25 +38,31 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture declares its own workspace boundary so an ancestor installation cannot select an external cache. Each launcher owns a distinct POSIX process group; only its authenticated complete stdout readiness line gates signaling. Close, error and timeout clear the timer and terminate that owned group before settlement; stderr supplies diagnostics only.
  * @evidence contracts/e2e.md#preserved-coverage Handled codes/output, unhandled native signal, exactly-once group delivery and all three empty runtime-index assertions remain; the Windows capability condition is unchanged and returns false without claiming POSIX coverage.
  */
-export async function test_ttsx_forwards_termination_signals_and_cleans_up_on_posix(): Promise<void | false> {
-    if (process.platform === "win32") return false;
-    const root = TestProject.createProject({
-      "package.json": JSON.stringify({ name: "signals", private: true, workspaces: ["packages/*"] }),
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-          outDir: "lib",
-          types: [],
-        },
-        include: ["src"],
-      }),
-      "src/handled.ts": runtimeSignalProgram(true),
-      "src/unhandled.ts": runtimeSignalProgram(false),
-    });
-    await runRuntimeSignalSessions(root);
-  }
+export async function test_ttsx_forwards_termination_signals_and_cleans_up_on_posix(): Promise<
+  void | false
+> {
+  if (process.platform === "win32") return false;
+  const root = TestProject.createProject({
+    "package.json": JSON.stringify({
+      name: "signals",
+      private: true,
+      workspaces: ["packages/*"],
+    }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "commonjs",
+        strict: true,
+        outDir: "lib",
+        types: [],
+      },
+      include: ["src"],
+    }),
+    "src/handled.ts": runtimeSignalProgram(true),
+    "src/unhandled.ts": runtimeSignalProgram(false),
+  });
+  await runRuntimeSignalSessions(root);
+}
 
 /**
  * Executes the original three POSIX signal lifetimes on an already staged
@@ -73,49 +81,47 @@ export async function runRuntimeSignalSessions(
   root: string,
   ownAsyncProcess?: () => () => void,
 ): Promise<void> {
-  const run = async (entry: string, signal: Parameters<typeof runUntilSignaled>[2]) => {
+  const run = async (
+    entry: string,
+    signal: Parameters<typeof runUntilSignaled>[2],
+  ) => {
     const acknowledgeJoined = ownAsyncProcess?.();
     const result = await runUntilSignaled(root, entry, signal);
     acknowledgeJoined?.();
     return result;
   };
-    const runtimeRoot = path.join(
-      root,
-      "node_modules",
-      ".cache",
-      "ttsc",
-      "ttsx",
-      "project",
-    );
+  const runtimeRoot = path.join(
+    root,
+    "node_modules",
+    ".cache",
+    "ttsc",
+    "ttsx",
+    "project",
+  );
 
-    const handled = await run("src/handled.ts", (child) =>
-      child.kill("SIGTERM"),
-    );
-    assert.equal(handled.code, 3, handled.output);
-    assert.match(handled.output, /handled SIGTERM/);
-    assert.deepEqual(listDirectory(runtimeRoot), []);
+  const handled = await run("src/handled.ts", (child) => child.kill("SIGTERM"));
+  assert.equal(handled.code, 3, handled.output);
+  assert.match(handled.output, /handled SIGTERM/);
+  assert.deepEqual(listDirectory(runtimeRoot), []);
 
-    const unhandled = await run(
-      "src/unhandled.ts",
-      (child) => child.kill("SIGTERM"),
-    );
-    assert.equal(unhandled.signal, "SIGTERM", unhandled.output);
-    assert.deepEqual(listDirectory(runtimeRoot), []);
+  const unhandled = await run("src/unhandled.ts", (child) =>
+    child.kill("SIGTERM"),
+  );
+  assert.equal(unhandled.signal, "SIGTERM", unhandled.output);
+  assert.deepEqual(listDirectory(runtimeRoot), []);
 
-    const group = await run("src/handled.ts", (child) =>
-      process.kill(-child.pid!, "SIGINT"),
-    );
-    assert.equal(group.code, 3, group.output);
-    assert.match(group.output, /handled SIGINT/);
-    assert.equal(
-      group.output.match(/handled SIGINT/g)?.length,
-      1,
-      "SIGINT must reach the program once",
-    );
-    assert.deepEqual(listDirectory(runtimeRoot), []);
-
+  const group = await run("src/handled.ts", (child) =>
+    process.kill(-child.pid!, "SIGINT"),
+  );
+  assert.equal(group.code, 3, group.output);
+  assert.match(group.output, /handled SIGINT/);
+  assert.equal(
+    group.output.match(/handled SIGINT/g)?.length,
+    1,
+    "SIGINT must reach the program once",
+  );
+  assert.deepEqual(listDirectory(runtimeRoot), []);
 }
-
 
 /**
  * Original signal program bytes shared by both owning entries.
@@ -151,8 +157,8 @@ export function runtimeSignalProgram(handles: boolean): string {
 }
 
 /**
- * Start ttsx in its own process group, signal it once the program prints
- * the complete token-bearing stdout line, and collect how it ended.
+ * Start ttsx in its own process group, signal it once the program prints the
+ * complete token-bearing stdout line, and collect how it ended.
  */
 function runUntilSignaled(
   root: string,
@@ -199,7 +205,10 @@ function runUntilSignaled(
       try {
         closeGroup();
       } catch (cleanupError) {
-        failure = new AggregateError([error, cleanupError], "signal session cleanup failed");
+        failure = new AggregateError(
+          [error, cleanupError],
+          "signal session cleanup failed",
+        );
         child.kill("SIGKILL");
       }
     };
@@ -215,7 +224,8 @@ function runUntilSignaled(
         if (newline < 0) break;
         const line = stdout.slice(0, newline).replace(/\r$/, "");
         stdout = stdout.slice(newline + 1);
-        if (signaled || failure !== undefined || line !== `ready:${token}`) continue;
+        if (signaled || failure !== undefined || line !== `ready:${token}`)
+          continue;
         signaled = true;
         try {
           signal(child);
@@ -233,9 +243,15 @@ function runUntilSignaled(
       try {
         closeGroup();
       } catch (error) {
-        failure = failure === undefined
-          ? error instanceof Error ? error : new Error(String(error))
-          : new AggregateError([failure, error], "signal session cleanup failed");
+        failure =
+          failure === undefined
+            ? error instanceof Error
+              ? error
+              : new Error(String(error))
+            : new AggregateError(
+                [failure, error],
+                "signal session cleanup failed",
+              );
       }
       if (failure !== undefined) reject(failure);
       else resolve({ code, signal: received, output });

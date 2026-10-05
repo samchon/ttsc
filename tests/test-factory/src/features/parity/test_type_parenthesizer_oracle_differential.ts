@@ -5,8 +5,8 @@ import factory, {
   SyntaxKind,
   type TypeNode,
 } from "../../../../../packages/factory/src/index";
-import { assertOracle, parseClean, printLegacy } from "../../internal/oracle";
 import { print } from "../../internal/helpers";
+import { assertOracle, parseClean, printLegacy } from "../../internal/oracle";
 
 const f = factory;
 const l = ts.factory;
@@ -27,8 +27,8 @@ interface Consumer {
 /**
  * The pairs where this printer deliberately differs from the legacy printer's
  * text, with the text it must print. Same-kind nesting is flattened here and
- * left grouped there, and the operand of a rest element is grouped here and left
- * bare there; both parse to the same program, and the printer's choice is
+ * left grouped there, and the operand of a rest element is grouped here and
+ * left bare there; both parse to the same program, and the printer's choice is
  * pinned by authored literals instead of by the legacy text.
  */
 const FLATTENED: Record<string, string> = {
@@ -41,7 +41,10 @@ const FLATTENED: Record<string, string> = {
 const isRestElement = (title: string): boolean =>
   title.endsWith(" as rest tuple element");
 
-/** Parsed syntax of a text with every type parenthesis removed, identifiers kept. */
+/**
+ * Parsed syntax of a text with every type parenthesis removed, identifiers
+ * kept.
+ */
 const withoutTypeParentheses = (text: string): string => {
   const outline = (node: ts.Node): string => {
     if (ts.isParenthesizedTypeNode(node)) return outline(node.type);
@@ -88,7 +91,8 @@ const operands: Operand[] = [
   },
   {
     name: "conditional type",
-    ttsc: () => f.createConditionalTypeNode(ref("A"), ref("B"), ref("C"), ref("D")),
+    ttsc: () =>
+      f.createConditionalTypeNode(ref("A"), ref("B"), ref("C"), ref("D")),
     legacy: () =>
       l.createConditionalTypeNode(lref("A"), lref("B"), lref("C"), lref("D")),
   },
@@ -100,7 +104,8 @@ const operands: Operand[] = [
   {
     name: "keyof operator",
     ttsc: () => f.createTypeOperatorNode(SyntaxKind.KeyOfKeyword, ref("A")),
-    legacy: () => l.createTypeOperatorNode(ts.SyntaxKind.KeyOfKeyword, lref("A")),
+    legacy: () =>
+      l.createTypeOperatorNode(ts.SyntaxKind.KeyOfKeyword, lref("A")),
   },
   {
     name: "array type",
@@ -122,7 +127,8 @@ const consumers: Consumer[] = [
   },
   {
     name: "optional tuple element",
-    ttsc: (operand) => f.createTupleTypeNode([f.createOptionalTypeNode(operand)]),
+    ttsc: (operand) =>
+      f.createTupleTypeNode([f.createOptionalTypeNode(operand)]),
     legacy: (operand) =>
       l.createTupleTypeNode([l.createOptionalTypeNode(operand)]),
   },
@@ -173,19 +179,19 @@ const consumers: Consumer[] = [
  * Verifies the type printer's parenthesization means what the pinned legacy
  * printer's means for every operand shape in every consumer position.
  *
- * Each of ten operand types (a reference, a keyword, a union, an intersection, a
- * function type, a constructor type, a conditional type, a type query, a `keyof`
- * operator and an array) is placed in each of ten positions (an array element,
- * an indexed-access object, optional and rest tuple elements, a `keyof`
- * operand, a first and second union member, an intersection member, and a
- * conditional's check and extends types). The text this printer prints and the
- * text the legacy printer prints for the same tree must parse to the same
+ * Each of ten operand types (a reference, a keyword, a union, an intersection,
+ * a function type, a constructor type, a conditional type, a type query, a
+ * `keyof` operator and an array) is placed in each of ten positions (an array
+ * element, an indexed-access object, optional and rest tuple elements, a
+ * `keyof` operand, a first and second union member, an intersection member, and
+ * a conditional's check and extends types). The text this printer prints and
+ * the text the legacy printer prints for the same tree must parse to the same
  * syntax, so a missing group that changes the tree and an extra group that does
  * not are both visible.
  *
  * 1. Build every operand for both printers and wrap it in each consumer.
- * 2. Print the pair under a type alias, one with TsPrinter and one with the
- *    legacy printer.
+ * 2. Print the pair under a type alias, one with TsPrinter and one with the legacy
+ *    printer.
  * 3. Require the printed text to parse cleanly and to match the legacy syntax,
  *    except for the three same-kind nestings that this printer flattens, which
  *    are pinned by authored text, and the rest-element operands, which this

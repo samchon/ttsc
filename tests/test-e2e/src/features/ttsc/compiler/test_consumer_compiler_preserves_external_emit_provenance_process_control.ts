@@ -2,13 +2,16 @@ import { TestProject } from "@ttsc/testing";
 import path from "node:path";
 
 import { FixtureFiles } from "../../../internal/FixtureFiles";
-import { createFakeNativePreview, createProject } from "../../../internal/ttsc/internal/toolchain";
+import {
+  createFakeNativePreview,
+  createProject,
+} from "../../../internal/ttsc/internal/toolchain";
 import { case_consumer_compiler_preserves_external_emit_provenance } from "./case_consumer_compiler_preserves_external_emit_provenance";
 
 /**
- * Executes the converted provenance matrix with its own scripted consumer.
- * This is an unconsolidated process control for the new actual-import boundary,
- * not an instrumented execution of the former extracted-function unit.
+ * Executes the converted provenance matrix with its own scripted consumer. This
+ * is an unconsolidated process control for the new actual-import boundary, not
+ * an instrumented execution of the former extracted-function unit.
  *
  * 1. Copy the same authored 41 profiles and source/config/response inputs.
  * 2. Install the original native script launcher for recorder.cjs.
@@ -24,9 +27,28 @@ import { case_consumer_compiler_preserves_external_emit_provenance } from "./cas
  * @evidence contracts/e2e.md#preserved-coverage Calls the same41-row owner without changing row names or assertions. Both original forwarding and AST-only donors remain. Actual selected coverage and converted-boundary comparison remain pending, and their process totals must not be mixed with historical legacy totals.
  */
 export function test_consumer_compiler_preserves_external_emit_provenance_process_control(): void {
-  const root = createProject(FixtureFiles.read("ttsc/compiler/consumer-provenance"));
-  TestProject.retainTemporaryDirectory(root, "Converted provenance control inputs retained for actual probe observation");
-  createFakeNativePreview(root, `require(${JSON.stringify(path.join(root, "recorder.cjs"))});`);
-  const binary = path.join(root, "node_modules", "@typescript", `typescript-${process.platform}-${process.arch}`, "lib", process.platform === "win32" ? "tsc.exe" : "tsc");
-  case_consumer_compiler_preserves_external_emit_provenance(root, binary, process.env);
+  const root = createProject(
+    FixtureFiles.read("ttsc/compiler/consumer-provenance"),
+  );
+  TestProject.retainTemporaryDirectory(
+    root,
+    "Converted provenance control inputs retained for actual probe observation",
+  );
+  createFakeNativePreview(
+    root,
+    `require(${JSON.stringify(path.join(root, "recorder.cjs"))});`,
+  );
+  const binary = path.join(
+    root,
+    "node_modules",
+    "@typescript",
+    `typescript-${process.platform}-${process.arch}`,
+    "lib",
+    process.platform === "win32" ? "tsc.exe" : "tsc",
+  );
+  case_consumer_compiler_preserves_external_emit_provenance(
+    root,
+    binary,
+    process.env,
+  );
 }

@@ -70,9 +70,9 @@ import type {
  * Built-in rule families with one object option are listed here. Rules with
  * canonical positional lists expose dedicated setting types instead.
  * Contributor plugins do not extend this map; they publish their own exported
- * interface and the user passes it to `ITtscLintConfig` as its generic
- * argument (see {@link TtscLintContributorOverlay}). Augmenting this interface
- * from a contributor package still type-checks for existing packages.
+ * interface and the user passes it to `ITtscLintConfig` as its generic argument
+ * (see {@link TtscLintContributorOverlay}). Augmenting this interface from a
+ * contributor package still type-checks for existing packages.
  *
  * {@link TtscLintRuleOptionsOverlay} maps every entry to its strongly typed
  * severity tuple. {@link ITtscLintRules} intersects that overlay with the
@@ -289,8 +289,8 @@ export interface ITtscLintRuleOptionsMap {
  * Strongly typed rule settings derived from the options map.
  *
  * This mapped overlay is consumed by {@link ITtscLintRules}; keeping the
- * derivation here gives each rule listed in the map its typed setting
- * without a second rule-name declaration.
+ * derivation here gives each rule listed in the map its typed setting without a
+ * second rule-name declaration.
  *
  * @evidence contracts/common.md#principled-implementation Mapping keyof the merged options interface preserves each rule's own options type, and optional mapped properties retain the ability to leave a rule unspecified.
  * @evidence contracts/common.md#clear-and-simple-design A single mapped alias derives severity-plus-options settings for every map entry, avoiding a second manually synchronized rule-name list.

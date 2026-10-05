@@ -1,5 +1,6 @@
 /**
- * Typia transform stdout envelope; typescript maps virtual paths to source text.
+ * Typia transform stdout envelope; typescript maps virtual paths to source
+ * text.
  *
  * @evidence contracts/common.md#principled-implementation A string-valued source map expresses files the host can write; diagnostics are intentionally opaque because this lane does not consume them.
  * @evidence contracts/common.md#clear-and-simple-design The narrow envelope separates transform payload decoding from compiler result parsing.
@@ -33,7 +34,9 @@ export function safeParseTypiaTransform(
       parsed.typescript &&
       typeof parsed.typescript === "object" &&
       !Array.isArray(parsed.typescript) &&
-      Object.values(parsed.typescript).every((value) => typeof value === "string")
+      Object.values(parsed.typescript).every(
+        (value) => typeof value === "string",
+      )
     ) {
       return parsed;
     }

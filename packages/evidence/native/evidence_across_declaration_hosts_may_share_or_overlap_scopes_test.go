@@ -22,7 +22,7 @@ import "testing"
 func TestEvidenceAcrossDeclarationHostsMayShareOrOverlapScopes(t *testing.T) {
   cases := map[string]map[string]string{
     "same target and nested target across hosts": {
-      "docs/spec.md": "## Contract {#contract}\n### Validation {#validation}\n",
+      "docs/spec.md":   "## Contract {#contract}\n### Validation {#validation}\n",
       "src/success.ts": "/** @evidence docs/spec.md#contract Proves the success behavior. */\nexport function success(): void {}\n",
       "src/refusal.ts": "/** @evidence docs/spec.md#contract Proves the refusal behavior. */\n/** @evidence docs/spec.md#validation Proves validation. */\nexport function refusal(): void {}\n",
     },

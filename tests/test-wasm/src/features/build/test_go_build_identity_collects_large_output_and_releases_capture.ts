@@ -37,9 +37,9 @@ export const test_go_build_identity_collects_large_output_and_releases_capture =
         const descriptor = options.stdio[1];
         // The capture directory is observable through the open descriptor's
         // actual child write, without inspecting repository source text.
-        const directories = fs.readdirSync(os.tmpdir()).filter((name) =>
-          name.startsWith("ttsc-go-list-"),
-        );
+        const directories = fs
+          .readdirSync(os.tmpdir())
+          .filter((name) => name.startsWith("ttsc-go-list-"));
         const directory = directories.find((name) => {
           const output = path.join(os.tmpdir(), name, "stdout.json");
           try {
@@ -51,7 +51,10 @@ export const test_go_build_identity_collects_large_output_and_releases_capture =
           }
         });
         assert.ok(directory);
-        captures.push({ descriptor, directory: path.join(os.tmpdir(), directory) });
+        captures.push({
+          descriptor,
+          directory: path.join(os.tmpdir(), directory),
+        });
         let text: string;
         if (args[0] === "env") text = "{}";
         else if (args.includes("-m")) text = '{"Path":"example.test/no-gomod"}';
@@ -61,7 +64,9 @@ export const test_go_build_identity_collects_large_output_and_releases_capture =
               Dir: root,
               GoFiles: ["first.go"],
               Doc: "x".repeat(2 ** 20),
-            }) + "\n" + JSON.stringify({ Dir: root, GoFiles: ["last.go"] });
+            }) +
+            "\n" +
+            JSON.stringify({ Dir: root, GoFiles: ["last.go"] });
         execFileSync(
           process.execPath,
           [
@@ -82,16 +87,26 @@ export const test_go_build_identity_collects_large_output_and_releases_capture =
         execFileSync: command,
       };
       const initial = createInputIdentity(options);
-      assert.ok(initial.payload.inputs.some((input: any) => input.path === "first.go"));
-      assert.ok(initial.payload.inputs.some((input: any) => input.path === "last.go"));
+      assert.ok(
+        initial.payload.inputs.some((input: any) => input.path === "first.go"),
+      );
+      assert.ok(
+        initial.payload.inputs.some((input: any) => input.path === "last.go"),
+      );
       fs.writeFileSync(path.join(root, "last.go"), "package changed\n");
       assert.notEqual(createInputIdentity(options).hash, initial.hash);
       fail = true;
-      assert.throws(() => createInputIdentity(options), (error: any) => error.status === 7);
+      assert.throws(
+        () => createInputIdentity(options),
+        (error: any) => error.status === 7,
+      );
       assert.equal(captures.length, 7);
       for (const capture of captures) {
         assert.equal(fs.existsSync(capture.directory), false);
-        assert.throws(() => fs.fstatSync(capture.descriptor), (error: any) => error.code === "EBADF");
+        assert.throws(
+          () => fs.fstatSync(capture.descriptor),
+          (error: any) => error.code === "EBADF",
+        );
       }
     } finally {
       fs.rmSync(root, { recursive: true, force: true });

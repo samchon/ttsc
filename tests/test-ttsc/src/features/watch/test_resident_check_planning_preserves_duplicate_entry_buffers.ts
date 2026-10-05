@@ -12,8 +12,8 @@ import { takeResidentCheckEntryRequest } from "../../../../../packages/ttsc/src/
  * each entry still needs its own complete filesystem-change stream.
  *
  * 1. Plan two identical synthetic check entries and require one shared key.
- * 2. Buffer one cycle and consume only the first entry (as if it failed before
- *    the second entry ran).
+ * 2. Buffer one cycle and consume only the first entry (as if it failed before the
+ *    second entry ran).
  * 3. Buffer the next cycle and require the deferred entry to retain both
  *    transitions while the first entry receives only the new transition.
  * 4. Contrast nonresident and transform entries with empty/singleton plans.
@@ -78,23 +78,44 @@ export const test_resident_check_planning_preserves_duplicate_entry_buffers =
       external: [...initial.external, ...next.external],
     });
     assert.equal(pending.size, 0);
-    assert.throws(() => takeResidentCheckEntryRequest(pending, 1), /entry 1 has no buffered request/);
-    bufferResidentCheckEntryRequests(pending, checks, { changed: ["/virtual/src/once.ts"], invalidate: true });
-    bufferResidentCheckEntryRequests(pending, checks, { changed: ["/virtual/src/once.ts"], invalidate: false });
-    assert.deepEqual(takeResidentCheckEntryRequest(pending, 0), {
+    assert.throws(
+      () => takeResidentCheckEntryRequest(pending, 1),
+      /entry 1 has no buffered request/,
+    );
+    bufferResidentCheckEntryRequests(pending, checks, {
       changed: ["/virtual/src/once.ts"],
       invalidate: true,
-    }, "duplicate paths collapse and prior invalidation remains sticky");
+    });
+    bufferResidentCheckEntryRequests(pending, checks, {
+      changed: ["/virtual/src/once.ts"],
+      invalidate: false,
+    });
+    assert.deepEqual(
+      takeResidentCheckEntryRequest(pending, 0),
+      {
+        changed: ["/virtual/src/once.ts"],
+        invalidate: true,
+      },
+      "duplicate paths collapse and prior invalidation remains sticky",
+    );
     assert.deepEqual(takeResidentCheckEntryRequest(pending, 1), {
       changed: ["/virtual/src/once.ts"],
       invalidate: true,
     });
     assert.notEqual(
-      planResidentCheckEntries([plugin], () => [...args], '["--strict"]')[0]!.key,
-      planResidentCheckEntries([plugin], () => [...args], '["--strict","false"]')[0]!.key,
+      planResidentCheckEntries([plugin], () => [...args], '["--strict"]')[0]!
+        .key,
+      planResidentCheckEntries(
+        [plugin],
+        () => [...args],
+        '["--strict","false"]',
+      )[0]!.key,
       "forwarded compiler payload participates in process identity",
     );
-    assert.deepEqual(planResidentCheckEntries([], () => []), []);
+    assert.deepEqual(
+      planResidentCheckEntries([], () => []),
+      [],
+    );
     const nonresident = {
       ...plugin,
       capabilities: { residentCheck: false },
@@ -103,7 +124,10 @@ export const test_resident_check_planning_preserves_duplicate_entry_buffers =
       [{ ...plugin, stage: "transform" }, nonresident, plugin],
       () => [...args],
     );
-    assert.deepEqual(selected.map((entry) => entry.entryIndex), [0, 1]);
+    assert.deepEqual(
+      selected.map((entry) => entry.entryIndex),
+      [0, 1],
+    );
     assert.equal(selected[0]!.plugin, nonresident);
     assert.equal(selected[1]!.plugin, plugin);
     assert.deepEqual(selected[0]!.args, args);

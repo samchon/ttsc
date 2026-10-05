@@ -38,21 +38,21 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  *
  * `identity` encodes reported compile configuration and `state` a supplied
  * project-input projection. Neither key alone certifies a publication. The
- * first worker to need a pair takes its
- * lock by creating a directory, which the filesystem makes atomic. The others
- * wait without blocking the event loop, and adopt the publication the holder
- * leaves behind. When the holder releases the lock without publishing, the next
- * waiter takes the lock instead. A holder whose process has died, or whose
- * heartbeat stopped, can lose the lock to a waiter. Waiting has no total
- * deadline or cancellation; progress still depends on native operations and
- * successful reclamation.
+ * first worker to need a pair takes its lock by creating a directory, which the
+ * filesystem makes atomic. The others wait without blocking the event loop, and
+ * adopt the publication the holder leaves behind. When the holder releases the
+ * lock without publishing, the next waiter takes the lock instead. A holder
+ * whose process has died, or whose heartbeat stopped, can lose the lock to a
+ * waiter. Waiting has no total deadline or cancellation; progress still depends
+ * on native operations and successful reclamation.
  *
  * The store outlives the processes that use it (samchon/ttsc#1483), so it
- * best-effort prunes itself: an adoption marks its publication used, and each publication
- * keeps the most recently used ones of its identity within the store's count
- * and byte budgets, and removes locks and partial writes whose writer is gone.
- * A publication larger than the byte budget stays in the compiling worker; it
- * cannot be shared without making persistent storage unbounded.
+ * best-effort prunes itself: an adoption marks its publication used, and each
+ * publication keeps the most recently used ones of its identity within the
+ * store's count and byte budgets, and removes locks and partial writes whose
+ * writer is gone. A publication larger than the byte budget stays in the
+ * compiling worker; it cannot be shared without making persistent storage
+ * unbounded.
  *
  * Sharing is only an optimization. An unreadable or unusable publication is
  * ignored and a worker may claim its own compile. An escaping claim error
@@ -70,7 +70,6 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * @param identity Caller-provided hex configuration digest used in store names.
  * @param state Caller-provided hex project-state digest used in store names.
  * @param options.adopt Whether an existing publication may be adopted.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Filesystem directory creation coordinates independent workers, and owned
  *   tokens distinguish a claim from another holder at the same pathname.
@@ -445,10 +444,13 @@ async function readPublication(
       !isPublicationRecord(value) ||
       !isPublicationResult(value.result) ||
       !isPublicationRecord(value.externalInputHashes) ||
-      !Object.values(value.externalInputHashes).every((hash) => typeof hash === "string") ||
+      !Object.values(value.externalInputHashes).every(
+        (hash) => typeof hash === "string",
+      ) ||
       !isPublicationRecord(value.externalInputRealpaths) ||
-      !Object.values(value.externalInputRealpaths).every((realpath) =>
-        realpath === null || typeof realpath === "string") ||
+      !Object.values(value.externalInputRealpaths).every(
+        (realpath) => realpath === null || typeof realpath === "string",
+      ) ||
       typeof value.scratchDirectory !== "string" ||
       (value.temporaryTsconfig !== undefined &&
         typeof value.temporaryTsconfig !== "string")
@@ -468,44 +470,70 @@ function isPublicationRecord(value: unknown): value is Record<string, unknown> {
 
 /** Check the envelope fields read directly before advisory index validation. */
 function isPublicationResult(value: unknown): boolean {
-  if (!isPublicationRecord(value) ||
+  if (
+    !isPublicationRecord(value) ||
     (value.type !== "success" && value.type !== "failure") ||
     !isPublicationRecord(value.typescript) ||
-    !Object.values(value.typescript).every((source) => typeof source === "string"))
+    !Object.values(value.typescript).every(
+      (source) => typeof source === "string",
+    )
+  )
     return false;
   // Neither an explicit incomplete observer nor failed per-input authority can
   // certify cross-worker reuse. Unsupported marker shapes are not ignored.
-  if (value.observationsComplete !== undefined ||
+  if (
+    value.observationsComplete !== undefined ||
     (value.hostInputProofFailures !== undefined &&
       (!isPublicationRecord(value.hostInputProofFailures) ||
-        Object.keys(value.hostInputProofFailures).length !== 0))) return false;
+        Object.keys(value.hostInputProofFailures).length !== 0))
+  )
+    return false;
   if (value.diagnostics !== undefined) {
-    if (!Array.isArray(value.diagnostics) ||
-      !value.diagnostics.every((diagnostic) =>
-        isPublicationRecord(diagnostic) && typeof diagnostic.messageText === "string" &&
-        (diagnostic.file === undefined || typeof diagnostic.file === "string") &&
-        (diagnostic.line === undefined || typeof diagnostic.line === "number") &&
-        (diagnostic.character === undefined || typeof diagnostic.character === "number")))
+    if (
+      !Array.isArray(value.diagnostics) ||
+      !value.diagnostics.every(
+        (diagnostic) =>
+          isPublicationRecord(diagnostic) &&
+          typeof diagnostic.messageText === "string" &&
+          (diagnostic.file === undefined ||
+            typeof diagnostic.file === "string") &&
+          (diagnostic.line === undefined ||
+            typeof diagnostic.line === "number") &&
+          (diagnostic.character === undefined ||
+            typeof diagnostic.character === "number"),
+      )
+    )
       return false;
   } else if (value.type === "failure") return false;
-  if (value.graph !== undefined && !isPublicationRecord(value.graph)) return false;
-  if (value.sourceMaps !== undefined &&
+  if (value.graph !== undefined && !isPublicationRecord(value.graph))
+    return false;
+  if (
+    value.sourceMaps !== undefined &&
     (!isPublicationRecord(value.sourceMaps) ||
-      !Object.values(value.sourceMaps).every(isPublicationSourceMap))) return false;
+      !Object.values(value.sourceMaps).every(isPublicationSourceMap))
+  )
+    return false;
   return true;
 }
 
 /** Source maps must support the native source/provenance projection safely. */
 function isPublicationSourceMap(value: unknown): boolean {
-  if (!isPublicationRecord(value) || value.version !== 3 ||
+  if (
+    !isPublicationRecord(value) ||
+    value.version !== 3 ||
     typeof value.mappings !== "string" ||
     !Array.isArray(value.sources) ||
     !value.sources.every((source) => typeof source === "string") ||
     !Array.isArray(value.names) ||
     !value.names.every((name) => typeof name === "string") ||
-    (value.sourceRoot !== undefined && typeof value.sourceRoot !== "string"))
+    (value.sourceRoot !== undefined && typeof value.sourceRoot !== "string")
+  )
     return false;
-  return value.sourcesContent === undefined ||
+  return (
+    value.sourcesContent === undefined ||
     (Array.isArray(value.sourcesContent) &&
-      value.sourcesContent.every((source) => source === null || typeof source === "string"));
+      value.sourcesContent.every(
+        (source) => source === null || typeof source === "string",
+      ))
+  );
 }

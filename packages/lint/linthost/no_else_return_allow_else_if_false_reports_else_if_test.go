@@ -42,7 +42,9 @@ JSON.stringify(pick);
   if len(findings) != 1 {
     t.Fatalf("allowElseIf:false: want 1 finding, got %d (%+v)", len(findings), findings)
   }
-  if findings[0].Rule != "no-else-return" || findings[0].Severity != SeverityError { t.Fatalf("unexpected rule/severity: %+v", findings[0]) }
+  if findings[0].Rule != "no-else-return" || findings[0].Severity != SeverityError {
+    t.Fatalf("unexpected rule/severity: %+v", findings[0])
+  }
   marker := "if (b) return 2;"
   start := strings.Index(source, marker)
   if findings[0].Pos != start || findings[0].End != start+len(marker) {

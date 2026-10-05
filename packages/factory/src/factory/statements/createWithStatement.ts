@@ -17,6 +17,10 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @param statement The statement.
+ * @returns The created {@link WithStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Object expression and body retain with-statement syntax for source generation;
  *   valid use requires non-strict script context, as the factory cannot supply it.
@@ -30,11 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states strict-mode/ES-module restrictions and round-tripping use,
  *   with the source example separated from acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @param statement The statement.
- * @returns The created {@link WithStatement}.
  */
 export const createWithStatement = (
   expression: Expression,

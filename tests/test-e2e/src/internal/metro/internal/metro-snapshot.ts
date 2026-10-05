@@ -117,7 +117,10 @@ export async function cacheKeyForRun(
   options: Record<string, unknown> = {},
 ): Promise<string> {
   return TestMetroRuntime.withTransformerEnv(
-    { upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(), ...options },
+    {
+      upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
+      ...options,
+    },
     (mod) => mod.getCacheKey({ projectRoot: root }),
   );
 }

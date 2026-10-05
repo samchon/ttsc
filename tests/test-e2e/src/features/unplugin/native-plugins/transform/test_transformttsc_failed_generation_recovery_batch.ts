@@ -6,13 +6,15 @@ import path from "node:path";
 import { primeSuccessfulTransform } from "../../../../internal/unplugin/internal/transform-project-cache/primeSuccessfulTransform";
 
 /**
- * Verifies rejected and exceptional generations recover through one native project.
+ * Verifies rejected and exceptional generations recover through one native
+ * project.
  *
- * Rejection and a resolved host exception reach different adapter failure owners.
- * Both must evict the failed generation and permit a real subsequent capture;
- * exception watch registration additionally retains aliases while excluding
- * scratch and message-derived paths. The first recovery's real successful
- * generation supplies the second phase rather than compiling another seed.
+ * Rejection and a resolved host exception reach different adapter failure
+ * owners. Both must evict the failed generation and permit a real subsequent
+ * capture; exception watch registration additionally retains aliases while
+ * excluding scratch and message-derived paths. The first recovery's real
+ * successful generation supplies the second phase rather than compiling another
+ * seed.
  *
  * 1. Capture and verify one native successful checkpoint.
  * 2. Exercise rejected-Promise eviction and actual successful retry.
@@ -29,15 +31,25 @@ import { primeSuccessfulTransform } from "../../../../internal/unplugin/internal
  * @evidence contracts/e2e.md#preserved-coverage All original rejection, exception, alias-realpath, watch inclusion/exclusion, recovered-output and cache-size assertions remain in their respective phases; individual phase failures are collected before throwing so the second independent case still runs. Prime success/output/cache-size checks remain once at the common actual producer boundary.
  */
 export async function test_transformttsc_failed_generation_recovery_batch(): Promise<void> {
-  const { api, cache, key, good: initialGood, file, source, options } =
-    await primeSuccessfulTransform();
+  const {
+    api,
+    cache,
+    key,
+    good: initialGood,
+    file,
+    source,
+    options,
+  } = await primeSuccessfulTransform();
   let checkpoint = initialGood;
   // Replacing an entry with a planted failure must not orphan its native handles.
   const ownedGenerations = new Map<string, Promise<unknown>>([
     ["initial", Promise.resolve(initialGood)],
   ]);
   const failures: Error[] = [];
-  const phase = async (label: string, run: () => Promise<void>): Promise<void> => {
+  const phase = async (
+    label: string,
+    run: () => Promise<void>,
+  ): Promise<void> => {
     try {
       await run();
     } catch (error) {
@@ -92,8 +104,8 @@ export async function test_transformttsc_failed_generation_recovery_batch(): Pro
         "the primed generation must expose a regular external input for aliasing",
       );
       const targetDirectory = path.dirname(targetInput);
-      const aliasDirectories = ["failure-watch-a", "failure-watch-b"].map((name) =>
-        path.join(projectRoot, "node_modules", name),
+      const aliasDirectories = ["failure-watch-a", "failure-watch-b"].map(
+        (name) => path.join(projectRoot, "node_modules", name),
       );
       fs.mkdirSync(path.dirname(aliasDirectories[0]!), { recursive: true });
       for (const alias of aliasDirectories) {
@@ -150,7 +162,11 @@ export async function test_transformttsc_failed_generation_recovery_batch(): Pro
         !watched.includes(scratchInput),
         "a failed generation must not register its disposed scratch tree",
       );
-      assert.equal(cache.size, 0, "resolved-exception generation must not persist");
+      assert.equal(
+        cache.size,
+        0,
+        "resolved-exception generation must not persist",
+      );
 
       const recovered = await api.transformTtsc(
         file,

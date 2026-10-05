@@ -1,7 +1,8 @@
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx rescues a `.js` entry path back to its `.ts` source when a
@@ -31,7 +32,13 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
 export function test_ttsx_forks_a_child_whose_entry_path_is_javascript() {
-  const root = TestProject.createProject(E2eProcessTrace.fixtureFiles(FixtureFiles.read("ttsc/ttsx_forks_a_child_whose_entry_path_is_javascript/inputs-1")));
+  const root = TestProject.createProject(
+    E2eProcessTrace.fixtureFiles(
+      FixtureFiles.read(
+        "ttsc/ttsx_forks_a_child_whose_entry_path_is_javascript/inputs-1",
+      ),
+    ),
+  );
 
   const result = TestProject.spawn(
     TestProject.TTSX_BIN,

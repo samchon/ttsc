@@ -30,12 +30,10 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * marks `configInputsComplete` false and cannot authorize persistent reuse.
  *
  * @param opts Config selection, invocation directory and optional project root.
- *
- * @returns Resolved options, plugin origins, selected identity and config inputs.
- *
+ * @returns Resolved options, plugin origins, selected identity and config
+ *   inputs.
  * @throws When selection, parsing or inheritance fails, including circular
  *   extends chains. Native read failures propagate from the shared reader.
- *
  * @evidence contracts/common.md#principled-implementation Recursive left-to-right option merging retains each declaring directory and final configDir substitution; selected and missing config candidates are recorded, while module inheritance explicitly lacks complete freshness proof.
  * @evidence contracts/common.md#clear-and-simple-design Identity selection, extends resolution and JSONC parsing stay with their shared owners; one recursive merge returns options, plugin origins and config observations together.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing candidates are real selection premises, and incomplete Node module topology is marked unproved instead of imitated by a guessed package resolver or cache bypass.

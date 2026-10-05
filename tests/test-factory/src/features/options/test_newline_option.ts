@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 import { num } from "../../internal/helpers";
 
 /**
@@ -9,7 +9,8 @@ import { num } from "../../internal/helpers";
  * With `newLine: "\r\n"` the broken output uses CRLF between lines.
  *
  * 1. A forced array break uses CRLF at every line boundary.
- * 2. The expectation explicitly joins source lines with CRLF, independently of the printer option.
+ * 2. The expectation explicitly joins source lines with CRLF, independently of the
+ *    printer option.
  *
  * @evidence contracts/testing.md#behavioral-verification A forced array break uses CRLF at every line boundary.
  * @evidence contracts/testing.md#independent-expectations The expectation explicitly joins source lines with CRLF, independently of the printer option.

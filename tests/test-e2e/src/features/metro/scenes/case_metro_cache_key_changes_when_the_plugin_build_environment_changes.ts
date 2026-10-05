@@ -4,8 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { MetroWorkspace } from "../../../internal/metro/internal/MetroWorkspace";
-import { prepareSnapshot, cacheKeyForRun, readMainSnapshot } from "../../../internal/metro/internal/metro-snapshot";
 import { TestMetroRuntime } from "../../../internal/metro/internal/metro-runtime";
+import {
+  cacheKeyForRun,
+  prepareSnapshot,
+  readMainSnapshot,
+} from "../../../internal/metro/internal/metro-snapshot";
 
 /**
  * Verifies a Metro run's key carries the environment each recorded plugin
@@ -39,40 +43,40 @@ export async function case_metro_cache_key_changes_when_the_plugin_build_environ
   const previous = process.env.GOFLAGS;
   process.env.GOFLAGS = "-tags=ttsc_metro_environment_baseline";
   try {
-  const root = MetroWorkspace.enterProject(workspace);
-  const source = path.join(root, "go-plugin");
-  fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
-    recursive: true,
-  });
-  fs.writeFileSync(
-    path.join(root, "plugin.cjs"),
-    'module.exports = (context) => ({ name: context.plugin.name, source: "./go-plugin" });\n',
-  );
-  const options = {
-    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-  };
+    const root = MetroWorkspace.enterProject(workspace);
+    const source = path.join(root, "go-plugin");
+    fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(root, "plugin.cjs"),
+      'module.exports = (context) => ({ name: context.plugin.name, source: "./go-plugin" });\n',
+    );
+    const options = {
+      upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
+    };
 
-  await prepareSnapshot(root);
-  await TestMetroRuntime.runTransform({
-    options,
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  await prepareSnapshot(root);
-  assert.ok(
-    readMainSnapshot(root).trees.includes(source),
-    "recorded as a tree",
-  );
-  const before = await cacheKeyForRun(root, options);
-  assert.equal(
-    await cacheKeyForRun(root, options),
-    before,
-    "an unchanged environment keeps the key",
-  );
-  process.env.GOFLAGS = "-tags=ttsc_metro_environment_probe";
+    await prepareSnapshot(root);
+    await TestMetroRuntime.runTransform({
+      options,
+      params: {
+        src: TestUnpluginProject.mainSource(root),
+        filename: "src/main.ts",
+        options: { projectRoot: root },
+      },
+    });
+    await prepareSnapshot(root);
+    assert.ok(
+      readMainSnapshot(root).trees.includes(source),
+      "recorded as a tree",
+    );
+    const before = await cacheKeyForRun(root, options);
+    assert.equal(
+      await cacheKeyForRun(root, options),
+      before,
+      "an unchanged environment keeps the key",
+    );
+    process.env.GOFLAGS = "-tags=ttsc_metro_environment_probe";
     assert.notEqual(
       await cacheKeyForRun(root, options),
       before,

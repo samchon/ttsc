@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
@@ -9,6 +8,7 @@ import { WATCH_BROKER } from "../../../../../packages/unplugin/src/core/transfor
 import type { WatchBroker } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/WatchBroker";
 import { openBrokeredWatch } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/openBrokeredWatch";
 import { routeWatchBrokerMessage } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/routeWatchBrokerMessage";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a brokered watch names a probe only where the watch process's
@@ -85,7 +85,11 @@ export async function test_brokered_watch_probes_only_where_its_backend_proves_o
     });
     try {
       await watch.ready;
-      assert.equal(answered, true, "the scripted successful reply resolved readiness without a failed sink call");
+      assert.equal(
+        answered,
+        true,
+        "the scripted successful reply resolved readiness without a failed sink call",
+      );
       const added = sent.find((message) => message.op === "add");
       return added?.locations?.[0]?.probe;
     } finally {
@@ -115,7 +119,7 @@ export async function test_brokered_watch_probes_only_where_its_backend_proves_o
 
     // 3. A probe below the project's tool cache otherwise.
     const macos = project({});
-    const probe = await open(true, macos) as
+    const probe = (await open(true, macos)) as
       | { directory: string; root: string }
       | undefined;
     assert.equal(probe?.root, macos);

@@ -5,14 +5,15 @@ import path from "node:path";
 import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
 
 /**
- * Verifies the @ttsc/banner plugin: `ttsx` applies an installed dependency's own
- * root configuration when it transpiles that dependency.
+ * Verifies the @ttsc/banner plugin: `ttsx` applies an installed dependency's
+ * own root configuration when it transpiles that dependency.
  *
  * `banner-pkg` is installed under `node_modules` with its own tsconfig plugin
  * entry and `banner.config.cjs`. When the consumer's program requires it, the
  * runtime's dependency cache must hold the JavaScript output whose recorded
- * source is the independently resolved package index.ts, carrying that package's
- * banner text. The runtime manifest selects the cache being inspected.
+ * source is the independently resolved package index.ts, carrying that
+ * package's banner text. The runtime manifest selects the cache being
+ * inspected.
  *
  * 1. Copy the static package into the consumer's `node_modules`.
  * 2. Run `ttsx` on the consumer entry, which requires the package and scans the
@@ -34,10 +35,19 @@ export function case_banner_ttsx_discovers_an_installed_package_root_config(
 ): void {
   const scenario = "ttsx";
   TestProject.copyDirectory(
-    path.join(UtilityWorkspace.project(workspace, scenario), "installed", "banner-pkg"),
-    path.join(UtilityWorkspace.project(workspace, scenario), "node_modules", "banner-pkg"),
+    path.join(
+      UtilityWorkspace.project(workspace, scenario),
+      "installed",
+      "banner-pkg",
+    ),
+    path.join(
+      UtilityWorkspace.project(workspace, scenario),
+      "node_modules",
+      "banner-pkg",
+    ),
   );
-  const result = UtilityWorkspace.run(workspace, 
+  const result = UtilityWorkspace.run(
+    workspace,
     TestProject.TTSX_BIN,
     ["--cwd", UtilityWorkspace.project(workspace, scenario), "src/main.ts"],
     scenario,

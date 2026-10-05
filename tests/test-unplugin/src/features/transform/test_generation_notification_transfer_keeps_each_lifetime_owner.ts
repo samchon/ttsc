@@ -3,16 +3,19 @@ import path from "node:path";
 
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
-import { generationNotificationsAvailable, retainGenerationNotifications } from "../../../../../packages/unplugin/src/core/transform/generation/retainGenerationNotifications";
+import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
+import { createGenerationProofFailures } from "../../../../../packages/unplugin/src/core/transform/generation/createGenerationProofFailures";
+import { projectWalkStable } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkStable";
+import { recordProjectSnapshotFailures } from "../../../../../packages/unplugin/src/core/transform/generation/recordProjectSnapshotFailures";
+import {
+  generationNotificationsAvailable,
+  retainGenerationNotifications,
+} from "../../../../../packages/unplugin/src/core/transform/generation/retainGenerationNotifications";
+import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import { createProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createProjectMutationTracker";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
-import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
-import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
-import { projectWalkStable } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkStable";
-import { recordProjectSnapshotFailures } from "../../../../../packages/unplugin/src/core/transform/generation/recordProjectSnapshotFailures";
-import { createGenerationProofFailures } from "../../../../../packages/unplugin/src/core/transform/generation/createGenerationProofFailures";
 
 /**
  * Verifies notification admission transfers every qualified observer and no
@@ -40,7 +43,17 @@ import { createGenerationProofFailures } from "../../../../../packages/unplugin/
  */
 export async function test_generation_notification_transfer_keeps_each_lifetime_owner(): Promise<void> {
   const failures: Error[] = [];
-  for (const variant of ["healthy", "project-failed", "host-failed", "candidate-failed", "membership-off", "polling", "incomplete", "no-candidate", "candidate-only"] as const) {
+  for (const variant of [
+    "healthy",
+    "project-failed",
+    "host-failed",
+    "candidate-failed",
+    "membership-off",
+    "polling",
+    "incomplete",
+    "no-candidate",
+    "candidate-only",
+  ] as const) {
     const fixture = createCachedDeliveryUnitFixture();
     const root = path.dirname(path.dirname(fixture.file));
     const config = path.join(root, "tsconfig.json");
@@ -48,11 +61,16 @@ export async function test_generation_notification_transfer_keeps_each_lifetime_
     let phase = "project";
     let opened = 0;
     let closed = 0;
-    const listeners = new Map<string, ((eventType: string, filename: string | null) => void)[]>();
+    const listeners = new Map<
+      string,
+      ((eventType: string, filename: string | null) => void)[]
+    >();
     const cache = createTtscTransformCache({
       watch: (_directory, listener) => {
         if (variant === phase + "-failed") {
-          const error = new Error("watch registration refused") as NodeJS.ErrnoException;
+          const error = new Error(
+            "watch registration refused",
+          ) as NodeJS.ErrnoException;
           error.code = "ENOSPC";
           throw error;
         }
@@ -61,89 +79,175 @@ export async function test_generation_notification_transfer_keeps_each_lifetime_
         phaseListeners.push(listener);
         listeners.set(phase, phaseListeners);
         let active = true;
-        return { close: () => { if (active) { active = false; closed += 1; } } };
+        return {
+          close: () => {
+            if (active) {
+              active = false;
+              closed += 1;
+            }
+          },
+        };
       },
     });
     const filesystem = transformFilesystem(cache);
     const cached = observeValidationUnitGeneration(root, fixture.good.result);
-    const trackers: Awaited<ReturnType<typeof createProjectMutationTracker>>[] = [];
+    const trackers: Awaited<ReturnType<typeof createProjectMutationTracker>>[] =
+      [];
     try {
-      const project = await createProjectMutationTracker(cached.projectDirectories!, new Set([fixture.file]), filesystem, cached.membershipPolicy);
+      const project = await createProjectMutationTracker(
+        cached.projectDirectories!,
+        new Set([fixture.file]),
+        filesystem,
+        cached.membershipPolicy,
+      );
       trackers.push(project);
       phase = "host";
-      const host = await createHostInputMutationTracker([config], filesystem, new Set([config]), "all", root);
+      const host = await createHostInputMutationTracker(
+        [config],
+        filesystem,
+        new Set([config]),
+        "all",
+        root,
+      );
       trackers.push(host);
       phase = "candidate";
-      const absent = await createHostInputMutationTracker([candidate], filesystem, new Set([candidate]), "rename", root);
+      const absent = await createHostInputMutationTracker(
+        [candidate],
+        filesystem,
+        new Set([candidate]),
+        "rename",
+        root,
+      );
       trackers.push(absent);
       if (variant === "healthy") {
         const identities = envelopeDerivation(cached).identityContext;
-        const before = collectProjectInputSnapshot(root, identities, filesystem,
-          undefined, { policy: cached.membershipPolicy });
+        const before = collectProjectInputSnapshot(
+          root,
+          identities,
+          filesystem,
+          undefined,
+          { policy: cached.membershipPolicy },
+        );
         assert.equal(before.complete, true);
         let deliveredPostEvents = 0;
         for (const role of ["host", "candidate"]) {
           const callbacks = listeners.get(role)!;
-          assert.equal(callbacks.length, 1, role + ": one supplied observation handle");
+          assert.equal(
+            callbacks.length,
+            1,
+            role + ": one supplied observation handle",
+          );
           queueMicrotask(() => {
             callbacks[0]!("rename", null);
             ++deliveredPostEvents;
           });
         }
-        await new Promise<void>((resolve) => { queueMicrotask(resolve); });
+        await new Promise<void>((resolve) => {
+          queueMicrotask(resolve);
+        });
         assert.equal(deliveredPostEvents, 2);
         assert.equal(host.membershipChanged, true);
         assert.equal(absent.membershipChanged, true);
         assert.ok(host.changes.size > 0);
         assert.ok(absent.changes.size > 0);
         assert.equal(project.membershipChanged, false);
-        const snapshot = collectProjectInputSnapshot(root, identities, filesystem,
-          undefined, { policy: cached.membershipPolicy });
+        const snapshot = collectProjectInputSnapshot(
+          root,
+          identities,
+          filesystem,
+          undefined,
+          { policy: cached.membershipPolicy },
+        );
         assert.equal(snapshot.complete, true);
         assert.deepEqual(snapshot.hashes, before.hashes);
-        const comparison = { before, snapshot, configStable: true,
-          declared: undefined, projectRoot: root, tracker: project };
-        assert.equal(projectWalkStable(comparison), true,
-          "post-window notification events do not refute the project witness");
+        const comparison = {
+          before,
+          snapshot,
+          configStable: true,
+          declared: undefined,
+          projectRoot: root,
+          tracker: project,
+        };
+        assert.equal(
+          projectWalkStable(comparison),
+          true,
+          "post-window notification events do not refute the project witness",
+        );
         const projectCallbacks = listeners.get("project")!;
         assert.equal(projectCallbacks.length, 1);
         projectCallbacks[0]!("rename", null);
         assert.equal(project.membershipChanged, true);
-        assert.equal(projectWalkStable(comparison), false,
-          "the same event on the project witness refutes unchanged walks");
+        assert.equal(
+          projectWalkStable(comparison),
+          false,
+          "the same event on the project witness refutes unchanged walks",
+        );
         const proofFailures = createGenerationProofFailures();
         recordProjectSnapshotFailures(proofFailures, {
-          before, snapshot, declared: undefined, identities, projectRoot: root,
+          before,
+          snapshot,
+          declared: undefined,
+          identities,
+          projectRoot: root,
           tracker: project,
         });
-        assert.deepEqual(proofFailures.entries, [{
-          domain: "project", kind: "project-membership-event", path: root,
-        }]);
+        assert.deepEqual(proofFailures.entries, [
+          {
+            domain: "project",
+            kind: "project-membership-event",
+            path: root,
+          },
+        ]);
         assert.equal(proofFailures.omitted, 0);
-        assert.equal(proofFailures.entries.some((failure) =>
-          failure.kind === "host-input-event" || failure.kind === "candidate-event"), false);
+        assert.equal(
+          proofFailures.entries.some(
+            (failure) =>
+              failure.kind === "host-input-event" ||
+              failure.kind === "candidate-event",
+          ),
+          false,
+        );
       }
-      const selectedProject = variant === "candidate-only" ? undefined : project;
+      const selectedProject =
+        variant === "candidate-only" ? undefined : project;
       const selectedHost = variant === "candidate-only" ? undefined : host;
       const selectedCandidate = variant === "no-candidate" ? undefined : absent;
-      const available = generationNotificationsAvailable(selectedProject, selectedHost, selectedCandidate);
+      const available = generationNotificationsAvailable(
+        selectedProject,
+        selectedHost,
+        selectedCandidate,
+      );
       assert.equal(available, !variant.endsWith("-failed"));
       const retained = retainGenerationNotifications({
-        cached, project: selectedProject, host: selectedHost, candidate: selectedCandidate,
+        cached,
+        project: selectedProject,
+        host: selectedHost,
+        candidate: selectedCandidate,
         retainProjectMembership: variant !== "membership-off",
         retainNotifications: variant !== "polling",
         stableProjectSnapshot: variant !== "incomplete",
         notificationsAvailable: available,
       });
-      const admitted = ["healthy", "no-candidate", "candidate-only"].includes(variant);
+      const admitted = ["healthy", "no-candidate", "candidate-only"].includes(
+        variant,
+      );
       assert.deepEqual(retained, {
         project: admitted && selectedProject !== undefined,
         host: admitted && selectedHost !== undefined,
         candidate: admitted && selectedCandidate !== undefined,
       });
-      assert.equal(cached.projectMutationTracker, admitted ? selectedProject : undefined);
-      assert.equal(cached.hostInputMutationTracker, admitted ? selectedHost : undefined);
-      assert.equal(cached.candidateMutationTracker, admitted ? selectedCandidate : undefined);
+      assert.equal(
+        cached.projectMutationTracker,
+        admitted ? selectedProject : undefined,
+      );
+      assert.equal(
+        cached.hostInputMutationTracker,
+        admitted ? selectedHost : undefined,
+      );
+      assert.equal(
+        cached.candidateMutationTracker,
+        admitted ? selectedCandidate : undefined,
+      );
       if (variant === "healthy") {
         assert.equal(cached.hostInputMutationTracker!.membershipChanged, true);
         assert.equal(cached.candidateMutationTracker!.membershipChanged, true);
@@ -156,8 +260,16 @@ export async function test_generation_notification_transfer_keeps_each_lifetime_
       for (const tracker of trackers) tracker.close();
       fixture.dispose();
     }
-    try { assert.equal(closed, opened, variant + ": every actual acquired observer retires"); }
-    catch (error) { failures.push(new Error(variant + " cleanup", { cause: error })); }
+    try {
+      assert.equal(
+        closed,
+        opened,
+        variant + ": every actual acquired observer retires",
+      );
+    } catch (error) {
+      failures.push(new Error(variant + " cleanup", { cause: error }));
+    }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "Notification transfer variants failed");
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "Notification transfer variants failed");
 }

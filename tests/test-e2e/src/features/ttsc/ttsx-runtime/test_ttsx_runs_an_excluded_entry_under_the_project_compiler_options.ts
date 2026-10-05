@@ -1,6 +1,7 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies an entry outside the project's `include` takes its module format
@@ -25,6 +26,7 @@ import assert from "node:assert/strict";
  *    ["src"]`.
  * 2. Run ttsx against a root-level script that reads `__dirname`.
  * 3. Assert it ran and reported `cjs`.
+ *
  * @evidence contracts/testing.md#behavioral-verification Runs excluded clear.ts under NodeNext project settings and requires aliased cjs from its CommonJS __dirname branch.
  * @evidence contracts/testing.md#independent-expectations The authored branch literal independently distinguishes usable CommonJS execution from the alternate branch.
  * @evidence contracts/testing.md#distinguishing-cases An excluded entry must retain module options; this value does not independently prove strict type-checking inheritance.
@@ -35,13 +37,17 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage The exact aliased cjs output remains here without extending the assertion into an unobserved strict-diagnostic guarantee.
  */
 export function test_ttsx_runs_an_excluded_entry_under_the_project_compiler_options() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_runs_an_excluded_entry_under_the_project_compiler_options/inputs-1"));
+  const root = TestProject.createProject(
+    FixtureFiles.read(
+      "ttsc/ttsx_runs_an_excluded_entry_under_the_project_compiler_options/inputs-1",
+    ),
+  );
 
-    const result = TestProject.spawn(
-      TestProject.TTSX_BIN,
-      ["--cwd", root, "clear.ts"],
-      { cwd: root },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), "aliased cjs");
-  }
+  const result = TestProject.spawn(
+    TestProject.TTSX_BIN,
+    ["--cwd", root, "clear.ts"],
+    { cwd: root },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "aliased cjs");
+}

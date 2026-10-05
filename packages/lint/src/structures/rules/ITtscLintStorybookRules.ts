@@ -103,8 +103,8 @@ export interface ITtscLintStorybookRules {
    * side is renamed without the other.
    *
    * Object-property reports include a trailing comma when located; assignment
-   * reports are restricted to standalone top-level statements. Findings have
-   * no `Unnecessary` tag because matching text does not prove deletion has no
+   * reports are restricted to standalone top-level statements. Findings have no
+   * `Unnecessary` tag because matching text does not prove deletion has no
    * observable effect.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-redundant-story-name.md

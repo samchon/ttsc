@@ -9,10 +9,10 @@ import { WatchPaths } from "./WatchPaths";
  *
  * Starting at `location`, it escalates to the nearest existing parent while the
  * candidate is in `rejected` (a directory whose watcher already errored). It
- * refuses a candidate strictly containing `projectRoot`, returning
- * `undefined` instead; equal project identity remains admissible. Losing the
- * failed root is preferred to selecting the project from above. This selector
- * installs no watcher and does not establish native event delivery.
+ * refuses a candidate strictly containing `projectRoot`, returning `undefined`
+ * instead; equal project identity remains admissible. Losing the failed root is
+ * preferred to selecting the project from above. This selector installs no
+ * watcher and does not establish native event delivery.
  *
  * @evidence contracts/common.md#principled-implementation Rejected roots climb existing ancestors within the same project-containment ceiling as initial selection, preserving the distinction between unavailable coverage and unsafe broadening.
  * @evidence contracts/common.md#clear-and-simple-design One ancestor loop combines rejection membership, existing-directory discovery and a shared identity policy.

@@ -1,13 +1,20 @@
 import assert from "node:assert/strict";
+
 import { DUMP_SCHEMA_VERSION } from "../../../../packages/graph/src/model/loadGraph";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 
 /**
- * Verifies a response whose dump body declares schema 5 is rejected and its peer retired.
+ * Verifies a response whose dump body declares schema 5 is rejected and its
+ * peer retired.
  *
- * The envelope is a well-formed serve-v1 response, but the dump inside it is from
- * an older schema. The session must refuse it, name both versions, and retire the
- * peer rather than trusting facts the old schema may lack.
+ * The envelope is a well-formed serve-v1 response, but the dump inside it is
+ * from an older schema. The session must refuse it, name both versions, and
+ * retire the peer rather than trusting facts the old schema may lack.
  *
  * 1. Start a graph request and build an empty response whose dump provenance
  *    schemaVersion is 5.
@@ -29,7 +36,14 @@ export async function test_ttscgraph_rejects_schema_v5_snapshot(): Promise<void>
     const frame = emptyResponse(Number(port.writes[0]!.id));
     frame.dump!.provenance.schemaVersion = 5;
     session.receive(port.peer, frame);
-    await assert.rejects(active, new RegExp(`ttscgraph sends dump schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}`));
+    await assert.rejects(
+      active,
+      new RegExp(
+        `ttscgraph sends dump schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}`,
+      ),
+    );
     assertRetired(port);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

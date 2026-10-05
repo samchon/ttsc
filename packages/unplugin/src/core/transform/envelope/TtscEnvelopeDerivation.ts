@@ -13,8 +13,8 @@ import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
  * without eliminating every path query performed before its lookup.
  *
  * Every optional index is lazy. Graph indexes also serve external input
- * capture, validation and tracker scopes, so their construction does not
- * depend solely on whether a host installs a watch hook.
+ * capture, validation and tracker scopes, so their construction does not depend
+ * solely on whether a host installs a watch hook.
  *
  * Safe sharing requires one immutable envelope, fixed project/options and a
  * still-valid native identity view. Admission owns current-input proof; these

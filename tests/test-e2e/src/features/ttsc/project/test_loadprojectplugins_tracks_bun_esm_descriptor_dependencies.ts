@@ -1,10 +1,16 @@
 import { TestProject } from "@ttsc/testing";
 import nodeChildProcessForTrace from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
-import { assert, fs, loadProjectPlugins, path } from "../../../internal/ttsc/internal/project";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+import {
+  assert,
+  fs,
+  loadProjectPlugins,
+  path,
+} from "../../../internal/ttsc/internal/project";
 import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build";
+
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies a descriptor evaluated by Bun reports its static ESM dependencies
@@ -38,7 +44,10 @@ export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
     assert.equal(bun.signal, null);
 
     const root = TestProject.tmpdir("ttsc-bun-esm-descriptor-input-");
-    TestProject.retainTemporaryDirectory(root, "Bun descriptor descendants are not joined");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "Bun descriptor descendants are not joined",
+    );
     const project = path.join(root, "project");
     const source = path.join(root, "plugin-go");
     const ambientSource = path.join(root, "ambient-plugin-go");
@@ -253,7 +262,11 @@ function sameExistingFile(left: string, right: string): boolean {
     const rightStats = fs.statSync(right);
     return leftStats.dev === rightStats.dev && leftStats.ino === rightStats.ino;
   } catch (error) {
-    if (!["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? ""))
+    if (
+      !["ENOENT", "ENOTDIR"].includes(
+        (error as NodeJS.ErrnoException).code ?? "",
+      )
+    )
       throw error;
     return false;
   }

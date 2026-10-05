@@ -27,4 +27,3 @@ func TestUnicornArraySomeRequiresAnExistenceComparison(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/prefer-array-some", source) })
   }
 }
-

@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher/internal/inlineServedSourceMap";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the serve-time source-map inliner rewrites an external map into an
@@ -22,8 +22,8 @@ import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher
  *    and inline it; assert the trailer is a single `data:` URI whose decoded
  *    map lists the real absolute source and carries no `sourceRoot`.
  * 2. Feed the output back through a fresh emit key; assert the bytes are equal.
- * 3. Inline an emit with a CRLF body line ending; assert it too becomes a
- *    data: trailer.
+ * 3. Inline an emit with a CRLF body line ending; assert it too becomes a data:
+ *    trailer.
  *
  * @evidence contracts/testing.md#behavioral-verification inlineServedSourceMap inlines external metadata, removes sourceRoot, retains the map fields and emitted code, produces identical bytes when its own output is fed back in, and rewrites an emit with a CRLF body line ending once.
  * @evidence contracts/testing.md#independent-expectations The decoded version/file/names/mappings literals and independently constructed source URL constrain correctness before byte-equal idempotence is tested.

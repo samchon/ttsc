@@ -35,7 +35,10 @@ import {
  */
 export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
-  TestProject.retainTemporaryDirectory(root, "legacy lock native graph has no descendant join acknowledgement");
+  TestProject.retainTemporaryDirectory(
+    root,
+    "legacy lock native graph has no descendant join acknowledgement",
+  );
   const plugin = path.join(root, "plugin");
   writePluginSource(plugin);
   const cacheDir = path.join(root, "cache");
@@ -72,11 +75,21 @@ export const test_buildsourceplugin_reclaims_dead_legacy_plugin_lock = () => {
     assert.equal(exited.error, undefined, "owner setup child launch error");
     assert.equal(exited.signal, null, "owner setup child terminated by signal");
     assert.equal(exited.status, 0);
-    assert.ok(Number.isSafeInteger(exited.pid) && exited.pid > 0, "owner setup child must supply a positive safe PID");
+    assert.ok(
+      Number.isSafeInteger(exited.pid) && exited.pid > 0,
+      "owner setup child must supply a positive safe PID",
+    );
     let absence: unknown;
-    try { process.kill(exited.pid, 0); }
-    catch (error) { absence = error; }
-    assert.equal((absence as NodeJS.ErrnoException | undefined)?.code, "ESRCH", "only native ESRCH proves the owner PID absent");
+    try {
+      process.kill(exited.pid, 0);
+    } catch (error) {
+      absence = error;
+    }
+    assert.equal(
+      (absence as NodeJS.ErrnoException | undefined)?.code,
+      "ESRCH",
+      "only native ESRCH proves the owner PID absent",
+    );
     fs.writeFileSync(
       path.join(lockDir, "owner.json"),
       `${JSON.stringify({ hostname: os.hostname(), pid: exited.pid })}\n`,

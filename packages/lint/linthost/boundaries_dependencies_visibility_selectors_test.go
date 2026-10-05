@@ -40,7 +40,7 @@ func TestBoundariesDependenciesSelectsEntryAndPrivateTargets(t *testing.T) {
     "src/domain/internal/secret.ts": "export {};",
     "src/domain/public/detail.ts":   "export {};",
     "src/domain/public/index.ts":    "export {};",
-    "src/domain/other/detail.ts":     "export {};",
+    "src/domain/other/detail.ts":    "export {};",
   })
   assertBoundaryFindingTexts(
     t,

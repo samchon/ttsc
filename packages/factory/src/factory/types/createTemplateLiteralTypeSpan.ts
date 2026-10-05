@@ -19,9 +19,13 @@ import { make } from "../internal/make";
  * printer renders:
  *
  * ```ts
- * `width:${number}px`
+ * `width:${number}px`;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param type The interpolated type.
+ * @param literal The trailing middle or tail literal.
+ * @returns The created {@link TemplateLiteralTypeSpan}.
  * @evidence contracts/common.md#principled-implementation
  *   The interpolated type and middle/tail literal retain their different roles;
  *   a tail closes the parent template while a middle opens its next interpolation.
@@ -37,11 +41,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states that the span is a fragment and labels the example as
  *   parent-context output; middle/tail roles and both inputs are explained.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param type The interpolated type.
- * @param literal The trailing middle or tail literal.
- * @returns The created {@link TemplateLiteralTypeSpan}.
  */
 export const createTemplateLiteralTypeSpan = (
   type: TypeNode,

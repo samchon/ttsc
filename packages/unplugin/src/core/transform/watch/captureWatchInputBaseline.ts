@@ -21,9 +21,8 @@ import type { TtscWatchInputBaseline } from "./TtscWatchInputBaseline";
  *
  * @param options.tree Whether the path was recorded as a plugin source
  *   directory, whose state the baseline then carries (samchon/ttsc#1487).
- * @param options.accessibleEntries Whether compiler listing names are needed
- *   by a recorded predicate. Unrequested listings are not enumerated.
- *
+ * @param options.accessibleEntries Whether compiler listing names are needed by
+ *   a recorded predicate. Unrequested listings are not enumerated.
  * @evidence contracts/common.md#principled-implementation Two independently captured codec facts must agree before a baseline is returned; equality detects observed changes but cannot establish absence of intervening unobserved changes.
  * @evidence contracts/common.md#clear-and-simple-design One local capture assembles comparison facts, while the outer operation owns repeated observation and failure-to-undefined handling.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unavailable reads retain their explicit codec markers and predicates; a mismatch or escaping exception declines capture without supplying expected state or retrying until a desired answer appears.

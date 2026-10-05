@@ -46,7 +46,13 @@ func TestAstutilTokenRangeStripsLeadingTrivia(t *testing.T) {
   if source[pos:pos+5] != "const" {
     t.Fatalf("TokenRange should land on `const`; got slice %q", source[pos:pos+5])
   }
-  if end != 34 || source[pos:end] != "const x = 1;" { t.Fatalf("TokenRange should retain complete half-open statement bounds, got %d..%d", pos, end) }
-  if p, e := astutil.TokenRange(nil, stmt); p != -1 || e != -1 { t.Fatalf("absent file should return sentinel pair: %d..%d", p, e) }
-  if p, e := astutil.TokenRange(file, nil); p != -1 || e != -1 { t.Fatalf("absent node should return sentinel pair: %d..%d", p, e) }
+  if end != 34 || source[pos:end] != "const x = 1;" {
+    t.Fatalf("TokenRange should retain complete half-open statement bounds, got %d..%d", pos, end)
+  }
+  if p, e := astutil.TokenRange(nil, stmt); p != -1 || e != -1 {
+    t.Fatalf("absent file should return sentinel pair: %d..%d", p, e)
+  }
+  if p, e := astutil.TokenRange(file, nil); p != -1 || e != -1 {
+    t.Fatalf("absent node should return sentinel pair: %d..%d", p, e)
+  }
 }

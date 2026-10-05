@@ -21,21 +21,39 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership The matching feature calls maintained TypeScript source and WASM in the same unit process over one temporary schema. No installed consumer, native build or product child is involved. Admission gates the table; assertion and exact-root removal/absence failures are collected. Runtime and exact selection remain separate verification.
  */
 export async function test_prisma_source_loader_classifies_original_relation_spellings(): Promise<void> {
-  const { loadPrismaModels } = createRequire(import.meta.url)(fileURLToPath(new URL(
-    "../../../../packages/evidence/src/internal/loadPrismaModels.ts", import.meta.url,
-  ))) as {
-    loadPrismaModels(request: { root: string; sets: Array<{ id: string; files: string[] }> }): Promise<{
-      documents: Array<{ models: Array<{ name: string; fields: Array<{ name: string; symbol: string }> }> }>;
+  const { loadPrismaModels } = createRequire(import.meta.url)(
+    fileURLToPath(
+      new URL(
+        "../../../../packages/evidence/src/internal/loadPrismaModels.ts",
+        import.meta.url,
+      ),
+    ),
+  ) as {
+    loadPrismaModels(request: {
+      root: string;
+      sets: Array<{ id: string; files: string[] }>;
+    }): Promise<{
+      documents: Array<{
+        models: Array<{
+          name: string;
+          fields: Array<{ name: string; symbol: string }>;
+        }>;
+      }>;
       problems: unknown[];
     }>;
   };
   const root = TestProject.tmpdir("prisma-original-relations-");
   const failures: Error[] = [];
   const check = (label: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(label, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(label, { cause }));
+    }
   };
   try {
-    TestProject.writeFiles(root, { "prisma/schema.prisma": `datasource db {
+    TestProject.writeFiles(root, {
+      "prisma/schema.prisma": `datasource db {
   provider = "postgresql"
 }
 
@@ -56,23 +74,59 @@ model line {
   order_id String @db.Uuid
   order    Order  @relation(fields: [order_id], references: [id], onDelete: Cascade)
 }
-` });
-    const result = await loadPrismaModels({ root, sets: [{ id: "relations", files: ["prisma/schema.prisma"] }] });
+`,
+    });
+    const result = await loadPrismaModels({
+      root,
+      sets: [{ id: "relations", files: ["prisma/schema.prisma"] }],
+    });
     assert.deepEqual(result.problems, []);
     assert.equal(result.documents.length, 1);
-    check("complete model/field kinds", () => assert.deepEqual(
-      result.documents[0]!.models.map(model => [model.name, model.fields.map(field => [field.name, field.symbol])]),
-      [
-        ["User", [["id", "column"], ["orders", "relation"]]],
-        ["Order", [["id", "column"], ["owner_id", "column"], ["owner", "relation"], ["lines", "relation"]]],
-        ["line", [["id", "column"], ["order_id", "column"], ["order", "relation"]]],
-      ],
-    ));
+    check("complete model/field kinds", () =>
+      assert.deepEqual(
+        result.documents[0]!.models.map((model) => [
+          model.name,
+          model.fields.map((field) => [field.name, field.symbol]),
+        ]),
+        [
+          [
+            "User",
+            [
+              ["id", "column"],
+              ["orders", "relation"],
+            ],
+          ],
+          [
+            "Order",
+            [
+              ["id", "column"],
+              ["owner_id", "column"],
+              ["owner", "relation"],
+              ["lines", "relation"],
+            ],
+          ],
+          [
+            "line",
+            [
+              ["id", "column"],
+              ["order_id", "column"],
+              ["order", "relation"],
+            ],
+          ],
+        ],
+      ),
+    );
   } catch (cause) {
     failures.push(new Error("relation source load", { cause }));
   } finally {
-    check("cleanup:remove", () => fs.rmSync(root, { recursive: true, force: true }));
+    check("cleanup:remove", () =>
+      fs.rmSync(root, { recursive: true, force: true }),
+    );
     check("cleanup:absence", () => assert.equal(fs.existsSync(root), false));
   }
-  if (failures.length) throw new AggregateError(failures, "Original Prisma relation spellings failed.");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Original Prisma relation spellings failed.",
+    );
 }

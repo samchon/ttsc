@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
@@ -6,12 +5,13 @@ import os from "node:os";
 import path from "node:path";
 
 import { inspectPluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/inspectPluginBuildLock";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies legacy lock inspection distinguishes absent and live local owners.
  *
- * A synchronously completed owned child supplies the original E2E's native
- * PID input. Signal zero must separately establish ESRCH before that PID is
+ * A synchronously completed owned child supplies the original E2E's native PID
+ * input. Signal zero must separately establish ESRCH before that PID is
  * recorded. Numeric PID reuse after preparation remains possible; startedAt
  * describes the record and does not prove process incarnation.
  *
@@ -77,7 +77,10 @@ export function test_inspectpluginbuildlock_reports_dead_local_owner_as_abandone
     });
   }
   if (failures.length)
-    throw new AggregateError(failures, "local lock ownership assertions failed");
+    throw new AggregateError(
+      failures,
+      "local lock ownership assertions failed",
+    );
 }
 
 function endedProcessId(): number {

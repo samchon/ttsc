@@ -12,9 +12,8 @@ import type { CompilerDirectoryWatchEventPlan } from "./CompilerDirectoryWatchEv
  * other hears: on macOS a directory watch has heard a config edit its file
  * watch never delivered. Both are decided from the bytes
  * (`WatchTopology.compilerChangesToReport`), so the first to see the edit
- * reports it once. A named rename selects the surviving file for rearming;
- * an unnamed event
- * conservatively selects every surviving tracked input below the
+ * reports it once. A named rename selects the surviving file for rearming; an
+ * unnamed event conservatively selects every surviving tracked input below the
  * watch root as a change candidate and for non-Windows rearming. The caller
  * verifies actual content/owner movement before reporting; an event alone does
  * not prove inode replacement. Windows has no per-file watchers here.

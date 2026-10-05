@@ -5,7 +5,8 @@ type ConfigPluginEntry = { namespace: string; source: string };
 type TtscPluginContributor = { name: string; source: string };
 
 /**
- * Normalize evaluated contributor namespaces without losing a distinct registration.
+ * Normalize evaluated contributor namespaces without losing a distinct
+ * registration.
  *
  * Hyphens become underscores in Go package names. Distinct user namespaces that
  * then collide are rejected before exact repeated namespaces keep their first
@@ -16,7 +17,10 @@ type TtscPluginContributor = { name: string; source: string };
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Every evaluated entry follows the same normalization and collision rules, without fixture-specific names, foreign mutation or a fallback that discards a distinct colliding namespace.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the Go naming transformation, collision failure and first-source precedence, with descriptive paragraphs separated from acknowledgment tags.
  */
-export function normalizeContributors(entries: ConfigPluginEntry[], configPath: string): TtscPluginContributor[] {
+export function normalizeContributors(
+  entries: ConfigPluginEntry[],
+  configPath: string,
+): TtscPluginContributor[] {
   assertContributorNamespacesDoNotCollide(entries, configPath);
   // Dedup exact repeated namespaces on the Go-subpackage form. Config-array
   // folding can surface the same namespace more than once; that existing

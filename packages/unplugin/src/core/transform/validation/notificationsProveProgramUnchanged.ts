@@ -37,7 +37,10 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
  *   it caches no boolean permission across a tracker or universal change.
  */
 export function notificationsProveProgramUnchanged(
-  /** Generation supplying live tracker state, compiler policy and universal proof. */
+  /**
+   * Generation supplying live tracker state, compiler policy and universal
+   * proof.
+   */
   cached: TtscCachedProjectTransform,
 ): boolean {
   if (!notificationsProveMembership(cached)) return false;

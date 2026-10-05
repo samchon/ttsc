@@ -1,8 +1,8 @@
 import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures";
 
 /**
- * Create a fresh proof-witness collection for one transform attempt.
- * Its recorder bounds retained entries and their deduplication identities.
+ * Create a fresh proof-witness collection for one transform attempt. Its
+ * recorder bounds retained entries and their deduplication identities.
  *
  * @evidence contracts/common.md#principled-implementation Empty entries, zero omitted occurrences and an empty seen set establish the recorder's initial aggregate invariants.
  * @evidence contracts/common.md#clear-and-simple-design This constructor supplies only fresh aggregate storage; the recorder owns limits and identity composition.

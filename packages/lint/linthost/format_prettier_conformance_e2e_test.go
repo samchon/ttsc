@@ -248,9 +248,9 @@ func sourceNodeKinds(t *testing.T, source string) map[shimast.Kind]struct{} {
 }
 
 type prettierOracleResult struct {
-  ID string `json:"id"`
+  ID     string `json:"id"`
   Output string `json:"output"`
-  Error string `json:"error"`
+  Error  string `json:"error"`
 }
 
 // formatWithPinnedPrettierBatch loads the pinned, stateless core formatter once.
@@ -261,14 +261,14 @@ type prettierOracleResult struct {
 func formatWithPinnedPrettierBatch(t *testing.T, cases []prettierConformanceCase) []prettierOracleResult {
   t.Helper()
   type oracleInput struct {
-    ID string `json:"id"`
-    Source string `json:"source"`
+    ID     string         `json:"id"`
+    Source string         `json:"source"`
     Format map[string]any `json:"format"`
   }
   inputs := make([]oracleInput, len(cases))
   for index, testCase := range cases {
     inputs[index] = oracleInput{
-      ID: testCase.rule + "/" + testCase.name,
+      ID:     testCase.rule + "/" + testCase.name,
       Source: testCase.source,
       Format: normalizePrettierFormatOptions(testCase.format),
     }

@@ -16,10 +16,10 @@ func (reportRangeSuggestionTestRule) Check(*Context, *shimast.Node) {}
 // range primitive preserves the diagnostic while isolating cloned edits from
 // the automatic fix channel.
 //
-// 1. Report an explicit empty range with a titled action, then mutate its input.
-// 2. Require normalized diagnostic bounds and the original separate action edits.
-// 3. Check that absent edits keep only a diagnostic while off severity or no
-//    source file prevents collection.
+//  1. Report an explicit empty range with a titled action, then mutate its input.
+//  2. Require normalized diagnostic bounds and the original separate action edits.
+//  3. Check that absent edits keep only a diagnostic while off severity or no
+//     source file prevents collection.
 //
 // @evidence contracts/testing.md#behavioral-verification Context.ReportRangeSuggestion retains the literal rule, severity, file, message and normalized diagnostic range while isolating the titled cloned edit from automatic fixes; empty edits retain only a diagnostic and guarded contexts emit nothing.
 // @evidence contracts/testing.md#independent-expectations Authored diagnostic range [4,4) normalizes to [4,5), and the independent edit range [6,11) plus original other text must survive caller mutation. Literal messages and rule identity pin the complete diagnostic contract.

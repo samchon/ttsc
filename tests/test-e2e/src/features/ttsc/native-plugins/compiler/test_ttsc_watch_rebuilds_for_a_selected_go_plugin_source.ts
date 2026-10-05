@@ -1,7 +1,12 @@
 import { TestProject } from "@ttsc/testing";
 
 import { goPath } from "../../../../internal/ttsc/internal/plugin-corpus";
-import { assert, fs, path, workspaceRoot } from "../../../../internal/ttsc/internal/toolchain";
+import {
+  assert,
+  fs,
+  path,
+  workspaceRoot,
+} from "../../../../internal/ttsc/internal/toolchain";
 import { WatchSession } from "../../../../internal/ttsc/internal/watch";
 
 /**
@@ -11,7 +16,8 @@ import { WatchSession } from "../../../../internal/ttsc/internal/watch";
  * project-directory convention. Their source edit must rebuild the running
  * session so the content-addressed plugin binary is selected again.
  *
- * 1. Copy the real source-plugin fixture and verify the initial successful build emits PLUGIN.
+ * 1. Copy the real source-plugin fixture and verify the initial successful build
+ *    emits PLUGIN.
  * 2. Change the selected plugin from uppercasing to lowercasing.
  * 3. Require a second successful build emitting plugin without restarting.
  *
@@ -83,5 +89,8 @@ export const test_ttsc_watch_rebuilds_for_a_selected_go_plugin_source =
     }
     if (failures.length === 1) throw failures[0];
     if (failures.length > 1)
-      throw new AggregateError(failures, "Native source watch and shutdown failed");
+      throw new AggregateError(
+        failures,
+        "Native source watch and shutdown failed",
+      );
   };

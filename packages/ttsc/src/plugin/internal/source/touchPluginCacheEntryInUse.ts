@@ -12,13 +12,12 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * use. A long-lived consumer, such as a `ttsc --watch` session reusing its
  * resident check plugins, runs the binary again and again without either, so
  * its entry aged out and could be removed while the session still needed it to
- * respawn a sidecar. The consumer records each cycle's use
- * here instead. This improves its recency priority but does not give it
- * ownership of a permanently retained binary. A binary outside the cache, whose
- * directory carries no last-use record, is left alone.
+ * respawn a sidecar. The consumer records each cycle's use here instead. This
+ * improves its recency priority but does not give it ownership of a permanently
+ * retained binary. A binary outside the cache, whose directory carries no
+ * last-use record, is left alone.
  *
  * @param binary The plugin executable being used.
- *
  * @evidence contracts/common.md#principled-implementation An observed regular last-use marker selects the cache convention for refresh, rather than authenticating the binary or its producer. Atomic entry replacement avoids modifying an aliased marker inode; sequential checks do not pin the containing pathname.
  * @evidence contracts/common.md#clear-and-simple-design The binary's containing entry is projected directly, with a marker-presence gate before publication.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker is authored cache provenance, not a filename exception for a particular plugin or consumer.

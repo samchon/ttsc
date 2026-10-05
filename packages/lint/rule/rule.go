@@ -508,10 +508,10 @@ type RelatedReporter interface {
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RelatedInformation is a declaration of data shape; the code that holds its values owns their lifetime.
 type RelatedInformation struct {
   // Pos is the inclusive byte start in the current source file.
-  Pos     int
+  Pos int
 
   // End is the exclusive byte end in the current source file.
-  End     int
+  End int
 
   // Message explains why this secondary range relates to the finding.
   Message string
@@ -557,10 +557,10 @@ type RelatedInformation struct {
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TextEdit is a declaration of data shape; the code that holds its values owns their lifetime.
 type TextEdit struct {
   // Pos is the inclusive byte start; equal Pos and End insert text.
-  Pos  int
+  Pos int
 
   // End is the exclusive byte end and must not split a UTF-8 sequence.
-  End  int
+  End int
 
   // Text replaces the range; an empty value deletes it.
   Text string

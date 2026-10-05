@@ -12,8 +12,8 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * nothing finer; a host therefore records this one file, beside the module
  * itself, and its own snapshot or watcher decides when the module runs again.
  * Byte changes communicate deliveries and signal attempts: a delivery writes
- * the record of its generation (`writeProjectRecordFile`), a watching session's bridge bumps
- * `signal` when an observer reports a change to a recorded input
+ * the record of its generation (`writeProjectRecordFile`), a watching session's
+ * bridge bumps `signal` when an observer reports a change to a recorded input
  * (`signalProjectRecordFile`), and a build start proves each recorded input
  * against the disk and attempts to move a record whose state has moved while
  * nothing ran or that it cannot read, and removes one whose tsconfig is gone
@@ -50,10 +50,10 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  */
 export interface TtscProjectRecord {
   /**
-   * Evidenced delivery inputs, keyed by absolute path, with the
-   * state the generation recorded for them. An input whose generation recorded no
-   * state, a failed compile's recovery input among them, carries the state the
-   * adapter read when it wrote the record.
+   * Evidenced delivery inputs, keyed by absolute path, with the state the
+   * generation recorded for them. An input whose generation recorded no state,
+   * a failed compile's recovery input among them, carries the state the adapter
+   * read when it wrote the record.
    */
   inputs: Record<string, TtscWatchInputEvidence>;
 
@@ -75,9 +75,9 @@ export interface TtscProjectRecord {
 
   /**
    * The signal sequence since the record was last written from a generation.
-   * Repeated retry movements can increment it for the same unsettled change;
-   * it is not a count of distinct edits or proof of host receipt. It changes
-   * the bytes for a host that compares them.
+   * Repeated retry movements can increment it for the same unsettled change; it
+   * is not a count of distinct edits or proof of host receipt. It changes the
+   * bytes for a host that compares them.
    */
   signal: number;
 

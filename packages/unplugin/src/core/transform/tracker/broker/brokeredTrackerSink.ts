@@ -10,13 +10,13 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  * isolated watch process means to a generation's tracker.
  *
  * - An event is classified by the tracker's own filters. With the exact-input
- *   trackers' shared classifier, it alone decides between a mutation,
- *   a content change, and no recorded change; uncertain native aliases can
- *   independently withdraw the tracker's verification authority. With the
- *   project-directory tracker's filters, a named event records membership when
- *   admitted and structural, or content for an admitted non-rename event.
- *   Rejected membership can still withdraw authority through the owner filter.
- *   Events without that filter are mutations.
+ *   trackers' shared classifier, it alone decides between a mutation, a content
+ *   change, and no recorded change; uncertain native aliases can independently
+ *   withdraw the tracker's verification authority. With the project-directory
+ *   tracker's filters, a named event records membership when admitted and
+ *   structural, or content for an admitted non-rename event. Rejected
+ *   membership can still withdraw authority through the owner filter. Events
+ *   without that filter are mutations.
  * - An event the child could not place is a membership change of unknown kind.
  * - A failed watch fails the tracker, so its silence is never read as proof.
  * - A gap leaves the tracker hearing everything after it, so it is marked

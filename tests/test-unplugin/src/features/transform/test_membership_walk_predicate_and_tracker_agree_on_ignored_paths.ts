@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
@@ -9,10 +8,12 @@ import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/tra
 import type { ITtscProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/ITtscProjectMembershipPolicy";
 import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/unplugin/src/core/tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies the walk, the walk predicate, and the tracker's membership predicate give one answer
- * for every path, under a readable policy and the permissive fallback.
+ * Verifies the walk, the walk predicate, and the tracker's membership predicate
+ * give one answer for every path, under a readable policy and the permissive
+ * fallback.
  *
  * The live tracker never consulted the walk's ignored names, so under a policy
  * that admitted everything, creating `node_modules/.vite-temp` or writing
@@ -25,11 +26,12 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * 1. Plant sources in ordinary, package, hidden, and literally included
  *    directories.
  * 2. Walk the project, and ask the walk predicate (`isProjectWalkPath`) and the
- *    membership predicate the trackers use (`reportsProgramMembership`) about every
- *    planted file, under a default-include policy with a literal `files` entry
- *    and under the permissive fallback.
+ *    membership predicate the trackers use (`reportsProgramMembership`) about
+ *    every planted file, under a default-include policy with a literal `files`
+ *    entry and under the permissive fallback.
  * 3. Assert all three agree with an authored expected list per policy, so tool
  *    output under ignored names is never membership.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual walk, isProjectWalkPath and reportsProgramMembership select the independently specified planted corpus under readable policy and permissive fallback.
  * @evidence contracts/testing.md#independent-expectations Two literal expected file populations define ordinary source, explicitly pinned package input and fallback hidden-path admission independently of all three product operations.
  * @evidence contracts/testing.md#distinguishing-cases Every planted source/package/hidden/tool file is checked positively or negatively under both policies, while exact walk populations prevent three identically incorrect predicates from certifying each other.

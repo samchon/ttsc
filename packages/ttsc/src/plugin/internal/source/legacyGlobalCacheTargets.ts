@@ -13,9 +13,9 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * was ttsc-owned in those releases. The cleanup transaction still validates
  * present-day physical ownership and protected directories before deletion.
  *
- * The same holds for `<os.tmpdir()>/ttsc-orphan`, where releases that
- * lowered orphan sources for every run without
- * `TTSC_CACHE_DIR` and never collected them.
+ * The same holds for `<os.tmpdir()>/ttsc-orphan`, where releases that lowered
+ * orphan sources for every run without `TTSC_CACHE_DIR` and never collected
+ * them.
  *
  * @evidence contracts/common.md#principled-implementation The set enumerates historically authored ttsc cache locations, accepting environment cache bases only when absolute.
  * @evidence contracts/common.md#clear-and-simple-design One migration query deduplicates the finite platform-specific candidates without deleting them.

@@ -1,7 +1,8 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import path from "node:path";
+
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code install script uses a Windows command shim.
@@ -110,5 +111,4 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
       windowsVerbatimArguments: true,
     },
   });
-
 };

@@ -83,13 +83,13 @@ interface IReadSource {
  * One source reader separates URL transport from local byte reading. The outer
  * per-source boundary preserves original identity and collects every read or
  * normalization problem. Remote content has no local cache digest. The matching
- * configuration guide states scheme case and unsupported file URLs.
- * Local reads use one handle, acquire at most 16MiB of input plus a sentinel
- * byte, and fill bounded chunks across short reads. Every acquired-handle path
- * awaits a close attempt. A rejected close becomes a source problem with no
- * read digest and may replace an earlier read error; it does not certify
- * successful resource release. UTF-8 decoding and parsing have their own costs;
- * this byte limit is not a total process-memory quota.
+ * configuration guide states scheme case and unsupported file URLs. Local reads
+ * use one handle, acquire at most 16MiB of input plus a sentinel byte, and fill
+ * bounded chunks across short reads. Every acquired-handle path awaits a close
+ * attempt. A rejected close becomes a source problem with no read digest and
+ * may replace an earlier read error; it does not certify successful resource
+ * release. UTF-8 decoding and parsing have their own costs; this byte limit is
+ * not a total process-memory quota.
  *
  * @internal
  */
@@ -145,7 +145,8 @@ const readSource = async (
   const handle = await fs.open(location, "r");
   try {
     const stat = await handle.stat();
-    if (!stat.isFile()) throw new Error("the local Swagger source is not a file");
+    if (!stat.isFile())
+      throw new Error("the local Swagger source is not a file");
     if (stat.size > MAX_DOCUMENT_BYTES) throw documentSizeError();
     // The file can grow after stat. Read at most the limit plus one sentinel
     // byte from this same handle, rather than allocating its new whole size.
@@ -190,7 +191,9 @@ const readSource = async (
 };
 
 const documentSizeError = (): Error =>
-  new Error(`the Swagger document exceeds the ${MAX_DOCUMENT_BYTES} byte limit`);
+  new Error(
+    `the Swagger document exceeds the ${MAX_DOCUMENT_BYTES} byte limit`,
+  );
 
 const readRemoteSource = async (source: string): Promise<string> => {
   const response: Response = await fetch(source, {
@@ -317,14 +320,14 @@ const operationOf = (
  * OpenAPI 3.1 says they do. A reference already open on the path above is left
  * as written. The guard uses the decoded pointer, so percent-encoded and plain
  * spellings of the same recursive component stop at the same boundary. Two
- * operations reaching one cycle by different routes can still differ.
- * An undeclared or malformed reference is left
- * as written too: a broken document is not a digest question, and inventing an
- * empty schema for it would make two different broken documents agree.
- * Normalization retains the original pointer identity behind private schema
- * aliases, so a version converter cannot change the recursion boundary or bind
- * an unresolved reference to an unrelated component. Literal example, default,
- * const, enum and extension values are hashed as data, not dereferenced.
+ * operations reaching one cycle by different routes can still differ. An
+ * undeclared or malformed reference is left as written too: a broken document
+ * is not a digest question, and inventing an empty schema for it would make two
+ * different broken documents agree. Normalization retains the original pointer
+ * identity behind private schema aliases, so a version converter cannot change
+ * the recursion boundary or bind an unresolved reference to an unrelated
+ * component. Literal example, default, const, enum and extension values are
+ * hashed as data, not dereferenced.
  */
 const withResolvedReferences = (
   value: unknown,
@@ -449,7 +452,10 @@ const componentAt = (
     if (/~(?:[^01]|$)/u.test(token)) return undefined;
     const segment: string = token.replaceAll("~1", "/").replaceAll("~0", "~");
     if (current === null || typeof current !== "object") return undefined;
-    if (Array.isArray(current) && /^(?:0|[1-9][0-9]*)$/u.test(segment) === false)
+    if (
+      Array.isArray(current) &&
+      /^(?:0|[1-9][0-9]*)$/u.test(segment) === false
+    )
       return undefined;
     if (!Object.hasOwn(current as Record<string, unknown>, segment))
       return undefined;

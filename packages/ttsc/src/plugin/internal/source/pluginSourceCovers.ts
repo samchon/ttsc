@@ -4,17 +4,17 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
 
 /**
  * Whether a path below a plugin source directory can bear on the sources in the
- * directory's state (`pluginSourceState`), so an observer of
- * the directory as a subtree must hear it.
+ * directory's state (`pluginSourceState`), so an observer of the directory as a
+ * subtree must hear it.
  *
  * The plugin build passes over every directory it prunes
  * (`prunesPluginSourceDirectory`: a nested `node_modules`, a repository's
  * `.git`), so nothing below one moves the state, and an observer that watched
  * them would re-prove the state, or rebuild, for every write of a package
  * manager or of Git. `ttsc --watch` and `@ttsc/unplugin`'s observers answer the
- * question with this one rule. An injected filesystem
- * observer can supply its path grammar explicitly; native compiler and
- * filesystem callers retain the current process default.
+ * question with this one rule. An injected filesystem observer can supply its
+ * path grammar explicitly; native compiler and filesystem callers retain the
+ * current process default.
  *
  * @param root The plugin source directory.
  * @param file The path, absolute.
@@ -23,7 +23,6 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
  *   path an event names, whose own name may be a file the build reads whatever
  *   it is called, so only the directories above it are checked.
  * @param platform The observed path grammar, defaulting to the current process.
- *
  * @evidence contracts/common.md#principled-implementation Relative containment uses the observed path grammar to reject paths outside the source; omitting the final component for entry events preserves files whose names happen to match pruned directory names.
  * @evidence contracts/common.md#clear-and-simple-design One kind discriminant separates watched-directory membership from event-entry membership without duplicating path containment logic.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The same shared prune predicate controls source observers rather than a local list adjusted to a particular watcher failure.

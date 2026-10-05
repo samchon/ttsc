@@ -9,9 +9,9 @@ import { createProjectInputPathIdentityContext } from "../../../../../packages/t
 /**
  * Retains actual empty-directory case inheritance and Windows sensitive input.
  *
- * A real marker alias supplies the ordinary-volume expectation independently
- * of the resolver. Windows then enables the native directory flag and creates
- * a fresh context before resolving missing suffixes under that empty directory.
+ * A real marker alias supplies the ordinary-volume expectation independently of
+ * the resolver. Windows then enables the native directory flag and creates a
+ * fresh context before resolving missing suffixes under that empty directory.
  *
  * @evidence contracts/testing.md#behavioral-verification Imports the actual project-input identity entry and compares missing Spec.md/spec.md keys under the original empty ordinary directory to real Marker.txt/mARKER.TXT alias existence. Windows actual fsutil enable must succeed before a fresh context returns distinct sensitive suffix keys, followed by the original Marker.txt write.
  * @evidence contracts/testing.md#independent-expectations Native fs.existsSync observes the marker alias independently; actual fsutil exit success establishes the sensitive fixture premise. No expected policy is read from the SUT's caseSensitive method, and unknown observation is not accepted as proof of native capability.
@@ -47,7 +47,9 @@ export function test_project_input_path_identity_respects_directory_case_semanti
     fs.mkdirSync(insensitiveRoot);
     fs.writeFileSync(path.join(actualRoot, "Marker.txt"), "", "utf8");
     const actual = createProjectInputPathIdentityContext();
-    const markerAliasExists = fs.existsSync(path.join(actualRoot, "mARKER.TXT"));
+    const markerAliasExists = fs.existsSync(
+      path.join(actualRoot, "mARKER.TXT"),
+    );
     assert.equal(
       actual.resolve(path.join(insensitiveRoot, "Spec.md")).key ===
         actual.resolve(path.join(insensitiveRoot, "spec.md")).key,
@@ -71,7 +73,11 @@ export function test_project_input_path_identity_respects_directory_case_semanti
       stdout: enabled.stdout,
       stderr: enabled.stderr,
     });
-    assert.equal(enabled.error, undefined, `fsutil preparation error: ${result}`);
+    assert.equal(
+      enabled.error,
+      undefined,
+      `fsutil preparation error: ${result}`,
+    );
     assert.equal(enabled.signal, null, `fsutil signal termination: ${result}`);
     assert.equal(enabled.status, 0, `fsutil exit: ${result}`);
     const sensitiveActual = createProjectInputPathIdentityContext();

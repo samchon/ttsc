@@ -639,9 +639,9 @@ function parseFileList(value: unknown): string[] | undefined {
 }
 
 /**
- * Retain a literal wire key without invoking an inherited setter.
- * The ordinary record prototype and mutable, enumerable property shape remain
- * compatible with existing consumers and JSON serialization.
+ * Retain a literal wire key without invoking an inherited setter. The ordinary
+ * record prototype and mutable, enumerable property shape remain compatible
+ * with existing consumers and JSON serialization.
  */
 function storeRecordEntry<T>(
   record: Record<string, T>,

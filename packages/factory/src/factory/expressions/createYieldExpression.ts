@@ -13,21 +13,21 @@ import { make } from "../internal/make";
  * With no asterisk and `expression` of `x`, the printer emits:
  *
  * ```ts
- * yield x
+ * yield x;
  * ```
  *
  * Delegating yield requires an operand, unlike bare yield. Callers establish
- * valid generator context and delegation input; construction validates neither.
- *
- * @evidence contracts/common.md#principled-implementation Optional marker and operand retain bare, value-bearing and delegating yield syntax; a delegating operand and valid generator context are caller premises.
- * @evidence contracts/common.md#clear-and-simple-design One make call stores the two optional constituents without iterator runtime state or a second yield schema.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The builder does not patch an iterator or substitute known yielded results for supplied expression syntax.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains marker presence, bare yield and delegated-input requirements, with an expression example and separated parameter/tag blocks.
+ * valid generator context and delegation input; construction validates
+ * neither.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param asteriskToken The `*` token for a delegating `yield*`, if any.
  * @param expression The yielded value, if any.
  * @returns The created {@link YieldExpression}.
+ * @evidence contracts/common.md#principled-implementation Optional marker and operand retain bare, value-bearing and delegating yield syntax; a delegating operand and valid generator context are caller premises.
+ * @evidence contracts/common.md#clear-and-simple-design One make call stores the two optional constituents without iterator runtime state or a second yield schema.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The builder does not patch an iterator or substitute known yielded results for supplied expression syntax.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains marker presence, bare yield and delegated-input requirements, with an expression example and separated parameter/tag blocks.
  */
 export const createYieldExpression = (
   asteriskToken: Token | undefined,

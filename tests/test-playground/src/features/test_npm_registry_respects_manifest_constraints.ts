@@ -17,6 +17,7 @@ type Metadata = Parameters<typeof selectVersion>[0];
  * 1. Select versions across semver ranges and reject unsatisfied constraints.
  * 2. Install an aliased transitive dependency under its alias key, then reject a
  *    second range discovered after the first version was already mounted.
+ *
  * @evidence contracts/testing.md#behavioral-verification selectVersion intersects ranges/tags and installPlaygroundDependencies mounts npm aliases under their exposed name while querying the actual registry target; incompatible late required ranges reject with both requester identities.
  * @evidence contracts/testing.md#independent-expectations Published fixture versions1.0/1.9.9/2.0 and literal highest-compatible1.9.9 establish semver expectations; independent alias module bytes and request logs distinguish registry identity from mount identity.
  * @evidence contracts/testing.md#distinguishing-cases Five ranges, stable-plus-range, unsatisfied/missing tag, aliased transitive install and a late conflicting a^2 edge retain exact positive and contextual negative outcomes.

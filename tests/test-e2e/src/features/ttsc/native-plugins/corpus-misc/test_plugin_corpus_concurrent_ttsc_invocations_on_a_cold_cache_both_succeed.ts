@@ -21,7 +21,9 @@ import {
  *
  * The source-plugin build path writes to a shared content-addressed cache using
  * a scratch-then-rename strategy. Two simultaneous cold builds must not corrupt
- * each other — the original outputs alone do not identify the winning builder or prove avoided rebuilding. The runtime cache publication population is additionally required to contain one content-key entry.
+ * each other — the original outputs alone do not identify the winning builder
+ * or prove avoided rebuilding. The runtime cache publication population is
+ * additionally required to contain one content-key entry.
  *
  * 1. Copy the `go-source-plugin` fixture to two independent temp directories and
  *    point both at the same empty cache directory.
@@ -43,7 +45,11 @@ export const test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both
     const rootA = copyProject("go-source-plugin");
     const rootB = copyProject("go-source-plugin");
     const cacheDir = TestProject.tmpdir("ttsc-source-plugin-race-");
-    assert.deepEqual(fs.readdirSync(cacheDir), [], "the private plugin cache starts empty");
+    assert.deepEqual(
+      fs.readdirSync(cacheDir),
+      [],
+      "the private plugin cache starts empty",
+    );
     // The plugin cache both runs race on is cold; the Go objects they build
     // from are the suite's, which the case never reads.
     const env = {
@@ -82,7 +88,9 @@ export const test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both
           stderr += chunk.toString();
         });
         let failure: Error | undefined;
-        child.on("error", (error) => { failure = error; });
+        child.on("error", (error) => {
+          failure = error;
+        });
         child.on("close", (status, signal) => {
           if (failure !== undefined) reject(failure);
           else resolve({ status, signal, stdout, stderr, root });
@@ -94,23 +102,59 @@ export const test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both
     const failures: unknown[] = [];
     for (const [index, result] of results.entries()) {
       if (result.status === "rejected") {
-        failures.push(new Error(`Concurrent consumer ${index} failed`, { cause: result.reason }));
+        failures.push(
+          new Error(`Concurrent consumer ${index} failed`, {
+            cause: result.reason,
+          }),
+        );
         continue;
       }
       try {
         assert.equal(result.value.signal, null, result.value.stderr);
         assert.equal(result.value.status, 0, result.value.stderr);
-        assert.match(fs.readFileSync(path.join(result.value.root, "dist", "main.js"), "utf8"), /"PLUGIN"/);
+        assert.match(
+          fs.readFileSync(
+            path.join(result.value.root, "dist", "main.js"),
+            "utf8",
+          ),
+          /"PLUGIN"/,
+        );
       } catch (error) {
-        failures.push(new Error(`Concurrent consumer ${index} output failed`, { cause: error }));
+        failures.push(
+          new Error(`Concurrent consumer ${index} output failed`, {
+            cause: error,
+          }),
+        );
       }
     }
     try {
-      const entries = fs.readdirSync(path.join(cacheDir, "plugins"), { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && /^[0-9a-f]{32}$/.test(entry.name));
-      assert.equal(entries.length, 1, "both copied inputs publish one content key");
-      assert.ok(fs.existsSync(path.join(cacheDir, "plugins", entries[0]!.name, process.platform === "win32" ? "plugin.exe" : "plugin")));
-    } catch (error) { failures.push(error); }
+      const entries = fs
+        .readdirSync(path.join(cacheDir, "plugins"), { withFileTypes: true })
+        .filter(
+          (entry) => entry.isDirectory() && /^[0-9a-f]{32}$/.test(entry.name),
+        );
+      assert.equal(
+        entries.length,
+        1,
+        "both copied inputs publish one content key",
+      );
+      assert.ok(
+        fs.existsSync(
+          path.join(
+            cacheDir,
+            "plugins",
+            entries[0]!.name,
+            process.platform === "win32" ? "plugin.exe" : "plugin",
+          ),
+        ),
+      );
+    } catch (error) {
+      failures.push(error);
+    }
     if (failures.length === 1) throw failures[0];
-    if (failures.length > 1) throw new AggregateError(failures, "Concurrent plugin publication failed");
+    if (failures.length > 1)
+      throw new AggregateError(
+        failures,
+        "Concurrent plugin publication failed",
+      );
   };

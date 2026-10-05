@@ -1,6 +1,5 @@
 import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
 import { resolveGraphHandle } from "../../../../packages/graph/src/server/resolveHandle";
-
 import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
 export type ResolverGraphNode = ITtscGraphDump.INode;

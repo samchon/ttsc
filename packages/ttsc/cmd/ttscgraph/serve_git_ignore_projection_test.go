@@ -18,10 +18,10 @@ import (
 // authored peer. The source remains a graph endpoint while its ignored flag is
 // preserved through full, partial, unchanged and repaired generations.
 //
-// 1. Initialize an owned Git worktree whose .gitignore names one source; the
-//    adapters then obtain real NUL-delimited membership through git check-ignore.
-// 2. Run the default dump and resident adapters over the same source corpus.
-// 3. Edit, restore and repair the project, checking every published membership.
+//  1. Initialize an owned Git worktree whose .gitignore names one source; the
+//     adapters then obtain real NUL-delimited membership through git check-ignore.
+//  2. Run the default dump and resident adapters over the same source corpus.
+//  3. Edit, restore and repair the project, checking every published membership.
 //
 // @evidence contracts/testing.md#behavioral-verification Real git init prepares an owned worktree and production git check-ignore evaluates membership. The default dump and initial legacy snapshot contain Generated with ignored=true and Visible with ignored=false. Resident full and incremental requests publish, while unchanged requests publish no snapshot; checkNodes inspects the committed store after each successful resident transition. Invalid config requires an error, no snapshot and changed=false before exact-config recovery.
 // @evidence contracts/testing.md#independent-expectations The literal ignore rule selects Generated and excludes Visible. Restoring the exact prior config bytes preserves the committed program, so recovery is unchanged; private body edits require incremental publication.
@@ -44,17 +44,27 @@ func TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters(t *testing.T) {
   observation := e2etrace.BeginCommand(command, "CombinedOutput")
   output, initErr := command.CombinedOutput()
   observation.Result(initErr)
-  if initErr != nil { t.Fatalf("real Git worktree precondition: %v: %s", initErr, output) }
+  if initErr != nil {
+    t.Fatalf("real Git worktree precondition: %v: %s", initErr, output)
+  }
 
   checkNodes := func(t *testing.T, stage string, nodes []graph.DumpNode) {
     t.Helper()
     found := map[string]bool{}
     for _, node := range nodes {
-      if node.Name != "Generated" && node.Name != "Visible" { continue }
+      if node.Name != "Generated" && node.Name != "Visible" {
+        continue
+      }
       found[node.Name] = true
-      if node.Ignored != (node.Name == "Generated") { t.Errorf("%s %s ignored=%v", stage, node.Name, node.Ignored) }
+      if node.Ignored != (node.Name == "Generated") {
+        t.Errorf("%s %s ignored=%v", stage, node.Name, node.Ignored)
+      }
     }
-    for _, name := range []string{"Generated", "Visible"} { if !found[name] { t.Errorf("%s missing %s", stage, name) } }
+    for _, name := range []string{"Generated", "Visible"} {
+      if !found[name] {
+        t.Errorf("%s missing %s", stage, name)
+      }
+    }
   }
   t.Run("default dump dispatch", func(t *testing.T) {
     var output, errors bytes.Buffer
@@ -62,27 +72,45 @@ func TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters(t *testing.T) {
     defer func() { stdout, stderr = priorOut, priorErr }()
     stdout, stderr = &output, &errors
     code := run([]string{"dump", "--cwd", root, "--tsconfig", "tsconfig.json"})
-    if code != 0 { t.Fatalf("default dump status=%d: %s", code, errors.String()) }
+    if code != 0 {
+      t.Fatalf("default dump status=%d: %s", code, errors.String())
+    }
     var dump graph.Dump
-    if err := json.Unmarshal(output.Bytes(), &dump); err != nil { t.Fatal(err) }
+    if err := json.Unmarshal(output.Bytes(), &dump); err != nil {
+      t.Fatal(err)
+    }
     checkNodes(t, "default dump", dump.Nodes)
   })
 
   t.Run("resident shards", func(t *testing.T) {
     session, err := newGraphSession(root, "tsconfig.json")
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     defer session.Close()
     verify := func(stage, expectedMode string) {
       t.Helper()
       snapshot, mode, changed, err := session.SnapshotShards()
-      if err != nil { t.Fatalf("%s: %v", stage, err) }
-      if mode != expectedMode { t.Errorf("%s mode=%s want=%s", stage, mode, expectedMode) }
+      if err != nil {
+        t.Fatalf("%s: %v", stage, err)
+      }
+      if mode != expectedMode {
+        t.Errorf("%s mode=%s want=%s", stage, mode, expectedMode)
+      }
       if expectedMode == serveModeUnchanged {
-        if snapshot != nil || changed { t.Errorf("%s unexpectedly published", stage) }
-      } else if snapshot == nil || !changed { t.Errorf("%s failed to publish", stage) }
-      if session.graphStore == nil { t.Fatal(stage + " has no committed store for dependent transitions") }
+        if snapshot != nil || changed {
+          t.Errorf("%s unexpectedly published", stage)
+        }
+      } else if snapshot == nil || !changed {
+        t.Errorf("%s failed to publish", stage)
+      }
+      if session.graphStore == nil {
+        t.Fatal(stage + " has no committed store for dependent transitions")
+      }
       var nodes []graph.DumpNode
-      for _, shard := range session.graphStore.shards { nodes = append(nodes, shard.shard.Nodes...) }
+      for _, shard := range session.graphStore.shards {
+        nodes = append(nodes, shard.shard.Nodes...)
+      }
       checkNodes(t, stage, nodes)
     }
     verify("full", serveModeInitial)
@@ -93,7 +121,9 @@ func TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters(t *testing.T) {
     verify("restored", serveModeIncremental)
     verify("restored unchanged", serveModeUnchanged)
     writeGraphFile(t, filepath.Join(root, "tsconfig.json"), "{")
-    if snapshot, _, changed, err := session.SnapshotShards(); err == nil || snapshot != nil || changed { t.Error("invalid config did not fail closed") }
+    if snapshot, _, changed, err := session.SnapshotShards(); err == nil || snapshot != nil || changed {
+      t.Error("invalid config did not fail closed")
+    }
     writeGraphFile(t, filepath.Join(root, "tsconfig.json"), config)
     verify("recovered prior config", serveModeUnchanged)
     writeGraphFile(t, visible, "import { Generated } from './generated code'; export function Visible(): number { return Generated() + 1; }\n")
@@ -107,10 +137,14 @@ func TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters(t *testing.T) {
   writeGraphFile(t, visible, visibleSource)
   t.Run("legacy resident dump", func(t *testing.T) {
     legacy, err := newGraphSession(root, "tsconfig.json")
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     defer legacy.Close()
     full, mode, changed, err := legacy.Snapshot()
-    if err != nil || full == nil || mode != serveModeInitial || !changed { t.Fatalf("legacy default: mode=%s changed=%v error=%v", mode, changed, err) }
+    if err != nil || full == nil || mode != serveModeInitial || !changed {
+      t.Fatalf("legacy default: mode=%s changed=%v error=%v", mode, changed, err)
+    }
     checkNodes(t, "legacy default", full.Nodes)
   })
 }

@@ -1,17 +1,18 @@
 import type { ChildProcess } from "node:child_process";
 
 /**
- * Subscribe to this fixture client's actual child before requests can retire it.
+ * Subscribe to this fixture client's actual child before requests can retire
+ * it.
  *
  * The test-only structural read names the child already created by the owning
  * constructor. It is used solely for resource ownership, not reply/queue
  * expectations; no production API or foreign method is replaced. dispose is a
- * termination attempt, so only the actual close event completes this receipt.
- * A timeout remains a cleanup failure, never successful retirement.
+ * termination attempt, so only the actual close event completes this receipt. A
+ * timeout remains a cleanup failure, never successful retirement.
  */
-export function observeResidentTransformClose(
-  client: { dispose(): void },
-): () => Promise<void> {
+export function observeResidentTransformClose(client: {
+  dispose(): void;
+}): () => Promise<void> {
   const child = (client as unknown as { readonly child: ChildProcess }).child;
   let closedListener!: () => void;
   const closed = new Promise<void>((resolve) => {
@@ -31,7 +32,10 @@ export function observeResidentTransformClose(
         closed,
         new Promise<never>((_resolve, reject) => {
           timer = setTimeout(
-            () => reject(new Error("Resident transform fixture child did not close")),
+            () =>
+              reject(
+                new Error("Resident transform fixture child did not close"),
+              ),
             60_000,
           );
         }),
@@ -44,6 +48,9 @@ export function observeResidentTransformClose(
     }
     if (failures.length === 1) throw failures[0];
     if (failures.length > 1)
-      throw new AggregateError(failures, "Resident transform disposal and close failed");
+      throw new AggregateError(
+        failures,
+        "Resident transform disposal and close failed",
+      );
   };
 }

@@ -49,8 +49,8 @@ export interface InputObserver {
   /**
    * Forget every owner and attempt closure of current scopes, poller and timer.
    * Native or supplied close refusal need not mean a handle actually closed.
-   * The observer
-   * stays open on its root, and observes owners again as they register.
+   * The observer stays open on its root, and observes owners again as they
+   * register.
    *
    * @evidence contracts/common.md#principled-implementation Disposal clears current registration authority and attempts independent cleanup while allowing later deliveries to register again on the root; successful native release is not guaranteed.
    * @evidence contracts/common.md#clear-and-simple-design One lifecycle boundary releases observer-owned state rather than exposing every native watch to consumers.
@@ -121,8 +121,8 @@ export interface InputObserver {
   /**
    * Replace one owner's inputs with a delivery's, keeping a failed delivery's
    * previous spellings for recovery. Current proof can use the `startedAt`
-   * observation window when history and scope authority permit; fallback,
-   * newly recorded conditions or unavailable history still require disk replay
+   * observation window when history and scope authority permit; fallback, newly
+   * recorded conditions or unavailable history still require disk replay
    * (samchon/ttsc#1423).
    *
    * @evidence contracts/common.md#principled-implementation Replacement registers recorded conditions and checks the compile-to-subscribe window; failed delivery retains previous spellings that its exception may omit.

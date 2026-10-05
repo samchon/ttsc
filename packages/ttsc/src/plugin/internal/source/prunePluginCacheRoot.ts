@@ -18,14 +18,14 @@ import { releasePluginBuildLock } from "./releasePluginBuildLock";
  *
  * Normally once a day (unless `force`), entries unused for 30 days are eligible
  * for removal and, past a 2 GiB threshold, oldest eligible entries are removed
- * toward 80% of it
- * (`CachePrunePolicy`). A target-sized cohort of recently used entries, active
- * builds and entries named in `protectedEntries` survive. When the protected
- * set alone keeps the root over the ceiling, the daily marker is backdated so
- * a later invocation becomes eligible after the protection window instead of
- * a day later. Failed removals, protected/live/unknown owners and incomplete
- * accounting can leave the cache above its thresholds indefinitely. Exceptions
- * are swallowed; native calls and delegated retries can still block a build.
+ * toward 80% of it (`CachePrunePolicy`). A target-sized cohort of recently used
+ * entries, active builds and entries named in `protectedEntries` survive. When
+ * the protected set alone keeps the root over the ceiling, the daily marker is
+ * backdated so a later invocation becomes eligible after the protection window
+ * instead of a day later. Failed removals, protected/live/unknown owners and
+ * incomplete accounting can leave the cache above its thresholds indefinitely.
+ * Exceptions are swallowed; native calls and delegated retries can still block
+ * a build.
  *
  * Payload deletion acquires the same v3 per-key lease as a builder. A task
  * retired while it was still running remains protected until its exact

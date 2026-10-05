@@ -11,9 +11,12 @@ import { make } from "../internal/make";
  * Given an `A | B` inner type, the printer renders:
  *
  * ```ts
- * (A | B)
+ * A | B;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param type The inner type to parenthesize.
+ * @returns The created {@link ParenthesizedTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   ParenthesizedTypeNode retains an explicit grouping boundary around its
  *   child, even where the surrounding precedence would not demand parentheses.
@@ -29,10 +32,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   The corrected example includes the promised parentheses and the prose
  *   explains explicit grouping separately from automatic printer grouping.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param type The inner type to parenthesize.
- * @returns The created {@link ParenthesizedTypeNode}.
  */
 export const createParenthesizedType = (
   type: TypeNode,

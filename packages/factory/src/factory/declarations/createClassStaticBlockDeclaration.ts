@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param body The body.
+ * @returns The created {@link ClassStaticBlockDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   A Block body inside ClassStaticBlockDeclaration models class-evaluation
  *   initialization syntax; constructing the node does not execute those statements.
@@ -29,10 +32,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains class-evaluation timing and body ownership, with a
  *   static-block example separated from its acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param body The body.
- * @returns The created {@link ClassStaticBlockDeclaration}.
  */
 export const createClassStaticBlockDeclaration = (
   body: Block,

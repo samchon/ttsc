@@ -19,12 +19,14 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
  * itself.
  *
  * 1. Build a project whose nested directory holds a directory named
- *    `lint.config.ts` and whose parent holds a plain-JSON `ttsc-lint.config.json`.
- * 2. Discover from the nested tsconfig and assert the twenty-eight probed paths
- *    in native order with the file digest, the directory marker digest, the
+ *    `lint.config.ts` and whose parent holds a plain-JSON
+ *    `ttsc-lint.config.json`.
+ * 2. Discover from the nested tsconfig and assert the twenty-eight probed paths in
+ *    native order with the file digest, the directory marker digest, the
  *    junction target and nulls.
  * 3. Add a second config beside the first and require the ambiguity error, then
- *    re-anchor through `pluginConfigDir` and an explicit relative `configFile`.
+ *    re-anchor through `pluginConfigDir` and an explicit relative
+ *    `configFile`.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored createTtscPlugin factory on a plain JSON config so no evaluator runs, and asserts the returned hostInputs, hostInputHashes and hostInputRealpaths for a two-directory walk, the multiple-config error, the pluginConfigDir anchor and the explicit configFile observation.
  * @evidence contracts/testing.md#independent-expectations Digests are computed with node:crypto over literal bytes and the documented directory marker, the candidate order is the authored fourteen-name list, and the directory candidate's physical target is the junction target the test created; none of it is read back from the factory.
@@ -118,7 +120,10 @@ export function test_lint_descriptor_observes_config_discovery_candidates(): voi
     const explicit = factory({
       ...context,
       pluginConfigDir: project,
-      plugin: { transform: "@ttsc/lint", configFile: "./ttsc-lint.config.json" },
+      plugin: {
+        transform: "@ttsc/lint",
+        configFile: "./ttsc-lint.config.json",
+      },
     });
     assert.deepEqual(explicit.hostInputs, [parentConfig]);
     assert.deepEqual(explicit.hostInputHashes, {

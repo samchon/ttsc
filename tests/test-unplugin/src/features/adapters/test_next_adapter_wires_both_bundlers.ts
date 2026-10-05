@@ -7,7 +7,8 @@ import { loadNext } from "../internal/adapter-next/loadNext";
 import { loadersOf } from "../internal/adapter-next/loadersOf";
 
 /**
- * Verifies `withTtsc` forwards Turbopack options and injects the webpack plugin.
+ * Verifies `withTtsc` forwards Turbopack options and injects the webpack
+ * plugin.
  *
  * The wrapper injected the webpack plugin and nothing else, so a project on
  * Turbopack got no transform at all and no error: the build succeeded and every
@@ -22,6 +23,7 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  * 2. Assert every automatic Turbopack glob routes through the ttsc loader with
  *    those exact options.
  * 3. Assert the webpack hook still injects one plugin.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls authored next with a project option, asserting each automatic source glob uses the ttsc loader with unchanged options and the webpack hook injects exactly one plugin.
  * @evidence contracts/testing.md#independent-expectations

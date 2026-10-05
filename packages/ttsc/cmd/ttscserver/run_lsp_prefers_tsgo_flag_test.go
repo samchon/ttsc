@@ -48,5 +48,7 @@ func TestRunLSPPrefersTsgoFlag(t *testing.T) {
   if captured.TsgoBinary != expected {
     t.Fatalf("expected TsgoBinary %q, got %q", expected, captured.TsgoBinary)
   }
-  if captured.Cwd != expectedCwd { t.Fatalf("expected explicit cwd %q, got %q", expectedCwd, captured.Cwd) }
+  if captured.Cwd != expectedCwd {
+    t.Fatalf("expected explicit cwd %q, got %q", expectedCwd, captured.Cwd)
+  }
 }

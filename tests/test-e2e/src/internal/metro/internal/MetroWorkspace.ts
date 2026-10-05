@@ -5,12 +5,13 @@ import path from "node:path";
 /**
  * One owned directory that every Metro boundary scenario takes projects from.
  *
- * Each scenario used to create its own temporary project (and, for several,
- * an external directory beside it) and leave removal to process exit. The
+ * Each scenario used to create its own temporary project (and, for several, an
+ * external directory beside it) and leave removal to process exit. The
  * workspace materializes the unplugin fixture project once as a template and
  * every scenario enters a project slot by replacing that slot with a fresh copy
  * of it, which also removes the slot's `node_modules/.cache/ttsc-metro`
- * snapshot, so no snapshot, epoch or recorded input can carry between scenarios.
+ * snapshot, so no snapshot, epoch or recorded input can carry between
+ * scenarios.
  */
 export namespace MetroWorkspace {
   /** The owned directory and the project template copied into its slots. */
@@ -45,7 +46,9 @@ export namespace MetroWorkspace {
    */
   export function open(): IWorkspace {
     const base = fs.realpathSync.native(TestProject.tmpdir("ttsc-metro-e2e-"));
-    const template = TestUnpluginProject.createProject({ temporaryParent: base });
+    const template = TestUnpluginProject.createProject({
+      temporaryParent: base,
+    });
     return { base, template };
   }
 
@@ -77,12 +80,17 @@ export namespace MetroWorkspace {
       fs.writeFileSync(tsconfig, JSON.stringify(parsed, null, 2), "utf8");
     }
     if (options.source !== undefined)
-      fs.writeFileSync(path.join(root, "src", "main.ts"), options.source, "utf8");
+      fs.writeFileSync(
+        path.join(root, "src", "main.ts"),
+        options.source,
+        "utf8",
+      );
     return root;
   }
 
   /**
-   * Replace a slot with a copy of a static authored project from `fixtures/metro`.
+   * Replace a slot with a copy of a static authored project from
+   * `fixtures/metro`.
    *
    * @evidence contracts/common.md#principled-implementation The slot holds the checked-in files byte for byte through the existing directory copier, so the scenario starts from its authored input and applies only its runtime links.
    * @evidence contracts/common.md#clear-and-simple-design One copy replaces inline file writes in the scenario.
@@ -93,9 +101,16 @@ export namespace MetroWorkspace {
    * @evidence contracts/performance.md#reuse-equivalent-work Replaces the slot instead of allocating a temporary directory.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One slot per name inside the owned directory.
    */
-  export function enterFixture(workspace: IWorkspace, name: string, slot = name): string {
+  export function enterFixture(
+    workspace: IWorkspace,
+    name: string,
+    slot = name,
+  ): string {
     const root = clear(workspace, slot);
-    TestProject.copyDirectory(path.resolve(import.meta.dirname, "../../../../fixtures/metro", name), root);
+    TestProject.copyDirectory(
+      path.resolve(import.meta.dirname, "../../../../fixtures/metro", name),
+      root,
+    );
     return root;
   }
 
@@ -128,7 +143,8 @@ export namespace MetroWorkspace {
   }
 
   /**
-   * Replace and return the directory scenarios use for inputs outside a project.
+   * Replace and return the directory scenarios use for inputs outside a
+   * project.
    *
    * @evidence contracts/common.md#principled-implementation An empty directory beside the slots is outside every project root, which is the property the out-of-walk scenarios assert.
    * @evidence contracts/common.md#clear-and-simple-design One empty directory under the owned base.
@@ -156,14 +172,24 @@ export namespace MetroWorkspace {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Releases the only directory the workspace owns after scenario work has joined.
    */
   export function close(workspace: IWorkspace): void {
-    fs.rmSync(workspace.base, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    fs.rmSync(workspace.base, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+      retryDelay: 100,
+    });
     if (fs.existsSync(workspace.base))
       throw new Error("Metro workspace was not removed: " + workspace.base);
   }
 
   function clear(workspace: IWorkspace, slot: string): string {
     const root = path.join(workspace.base, slot);
-    fs.rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    fs.rmSync(root, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+      retryDelay: 100,
+    });
     fs.mkdirSync(root, { recursive: true });
     return root;
   }

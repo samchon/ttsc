@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { projectInputActiveWatchDirectories } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputActiveWatchDirectories";
 import { projectInputWatchDirectories } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputWatchDirectories";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies an external declaration never anchors above the project.
@@ -28,44 +28,44 @@ import { projectInputWatchDirectories } from "../../../../../packages/ttsc/src/l
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls the actual root selectors with default identity over TestProject-owned directories. Nearest-existing-directory and native identity/case observations may include read-only Windows fsutil for an empty ancestor; no watcher, compiler or product host starts. Literal selected roots do not certify actual kernel coverage.
  */
 export function test_project_input_watch_root_never_swallows_the_project(): void {
-    const parent = TestProject.tmpdir("ttsc-project-input-anchor-");
-    const root = path.join(parent, "project");
-    const sibling = path.join(parent, "external", "docs");
-    fs.mkdirSync(root, { recursive: true });
-    fs.mkdirSync(sibling, { recursive: true });
+  const parent = TestProject.tmpdir("ttsc-project-input-anchor-");
+  const root = path.join(parent, "project");
+  const sibling = path.join(parent, "external", "docs");
+  fs.mkdirSync(root, { recursive: true });
+  fs.mkdirSync(sibling, { recursive: true });
 
-    assert.deepEqual(
-      projectInputWatchDirectories(sibling, root),
-      [path.join(parent, "external")],
-      "a sibling external tree keeps the declared-parent anchor",
-    );
+  assert.deepEqual(
+    projectInputWatchDirectories(sibling, root),
+    [path.join(parent, "external")],
+    "a sibling external tree keeps the declared-parent anchor",
+  );
 
-    // Declared directly under the directory that holds the project, so the
-    // parent rule would rise to a directory containing the project itself.
-    const beside = path.join(parent, "selection");
-    fs.mkdirSync(beside, { recursive: true });
-    assert.deepEqual(
-      projectInputWatchDirectories(beside, root),
-      [beside],
-      "an anchor that would contain the project falls back to its own tree",
-    );
+  // Declared directly under the directory that holds the project, so the
+  // parent rule would rise to a directory containing the project itself.
+  const beside = path.join(parent, "selection");
+  fs.mkdirSync(beside, { recursive: true });
+  assert.deepEqual(
+    projectInputWatchDirectories(beside, root),
+    [beside],
+    "an anchor that would contain the project falls back to its own tree",
+  );
 
-    // The case the runner actually hit: a resolution ancestor published as a
-    // declaration. Every candidate for it contains the project, so there is no
-    // root left that would not swallow the project, and declining is the whole
-    // point of the rule.
-    assert.deepEqual(
-      projectInputWatchDirectories(parent, root),
-      [],
-      "a declaration containing the project leaves nothing safe to watch",
-    );
+  // The case the runner actually hit: a resolution ancestor published as a
+  // declaration. Every candidate for it contains the project, so there is no
+  // root left that would not swallow the project, and declining is the whole
+  // point of the rule.
+  assert.deepEqual(
+    projectInputWatchDirectories(parent, root),
+    [],
+    "a declaration containing the project leaves nothing safe to watch",
+  );
 
-    assert.deepEqual(
-      projectInputActiveWatchDirectories([
-        ...projectInputWatchDirectories(beside, root),
-        ...projectInputWatchDirectories(path.join(root, "docs"), root),
-      ]),
-      [beside, root],
-      "the project's own root must survive beside an external anchor",
-    );
-  }
+  assert.deepEqual(
+    projectInputActiveWatchDirectories([
+      ...projectInputWatchDirectories(beside, root),
+      ...projectInputWatchDirectories(path.join(root, "docs"), root),
+    ]),
+    [beside, root],
+    "the project's own root must survive beside an external anchor",
+  );
+}

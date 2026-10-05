@@ -7,11 +7,10 @@ import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPa
  *
  * Every path in the snapshot (root, files, globs, reload files and directories)
  * must satisfy host-native absolute namespace admission; relative/empty paths
- * and Windows device namespaces are rejected
- * with the plugin's name. This is native namespace admission, not an existence,
- * access or watcher-capability check; silently dropping rejected declarations
- * would hide an unsupported dependency. Optional reload lists
- * default to empty.
+ * and Windows device namespaces are rejected with the plugin's name. This is
+ * native namespace admission, not an existence, access or watcher-capability
+ * check; silently dropping rejected declarations would hide an unsupported
+ * dependency. Optional reload lists default to empty.
  *
  * These checks cover host-published input lists; the later merge reconstructs
  * declared alias lists from these spellings rather than trusting extra JSON.

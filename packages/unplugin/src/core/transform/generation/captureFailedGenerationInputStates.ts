@@ -16,14 +16,13 @@ import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 /**
  * Snapshot the recorded external paths, persistent host paths, attributed
  * failure paths and plugin source roots for terminal retry comparison
- * (`pluginSourceState`,
- * samchon/ttsc#1487, samchon/ttsc#1493).
+ * (`pluginSourceState`, samchon/ttsc#1487, samchon/ttsc#1493).
  *
  * Ordinary-path signatures are observed before full state and retained only
  * when the filesystem clock proves separation. Plugin trees carry no single
  * path signature because their source/build environment requires whole-tree
- * validation. The returned map belongs to the terminal comparison baseline.
- * The async generation owner already attempted native environment preparation;
+ * validation. The returned map belongs to the terminal comparison baseline. The
+ * async generation owner already attempted native environment preparation;
  * unavailable authority records a missing tree state without a cold fallback.
  * Standalone synchronous results retain their original native capture API.
  *
@@ -63,9 +62,15 @@ export function captureFailedGenerationInputStates(
         return [
           input,
           {
-            state: pluginSourceState(input, usesPreparedPluginBuildEnvironments(cached.result) ? {
-              environment: PluginBuildEnvironmentReadings.cached(input),
-            } : undefined) ?? MISSING_INPUT_STATE,
+            state:
+              pluginSourceState(
+                input,
+                usesPreparedPluginBuildEnvironments(cached.result)
+                  ? {
+                      environment: PluginBuildEnvironmentReadings.cached(input),
+                    }
+                  : undefined,
+              ) ?? MISSING_INPUT_STATE,
             tree: true,
           },
         ];

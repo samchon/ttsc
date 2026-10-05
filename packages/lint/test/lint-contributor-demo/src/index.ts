@@ -37,10 +37,10 @@ const plugin = {
  * Typed `demo/*` rule settings for `ITtscLintConfig`.
  *
  * Pass this interface as the generic argument of the config type, for example
- * `satisfies ITtscLintConfig<IDemoLintRules>`, so `demo/no-marker-comment`
- * gets exact `markers` checking and `demo/capitalize-exports` accepts a
- * severity only. A `demo/*` rule that is not listed here, and every config that
- * omits the generic, keeps the open `unknown`-options fallback. The Go rule's
+ * `satisfies ITtscLintConfig<IDemoLintRules>`, so `demo/no-marker-comment` gets
+ * exact `markers` checking and `demo/capitalize-exports` accepts a severity
+ * only. A `demo/*` rule that is not listed here, and every config that omits
+ * the generic, keeps the open `unknown`-options fallback. The Go rule's
  * `noMarkerCommentOptions` struct uses the same JSON key so the checked payload
  * decodes cleanly on the host side.
  */

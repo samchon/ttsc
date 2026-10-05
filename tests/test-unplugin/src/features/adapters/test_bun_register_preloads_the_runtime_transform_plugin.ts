@@ -32,7 +32,9 @@ export function test_bun_register_preloads_the_runtime_transform_plugin(): void 
 
   const captured: BunLikePlugin[] = [];
   const runtime: BunRuntimeGlobal = {
-    plugin: (plugin) => { captured.push(plugin); },
+    plugin: (plugin) => {
+      captured.push(plugin);
+    },
   };
   const state = registrationState(runtime);
   ensureRegistered(runtime, state);
@@ -40,5 +42,9 @@ export function test_bun_register_preloads_the_runtime_transform_plugin(): void 
   assert.equal(captured[0]?.name, "ttsc-unplugin");
   assert.equal(typeof captured[0]?.setup, "function");
   ensureRegistered(runtime, state);
-  assert.equal(captured.length, 1, "an installed runtime loader must not be duplicated");
+  assert.equal(
+    captured.length,
+    1,
+    "an installed runtime loader must not be duplicated",
+  );
 }

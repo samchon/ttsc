@@ -9,9 +9,9 @@
  * suffix represents missing path structure; best-effort resolution can also
  * retain unreadable existing entries. If no prefix resolves, the path remains
  * lexically normalized. `key` is the spelling to compare under those
- * observations; unresolved names are locations, not proof
- * that an entry exists. Unknown case policy and unproved Unicode equivalence
- * retain distinct keys, so key inequality cannot prove physical distinction.
+ * observations; unresolved names are locations, not proof that an entry exists.
+ * Unknown case policy and unproved Unicode equivalence retain distinct keys, so
+ * key inequality cannot prove physical distinction.
  *
  * Produced by {@link FilesystemPathIdentityContext.resolve}.
  *
@@ -27,16 +27,18 @@
 export type FilesystemPathIdentity = {
   /**
    * Comparison key under this transaction's filesystem observations. Windows
-   * volume roots use native root grammar. Unresolved ASCII letters fold only under
-   * measured insensitivity; unknown and non-ASCII variants can retain distinct
-   * keys even when a later native observation would establish an alias.
+   * volume roots use native root grammar. Unresolved ASCII letters fold only
+   * under measured insensitivity; unknown and non-ASCII variants can retain
+   * distinct keys even when a later native observation would establish an
+   * alias.
    */
   key: string;
 
   /**
    * Observed physical prefix followed by the unresolved suffix, or lexical
-   * spelling if no prefix resolved. Use it to open, watch, or print the location;
-   * best-effort output is not proof that every existing segment was resolved.
+   * spelling if no prefix resolved. Use it to open, watch, or print the
+   * location; best-effort output is not proof that every existing segment was
+   * resolved.
    */
   path: string;
 };

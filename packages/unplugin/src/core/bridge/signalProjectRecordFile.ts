@@ -19,8 +19,8 @@ let bare = 0;
  * until then a build start moves it again, since no proof can run over it
  * (`refreshProjectRecordFiles`). A readable record advances the signal this
  * process read; a bare signal includes this process's id and local sequence.
- * Concurrent writers do not share an atomic counter, so this operation does
- * not promise globally unique bytes for every attempted signal.
+ * Concurrent writers do not share an atomic counter, so this operation does not
+ * promise globally unique bytes for every attempted signal.
  *
  * A bare signal only ever replaces a file that is there. A record is gone when
  * its project is (`refreshProjectRecordFiles`), and writing one here would

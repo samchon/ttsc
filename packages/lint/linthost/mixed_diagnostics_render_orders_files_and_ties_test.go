@@ -34,9 +34,13 @@ func TestMixedDiagnosticsRenderOrdersFilesAndTies(t *testing.T) {
   }
 
   var first bytes.Buffer
-  if got := shimdw.FormatMixedDiagnostics(&first, astDiags, diagnostics, "/virtual"); got != len(astDiags) { t.Fatalf("warnings changed parser error count: %d, want %d", got, len(astDiags)) }
+  if got := shimdw.FormatMixedDiagnostics(&first, astDiags, diagnostics, "/virtual"); got != len(astDiags) {
+    t.Fatalf("warnings changed parser error count: %d, want %d", got, len(astDiags))
+  }
   var second bytes.Buffer
-  if got := shimdw.FormatMixedDiagnostics(&second, astDiags, diagnostics, "/virtual"); got != len(astDiags) { t.Fatalf("repeat changed parser error count: %d, want %d", got, len(astDiags)) }
+  if got := shimdw.FormatMixedDiagnostics(&second, astDiags, diagnostics, "/virtual"); got != len(astDiags) {
+    t.Fatalf("repeat changed parser error count: %d, want %d", got, len(astDiags))
+  }
   if first.String() != second.String() {
     t.Fatalf("identical mixed batches rendered differently:\nfirst:\n%s\nsecond:\n%s", first.String(), second.String())
   }

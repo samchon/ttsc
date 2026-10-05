@@ -6,9 +6,9 @@ import { insideExcludedProjectDirectory } from "./insideExcludedProjectDirectory
  *
  * Compared by lexical containment rather than by name, so `outDir: "./dist"`
  * excludes that one directory instead of every directory called `dist` at every
- * depth, which is the distinction the name list could not draw.
- * The compiler's case policy governs that containment independently of the
- * supplied filesystem view's path grammar.
+ * depth, which is the distinction the name list could not draw. The compiler's
+ * case policy governs that containment independently of the supplied filesystem
+ * view's path grammar.
  *
  * @evidence contracts/common.md#principled-implementation Directory exclusion delegates lexical configured-path containment under the compiler's comparison policy, with exact matches admitted as excluded directories rather than the strict file-entry exemption.
  * @evidence contracts/common.md#clear-and-simple-design A named wrapper fixes the non-strict directory interpretation without duplicating containment logic.

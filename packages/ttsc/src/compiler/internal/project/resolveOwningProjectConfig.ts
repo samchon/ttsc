@@ -32,12 +32,12 @@ import { selectReferencedProject } from "./selectReferencedProject";
  * `include`/`exclude` matching: `--showConfig` lists the root files a config
  * expands to, and each is compared with the file by filesystem identity.
  * `references` are read from the config itself, because TypeScript never
- * inherits them through `extends`.
- * Read/parse failures supply no reference edges; failed compiler invocations
- * or malformed output supply no positive membership observation. The original
- * discovered config is then a fallback, not proof that it contains the file.
- * Identity comparisons use observed realpaths and case capabilities, retaining
- * best-effort spelling when native identity lookup is unavailable.
+ * inherits them through `extends`. Read/parse failures supply no reference
+ * edges; failed compiler invocations or malformed output supply no positive
+ * membership observation. The original discovered config is then a fallback,
+ * not proof that it contains the file. Identity comparisons use observed
+ * realpaths and case capabilities, retaining best-effort spelling when native
+ * identity lookup is unavailable.
  *
  * Graph observations are shared only within this lookup. Later requests can see
  * changed configs, inherited options, directory membership or compiler inputs;
@@ -51,7 +51,6 @@ import { selectReferencedProject } from "./selectReferencedProject";
  * @param props.binary - An explicit TypeScript-Go binary, when one was given.
  * @param props.onConfig - Called with every config this reads, so a caller that
  *   fingerprints its inputs can record them.
- *
  * @evidence contracts/common.md#principled-implementation Successful compiler showConfig supplies root membership observations, best-effort filesystem identity compares aliases, and visited identity keys terminate repeated graph states while declaration-order DFS selects the first observed containing project. Failed observations preserve the discovered fallback without certifying membership.
  * @evidence contracts/common.md#clear-and-simple-design Reference reading, compiler expansion and membership comparison have separate local responsibilities; discovery retains its original fallback when no referenced project contains the target.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Solution handling follows references and actual compiler root lists rather than guessed include patterns or named project layouts; stale cross-request answers are not preserved by compensating target checks.
@@ -90,8 +89,8 @@ export function resolveOwningProjectConfig(props: {
    * Compare a compiler root observation with this lookup's target identity.
    *
    * Equal keys compare this lookup's best-effort identity observations; native
-   * lookup failures do not prove physical equivalence. A scan shares the identity
-   * context; no guessed suffix matching, separate membership index or
+   * lookup failures do not prove physical equivalence. A scan shares the
+   * identity context; no guessed suffix matching, separate membership index or
    * historical cache is introduced for this one target.
    */
   function listed(roots: RootFiles): boolean {

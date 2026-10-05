@@ -28,17 +28,25 @@ func TestTypeAliasReferenceNodeUsesBorrowedBuilderContext(t *testing.T) {
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{"compilerOptions":{"strict":true},"files":["main.ts"]}`)
   writeFile(t, filepath.Join(root, "main.ts"), `type Pair<T> = [T, T]; namespace Named { export type Pair<T> = [T, T]; } class Holder { value!: Pair<string>; qualified!: Named.Pair<string>; }`)
   prog, diags, err := loadProgram(root, "tsconfig.json", loadProgramOptions{})
-  if err != nil { t.Fatal(err) }
-  if len(diags) != 0 { t.Fatalf("unexpected diagnostics: %#v", diags) }
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %#v", diags)
+  }
   defer prog.close()
   checker, checkerMutex := shimchecker.NewChecker(prog.tsProgram, nil)
-  if checker == nil || checkerMutex == nil { t.Fatal("checker and mutex were not acquired") }
+  if checker == nil || checkerMutex == nil {
+    t.Fatal("checker and mutex were not acquired")
+  }
   prog.checker = checker
   checkerMutex.Lock()
   defer checkerMutex.Unlock()
   holder := shimchecker.Checker_getDeclaredTypeOfSymbol(prog.checker, classSymbol(t, prog, "Holder"))
   value := shimchecker.Checker_getTypeOfPropertyOfType(prog.checker, holder, "value")
-  if value == nil || value.Alias() == nil { t.Fatal("Pair<string> alias metadata missing") }
+  if value == nil || value.Alias() == nil {
+    t.Fatal("Pair<string> alias metadata missing")
+  }
   alias := value.Alias()
   if alias.Symbol() == nil || alias.Symbol().Name != "Pair" || len(alias.TypeArguments()) != 1 || prog.checker.TypeToString(alias.TypeArguments()[0]) != "string" {
     t.Fatal("authored alias identity or argument missing")
@@ -47,47 +55,73 @@ func TestTypeAliasReferenceNodeUsesBorrowedBuilderContext(t *testing.T) {
   emit := shimprinter.NewEmitContext()
   assertReference := func(node *shimast.Node) {
     t.Helper()
-    if node == nil || node.Kind != shimast.KindTypeReference { t.Fatalf("expected TypeReference, got %#v", node) }
+    if node == nil || node.Kind != shimast.KindTypeReference {
+      t.Fatalf("expected TypeReference, got %#v", node)
+    }
     reference := node.AsTypeReferenceNode()
-    if reference.TypeName.Kind != shimast.KindIdentifier || reference.TypeName.AsIdentifier().Text != "Pair" { t.Fatal("alias reference name is not Pair") }
+    if reference.TypeName.Kind != shimast.KindIdentifier || reference.TypeName.AsIdentifier().Text != "Pair" {
+      t.Fatal("alias reference name is not Pair")
+    }
     arguments := node.TypeArguments()
-    if len(arguments) != 1 || arguments[0].Kind != shimast.KindStringKeyword { t.Fatalf("alias argument is not string: %#v", arguments) }
+    if len(arguments) != 1 || arguments[0].Kind != shimast.KindStringKeyword {
+      t.Fatalf("alias argument is not string: %#v", arguments)
+    }
   }
   convert := func() {
     t.Helper()
     node, err := shimchecker.WithNodeBuilderContext(prog.checker, emit, enclosing, func(builder *shimchecker.NodeBuilderImpl) (*shimast.Node, error) {
       return alias.ToTypeReferenceNode(builder), nil
     })
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     assertReference(node)
   }
   convert()
   qualifiedType := shimchecker.Checker_getTypeOfPropertyOfType(prog.checker, holder, "qualified")
-  if qualifiedType == nil || qualifiedType.Alias() == nil { t.Fatal("Named.Pair<string> metadata missing") }
+  if qualifiedType == nil || qualifiedType.Alias() == nil {
+    t.Fatal("Named.Pair<string> metadata missing")
+  }
   qualifiedNode, qualifiedError := shimchecker.WithNodeBuilderContext(prog.checker, emit, enclosing, func(builder *shimchecker.NodeBuilderImpl) (*shimast.Node, error) {
     return qualifiedType.Alias().ToTypeReferenceNode(builder), nil
   })
-  if qualifiedError != nil { t.Fatal(qualifiedError) }
-  if qualifiedNode == nil || qualifiedNode.Kind != shimast.KindTypeReference { t.Fatal("qualified alias did not reach a reference") }
+  if qualifiedError != nil {
+    t.Fatal(qualifiedError)
+  }
+  if qualifiedNode == nil || qualifiedNode.Kind != shimast.KindTypeReference {
+    t.Fatal("qualified alias did not reach a reference")
+  }
   qualifiedName := qualifiedNode.AsTypeReferenceNode().TypeName
   if qualifiedName.Kind != shimast.KindQualifiedName || qualifiedName.AsQualifiedName().Left.Kind != shimast.KindIdentifier || qualifiedName.AsQualifiedName().Left.AsIdentifier().Text != "Named" || qualifiedName.AsQualifiedName().Right.Text() != "Pair" {
     t.Fatal("authored namespace qualification was not preserved")
   }
-  if arguments := qualifiedNode.TypeArguments(); len(arguments) != 1 || arguments[0].Kind != shimast.KindStringKeyword { t.Fatal("qualified alias argument is not string") }
+  if arguments := qualifiedNode.TypeArguments(); len(arguments) != 1 || arguments[0].Kind != shimast.KindStringKeyword {
+    t.Fatal("qualified alias argument is not string")
+  }
   node, err := shimchecker.WithNodeBuilderContext(prog.checker, emit, enclosing, func(outer *shimchecker.NodeBuilderImpl) (*shimast.Node, error) {
     convert()
     return alias.ToTypeReferenceNode(outer), nil
   })
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   assertReference(node)
   node, err = shimchecker.WithNodeBuilderContext(prog.checker, emit, enclosing, func(*shimchecker.NodeBuilderImpl) (*shimast.Node, error) { return nil, nil })
-  if node != nil || err != nil { t.Fatal("nil callback result was changed") }
+  if node != nil || err != nil {
+    t.Fatal("nil callback result was changed")
+  }
   failure := errors.New("authored callback failure")
   node, err = shimchecker.WithNodeBuilderContext(prog.checker, emit, enclosing, func(*shimchecker.NodeBuilderImpl) (*shimast.Node, error) { return nil, failure })
-  if node != nil || err != failure { t.Fatal("callback failure identity was changed") }
+  if node != nil || err != failure {
+    t.Fatal("callback failure identity was changed")
+  }
   convert()
   func() {
-    defer func() { if recovered := recover(); recovered != failure { t.Fatalf("callback panic = %v", recovered) } }()
+    defer func() {
+      if recovered := recover(); recovered != failure {
+        t.Fatalf("callback panic = %v", recovered)
+      }
+    }()
     _, _ = shimchecker.WithNodeBuilderContext(prog.checker, emit, enclosing, func(*shimchecker.NodeBuilderImpl) (*shimast.Node, error) { panic(failure) })
   }()
   convert()

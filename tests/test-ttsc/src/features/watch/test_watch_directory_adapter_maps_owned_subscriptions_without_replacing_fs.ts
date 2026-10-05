@@ -4,17 +4,18 @@ import fs from "node:fs";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
 
 /**
- * Verifies the directory adapter owns one supplied subscription and preserves its lifecycle.
+ * Verifies the directory adapter owns one supplied subscription and preserves
+ * its lifecycle.
  *
- * The directory adapter must forward its arguments and events through the supplied
- * watch function, normalize names and gaps, and hand back that subscription's own
- * handle, without replacing the global filesystem watch.
+ * The directory adapter must forward its arguments and events through the
+ * supplied watch function, normalize names and gaps, and hand back that
+ * subscription's own handle, without replacing the global filesystem watch.
  *
  * 1. Open a recursive and a non-recursive adapter through an injected watch
  *    function and require one call with the persistent option.
  * 2. Deliver change, rename, unrecognized and nameless events and require
- *    normalized names, a rename for the unrecognized kind and a gap flag only for
- *    the nameless event.
+ *    normalized names, a rename for the unrecognized kind and a gap flag only
+ *    for the nameless event.
  * 3. Close the handle and require one close and the original fs.watch untouched.
  *
  * @evidence contracts/testing.md#behavioral-verification The authored adapter forwards location and recursion to one observer, normalizes events and absent filenames, and returns the same closable handle without replacing the global filesystem operation.
@@ -27,17 +28,32 @@ export function test_watch_directory_adapter_maps_owned_subscriptions_without_re
   for (const recursive of [false, true]) {
     let calls = 0;
     let closed = 0;
-    let callback: ((event: string, filename: string | Buffer | null) => void) | undefined;
-    const handle = { close() { closed += 1; } };
+    let callback:
+      | ((event: string, filename: string | Buffer | null) => void)
+      | undefined;
+    const handle = {
+      close() {
+        closed += 1;
+      },
+    };
     const events: Array<[string, string | null, boolean | undefined]> = [];
-    const openWatch = ((location: string, options: unknown, listener: typeof callback) => {
+    const openWatch = ((
+      location: string,
+      options: unknown,
+      listener: typeof callback,
+    ) => {
       calls += 1;
       assert.equal(location, "owned-directory");
       assert.deepEqual(options, { persistent: true, recursive });
       callback = listener;
       return handle;
     }) as typeof fs.watch;
-    const actual = watchDirectoryThroughFsWatch("owned-directory", recursive, (event, filename, gap) => events.push([event, filename, gap]), openWatch);
+    const actual = watchDirectoryThroughFsWatch(
+      "owned-directory",
+      recursive,
+      (event, filename, gap) => events.push([event, filename, gap]),
+      openWatch,
+    );
     assert.equal(actual, handle);
     assert.equal(calls, 1);
     assert.ok(callback);
@@ -45,7 +61,12 @@ export function test_watch_directory_adapter_maps_owned_subscriptions_without_re
     callback("rename", Buffer.from("entry.ts"));
     callback("unrecognized", "other.ts");
     callback("change", null);
-    assert.deepEqual(events, [["change", "file.ts", false], ["rename", "entry.ts", false], ["rename", "other.ts", false], ["change", null, true]]);
+    assert.deepEqual(events, [
+      ["change", "file.ts", false],
+      ["rename", "entry.ts", false],
+      ["rename", "other.ts", false],
+      ["change", null, true],
+    ]);
     actual.close();
     assert.equal(closed, 1);
     assert.equal(fs.watch, nativeWatch);

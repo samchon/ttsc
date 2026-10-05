@@ -6,12 +6,22 @@ import type createTtscPlugin from "../../../../../packages/lint/src/createTtscPl
 
 /** Source-level descriptor inputs, with no installed package or native host. */
 export namespace TestLintPlugin {
-  export const PACKAGE_ROOT = fileURLToPath(new URL("../../../../../packages/lint", import.meta.url));
-  export const DESCRIPTOR_PATH = path.join(PACKAGE_ROOT, "src", "createTtscPlugin.ts");
+  export const PACKAGE_ROOT = fileURLToPath(
+    new URL("../../../../../packages/lint", import.meta.url),
+  );
+  export const DESCRIPTOR_PATH = path.join(
+    PACKAGE_ROOT,
+    "src",
+    "createTtscPlugin.ts",
+  );
   export const NATIVE_PLUGIN_DIR = path.join(PACKAGE_ROOT, "plugin");
 
   export function loadFactory() {
-    return (createRequire(import.meta.url)(DESCRIPTOR_PATH) as { default: typeof createTtscPlugin }).default;
+    return (
+      createRequire(import.meta.url)(DESCRIPTOR_PATH) as {
+        default: typeof createTtscPlugin;
+      }
+    ).default;
   }
 
   export function factoryContext(plugin: Record<string, unknown>) {

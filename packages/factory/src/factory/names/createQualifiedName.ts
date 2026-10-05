@@ -15,9 +15,13 @@ import { make } from "../internal/make";
  * With `left` of `A` and `right` of `b`, this prints:
  *
  * ```ts
- * A.b
+ * A.b;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param left The left-hand operand.
+ * @param right The right-hand operand.
+ * @returns The created {@link QualifiedName}.
  * @evidence contracts/common.md#principled-implementation
  *   EntityName permits nested left segments and the right argument is restricted
  *   to Identifier/string, making the asName result an identifier rather than a
@@ -34,14 +38,8 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains nesting and string normalization and shows A.b separately
  *   from the tags, applying the documentation skill's paragraph guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param left The left-hand operand.
- * @param right The right-hand operand.
- * @returns The created {@link QualifiedName}.
  */
 export const createQualifiedName = (
   left: EntityName,
   right: string | Identifier,
-): QualifiedName =>
-  make("QualifiedName", { left, right: asName(right) });
+): QualifiedName => make("QualifiedName", { left, right: asName(right) });

@@ -43,17 +43,3 @@ func TestRuleCorpusUnicornConsistentFunctionScoping(t *testing.T) {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -244,7 +244,9 @@ function checkUncertainArray<U>(
   expectedRuleLines := make([]int, 0, len(lintMarkers))
   for _, marker := range lintMarkers {
     offset := strings.Index(source, marker)
-    if offset < 0 { t.Fatalf("missing authored lint marker %q", marker) }
+    if offset < 0 {
+      t.Fatalf("missing authored lint marker %q", marker)
+    }
     expectedRuleLines = append(expectedRuleLines, strings.Count(source[:offset], "\n")+1)
   }
   sort.Ints(expectedRuleLines)

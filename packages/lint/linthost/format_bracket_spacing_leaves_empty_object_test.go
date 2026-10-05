@@ -28,8 +28,8 @@ func TestFormatBracketSpacingLeavesEmptyObject(t *testing.T) {
   assertFixSnapshotWithOptions(t, "format/bracket-spacing", "const b = {/*keep*/};\n", `{"spacing":true}`, "const b = { /*keep*/ };\n")
   assertFixSnapshotWithOptions(t, "format/bracket-spacing", "const b = { /*keep*/ };\n", `{"spacing":false}`, "const b = {/*keep*/};\n")
   for _, boundary := range []struct {
-    name string
-    source string
+    name     string
+    source   string
     collapse bool
   }{
     {"nbsp", "const b = {\u00a0};\n", true},
@@ -67,7 +67,7 @@ func TestFormatBracketSpacingLeavesEmptyObject(t *testing.T) {
     }
   }
   for _, excluded := range []string{"\u0085", "\u200b", "\u180e"} {
-    if got := trimBracketSpacingWhitespace(" "+excluded+"payload"+excluded+" "); got != excluded+"payload"+excluded {
+    if got := trimBracketSpacingWhitespace(" " + excluded + "payload" + excluded + " "); got != excluded+"payload"+excluded {
       t.Fatalf("must retain non-ECMAScript whitespace %q: got %q", excluded, got)
     }
   }

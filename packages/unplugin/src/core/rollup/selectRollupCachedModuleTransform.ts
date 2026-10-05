@@ -4,8 +4,8 @@ import type { RollupCachedModuleProof } from "./RollupCachedModuleProof";
 /**
  * Request cached-module transformation while the bridge owes a signal, or when
  * the module proof reports movement. Return null to leave the host's ordinary
- * cache decision in place. An owed signal skips module proof evaluation.
- * This protocol decision does not establish arrival of a native watch event.
+ * cache decision in place. An owed signal skips module proof evaluation. This
+ * protocol decision does not establish arrival of a native watch event.
  *
  * @evidence contracts/common.md#principled-implementation Only an exactly true owed-state answer bypasses module judgment; otherwise the existing moved predicate decides true versus null using the supplied module.
  * @evidence contracts/common.md#clear-and-simple-design One production-used decision maps the bridge and module-proof owners' answers to the shared Vite/Rollup hook protocol without duplicating their validation.

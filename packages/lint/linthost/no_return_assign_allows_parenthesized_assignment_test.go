@@ -72,7 +72,11 @@ func TestNoReturnAssignAllowsParenthesizedAssignment(t *testing.T) {
         opts = json.RawMessage(test.options)
       }
       _, _, findings := runRuleFindingsSnapshot(t, "no-return-assign", test.source, opts)
-      for _, finding := range findings { if finding.Rule != "no-return-assign" || finding.Severity != SeverityError { t.Fatalf("unexpected rule/severity: %+v", finding) } }
+      for _, finding := range findings {
+        if finding.Rule != "no-return-assign" || finding.Severity != SeverityError {
+          t.Fatalf("unexpected rule/severity: %+v", finding)
+        }
+      }
       if len(findings) != test.want {
         t.Fatalf(
           "no-return-assign %q: want %d findings, got %d (%+v)",

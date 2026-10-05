@@ -17,8 +17,8 @@ import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/src/launch
  * 1. Assert Node 18.20.8, 20.20.2, 22.13.0 and 22.14.9 (all below 22.15) each
  *    return a message that names the required version, `registerHooks` and the
  *    rejected version itself.
- * 2. Assert the floor 22.15.0, 22.16.0, 24.3.0 and the `v`-prefixed v24.0.0
- *    return `null` (accepted by this version gate).
+ * 2. Assert the floor 22.15.0, 22.16.0, 24.3.0 and the `v`-prefixed v24.0.0 return
+ *    `null` (accepted by this version gate).
  * 3. Assert an unparseable version returns `null` rather than blocking on a
  *    parsing quirk.
  *
@@ -28,32 +28,32 @@ import { checkNodeRuntimeSupport } from "../../../../../packages/ttsc/src/launch
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it calls checkNodeRuntimeSupport with literal Node-only version records and reads the exported TTSX_MINIMUM_NODE_VERSION constant, with no files, compiler, installation or process. The single assertion that the exported constant equals "22.15.0" only compares a constant with a literal.
  */
 export function test_ttsx_diagnoses_unsupported_node_versions_at_the_documented_floor() {
-    assert.equal(TTSX_MINIMUM_NODE_VERSION, "22.15.0");
+  assert.equal(TTSX_MINIMUM_NODE_VERSION, "22.15.0");
 
-    for (const version of ["18.20.8", "20.20.2", "22.13.0", "22.14.9"]) {
-      const message = checkNodeRuntimeSupport(version, { node: version });
-      assert.notEqual(
-        message,
-        null,
-        `expected ${version} to be diagnosed as unsupported`,
-      );
-      assert.match(message!, /22\.15\.0/);
-      assert.match(message!, /registerHooks/);
-      assert.match(message!, new RegExp(version.replace(/\./g, "\\.")));
-    }
-
-    // Selected floor and later versions pass this gate (no diagnostic).
-    for (const version of ["22.15.0", "22.16.0", "24.3.0", "v24.0.0"]) {
-      assert.equal(
-        checkNodeRuntimeSupport(version, { node: version }),
-        null,
-        `expected ${version} to be supported`,
-      );
-    }
-
-    // An unrecognizable version is not proof of an unsupported runtime.
-    assert.equal(
-      checkNodeRuntimeSupport("not-a-version", { node: "not-a-version" }),
+  for (const version of ["18.20.8", "20.20.2", "22.13.0", "22.14.9"]) {
+    const message = checkNodeRuntimeSupport(version, { node: version });
+    assert.notEqual(
+      message,
       null,
+      `expected ${version} to be diagnosed as unsupported`,
     );
+    assert.match(message!, /22\.15\.0/);
+    assert.match(message!, /registerHooks/);
+    assert.match(message!, new RegExp(version.replace(/\./g, "\\.")));
+  }
+
+  // Selected floor and later versions pass this gate (no diagnostic).
+  for (const version of ["22.15.0", "22.16.0", "24.3.0", "v24.0.0"]) {
+    assert.equal(
+      checkNodeRuntimeSupport(version, { node: version }),
+      null,
+      `expected ${version} to be supported`,
+    );
+  }
+
+  // An unrecognizable version is not proof of an unsupported runtime.
+  assert.equal(
+    checkNodeRuntimeSupport("not-a-version", { node: "not-a-version" }),
+    null,
+  );
 }

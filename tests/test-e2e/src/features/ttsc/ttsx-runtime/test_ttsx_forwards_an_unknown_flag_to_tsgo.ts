@@ -1,6 +1,7 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies ttsx forwards an unrecognized flag to the tsgo type-check.
@@ -16,6 +17,7 @@ import assert from "node:assert/strict";
  *    dereferences a possibly-null value.
  * 2. Run `ttsx --strict src/main.ts`.
  * 3. Assert a non-zero exit and the strict-null diagnostic in stderr.
+ *
  * @evidence contracts/testing.md#behavioral-verification Ttsx receives --strict over a strict:false project and must exit nonzero with an is possibly null diagnostic for x.length.
  * @evidence contracts/testing.md#independent-expectations Nullable-string dereference becomes invalid under strict null checking; the disabled config plus authored source make the forwarded flag the independent cause.
  * @evidence contracts/testing.md#distinguishing-cases The negative flag-enabled scenario is checked. There is no same-fixture no-flag success invocation, and nonzero exit alone is narrowed only by the matching diagnostic.

@@ -11,9 +11,12 @@ import { make } from "../internal/make";
  * Given a string literal of `"./app"`, the printed reference is:
  *
  * ```ts
- * require("./app")
+ * require("./app");
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @returns The created {@link ExternalModuleReference}.
  * @evidence contracts/common.md#principled-implementation
  *   The expression is retained as the module-reference operand; the printer
  *   supplies require parentheses for an import-equals reference.
@@ -28,10 +31,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states import-equals placement and the usual string operand,
  *   with a bare-reference example and separated acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @returns The created {@link ExternalModuleReference}.
  */
 export const createExternalModuleReference = (
   expression: Expression,

@@ -14,7 +14,8 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * Rejecting the whole field on one bad member would be wrong for the same
  * reason one malformed edge does not discard the graph.
  *
- * 1. Serialize the shared malformedAdvisory envelope, whose dependenciesComplete is ["src/main.ts", 42, ""].
+ * 1. Serialize the shared malformedAdvisory envelope, whose dependenciesComplete
+ *    is ["src/main.ts", 42, ""].
  * 2. Decode it with parseNativeTransformOutput, which must not throw.
  * 3. Assert dependenciesComplete is exactly ["src/main.ts"].
  *

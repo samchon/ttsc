@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawn } = E2eProcessTrace;
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import * as path from "node:path";
@@ -8,6 +6,9 @@ import { pathToFileURL } from "node:url";
 
 import { resolveTsgo } from "../../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 import { resolveTtscserverBinary } from "../../../../../../packages/ttsc/lib/launcher/internal/resolveTtscserverBinary.js";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+const { spawn } = E2eProcessTrace;
 
 /**
  * Minimal JSON-RPC LSP client used by ttscserver e2e tests. Spawns the native
@@ -120,14 +121,14 @@ export class TtscserverClient {
    */
   static start(cwd: string): TtscserverClient {
     const binary = resolveTtscserverBinary();
-    assert.ok(
-      binary,
-      "ttscserver binary not resolved — run pnpm run build",
-    );
+    assert.ok(binary, "ttscserver binary not resolved — run pnpm run build");
     return new TtscserverClient(binary, cwd);
   }
 
-  /** Start the JavaScript launcher; implicitCwd inherits the owned child cwd without a --cwd flag. */
+  /**
+   * Start the JavaScript launcher; implicitCwd inherits the owned child cwd
+   * without a --cwd flag.
+   */
   static startLauncher(
     cwd: string,
     options: {
@@ -203,9 +204,9 @@ export class TtscserverClient {
   /**
    * Resolve once a matching notification arrives. Like {@link request}, there is
    * no default timeout — the awaited diagnostics may follow a multi-minute cold
-   * plugin build; actual child close rejects every notification waiter and clears
-   * its timer and listener, including waits whose predicates never matched. Pass
-   * `timeoutMs` only to deliberately bound the wait.
+   * plugin build; actual child close rejects every notification waiter and
+   * clears its timer and listener, including waits whose predicates never
+   * matched. Pass `timeoutMs` only to deliberately bound the wait.
    */
   waitForNotification<T = unknown>(
     method: string,
@@ -225,9 +226,16 @@ export class TtscserverClient {
         timeoutMs === undefined
           ? undefined
           : setTimeout(() => {
-              cancel(new Error(`timed out waiting for ${method} notification (stderr=${this.stderr})`));
+              cancel(
+                new Error(
+                  `timed out waiting for ${method} notification (stderr=${this.stderr})`,
+                ),
+              );
             }, timeoutMs);
-      cancel = (error) => { cleanup(); reject(error); };
+      cancel = (error) => {
+        cleanup();
+        reject(error);
+      };
       listener = (params: T) => {
         if (!predicate(params)) return;
         cleanup();
@@ -487,8 +495,9 @@ export const PLUGIN_BUILD_TIMEOUT = 900_000;
  * @param client The started session.
  * @param body The test's work against it.
  * @param shutdownTimeout Optional separate shutdown deadline. Expiry preserves
- * the observed error without killing the child or proving the losing operation
- * joined; callers must retain inputs whose ownership remains unresolved.
+ *   the observed error without killing the child or proving the losing
+ *   operation joined; callers must retain inputs whose ownership remains
+ *   unresolved.
  * @returns What `body` returned.
  */
 export async function runTtscserverSession<T>(
@@ -503,7 +512,12 @@ export async function runTtscserverSession<T>(
     try {
       const shutdown = shutdownTtscserverClient(client);
       if (shutdownTimeout === undefined) await shutdown;
-      else await waitForTtscserverOutcome(shutdown, shutdownTimeout, "failed-body ttscserver shutdown was not joined");
+      else
+        await waitForTtscserverOutcome(
+          shutdown,
+          shutdownTimeout,
+          "failed-body ttscserver shutdown was not joined",
+        );
     } catch (shutdownError) {
       throw new AggregateError(
         [error, shutdownError],
@@ -515,7 +529,12 @@ export async function runTtscserverSession<T>(
   }
   const shutdown = shutdownTtscserverClient(client);
   if (shutdownTimeout === undefined) await shutdown;
-  else await waitForTtscserverOutcome(shutdown, shutdownTimeout, "ttscserver shutdown was not joined");
+  else
+    await waitForTtscserverOutcome(
+      shutdown,
+      shutdownTimeout,
+      "ttscserver shutdown was not joined",
+    );
   return result;
 }
 

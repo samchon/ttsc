@@ -128,9 +128,9 @@ new Promise(() => 1);
       )
       actualLines := make([]int, 0, len(findings))
       for _, finding := range findings {
-    if finding.Rule != "no-promise-executor-return" || finding.Severity != SeverityError {
-      t.Fatalf("unexpected rule/severity: %+v", finding)
-    }
+        if finding.Rule != "no-promise-executor-return" || finding.Severity != SeverityError {
+          t.Fatalf("unexpected rule/severity: %+v", finding)
+        }
         if finding.Pos < 0 || finding.Pos > len(testCase.source) {
           t.Fatalf("finding position %d is outside source length %d", finding.Pos, len(testCase.source))
         }

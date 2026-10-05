@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 
+import factory, { TsPrinter } from "../../../../../packages/factory/src/index";
 import { num } from "../../internal/helpers";
 
 /**
@@ -10,8 +10,10 @@ import { num } from "../../internal/helpers";
  * produces clean two-space steps — a stress test for the printer's
  * indentation.
  *
- * 1. Broken object-array-object nesting increases indentation consistently at each level.
- * 2. Explicit multiline lines independently specify two-space indentation steps, property identity and separators.
+ * 1. Broken object-array-object nesting increases indentation consistently at each
+ *    level.
+ * 2. Explicit multiline lines independently specify two-space indentation steps,
+ *    property identity and separators.
  *
  * @evidence contracts/testing.md#behavioral-verification Broken object-array-object nesting increases indentation consistently at each level.
  * @evidence contracts/testing.md#independent-expectations Explicit multiline lines independently specify two-space indentation steps, property identity and separators.

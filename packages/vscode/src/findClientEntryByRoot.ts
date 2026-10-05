@@ -24,22 +24,22 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states the lookup order, why the stored spelling comes first and that
  *   the operation is read-only, in separate paragraphs.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   It compares stored root strings and calls the injected key function; it
-  *   performs no filesystem access itself.
-  *
-  * @evidence contracts/performance.md#efficient-algorithms
-  *   One linear scan over n entries by string equality plus at most one Map
-  *   lookup, O(n), excluding the identity observations the injected key
-  *   function costs.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Stored-root matching reads current entries on each call; the injected key
-  *   function owns any observation sharing.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   It retains nothing; the caller owns the entries and the map.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   It compares stored root strings and calls the injected key function; it
+ *   performs no filesystem access itself.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One linear scan over n entries by string equality plus at most one Map
+ *   lookup, O(n), excluding the identity observations the injected key
+ *   function costs.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Stored-root matching reads current entries on each call; the injected key
+ *   function owns any observation sharing.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing; the caller owns the entries and the map.
  */
 export function findClientEntryByRoot<E extends { id: string; root: string }>(
   entries: Iterable<E>,

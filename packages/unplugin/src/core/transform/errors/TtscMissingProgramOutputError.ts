@@ -4,10 +4,10 @@
  *
  * Not a terminal generation error, and deliberately not a build failure. It is
  * a fact about one file, and the answer is to leave its original contents to
- * the host. It is a distinct type rather than a message match so the
- * decision travels as a type: `@ttsc/metro` used to recognise this case by
- * searching the message text for "did not return output", which is how one
- * product came to hold two different answers to one condition.
+ * the host. It is a distinct type rather than a message match so the decision
+ * travels as a type: `@ttsc/metro` used to recognise this case by searching the
+ * message text for "did not return output", which is how one product came to
+ * hold two different answers to one condition.
  *
  * @evidence contracts/common.md#principled-implementation Typed error identity carries the missing-program condition with the requested file, selected config and searched references; consumers can continue without confusing it with compiler failure.
  * @evidence contracts/common.md#clear-and-simple-design One error value packages the context needed to report and route this condition, without adding a retry or compilation layer.

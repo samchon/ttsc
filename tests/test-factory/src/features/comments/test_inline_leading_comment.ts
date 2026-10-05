@@ -1,4 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
+
 import factory, {
   SyntaxKind,
   addSyntheticLeadingComment,
@@ -9,11 +10,13 @@ import { kw, param, print } from "../../internal/helpers";
 /**
  * Verifies an inline multi-line leading comment without a trailing newline.
  *
- * `slash-star *\/` comments with `hasTrailingNewLine` falsey are separated from the
- * node by a single space instead of a line break.
+ * `slash-star *\/` comments with `hasTrailingNewLine` falsey are separated from
+ * the node by a single space instead of a line break.
  *
- * 1. A non-newline multiline leading comment stays inline before the x: number parameter.
- * 2. The exact slash-star note star-slash x: number expectation specifies the comment delimiters, spacing and unmodified parameter.
+ * 1. A non-newline multiline leading comment stays inline before the x: number
+ *    parameter.
+ * 2. The exact slash-star note star-slash x: number expectation specifies the
+ *    comment delimiters, spacing and unmodified parameter.
  *
  * @evidence contracts/testing.md#behavioral-verification A non-newline multiline leading comment stays inline before the x: number parameter.
  * @evidence contracts/testing.md#independent-expectations The exact slash-star note star-slash x: number expectation specifies the comment delimiters, spacing and unmodified parameter.

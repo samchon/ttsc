@@ -25,6 +25,12 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param initializer The initializer.
+ * @param condition The condition.
+ * @param incrementor The incrementor.
+ * @param statement The statement.
+ * @returns The created {@link ForStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Optional initializer, condition and incrementor remain distinct header slots;
  *   absence preserves the corresponding empty position and body order.
@@ -39,13 +45,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains execution ordering and optional header slots with a for-loop
  *   example separate from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param initializer The initializer.
- * @param condition The condition.
- * @param incrementor The incrementor.
- * @param statement The statement.
- * @returns The created {@link ForStatement}.
  */
 export const createForStatement = (
   initializer: ForInitializer | undefined,

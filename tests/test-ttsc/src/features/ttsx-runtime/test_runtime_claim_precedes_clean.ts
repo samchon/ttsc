@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -9,6 +8,7 @@ import { claimRuntimeProjectDirectory } from "../../../../../packages/ttsc/src/l
 import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/src/launcher/internal/runtime/resolveRuntimeCleanTargets";
 import { runtimeRunKey } from "../../../../../packages/ttsc/src/launcher/internal/runtime/runtimeRunKey";
 import { withRuntimeDirectoryLock } from "../../../../../packages/ttsc/src/launcher/internal/runtime/withRuntimeDirectoryLock";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies default clean cannot remove a newly pinned index before its claim.

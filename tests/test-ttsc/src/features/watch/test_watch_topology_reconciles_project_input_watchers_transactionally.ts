@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,6 +5,7 @@ import path from "node:path";
 import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
 import { projectInputAvailableWatchDirectory } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputAvailableWatchDirectory";
 import { syncWatchers } from "../../../../../packages/ttsc/src/launcher/internal/watch/syncWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies project-input watcher reconciliation is transactional.
@@ -24,62 +24,62 @@ import { syncWatchers } from "../../../../../packages/ttsc/src/launcher/internal
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls syncWatchers with fake watcher objects and projectInputAvailableWatchDirectory over real temporary directories, not WatchTopology itself. No compiler child or native watcher opens; native path identity may perform a read-only Windows case query.
  */
 export function test_watch_topology_reconciles_project_input_watchers_transactionally() {
-    const events: string[] = [];
-    const errors: unknown[] = [];
-    const watchers = new Map<string, FakeWatcher>([
-      [
-        "ancestor",
-        new FakeWatcher(() => {
-          events.push("close ancestor");
-        }),
-      ],
-    ]);
-    const desired = new Map([["descendant", "descendant"]]);
+  const events: string[] = [];
+  const errors: unknown[] = [];
+  const watchers = new Map<string, FakeWatcher>([
+    [
+      "ancestor",
+      new FakeWatcher(() => {
+        events.push("close ancestor");
+      }),
+    ],
+  ]);
+  const desired = new Map([["descendant", "descendant"]]);
 
-    assert.equal(
-      syncWatchers(
-        watchers,
-        desired,
-        () => {
-          events.push("create descendant");
-          throw new Error("watch rejected");
-        },
-        (_location, error) => errors.push(error),
-      ),
-      false,
-    );
-    assert.deepEqual([...watchers.keys()], ["ancestor"]);
-    assert.deepEqual(events, ["create descendant"]);
-    assert.equal(errors.length, 1);
+  assert.equal(
+    syncWatchers(
+      watchers,
+      desired,
+      () => {
+        events.push("create descendant");
+        throw new Error("watch rejected");
+      },
+      (_location, error) => errors.push(error),
+    ),
+    false,
+  );
+  assert.deepEqual([...watchers.keys()], ["ancestor"]);
+  assert.deepEqual(events, ["create descendant"]);
+  assert.equal(errors.length, 1);
 
-    events.length = 0;
-    assert.equal(
-      syncWatchers(
-        watchers,
-        desired,
-        () => {
-          events.push("create descendant");
-          return new FakeWatcher(() => {
-            events.push("close descendant");
-          });
-        },
-        (_location, error) => errors.push(error),
-      ),
-      true,
-    );
-    assert.deepEqual(events, ["create descendant", "close ancestor"]);
-    assert.deepEqual([...watchers.keys()], ["descendant"]);
+  events.length = 0;
+  assert.equal(
+    syncWatchers(
+      watchers,
+      desired,
+      () => {
+        events.push("create descendant");
+        return new FakeWatcher(() => {
+          events.push("close descendant");
+        });
+      },
+      (_location, error) => errors.push(error),
+    ),
+    true,
+  );
+  assert.deepEqual(events, ["create descendant", "close ancestor"]);
+  assert.deepEqual([...watchers.keys()], ["descendant"]);
 
-    const root = TestProject.tmpdir("ttsc-project-input-watch-rollback-");
-    const ancestor = path.join(root, "ancestor");
-    const descendant = path.join(ancestor, "descendant");
-    fs.mkdirSync(descendant, { recursive: true });
-    const identities = createProjectInputPathIdentityContext();
-    const rejected = new Set([identities.resolve(descendant).key]);
-    assert.equal(
-      projectInputAvailableWatchDirectory(descendant, rejected, identities),
-      realpath(ancestor),
-    );
+  const root = TestProject.tmpdir("ttsc-project-input-watch-rollback-");
+  const ancestor = path.join(root, "ancestor");
+  const descendant = path.join(ancestor, "descendant");
+  fs.mkdirSync(descendant, { recursive: true });
+  const identities = createProjectInputPathIdentityContext();
+  const rejected = new Set([identities.resolve(descendant).key]);
+  assert.equal(
+    projectInputAvailableWatchDirectory(descendant, rejected, identities),
+    realpath(ancestor),
+  );
 }
 
 class FakeWatcher {

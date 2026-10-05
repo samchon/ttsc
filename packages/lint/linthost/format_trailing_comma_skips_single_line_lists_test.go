@@ -11,10 +11,10 @@ import (
 //
 // Comma insertion depends on the final item and closing delimiter being on different lines. Inline lists must stay unchanged even while a neighboring broken list is normalized.
 //
-// 1. Parse a source file with single-line array, object, and call lists.
-// 2. Run the engine with formatTrailingComma enabled.
-// 3. Require silence and then normalize a neighboring broken array while
-//    preserving the original inline lists.
+//  1. Parse a source file with single-line array, object, and call lists.
+//  2. Run the engine with formatTrailingComma enabled.
+//  3. Require silence and then normalize a neighboring broken array while
+//     preserving the original inline lists.
 //
 // @evidence contracts/testing.md#behavioral-verification Single-line arrays, objects and call arguments must receive no findings under all mode. A neighboring multiline array must gain its final comma without changing those original lists.
 // @evidence contracts/testing.md#independent-expectations Official Prettier options exclude trailing commas on single-line lists. Authored literal complete output preserves the original inline containers and changes only the added broken array.

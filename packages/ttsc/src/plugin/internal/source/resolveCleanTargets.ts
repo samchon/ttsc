@@ -17,8 +17,9 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
  * user-provided `GOCACHE` filters candidates whose reported identity keys
  * overlap in either direction. This query does not pin those paths or certify
  * unresolved case/alias relationships; the cleanup transaction validates the
- * complete deletion set separately. Workspace discovery reads the filesystem; environment selection
- * uses `env` so a programmatic caller can supply its effective environment.
+ * complete deletion set separately. Workspace discovery reads the filesystem;
+ * environment selection uses `env` so a programmatic caller can supply its
+ * effective environment.
  *
  * @evidence contracts/common.md#principled-implementation Candidate directories encode owned layout parts and dedicated Go provenance; reported identity-key overlap with external GOCACHE is excluded in either ancestor direction, without converting unresolved identity into a physical-ownership certificate.
  * @evidence contracts/common.md#clear-and-simple-design Candidate enumeration is followed by one external-ownership filter; physical deletion and project-root protection remain the cleanup transaction's responsibility.

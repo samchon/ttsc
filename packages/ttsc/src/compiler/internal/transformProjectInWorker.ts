@@ -18,9 +18,9 @@ import type { transformProjectInMemory } from "./transformProjectInMemory";
  * computes the source-plugin cache key and evaluates each descriptor in a child
  * process, and the native compile runs synchronously. Awaiting only the native
  * processes would leave plugin loading and source-input processing on the
- * caller's loop. The synchronous transform therefore runs
- * on a worker thread instead, with the same envelope, failures, and
- * descriptor-resilient launches.
+ * caller's loop. The synchronous transform therefore runs on a worker thread
+ * instead, with the same envelope, failures, and descriptor-resilient
+ * launches.
  *
  * The worker runs under the environment the compiler defines for everything it
  * starts: the calling thread's `process.env` as it is at this call, with the
@@ -30,25 +30,22 @@ import type { transformProjectInMemory } from "./transformProjectInMemory";
  * own globals around the call. Later caller environment mutations do not edit
  * that captured record; filesystem state remains shared and previously loaded
  * worker-module state still follows its own lifetime. A worker serves one
- * transform at a time and returns
- * to an idle pool afterward, keeping the in-process caches plugin loading
- * builds warm. Concurrent transforms get workers of their own. An idle worker
- * never keeps the process alive.
+ * transform at a time and returns to an idle pool afterward, keeping the
+ * in-process caches plugin loading builds warm. Concurrent transforms get
+ * workers of their own. An idle worker never keeps the process alive.
  *
  * Warm idle threads are retained up to the host's reported parallelism budget;
  * excess or failed threads receive asynchronous termination requests whose
  * completion is not joined here. The pool bound counts reusable entries, not
- * every physical thread still retiring. Active requests retain their own workers
- * without a concurrency cap or implicit deadline.
+ * every physical thread still retiring. Active requests retain their own
+ * workers without a concurrency cap or implicit deadline.
  *
  * @param context Compiler context of the requesting {@link TtscCompiler}.
- *
  * @returns A promise for the cloned transform result or its serialized failure
- *   description. Worker error/death and postMessage clone failures also reject.
- *
+ *   description. Worker error/death and postMessage clone failures also
+ *   reject.
  * @throws On synchronous request capture/serialization or worker creation
  *   failure before the promise is constructed.
- *
  * @evidence contracts/common.md#principled-implementation One request exclusively owns a worker until its output, exception or death settles; structured cloning isolates caller data, and adopting that request's environment prevents a pooled worker from inheriting the previous invocation's authority.
  * @evidence contracts/common.md#clear-and-simple-design The public operation owns checkout, exclusive event listeners and return to the idle pool; two private helpers isolate idle-worker retirement from active request settlement.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Blocking work runs in a supported worker boundary rather than rewriting the caller's environment around synchronous work; failures preserve real exceptions and do not substitute measured or expected results.

@@ -68,7 +68,11 @@ export const test_plugin_corpus_auto_discovered_ttsc_lint_fails_when_no_config_f
     });
     assert.ifError(result.error);
     assert.equal(result.signal, null);
-    assert.equal(typeof result.status, "number", "missing config must return an exit status");
+    assert.equal(
+      typeof result.status,
+      "number",
+      "missing config must return an exit status",
+    );
     assert.notEqual(result.status, 0, "expected missing lint config to fail");
     assert.match(result.stderr, /config.*ttsc-lint\.config/s);
   };

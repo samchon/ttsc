@@ -5,12 +5,12 @@
  *
  * Host module caching does not independently validate this adapter's current
  * project and options. A delivery therefore names its option identity
- * (`rollupDeliveryOptions`) and the
- * project record it was handed with the digest of the bytes its process wrote
- * to it. A delivery that consulted no project, such as disabled plugins, names
- * no record. A delivery no cache may serve carries `null`: one handed no record
- * its process wrote, and one whose output the plugin declared volatile, which
- * depends on inputs no file stands for.
+ * (`rollupDeliveryOptions`) and the project record it was handed with the
+ * digest of the bytes its process wrote to it. A delivery that consulted no
+ * project, such as disabled plugins, names no record. A delivery no cache may
+ * serve carries `null`: one handed no record its process wrote, and one whose
+ * output the plugin declared volatile, which depends on inputs no file stands
+ * for.
  *
  * Rollup keeps a module's `meta` in its cache, and restores it with the module,
  * so the value is plain JSON.

@@ -7,9 +7,9 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  *
  * Recorded per result because a result outlives the delivery that produced it
  * and is revalidated later. Capture and delivery owners can replace the
- * registration and must keep its operations coherent with recorded observations;
- * the table does not establish equivalence between views. Weakly held, so a
- * disposed generation releases its entry.
+ * registration and must keep its operations coherent with recorded
+ * observations; the table does not establish equivalence between views. Weakly
+ * held, so a disposed generation releases its entry.
  */
 export const TRANSFORM_RESULT_FILESYSTEM = new WeakMap<
   ITtscCompilerTransformation,

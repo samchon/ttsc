@@ -1,13 +1,14 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams } from "node:child_process";
-import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-const { spawn } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TtsgraphClient } from "../../../internal/graph/internal/ttsgraph";
+
+const { spawn } = E2eProcessTrace;
 
 const workerFixtures = path.resolve(
   import.meta.dirname,

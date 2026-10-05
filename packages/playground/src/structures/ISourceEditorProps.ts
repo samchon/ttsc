@@ -12,9 +12,7 @@
 export interface ISourceEditorProps {
   value: string;
 
-  /**
-   * Publish the editor's complete current text to the controlling owner.
-   */
+  /** Publish the editor's complete current text to the controlling owner. */
   onChange: SourceEditorChangeHandler;
 
   /**

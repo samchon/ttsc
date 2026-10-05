@@ -3,13 +3,12 @@ import os from "node:os";
 import path from "node:path";
 
 import { getNativeLintProducer } from "../NativeLintProducer";
-
-import type { ICreateProjectProps } from "./ICreateProjectProps";
 import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
+import type { ICreateProjectProps } from "./ICreateProjectProps";
 import type { ITtscEvidenceProject } from "./ITtscEvidenceProject";
 import { linkDirectory } from "./linkDirectory";
-import { resolveDependency } from "./resolveDependency";
 import { prepareEvidenceDependencies } from "./prepareEvidenceDependencies";
+import { resolveDependency } from "./resolveDependency";
 
 /**
  * Materializes a throwaway project wired to the real toolchain.
@@ -47,84 +46,101 @@ export const createProject = (
     path.join(props.workspaceParent ?? os.tmpdir(), `evidence-${props.name}-`),
   );
   try {
-  const directory: string = path.join(workspace, "project");
-  fs.mkdirSync(directory, { recursive: true });
+    const directory: string = path.join(workspace, "project");
+    fs.mkdirSync(directory, { recursive: true });
 
-  const write = (relative: string, content: string): void => {
-    const location: string = path.join(directory, relative);
-    fs.mkdirSync(path.dirname(location), { recursive: true });
-    fs.writeFileSync(location, content, "utf8");
-  };
-  const writeOutside = (relative: string, content: string): void => {
-    const location: string = path.join(workspace, relative);
-    fs.mkdirSync(path.dirname(location), { recursive: true });
-    fs.writeFileSync(location, content, "utf8");
-  };
+    const write = (relative: string, content: string): void => {
+      const location: string = path.join(directory, relative);
+      fs.mkdirSync(path.dirname(location), { recursive: true });
+      fs.writeFileSync(location, content, "utf8");
+    };
+    const writeOutside = (relative: string, content: string): void => {
+      const location: string = path.join(workspace, relative);
+      fs.mkdirSync(path.dirname(location), { recursive: true });
+      fs.writeFileSync(location, content, "utf8");
+    };
 
-  write(
-    "package.json",
-    JSON.stringify(
-      { name: `fixture-${props.name}`, private: true, type: "module" },
-      null,
-      2,
-    ),
-  );
-  write(
-    "tsconfig.json",
-    JSON.stringify(
-      {
-        compilerOptions: {
-          target: "esnext",
-          module: "nodenext",
-          moduleResolution: "nodenext",
-          esModuleInterop: true,
-          strict: true,
-          noEmit: true,
-          plugins: [{ transform: "@ttsc/lint" }],
-          ...(props.compilerOptions ?? {}),
+    write(
+      "package.json",
+      JSON.stringify(
+        { name: `fixture-${props.name}`, private: true, type: "module" },
+        null,
+        2,
+      ),
+    );
+    write(
+      "tsconfig.json",
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: "esnext",
+            module: "nodenext",
+            moduleResolution: "nodenext",
+            esModuleInterop: true,
+            strict: true,
+            noEmit: true,
+            plugins: [{ transform: "@ttsc/lint" }],
+            ...(props.compilerOptions ?? {}),
+          },
+          include: props.include ?? ["src", "lint.config.ts"],
         },
-        include: props.include ?? ["src", "lint.config.ts"],
-      },
-      null,
-      2,
-    ),
-  );
-  write("lint.config.ts", props.lintConfig);
-  for (const [relative, content] of Object.entries(props.files))
-    write(relative, content);
-  for (const [relative, content] of Object.entries(props.workspaceFiles ?? {}))
-    writeOutside(relative, content);
+        null,
+        2,
+      ),
+    );
+    write("lint.config.ts", props.lintConfig);
+    for (const [relative, content] of Object.entries(props.files))
+      write(relative, content);
+    for (const [relative, content] of Object.entries(
+      props.workspaceFiles ?? {},
+    ))
+      writeOutside(relative, content);
 
-  // Link rather than install: the workspace build is what is under test, and an
-  // npm-resolved copy would be testing whatever was last published. Materialize
-  // the package's publishConfig entry points instead of exposing its
-  // development-only TypeScript source entry to the consumer.
-  //
-  // `typescript` is linked too because ttsc refuses to start without the native
-  // compiler resolvable from the consuming project — it is a real consumer
-  // requirement, not a test artifact.
-  const modules: string = path.join(directory, "node_modules");
-  if (props.preparedModules) {
-    if (!path.isAbsolute(props.preparedModules))
-      throw new Error("Prepared modules must be an absolute caller-owned path");
-    const expectedLint = props.nativeProducer === "snapshot"
-      ? getNativeLintProducer().packageRoot
-      : resolveDependency("@ttsc/lint");
-    if (fs.realpathSync(path.join(props.preparedModules, "@ttsc", "lint")) !== fs.realpathSync(expectedLint))
-      throw new Error("Shared Evidence dependencies select a different native lint producer");
-    linkDirectory(props.preparedModules, modules);
-  } else {
-    prepareEvidenceDependencies(modules, props.nativeProducer);
-  }
-  return { directory, workspace, cleanup: () => {
-    EvidenceProcessOwnership.assertAvailable(directory);
-    cleanupWorkspace(workspace);
-  } };
+    // Link rather than install: the workspace build is what is under test, and an
+    // npm-resolved copy would be testing whatever was last published. Materialize
+    // the package's publishConfig entry points instead of exposing its
+    // development-only TypeScript source entry to the consumer.
+    //
+    // `typescript` is linked too because ttsc refuses to start without the native
+    // compiler resolvable from the consuming project — it is a real consumer
+    // requirement, not a test artifact.
+    const modules: string = path.join(directory, "node_modules");
+    if (props.preparedModules) {
+      if (!path.isAbsolute(props.preparedModules))
+        throw new Error(
+          "Prepared modules must be an absolute caller-owned path",
+        );
+      const expectedLint =
+        props.nativeProducer === "snapshot"
+          ? getNativeLintProducer().packageRoot
+          : resolveDependency("@ttsc/lint");
+      if (
+        fs.realpathSync(path.join(props.preparedModules, "@ttsc", "lint")) !==
+        fs.realpathSync(expectedLint)
+      )
+        throw new Error(
+          "Shared Evidence dependencies select a different native lint producer",
+        );
+      linkDirectory(props.preparedModules, modules);
+    } else {
+      prepareEvidenceDependencies(modules, props.nativeProducer);
+    }
+    return {
+      directory,
+      workspace,
+      cleanup: () => {
+        EvidenceProcessOwnership.assertAvailable(directory);
+        cleanupWorkspace(workspace);
+      },
+    };
   } catch (error) {
     try {
       cleanupWorkspace(workspace);
     } catch (cleanupError) {
-      throw new AggregateError([error, cleanupError], "Evidence fixture preparation and cleanup failed.");
+      throw new AggregateError(
+        [error, cleanupError],
+        "Evidence fixture preparation and cleanup failed.",
+      );
     }
     throw error;
   }
@@ -134,10 +150,14 @@ export const createProject = (
  * Releases the exact private fixture root after its native processes close.
  *
  * Windows can briefly retain a released handle, so Node retries transient
- * removal failures. Exhaustion remains a failure rather than silently leaving
- * a fixture behind or reporting successful ownership release.
+ * removal failures. Exhaustion remains a failure rather than silently leaving a
+ * fixture behind or reporting successful ownership release.
  */
 const cleanupWorkspace = (directory: string): void => {
-  fs.rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  fs.rmSync(directory, {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 100,
+  });
 };
-

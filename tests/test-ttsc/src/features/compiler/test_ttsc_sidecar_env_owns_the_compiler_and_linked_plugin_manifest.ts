@@ -3,9 +3,9 @@ import os from "node:os";
 import path from "node:path";
 
 import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
+import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 import { inheritedSidecarEnv } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/inheritedSidecarEnv";
 import { publishLinkedTransformPlugins } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/publishLinkedTransformPlugins";
-import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/SidecarEnvironment";
 
 /**
  * Verifies a sidecar environment carries this invocation's compiler and linked
@@ -100,7 +100,9 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
         assert.equal(env.TTSC_NODE_BINARY, "/selected/node", stage);
       }
       const overridden = BuildExecution.composeNativePluginEnv(
-        SidecarEnvironment.merge(process.env, { TTSC_TSGO_BINARY: "/caller/tsgo" }),
+        SidecarEnvironment.merge(process.env, {
+          TTSC_TSGO_BINARY: "/caller/tsgo",
+        }),
         { TTSC_TSGO_BINARY: "/caller/tsgo" },
         execution,
         "/selected/node",

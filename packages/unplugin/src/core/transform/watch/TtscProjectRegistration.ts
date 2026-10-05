@@ -4,8 +4,8 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * What one delivery hands a host that observes the project through its record
  * (`TtscTransformHooks.project`): the record file and the inputs a watching
  * session's bridge observes to move it. A digest identifies snapshot bytes
- * accepted by persistence, which can find identical bytes without rewriting.
- * An existing record handed over without acceptance for that revision has no
+ * accepted by persistence, which can find identical bytes without rewriting. An
+ * existing record handed over without acceptance for that revision has no
  * digest.
  *
  * @evidence contracts/common.md#principled-implementation The record path, optional accepted snapshot digest, failure flag and snapshot callback distinguish revision-specific byte acceptance from a record merely found after persistence refusal.
@@ -28,9 +28,9 @@ export interface TtscProjectRegistration {
    * The digest of snapshot bytes this process wrote or found identical in
    * {@link record} for the delivery's revision (`projectRecordDigest`), or
    * `undefined` when persistence accepted no bytes for that revision. A host
-   * that keeps
-   * no snapshot of the record compares it with the record's bytes before it
-   * serves the module from a cache (`createRollupCachedModuleProof`).
+   * that keeps no snapshot of the record compares it with the record's bytes
+   * before it serves the module from a cache
+   * (`createRollupCachedModuleProof`).
    */
   digest?: string;
 
@@ -53,7 +53,8 @@ export interface TtscProjectRegistration {
  * Obtain the readonly watching snapshot retained for this registration.
  *
  * Later registrations may carry a new snapshot when the same generation gains
- * another selection dependency. Consumers must not mutate the array or entries.
+ * another selection dependency. Consumers must not mutate the array or
+ * entries.
  *
  * @evidence contracts/common.md#principled-implementation The zero-argument result exposes a registration's stable snapshot while later registrations can represent an expanded dependency set.
  * @evidence contracts/common.md#clear-and-simple-design A named function alias preserves the existing property signature and avoids changing callback assignability through method syntax.

@@ -8,9 +8,9 @@ import "testing"
 // The rule splits the optional type, the parameter name and the trailing
 // description of the parsed tag content.
 //
-// 1. Run the rule over a block whose third line is `@param name` and expect
-//    one finding on line 3.
-// 2. Run the rule over a block with `@param name Normalized display name.` and expect none.
+//  1. Run the rule over a block whose third line is `@param name` and expect
+//     one finding on line 3.
+//  2. Run the rule over a block with `@param name Normalized display name.` and expect none.
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-param-description rule through NewEngine.Run over a parsed virtual TypeScript file. `@param name` yields exactly one finding, with that rule at error severity, on line 3; `@param name Normalized display name.` yields none.
 // @evidence contracts/testing.md#independent-expectations A parameter name identifies the target and the description explains it, so a name alone is incomplete. The literal sources and expected line 3 follow from that policy; the message text is not asserted.

@@ -5,12 +5,13 @@ import { assertCacheKeyFoldsNonceAfterSnapshotWriteFailure } from "../../interna
  *
  * A regular file placed over the snapshot directory rejects the worker file
  * while the sibling recovery document is still writable; once the directory is
- * back, the old main file is readable again beside that recovery document. Keys must
- * nonce until storage recovers, the pending observation is republished, and
- * compaction installs a fresh stable epoch.
+ * back, the old main file is readable again beside that recovery document. Keys
+ * must nonce until storage recovers, the pending observation is republished,
+ * and compaction installs a fresh stable epoch.
  *
  * 1. Prepare a main snapshot and external recorder input.
- * 2. Obstruct the snapshot directory and assert one recovery record and nonce keys.
+ * 2. Obstruct the snapshot directory and assert one recovery record and nonce
+ *    keys.
  * 3. Restore it and assert the recovery file alone still nonces, then retry
  *    publication and verify fresh stable compaction.
  *

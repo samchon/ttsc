@@ -1,12 +1,9 @@
 import os from "node:os";
-import { TestProject } from "../../../../utils/src/TestProject";
+
 import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
 import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/src/internal/resolveSafeCacheCleanupTargets";
-import {
-  assert,
-  fs,
-  path,
-} from "../../internal/script-unit";
+import { TestProject } from "../../../../utils/src/TestProject";
+import { assert, fs, path } from "../../internal/script-unit";
 
 /**
  * Verifies TtscCompiler.clean validates every cache cleanup target before
@@ -27,81 +24,104 @@ import {
  * @evidence contracts/testing.md#execution-ownership A unit test running TtscCompiler.clean and resolveSafeCacheCleanupTargets in process over a throwaway project, a sibling file and a junction in os.tmpdir(); no tsgo compile, native plugin build or ttsc CLI process is started.
  */
 export function test_ttsccompiler_clean_refuses_project_containing_cache_directories() {
-    const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-clean-safety-"));
-    const project = path.join(parent, "project");
-    const projectSentinel = path.join(project, "src", "main.ts");
-    const siblingSentinel = path.join(parent, "keep.txt");
-    const pluginSentinel = path.join(
-      project,
-      "node_modules",
-      ".cache",
-      "ttsc",
-      "plugins",
-      "keep.txt",
-    );
-    const aliasRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ttsc-clean-safety-alias-"),
-    );
-    try {
-      TestProject.writeFiles(project, {
-        "src/main.ts": 'export const keep = "project";\n',
-        "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "commonjs", strict: true, outDir: "dist", declaration: true, declarationMap: true, rootDir: "src", sourceMap: true }, include: ["src"] }, null, 2),
-      });
-      fs.writeFileSync(siblingSentinel, "sibling", "utf8");
-      fs.mkdirSync(path.dirname(pluginSentinel), { recursive: true });
-      fs.writeFileSync(pluginSentinel, "plugin", "utf8");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-clean-safety-"));
+  const project = path.join(parent, "project");
+  const projectSentinel = path.join(project, "src", "main.ts");
+  const siblingSentinel = path.join(parent, "keep.txt");
+  const pluginSentinel = path.join(
+    project,
+    "node_modules",
+    ".cache",
+    "ttsc",
+    "plugins",
+    "keep.txt",
+  );
+  const aliasRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-clean-safety-alias-"),
+  );
+  try {
+    TestProject.writeFiles(project, {
+      "src/main.ts": 'export const keep = "project";\n',
+      "tsconfig.json": JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ES2022",
+            module: "commonjs",
+            strict: true,
+            outDir: "dist",
+            declaration: true,
+            declarationMap: true,
+            rootDir: "src",
+            sourceMap: true,
+          },
+          include: ["src"],
+        },
+        null,
+        2,
+      ),
+    });
+    fs.writeFileSync(siblingSentinel, "sibling", "utf8");
+    fs.mkdirSync(path.dirname(pluginSentinel), { recursive: true });
+    fs.writeFileSync(pluginSentinel, "plugin", "utf8");
 
-      for (const cacheDir of [project, parent]) {
-        const compiler = new TtscCompiler({ cacheDir, cwd: project });
-        assert.throws(
-          () => compiler.clean(),
-          /refusing to clean cache directory.*equals or contains project root/,
-        );
-        assert.equal(fs.readFileSync(projectSentinel, "utf8"), 'export const keep = "project";\n');
-        assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
-      }
-
-      const alias = path.join(aliasRoot, "parent");
-      fs.symlinkSync(parent, alias, "junction");
+    for (const cacheDir of [project, parent]) {
+      const compiler = new TtscCompiler({ cacheDir, cwd: project });
       assert.throws(
-        () =>
-          resolveSafeCacheCleanupTargets(project, [
-            path.join(alias, "project"),
-          ]),
+        () => compiler.clean(),
         /refusing to clean cache directory.*equals or contains project root/,
       );
-
-      assert.throws(
-        () =>
-          new TtscCompiler({
-            cwd: project,
-            env: {
-              TTSC_CACHE_DIR: path.join(
-                project,
-                "node_modules",
-                ".cache",
-                "ttsc",
-              ),
-              TTSC_GO_CACHE_DIR: parent,
-            },
-          }).clean(),
-        /refusing to clean cache directory.*equals or contains project root/,
+      assert.equal(
+        fs.readFileSync(projectSentinel, "utf8"),
+        'export const keep = "project";\n',
       );
-      assert.equal(fs.readFileSync(pluginSentinel, "utf8"), "plugin");
-      assert.equal(fs.readFileSync(projectSentinel, "utf8"), 'export const keep = "project";\n');
       assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
-
-      assert.throws(
-        () =>
-          resolveSafeCacheCleanupTargets(project, [
-            path.parse(path.resolve(project)).root,
-          ]),
-        /filesystem roots are never valid cache directories/,
-      );
-      assert.equal(fs.readFileSync(projectSentinel, "utf8"), 'export const keep = "project";\n');
-      assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
-    } finally {
-      fs.rmSync(aliasRoot, { force: true, recursive: true });
-      fs.rmSync(parent, { force: true, recursive: true });
     }
+
+    const alias = path.join(aliasRoot, "parent");
+    fs.symlinkSync(parent, alias, "junction");
+    assert.throws(
+      () =>
+        resolveSafeCacheCleanupTargets(project, [path.join(alias, "project")]),
+      /refusing to clean cache directory.*equals or contains project root/,
+    );
+
+    assert.throws(
+      () =>
+        new TtscCompiler({
+          cwd: project,
+          env: {
+            TTSC_CACHE_DIR: path.join(
+              project,
+              "node_modules",
+              ".cache",
+              "ttsc",
+            ),
+            TTSC_GO_CACHE_DIR: parent,
+          },
+        }).clean(),
+      /refusing to clean cache directory.*equals or contains project root/,
+    );
+    assert.equal(fs.readFileSync(pluginSentinel, "utf8"), "plugin");
+    assert.equal(
+      fs.readFileSync(projectSentinel, "utf8"),
+      'export const keep = "project";\n',
+    );
+    assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
+
+    assert.throws(
+      () =>
+        resolveSafeCacheCleanupTargets(project, [
+          path.parse(path.resolve(project)).root,
+        ]),
+      /filesystem roots are never valid cache directories/,
+    );
+    assert.equal(
+      fs.readFileSync(projectSentinel, "utf8"),
+      'export const keep = "project";\n',
+    );
+    assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
+  } finally {
+    fs.rmSync(aliasRoot, { force: true, recursive: true });
+    fs.rmSync(parent, { force: true, recursive: true });
+  }
 }

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { installedTargetBoundary, launch } from "../../../internal/graph/internal/installedTargetBoundary";
+import {
+  installedTargetBoundary,
+  launch,
+} from "../../../internal/graph/internal/installedTargetBoundary";
 
 /**
  * Verifies installed CLI validation and actual dump dispatch remain connected.
@@ -11,8 +14,10 @@ import { installedTargetBoundary, launch } from "../../../internal/graph/interna
  * dispatch and real native producer connection without an executable sentinel.
  *
  * 1. Reject one malformed vector per lane with owned status-two diagnostics.
- * 2. Execute the original two valid project/pretty forms through the real producer.
- * 3. Contrast missing-install help and ordinary failure, then require real native help usage/status.
+ * 2. Execute the original two valid project/pretty forms through the real
+ *    producer.
+ * 3. Contrast missing-install help and ordinary failure, then require real native
+ *    help usage/status.
  *
  * @evidence contracts/testing.md#behavioral-verification Installed view/MCP/dump invalid vectors return status two and owned prefixes while an unavailable executable would instead cause native failure. Two real dump forms return status zero/current declarations and distinct pretty output; dump help retains native status two and stderr usage; missing-install help returns zero/qualified summary and ordinary missing-install dump remains failure one.
  * @evidence contracts/testing.md#independent-expectations Literal status two/zero, NativeTargetControl, project.json and native usage define independent installed outcomes. The source-unit matrix retains all twenty-eight invalid vectors, three exact forwarded argv arrays and native-status23 mapping.
@@ -26,12 +31,21 @@ import { installedTargetBoundary, launch } from "../../../internal/graph/interna
 export async function case_ttscgraph_installed_launcher_preserves_argument_boundary(): Promise<void> {
   const target = installedTargetBoundary();
   const errors: unknown[] = [];
-  for (const args of [["view", "--max-nodes", "oops"], ["--cxd", target.root], ["dump", "--cwd"]]) {
+  for (const args of [
+    ["view", "--max-nodes", "oops"],
+    ["--cxd", target.root],
+    ["dump", "--cwd"],
+  ]) {
     try {
-      const result = launch(args, { cwd: target.elsewhere, graphBinary: path.join(target.elsewhere, "absent-native-binary") });
+      const result = launch(args, {
+        cwd: target.elsewhere,
+        graphBinary: path.join(target.elsewhere, "absent-native-binary"),
+      });
       assert.equal(result.status, 2, `${args.join(" ")}\n${result.stderr}`);
       assert.match(result.stderr ?? "", /^@ttsc\/graph: /u);
-    } catch (error) { errors.push(error); }
+    } catch (error) {
+      errors.push(error);
+    }
   }
   for (const [args, code, pattern] of [
     [["dump", "--help"], 0, /^Usage: ttsc-graph dump/mu],
@@ -42,27 +56,43 @@ export async function case_ttscgraph_installed_launcher_preserves_argument_bound
       assert.equal(result.status, code, result.stderr);
       assert.match(code === 0 ? result.stdout : result.stderr, pattern);
       if (code === 0) assert.match(result.stdout, /ttscgraph/u);
-    } catch (error) { errors.push(error); }
+    } catch (error) {
+      errors.push(error);
+    }
   }
   const valid = [
     ["dump", "--cwd", target.root, "--tsconfig", "project.json", "--pretty"],
-    ["dump", `--cwd=${target.root}`, "--tsconfig=project.json", "--pretty=false"],
+    [
+      "dump",
+      `--cwd=${target.root}`,
+      "--tsconfig=project.json",
+      "--pretty=false",
+    ],
     ["dump", "--help"],
   ];
   for (const [index, args] of valid.entries()) {
     try {
-      const result = launch(args, { cwd: target.elsewhere, graphBinary: target.binary });
+      const result = launch(args, {
+        cwd: target.elsewhere,
+        graphBinary: target.binary,
+      });
       if (index === 2) {
         assert.equal(result.status, 2, result.stderr);
         assert.match(result.stderr ?? "", /Usage of ttscgraph dump:/u);
         continue;
       }
       assert.equal(result.status, 0, `${args.join(" ")}\n${result.stderr}`);
-      const dump = JSON.parse(result.stdout) as { tsconfig: string; nodes: { name: string }[] };
+      const dump = JSON.parse(result.stdout) as {
+        tsconfig: string;
+        nodes: { name: string }[];
+      };
       assert.ok(dump.nodes.some((node) => node.name === "NativeTargetControl"));
       assert.equal(dump.tsconfig, "project.json");
       assert.equal(result.stdout.trim().split("\n").length > 1, index === 0);
-    } catch (error) { errors.push(error); }
+    } catch (error) {
+      errors.push(error);
+    }
   }
-  if (errors.length !== 0) throw new AggregateError(errors, "installed launcher controls failed");
+  if (errors.length !== 0)
+    throw new AggregateError(errors, "installed launcher controls failed");
 }

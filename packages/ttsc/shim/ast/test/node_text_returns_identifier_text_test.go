@@ -28,5 +28,7 @@ func TestNodeTextReturnsIdentifierText(t *testing.T) {
     t.Fatalf("NodeText(Identifier) = %q, want %q", got, "Foo")
   }
 
-  if got := shimast.NodeText(factory.NewIdentifier("")); got != "" { t.Fatalf("empty identifier = %q", got) }
+  if got := shimast.NodeText(factory.NewIdentifier("")); got != "" {
+    t.Fatalf("empty identifier = %q", got)
+  }
 }

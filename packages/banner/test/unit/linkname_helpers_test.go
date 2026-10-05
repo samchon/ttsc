@@ -8,8 +8,8 @@ import (
   "os"
   _ "unsafe"
 
-  "github.com/samchon/ttsc/packages/ttsc/driver"
   _ "github.com/samchon/ttsc/packages/banner/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 //go:linkname bannerValidateBannerConfig github.com/samchon/ttsc/packages/banner/driver.validateBannerConfig

@@ -13,18 +13,17 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * Given operands `a` and `b`, the printer emits:
  *
  * ```ts
- * a, b
+ * (a, b);
  * ```
- *
- * @evidence contracts/common.md#principled-implementation CommaToken preserves left-then-right syntax and the right operand's result role; construction stores both expressions without evaluating or dropping either.
- * @evidence contracts/common.md#clear-and-simple-design The shared binary constructor retains the pair; expression-context grouping remains a printer decision.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The comma represents sequencing rather than replacing the left expression with a known no-effect assumption.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains sequencing and comma placement; its standalone example avoids implying automatic parentheses or a semicolon, and tags are separate.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.
  * @param right The right-hand operand.
  * @returns The created {@link BinaryExpression}.
+ * @evidence contracts/common.md#principled-implementation CommaToken preserves left-then-right syntax and the right operand's result role; construction stores both expressions without evaluating or dropping either.
+ * @evidence contracts/common.md#clear-and-simple-design The shared binary constructor retains the pair; expression-context grouping remains a printer decision.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The comma represents sequencing rather than replacing the left expression with a known no-effect assumption.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains sequencing and comma placement; its standalone example avoids implying automatic parentheses or a semicolon, and tags are separate.
  */
 export const createComma = (
   left: Expression,

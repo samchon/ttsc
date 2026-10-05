@@ -23,8 +23,19 @@ export namespace TtscGraphNativeArguments {
    * @evidenceExclude contracts/performance.md#efficient-algorithms concatenates a fixed argv with at most one optional pair, in constant work.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work builds one argv per spawn.
    */
-  export function serve(cwd: string, tsconfig: string, artifacts: string | null): string[] {
-    return ["serve", "--cwd", cwd, "--tsconfig", tsconfig, ...(artifacts === null ? [] : ["--artifacts", artifacts])];
+  export function serve(
+    cwd: string,
+    tsconfig: string,
+    artifacts: string | null,
+  ): string[] {
+    return [
+      "serve",
+      "--cwd",
+      cwd,
+      "--tsconfig",
+      tsconfig,
+      ...(artifacts === null ? [] : ["--artifacts", artifacts]),
+    ];
   }
 
   /**
@@ -39,7 +50,18 @@ export namespace TtscGraphNativeArguments {
    * @evidenceExclude contracts/performance.md#efficient-algorithms concatenates a fixed argv with at most one optional entry, in constant work.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work builds one argv per spawn.
    */
-  export function lint(cwd: string, tsconfig: string, manifest: string, context?: string): string[] {
-    return ["lsp-serve", `--cwd=${cwd}`, `--tsconfig=${tsconfig}`, `--plugins-json=${manifest}`, ...(context === undefined ? [] : [`--project-context-json=${context}`])];
+  export function lint(
+    cwd: string,
+    tsconfig: string,
+    manifest: string,
+    context?: string,
+  ): string[] {
+    return [
+      "lsp-serve",
+      `--cwd=${cwd}`,
+      `--tsconfig=${tsconfig}`,
+      `--plugins-json=${manifest}`,
+      ...(context === undefined ? [] : [`--project-context-json=${context}`]),
+    ];
   }
 }

@@ -8,15 +8,15 @@ import { WATCH_PROBE_DIRECTORY_PREFIX } from "./WATCH_PROBE_DIRECTORY_PREFIX";
  * named process reports ESRCH.
  *
  * A process removes its own probe directory when it exits, but a killed process
- * may not. Only a namespace entry named with a process id that the operating system
- * reports as gone (`ESRCH`) is removed: a live owner, one this process may not
- * signal, and a name without an id are left alone. Names follow the adapter's
- * probe convention; this scan does not separately stat entry kind or prove
- * filesystem ownership, and liveness/deletion are not one atomic operation.
+ * may not. Only a namespace entry named with a process id that the operating
+ * system reports as gone (`ESRCH`) is removed: a live owner, one this process
+ * may not signal, and a name without an id are left alone. Names follow the
+ * adapter's probe convention; this scan does not separately stat entry kind or
+ * prove filesystem ownership, and liveness/deletion are not one atomic
+ * operation.
  *
  * @param parent The tool cache the broker is about to name its own probe
  *   directory in.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Probe namespace ownership and an ESRCH result authorize stale cleanup;
  *   live or inaccessible process ids must retain their directory.

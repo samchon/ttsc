@@ -3,9 +3,9 @@ import type { ViteModuleGraphLike } from "./ViteModuleGraphLike";
 import type { ViteModuleNodeLike } from "./ViteModuleNodeLike";
 
 /**
- * One dev-server environment (client, ssr, or a custom one).
- * Its module nodes stay opaque and must return to the graph owner's reload
- * operation. These capabilities do not acknowledge client update completion.
+ * One dev-server environment (client, ssr, or a custom one). Its module nodes
+ * stay opaque and must return to the graph owner's reload operation. These
+ * capabilities do not acknowledge client update completion.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Graph, hot channel and reload callback belong to the same environment so
@@ -41,8 +41,8 @@ export interface ViteEnvironmentLike {
 
   /**
    * Run Vite's own update propagation for one of this environment's modules
-   * (Vite 6+) (samchon/ttsc#1393). This requests the host's HMR operation, not a
-   * native file edit or acknowledgment that every client applied an update.
+   * (Vite 6+) (samchon/ttsc#1393). This requests the host's HMR operation, not
+   * a native file edit or acknowledgment that every client applied an update.
    *
    * @evidence contracts/common.md#principled-implementation
    *   Passing an opaque environment node to its reload operation delegates HMR

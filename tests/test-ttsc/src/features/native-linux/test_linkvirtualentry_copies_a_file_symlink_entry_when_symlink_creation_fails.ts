@@ -6,7 +6,8 @@ import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/inte
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies a real file-symlink entry is copied after occupied-destination refusals.
+ * Verifies a real file-symlink entry is copied after occupied-destination
+ * refusals.
  *
  * Linux admission retains the original native input population. A real symlink
  * Dirent and occupied destination make both link attempts fail before copying

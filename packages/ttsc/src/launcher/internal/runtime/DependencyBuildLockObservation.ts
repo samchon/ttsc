@@ -4,11 +4,11 @@ import type { DependencyBuildLockFence } from "./DependencyBuildLockFence";
  * One observation of a dependency build lock's state.
  *
  * Active and abandoned states carry a generation fence; only abandoned gives
- * grounds for recovery under the inspector's policy: a proven-gone local
- * owner or a sufficiently old generation whose owner record was unreadable
- * or invalid. The latter is not proof of process death. Released means no
- * held generation was observed, not that the observer acquired the lock;
- * sequential native reads do not constitute an atomic ownership snapshot.
+ * grounds for recovery under the inspector's policy: a proven-gone local owner
+ * or a sufficiently old generation whose owner record was unreadable or
+ * invalid. The latter is not proof of process death. Released means no held
+ * generation was observed, not that the observer acquired the lock; sequential
+ * native reads do not constitute an atomic ownership snapshot.
  *
  * @evidence contracts/common.md#principled-implementation A discriminated union separates active or uncertain ownership, policy-selected recovery grounds and released absence; observed fences do not imply acquisition or an atomic ownership snapshot.
  * @evidence contracts/common.md#clear-and-simple-design Each state carries its own diagnostic information, avoiding optional owner and reason fields with ambiguous combinations.
@@ -34,7 +34,10 @@ export type DependencyBuildLockObservation =
       /** Recoverable generation, still subject to its retirement fence. */
       state: "abandoned";
 
-      /** Policy-selected recovery reason; stale unreadable records do not prove process death. */
+      /**
+       * Policy-selected recovery reason; stale unreadable records do not prove
+       * process death.
+       */
       reason: string;
 
       /** Exact historical generation recovery may attempt to retire. */

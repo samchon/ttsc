@@ -23,29 +23,59 @@ export function test_runtime_isolated_emit_preserves_argument_policy(): void {
   const output = "/owned outputs/private emit";
   const failures: Error[] = [];
   const check = (name: string, operation: () => void): void => {
-    try { operation(); } catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      operation();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
-  for (const [format, module] of [["commonjs", "commonjs"], ["module", "esnext"]] as const) {
+  for (const [format, module] of [
+    ["commonjs", "commonjs"],
+    ["module", "esnext"],
+  ] as const) {
     for (const purpose of ["execution", "export-scan"] as const) {
       check(`${format}/${purpose}`, () => {
         const expected = [
-          input, "--module", module,
-          "--ignoreConfig", "--target", "es2022", "--jsx", "react-jsx",
-          "--noCheck", "--skipLibCheck", "--noResolve", "--isolatedModules",
-          ...(purpose === "execution" ? ["--sourceMap", "--inlineSources"] : []),
-          "--outDir", output,
+          input,
+          "--module",
+          module,
+          "--ignoreConfig",
+          "--target",
+          "es2022",
+          "--jsx",
+          "react-jsx",
+          "--noCheck",
+          "--skipLibCheck",
+          "--noResolve",
+          "--isolatedModules",
+          ...(purpose === "execution"
+            ? ["--sourceMap", "--inlineSources"]
+            : []),
+          "--outDir",
+          output,
         ];
-        const actual = RuntimeIsolatedEmit.compilerArgs(input, output, format, purpose);
+        const actual = RuntimeIsolatedEmit.compilerArgs(
+          input,
+          output,
+          format,
+          purpose,
+        );
         assert.deepEqual(actual, expected);
         actual[0] = "changed by caller";
         actual.push("--unexpected");
-        assert.deepEqual(RuntimeIsolatedEmit.compilerArgs(input, output, format, purpose), expected);
+        assert.deepEqual(
+          RuntimeIsolatedEmit.compilerArgs(input, output, format, purpose),
+          expected,
+        );
       });
     }
   }
-  check("base-policy-discriminator", () => assert.equal(
-    RuntimeIsolatedEmit.policyKey(),
-    "--ignoreConfig\0--target\0es2022\0--jsx\0react-jsx\0--noCheck\0--skipLibCheck\0--noResolve\0--isolatedModules",
-  ));
-  if (failures.length) throw new AggregateError(failures, "isolated emit argument policy failed");
+  check("base-policy-discriminator", () =>
+    assert.equal(
+      RuntimeIsolatedEmit.policyKey(),
+      "--ignoreConfig\0--target\0es2022\0--jsx\0react-jsx\0--noCheck\0--skipLibCheck\0--noResolve\0--isolatedModules",
+    ),
+  );
+  if (failures.length)
+    throw new AggregateError(failures, "isolated emit argument policy failed");
 }

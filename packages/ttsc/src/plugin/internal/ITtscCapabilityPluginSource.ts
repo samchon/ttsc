@@ -6,11 +6,11 @@
  *
  * The state is what the cached binary path stands for, and a read proves it by
  * the build's own rule (`pluginSourceStateHolds`). Reading every file of a
- * plugin's module is costly for a large module, on every read, so a
- * read whose signature still matches, and is still separable from a clock
- * reference minted then, hands the recorded digest to the proof instead, and
- * only the build environment is read again. `digest` and `signature` are
- * recorded together or not at all.
+ * plugin's module is costly for a large module, on every read, so a read whose
+ * signature still matches, and is still separable from a clock reference minted
+ * then, hands the recorded digest to the proof instead, and only the build
+ * environment is read again. `digest` and `signature` are recorded together or
+ * not at all.
  *
  * @evidence contracts/common.md#principled-implementation The authoritative source state remains required; optional digest/signature are a jointly recorded acceleration witness accepted only under the reader's metadata and clock proof.
  * @evidence contracts/common.md#clear-and-simple-design The record separates the build identity from optional file-read reuse evidence instead of treating metadata alone as the source state.

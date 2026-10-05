@@ -28,7 +28,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestDispatchNestedCallbackReflowsAtEveryDepth is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed call with callbacks nested two levels deep inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNestedCallbackReflowsAtEveryDepth(t *testing.T) {
   for _, entry := range []struct {
-    name string
+    name   string
     source string
   }{
     {"already-indented", "outer(() => {\n  inner(() => {\n    deep();\n  });\n});\n"},

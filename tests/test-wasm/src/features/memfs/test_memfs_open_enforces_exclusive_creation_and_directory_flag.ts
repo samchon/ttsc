@@ -14,10 +14,10 @@ const O_DIRECTORY = 65536;
  * to the Go runtime.
  *
  * `open` consulted only `O_CREAT` and `O_TRUNC`, so `O_CREAT | O_EXCL` handed
- * back a descriptor for a path that already existed, defeating the
- * guarantee exclusive creation offers, and `O_DIRECTORY` accepted a regular
- * file. Both constants are published by `createMemFS().fs.constants`, so Go
- * translates its own flags into them and trusts the answer.
+ * back a descriptor for a path that already existed, defeating the guarantee
+ * exclusive creation offers, and `O_DIRECTORY` accepted a regular file. Both
+ * constants are published by `createMemFS().fs.constants`, so Go translates its
+ * own flags into them and trusts the answer.
  *
  * 1. Exclusively create a new path, then repeat the same call on the now existing
  *    path.

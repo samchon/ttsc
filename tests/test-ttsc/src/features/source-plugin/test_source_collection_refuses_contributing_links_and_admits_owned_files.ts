@@ -22,9 +22,31 @@ export function test_source_collection_refuses_contributing_links_and_admits_own
   const root = TestProject.tmpdir("ttsc-plugin-module-link-source-");
   const plugin = path.join(root, "plugin");
   const shared = path.join(root, "shared");
-  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "source_collection_refuses_contributing_links_and_admits_owned_files", "inputs-1"), root);
-  for (const relative of ["plugin/main.go", "plugin/vendor/local/value.go", "plugin/lib/helper.go", "plugin/dist/generated.go", "plugin/build/generated.go", "shared/shared.go"])
-    fs.renameSync(path.join(root, `${relative}.txt`), path.join(root, relative));
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "unit",
+      "source_collection_refuses_contributing_links_and_admits_owned_files",
+      "inputs-1",
+    ),
+    root,
+  );
+  for (const relative of [
+    "plugin/main.go",
+    "plugin/vendor/local/value.go",
+    "plugin/lib/helper.go",
+    "plugin/dist/generated.go",
+    "plugin/build/generated.go",
+    "shared/shared.go",
+  ])
+    fs.renameSync(
+      path.join(root, `${relative}.txt`),
+      path.join(root, relative),
+    );
   const authored = new Map([
     ["go.mod", "module example.com/plugin\n\ngo 1.26\n"],
     ["main.go", "package main\n"],
@@ -35,7 +57,10 @@ export function test_source_collection_refuses_contributing_links_and_admits_own
   ]);
   for (const [relative, bytes] of authored)
     assert.equal(fs.readFileSync(path.join(plugin, relative), "utf8"), bytes);
-  assert.equal(fs.readFileSync(path.join(shared, "shared.go"), "utf8"), "package shared\n");
+  assert.equal(
+    fs.readFileSync(path.join(shared, "shared.go"), "utf8"),
+    "package shared\n",
+  );
   const link = path.join(plugin, "shared");
   const kind = process.platform === "win32" ? "junction" : "dir";
   fs.symlinkSync(shared, link, kind);

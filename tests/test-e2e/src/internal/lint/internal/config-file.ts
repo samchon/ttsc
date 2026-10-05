@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
 import { LintWorkspace } from "../LintWorkspace";
 
 const TSGO_BINARY = TestProject.TSGO_BINARY;
@@ -13,12 +14,21 @@ const TTSX_BIN = TestProject.TTSX_BIN;
  * declaration (triggers `no-var`) and a `console.log` call (triggers
  * `no-console`), giving each test a choice of which rule to enable.
  */
-const SOURCE = fs.readFileSync(path.resolve(import.meta.dirname, "../../../../fixtures/lint/workspace/config-source.ts"), "utf8");
+const SOURCE = fs.readFileSync(
+  path.resolve(
+    import.meta.dirname,
+    "../../../../fixtures/lint/workspace/config-source.ts",
+  ),
+  "utf8",
+);
 
 type ILintDiagnostic = TestLint.ILintDiagnostic;
 type IRunLintOptions = TestLint.IRunLintOptions;
 
-/** Return the unchanged synchronous lint result; retain operation errors if owned cleanup also fails. */
+/**
+ * Return the unchanged synchronous lint result; retain operation errors if
+ * owned cleanup also fails.
+ */
 function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
   const project = createLintProject(options);
   const failures: unknown[] = [];
@@ -32,7 +42,10 @@ function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
       project.cleanup();
     } catch (error) {
       failures.push(error);
-      throw new AggregateError(failures, "Lint operation or owned project cleanup failed");
+      throw new AggregateError(
+        failures,
+        "Lint operation or owned project cleanup failed",
+      );
     }
   }
 }

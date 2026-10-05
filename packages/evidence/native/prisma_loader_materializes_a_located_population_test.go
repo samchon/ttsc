@@ -27,12 +27,12 @@ func TestPrismaLoaderMaterializesALocatedPopulation(t *testing.T) {
     var problems graphDiagnostics
     inventories, problems = loadPrismaInventories(root, anchoredGraph(root, graphConfig{
       Claims: []claimSpec{{
-        Type: artifactTypeScript,
-        Files: mustGlobSet(foundation, []string{"src/**/*.ts"}),
+        Type:    artifactTypeScript,
+        Files:   mustGlobSet(foundation, []string{"src/**/*.ts"}),
         Symbols: symbolSet{"type": true},
         References: []referenceSpec{{
-          Type: artifactPrisma,
-          Files: mustGlobSet(foundation, []string{"prisma/**/*.prisma"}),
+          Type:    artifactPrisma,
+          Files:   mustGlobSet(foundation, []string{"prisma/**/*.prisma"}),
           Symbols: symbolSet{"model": true, "column": true, "relation": true},
         }},
       }},
@@ -56,12 +56,12 @@ func TestPrismaLoaderMaterializesALocatedPopulation(t *testing.T) {
       index[unit.Target] = unit.Symbol
     }
     for target, symbol := range map[string]string{
-      "prisma:Sale": "model",
-      "prisma:Sale.price": "column",
+      "prisma:Sale":           "model",
+      "prisma:Sale.price":     "column",
       "prisma:Sale.seller_id": "column",
-      "prisma:Sale.seller": "relation",
-      "prisma:Seller": "model",
-      "prisma:Seller.sales": "relation",
+      "prisma:Sale.seller":    "relation",
+      "prisma:Seller":         "model",
+      "prisma:Seller.sales":   "relation",
     } {
       if index[target] != symbol {
         group.Errorf("%s materialized as %q, want %q", target, index[target], symbol)
@@ -86,10 +86,10 @@ func TestPrismaLoaderMaterializesALocatedPopulation(t *testing.T) {
       located[unit.Target] = unit.Line
     }
     for target, line := range map[string]int{
-      "prisma:Sale": 6,
-      "prisma:Sale.price": 8,
-      "prisma:Sale.seller": 10,
-      "prisma:Seller": 13,
+      "prisma:Sale":         6,
+      "prisma:Sale.price":   8,
+      "prisma:Sale.seller":  10,
+      "prisma:Seller":       13,
       "prisma:Seller.sales": 15,
     } {
       if located[target] != line {

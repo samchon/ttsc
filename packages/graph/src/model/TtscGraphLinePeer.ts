@@ -1,5 +1,6 @@
-import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import readline from "node:readline";
+
+import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 
 const TERMINATION_GRACE_MS = 1_000;
 
@@ -85,7 +86,10 @@ export namespace TtscGraphLinePeer {
    * @evidence contracts/portability.md#os-neutral-implementation Node numeric exit status, signal names, stdin callbacks and decoded line strings preserve native process semantics without assuming shell quoting or platform path spelling.
    */
   export interface Connection {
-    /** Up to the last 65,536 UTF-16 code units of diagnostics when capture is selected. */
+    /**
+     * Up to the last 65,536 UTF-16 code units of diagnostics when capture is
+     * selected.
+     */
     readonly stderr: string;
 
     /**
@@ -136,8 +140,8 @@ export namespace TtscGraphLinePeer {
    *
    * EOF permits the resident loop to finish. close(true) resolves only after
    * Node joins the process and all stdio after a normal numeric exit, including
-   * a nonzero status already delivered to the request owner. A transport failure,
-   * signal, forced kill or unjoined deadline rejects instead.
+   * a nonzero status already delivered to the request owner. A transport
+   * failure, signal, forced kill or unjoined deadline rejects instead.
    *
    * @evidence contracts/common.md#principled-implementation Node spawn and readline preserve executable, argv and complete lines; the close callback's private retirementError decision accepts normal numeric exit after process/stdio join while transport failure, unknown status, signal and forced termination remain failures. Exit events separately preserve failed request outcomes.
    * @evidence contracts/common.md#clear-and-simple-design One adapter owns actual process I/O and joined EOF shutdown; its private retirementError helper qualifies completion without changing the resident state owners' protocol or diagnostic decisions.
@@ -156,7 +160,8 @@ export namespace TtscGraphLinePeer {
   ): Connection {
     const child = GraphProcessTrace.spawn(binary, args, {
       ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-      stdio: ["pipe", "pipe", "pipe"], windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
     });
     const lines = readline.createInterface({ input: child.stdout });
     let stderr = "";
@@ -171,13 +176,21 @@ export namespace TtscGraphLinePeer {
     let deadline: ReturnType<typeof setTimeout> | undefined;
     let resolve!: () => void;
     let reject!: (error: Error) => void;
-    const completion = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+    const completion = new Promise<void>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
     // Existing fire-and-forget disposal remains safe; awaiting the original
     // promise still exposes failure instead of turning it into joined success.
     void completion.catch(() => undefined);
-    child.on("error", (error) => { failure = error; });
+    child.on("error", (error) => {
+      failure = error;
+    });
     for (const stream of [child.stdin, child.stdout, child.stderr])
-      stream.on("error", (error) => { failure = error; events.error(error); });
+      stream.on("error", (error) => {
+        failure = error;
+        events.error(error);
+      });
     child.once("close", (code, signal) => {
       joined = true;
       if (force !== undefined) clearTimeout(force);
@@ -188,7 +201,9 @@ export namespace TtscGraphLinePeer {
       if (error !== undefined) reject(error);
       else resolve();
     });
-    const captureStderr = (chunk: string) => { stderr = (stderr + chunk).slice(-64 * 1024); };
+    const captureStderr = (chunk: string) => {
+      stderr = (stderr + chunk).slice(-64 * 1024);
+    };
     if (options.stderr === "capture") {
       child.stderr.setEncoding("utf8");
       child.stderr.on("data", captureStderr);
@@ -200,7 +215,11 @@ export namespace TtscGraphLinePeer {
       if (joined || deadline !== undefined) return;
       if (child.exitCode === null && child.signalCode === null) {
         forced = true;
-        try { child.kill("SIGKILL"); } catch (error) { failure = error instanceof Error ? error : new Error(String(error)); }
+        try {
+          child.kill("SIGKILL");
+        } catch (error) {
+          failure = error instanceof Error ? error : new Error(String(error));
+        }
       }
       deadline = setTimeout(() => {
         if (joined) return;
@@ -217,7 +236,8 @@ export namespace TtscGraphLinePeer {
         child.removeListener("error", events.error);
         child.removeListener("exit", events.exit);
         child.stderr.removeListener("data", captureStderr);
-        for (const stream of [child.stdin, child.stdout, child.stderr]) stream.destroy();
+        for (const stream of [child.stdin, child.stdout, child.stderr])
+          stream.destroy();
         child.unref();
       }, TERMINATION_GRACE_MS);
     };
@@ -227,11 +247,18 @@ export namespace TtscGraphLinePeer {
       force = setTimeout(forceTerminationAndJoin, TERMINATION_GRACE_MS);
     };
     return {
-      get stderr() { return stderr; },
+      get stderr() {
+        return stderr;
+      },
       alive: () => child.exitCode === null && child.signalCode === null,
-      write: (line, done) => { child.stdin.write(line, done); },
+      write: (line, done) => {
+        child.stdin.write(line, done);
+      },
       close: (terminate) => {
-        if (!readerClosed) { readerClosed = true; lines.close(); }
+        if (!readerClosed) {
+          readerClosed = true;
+          lines.close();
+        }
         if (!terminate) return;
         if (terminated || joined) return completion;
         terminated = true;
@@ -247,8 +274,12 @@ export namespace TtscGraphLinePeer {
             // An unread pipe can prevent the EOF callback indefinitely. Start
             // delivery's own deadline only after synchronous caller work yields.
             queueMicrotask(() => {
-              if (joined || force !== undefined || deadline !== undefined) return;
-              flushDeadline = setTimeout(forceTerminationAndJoin, TERMINATION_GRACE_MS);
+              if (joined || force !== undefined || deadline !== undefined)
+                return;
+              flushDeadline = setTimeout(
+                forceTerminationAndJoin,
+                TERMINATION_GRACE_MS,
+              );
             });
           } catch (error) {
             failure = error instanceof Error ? error : new Error(String(error));
@@ -266,8 +297,8 @@ export namespace TtscGraphLinePeer {
    *
    * A normal numeric exit establishes joined release regardless of the work's
    * status. The exit callback owns that status; retirement still rejects an
-   * unknown exit, signal, forced termination or actual transport failure.
-   * This internal decision does not establish joining before Node closes stdio.
+   * unknown exit, signal, forced termination or actual transport failure. This
+   * internal decision does not establish joining before Node closes stdio.
    *
    * @internal
    */
@@ -279,8 +310,9 @@ export namespace TtscGraphLinePeer {
   ): Error | undefined {
     if (failure !== undefined) return failure;
     if (forced || code === null || signal !== null)
-      return new Error(`@ttsc/graph: peer shutdown failed (code=${String(code)}, signal=${String(signal)}, forced=${forced})`);
+      return new Error(
+        `@ttsc/graph: peer shutdown failed (code=${String(code)}, signal=${String(signal)}, forced=${forced})`,
+      );
     return undefined;
   }
 }
-

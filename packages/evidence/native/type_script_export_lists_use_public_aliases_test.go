@@ -1,13 +1,13 @@
 package evidence
 
 import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
   "path/filepath"
   "sort"
   "strings"
   "testing"
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-  shimcore "github.com/microsoft/typescript-go/shim/core"
-  shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
 /**

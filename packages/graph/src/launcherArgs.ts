@@ -1,8 +1,8 @@
+import path from "node:path";
+
 import type { ILauncherOption } from "./ILauncherOption";
 import type { IProjectOptions } from "./IProjectOptions";
 import type { ParsedLauncherOptions } from "./ParsedLauncherOptions";
-
-import path from "node:path";
 
 /**
  * Invalid launcher syntax or a value outside the option's supported domain.
@@ -59,10 +59,16 @@ export function parseLauncherOptions(
     if (exact !== undefined) {
       if (exact.kind === "value" || exact.kind === "string") {
         const value = argv[++i];
-        if (value === undefined || (exact.kind === "value" && value.startsWith("-"))) {
+        if (
+          value === undefined ||
+          (exact.kind === "value" && value.startsWith("-"))
+        ) {
           throw new GraphArgumentError(`${arg} requires a non-empty value`);
         }
-        parsed.set(exact.key, exact.kind === "string" ? value : requireValue(arg, value));
+        parsed.set(
+          exact.key,
+          exact.kind === "string" ? value : requireValue(arg, value),
+        );
       } else {
         parsed.set(exact.key, true);
       }
@@ -80,7 +86,10 @@ export function parseLauncherOptions(
     if (definition.kind === "boolean") {
       parsed.set(definition.key, parseBoolean(flag, value));
     } else {
-      parsed.set(definition.key, definition.kind === "string" ? value : requireValue(flag, value));
+      parsed.set(
+        definition.key,
+        definition.kind === "string" ? value : requireValue(flag, value),
+      );
     }
   }
   return parsed;

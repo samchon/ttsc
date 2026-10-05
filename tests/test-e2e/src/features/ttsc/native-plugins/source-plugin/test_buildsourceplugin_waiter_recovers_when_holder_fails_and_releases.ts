@@ -20,16 +20,16 @@ import {
  * infinitely old abandoned legacy lock and printed `reclaiming abandoned ...
  * Infinitym NaNs old`. The waiter must instead treat the free key as a routine
  * handoff: reacquire it, run the build itself, and publish the one usable
- * binary. Sequencing observes authored file barriers and invocation logs;
- * it does not force or independently witness every blocked-lock interleaving.
+ * binary. Sequencing observes authored file barriers and invocation logs; it
+ * does not force or independently witness every blocked-lock interleaving.
  *
  * 1. Start a holder worker whose fake `go build` writes a barrier file, then
  *    blocks until released, then exits non-zero.
  * 2. After the barrier exists, start a waiter worker on the same cache key and
  *    release the holder once the waiter's fake-go invocation log shows it
  *    passed its pre-lock toolchain probes.
- * 3. Assert holder status1/build error, waiter status0/own build invocation,
- *    and the final waiter publication bytes.
+ * 3. Assert holder status1/build error, waiter status0/own build invocation, and
+ *    the final waiter publication bytes.
  * 4. Assert the waiter's stderr never reports reclaiming an abandoned lock and
  *    never contains the `Infinitym NaNs` malformation.
  *
@@ -45,7 +45,10 @@ import {
 export const test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releases =
   async () => {
     const root = TestProject.tmpdir("ttsc-lock-handoff-");
-    TestProject.retainTemporaryDirectory(root, "holder-failure worker graph may outlive its close deadline");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "holder-failure worker graph may outlive its close deadline",
+    );
     const plugin = path.join(root, "plugin");
     writePluginSource(plugin);
     const fakeGo = createFakeGoBinary(root);
@@ -122,7 +125,11 @@ export const test_buildsourceplugin_waiter_recovers_when_holder_fails_and_releas
           failures.push(outcome.reason);
       }
     }
-    if (failures.length) throw new AggregateError(failures, "holder failure handoff or worker cleanup failed");
+    if (failures.length)
+      throw new AggregateError(
+        failures,
+        "holder failure handoff or worker cleanup failed",
+      );
   };
 
 function writePluginSource(root: string): void {

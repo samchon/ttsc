@@ -59,7 +59,9 @@ export function second(): void {}
       }
       assertProblemContains(t, messages, "in Claim 1 ('contracts') reference 1")
       target := "validation"
-      if strings.HasPrefix(name, "same target") { target = "contract" }
+      if strings.HasPrefix(name, "same target") {
+        target = "contract"
+      }
       assertProblemContains(t, messages, "Duplicate @evidenceExclude for 'docs/spec.md#"+target+"'")
       if countProblemsContaining(messages, "Missing acknowledgement") != 0 {
         t.Fatalf("the duplicate exclusion stopped covering its target:\n%s", strings.Join(messages, "\n"))

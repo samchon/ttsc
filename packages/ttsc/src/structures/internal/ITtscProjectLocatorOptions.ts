@@ -15,8 +15,8 @@ export interface ITtscProjectLocatorOptions {
   cwd?: string;
 
   /**
-   * Source path resolved from `cwd`; discovery begins at its parent, or at
-   * the path itself when it names an existing directory.
+   * Source path resolved from `cwd`; discovery begins at its parent, or at the
+   * path itself when it names an existing directory.
    */
   file?: string;
 

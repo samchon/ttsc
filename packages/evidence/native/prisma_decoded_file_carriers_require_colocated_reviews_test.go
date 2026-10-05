@@ -20,7 +20,7 @@ func TestPrismaDecodedFileCarriersRequireColocatedReviews(t *testing.T) {
   const bareLedger = "/// @evidenceExclude docs/spec.md#pricing The schema stores no pricing policy.\n\n"
   run := func(schema string, ledger string) graphDiagnostics {
     inventories := map[string]*artifactInventory{
-      "prisma/schema.prisma": {Path: "prisma/schema.prisma", Type: artifactPrisma},
+      "prisma/schema.prisma":  {Path: "prisma/schema.prisma", Type: artifactPrisma},
       "prisma/exclude.schema": {Path: "prisma/exclude.schema", Type: artifactPrisma},
     }
     hosts := map[string]*evidenceUnit{}

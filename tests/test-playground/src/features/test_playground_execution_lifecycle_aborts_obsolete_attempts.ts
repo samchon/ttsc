@@ -13,6 +13,7 @@ import { PlaygroundExecutionLifecycle } from "../../../../packages/playground/sr
  * 1. Start an attempt, then start another and observe the first abort.
  * 2. Invalidate the current attempt and reject all of its later writes.
  * 3. Finish a current attempt and leave its completed signal untouched.
+ *
  * @evidence contracts/testing.md#behavioral-verification PlaygroundExecutionLifecycle.begin supersedes the old attempt, invalidate aborts current work and denies stale finish, while completing a current attempt leaves its signal un-aborted.
  * @evidence contracts/testing.md#independent-expectations Literal current/false booleans, AbortError reason text and un-aborted completed signal independently establish lifecycle rights rather than inferring success from an emitted UI state.
  * @evidence contracts/testing.md#distinguishing-cases Newer Execute, source-change invalidation, stale finish, current finish and unmount without active work distinguish cancellation from ordinary completion.

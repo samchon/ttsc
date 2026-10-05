@@ -1,7 +1,7 @@
 import { type SpawnSyncOptions, spawnSync } from "node:child_process";
 
-import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 import { E2ETrace } from "./E2ETrace";
+import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
 
@@ -12,15 +12,15 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * process with many unrelated watchers can therefore make Node-created pipes or
  * file-backed stdio fail before the executable starts. The ordinary path is
  * unchanged. An EBADF retry starts a Node broker with inherited descriptors
- * 0..2; that child opens its own capture files and attempts to spawn
- * the original command without a shell. Fresh initialization reduces inherited
+ * 0..2; that child opens its own capture files and attempts to spawn the
+ * original command without a shell. Fresh initialization reduces inherited
  * descriptor pressure but does not prove a numeric descriptor ceiling or
  * successful recovery.
  *
  * Broker callers supply file-backed output and no stdin input or shell mode. It
- * does not reconstruct arbitrary spawn stdio contracts.
- * Opt-in private tracing observes this actual attempt and any broker/target
- * separately; it adds metadata/output-byte sink work without changing results.
+ * does not reconstruct arbitrary spawn stdio contracts. Opt-in private tracing
+ * observes this actual attempt and any broker/target separately; it adds
+ * metadata/output-byte sink work without changing results.
  *
  * @evidence contracts/common.md#principled-implementation Ordinary spawning is retained; only POSIX EBADF with explicit capture paths selects one isolated broker retry. That error class permits the retry but does not prove descriptor height was the original cause or guarantee retry success.
  * @evidence contracts/common.md#clear-and-simple-design This operation selects between the ordinary path and one broker owner; file capture and output reconstruction remain the callers' responsibility.
@@ -40,7 +40,12 @@ export function spawnSyncResilient(
   output?: SpawnSyncOutputFiles,
 ): ReturnType<typeof spawnSync> {
   const nativeArgs = [...args];
-  const trace = E2ETrace.begin(command, nativeArgs, options, "spawnSyncResilient");
+  const trace = E2ETrace.begin(
+    command,
+    nativeArgs,
+    options,
+    "spawnSyncResilient",
+  );
   const result = spawnSync(command, nativeArgs, options);
   E2ETrace.result(trace, result);
   if (

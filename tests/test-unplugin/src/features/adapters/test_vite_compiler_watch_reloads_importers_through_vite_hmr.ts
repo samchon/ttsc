@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { captureWatchInputBaseline } from "../../../../../packages/unplugin/src/core/transform/watch/captureWatchInputBaseline";
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
 
 /**
@@ -23,6 +23,7 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  * 2. Assert both environments reloaded the importer and no full reload was sent.
  * 3. Repeat with `hmr: false` and assert the importer is invalidated and the page
  *    reloaded.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Injects declaration changes into authored watcher logic and asserts enabled HMR reloads client/SSR without adapter messages, while disabled HMR invalidates both and sends full-reload.
  * @evidence contracts/testing.md#independent-expectations
@@ -93,7 +94,11 @@ export async function test_vite_compiler_watch_reloads_importers_through_vite_hm
 
   const hot = await run(true);
   assert.deepEqual(hot.reloaded.sort(), ["client", "ssr"]);
-  assert.deepEqual(hot.invalidated, [], "successful HMR must not take the adapter's fallback");
+  assert.deepEqual(
+    hot.invalidated,
+    [],
+    "successful HMR must not take the adapter's fallback",
+  );
   assert.deepEqual(hot.messages, [], "Vite, not the adapter, decides a reload");
 
   const cold = await run(false);

@@ -1,16 +1,19 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { kw, mod, param, print, ref } from "../../internal/helpers";
 
 /**
- * Verifies printing of a {@link factory.createFunctionDeclaration|function declaration}.
+ * Verifies printing of a
+ * {@link factory.createFunctionDeclaration|function declaration}.
  *
  * An exported async generic function with a typed parameter, a `Promise<T>`
  * return, and a block body.
  *
- * 1. The exported async generic load function preserves its typed parameter, Promise<T> result and return-null block.
- * 2. The explicit multiline load<T> source fixes modifier order, generic punctuation, return value and indentation.
+ * 1. The exported async generic load function preserves its typed parameter,
+ *    Promise<T> result and return-null block.
+ * 2. The explicit multiline load<T> source fixes modifier order, generic
+ *    punctuation, return value and indentation.
  *
  * @evidence contracts/testing.md#behavioral-verification The exported async generic load function preserves its typed parameter, Promise<T> result and return-null block.
  * @evidence contracts/testing.md#independent-expectations The explicit multiline load<T> source fixes modifier order, generic punctuation, return value and indentation.

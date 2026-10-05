@@ -1,10 +1,10 @@
-import { LintWorkspace } from "../../../internal/lint/LintWorkspace";
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { LintWorkspace } from "../../../internal/lint/LintWorkspace";
 import { TestLintPlugin } from "../../../internal/lint/internal/TestLintPlugin";
 import { createLintProject } from "../../../internal/lint/internal/config-file";
 
@@ -40,54 +40,60 @@ import { createLintProject } from "../../../internal/lint/internal/config-file";
  * @evidence contracts/e2e.md#preserved-coverage The original separate wrapper tsconfig, active decoy config, explicit pluginConfigDir and discovered demo assertions remain executable.
  */
 export function test_descriptor_discovers_contributors_via_plugin_config_dir_for_wrapper_tsconfig() {
-    const project = createLintProject({
-      name: "wrapper-anchor",
-      source: "export const value = 1;\n",
-      extraSources: FixtureFiles.read("lint/descriptor_discovers_contributors_via_plugin_config_dir_for_wrapper_tsconfig/inputs-1"),
-      linkNodeModules: ["lint-contributor-demo"],
+  const project = createLintProject({
+    name: "wrapper-anchor",
+    source: "export const value = 1;\n",
+    extraSources: FixtureFiles.read(
+      "lint/descriptor_discovers_contributors_via_plugin_config_dir_for_wrapper_tsconfig/inputs-1",
+    ),
+    linkNodeModules: ["lint-contributor-demo"],
+  });
+  const wrapper = LintWorkspace.caseRoot("ttsc-lint-wrapper-", true);
+  const failures: unknown[] = [];
+  try {
+    fs.writeFileSync(path.join(wrapper, "tsconfig.json"), "{}", "utf8");
+    // A decoy config next to the wrapper tsconfig: the walk must never
+    // start at the wrapper's directory.
+    fs.writeFileSync(
+      path.join(wrapper, "lint.config.json"),
+      JSON.stringify({ rules: {} }),
+      "utf8",
+    );
+    const factory = TestLintPlugin.loadFactory();
+    const descriptor = factory({
+      ...TestLintPlugin.factoryContext({ transform: "@ttsc/lint" }),
+      cwd: project.tmpdir,
+      pluginConfigDir: project.tmpdir,
+      projectRoot: project.tmpdir,
+      tsconfig: path.join(wrapper, "tsconfig.json"),
     });
-    const wrapper = LintWorkspace.caseRoot("ttsc-lint-wrapper-", true);
-    const failures: unknown[] = [];
+    assert.ok(
+      Array.isArray(descriptor.contributors),
+      "contributors must be discovered via pluginConfigDir, not the wrapper tsconfig dir",
+    );
+    assert.ok(
+      descriptor.contributors.some(
+        (contributor: { name: string }) => contributor.name === "demo",
+      ),
+      `expected demo contributor, got ${JSON.stringify(descriptor.contributors)}`,
+    );
+  } catch (error) {
+    failures.push(error);
+  } finally {
     try {
-      fs.writeFileSync(path.join(wrapper, "tsconfig.json"), "{}", "utf8");
-      // A decoy config next to the wrapper tsconfig: the walk must never
-      // start at the wrapper's directory.
-      fs.writeFileSync(
-        path.join(wrapper, "lint.config.json"),
-        JSON.stringify({ rules: {} }),
-        "utf8",
-      );
-      const factory = TestLintPlugin.loadFactory();
-      const descriptor = factory({
-        ...TestLintPlugin.factoryContext({ transform: "@ttsc/lint" }),
-        cwd: project.tmpdir,
-        pluginConfigDir: project.tmpdir,
-        projectRoot: project.tmpdir,
-        tsconfig: path.join(wrapper, "tsconfig.json"),
-      });
-      assert.ok(
-        Array.isArray(descriptor.contributors),
-        "contributors must be discovered via pluginConfigDir, not the wrapper tsconfig dir",
-      );
-      assert.ok(
-        descriptor.contributors.some(
-          (contributor: { name: string }) => contributor.name === "demo",
-        ),
-        `expected demo contributor, got ${JSON.stringify(descriptor.contributors)}`,
-      );
+      fs.rmSync(wrapper, { recursive: true, force: true });
     } catch (error) {
       failures.push(error);
-    } finally {
-      try {
-        fs.rmSync(wrapper, { recursive: true, force: true });
-      } catch (error) {
-        failures.push(error);
-      }
-      try {
-        project.cleanup();
-      } catch (error) {
-        failures.push(error);
-      }
     }
-    if (failures.length) throw new AggregateError(failures, "Descriptor wrapper discovery or owned cleanup failed");
+    try {
+      project.cleanup();
+    } catch (error) {
+      failures.push(error);
+    }
   }
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Descriptor wrapper discovery or owned cleanup failed",
+    );
+}

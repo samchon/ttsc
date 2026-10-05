@@ -31,7 +31,6 @@ import path from "node:path";
  *   adapters and the Next wrapper, Farm's configured root for Farm,
  *   `absWorkingDir` for esbuild, and the root Turbopack resolved
  *   (`rootContext`) for its loader.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Native join locates the package-owned .ttsc directory under the actual host
  *   root, satisfying dependency-root restrictions without relocating watched paths.

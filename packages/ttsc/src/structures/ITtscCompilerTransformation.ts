@@ -6,8 +6,8 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
  * Unlike {@link ITtscCompilerResult}, this contract is not an emit contract: the
  * `typescript` map carries producer-reported source text rather than compiler
  * emit artifacts. The builtin producer returns loaded non-declaration source
- * files' text, including JavaScript inputs when admitted by the program;
- * source maps are separate advisory payloads, not entries in that text map.
+ * files' text, including JavaScript inputs when admitted by the program; source
+ * maps are separate advisory payloads, not entries in that text map.
  *
  * @evidence contracts/common.md#principled-implementation The discriminated union separates completed source transformation from failure and host exception; its producer-reported source text map is distinct from emit output.
  * @evidence contracts/common.md#clear-and-simple-design Named result variants share advisory dependency types but retain outcome-specific requirements, allowing callers to narrow by type.
@@ -28,14 +28,14 @@ export namespace ITtscCompilerTransformation {
    * Host-owned reference graph of the transformed program, mirroring the
    * envelope's optional `graph` section.
    *
-   * The graph reports the loaded compiler program's resolved references,
-   * global contributors, configuration ancestry and resolver observations.
-   * Bundler adapters normally select the reachability closure of {@link edges}
-   * together with {@link globals} and {@link configs}; an admitted complete
-   * dependency declaration can narrow that graph selection. Resolver inputs,
-   * host inputs and plugin source inputs remain separate invalidation lanes.
-   * The graph alone does not certify every plugin's output dependencies or
-   * that the reported filesystem state is still current.
+   * The graph reports the loaded compiler program's resolved references, global
+   * contributors, configuration ancestry and resolver observations. Bundler
+   * adapters normally select the reachability closure of {@link edges} together
+   * with {@link globals} and {@link configs}; an admitted complete dependency
+   * declaration can narrow that graph selection. Resolver inputs, host inputs
+   * and plugin source inputs remain separate invalidation lanes. The graph
+   * alone does not certify every plugin's output dependencies or that the
+   * reported filesystem state is still current.
    *
    * Keys and values follow the same convention as {@link ISuccess.typescript}:
    * project-relative slash paths, falling back to absolute slash paths outside
@@ -190,10 +190,10 @@ export namespace ITtscCompilerTransformation {
    * The native bundler consumer resolves `sources` with native path arithmetic
    * from the transformed module's directory and {@link sourceRoot}. This
    * supported contract is narrower than general source-map URL resolution.
-   * `sourcesContent` can carry original text for an identity/content check;
-   * the envelope decoder checks field shapes, not VLQ semantics or mapping
-   * correspondence to the transformed text. String source names and an
-   * explicit `names` array are required by this payload shape.
+   * `sourcesContent` can carry original text for an identity/content check; the
+   * envelope decoder checks field shapes, not VLQ semantics or mapping
+   * correspondence to the transformed text. String source names and an explicit
+   * `names` array are required by this payload shape.
    *
    * @evidence contracts/common.md#principled-implementation The version-3 shape separates VLQ mappings, names and source identities; optional embedded source text allows consumers to compare the map's origin with their actual input.
    * @evidence contracts/common.md#clear-and-simple-design The standard source-map fields stay together as one transform artifact instead of introducing a competing custom mapping representation.
@@ -267,10 +267,9 @@ export namespace ITtscCompilerTransformation {
      *
      * Optional and producer-supplied: the built-in api-transform envelope has
      * no sourceMaps field. A file without an entry has no map, so a consumer
-     * that re-emits it cannot claim
-     * one. Entries failing the decoder's version/member-shape checks are
-     * dropped; admission does not independently validate VLQ mappings or their
-     * correspondence to source/output text.
+     * that re-emits it cannot claim one. Entries failing the decoder's
+     * version/member-shape checks are dropped; admission does not independently
+     * validate VLQ mappings or their correspondence to source/output text.
      */
     sourceMaps?: Record<string, ISourceMap>;
 
@@ -308,15 +307,16 @@ export namespace ITtscCompilerTransformation {
      * entries contribute to one file, the envelope's author may list it only if
      * every contributing entry declared its own list complete for it.
      *
-     * The graph-config chain comes from {@link graph}; without that section
-     * this lane contributes no graph-config baseline. Independently reported
-     * host and plugin-source inputs remain separate universal lanes.
+     * The graph-config chain comes from {@link graph}; without that section this
+     * lane contributes no graph-config baseline. Independently reported host
+     * and plugin-source inputs remain separate universal lanes.
      *
-     * The built-in Program-text lane does not perform type-driven emit lowering.
-     * Its SDK aggregation lists a file when every selected preamble/program
-     * contributor declares completeness for it; with no contributors every
-     * file is listed. This does not establish that mutated ASTs were reprinted.
-     * An executable sidecar authors its own envelope and declaration.
+     * The built-in Program-text lane does not perform type-driven emit
+     * lowering. Its SDK aggregation lists a file when every selected
+     * preamble/program contributor declares completeness for it; with no
+     * contributors every file is listed. This does not establish that mutated
+     * ASTs were reprinted. An executable sidecar authors its own envelope and
+     * declaration.
      *
      * Optional: omission keeps the broader graph-derived inputs when a graph is
      * available; missing graph evidence must not itself authorize reuse. A file
@@ -349,8 +349,8 @@ export namespace ITtscCompilerTransformation {
     /**
      * Producer-reported generation-time SHA-256/null observations. Validators
      * compare available witnesses to refuse detected config/module drift;
-     * sequential observations do not pin every byte consumed by evaluation
-     * or certify all concurrent changes were observed.
+     * sequential observations do not pin every byte consumed by evaluation or
+     * certify all concurrent changes were observed.
      */
     hostInputHashes?: Record<string, string | null>;
 
@@ -383,20 +383,20 @@ export namespace ITtscCompilerTransformation {
      * to their binaries, by absolute path: each plugin's module root and each
      * contributor's source, with the digest of the files the build keyed its
      * binary on, as the build read them, together with the environment a build
-     * there is keyed on, its Go compiler, `go env`, and cgo's toolchain. ttsc's own sources, which change
-     * only with ttsc itself, are not listed.
+     * there is keyed on, its Go compiler, `go env`, and cgo's toolchain. ttsc's
+     * own sources, which change only with ttsc itself, are not listed.
      *
      * A plugin's binary is keyed on its source and its environment, so every
      * transformed file is a function of these states as much as of
      * {@link hostInputs}, and a plugin edited in place, or built under another
      * `GOFLAGS` or Go toolchain, changes nothing else a consumer can see. A
-     * consumer that caches the output checks each state with the
-     * build's own rule, `pluginSourceStateHolds` from the `ttsc/plugin-source`
-     * entry. That owner selects files under the shared prune/omit policy and
-     * applies its source/environment observation and refresh rules; this is
-     * not a whole-subtree watcher or independent executable-byte proof. The
-     * field is attached when the loader reports plugin-source states, rather
-     * than certifying which hooks actually executed.
+     * consumer that caches the output checks each state with the build's own
+     * rule, `pluginSourceStateHolds` from the `ttsc/plugin-source` entry. That
+     * owner selects files under the shared prune/omit policy and applies its
+     * source/environment observation and refresh rules; this is not a
+     * whole-subtree watcher or independent executable-byte proof. The field is
+     * attached when the loader reports plugin-source states, rather than
+     * certifying which hooks actually executed.
      */
     pluginSources?: Record<string, string>;
 
@@ -429,8 +429,8 @@ export namespace ITtscCompilerTransformation {
 
     /**
      * Transformed or partially transformed TypeScript text keyed by the
-     * producer source coordinate. Result adaptation forwards these keys
-     * without independently rebasing them to the selected project root.
+     * producer source coordinate. Result adaptation forwards these keys without
+     * independently rebasing them to the selected project root.
      *
      * May be empty or partial when diagnostics prevented the transform native
      * source from completing its pass.
@@ -499,7 +499,8 @@ export namespace ITtscCompilerTransformation {
   }
 
   /**
-   * Unexpected host-level error during preparation, transformation or result adaptation.
+   * Unexpected host-level error during preparation, transformation or result
+   * adaptation.
    *
    * Error name, message, stack, causes, aggregate failures and enumerable
    * outcome data are preserved in a finite description.
@@ -511,7 +512,7 @@ export namespace ITtscCompilerTransformation {
    *
    * @evidence contracts/common.md#principled-implementation Unknown carries finite causal descriptions and exceptional-value markers; the optional classifier labels recognized message families so consumers need not repeat its patterns, without proving the native failure cause.
    * @evidence contracts/common.md#clear-and-simple-design A separate exception variant avoids requiring unavailable source maps or diagnostics after abnormal host failure.
-    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrecognized patterns or unavailable message inspection remain unknown; no recovery wrapper fabricates a completed transformation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrecognized patterns or unavailable message inspection remain unknown; no recovery wrapper fabricates a completed transformation.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain finite causal serialization, reference/value markers and accessor limits alongside classifier meanings; list, member and tag spacing follow the documentation skill.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.

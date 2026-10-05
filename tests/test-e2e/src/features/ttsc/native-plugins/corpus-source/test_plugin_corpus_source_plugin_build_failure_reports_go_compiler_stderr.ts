@@ -38,7 +38,10 @@ export const test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_
     // Inject a syntax error into the Go source.
     const goFile = path.join(root, "go-plugin", "main.go");
     const original = fs.readFileSync(goFile, "utf8");
-    const broken = original.replace("package main", "package main\nthis is not valid go;");
+    const broken = original.replace(
+      "package main",
+      "package main\nthis is not valid go;",
+    );
     assert.notEqual(broken, original, "expected to inject the Go syntax error");
     fs.writeFileSync(goFile, broken);
     fs.appendFileSync(

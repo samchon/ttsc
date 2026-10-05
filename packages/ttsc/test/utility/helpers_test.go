@@ -197,7 +197,7 @@ func captureUtilityOutput(t *testing.T, fn func() int) (int, string, string) {
   }()
   type capture struct {
     bytes []byte
-    err error
+    err   error
   }
   read := func(reader *os.File) <-chan capture {
     completed := make(chan capture, 1)

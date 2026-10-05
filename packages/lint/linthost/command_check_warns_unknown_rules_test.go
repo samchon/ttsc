@@ -35,5 +35,7 @@ func TestCommandCheckWarnsUnknownRules(t *testing.T) {
   if code != 0 || stdout != "" || !strings.Contains(stderr, "ignoring unknown rule") {
     t.Fatalf("unknown-rule warning mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
-  if stderr != "@ttsc/lint: ignoring unknown rule \"never-existed\"\n" { t.Fatalf("unknown rule warning should retain exact identity without extra diagnostics: %q", stderr) }
+  if stderr != "@ttsc/lint: ignoring unknown rule \"never-existed\"\n" {
+    t.Fatalf("unknown rule warning should retain exact identity without extra diagnostics: %q", stderr)
+  }
 }

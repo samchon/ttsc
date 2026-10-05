@@ -23,6 +23,10 @@ import { createVariableDeclarationList } from "./createVariableDeclarationList";
  * const x = 1;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param declarationList The declaration list.
+ * @returns The created {@link VariableStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Array.isArray distinguishes plain declarators from a VariableDeclarationList;
  *   arrays receive the list builder's var default, while supplied lists keep flags.
@@ -38,11 +42,6 @@ import { createVariableDeclarationList } from "./createVariableDeclarationList";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains array normalization, var defaults and semicolon ownership,
  *   with an explicit-list example separated from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param declarationList The declaration list.
- * @returns The created {@link VariableStatement}.
  */
 export const createVariableStatement = (
   modifiers: readonly ModifierLike[] | undefined,

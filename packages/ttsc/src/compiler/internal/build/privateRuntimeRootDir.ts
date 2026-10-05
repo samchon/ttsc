@@ -6,9 +6,9 @@ import path from "node:path";
  * policy. An ordinary project without a root uses its native volume root so
  * adding private output does not reject same-volume imports outside the config
  * directory. A different Windows volume still cannot fit this one output root
- * and remains subject to the compiler's cross-volume layout diagnostics.
- * This changes only private output coordinates, not the program's input set.
- * Actual emitted-source provenance remains required before serving any file.
+ * and remains subject to the compiler's cross-volume layout diagnostics. This
+ * changes only private output coordinates, not the program's input set. Actual
+ * emitted-source provenance remains required before serving any file.
  *
  * @evidence contracts/common.md#principled-implementation Runtime-injected output has a separate layout root without widening an explicit or composite root or changing source membership and type options.
  * @evidence contracts/common.md#clear-and-simple-design One path policy is shared by compiler arguments and runtime ownership metadata.

@@ -60,6 +60,7 @@ const (
 //     (allowing for the mark taken after it), or is the -1 sentinel when no
 //     trailer was written.
 //  4. Assert the external map is still written with no WriteFileData at all.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs actual raw and plugin emission for five map/BOM rows and asserts nonnil JS callback metadata, exact offset parity, empty diagnostics, unset build info/skip flag and correct trailer position or minus-one sentinel.
 // @evidence contracts/testing.md#independent-expectations Literal trailer and minus-one sentinel plus independent BOM byte count establish metadata-text correspondence; raw native emitter separately owns compatibility of offset convention.
 // @evidence contracts/testing.md#distinguishing-cases External/inline/no map and BOM with/without map distinguish absent metadata, sentinel corruption and premark offsets. External map callbacks must retain nil data when present.

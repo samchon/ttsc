@@ -1,4 +1,3 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -7,6 +6,7 @@ import { collectProjectInputHashes } from "../../../../../packages/unplugin/src/
 import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
 import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/src/core/tsconfig/readEffectiveTsconfigPaths";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies every path the config chain yields for a project reached through a
@@ -29,6 +29,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * 2. Read the policy through the link, and assert its configs, root, output
  *    exclusion, and `paths` targets are all spelled under the link.
  * 3. Assert the walk under the link admits the source and not the emitted file.
+ *
  * @evidence contracts/testing.md#behavioral-verification Authored config/policy/paths readers preserve the named project link in roots, exclusions and aliases, and the actual walk admits source while excluding dist output.
  * @evidence contracts/testing.md#independent-expectations Literal base outDir/paths values and expected linked path arrays define lexical anchoring; the independent source/output fixture distinguishes a lost output exclusion.
  * @evidence contracts/testing.md#distinguishing-cases The same project is read through a link and compared with its physical spelling (nothing may be spelled under the physical directory), an ordinary source against an emitted dist file for both the walk predicate and the collected hash keys, and the policy's configs, root and exclusions against the paths mapping.

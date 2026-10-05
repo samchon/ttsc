@@ -51,11 +51,21 @@ export const test_plugin_descriptor_process_failures_are_classified_by_cause =
     assert.match(exit?.message ?? "", /failed with exit code 5/);
 
     assert.match(
-      pluginDescriptorProcessFailure(processResult({ error: processError("EACCES"), signal: "SIGTERM", status: 7 }), request)?.message ?? "",
+      pluginDescriptorProcessFailure(
+        processResult({
+          error: processError("EACCES"),
+          signal: "SIGTERM",
+          status: 7,
+        }),
+        request,
+      )?.message ?? "",
       /failed to launch ttsx.*EACCES/,
     );
     assert.match(
-      pluginDescriptorProcessFailure(processResult({ signal: "SIGTERM", status: 7 }), request)?.message ?? "",
+      pluginDescriptorProcessFailure(
+        processResult({ signal: "SIGTERM", status: 7 }),
+        request,
+      )?.message ?? "",
       /killed by signal SIGTERM/,
     );
     assert.match(

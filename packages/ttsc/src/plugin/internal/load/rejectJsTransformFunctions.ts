@@ -1,4 +1,3 @@
-
 /**
  * Reject unsupported JavaScript transforms on a descriptor object.
  *

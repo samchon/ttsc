@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
@@ -8,8 +8,10 @@ import { id, print } from "../../internal/helpers";
  *
  * A labeled block, a `with` statement, `debugger`, and the empty statement.
  *
- * 1. Labeled blocks, with, debugger and empty statements retain their distinct keyword/delimiter syntax.
- * 2. Explicit label/with/debugger/semicolon literals derive from statement grammar independently.
+ * 1. Labeled blocks, with, debugger and empty statements retain their distinct
+ *    keyword/delimiter syntax.
+ * 2. Explicit label/with/debugger/semicolon literals derive from statement grammar
+ *    independently.
  *
  * @evidence contracts/testing.md#behavioral-verification Labeled blocks, with, debugger and empty statements retain their distinct keyword/delimiter syntax.
  * @evidence contracts/testing.md#independent-expectations Explicit label/with/debugger/semicolon literals derive from statement grammar independently.

@@ -18,9 +18,9 @@ function drainOnNextTurn(): Promise<boolean> {
  *
  * A tracker whose barrier did not hold is marked unverified, so its silence
  * proves nothing until a delivery proves the recorded state by reading it
- * (samchon/ttsc#1428).
- * A rejected drain rejects this aggregate rather than setting that flag. Other
- * started drains still run; this operation does not cancel or close them.
+ * (samchon/ttsc#1428). A rejected drain rejects this aggregate rather than
+ * setting that flag. Other started drains still run; this operation does not
+ * cancel or close them.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Each tracker uses its supplied drain or the local scheduling fallback. A

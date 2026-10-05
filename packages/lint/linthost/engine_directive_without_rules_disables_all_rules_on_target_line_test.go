@@ -41,7 +41,7 @@ func TestEngineDirectiveWithoutRulesDisablesAllRulesOnTargetLine(t *testing.T) {
     t.Fatalf("want 2 unsuppressed findings, got %d: %v", got, findingRules(findings))
   }
   expected := map[string]int{
-    "no-var": strings.Index(source, "var reported"),
+    "no-var":      strings.Index(source, "var reported"),
     "no-debugger": strings.LastIndex(source, "debugger;"),
   }
   for _, finding := range findings {

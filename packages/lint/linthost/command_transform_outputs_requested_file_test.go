@@ -37,5 +37,7 @@ func TestCommandTransformOutputsRequestedFile(t *testing.T) {
   if code != 0 || stderr != "" || !strings.Contains(stdout, "exports.value") {
     t.Fatalf("transform mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
-  if !strings.Contains(stdout, "exports.value = 1;") { t.Fatalf("target output lost authored export value: %q", stdout) }
+  if !strings.Contains(stdout, "exports.value = 1;") {
+    t.Fatalf("target output lost authored export value: %q", stdout)
+  }
 }

@@ -18,6 +18,7 @@ import { loadNext } from "../internal/adapter-next/loadNext";
  *    stopped the build.
  * 3. Assert nothing is written for a config without a hook, or one that already
  *    configures Turbopack.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Captures stderr while calling authored next, asserting the ignored caller hook names Turbopack and the lost build refusal; restores stderr even on an assertion failure.
  * @evidence contracts/testing.md#independent-expectations

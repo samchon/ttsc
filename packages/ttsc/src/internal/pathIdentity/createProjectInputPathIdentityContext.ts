@@ -10,14 +10,14 @@ import { createFilesystemPathIdentityContext } from "./createFilesystemPathIdent
  * reason about project inputs read as such while sharing one implementation.
  * Each call creates a new context; it does not reuse another transaction's
  * observations. Creation allocates maps and closures without querying native
- * paths. Later method calls perform the underlying resolver's native or injected
- * observations, including a read-only Windows case query when selected.
- * The caller chooses the observation lifetime by retaining or discarding the
- * returned context; no explicit dispose operation or map eviction is supplied.
+ * paths. Later method calls perform the underlying resolver's native or
+ * injected observations, including a read-only Windows case query when
+ * selected. The caller chooses the observation lifetime by retaining or
+ * discarding the returned context; no explicit dispose operation or map
+ * eviction is supplied.
  *
  * @param operations Replaceable filesystem primitives; omitted members use the
  *   host's own.
- *
  * @evidence contracts/common.md#principled-implementation Returning the filesystem context gives project consumers identical realpath, missing-suffix and case-policy decisions instead of a second identity relation.
  * @evidence contracts/common.md#clear-and-simple-design This domain entry point delegates its entire policy and retains only a project-oriented name for watch, build and LSP callers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Operations use the supported injection boundary; neither native methods nor foreign globals are patched to change identity.

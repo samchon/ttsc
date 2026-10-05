@@ -1,10 +1,10 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies native watch resources stay constant as the compiler graph grows.
@@ -18,6 +18,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * 2. Assert only the pinned project observer is open, and removing inputs does not
  *    reopen it.
  * 3. Dispose and assert no observer remains and none is closed twice.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Registers 12000 project inputs in createViteServeInputWatch and asserts one active scope, no reopen after removal, bounded registration duration and exactly one final close.
  * @evidence contracts/testing.md#independent-expectations
@@ -98,7 +99,11 @@ export async function test_vite_compiler_watch_resources_are_bounded_by_scope():
     await watch.dispose();
   }
   assert.equal(active, 0, "final disposal must leave no native observer");
-  assert.equal(closeAttempts, 1, "the owner must call close exactly once, even if the handle tolerates duplicates");
+  assert.equal(
+    closeAttempts,
+    1,
+    "the owner must call close exactly once, even if the handle tolerates duplicates",
+  );
   assert.equal(
     closed,
     1,

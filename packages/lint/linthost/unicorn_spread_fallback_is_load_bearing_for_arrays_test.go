@@ -29,4 +29,3 @@ func TestUnicornSpreadFallbackIsLoadBearingForArrays(t *testing.T) {
     t.Run(source, func(t *testing.T) { assertReportOnlySnapshot(t, "unicorn/no-useless-fallback-in-spread", source) })
   }
 }
-

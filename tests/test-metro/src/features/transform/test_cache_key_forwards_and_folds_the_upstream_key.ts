@@ -9,10 +9,12 @@ import { assertCacheKeyForwardsAndFoldsUpstreamKey } from "../../internal/metro-
  * `babel.config.js`/projectRoot change still busts the cache, and must still
  * produce a valid key when the upstream exposes no getCacheKey.
  *
- * 1. Compute getCacheKey for one prepared project with `enableBabelRCLookup`
- *    true and false against an upstream whose key echoes its arguments; assert they differ.
+ * 1. Compute getCacheKey for one prepared project with `enableBabelRCLookup` true
+ *    and false against an upstream whose key echoes its arguments; assert they
+ *    differ.
  * 2. Compute getCacheKey against an upstream that has no getCacheKey.
- * 3. Assert that still yields a stable 64-character string key across fresh modules.
+ * 3. Assert that still yields a stable 64-character string key across fresh
+ *    modules.
  *
  * @evidence contracts/testing.md#behavioral-verification getCacheKey for one prepared project returns different keys for enableBabelRCLookup true versus false when the fake upstream's getCacheKey echoes its arguments, and returns the same 64-character string across fresh modules when the upstream exports no getCacheKey.
  * @evidence contracts/testing.md#independent-expectations The fake upstream key is a JSON echo of its first argument, so the authored true/false difference can only reach the result through forwarding; literal type, width and repeat equality establish the usable stable key required when an optional callback is absent.

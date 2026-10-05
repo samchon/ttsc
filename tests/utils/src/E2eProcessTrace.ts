@@ -1,13 +1,14 @@
 import type * as childProcess from "node:child_process";
-import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
- * Test-owned primitive adapters shared with actual embedded Node consumers.
- * The module loads one authored CJS runtime and delegates actual operations;
- * prepared tool identity and measurement completeness belong to the coordinator.
+ * Test-owned primitive adapters shared with actual embedded Node consumers. The
+ * module loads one authored CJS runtime and delegates actual operations;
+ * prepared tool identity and measurement completeness belong to the
+ * coordinator.
  *
  * @evidence contracts/common.md#principled-implementation Exposes owned adapters with original Node signatures and a shared absolute runtime identity; it does not replace native exports or infer child success.
  * @evidence contracts/common.md#clear-and-simple-design One typed facade connects maintained TS callers and explicit plain-Node fixture consumers to the same runtime.
@@ -20,7 +21,9 @@ import path from "node:path";
  */
 export namespace E2eProcessTrace {
   /** Absolute authored runtime entry, usable by a plain Node fixture child. */
-  export const runtimePath = fileURLToPath(new URL("./internal/E2eProcessTraceRuntime.cjs", import.meta.url));
+  export const runtimePath = fileURLToPath(
+    new URL("./internal/E2eProcessTraceRuntime.cjs", import.meta.url),
+  );
   const runtime = createRequire(import.meta.url)(runtimePath) as Runtime;
   /** Original Node spawn signature and returned ChildProcess identity. */
   export const spawn: typeof childProcess.spawn = runtime.spawn;
@@ -33,14 +36,16 @@ export namespace E2eProcessTrace {
   /** Original synchronous result including actual PID/status/error fields. */
   export const spawnSync: typeof childProcess.spawnSync = runtime.spawnSync;
   /** Original stdout or result-enriched error, observed through spawnSync. */
-  export const execFileSync: typeof childProcess.execFileSync = runtime.execFileSync;
+  export const execFileSync: typeof childProcess.execFileSync =
+    runtime.execFileSync;
   /** Original shell/stdout or result-enriched error interface. */
   export const execSync: typeof childProcess.execSync = runtime.execSync;
 
   /**
    * Routes explicit authored fixture imports to the same owned runtime before
    * preparation. Literal require overloads change with their matching calls;
-   * the actual child operations and all scenario inputs otherwise remain intact.
+   * the actual child operations and all scenario inputs otherwise remain
+   * intact.
    *
    * @evidence contracts/common.md#principled-implementation Replaces only the explicit quoted Node child-process module identity with the selected test runtime, preserving matching fixture require declarations and actual primitive calls.
    * @evidence contracts/common.md#clear-and-simple-design One text-input transformation serves explicit fixture consumers without mutating Node exports or adding product configuration.
@@ -51,14 +56,20 @@ export namespace E2eProcessTrace {
    * @evidence contracts/performance.md#reuse-equivalent-work All files use the single authored runtime identity; mutable input maps and process outcomes are not cached.
    * @evidence contracts/performance.md#bound-retention-and-release-resources No handles or temporary roots are acquired; transformed text and map ownership transfer to the fixture-preparation caller.
    */
-  export function fixtureFiles(files: Record<string, string>): Record<string, string> {
-    return Object.fromEntries(Object.entries(files).map(([file, text]) =>
-      [file, text.replaceAll('"node:child_process"', JSON.stringify(runtimePath))]));
+  export function fixtureFiles(
+    files: Record<string, string>,
+  ): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(files).map(([file, text]) => [
+        file,
+        text.replaceAll('"node:child_process"', JSON.stringify(runtimePath)),
+      ]),
+    );
   }
 
   /**
-   * Routes only the named, already copied fixture files. It must run before
-   * any corresponding child starts, never while a selected producer is live.
+   * Routes only the named, already copied fixture files. It must run before any
+   * corresponding child starts, never while a selected producer is live.
    *
    * @evidence contracts/common.md#principled-implementation Reads each explicit copied file and writes the same text with its owned child-process import routed; preparation errors propagate before starting the consumer.
    * @evidence contracts/common.md#clear-and-simple-design Delegates the exact text transformation and leaves root creation, process lifetime and cleanup with the caller.
@@ -74,7 +85,11 @@ export namespace E2eProcessTrace {
     for (const file of files) {
       const target = path.resolve(owned, file);
       const relative = path.relative(owned, target);
-      if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative))
+      if (
+        relative === ".." ||
+        relative.startsWith(".." + path.sep) ||
+        path.isAbsolute(relative)
+      )
         throw new Error("Trace fixture path escapes its owner: " + file);
       const text = fs.readFileSync(target, "utf8");
       fs.writeFileSync(target, fixtureFiles({ [file]: text })[file]!);
@@ -82,4 +97,13 @@ export namespace E2eProcessTrace {
   }
 }
 
-type Runtime = Pick<typeof childProcess, "spawn" | "fork" | "exec" | "execFile" | "spawnSync" | "execFileSync" | "execSync">;
+type Runtime = Pick<
+  typeof childProcess,
+  | "spawn"
+  | "fork"
+  | "exec"
+  | "execFile"
+  | "spawnSync"
+  | "execFileSync"
+  | "execSync"
+>;

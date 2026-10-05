@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
-import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
+import { MISSING_INPUT_STATE } from "../../../../../packages/unplugin/src/core/transform/validation/MISSING_INPUT_STATE";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
 import { matchesUniversalHostInputProbes } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputProbes";
-import { MISSING_INPUT_STATE } from "../../../../../packages/unplugin/src/core/transform/validation/MISSING_INPUT_STATE";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 
 /**
@@ -38,7 +38,9 @@ export function test_universal_host_input_probes_record_exact_missing_candidates
     caseSensitive: () => undefined,
     stat: (file) => {
       if (file === candidate && failure !== undefined) {
-        throw Object.assign(new Error("native observation refused"), { code: failure });
+        throw Object.assign(new Error("native observation refused"), {
+          code: failure,
+        });
       }
       return fs.statSync(file);
     },
@@ -51,40 +53,77 @@ export function test_universal_host_input_probes_record_exact_missing_candidates
     hostInputRealpaths: { [candidate]: null },
   };
   TRANSFORM_RESULT_FILESYSTEM.set(result, filesystem);
-  const cached = { ...fixture.good, result, externalInputHashes: {} as Record<string, string> };
-  const identity = envelopeDerivation(cached).identityContext.resolve(candidate).key;
+  const cached = {
+    ...fixture.good,
+    result,
+    externalInputHashes: {} as Record<string, string>,
+  };
+  const identity =
+    envelopeDerivation(cached).identityContext.resolve(candidate).key;
   cached.externalInputHashes[identity] = MISSING_INPUT_STATE;
-  const capture = () => captureUniversalHostInputValidation(cached, fixture.file);
+  const capture = () =>
+    captureUniversalHostInputValidation(cached, fixture.file);
   try {
     const admitted = capture();
     assert.deepEqual(admitted.failures.entries, []);
     const validation = admitted.validation;
     assert.ok(validation, "exact native absence remains reusable");
     assert.deepEqual([...validation.directMissing!], [candidate]);
-    assert.equal(validation.missing.size, 0, "unknown case never authorizes listing normalization");
+    assert.equal(
+      validation.missing.size,
+      0,
+      "unknown case never authorizes listing normalization",
+    );
     assert.equal(matchesUniversalHostInputProbes(cached, validation), true);
     fs.writeFileSync(candidate, "{}");
-    assert.equal(matchesUniversalHostInputProbes(cached, validation), false, "file appeared");
+    assert.equal(
+      matchesUniversalHostInputProbes(cached, validation),
+      false,
+      "file appeared",
+    );
     fs.rmSync(candidate);
     fs.mkdirSync(candidate);
-    assert.equal(matchesUniversalHostInputProbes(cached, validation), false, "directory appeared");
+    assert.equal(
+      matchesUniversalHostInputProbes(cached, validation),
+      false,
+      "directory appeared",
+    );
     fs.rmdirSync(candidate);
     const alternate = path.join(directory, "CANDIDATE.json");
     fs.writeFileSync(alternate, "{}");
     let nativeAbsent = false;
-    try { fs.statSync(candidate); }
-    catch (error) { nativeAbsent = (error as NodeJS.ErrnoException).code === "ENOENT"; }
-    assert.equal(matchesUniversalHostInputProbes(cached, validation), nativeAbsent, "native alias semantics");
+    try {
+      fs.statSync(candidate);
+    } catch (error) {
+      nativeAbsent = (error as NodeJS.ErrnoException).code === "ENOENT";
+    }
+    assert.equal(
+      matchesUniversalHostInputProbes(cached, validation),
+      nativeAbsent,
+      "native alias semantics",
+    );
     fs.rmSync(alternate);
     fs.rmdirSync(directory);
     fs.writeFileSync(directory, "blocks descendants");
-    assert.equal(matchesUniversalHostInputProbes(cached, validation), true, "ENOTDIR keeps the exact candidate absent");
+    assert.equal(
+      matchesUniversalHostInputProbes(cached, validation),
+      true,
+      "ENOTDIR keeps the exact candidate absent",
+    );
     fs.rmSync(directory);
     fs.mkdirSync(directory);
     for (const code of ["EACCES", "EIO"] as const) {
       failure = code;
-      assert.equal(matchesUniversalHostInputProbes(cached, validation), false, code);
-      assert.equal(capture().validation, undefined, code + " cannot admit exact absence");
+      assert.equal(
+        matchesUniversalHostInputProbes(cached, validation),
+        false,
+        code,
+      );
+      assert.equal(
+        capture().validation,
+        undefined,
+        code + " cannot admit exact absence",
+      );
     }
     failure = undefined;
     assert.ok(capture().validation, "native recovery re-establishes absence");

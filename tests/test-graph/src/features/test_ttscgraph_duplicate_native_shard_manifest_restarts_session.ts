@@ -1,20 +1,27 @@
 import assert from "node:assert/strict";
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies a delta with a duplicated manifest key retires the peer and resets the shard store.
+ * Verifies a delta with a duplicated manifest key retires the peer and resets
+ * the shard store.
  *
  * The first graph is committed from a valid initial transaction. A second,
  * incremental transaction then lists the same shard key twice in its manifest.
- * The session must reject it, retire the peer, and accept a sequence-one initial
- * transaction on the next peer, which is only possible if the committed
+ * The session must reject it, retire the peer, and accept a sequence-one
+ * initial transaction on the next peer, which is only possible if the committed
  * coordinates were discarded with the old peer.
  *
  * 1. Commit a valid initial transaction and require an empty node list.
  * 2. Deliver the "duplicateManifest" delta (sequence 2 on the committed base) and
- *    require the rejection "manifest must be strictly key-sorted" and the port to
- *    be retired (reader detached, then stdio joined).
+ *    require the rejection "manifest must be strictly key-sorted" and the port
+ *    to be retired (reader detached, then stdio joined).
  * 3. Request again, answer the second port with a sequence-one initial
  *    transaction, and require an empty node list and exactly two opened ports.
  *
@@ -30,7 +37,14 @@ export async function test_ttscgraph_duplicate_native_shard_manifest_restarts_se
     void initial.catch(() => undefined);
     const first = await admitted(ports);
     const baseline = sessionTransaction();
-    session.receive(first.peer, { id: Number(first.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot: baseline });
+    session.receive(first.peer, {
+      id: Number(first.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot: baseline,
+    });
     assert.deepEqual((await initial).nodes, []);
     const active = session.graph();
     void active.catch(() => undefined);
@@ -39,14 +53,30 @@ export async function test_ttscgraph_duplicate_native_shard_manifest_restarts_se
     snapshot.sequence = 2;
     snapshot.baseSequence = 1;
     snapshot.baseGeneration = baseline.generation;
-    session.receive(port.peer, { id: Number(port.writes.at(-1)!.id), protocolVersion: 1, mode: "incremental", changed: true, capabilities: [], snapshot });
+    session.receive(port.peer, {
+      id: Number(port.writes.at(-1)!.id),
+      protocolVersion: 1,
+      mode: "incremental",
+      changed: true,
+      capabilities: [],
+      snapshot,
+    });
     await assert.rejects(active, /manifest must be strictly key-sorted/);
     assertRetired(port);
     const recovered = session.graph();
     void recovered.catch(() => undefined);
     const next = await admitted(ports);
-    session.receive(next.peer, { id: Number(next.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot: sessionTransaction() });
+    session.receive(next.peer, {
+      id: Number(next.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot: sessionTransaction(),
+    });
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { await session.close(); }
+  } finally {
+    await session.close();
+  }
 }

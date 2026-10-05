@@ -17,7 +17,8 @@ const viteCreateServer =
  * of one program. The build-scoped lifecycle it takes instead
  * (samchon/ttsc#1260) settles each module's first delivery against the
  * generation the session started from. The watching twin keeps the opposite
- * verdict through the actual generation selector unit and the shared native pool changed-input epoch.
+ * verdict through the actual generation selector unit and the shared native
+ * pool changed-input epoch.
  *
  * 1. Start a middleware-mode dev server with `watch: null` and request the entry
  *    module.

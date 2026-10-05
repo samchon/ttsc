@@ -1,9 +1,9 @@
-import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the Vite serve watcher opens no observer on the project root's
@@ -23,6 +23,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  *    package got one.
  * 3. Create the missing probe, tick the poll, and assert the importer is
  *    invalidated.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Registers an ancestor missing probe and sibling declaration; asserts no ancestor observer, a sibling scope and poll-driven invalidation when the missing probe appears.
  * @evidence contracts/testing.md#independent-expectations

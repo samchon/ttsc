@@ -1,4 +1,7 @@
-import { PluginBuildEnvironmentReadings, processPluginBuildEnvironment } from "ttsc/plugin-source";
+import {
+  PluginBuildEnvironmentReadings,
+  processPluginBuildEnvironment,
+} from "ttsc/plugin-source";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
@@ -14,25 +17,24 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  *
  * A directory whose tracker heard nothing below it has unchanged files, and is
  * skipped while the environment it was last proven under is still this
- * process's prepared reading (`PluginBuildEnvironmentReadings.cached`), which holds only while
- * the Go tool, its environment file, and the C toolchain it names hold: the
- * tracker watches the sources, not the toolchain outside them
+ * process's prepared reading (`PluginBuildEnvironmentReadings.cached`), which
+ * holds only while the Go tool, its environment file, and the C toolchain it
+ * names hold: the tracker watches the sources, not the toolchain outside them
  * (samchon/ttsc#1516). Any other is proven by ttsc's rule
  * (`pluginSourceHolds`), since no one path's metadata stands for the files
  * below it. The proof lists the directory as the plugin build lists it, which a
  * delivery pays only after an event below the directory, a changed environment,
  * or where no tracker watches it or its watch cannot vouch for it, and reads
  * the files' bytes again when population, metadata or fresh clock qualification
- * does not permit digest reuse (`pluginSourceFilesDigest`).
- * A missing or stale prepared environment reading returns false here. The async
- * delivery owner prepares that authority before this synchronous proof; that
- * prepared route never starts a cold Go or SDK probe on the host thread.
- * Standalone synchronous results retain their original native observation and
- * mismatch refresh; the async preparation owner marks its result identity.
+ * does not permit digest reuse (`pluginSourceFilesDigest`). A missing or stale
+ * prepared environment reading returns false here. The async delivery owner
+ * prepares that authority before this synchronous proof; that prepared route
+ * never starts a cold Go or SDK probe on the host thread. Standalone
+ * synchronous results retain their original native observation and mismatch
+ * refresh; the async preparation owner marks its result identity.
  *
  * @param cached The generation being validated.
  * @param validation Its universal-input manifest.
- *
  * @evidence contracts/common.md#principled-implementation Source state is qualified together with the Go build environment; tracker silence proves source files only, so changed environment requires the owning plugin-source proof.
  * @evidence contracts/common.md#clear-and-simple-design One validator delegates binary-state semantics to ttsc and records the environment each successful tree proof saw.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A quiet source watcher cannot certify an external toolchain, and unreadable sources cannot become empty successful state.
@@ -59,7 +61,14 @@ export function matchesUniversalHostInputTrees(
       validation.treeEnvironments?.get(directory) === environment
     )
       continue;
-    if (!pluginSourceHolds(directory, digest, resultFilesystem(cached.result), prepared ? { environment } : undefined))
+    if (
+      !pluginSourceHolds(
+        directory,
+        digest,
+        resultFilesystem(cached.result),
+        prepared ? { environment } : undefined,
+      )
+    )
       return false;
     (validation.treeEnvironments ??= new Map()).set(directory, environment);
   }

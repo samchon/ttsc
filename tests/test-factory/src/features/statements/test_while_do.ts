@@ -1,15 +1,18 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "../../../../../packages/factory/src/index";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
  * Verifies printing of `while` and `do...while` loops with empty bodies.
  *
- * Precondition and postcondition loops place the same condition at different syntax positions.
+ * Precondition and postcondition loops place the same condition at different
+ * syntax positions.
  *
- * 1. While and do-while retain their condition position and distinct terminating syntax around empty bodies.
- * 2. Literal while and do-while outputs independently specify keyword ordering and semicolon requirements.
+ * 1. While and do-while retain their condition position and distinct terminating
+ *    syntax around empty bodies.
+ * 2. Literal while and do-while outputs independently specify keyword ordering and
+ *    semicolon requirements.
  *
  * @evidence contracts/testing.md#behavioral-verification While and do-while retain their condition position and distinct terminating syntax around empty bodies.
  * @evidence contracts/testing.md#independent-expectations Literal while and do-while outputs independently specify keyword ordering and semicolon requirements.
