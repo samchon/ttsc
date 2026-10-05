@@ -2133,6 +2133,21 @@ export async function test_e2e_metro_batch(): Promise<void> {
       fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)),
     ).filter((row) => ["bridge-lookup", "bridge-cache-hit", "bridge-result", "bridge-generation-proof", "bridge-publication", "bridge-attempt-disposition", "integrity-failure"].includes(row.event)),
   }));
+  const initialPublications = fs.readdirSync(session).filter((name) => name.endsWith(".json")).map((name) =>
+    JSON.parse(fs.readFileSync(path.join(session, name), "utf8")),
+  );
+  assert.equal(initialPublications.length, 1, "the two actual deliveries share one published native envelope");
+  const initialEnvelope = initialPublications[0]!.result;
+  assert.equal(initialEnvelope.type, "success");
+  assert.ok(Array.isArray(initialEnvelope.dependenciesComplete), "the native per-file declarations must survive SDK acquisition and adapter decoding");
+  const envelopePath = (file: string) => path.resolve(workspace.root, file).replace(/\\/g, "/");
+  const completeFiles = initialEnvelope.dependenciesComplete.map(envelopePath);
+  for (const file of ["src/bundle.ts", "src/map.ts", "src/pool-routing/map.ts"])
+    assert.ok(completeFiles.includes(envelopePath(file)), "the selected fixture explicitly reports this loaded source complete: " + file);
+  assert.equal(completeFiles.includes(envelopePath("src/native-pipeline.ts")), false,
+    "a real unmarked source in the same envelope must not inherit another file's completeness");
+  assert.ok(Object.keys(initialEnvelope.typescript).some((file) => envelopePath(file) === envelopePath("src/native-pipeline.ts")),
+    "the unmarked sibling must be an actual transformed source, not an invented metadata path");
   assert.equal(fs.readFileSync(nonInputRaceFile, "utf8"), nonInputRaceContent, "the actual native hook must perform its ignored write during capture");
   assert.equal(Object.prototype.hasOwnProperty.call(record.inputs, nonInputRaceFile), false, "the non-input write must not become a declared native input");
   BatchWorkspace.assertContextReceipts(BatchWorkspace.readContextReceipts(workspace).slice(receiptOffset));
