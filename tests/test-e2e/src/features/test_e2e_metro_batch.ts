@@ -70,6 +70,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
     "descriptors/input.cjs",
     "packages/batch-descriptor-input/package.json",
     "packages/batch-descriptor-input/index.cjs",
+    "packages/batch-auto-discovery/package.json",
+    "packages/batch-auto-discovery/index.cjs",
   ].map((name) => fs.realpathSync.native(path.join(workspace.root, name)));
   const descriptorBytes = new Map(descriptorInputs.map((input) => [input, fs.readFileSync(input)]));
   const assertDescriptorBytes = (input: string, evidence: { missing?: boolean; state?: { codec: string; hash?: string; observation?: { readFile?: { ok: boolean; hash?: string } } } } | undefined, authored: Buffer | string): void => {
@@ -156,6 +158,10 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const evidence = record.inputs[input];
     assertDescriptorBytes(input, evidence, descriptorBytes.get(input)!);
   }
+  const automaticEntryCandidates = Object.keys(record.inputs).filter((input) =>
+    input.includes(path.join("node_modules", "batch-auto-discovery")),
+  );
+  assert.deepEqual(automaticEntryCandidates.filter((input) => !input.startsWith(workspace.root + path.sep)), [], "the selected automatic plugin entry must not record search roots beyond its installed package");
   assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "#local-descriptor")) || input.includes(path.join("node_modules", "#installed-descriptor"))), [], "package imports must not invent bare-package search paths for the internal import names");
   assert.deepEqual(Object.keys(record.inputs).filter((input) => input.includes(path.join("node_modules", "batch-descriptor-input")) && !input.startsWith(workspace.root + path.sep)), [], "the successful mapped package must not retain candidates beyond its selected root");
   const phantomDescriptorPackage = path.join(workspace.root, "descriptors/node_modules/batch-descriptor-input/package.json");
