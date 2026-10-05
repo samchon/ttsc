@@ -3,6 +3,7 @@ import type createStrip from "../../../../../packages/strip/src/index";
 
 import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -20,10 +21,12 @@ import { createRequire } from "node:module";
  * 2. Invoke both package descriptors with that project as the discovery root.
  * 3. Assert each host-input list crosses the directory and stops at the real
  *    selected ancestor.
+ * 4. Add a nearer JSON candidate, then override discovery with a custom JSON
+ *    configFile in relative and absolute spellings.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the authored banner and strip descriptor factories and asserts candidate traversal, a candidate-directory fingerprint, selected ancestor retention and stopping beyond that ancestor; a walk that treats a directory as config cannot pass.
- * @evidence contracts/testing.md#independent-expectations The public discovery contract chooses config files, not directories; the fixture independently supplies the nearer directory and ancestor file, with literal presence/absence and SHA-256 shape expectations.
- * @evidence contracts/testing.md#distinguishing-cases For both the banner and the strip factory, a directory named `<plugin>.config.ts` in the project is recorded but does not stop the walk, the `<plugin>.config.json` file in the workspace above is recorded as the selected config, and the same-named path above the workspace is not recorded. Executable configs and a configFile override are not exercised.
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual banner and strip descriptor factories and asserts directory-candidate traversal, ancestor selection, nearer JSON stopping and exact custom configFile input selection. Descriptor observations do not evaluate config values or certify native loader acquisition.
+ * @evidence contracts/testing.md#independent-expectations The public discovery contract chooses config files, not directories; authored nearer/ancestor populations define presence and stopping. Explicit configFile overrides automatic discovery, so its sole expected input is the authored custom path, with independent SHA-256 over literal bytes and native realpath observation; config values themselves remain unevaluated.
+ * @evidence contracts/testing.md#distinguishing-cases For both factories, a directory candidate does not stop the walk, an ancestor JSON does, a later nearer JSON excludes that ancestor, and relative/absolute configFile select only custom JSON with exact content hashes. Executable configs and native config evaluation are not exercised.
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/utility; it loads the two TypeScript factories through createRequire and runs discovery over a TestProject.tmpdir containing one directory and one `{}` JSON file per plugin, with no native build, evaluator or product host.
  */
 export function test_ttsc_banner_and_strip_descriptors_ignore_directories_during_config_discovery() {
@@ -65,5 +68,31 @@ export function test_ttsc_banner_and_strip_descriptors_ignore_directories_during
         ),
         false,
       );
+      const localJson = path.join(project, `${plugin}.config.json`);
+      fs.writeFileSync(localJson, "{}\n", "utf8");
+      const context = {
+        binary: "", cwd: project, dirname: path.dirname(filename), filename,
+        pluginConfigDir: project, projectRoot: project,
+        tsconfig: path.join(project, "tsconfig.json"),
+      };
+      const nearer = factory({ ...context, plugin: { transform: `@ttsc/${plugin}` } });
+      assert.equal(nearer.hostInputs.includes(localJson), true);
+      assert.equal(nearer.hostInputs.includes(selected), false);
+      const customName = `custom-${plugin}.json`;
+      const custom = path.join(project, customName);
+      const customBytes = '{"ownedCustomConfig":true}\n';
+      fs.writeFileSync(custom, customBytes, "utf8");
+      for (const configFile of [customName, custom]) {
+        const overridden = factory({
+          ...context, plugin: { transform: `@ttsc/${plugin}`, configFile },
+        });
+        assert.deepEqual(overridden.hostInputs, [custom]);
+        assert.deepEqual(overridden.hostInputHashes, {
+          [custom]: createHash("sha256").update(customBytes).digest("hex"),
+        });
+        assert.deepEqual(overridden.hostInputRealpaths, {
+          [custom]: fs.realpathSync.native?.(custom) ?? fs.realpathSync(custom),
+        });
+      }
     }
 }
