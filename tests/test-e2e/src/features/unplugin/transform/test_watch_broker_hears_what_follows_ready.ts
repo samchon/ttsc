@@ -425,7 +425,9 @@ function openBroker(fsevents: string | null | undefined) {
       closing = true;
       fail(new Error("watch broker fixture closing"));
       const kill = setTimeout(() => {
-        childFailure ??= new Error("watch broker did not close after supported disconnect");
+        childFailure ??= new Error(
+          "watch broker did not close after supported disconnect",
+        );
         child.kill("SIGKILL");
       }, 2_000);
       let disconnectError: unknown;
