@@ -206,6 +206,18 @@ try {
 }
 assert.equal(lowerings(explicitOrphans).filter((name) => !explicitBefore.has(name)).length, 1, "the explicit runtime cache must receive this one actual orphan lowering");
 const defaultBefore = new Set(lowerings(defaultOrphans));
+// An excluded source still owns its nearest config and uses checked root
+// emission. The placement control must actually have no config owner.
+const configlessDirectory = path.join(process.env.TTSC_CACHE_DIR, "runtime-configless-placement");
+const configlessPlacement = path.join(configlessDirectory, "runtime-placement.ts");
+assert.equal(fs.existsSync(configlessDirectory), false);
+fs.mkdirSync(configlessDirectory);
+for (let ancestor = configlessDirectory; ; ancestor = path.dirname(ancestor)) {
+  assert.equal(fs.existsSync(path.join(ancestor, "tsconfig.json")), false, "the placement input must not inherit an owning project");
+  if (path.dirname(ancestor) === ancestor) break;
+}
+const configlessBytes = fs.readFileSync(path.join(__dirname, "runtime-placement.ts"));
+fs.copyFileSync(path.join(__dirname, "runtime-placement.ts"), configlessPlacement);
 const registerBaseFile = path.join(root, "runtime-base.json");
 const registerBaseBytes = fs.readFileSync(registerBaseFile);
 const registerOptions = JSON.parse(registerBaseBytes);
@@ -234,6 +246,7 @@ try {
   delete env.TTSX_RUNTIME_RUN_DIR;
   delete env.TTSX_RUNTIME_RUNS_DIR;
   delete env.TTSC_CACHE_DIR;
+  env.TTSC_E2E_CONFIGLESS_PLACEMENT = configlessPlacement;
   env.TEMP = env.TMP = env.TMPDIR = temporary;
   registered = spawnSync(process.execPath,
     ["--require", path.join(launcher, "../register.js"), path.join(root, "tools/configured-owners/legacy/src/register-entry.tsx")],
@@ -263,7 +276,9 @@ try {
   assert.ok(registered.pid > 0);
   assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
   assert.equal(registered.stdout.trim(), 'TTSC_REGISTER_VIEW:<div>hello</div><b>world</b>\nlowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
-  assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its excluded input there");
+  assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its configless input there");
+  assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
+  assert.equal(fs.existsSync(path.join(configlessDirectory, "runtime-placement.js")), false);
   assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
   assert.ok(childReport, "the actual registered parent must publish its owned child identity");
   assert.equal(childReport.parent, registered.pid);
@@ -298,6 +313,9 @@ if (descendantFailures.length) throw new AggregateError(descendantFailures, "reg
     throw new Error("register reporting epoch retained because its descendant closure is unresolved");
   try { fs.writeFileSync(registerBaseFile, registerBaseBytes); }
   finally { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); }
+  assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
+  fs.unlinkSync(configlessPlacement);
+  fs.rmdirSync(configlessDirectory);
 }
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
