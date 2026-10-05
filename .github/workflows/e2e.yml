@@ -8,7 +8,15 @@ concurrency:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    name: e2e (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: win32-x64, runner: windows-2025 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm }
+          - { name: darwin-arm64, runner: macos-15 }
     steps:
       - name: Set shared Go object cache environment
         shell: bash
@@ -62,4 +70,3 @@ jobs:
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.objects }}
           key: ${{ steps.go-objects.outputs.cache-primary-key }}
-

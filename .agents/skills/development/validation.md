@@ -29,8 +29,7 @@ Every verification workflow runs on `pull_request` only, checks out, sets up Nod
 | --- | --- |
 | `build.yml` | `pnpm run evidence`, then `pnpm run build`. Evidence checks the production declarations and every test package before the build. |
 | `test.yml` | `pnpm run test:go` runs `go test` in each Go module owned by a package. `pnpm run test:units` runs `pnpm start` in every `tests/test-*` package except `tests/test-e2e`. |
-| `e2e.yml` | `pnpm run build`, then `pnpm run test:e2e`, the `pnpm start` of `tests/test-e2e`. |
-| `setup.yml` | The only installation matrix: Linux, macOS and Windows on x64 and arm64. Each row builds `ttsc` and its platform package, then runs the installation experiment of `tests/test-e2e` (`start --installation`), which packs and installs them into a bare consumer. |
+| `e2e.yml` | Windows x64, Linux arm64 and macOS arm64 each run `pnpm run build`, then `pnpm run test:e2e`. Every full shared suite packs and installs the matching platform package and SDK into its bare consumer; its Runtime preserves the installation values and actual installed CLI boundary in that same preparation. The former separate `setup.yml` matrix is absorbed here. |
 | `typia.yml`, `nestia.yml` | Compatibility with the latest upstream master, wired by `.github/workflows/scripts/consumer.cjs`: candidate tarballs, a pnpm hook that binds peers to them, package patches and, for Go tests, a `go.work` over the candidate driver and shims. |
 | `website.yml`, `benchmark.yml` | The website build with deployment on a master push, and the benchmark packages' type check. |
 | `release.yml` | A pushed tag runs `pnpm run build`, publishes the VS Code extension without failing the release, then publishes the packages with provenance. |
