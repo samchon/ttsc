@@ -22,6 +22,15 @@ exports.default = (context) => {
   const fs = require("node:fs");
   const settings = require("node:path").join(context.dirname, "cache-settings.json");
   fs.appendFileSync(context.plugin.evaluationCounter, "x");
+  if (observation === "isolation") {
+    if (cachedInput.name === "bad") throw new Error("descriptor is bad");
+    return {
+      name: cachedInput.name,
+      get source() { return require("node:path").resolve(context.dirname, require("./cache-source")); },
+    };
+  }
+  if (observation === "collection")
+    return { name: "collected", source: context.plugin.fixtureSource, hostInputHashes: {} };
   if (observation === "module")
     return { name: cachedInput.name, source: context.plugin.fixtureSource, hostInputHashes: {} };
   const text = fs.readFileSync(settings);

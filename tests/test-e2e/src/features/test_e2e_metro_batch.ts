@@ -5,6 +5,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
@@ -193,11 +194,13 @@ export async function test_e2e_metro_batch(): Promise<void> {
   // One physical descriptor, dependency, settings file and native producer own
   // these observation-authority epochs. Rows change the declared read contract;
   // they do not allocate projects, launch old recipes or reset a row's cache.
-  for (const observation of ["module", "qualified", "undeclared", "unproved"] as const) {
+  for (const observation of ["module", "qualified", "undeclared", "unproved", "isolation", "collection"] as const) {
     const counter = path.join(traceRoot, "descriptor-" + observation + ".txt");
     const entry = { ...nativeProbe, cacheObservation: observation, evaluationCounter: counter };
-    const load = (env: NodeJS.ProcessEnv = descriptorEnv): string | undefined => loadProjectPlugins({
-      binary: TestProject.TSGO_BINARY, cwd: workspace.root, cacheDir: descriptorCache,
+    const effectiveDescriptorEnv: NodeJS.ProcessEnv = observation === "collection"
+      ? { ...descriptorEnv, TTSC_CACHE_DIR: undefined } : descriptorEnv;
+    const load = (env: NodeJS.ProcessEnv = effectiveDescriptorEnv): string | undefined => loadProjectPlugins({
+      binary: TestProject.TSGO_BINARY, cwd: workspace.root, cacheDir: observation === "collection" ? undefined : descriptorCache,
       entries: [entry], env, tsconfig: configPath,
     }).nativePlugins[0]?.name;
     const evaluations = (): number => fs.existsSync(counter) ? fs.readFileSync(counter, "utf8").length : 0;
@@ -205,6 +208,52 @@ export async function test_e2e_metro_batch(): Promise<void> {
       assert.equal(fs.existsSync(counter), false);
       fs.writeFileSync(descriptorSettings, '{"name":"first"}\n');
       fs.writeFileSync(descriptorModule, 'module.exports = { name: "first" };\n');
+      if (observation === "isolation") {
+        fs.writeFileSync(descriptorModule, 'module.exports = { name: "bad" };\n');
+        const applicationRequire = createRequire(import.meta.url);
+        const applicationSingleton = applicationRequire(descriptorModule);
+        assert.equal(applicationSingleton.name, "bad");
+        const isolatedLoad = () => loadProjectPlugins({
+          binary: TestProject.TSGO_BINARY, cwd: workspace.root, cacheDir: descriptorCache,
+          entries: [entry], env: descriptorEnv, tsconfig: configPath,
+        });
+        assert.throws(isolatedLoad, /descriptor is bad/);
+        fs.writeFileSync(descriptorModule, 'module.exports = { name: "good" };\n');
+        const selected = isolatedLoad();
+        const getterJson = path.join(workspace.root, "descriptors/cache-source.json");
+        const absentGetterJs = path.join(workspace.root, "descriptors/cache-source.js");
+        assert.equal(fs.existsSync(absentGetterJs), false);
+        assert.ok(selected.hostInputs.includes(descriptorModule));
+        assert.ok(selected.hostInputs.includes(getterJson));
+        assert.ok(selected.hostInputs.includes(absentGetterJs));
+        assert.equal(selected.hostInputRealpaths[descriptorModule], fs.realpathSync.native(descriptorModule));
+        assert.equal(selected.hostInputRealpaths[getterJson], fs.realpathSync.native(getterJson));
+        assert.equal(selected.nativePlugins[0]?.name, "good");
+        assert.equal(isolatedLoad().nativePlugins[0]?.name, "good");
+        assert.equal(applicationRequire(descriptorModule), applicationSingleton, "isolated generations must preserve the application's loaded singleton");
+        assert.equal(applicationSingleton.name, "bad", "the application's retained value must not be replaced by the evaluator's good generation");
+        continue;
+      }
+      if (observation === "collection") {
+        const descriptors = path.join(workspace.root, "node_modules/.cache/ttsc/descriptors");
+        assert.equal(fs.existsSync(descriptors), false, "the same prepared workspace owns a fresh default descriptor cache");
+        assert.equal(load(), "collected");
+        const entries = fs.readdirSync(descriptors).filter((name) => name.endsWith(".json"));
+        assert.equal(entries.length, 1, "one actual isolated evaluator answer is recorded");
+        const used = path.join(descriptors, entries[0]!);
+        const unused = path.join(descriptors, "unused.json");
+        fs.writeFileSync(unused, "{}");
+        const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+        fs.utimesSync(used, old, old);
+        fs.utimesSync(unused, old, old);
+        fs.rmSync(path.join(descriptors, ".gc-last-run"), { force: true });
+        assert.equal(load(), "collected");
+        assert.equal(evaluations(), 1, "the aged in-use answer must be reused before collection");
+        assert.equal(fs.existsSync(unused), false, "actual maintenance must remove the unused aged record");
+        assert.equal(fs.existsSync(used), true, "actual maintenance must preserve its used record");
+        assert.ok(fs.statSync(used).mtimeMs > old.getTime(), "the cache hit must renew actual recorded use");
+        continue;
+      }
       assert.equal(load(), "first", "the isolated evaluator must return the authored initial name: " + observation);
       if (observation === "module") {
         assert.equal(load(), "first");
