@@ -11,6 +11,8 @@ func main() {
   // These modes supply actual child stderr/status inputs to the public host.
   // They do not run or certify a SDK checker hook.
   switch os.Getenv("TTSC_E2E_PUBLIC_PROBE_MODE") {
+  case "driver-emit":
+    os.Exit(runDriverEmit(os.Args[1:]))
   case "check-warning":
     if len(os.Args) > 1 && os.Args[1] == "check" {
       fmt.Fprintln(os.Stderr, "src/main.ts(1,1): warning TS9001: check warning")
