@@ -126,12 +126,19 @@ Object.assign(failedNativeOptions.compilerOptions, {
     fixtureSource: path.join(path.dirname(directDriverEntry.fixtureSource), "cmd/public-probe"), publicCommand: true }],
 });
 const previousDriverMode = process.env.TTSC_E2E_PUBLIC_PROBE_MODE;
+// The raw driver dispatches linked hooks against its own loaded Program too.
+// Automatic discovery must not retain the root bundle/map reporting epoch.
+const driverAutomatic = JSON.parse(automaticManifestBytes);
+delete driverAutomatic.ttsc.plugin.reportedFiles;
+driverAutomatic.ttsc.plugin.reportedProgramSources = true;
+driverAutomatic.ttsc.plugin.reportedDependencies = [];
 const stderrDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
 let driverEmitStderr = "";
 let driverEmitStatus;
 try {
   fs.writeFileSync(nativeMain, "export const value = class { private hidden = 1; };\n");
   fs.writeFileSync(nativeConfigFile, JSON.stringify(failedNativeOptions));
+  fs.writeFileSync(automaticManifestFile, JSON.stringify(driverAutomatic));
   process.env.TTSC_E2E_PUBLIC_PROBE_MODE = "driver-emit";
   process.stderr.write = (chunk) => { driverEmitStderr += String(chunk); return true; };
   driverEmitStatus = runTtsc(["--cwd", nativeProject, "--emit"]);
@@ -147,8 +154,12 @@ try {
   if (previousDriverMode === undefined) delete process.env.TTSC_E2E_PUBLIC_PROBE_MODE;
   else process.env.TTSC_E2E_PUBLIC_PROBE_MODE = previousDriverMode;
   try { fs.writeFileSync(nativeMain, nativeMainBytes); }
-  finally { fs.writeFileSync(nativeConfigFile, nativeConfiguration); }
+  finally {
+    try { fs.writeFileSync(nativeConfigFile, nativeConfiguration); }
+    finally { fs.writeFileSync(automaticManifestFile, automaticManifestBytes); }
+  }
 }
+assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "the failed driver dispatch must restore the root reporting contributor");
 unchanged();
 const registerBefore = receiptCount();
 const rejectedEnv = { ...process.env };

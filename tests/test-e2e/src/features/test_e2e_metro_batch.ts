@@ -2235,17 +2235,25 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const healthyDeclaration = fs.readFileSync(declaration);
   fs.appendFileSync(declaration, "export type PooledExternalBroken = NotARealExternalType;\n");
   const failed = await Promise.all(workers.map((worker) => worker.request()));
-  for (const reply of failed) {
+  for (const [index, reply] of failed.entries()) {
     assert.match(reply.error ?? "", /NotARealExternalType/);
     assert.match(reply.error ?? "", /not assignable/, "the independently typed alias cannot collapse to any through a wrapper");
     assert.match(reply.error ?? "", /contract\.ts/, "the public diagnostic must name its actual failed source");
     assert.match(reply.error ?? "", /index\.d\.ts/, "the real declaration outside project discovery must also reach the diagnostic");
     assert.doesNotMatch(reply.error ?? "", /\x1b\[/, "the adapter exception must remain a plain host diagnostic");
-    assert.equal(reply.adapterCalls?.[0]?.outcome, "threw");
+    assert.equal(reply.adapterCalls?.[0]?.outcome, index === 0 ? "threw" : "returned",
+      "Metro throws the compile failure; Turbopack completes its error-module callback before evaluation rejects");
     assert.equal(typeof reply.adapterCalls?.[0]?.finishedAt, "string");
   }
   assert.equal(failed[1]!.callbackObservation?.completions, 1,
     "the same failed native delivery must settle the actual Turbopack callback once");
+  assert.equal(failed[1]!.callbackObservation?.errors.length, 1,
+    "Turbopack must emit the native compile error before returning its failed module");
+  assert.match(failed[1]!.callbackObservation!.errors[0]!, /NotARealExternalType/);
+  assert.match(failed[1]!.callbackObservation!.errors[0]!, /not assignable/);
+  assert.match(failed[1]!.callbackObservation!.errors[0]!, /contract\.ts/);
+  assert.match(failed[1]!.callbackObservation!.errors[0]!, /index\.d\.ts/);
+  assert.doesNotMatch(failed[1]!.callbackObservation!.errors[0]!, /\x1b\[/);
   assert.ok(Object.hasOwn(JSON.parse(signal()).inputs, declaration),
     "the actual record channel retains the reached declaration whose repair changes this failure");
   const failedPublications = publications();
