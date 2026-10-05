@@ -15,6 +15,7 @@ import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
 import { pluginSourceState } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginSourceState";
 import { prunesPluginSourceDirectory } from "../../../../packages/ttsc/lib/plugin/internal/source/prunesPluginSourceDirectory";
 import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/internal/load/loadProjectPlugins";
+import { pluginModuleReplaceDirectories } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginModuleReplaceDirectories";
 
 /**
  * Delivers distinct modules through one shared native loader pool.
@@ -62,6 +63,11 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const poolConfig = JSON.parse(originalConfig.toString("utf8"));
   const nativeProbe = poolConfig.compilerOptions.plugins.find((entry: { name?: string }) => entry.name === "shared-real-program-probe");
   assert.ok(nativeProbe, "the existing native producer must own the capture-time write");
+  const publicNativeProbe = {
+    ...nativeProbe,
+    fixtureSource: path.join(path.dirname(nativeProbe.fixtureSource), "cmd/public-probe"),
+    publicCommand: true,
+  };
   // Public preparation pays for this same producer before either adapter starts.
   // Two simultaneous instance cache owners differ only in their environment;
   // neither call starts a TypeScript Program or executes a transform hook.
@@ -78,8 +84,8 @@ export async function test_e2e_metro_batch(): Promise<void> {
     assert.equal(fs.existsSync(path.join(workspace.root, relative)), false, "public preparation owns a fresh instance cache");
   const ambientCache = process.env.TTSC_CACHE_DIR;
   const baselineBuildEnv = { ...process.env, GOFLAGS: "-tags=ttsc_build_environment_probe_baseline" };
-  const compilerA = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[0], GOFLAGS: baselineBuildEnv.GOFLAGS } });
-  const compilerB = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: baselineBuildEnv.GOFLAGS } });
+  const compilerA = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], env: { TTSC_CACHE_DIR: apiRoots[0], GOFLAGS: baselineBuildEnv.GOFLAGS } });
+  const compilerB = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: baselineBuildEnv.GOFLAGS } });
   const preparedA = compilerA.prepare();
   const preparedB = compilerB.prepare();
   assert.equal(preparedA.length, 1, "one authored selected native producer is prepared");
@@ -103,11 +109,11 @@ export async function test_e2e_metro_batch(): Promise<void> {
   const refusal = (cache: string) => (error: unknown): boolean =>
     error instanceof Error && error.message.includes(`the cache ${cache} lies inside the plugin source`) && error.message.includes(sourceModule);
   assert.equal(fs.existsSync(refusedPluginCache), false);
-  assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], cacheDir: refusedPluginCache }).prepare(), refusal(path.join(refusedPluginCache, "plugins")));
+  assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: refusedPluginCache }).prepare(), refusal(refusedPluginCache));
   assert.equal(fs.existsSync(refusedPluginCache), false, "refused publication must not create a cache among its keyed source");
-  assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], cacheDir: outsideAdmissionCache, env: { TTSC_GO_CACHE_DIR: refusedGoCache } }).prepare(), refusal(refusedGoCache));
+  assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: outsideAdmissionCache, env: { TTSC_GO_CACHE_DIR: refusedGoCache } }).prepare(), refusal(refusedGoCache));
   const excludedCacheRoot = path.join(sourceModule, "node_modules/.cache/public-admission");
-  const excludedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], cacheDir: path.join(excludedCacheRoot, "plugins"), env: { TTSC_GO_CACHE_DIR: path.join(excludedCacheRoot, "go") } });
+  const excludedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: path.join(excludedCacheRoot, "plugins"), env: { TTSC_GO_CACHE_DIR: path.join(excludedCacheRoot, "go") } });
   const excludedPrepared = excludedCompiler.prepare();
   assert.equal(excludedPrepared.length, 1);
   assert.equal(fs.existsSync(excludedPrepared[0]!), true, "both publication and Go caches below a pruned directory are admitted by the actual prepare caller");
@@ -148,7 +154,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
     const editedBinaries = compilerB.prepare();
     assert.equal(editedBinaries.length, 1);
     assert.notEqual(editedBinaries[0], binaryB, "the actual source mutation must publish another keyed binary");
-    const flaggedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [nativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: "-tags=ttsc_build_environment_probe" } });
+    const flaggedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: "-tags=ttsc_build_environment_probe" } });
     const expectedFlaggedState = pluginSourceState(sourceModule, { env: { ...process.env, GOFLAGS: "-tags=ttsc_build_environment_probe" } });
     assert.notEqual(expectedFlaggedState, expectedEditedState);
     const flagged = flaggedCompiler.transform();
@@ -277,6 +283,71 @@ export async function test_e2e_metro_batch(): Promise<void> {
     } finally {
       fs.writeFileSync(descriptorSettings, originalSettings);
       fs.writeFileSync(descriptorModule, originalDescriptorModule);
+    }
+  }
+  const replacementModule = path.dirname(nativeProbe.fixtureSource);
+  const replacementManifest = path.join(replacementModule, "go.mod");
+  const originalReplacementManifest = fs.readFileSync(replacementManifest);
+  const replacementInput = path.join(workspace.root, "replacement-input");
+  const replacementAlias = path.join(workspace.root, "replacement-input-alias");
+  const moduleAlias = path.join(workspace.root, "replacement-module-alias");
+  const internalReplacement = path.join(replacementModule, "internal-replacement");
+  for (const owned of [replacementInput, replacementAlias, moduleAlias, internalReplacement])
+    assert.equal(fs.existsSync(owned), false, "replacement epochs own initially absent input paths");
+  try {
+    fs.mkdirSync(replacementInput);
+    fs.writeFileSync(path.join(replacementInput, "go.mod"), "module example.com/batch-replacement\n\ngo 1.26\n");
+    fs.writeFileSync(path.join(replacementInput, "dep.go"), "package replacement\n");
+    fs.symlinkSync(replacementInput, replacementAlias, "junction");
+    fs.symlinkSync(replacementModule, moduleAlias, "junction");
+    const manifest = (target: string): string => originalReplacementManifest.toString("utf8") +
+      "\nrequire example.com/batch-replacement v0.0.0\nreplace example.com/batch-replacement => " +
+      JSON.stringify(target.split(path.sep).join("/")) + "\n";
+    const expected = [fs.realpathSync.native(replacementInput), fs.realpathSync.native(replacementModule)].sort();
+    // These are directive epochs on one module and one loader cache. A changed
+    // target does not materialize another project or replay an old fixture.
+    for (const [spelling, target] of [
+      ["absolute", replacementInput],
+      ["relative", path.relative(replacementModule, replacementInput)],
+      ["physical-link", replacementAlias],
+    ] as const) {
+      try {
+        fs.writeFileSync(replacementManifest, manifest(target));
+        let reported: readonly string[] | undefined;
+        const loaded = loadProjectPlugins({
+          binary: TestProject.TSGO_BINARY, cwd: workspace.root, tsconfig: configPath,
+          cacheDir: path.join(workspace.root, ".cache/replacement-population/ttsc"),
+          env: descriptorEnv, entries: [publicNativeProbe],
+          onWatchInputs: (inputs) => { reported = inputs; },
+        });
+        assert.deepEqual(reported, expected, "actual build roots must retain physical authority: " + spelling);
+        assert.deepEqual(Object.keys(loaded.pluginSources).sort(), expected, "actual source state must include the replacement and module: " + spelling);
+        assert.equal(loaded.nativePlugins.length, 1);
+        assert.equal(fs.existsSync(loaded.nativePlugins[0]!.binary), true, "the actual source build must produce its selected executable: " + spelling);
+      } catch (error) {
+        publicApiFailures.push(new Error("Go replacement source population: " + spelling, { cause: error }));
+      }
+    }
+    fs.mkdirSync(internalReplacement);
+    fs.writeFileSync(path.join(internalReplacement, "go.mod"), "module example.com/batch-replacement\n\ngo 1.26\n");
+    fs.writeFileSync(path.join(internalReplacement, "dep.go"), "package replacement\n");
+    fs.writeFileSync(replacementManifest, manifest(path.join(moduleAlias, "internal-replacement")));
+    assert.deepEqual(pluginModuleReplaceDirectories(replacementModule, descriptorEnv), [], "actual Go directive JSON and physical containment must keep an aliased internal target inside its source owner");
+  } catch (error) {
+    publicApiFailures.push(new Error("native Go replacement identity setup/internal control", { cause: error }));
+  } finally {
+    fs.writeFileSync(replacementManifest, originalReplacementManifest);
+    // All targets are literal children of this owned temporary workspace.
+    // Remove aliases as single links, without recursively traversing targets.
+    for (const link of [replacementAlias, moduleAlias]) {
+      if (fs.existsSync(link)) {
+        assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
+        fs.unlinkSync(link);
+      }
+    }
+    for (const owned of [replacementInput, internalReplacement]) {
+      assert.equal(path.relative(workspace.root, owned).startsWith(".."), false);
+      fs.rmSync(owned, { recursive: true, force: true });
     }
   }
   baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;

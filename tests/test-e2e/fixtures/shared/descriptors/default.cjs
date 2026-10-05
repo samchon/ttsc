@@ -18,7 +18,7 @@ const cachedInput = require("./cache-input.cjs");
 exports.default = (context) => {
   const observation = context.plugin.cacheObservation;
   if (observation === undefined)
-    return { name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {} };
+    return { name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {}, ...(context.plugin.publicCommand ? { capabilities: { projectContextArgs: true } } : {}) };
   const fs = require("node:fs");
   const settings = require("node:path").join(context.dirname, "cache-settings.json");
   fs.appendFileSync(context.plugin.evaluationCounter, "x");

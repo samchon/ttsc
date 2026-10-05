@@ -230,6 +230,18 @@ export namespace BatchWorkspace {
       const producerModule = path.join(root, "native-source");
       await FileSystemIterator.write(producerModule, await FileSystemIterator.read(path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/compile-probe-module")));
       const fixtureSource = path.join(producerModule, "compile-probe");
+      // The public API's executable entry owns the entire same source module;
+      // ordinary linked delivery continues to own only its contributing package.
+      const publicProducer = path.join(producerModule, "cmd/public-probe");
+      fs.mkdirSync(publicProducer, { recursive: true });
+      fs.writeFileSync(path.join(publicProducer, "main.go"), [
+        "package main", "", "import (", '  "os"',
+        '  _ "example.com/ttscunpluginsharedprogramprobe/compile-probe"',
+        '  "github.com/samchon/ttsc/packages/ttsc/utility"', ")", "",
+        "func main() {",
+        '  os.Exit(utility.RunCommandWithIO("shared-public-probe", "0.0.0", os.Args[1:], os.Stdout, os.Stderr))',
+        "}", "",
+      ].join("\n"));
       config.compilerOptions.plugins.push({ name: "shared-real-program-probe", transform: "./descriptors/default.cjs", fixtureSource, runLog: programRunLog, prefix: "a:", suffix: ":z", config: "./config/banner.config.json", configFile: "./config/banner.config.json", configPathReceipt, pathsReceipt, casePolicyReceipt });
       fs.symlinkSync(fixtureSource, path.join(root, "native-producer"), "junction");
       const automaticPackage = path.join(root, "packages/batch-auto-discovery");
