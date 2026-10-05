@@ -35,6 +35,7 @@ jobs:
         run: |
           printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
           printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
           printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
           printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
       - name: Restore Go modules and objects
