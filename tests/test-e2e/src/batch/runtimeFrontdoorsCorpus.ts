@@ -5,8 +5,8 @@ import { pathToFileURL } from "node:url";
 
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
-import { BatchWorkspace } from "./BatchWorkspace";
 import { runRuntimeSignalSessions } from "../features/ttsc/ttsx-runtime/test_ttsx_forwards_termination_signals_and_cleans_up_on_posix";
+import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
  * Retain irreducible Node startup and terminal contracts on one staged graph.
@@ -183,12 +183,31 @@ export async function runtimeFrontdoorsCorpus(
   if (process.platform !== "win32") {
     let pending = 0;
     try {
-      await runRuntimeSignalSessions(path.join(root, "signals"), () => {
-        pending++;
-        return () => { pending--; };
-      }, workspace.installedTtsx, { TTSC_CACHE_DIR: undefined, TTSC_BINARY: undefined, TTSC_TSGO_BINARY: undefined });
-    } catch (error) { failures.push(new Error("native POSIX signal sessions", { cause: error })); }
-    finally { if (pending !== 0) BatchWorkspace.retain("native signal session closure remained unresolved"); }
+      await runRuntimeSignalSessions(
+        path.join(root, "signals"),
+        () => {
+          pending++;
+          return () => {
+            pending--;
+          };
+        },
+        workspace.installedTtsx,
+        {
+          TTSC_CACHE_DIR: undefined,
+          TTSC_BINARY: undefined,
+          TTSC_TSGO_BINARY: undefined,
+        },
+      );
+    } catch (error) {
+      failures.push(
+        new Error("native POSIX signal sessions", { cause: error }),
+      );
+    } finally {
+      if (pending !== 0)
+        BatchWorkspace.retain(
+          "native signal session closure remained unresolved",
+        );
+    }
   }
   if (failures.length)
     throw new AggregateError(

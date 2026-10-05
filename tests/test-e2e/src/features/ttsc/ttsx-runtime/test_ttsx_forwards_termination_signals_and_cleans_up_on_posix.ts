@@ -88,7 +88,13 @@ export async function runRuntimeSignalSessions(
     signal: Parameters<typeof runUntilSignaled>[2],
   ) => {
     const acknowledgeJoined = ownAsyncProcess?.();
-    const result = await runUntilSignaled(root, entry, signal, launcher, environment);
+    const result = await runUntilSignaled(
+      root,
+      entry,
+      signal,
+      launcher,
+      environment,
+    );
     acknowledgeJoined?.();
     return result;
   };
@@ -103,7 +109,12 @@ export async function runRuntimeSignalSessions(
 
   const failures: unknown[] = [];
   let sessionUnconfirmed = false;
-  const collect = async (name: string, entry: string, signal: Parameters<typeof runUntilSignaled>[2], verify: (result: Awaited<ReturnType<typeof runUntilSignaled>>) => void): Promise<void> => {
+  const collect = async (
+    name: string,
+    entry: string,
+    signal: Parameters<typeof runUntilSignaled>[2],
+    verify: (result: Awaited<ReturnType<typeof runUntilSignaled>>) => void,
+  ): Promise<void> => {
     if (sessionUnconfirmed) return;
     let joined = false;
     try {
@@ -116,19 +127,39 @@ export async function runRuntimeSignalSessions(
       failures.push(new Error(name, { cause: error }));
     }
   };
-  await collect("handled SIGTERM", "src/handled.ts", (child) => child.kill("SIGTERM"), (handled) => {
-    assert.equal(handled.code, 3, handled.output);
-    assert.match(handled.output, /handled SIGTERM/);
-  });
-  await collect("unhandled SIGTERM", "src/unhandled.ts", (child) => child.kill("SIGTERM"), (unhandled) => {
-    assert.equal(unhandled.signal, "SIGTERM", unhandled.output);
-  });
-  await collect("group SIGINT", "src/handled.ts", (child) => process.kill(-child.pid!, "SIGINT"), (group) => {
-    assert.equal(group.code, 3, group.output);
-    assert.match(group.output, /handled SIGINT/);
-    assert.equal(group.output.match(/handled SIGINT/g)?.length, 1, "SIGINT must reach the program once");
-  });
-  if (failures.length) throw new AggregateError(failures, "native signal session failures");
+  await collect(
+    "handled SIGTERM",
+    "src/handled.ts",
+    (child) => child.kill("SIGTERM"),
+    (handled) => {
+      assert.equal(handled.code, 3, handled.output);
+      assert.match(handled.output, /handled SIGTERM/);
+    },
+  );
+  await collect(
+    "unhandled SIGTERM",
+    "src/unhandled.ts",
+    (child) => child.kill("SIGTERM"),
+    (unhandled) => {
+      assert.equal(unhandled.signal, "SIGTERM", unhandled.output);
+    },
+  );
+  await collect(
+    "group SIGINT",
+    "src/handled.ts",
+    (child) => process.kill(-child.pid!, "SIGINT"),
+    (group) => {
+      assert.equal(group.code, 3, group.output);
+      assert.match(group.output, /handled SIGINT/);
+      assert.equal(
+        group.output.match(/handled SIGINT/g)?.length,
+        1,
+        "SIGINT must reach the program once",
+      );
+    },
+  );
+  if (failures.length)
+    throw new AggregateError(failures, "native signal session failures");
 }
 
 /**
