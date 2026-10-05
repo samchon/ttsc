@@ -18,6 +18,8 @@ import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/sr
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
 
 /**
  * Verifies concurrent and repeated cached deliveries share one actual owner.
@@ -34,11 +36,13 @@ import { captureUniversalHostInputValidation } from "../../../../../packages/unp
  *    do not enter the subsequent native capture from this source unit.
  * 5. Begin an explicit pass, change the descriptor after its first delivery,
  *    preserve later first deliveries, then require repeated-delivery capture.
+ * 6. Write one generation below two host roots; contrast a blocked record
+ *    with repeat delivery volatility and one actual process warning.
  *
  * @evidence contracts/testing.md#behavioral-verification Six concurrent transformTtsc deliveries await one current generation, return literal outputs and retain its Promise; repeats retain exact watch handoffs. Four coordinator deliveries after candidate ENOSPC registration retain the owner with probes and no candidate reads, then appearance selects capture/eviction. Six source and two out-of-walk outputs also share one Promise with an extra declaration output key excluded from project hashes. Actual captureExternalInputSnapshot accepts each external source's own proof despite omitted graph nodes, rejects missing proof and changed recorded content; a fresh consumer checkpoint serves the changed external output with its sibling.
  * @evidence contracts/testing.md#independent-expectations Six authored module names and PROBED output, the original promise identity and explicit types/package/plugin/config watch paths define every expected result. SHA-256 records actual host bytes only for fixture setup; no expected cache choice is computed by the production selector. Three literal candidate paths delimit independent filesystem counters; native creation distinguishes appearance from recorded absence, and capture is the independently expected choice when its negative predicate no longer holds.
  * @evidence contracts/testing.md#distinguishing-cases Unresolved versus fulfilled/repeated owners and separate module ledgers distinguish delivery and handoff. Identical output remains undefined without losing ownership. Candidate ENOSPC contrasts unchanged replay with appearance/eviction. A shared native corpus contrasts ordinary source outputs, two out-of-walk transform outputs and one declaration-only output key; the project snapshot never adopts node_modules keys. Both listed and omitted external graph nodes reuse proven output, while missing own proof and later changed bytes fail with exact external failure kinds. An explicit build pass contrasts established first-delivery proof shared by five new siblings with descriptor revalidation for a repeated identity. Fresh supplied consumer facts and different literal output recover one shared owner; retry budget is separately owned by test_transform_attempt_disposition_preserves_retry_and_terminal_policy, not inferred from this corpus.
- * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Actual wrapper queries bypass an unresolved resident owner; divergent delivered text contrasts with unchanged native bytes and retains literal cached output plus a single generation-owned warning registration. No stderr write receipt/count is inferred from that registration. A separate supported cache filesystem refuses candidate registration with ENOSPC; actual native snapshots/predicates feed the ready owner and transformTtsc automatically replays candidate proof. Native appearance is followed only through the owning selectCachedGenerationAction capture choice/eviction, since a full subsequent transformTtsc would start the real producer. Finally resets both owning caches and deletes the result filesystem registration.
+ * @evidence contracts/testing.md#execution-ownership This named unit calls the actual delivery coordinator in process over native fixture files and an authored protocol result. It performs no compiler, Go peer, native watcher or external host execution; native capture invocation counts and plugin output production are not certified here. Actual wrapper queries bypass an unresolved resident owner; divergent delivered text contrasts with unchanged native bytes and retains literal cached output plus a single generation-owned warning registration. No stderr write receipt/count is inferred from that registration. A separate supported cache filesystem refuses candidate registration with ENOSPC; actual native snapshots/predicates feed the ready owner and transformTtsc automatically replays candidate proof. Native appearance is followed only through the owning selectCachedGenerationAction capture choice/eviction, since a full subsequent transformTtsc would start the real producer. Two real host tool roots receive distinct readable records with one basename and the same generation Promise; a regular-file records blocker yields no registration, two volatility callbacks and one actual process warning. The warning listener is removed and owned record storage is deleted in finally. These are delivery/record facts, not installed host cache or native capture certification. Finally resets both owning caches and deletes the result filesystem registration.
  */
 export async function test_cached_delivery_shares_one_owner_and_repeats_watch_handoffs(): Promise<void> {
   const fixture = createCachedDeliveryUnitFixture();
@@ -286,6 +290,65 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         assert.equal(fixture.cache.get(fixture.key), freshOwner);
       }
     }
+    const recordObserved = observeValidationUnitGeneration(root, result);
+    const recordOwner = Promise.resolve(recordObserved);
+    fixture.cache.set(fixture.key, recordOwner);
+    const recordHosts = path.join(root, "node_modules", "record-hosts");
+    const tools = ["a", "b"].map((name) => path.join(recordHosts, name, ".ttsc"));
+    const records: string[] = [];
+    try {
+      for (const toolDirectory of tools) {
+        const registrations: string[] = [];
+        assert.equal((await fixture.api.transformTtsc(modules[0]!, fixture.source,
+          fixture.options, undefined, fixture.cache, {
+            project: { toolDirectory, register: ({ record }) => { registrations.push(record); } },
+          }))?.code, code);
+        assert.equal(fixture.cache.get(fixture.key), recordOwner);
+        assert.deepEqual(registrations, [projectRecordFile(toolDirectory, recordObserved.tsconfig)]);
+        const record = registrations[0]!;
+        assert.equal(path.dirname(record), path.join(toolDirectory, "records"));
+        const stored = readProjectRecordFile(record);
+        assert.ok(stored);
+        assert.equal(stored.root, root);
+        assert.equal(stored.tsconfig, recordObserved.tsconfig);
+        records.push(record);
+      }
+      assert.notEqual(records[0], records[1]);
+      assert.equal(path.basename(records[0]!), path.basename(records[1]!));
+      const blockedTool = path.join(recordHosts, "blocked", ".ttsc");
+      fs.mkdirSync(blockedTool, { recursive: true });
+      fs.writeFileSync(path.join(blockedTool, "records"), "ordinary file blocks record storage\n");
+      const blockedRecord = projectRecordFile(blockedTool, recordObserved.tsconfig);
+      const registered: string[] = [];
+      const warnings: (Error & { code?: string })[] = [];
+      const onWarning = (warning: Error & { code?: string }): void => {
+        if (warning.code === "TTSC_PROJECT_RECORD_UNWRITABLE" && warning.message.includes(blockedRecord)) {
+          warnings.push(warning);
+        }
+      };
+      let volatileCalls = 0;
+      process.on("warning", onWarning);
+      try {
+        for (let delivery = 0; delivery < 2; delivery++) {
+          assert.equal((await fixture.api.transformTtsc(modules[0]!, fixture.source,
+            fixture.options, undefined, fixture.cache, {
+              project: { toolDirectory: blockedTool, register: ({ record }) => { registered.push(record); } },
+              markVolatile: () => { ++volatileCalls; },
+            }))?.code, code);
+          assert.equal(fixture.cache.get(fixture.key), recordOwner);
+        }
+        await new Promise<void>((resolve) => { setImmediate(resolve); });
+        assert.deepEqual(registered, []);
+        assert.equal(volatileCalls, 2, "each delivery without its record withdraws host caching");
+        assert.equal(warnings.length, 1, "the same unwritable record path reports one warning");
+        assert.equal(fs.existsSync(blockedRecord), false);
+      } finally {
+        process.off("warning", onWarning);
+      }
+      } finally {
+      fs.rmSync(recordHosts, { recursive: true, force: true });
+    }
+
     const passObserved = observeValidationUnitGeneration(root, result);
     const passOwner = Promise.resolve(passObserved);
     fixture.cache.set(fixture.key, passOwner);
