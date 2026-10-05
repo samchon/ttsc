@@ -112,6 +112,7 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(binaryB.startsWith(apiRootA + path.sep), false);
   assert.equal(process.env.TTSC_CACHE_DIR, ambientCache, "instance environments must not mutate the host environment");
   const sourceModule = path.dirname(nativeProbe.fixtureSource);
+  const preparedSourceState = pluginSourceState(sourceModule, { env: baselineBuildEnv });
   const refusedPluginCache = path.join(sourceModule, "keyed-plugin-cache");
   const refusedGoCache = path.join(sourceModule, "keyed-go-cache");
   const outsideAdmissionCache = path.join(workspace.root, ".cache/public-admission/ttsc");
@@ -126,6 +127,13 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.equal(fs.statSync(path.join(refusedPluginCache, "descriptors", refusedDescriptorRecords[0]!)).isFile(), true);
   assert.equal(fs.existsSync(path.join(refusedPluginCache, "plugins")), false);
   assert.equal(fs.existsSync(path.join(refusedPluginCache, "go-build")), false);
+  // The refusal owns this descriptor record, but it must not become an
+  // unrelated source mutation between the prepared and pruned-byte epochs.
+  assert.equal(path.dirname(path.resolve(refusedPluginCache)), path.resolve(sourceModule));
+  fs.unlinkSync(path.join(refusedPluginCache, "descriptors", refusedDescriptorRecords[0]!));
+  fs.rmdirSync(path.join(refusedPluginCache, "descriptors"));
+  fs.rmdirSync(refusedPluginCache);
+  assert.equal(pluginSourceState(sourceModule, { env: baselineBuildEnv }), preparedSourceState, "refusal cleanup restores the prepared source population before pruned-byte controls");
   assert.throws(() => new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: outsideAdmissionCache, env: { TTSC_GO_CACHE_DIR: refusedGoCache } }).prepare(), refusal(refusedGoCache));
   const excludedCacheRoot = path.join(sourceModule, "node_modules/.cache/public-admission");
   const excludedCompiler = new TtscCompiler({ cwd: workspace.root, plugins: [publicNativeProbe], cacheDir: path.join(excludedCacheRoot, "plugins"), env: { TTSC_GO_CACHE_DIR: path.join(excludedCacheRoot, "go") } });
@@ -678,6 +686,15 @@ export async function test_e2e_metro_batch(): Promise<void> {
       for (const protocol of ["legacy", "v2", "v3"] as const) {
         const outsideLock = path.join(toolProtocol, `outside-${protocol}-lock`);
         const lock = managedEntry + ".lock" + (protocol === "legacy" ? "" : `.${protocol}`);
+        const lockBackup = path.join(toolProtocol, `managed-${protocol}-lock-backup`);
+        assert.ok(path.resolve(lock).startsWith(path.resolve(managedPluginRoot) + path.sep));
+        assert.equal(path.dirname(path.resolve(lockBackup)), path.resolve(toolProtocol));
+        assert.equal(fs.existsSync(lockBackup), false);
+        const existingLock = fs.existsSync(lock);
+        if (existingLock) {
+          assert.equal(fs.lstatSync(lock).isSymbolicLink(), false, "preserve the actual coordination owner, not an external alias");
+          assert.equal(fs.statSync(lock).isDirectory(), true);
+        }
         fs.mkdirSync(outsideLock);
         fs.writeFileSync(path.join(outsideLock, "keep.txt"), "keep\n");
         if (protocol === "legacy") {
@@ -688,7 +705,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
           fs.writeFileSync(path.join(outsideLock, `protocol-${protocol}`), `ttsc-plugin-build-lock-${protocol}\n`);
         }
         const outsideEntries = fs.readdirSync(outsideLock).sort();
+        let preservedLock = false;
         try {
+          if (existingLock) {
+            fs.renameSync(lock, lockBackup);
+            preservedLock = true;
+          }
           fs.symlinkSync(outsideLock, lock, process.platform === "win32" ? "junction" : "dir");
           if (protocol === "v2") assert.equal(fs.existsSync(managedRequest(managedEnv)), true);
           else assert.throws(() => managedRequest(managedEnv));
@@ -696,11 +718,12 @@ export async function test_e2e_metro_batch(): Promise<void> {
           if (protocol !== "legacy") assert.deepEqual(fs.readdirSync(path.join(outsideLock, "retired")), []);
         } finally {
           assert.ok(path.resolve(lock).startsWith(path.resolve(managedPluginRoot) + path.sep));
-          if (fs.existsSync(lock)) {
+          if ((!existingLock || preservedLock) && fs.existsSync(lock)) {
             if (fs.lstatSync(lock).isSymbolicLink()) fs.unlinkSync(lock);
             else fs.rmSync(lock, { recursive: true });
           }
           if (fs.existsSync(managedEntry)) fs.rmSync(managedEntry, { recursive: true });
+          if (preservedLock) fs.renameSync(lockBackup, lock);
         }
       }
     } finally { fs.renameSync(managedEntryBackup, managedEntry); }
