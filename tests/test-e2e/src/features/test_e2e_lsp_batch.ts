@@ -76,6 +76,11 @@ const SAVED = OPENED + APPENDED_LINE;
 /** `no-var` alone rewrites the keyword to `let`; `const` needs `prefer-const`. */
 const FIXED = SAVED.replace("var legacy", "let legacy");
 
+const CASCADE_SOURCE = 'const icon = "\uD83D\uDE00"; var legacy = 1; let stable = legacy; if (typeof stable == "number") { console.log(icon, stable); }';
+const CASCADE_FIXED = 'const icon = "\uD83D\uDE00"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); }';
+const FORMAT_SOURCE = "var legacy = 1\nJSON.stringify(legacy)\n";
+const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
+
 /**
  * Verifies one ttscserver LSP session carries diagnostics through to a fix.
  *
@@ -94,12 +99,12 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * 4. Execute that command and assert the returned WorkspaceEdit fixes the
  *    violation without writing the file, then shut the server down cleanly.
  *
- * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted fix without writing disk.
+ * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted let fix without writing disk. Disjoint configured documents additionally require actual cascade const/equality fixed-point edits with UTF-16 end coordinates and format-only semicolon edits that retain var and disk bytes.
  * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition.
  * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save.
  * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself.
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge.
- * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. This same launcher inherits the owned workspace as process cwd and omits --cwd, exercising native Getwd admission through its actual initialize, project diagnostics and joined shutdown. Direct runLSP tests own explicit --cwd projection; uninitialized EOF remains a separate unresolved boundary. One extra command request with empty arguments starts the existing lint sidecar once, proving failed stderr adaptation before the already planned successful fix; it adds no server or profile and is not preparation with zero cost. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. This same launcher inherits the owned workspace as process cwd and omits --cwd, exercising native Getwd admission through its actual initialize, project diagnostics and joined shutdown. Direct runLSP tests own explicit --cwd projection; uninitialized EOF remains a separate unresolved boundary. The malformed command, ordinary fix, cascade fix and formatter are real native request costs within this graph, not a claimed single sidecar process or preparation with zero cost. They add no server or per-command project/profile. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned timer/listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure.
  * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. Upfront LF/CR/CRLF saved documents retain buffer-only param/returns, exact edit and resolution, unchanged disk and outside-block negatives. The same upstream retains inferred legacy number, greet symbol and non-plugin completion after capability registration. Explicit configuration competes with discovered no-console-only JSON after the shared base is moved outside discovery names; positive no-var and negative no-console distinguish the handoff. Necessary internal checker updates are not old per-project launcher recipes, and their total is not asserted to be one.
  */
@@ -121,7 +126,11 @@ export async function test_e2e_lsp_batch() {
     fs.renameSync(path.join(workspace.root, "lint.config.cjs"), path.join(workspace.root, "lint-shared-base.cjs"));
     fs.writeFileSync(path.join(workspace.root, "lint.lsp.config.cjs"), `const base = require("./lint-shared-base.cjs");
 const graph = base.rules["evidence/graph"][1];
-module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "error", "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } };
+module.exports = [
+  { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "error", "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } },
+  { files: ["src/editor-cascade.ts"], rules: { "prefer-const": "error", "eqeqeq": "error" } },
+  { files: ["src/editor-format.ts"], format: { semi: true } },
+];
 `);
     fs.copyFileSync(path.join(workspace.root, "native-errors/lsp-default-decoy.json"), path.join(workspace.root, "lint.config.json"));
     fs.writeFileSync(path.join(workspace.root, "review.md"), "## Review\n<!-- @link external/example.ts#value Reviews the value. -->\n");
@@ -130,6 +139,8 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
     fs.writeFileSync(evidenceTarget, "export const other = 1;\n");
     fs.writeFileSync(configPath, JSON.stringify(config));
     fs.writeFileSync(path.join(project.tmpdir, "src/editor.ts"), OPENED);
+    fs.writeFileSync(path.join(project.tmpdir, "src/editor-cascade.ts"), CASCADE_SOURCE);
+    fs.writeFileSync(path.join(project.tmpdir, "src/editor-format.ts"), FORMAT_SOURCE);
     const file = path.join(project.tmpdir, "src", "editor.ts");
     const uri = pathToFileURL(file).href;
     try {
@@ -702,6 +713,48 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
         );
         } catch (error) {
           populationFailures.push(new Error("native diagnostics and editor state population " + JSON.stringify({ editorUri: uri, latestPublication }), { cause: error }));
+        }
+        // These two disjoint documents belong to this same initialized graph.
+        // Native commands are real request costs, not another project or server.
+        for (const control of [
+          { filename: "editor-cascade.ts", source: CASCADE_SOURCE, expected: CASCADE_FIXED,
+            only: "source.fixAll.ttsc", command: "ttsc.lint.fixAll", wholeRange: true },
+          { filename: "editor-format.ts", source: FORMAT_SOURCE, expected: FORMAT_FIXED,
+            only: "source.format", command: "ttsc.format.document", wholeRange: false },
+        ]) {
+          const controlFile = path.join(project.tmpdir, "src", control.filename);
+          const controlUri = pathToFileURL(controlFile).href;
+          try {
+            client.notify("textDocument/didOpen", { textDocument: {
+              uri: controlUri, languageId: "typescript", version: 1, text: control.source,
+            } });
+            const actions = await step(control.filename + " code action", client.request<CodeAction[]>(
+              "textDocument/codeAction", {
+                textDocument: { uri: controlUri },
+                range: { start: { line: 0, character: 0 }, end: { line: control.wholeRange ? 0 : 2, character: control.wholeRange ? control.source.length : 0 } },
+                context: { diagnostics: [], only: [control.only] },
+              }, REQUEST_TIMEOUT));
+            const action = actions.find((candidate) => candidate.command?.command === control.command);
+            assert.ok(action, "the native manifest must route " + control.command);
+            assert.equal(action.kind, control.only);
+            const edit = await step(control.filename + " execute command", client.request<WorkspaceEdit>(
+              "workspace/executeCommand", { command: control.command, arguments: [controlUri] }, REQUEST_TIMEOUT));
+            const edits = edit.changes?.[controlUri] ?? [];
+            assert.ok(edits.length > 0);
+            if (control.wholeRange) {
+              assert.equal(edits[0]!.range?.end?.line, 0);
+              assert.equal(edits[0]!.range?.end?.character, control.source.length,
+                "the whole-source edit counts the non-BMP control as two UTF-16 units");
+            }
+            assert.equal(applyTextEdits(control.source, edits), control.expected,
+              "cascade reaches const/equality fixed point; formatting retains the var rule violation");
+            assert.equal(fs.readFileSync(controlFile, "utf8"), control.source,
+              "native editor commands return edits without changing disk");
+          } catch (error) {
+            populationFailures.push(new Error("shared native editor action " + control.filename, { cause: error }));
+          } finally {
+            client.notify("textDocument/didClose", { textDocument: { uri: controlUri } });
+          }
         }
         if (populationFailures.length) throw new AggregateError(populationFailures, "Shared LSP language and newline corpus failures");
       }, REQUEST_TIMEOUT);
