@@ -24,13 +24,13 @@ import (
 // must still emit the same declaration artifacts as raw tsgo emit: `.d.ts` and
 // `.d.ts.map`, including the declaration map trailer inside the `.d.ts`.
 //
-// 1. Emit the declaration fixture through raw emission and the actual numeric transformer.
-// 2. Compare complete artifact sets and declaration bytes, then check the JS replacement, v3 map and trailer.
+// 1. Emit one declaration fixture through raw emission and numeric/standalone-member transforms.
+// 2. Compare artifact sets and declaration bytes, then check JS replacements, both v3 maps and trailers.
 //
-// @evidence contracts/testing.md#behavioral-verification Runs actual numeric transformation and compares complete artifact set with raw emit, declaration/map bytes and literal JS replacement, plus decoded v3 declaration map and trailer.
-// @evidence contracts/testing.md#independent-expectations The delegated native raw emitter is independent of the hand-built JS pipeline for declaration compatibility; authored artifact names, src/index.ts, version three and replacement two are independent literal controls.
-// @evidence contracts/testing.md#distinguishing-cases JS, JS map, declarations, declaration map and incremental settings coexist; literal transform/output witnesses prevent wrong-but-consistent empty parity.
-// @evidence contracts/testing.md#execution-ownership The owning driver Go unit runs raw and plugin operations on its private in-process Program and captures writes, then closes the Program; no native host is built.
+// @evidence contracts/testing.md#behavioral-verification Runs actual EmitWithPluginTransformers with numeric and standalone-factory member replacements, compares complete artifact sets and declaration/map bytes with raw emit, and asserts generated arrow/marker, Payload/payload declarations, both populated v3 maps and trailers.
+// @evidence contracts/testing.md#independent-expectations The delegated native raw emitter independently owns declaration compatibility; authored Payload/value/payload source, before versus GO DRIVER EMIT PLUGIN, input => input.value, artifact names, src/index.ts, version three and replacement two are literal controls.
+// @evidence contracts/testing.md#distinguishing-cases Numeric and string replacements coexist with the preserved declaration API and label member; raw before versus transformed marker distinguishes actual transformation while JS/declaration maps and incremental output retain the original artifact parity controls.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit runs raw and plugin operations on the same private in-process Program and captures writes, then closes it; no native host is built and the generated JavaScript is not executed here.
 func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -52,7 +52,10 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   writeProjectFile(t, root, "src/index.ts", strings.Join([]string{
     "export interface Payload {",
     "  readonly label: string;",
+    "  readonly value: string;",
     "}",
+    "export const payload: Payload = { label: 'kept', value: 'before' };",
+    "console.log(payload.value);",
     "export const value: number = 1;",
     "",
   }, "\n"))
@@ -83,6 +86,17 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
       if node.Kind == shimast.KindNumericLiteral && node.Text() == "1" {
         return ec.Factory.NewNumericLiteral("2", 0)
       }
+      if node.Kind == shimast.KindStringLiteral && node.Text() == "before" {
+        f := ec.Factory
+        standalone := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
+        access := standalone.NewPropertyAccessExpression(f.NewIdentifier("input"), nil, standalone.NewIdentifier("value"), shimast.NodeFlagsNone)
+        parameter := f.NewParameterDeclaration(nil, nil, f.NewIdentifier("input"), nil, nil, nil)
+        arrow := f.NewArrowFunction(nil, nil, f.NewNodeList([]*shimast.Node{parameter}), nil, nil, f.NewToken(shimast.KindEqualsGreaterThanToken), access)
+        argument := f.NewObjectLiteralExpression(f.NewNodeList([]*shimast.Node{
+          f.NewPropertyAssignment(nil, f.NewIdentifier("value"), nil, nil, f.NewStringLiteral("GO DRIVER EMIT PLUGIN", 0)),
+        }), false)
+        return f.NewCallExpression(f.NewParenthesizedExpression(arrow), nil, nil, f.NewNodeList([]*shimast.Node{argument}), shimast.NodeFlagsNone)
+      }
       return visitor.VisitEachChild(node)
     }
     visitor = ec.NewNodeVisitor(visit)
@@ -90,7 +104,7 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   }
 
   plugin := map[string]string{}
-  if emitDiags, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+  if emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{transform}, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     plugin[filepath.Base(fileName)] = text
     return nil
   }); err != nil || len(emitDiags) != 0 {
@@ -107,6 +121,19 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   }
   if !strings.Contains(plugin["index.js"], "exports.value = 2;") {
     t.Fatalf("plugin transform did not affect JavaScript:\n%s", plugin["index.js"])
+  }
+  for _, literal := range []string{"input => input.value", "GO DRIVER EMIT PLUGIN", "console.log(exports.payload.value)", "//# sourceMappingURL=index.js.map"} {
+    if !strings.Contains(plugin["index.js"], literal) {
+      t.Fatalf("JavaScript lost %q:\n%s", literal, plugin["index.js"])
+    }
+  }
+  if !strings.Contains(raw["index.js"], "before") || strings.Contains(raw["index.js"], "GO DRIVER EMIT PLUGIN") {
+    t.Fatalf("raw JavaScript lost the untransformed control:\n%s", raw["index.js"])
+  }
+  for _, literal := range []string{"export interface Payload", "readonly label: string;", "readonly value: string;", "export declare const payload: Payload;"} {
+    if !strings.Contains(plugin["index.d.ts"], literal) {
+      t.Fatalf("declaration lost %q:\n%s", literal, plugin["index.d.ts"])
+    }
   }
   if plugin["index.d.ts"] != raw["index.d.ts"] {
     t.Fatalf("declaration output diverged from raw tsgo emit:\nplugin:\n%s\nraw:\n%s", plugin["index.d.ts"], raw["index.d.ts"])
@@ -137,6 +164,22 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   }
   if !foundSource {
     t.Fatalf("declaration map sources do not reference src/index.ts: %v", parsed.Sources)
+  }
+  parsed.Version, parsed.Sources, parsed.Mappings = 0, nil, ""
+  if err := json.Unmarshal([]byte(plugin["index.js.map"]), &parsed); err != nil {
+    t.Fatalf("index.js.map is not valid JSON: %v", err)
+  }
+  if parsed.Version != 3 || parsed.Mappings == "" {
+    t.Fatalf("index.js.map is not a populated v3 source map: %#v", parsed)
+  }
+  foundSource = false
+  for _, source := range parsed.Sources {
+    if strings.HasSuffix(filepath.ToSlash(source), "src/index.ts") {
+      foundSource = true
+    }
+  }
+  if !foundSource {
+    t.Fatalf("JavaScript map sources do not reference src/index.ts: %v", parsed.Sources)
   }
 }
 
