@@ -9,6 +9,7 @@ import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/br
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { projectRecordFile } from "../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { test_watch_broker_hears_what_follows_ready } from "./unplugin/transform/test_watch_broker_hears_what_follows_ready";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 
@@ -27,7 +28,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/testing.md#behavioral-verification One real Vite/Rollup output runs the complete source graph with contract42, JSON42/retained and661 exact UTF-16 values; actual native Program Options receipts additionally require the absolute JSON alias, root-relative typed alias's root-first target pair and the distinct find-only trailing-slash key. The emit-only effect function is not invoked by this API consumer.
  * @evidence contracts/testing.md#independent-expectations Original pre-print string inputs and authored JSON/contract literals determine expected runtime values independently of bundler output. Literal native alias keys and ordered targets come from Vite's root-first resolution and the directly owned trailing-slash grammar, not by parsing the generated wrapper back into an expected answer.
  * @evidence contracts/testing.md#distinguishing-cases Quoted JSX entities, expression strings, raw strings and retained versus stripped effects are simultaneous members of one bundle.
- * @evidence contracts/testing.md#execution-ownership The selected batch calls build once with watch enabled. Three input states reuse that host and producer, with their actual native revision costs retained; no legacy Vite, Rollup or profile function is invoked. The generateBundle observer reads each actual output without generating it a second time.
+ * @evidence contracts/testing.md#execution-ownership The selected batch calls build once with watch enabled. Three input states reuse that host and producer, with their actual native revision costs retained; no legacy Vite, Rollup or profile function is invoked. The generateBundle observer reads each actual output without generating it a second time. One additional actual Node broker process serves the consolidated native readiness/drain/root-gap corpus in a separate cache subtree; independent broker and Vite failures are both collected.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite and Rollup must load the emitted adapter, native source delivery and output graph. Direct cache or hook policy units cannot prove this assembly.
  * @evidence contracts/e2e.md#shared-execution One consumer graph, producer cache and one Vite/Rollup host serve all661 independent value assertions in initial, fallback and restored record states; no per-row preparation or host remains. Declaration and runtime source edits request necessary new native generations from that same host.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity write:false prevents bundle publication. Only this project's record coordinate is blocked, with original bytes held outside the project; source and fallback bytes restore after supported watcher closure. A failed close retains the epoch rather than modifying live inputs. Ambient NODE_ENV and native-cache selection restore only after closure.
@@ -35,6 +36,13 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  */
 export async function test_e2e_vite_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
+  const brokerRoot = path.join(workspace.cache, "watch-broker-corpus");
+  fs.mkdirSync(brokerRoot, { recursive: true });
+  const combinedFailures: unknown[] = [];
+  const broker = test_watch_broker_hears_what_follows_ready(brokerRoot).catch(
+    (error: unknown) => { combinedFailures.push(error); },
+  );
+  try {
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const pathsReceiptOffset = BatchWorkspace.readPathsReceipts(workspace).length;
   const previousCache = process.env.TTSC_CACHE_DIR;
@@ -354,4 +362,12 @@ export async function test_e2e_vite_batch(): Promise<void> {
     if (previousMode === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previousMode;
   }
+  } catch (error) {
+    combinedFailures.push(error);
+  } finally {
+    await broker;
+  }
+  if (combinedFailures.length === 1) throw combinedFailures[0];
+  if (combinedFailures.length > 1)
+    throw new AggregateError(combinedFailures, "Vite and native broker boundaries failed");
 }
