@@ -1,1 +1,1 @@
-﻿{"calls":["console.debug","console.warn","discard.*"],"statements":["debugger"]}
+{"calls":["console.log"],"statements":[]}

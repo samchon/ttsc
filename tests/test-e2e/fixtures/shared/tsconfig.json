@@ -34,7 +34,8 @@
                                                 "transform":  "@ttsc/paths"
                                             },
                                             {
-                                                "transform":  "@ttsc/strip"
+                                                "transform":  "@ttsc/strip",
+                                                "configFile": "./config/strip.config.json"
                                             },
                                             {
                                                 "transform":  "@ttsc/lint"
