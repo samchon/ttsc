@@ -26,17 +26,17 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  * @evidence contracts/testing.md#behavioral-verification Client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED.
  * @evidence contracts/testing.md#independent-expectations Authored secret type literals fix output; a pre-resolver throws if compiler-only paths become runtime imports.
  * @evidence contracts/testing.md#distinguishing-cases Client/SSR, node_modules declaration, non-module asset, delete/failure/recreate and server restart.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Selected Vite invokes viteServeCorpus, which calls this body with its upfront island. One actual watching server, a real HMR client and a server restart own all client/SSR transitions above; no per-case native fixture is prepared.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite module graphs, HMR and native plugin inputs connect without fabricated runtime edges.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
-export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports(): Promise<void> {
+export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports(preparedRoot?:string,onServerClosed?:()=>void): Promise<void> {
   const { createServer } = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite");
   const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
   const root = fs.realpathSync.native(
-    TestUnpluginProject.createProject({
+    preparedRoot ?? TestUnpluginProject.createProject({
       source:
         'import type { Secret } from "./secret.server";\nexport const value: string = goUpper("plugin");\n',
       plugins: [
@@ -66,7 +66,7 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     "types-only",
     "index.d.ts",
   );
-  TestProject.writeFiles(
+  if(preparedRoot === undefined) TestProject.writeFiles(
     root,
     FixtureFiles.read(
       "unplugin/vite_serve_keeps_compiler_inputs_out_of_runtime_imports/inputs-1",
@@ -104,9 +104,12 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
         server.environments[name].moduleGraph.getModuleByUrl("/src/main.ts"),
       ),
     );
+  const failures:unknown[]=[];
+  let clientJoined=true;
+  let events:Awaited<ReturnType<typeof observeReloadEvents>>|undefined;
   try {
     await server.listen();
-    const events = await observeReloadEvents(server);
+    events = await observeReloadEvents(server);
     for (const ssr of [false, true])
       assert.match((await request(ssr)).code, /INITIAL/);
     assert.equal(compilerResolutions, 0);
@@ -162,7 +165,10 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     );
     assert.match((await request()).code, /RESTARTED/);
     assert.equal(compilerResolutions, 0);
-  } finally {
-    await server.close();
+  } catch(error) {if(error instanceof AggregateError && error.message === "HMR startup and closure")clientJoined=false;failures.push(error);}
+  finally {
+    try{await events?.close();}catch(error){clientJoined=false;failures.push(error);}
+    try{await server.close();if(clientJoined)onServerClosed?.();}catch(error){failures.push(error);}
   }
+  if(failures.length)throw new AggregateError(failures,"watching Vite serve and owned client/server closure");
 }

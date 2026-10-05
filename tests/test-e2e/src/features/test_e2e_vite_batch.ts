@@ -9,6 +9,7 @@ import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/br
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { projectRecordFile } from "../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { viteServeCorpus } from "../batch/viteServeCorpus";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 import { test_vite_compiler_watch_tracks_subscription_and_alias_boundaries } from "./unplugin/native-plugins/adapters/test_vite_compiler_watch_tracks_subscription_and_alias_boundaries";
@@ -395,6 +396,8 @@ export async function test_e2e_vite_batch(): Promise<void> {
     await broker;
     await nativeInputWatch;
   }
+  await BatchWorkspace.open();
+  try { await viteServeCorpus(workspace); } catch(error) {combinedFailures.push(error);}
   if (combinedFailures.length === 1) throw combinedFailures[0];
   if (combinedFailures.length > 1)
     throw new AggregateError(
