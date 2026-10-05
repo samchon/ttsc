@@ -2033,8 +2033,14 @@ export async function test_e2e_metro_batch(): Promise<void> {
   assert.ok(appearedConfig, JSON.stringify(runtimeInputs));
   assert.equal(Object.hasOwn(runtimeInputs.hostInputHashes, appearedConfig), false, "a config created during evaluation remains unproved");
   assert.equal(Object.entries(runtimeInputs.hostInputHashes).some(([input, hash]) => hash === runtimeDescriptorConfigHash && sameRuntimeFile(input, runtimeDescriptorConfig)), true);
-  // This existing pool owns a reached declaration outside src. Its actual
-  // diagnostics must be checked as well as the runtime source population.
+  // This pool checks its native bundle graph and reached external declaration.
+  // Runtime-only wasm/playground consumers own a different ambient surface;
+  // they are not roots of this adapter Program. Imported matrix sources remain
+  // in the actual closure, and the later membership declaration is a root.
+  poolConfig.include = [
+    "src/bundle.ts", "src/map.ts", "src/pool-routing/map.ts",
+    "src/console.d.ts", "src/metadata-population.ts", "src/pooled-membership.d.ts",
+  ];
   poolConfig.compilerOptions.skipLibCheck = false;
   fs.writeFileSync(configPath, JSON.stringify(poolConfig));
   const outcomes = await Promise.allSettled(workers.map((worker) => worker.request()));

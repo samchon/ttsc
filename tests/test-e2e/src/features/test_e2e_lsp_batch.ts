@@ -124,13 +124,21 @@ export async function test_e2e_lsp_batch() {
     assert.ok(lintEntry, "the actual lint contributor must remain selected");
     lintEntry.configFile = "./lint.lsp.config.cjs";
     fs.renameSync(path.join(workspace.root, "lint.config.cjs"), path.join(workspace.root, "lint-shared-base.cjs"));
-    fs.writeFileSync(path.join(workspace.root, "lint.lsp.config.cjs"), `const base = require("./lint-shared-base.cjs");
+    fs.writeFileSync(path.join(workspace.root, "lint.lsp.base.config.cjs"), `const base = require("./lint-shared-base.cjs");
 const graph = base.rules["evidence/graph"][1];
-module.exports = [
-  { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "error", "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } },
-  { files: ["src/editor-cascade.ts"], rules: { "prefer-const": "error", "eqeqeq": "error" } },
-  { files: ["src/editor-format.ts"], format: { semi: true } },
-];
+module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "error", "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } };
+`);
+    fs.writeFileSync(path.join(workspace.root, "lint.lsp.cascade.config.cjs"), `module.exports = {
+  extends: "./lint.lsp.base.config.cjs",
+  files: ["src/editor-cascade.ts"],
+  rules: { "prefer-const": "error", "eqeqeq": "error" },
+};
+`);
+    fs.writeFileSync(path.join(workspace.root, "lint.lsp.config.cjs"), `module.exports = {
+  extends: "./lint.lsp.cascade.config.cjs",
+  files: ["src/editor-format.ts"],
+  format: { semi: true },
+};
 `);
     fs.copyFileSync(path.join(workspace.root, "native-errors/lsp-default-decoy.json"), path.join(workspace.root, "lint.config.json"));
     fs.writeFileSync(path.join(workspace.root, "review.md"), "## Review\n<!-- @link external/example.ts#value Reviews the value. -->\n");

@@ -109,8 +109,8 @@ export async function test_e2e_vite_batch(): Promise<void> {
     assert.ok(map, "the Rollup-backed Vite host must publish its composed map");
     assert.equal(map.version, 3);
     const marker = '"map-coordinate-control"';
-    const generated = positionOf(code, marker);
-    const original = originalPositionFor(map, generated.line, generated.column);
+    const generatedPosition = positionOf(code, marker);
+    const original = originalPositionFor(map, generatedPosition.line, generatedPosition.column);
     assert.ok(original, "the generated control must map to its authored source");
     assert.match(original.source, /(?:^|\/)map\.ts$/);
     const authored = fs.readFileSync(path.join(workspace.root, "src/map.ts"), "utf8").replace(/\r\n/g, "\n");
