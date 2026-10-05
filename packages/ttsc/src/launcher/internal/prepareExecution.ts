@@ -314,7 +314,10 @@ function createProjectContext(
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
   // Resolved once: resolution costs a realpath (and, for a missing directory on
   // Windows, a case-sensitivity probe).
-  const runtimeRootDir = resolveRuntimeSourceRoot(project, options);
+  const privateEmitRootDir = resolveRuntimeSourceRoot(project, options);
+  const runtimeRootDir = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  }).resolve(privateEmitRootDir).path;
   const emitProfile = runtimeEmitProfile(
     project,
     options.passthrough,
@@ -363,6 +366,9 @@ function createProjectContext(
     // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
     // the built entry under its source URL.
     runtimeRootDir,
+    // Compiler input names retain their lexical project spelling. Physical
+    // runtime lookup coordinates must not become a containment override.
+    privateEmitRootDir,
     // The tsconfig options that decide the emit format, so the runtime hooks
     // classify each served file the same way tsgo chose when emitting it.
     // `target` belongs here as much as `module` does: with `module` absent tsgo
@@ -421,8 +427,8 @@ function discoverOwningProject(
 }
 
 /**
- * The source-tree root the emit mirrors, in the same physical spelling as the
- * entry it will be compared against.
+ * Select the compiler's lexical private layout root. The context independently
+ * resolves its physical spelling for comparisons with served source files.
  *
  * Private ordinary emit without a declared root uses the native volume root.
  * Unlike the compiler's config-directory default, this does not impose a new
@@ -430,7 +436,8 @@ function discoverOwningProject(
  * directory. Explicit and composite roots retain their containment policy.
  * TsgoArguments and dependency serving use the same private layout selection.
  *
- * Resolving it is the other half of `resolveEntrySpelling`, and skipping it
+ * Resolving the selected root in the context is the other half of
+ * `resolveEntrySpelling`, and skipping it
  * leaves the comparison mixed rather than merely imprecise. `project.root`
  * arrives through plain `fs.realpathSync`, which resolves reparse points but
  * leaves a Windows 8.3 component alone, while the entry arrives through
@@ -462,18 +469,13 @@ function resolveRuntimeSourceRoot(
   );
   const rootDir =
     effective === null ? project.compilerOptions.rootDir : effective("rootDir");
-  const identities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
-  return identities.resolve(
-    privateRuntimeRootDir(
-      project.root,
-      rootDir,
-      effective === null
-        ? project.compilerOptions.composite
-        : effective("composite"),
-    ),
-  ).path;
+  return privateRuntimeRootDir(
+    project.root,
+    rootDir,
+    effective === null
+      ? project.compilerOptions.composite
+      : effective("composite"),
+  );
 }
 
 /**
@@ -519,7 +521,7 @@ function buildProject(
     // project. Declared and composite roots retain their compiler policy,
     // matching the root recorded by resolveRuntimeSourceRoot above.
     pinInferredRootDir: true,
-    privateEmitRootDir: context.runtimeRootDir,
+    privateEmitRootDir: context.privateEmitRootDir,
     // Emit a source map on the transient entry emit (a PID-isolated temp dir,
     // never the consumer's `outDir`) so the serve path can inline it under the
     // source URL. Routed as a dedicated build option, not a forwarded tsgo

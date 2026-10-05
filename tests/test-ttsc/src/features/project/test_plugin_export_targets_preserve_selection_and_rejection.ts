@@ -19,13 +19,12 @@ import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
  *
  * @evidence contracts/testing.md#behavioral-verification Directly calls PluginPackageResolution.resolvePluginRequest for thirteen export maps and checks exact canonical descriptor/default paths or exact refusal codes. Existing escaping files distinguish target rejection from accidental missing-file rejection; encoded-space selection must choose the decoded filename despite an existing literal-percent distractor. A dedicated condition and wildcard substitution select descriptor files beside throwing runtime files, while absent opt-in selects the default file.
  * @evidence contracts/testing.md#independent-expectations Node package exports defines blocked targets as ERR_PACKAGE_PATH_NOT_EXPORTED, absent selected files as MODULE_NOT_FOUND and escaping targets as ERR_INVALID_PACKAGE_TARGET. Pinned Node v24.18.0 esm/resolve.js resolves target strings as URLs, rejects numeric condition keys and rejects mixed subpath/condition root maps with ERR_INVALID_PACKAGE_CONFIG. The independently authored decoded filename and literal refusal codes do not use this resolver to construct expected values; no reference child is executed.
- * @evidence contracts/testing.md#distinguishing-cases Preserves valid, blocked, missing, escaping, nested blocked, invalid-first fallback and all-blocked array inputs. Encoded-space targets contrast decoded and literal-percent existing files; numeric conditions and mixed top-level maps contrast with valid condition/subpath shapes. Dedicated, patterned and missing-condition populations preserve explicit descriptor selection, substituted prefix selection and ordinary default fallback. Runtime entries exist for every row so an inappropriate fallback cannot pass. All outcomes are collected before comparison.
+ * @evidence contracts/testing.md#distinguishing-cases Preserves valid, blocked, missing, escaping, nested blocked, invalid-first fallback and all-blocked array inputs. Encoded-space targets contrast decoded and literal-percent existing files; numeric conditions and mixed top-level maps contrast with valid condition/subpath shapes. Dedicated, patterned and missing-condition populations preserve explicit descriptor selection, substituted prefix selection and ordinary default fallback. Absolute, relative and directory-link requests must select the independently observed native physical file; missing-file fallback preserves its supplied spelling. Runtime entries exist for every row so an inappropriate fallback cannot pass. All export outcomes are collected before comparison.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this matching unit feature and Evidence selects its named exported function. The authored source resolver reads call-owned fixture manifests in process, without native builds, descriptor evaluation, product hosts or reference subprocesses; finally removes the temporary tree. Throwing runtime bytes are resolution inputs only: neither their evaluation nor descriptor execution/native transform delivery is certified.
  */
 export async function test_plugin_export_targets_preserve_selection_and_rejection(): Promise<void> {
-  const root = fs.realpathSync.native(
-    fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-plugin-export-targets-")),
-  );
+  const lexicalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-plugin-export-targets-"));
+  const root = fs.realpathSync.native(lexicalRoot);
   try {
     await FileSystemIterator.write(root, {
       "package.json": "{}",
@@ -81,6 +80,21 @@ export async function test_plugin_export_targets_preserve_selection_and_rejectio
           : {}),
       });
     }
+    const descriptor = path.join(root, "node_modules/pkg-valid/descriptor.cjs");
+    const physicalDescriptor = fs.realpathSync.native(descriptor);
+    assert.equal(PluginPackageResolution.resolvePluginRequest(
+      path.join(lexicalRoot, "node_modules/pkg-valid/descriptor.cjs"), lexicalRoot,
+    ), physicalDescriptor);
+    assert.equal(PluginPackageResolution.resolvePluginRequest(
+      "./node_modules/pkg-valid/descriptor.cjs", lexicalRoot,
+    ), physicalDescriptor);
+    const alias = path.join(root, "descriptor-directory-alias");
+    fs.symlinkSync(path.dirname(descriptor), alias, process.platform === "win32" ? "junction" : "dir");
+    assert.equal(PluginPackageResolution.resolvePluginRequest(
+      path.join(alias, "descriptor.cjs"), lexicalRoot,
+    ), physicalDescriptor);
+    const missing = path.join(lexicalRoot, "missing-descriptor.cjs");
+    assert.equal(PluginPackageResolution.resolveRealPath(missing), missing);
     const outcomes = Object.fromEntries(
       Object.keys(cases).map((name) => {
         try {

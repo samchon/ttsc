@@ -135,6 +135,7 @@ driverAutomatic.ttsc.plugin.reportedDependencies = [];
 const stderrDescriptor = Object.getOwnPropertyDescriptor(process.stderr, "write");
 let driverEmitStderr = "";
 let driverEmitStatus;
+const driverEmitBefore = receiptCount();
 try {
   fs.writeFileSync(nativeMain, "export const value = class { private hidden = 1; };\n");
   fs.writeFileSync(nativeConfigFile, JSON.stringify(failedNativeOptions));
@@ -160,6 +161,7 @@ try {
   }
 }
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "the failed driver dispatch must restore the root reporting contributor");
+const driverEmitAfter = receiptCount();
 unchanged();
 const registerBefore = receiptCount();
 const rejectedEnv = { ...process.env };
@@ -346,4 +348,4 @@ if (descendantFailures.length) throw new AggregateError(descendantFailures, "reg
 }
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));

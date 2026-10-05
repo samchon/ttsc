@@ -83,8 +83,9 @@ export type RunBuildOptions = TtscBuildOptions & {
    * Runtime-selected private output root, after the owning runtime has read
    * effective compiler options. Passed only with pinInferredRootDir; argv
    * replay still puts user assignments afterward. This internal layout value
-   * keeps compiler arguments and served-output coordinates in agreement and
-   * introduces no public flag or replacement producer.
+   * retains the compiler input spelling, before physical resolution for served
+   * output lookup. These roots share relative layout, not necessarily absolute
+   * spelling. It introduces no public flag or replacement producer.
    */
   privateEmitRootDir?: string;
 

@@ -2226,7 +2226,13 @@ function buildDependency(
       // and composite roots keep their compiler containment policy. The same
       // root is published by resolveDependencySourceRoot below.
       pinInferredRootDir: true,
-      privateEmitRootDir: resolveDependencySourceRoot(project),
+      // Compiler containment uses the same lexical spelling as its inputs;
+      // resolveDependencySourceRoot separately owns physical serving lookup.
+      privateEmitRootDir: privateRuntimeRootDir(
+        project.root,
+        project.compilerOptions.rootDir,
+        project.compilerOptions.composite,
+      ),
       // Emit a source map on the transient dependency emit (it never reaches the
       // dependency's published `lib/`) so the serve path can inline it under the
       // source URL, but only when the dependency configures none itself. Routed

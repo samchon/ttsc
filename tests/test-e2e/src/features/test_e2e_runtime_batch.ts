@@ -519,6 +519,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         produced: string[];
         nativeEmitBefore: number;
         nativeEmitAfter: number;
+        driverEmitBefore: number;
+        driverEmitAfter: number;
         driverEmitStatus: number;
         driverEmitStderr: string;
         rejectedOutputAbsent: boolean;
@@ -572,8 +574,21 @@ export async function test_e2e_runtime_batch(): Promise<void> {
             declarationObservation.nativeEmitBefore,
       );
       assert.equal(
-        declarationObservation.registerBefore,
+        declarationObservation.driverEmitBefore,
         declarationObservation.nativeEmitAfter,
+      );
+      assert.deepEqual(
+        allNativeReceipts.slice(
+          declarationObservation.driverEmitBefore,
+          declarationObservation.driverEmitAfter,
+        ),
+        [{ name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null }],
+        "the failed raw driver owns its automatic native entry admission, not the preceding successful emit's receipt epoch",
+      );
+      assert.equal(
+        declarationObservation.registerBefore,
+        declarationObservation.driverEmitAfter,
+        "frontend rejection and readonly inspection must admit no native entry before registration",
       );
       assert.ok(
         Number.isInteger(declarationObservation.registerAfter) &&

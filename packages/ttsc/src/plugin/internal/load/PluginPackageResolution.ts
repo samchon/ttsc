@@ -693,7 +693,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#clear-and-simple-design This best-effort selection helper is distinct from nullable proof observation, because loading still needs an unresolved path to diagnose.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback preserves input data and does not fabricate a target or a cache-valid physical identity.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states link resolution and unchanged-on-failure behavior, with separate tags following the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation Node realpath uses actual native link semantics without separator parsing or blanket case folding.
+   * @evidence contracts/portability.md#os-neutral-implementation Node native realpath resolves actual links and Windows short-name aliases without separator parsing or blanket case folding. The resulting descriptor request and factory coordinates name the same physical module.
    * @evidence contracts/performance.md#efficient-algorithms One Node realpath request avoids file-content reads; delegated component/link resolution and returned path text depend on native path/topology rather than a constant-time request count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Targets are observed now; no canonical-path cache is owned here.
@@ -701,7 +701,7 @@ export namespace PluginPackageResolution {
    */
   export function resolveRealPath(location: string): string {
     try {
-      return fs.realpathSync(location);
+      return fs.realpathSync.native(location);
     } catch {
       return location;
     }
