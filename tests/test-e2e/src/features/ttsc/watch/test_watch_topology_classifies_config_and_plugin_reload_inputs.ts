@@ -23,16 +23,16 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#behavioral-verification Actual native WatchTopology subscriptions deliver config, go.mod, nested Go source and newly created package inputs with config/plugin kinds. Writes under node_modules and .git never become plugin events.
  * @evidence contracts/testing.md#independent-expectations The authored config and selected plugin tree define literal paths and kinds; the independent source unit contrasts changed bytes with unchanged and excluded entries rather than generating expected events from topology output.
  * @evidence contracts/testing.md#distinguishing-cases Config mutation, module and nested-source mutation, pruned-directory noise and a newly populated directory retain distinct observable transitions. The source unit preserves fresh-session quietness and unchanged-plugin attention.
- * @evidence contracts/testing.md#execution-ownership This E2E entry exercises built WatchTopology with native observer defaults. Its positional source does not request a compiler list; direct source units own portable event classification and content decisions.
+ * @evidence contracts/testing.md#execution-ownership Selected esbuild calls this built WatchTopology body with native observer defaults on upfront tools/native-topology. Its positional source does not request a compiler list; direct source units own portable event classification and content decisions. The existing direct entry remains callable but is not another selected host.
  * @evidence contracts/e2e.md#necessary-boundary Actual backend delivery and registration of a newly populated plugin directory cannot be established by supplied callbacks. This one session retains the OS connection previously repeated by the config/plugin, pruning and new-directory entries.
- * @evidence contracts/e2e.md#shared-execution Three former private roots and four topology sessions become one copied project, one selected module and one native topology session. Existing built libraries are reused, and no Go build or installation is introduced.
+ * @evidence contracts/e2e.md#shared-execution Three former private roots and four topology sessions become one upfront project, one package-owned Go input copy and one native topology lifetime. Existing built libraries are reused; copied Go bytes are inputs, not a Go build or new install. The selected esbuild delivery collects this disjoint observer independently alongside service and CLI-watch outcomes.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One TestProject root owns the copied project and module. Each transition records its prior ledger position, every stimulus changes the asserted path, and finally closes the one live topology. Pruned noise changes only excluded directories.
  * @evidence contracts/e2e.md#preserved-coverage The former config/plugin classification, pruned-directory exclusion and newly registered package delivery assertions execute here. test_watch_plugin_notifications_report_only_keyed_source_changes preserves unchanged-plugin attention, both nested edits, pruned negative twins and two stable fresh-session refreshes through actual source operations.
  */
 export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
-  async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-native-plugin-watch-");
-    TestProject.copyDirectory(
+  async (preparedRoot?: string, onClosed?: () => void): Promise<void> => {
+    const root = preparedRoot ?? TestProject.tmpdir("ttsc-native-plugin-watch-");
+    if (preparedRoot === undefined) TestProject.copyDirectory(
       path.join(
         TestProject.WORKSPACE_ROOT,
         "tests",
@@ -47,7 +47,7 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
     const source = path.join(root, "src", "main.ts");
     const config = path.join(root, "tsconfig.json");
     const plugin = path.join(root, "plugin");
-    TestProject.copyDirectory(
+    if (preparedRoot === undefined) TestProject.copyDirectory(
       path.join(
         TestProject.WORKSPACE_ROOT,
         "packages",
@@ -133,14 +133,11 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
         const created = path.join(plugin, "internal", "newpkg");
         const added = path.join(created, "x.go");
         fs.mkdirSync(created);
-        fs.writeFileSync(added, "package newpkg\n");
+        fs.copyFileSync(nested, added);
         fs.mkdirSync(path.join(created, "node_modules", "pkg"), {
           recursive: true,
         });
-        fs.writeFileSync(
-          path.join(created, "node_modules", "pkg", "ignored.go"),
-          "package ignored\n",
-        );
+        fs.copyFileSync(nested, path.join(created, "node_modules", "pkg", "ignored.go"));
         await waitForPath(changes, added, "plugin", () => undefined);
       });
       await new Promise((resolve) => setTimeout(resolve, 1_000));
@@ -170,6 +167,7 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
       });
     } finally {
       topology.close();
+      onClosed?.();
     }
     if (failures.length !== 0)
       throw new AggregateError(

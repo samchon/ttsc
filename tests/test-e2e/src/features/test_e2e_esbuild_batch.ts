@@ -10,6 +10,7 @@ import { serviceCorpus } from "../batch/serviceCorpus";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 import { test_lint_write_commands_share_one_consumer } from "./lint/native-plugins/fix/case_lint_write_commands_share_one_consumer";
+import { test_watch_topology_classifies_config_and_plugin_reload_inputs } from "./ttsc/watch/test_watch_topology_classifies_config_and_plugin_reload_inputs";
 
 /**
  * Verifies one real esbuild graph and its actual disposal carry all source
@@ -49,6 +50,15 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
   });
   const nativeWatch = nativeWatchCorpus(workspace).catch((error: unknown) => {
     combinedFailures.push(error);
+  });
+  let topologyClosed = false;
+  const topology = test_watch_topology_classifies_config_and_plugin_reload_inputs(
+    path.join(workspace.root, "tools/native-topology"),
+    () => { topologyClosed = true; },
+  ).catch((error: unknown) => {
+    combinedFailures.push(error);
+  }).finally(() => {
+    if (!topologyClosed) BatchWorkspace.retain("native topology supported close did not complete");
   });
   try {
     const previous = process.env.TTSC_CACHE_DIR;
@@ -149,6 +159,7 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
   } finally {
     await service;
     await nativeWatch;
+    await topology;
   }
   if (combinedFailures.length === 1) throw combinedFailures[0];
   if (combinedFailures.length > 1)

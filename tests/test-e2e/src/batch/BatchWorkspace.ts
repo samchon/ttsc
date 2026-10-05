@@ -344,6 +344,14 @@ export namespace BatchWorkspace {
       path.resolve(import.meta.dirname, "../../fixtures/shared"),
     );
     await FileSystemIterator.write(root, inputs);
+    await FileSystemIterator.write(
+      path.join(root, "tools/native-topology"),
+      await FileSystemIterator.read(path.resolve(import.meta.dirname, "../../fixtures/ttsc/api/baseline")),
+    );
+    await FileSystemIterator.write(
+      path.join(root, "tools/native-topology/plugin"),
+      await FileSystemIterator.read(path.join(TestProject.WORKSPACE_ROOT, "packages/ttsc/test/fixtures/e2e/plugin_source_state_holds_takes_a_digest_the_caller_vouches_for/inputs-1")),
+    );
     const graphNegativeRoot = TestProject.tmpdir(
       "ttsc-shared-graph-uninstalled-",
     );
