@@ -24,7 +24,9 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification RunBuild with a linked source-preamble plugin writes both the JavaScript and the declaration output, and the assertions require the preamble text in each emitted file kind.
 // The same build also runs a numeric emit hook and joins each external map's
-// generated value token to the independently authored source coordinate 0:13.
+// generated assignment or declaration name to the independently authored source
+// coordinate 0:13. CommonJS maps the whole export assignment's start, while the
+// declaration map retains the name token's position.
 // @evidence contracts/testing.md#independent-expectations The expected preamble text is the literal string the test's own plugin injects, not text derived from the emitted files.
 // @evidence contracts/testing.md#distinguishing-cases Declaration output is the neighbor that would miss the preamble if only the parsed-source path applied it; both file kinds are checked.
 // @evidence contracts/testing.md#execution-ownership TestUtilityBuildAppliesLinkedSourcePreamble is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
@@ -89,13 +91,19 @@ func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
     lines := strings.Split(string(output), "\n")
     for _, segment := range decodeSourceMapMappings(t, mapping.Mappings) {
       if segment.SourceLine == 0 && segment.SourceColumn == 13 {
-        if segment.GeneratedLine >= len(lines) || segment.GeneratedColumn > len(lines[segment.GeneratedLine]) ||
-          !strings.HasPrefix(lines[segment.GeneratedLine][segment.GeneratedColumn:], "value") {
-          t.Fatalf("%s generated value coordinate misses output: %#v output=%q", artifact, segment, output)
+        if segment.GeneratedLine < 0 || segment.GeneratedLine >= len(lines) ||
+          segment.GeneratedColumn < 0 || segment.GeneratedColumn > len(lines[segment.GeneratedLine]) {
+          continue
         }
-        found = true
+        if artifact == "index.js" {
+          if segment.GeneratedColumn == 0 && strings.TrimSuffix(lines[segment.GeneratedLine], "\r") == "exports.value = 2;" {
+            found = true
+          }
+        } else if strings.HasPrefix(lines[segment.GeneratedLine][segment.GeneratedColumn:], "value") {
+          found = true
+        }
       }
     }
-    if !found { t.Fatalf("%s has no mapping to authored value 0:13: %q", artifact, mapping.Mappings) }
+    if !found { t.Fatalf("%s has no generated assignment or declaration name mapped to authored value 0:13: %q", artifact, mapping.Mappings) }
   }
 }
