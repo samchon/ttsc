@@ -157,6 +157,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   assert.deepEqual((payload as { requireBindings: unknown }).requireBindings, ["@lib/message", "local:@lib/message", "imported:@lib/message", "ok", "ok"]);
   const mixed = (payload as { mixedRuntime: unknown }).mixedRuntime;
   assert.deepEqual(mixed, {
+    nativeFactory: { generated: 42, neighbor: 43, payload: 42 },
     contraryCommonjs: "cts-runner-ok",
     mtsImport: "mts-runner-ok",
     dual: "42:7:esm-ok",

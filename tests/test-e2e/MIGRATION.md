@@ -1160,3 +1160,9 @@ The requested -r fixtures now run only on the main Runtime thread. The productio
 The public default cleaner now requires the descriptor directory actually populated by preparation to exist and be nonempty before cleanup. Independent cache-layout expectations require plugins, descriptors and the deliberately seeded Go cache to disappear, while an unrelated neighboring file remains byte-for-byte intact. Existing explicit and legacy cleanup assertions and restoration remain. This follows the descriptor writer and default cleanup layout, rather than copying the reported result.
 
 Actual D0/current345/native65; no added process, request or experiment, authored/unexecuted. Future identity, missing-output and installed-package transfers remain preserved. Final function and independent-experiment limits remain incomplete.
+
+### Package-owned standalone factory joins the shared Runtime (D0)
+
+The existing copied compile-probe module now replaces only the named __TTSC_NATIVE_FACTORY_ARROW__ initializer with an actual emit factory arrow and standalone property access. One upfront typed Payload module supplies value42, a deliberately different original arrow result43, and an unchanged neighboring arrow43. The same Runtime graph requires generated42/neighbor43/payload42, so unchanged authored code cannot satisfy the native factory boundary. Package input owner869ece2ae owns the Go implementation; no Go source is embedded in tests and no preparation, worker or profile is added. Existing driver declaration-output unit owns its artifact/map distinctions; this loaded-value observation does not certify declaration publication or an arbitrary native65 donor.
+
+Actual D0/current345/native65, authored/unexecuted; no original declaration is retired by merely adding this common connection. Remaining runtime profile-array and native lifetime boundaries are still incomplete.

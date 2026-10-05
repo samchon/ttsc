@@ -8,6 +8,7 @@ import { result, observeEmittedEffects } from "./bundle.js";
 import { cliPolicyRuntime } from "./runtime-corpus/cli-policy.mjs";
 import { observeNodeCompatibleCorpus } from "./runtime-corpus/node-compatible.mjs";
 import { observeRequireBindings } from "./runtime-corpus/require-shadow.mjs";
+import { observed as nativeFactory } from "./runtime-corpus/native-factory.js";
 const host = createMemFS();
 observeEmittedEffects();
 host.writeFile("/main.ts", "export const value = 1;\n");
@@ -25,6 +26,7 @@ const stackOutside = await import("./runtime-corpus/stack/outside.cjs");
 const proposal = await import("./runtime-corpus/proposal.mjs");
 const adapterFactories = await Promise.all(adapterEntries.map(async (entry: string) => typeof (await import(entry)).default));
 const mixedRuntime = {
+  nativeFactory,
   contraryCommonjs: contraryCommonjs.observed,
   mtsImport: mtsImport.observed,
   dual: dual.observed,
