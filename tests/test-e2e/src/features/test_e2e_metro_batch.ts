@@ -287,6 +287,69 @@ export async function test_e2e_metro_batch(): Promise<void> {
       fs.writeFileSync(descriptorModule, originalDescriptorModule);
     }
   }
+  // Both descriptor formats consume the same selected package and three lookup
+  // epochs. No epoch prepares a private project, toolchain or producer.
+  const selectionScope = path.join(workspace.root, "descriptors/package.json");
+  const selectionOuter = path.join(workspace.root, "node_modules/batch-observation-selection");
+  const selectionNearer = path.join(workspace.root, "descriptors/node_modules/batch-observation-selection");
+  const selectionSibling = path.join(workspace.root, "descriptor-search-sibling");
+  for (const owned of [selectionScope, selectionOuter, selectionNearer, selectionSibling])
+    assert.equal(fs.existsSync(owned), false, "search epochs own initially absent paths");
+  const physicalSelectionPath = (file: string): string => {
+    try { return fs.realpathSync.native(file); }
+    catch (error) {
+      if (!["ENOENT", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+      const parent = path.dirname(file);
+      if (parent === file) throw error;
+      return path.join(physicalSelectionPath(parent), path.basename(file));
+    }
+  };
+  try {
+    fs.writeFileSync(selectionScope, JSON.stringify({ private: true, type: "commonjs", imports: {
+      "#local-descriptor": "./input.cjs", "#installed-descriptor": "batch-descriptor-input",
+      "#missing-local-descriptor": "./optional.cjs", "#missing-package-descriptor": "batch-absent-descriptor-input",
+      "#observation-selection": "batch-observation-selection",
+    } }));
+    fs.mkdirSync(selectionOuter, { recursive: true });
+    fs.writeFileSync(path.join(selectionOuter, "package.json"), '{"name":"batch-observation-selection","main":"index.js"}\n');
+    fs.writeFileSync(path.join(selectionOuter, "index.js"), 'module.exports = "selection";\n');
+    fs.mkdirSync(path.dirname(selectionNearer), { recursive: true });
+    for (const selectionMode of ["bare-aba", "mapped-aba", "selected-cutoff"] as const) {
+      if (selectionMode === "selected-cutoff") fs.cpSync(selectionOuter, selectionNearer, { recursive: true });
+      for (const transform of ["./descriptors/default.cjs", "./descriptors/selection.ts"] as const) {
+        try {
+          const loaded = loadProjectPlugins({ binary: TestProject.TSGO_BINARY, cwd: workspace.root, tsconfig: configPath,
+            cacheDir: path.join(workspace.cache, "descriptor-search-flow"), env: descriptorEnv,
+            entries: [{ ...publicNativeProbe, transform, selectionMode, selectionNearer, selectionSibling }],
+          });
+          assert.equal(loaded.nativePlugins[0]?.name, "selection");
+          const recorded = (file: string): boolean => loaded.hostInputs.some((input) => physicalSelectionPath(input) === physicalSelectionPath(file));
+          const proven = (file: string): boolean => loaded.hostInputs.some((input) =>
+            physicalSelectionPath(input) === physicalSelectionPath(file) && Object.hasOwn(loaded.hostInputHashes, input));
+          const selected = selectionMode === "selected-cutoff" ? selectionNearer : selectionOuter;
+          assert.equal(recorded(path.join(selected, "index.js")), true, "selected package is an actual evaluator input");
+          assert.equal(proven(path.join(selected, "index.js")), true, "selected bytes keep their own proof");
+          if (selectionMode === "selected-cutoff")
+            assert.deepEqual(loaded.hostInputs.filter((input) => !Object.hasOwn(loaded.hostInputHashes, input)), [], "unrelated parent churn must preserve every recorded proof");
+          else {
+            assert.equal(recorded(selectionNearer), true, "the actual nearer candidate is observed before it appears");
+            assert.equal(proven(selectionNearer), false, "a nearer candidate that came and went cannot retain absence proof");
+          }
+          const allowedRoots = (selectionMode === "selected-cutoff" ? [path.dirname(selectionNearer)] : [path.dirname(selectionNearer), path.dirname(selectionOuter)])
+            .map(physicalSelectionPath);
+          assert.deepEqual(loaded.hostInputs.filter((input) => input.includes(path.join("node_modules", "batch-observation-selection")) &&
+            !allowedRoots.some((root) => physicalSelectionPath(input).startsWith(root + path.sep))), [], "search stops at its independently selected package root");
+        } catch (error) { publicApiFailures.push(new Error(selectionMode + " actual descriptor selection: " + transform, { cause: error })); }
+      }
+    }
+  } catch (error) { publicApiFailures.push(new Error("shared descriptor search population", { cause: error })); }
+  finally {
+    fs.rmSync(selectionScope, { force: true });
+    for (const owned of [selectionOuter, selectionNearer, selectionSibling]) {
+      assert.ok(path.resolve(owned).startsWith(path.resolve(workspace.root) + path.sep));
+      fs.rmSync(owned, { recursive: true, force: true });
+    }
+  }
   const replacementModule = path.dirname(nativeProbe.fixtureSource);
   const replacementManifest = path.join(replacementModule, "go.mod");
   const originalReplacementManifest = fs.readFileSync(replacementManifest);

@@ -17,6 +17,14 @@ for (const specifier of ["#missing-local-descriptor", "#missing-package-descript
 const cachedInput = require("./cache-input.cjs");
 exports.default = (context) => {
   const observation = context.plugin.cacheObservation;
+  if (context.plugin.selectionMode !== undefined) {
+    const fs = require("node:fs");
+    const selected = require(context.plugin.selectionMode === "mapped-aba" ? "#observation-selection" : "batch-observation-selection");
+    const churn = context.plugin.selectionMode === "selected-cutoff" ? context.plugin.selectionSibling : context.plugin.selectionNearer;
+    fs.mkdirSync(churn);
+    fs.rmdirSync(churn);
+    return { name: selected, source: context.plugin.fixtureSource, capabilities: { projectContextArgs: true } };
+  }
   if (observation === undefined)
     return { name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {}, ...(context.plugin.publicCommand ? { capabilities: { projectContextArgs: true } } : {}) };
   const fs = require("node:fs");
