@@ -2,8 +2,12 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { rollup, type RollupCache } from "rollup";
-import webpack, { type Configuration, type Stats, type Watching } from "webpack";
+import { type RollupCache, rollup } from "rollup";
+import webpack, {
+  type Configuration,
+  type Stats,
+  type Watching,
+} from "webpack";
 
 import { BatchWorkspace } from "./BatchWorkspace";
 
@@ -19,14 +23,17 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Mutable source/config belongs only to this tools subtree. Actual watcher/compiler/bundle closes precede restoration or the next host; failed close retains the shared graph and blocks further mutations. Trace/environment authority restores in finally; body and release errors are preserved.
  * @evidence contracts/e2e.md#preserved-coverage Restores original valid adapter invalidation/cache/loader-redelivery meanings. Fake compile/Program counts are not restored; private receipts observe real compiler API calls only. This does not certify development serve/HMR behavior.
  */
-export async function bundlerCacheCorpus(workspace: BatchWorkspace.Workspace): Promise<void> {
+export async function bundlerCacheCorpus(
+  workspace: BatchWorkspace.Workspace,
+): Promise<void> {
   const root = path.join(workspace.root, "tools/bundler-cache");
   TestUnpluginProject.writePluginEntry(root);
   const typeFile = path.join(root, "src/mytype.ts");
   const configFile = path.join(root, "tsconfig.json");
   const originalType = fs.readFileSync(typeFile);
   const originalConfig = fs.readFileSync(configFile);
-  const unpluginWebpack = await TestUnpluginRuntime.loadUnpluginAdapter("webpack");
+  const unpluginWebpack =
+    await TestUnpluginRuntime.loadUnpluginAdapter("webpack");
   const replacement = "export interface MyType { id: string; age: number }\n";
   const traceRoot = path.join(workspace.cache, "bundler-cache-observations");
   fs.mkdirSync(traceRoot);
@@ -37,48 +44,115 @@ export async function bundlerCacheCorpus(workspace: BatchWorkspace.Workspace): P
   const failures: unknown[] = [];
   let releaseUnconfirmed = false;
   const observedCompilerCalls = (): number => {
-    const events = fs.readdirSync(traceRoot).filter((name) => name.endsWith(".jsonl")).flatMap((name) => fs.readFileSync(path.join(traceRoot, name), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line)));
-    assert.equal(events.some((event) => event.event === "integrity-failure"), false);
-    return events.filter((event) => event.event === "bridge-lookup" && event.cwd === fs.realpathSync.native(root) && event.data?.operation === "TtscCompiler.transformAsync").length;
+    const events = fs
+      .readdirSync(traceRoot)
+      .filter((name) => name.endsWith(".jsonl"))
+      .flatMap((name) =>
+        fs
+          .readFileSync(path.join(traceRoot, name), "utf8")
+          .split(/\r?\n/)
+          .filter(Boolean)
+          .map((line) => JSON.parse(line)),
+      );
+    assert.equal(
+      events.some((event) => event.event === "integrity-failure"),
+      false,
+    );
+    return events.filter(
+      (event) =>
+        event.event === "bridge-lookup" &&
+        event.cwd === fs.realpathSync.native(root) &&
+        event.data?.operation === "TtscCompiler.transformAsync",
+    ).length;
   };
   const config = (name: string): Configuration => ({
-    context: root, mode: "development", devtool: false,
+    context: root,
+    mode: "development",
+    devtool: false,
     entry: path.join(root, "src/main.ts"),
     output: { path: path.join(root, "out/" + name), filename: "bundle.js" },
-    resolve: { extensions: [".ts", ".js"] }, plugins: [unpluginWebpack()],
-    cache: { type: "filesystem", cacheDirectory: path.join(root, ".cache/" + name) },
-    snapshot: { module: { hash: true, timestamp: false }, resolve: { hash: true, timestamp: false }, resolveBuildDependencies: { hash: true, timestamp: false }, buildDependencies: { hash: true, timestamp: false } },
+    resolve: { extensions: [".ts", ".js"] },
+    plugins: [unpluginWebpack()],
+    cache: {
+      type: "filesystem",
+      cacheDirectory: path.join(root, ".cache/" + name),
+    },
+    snapshot: {
+      module: { hash: true, timestamp: false },
+      resolve: { hash: true, timestamp: false },
+      resolveBuildDependencies: { hash: true, timestamp: false },
+      buildDependencies: { hash: true, timestamp: false },
+    },
   });
   const closeCompiler = async (compiler: webpack.Compiler): Promise<void> => {
-    try { await new Promise<void>((resolve, reject) => compiler.close((error) => error ? reject(error) : resolve())); }
-    catch (error) { releaseUnconfirmed = true; BatchWorkspace.retain("bundler cache compiler closure remained unresolved"); throw error; }
+    try {
+      await new Promise<void>((resolve, reject) =>
+        compiler.close((error) => (error ? reject(error) : resolve())),
+      );
+    } catch (error) {
+      releaseUnconfirmed = true;
+      BatchWorkspace.retain(
+        "bundler cache compiler closure remained unresolved",
+      );
+      throw error;
+    }
   };
   const build = async (configuration: Configuration): Promise<string> => {
     const compiler = webpack(configuration);
     const errors: unknown[] = [];
     let text: string | undefined;
     try {
-      const stats = await new Promise<Stats>((resolve, reject) => compiler.run((error, value) => error ? reject(error) : value ? resolve(value) : reject(new Error("no webpack stats"))));
+      const stats = await new Promise<Stats>((resolve, reject) =>
+        compiler.run((error, value) =>
+          error
+            ? reject(error)
+            : value
+              ? resolve(value)
+              : reject(new Error("no webpack stats")),
+        ),
+      );
       assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
-      text = fs.readFileSync(path.join(configuration.output!.path!, "bundle.js"), "utf8");
-    } catch (error) { errors.push(error); }
-    finally { try { await closeCompiler(compiler); } catch (error) { errors.push(error); } }
-    if (errors.length) throw new AggregateError(errors, "webpack cache build/close failed");
+      text = fs.readFileSync(
+        path.join(configuration.output!.path!, "bundle.js"),
+        "utf8",
+      );
+    } catch (error) {
+      errors.push(error);
+    } finally {
+      try {
+        await closeCompiler(compiler);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length)
+      throw new AggregateError(errors, "webpack cache build/close failed");
     return text!;
   };
-  const collect = async (name: string, operation: () => Promise<void>): Promise<void> => {
+  const collect = async (
+    name: string,
+    operation: () => Promise<void>,
+  ): Promise<void> => {
     if (releaseUnconfirmed) return;
-    try { await operation(); }
-    catch (error) { failures.push(new Error(name, { cause: error })); }
-    finally {
-      if (!releaseUnconfirmed) { fs.writeFileSync(typeFile, originalType); fs.writeFileSync(configFile, originalConfig); }
+    try {
+      await operation();
+    } catch (error) {
+      failures.push(new Error(name, { cause: error }));
+    } finally {
+      if (!releaseUnconfirmed) {
+        fs.writeFileSync(typeFile, originalType);
+        fs.writeFileSync(configFile, originalConfig);
+      }
     }
   };
   try {
     await collect("webpack watch delivery and content frontier", async () => {
       const configuration = config("watch");
       configuration.cache = false;
-      configuration.snapshot = { module: { hash: false, timestamp: true }, resolve: { hash: false, timestamp: true } };
+      configuration.snapshot = {
+        module: { hash: false, timestamp: true },
+        resolve: { hash: false, timestamp: true },
+      };
       const compiler = webpack(configuration);
       let watching: Watching | undefined;
       let phase = 0;
@@ -87,71 +161,168 @@ export async function bundlerCacheCorpus(workspace: BatchWorkspace.Workspace): P
       const errors: unknown[] = [];
       try {
         await new Promise<void>((resolve, reject) => {
-          timer = setTimeout(() => reject(new Error("webpack watch frontier did not settle within 120s")), 120_000);
-          watching = compiler.watch({ aggregateTimeout: 100, poll: 100 }, (error, stats) => {
-            try {
-              if (error) throw error;
-              assert.ok(stats);
-              assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
-              const code = fs.readFileSync(path.join(configuration.output!.path!, "bundle.js"), "utf8");
-              if (phase === 0) {
-                assert.match(code, /ID: STRING/);
-                firstCalls = observedCompilerCalls();
-                assert.equal(firstCalls, 1, "one actual compiler API request owns the cold adapter delivery");
-                phase = 1;
-                fs.writeFileSync(typeFile, originalType);
-              } else if (phase === 1) {
-                const rebuilt = [...stats.compilation.modules].some((module) => {
-                  const resource = (module as { resource?: string }).resource;
-                  return resource !== undefined && fs.realpathSync.native(resource) === fs.realpathSync.native(path.join(root, "src/main.ts")) && stats.compilation.builtModules.has(module);
-                });
-                if (!rebuilt) return;
-                assert.equal(observedCompilerCalls(), firstCalls, "actual loader redelivery must not invoke the compiler for unchanged bytes");
-                phase = 2;
-                fs.writeFileSync(typeFile, replacement);
-              } else if (/AGE: NUMBER/.test(code)) { phase = 3; resolve(); }
-            } catch (failure) { reject(failure); }
-          });
+          timer = setTimeout(
+            () =>
+              reject(
+                new Error("webpack watch frontier did not settle within 120s"),
+              ),
+            120_000,
+          );
+          watching = compiler.watch(
+            { aggregateTimeout: 100, poll: 100 },
+            (error, stats) => {
+              try {
+                if (error) throw error;
+                assert.ok(stats);
+                assert.equal(
+                  stats.hasErrors(),
+                  false,
+                  stats.toString({ errors: true }),
+                );
+                const code = fs.readFileSync(
+                  path.join(configuration.output!.path!, "bundle.js"),
+                  "utf8",
+                );
+                if (phase === 0) {
+                  assert.match(code, /ID: STRING/);
+                  firstCalls = observedCompilerCalls();
+                  assert.equal(
+                    firstCalls,
+                    1,
+                    "one actual compiler API request owns the cold adapter delivery",
+                  );
+                  phase = 1;
+                  fs.writeFileSync(typeFile, originalType);
+                } else if (phase === 1) {
+                  const rebuilt = [...stats.compilation.modules].some(
+                    (module) => {
+                      const resource = (module as { resource?: string })
+                        .resource;
+                      return (
+                        resource !== undefined &&
+                        fs.realpathSync.native(resource) ===
+                          fs.realpathSync.native(
+                            path.join(root, "src/main.ts"),
+                          ) &&
+                        stats.compilation.builtModules.has(module)
+                      );
+                    },
+                  );
+                  if (!rebuilt) return;
+                  assert.equal(
+                    observedCompilerCalls(),
+                    firstCalls,
+                    "actual loader redelivery must not invoke the compiler for unchanged bytes",
+                  );
+                  phase = 2;
+                  fs.writeFileSync(typeFile, replacement);
+                } else if (/AGE: NUMBER/.test(code)) {
+                  phase = 3;
+                  resolve();
+                }
+              } catch (failure) {
+                reject(failure);
+              }
+            },
+          );
         });
-      } catch (error) { errors.push(error); }
-      finally {
+      } catch (error) {
+        errors.push(error);
+      } finally {
         if (timer !== undefined) clearTimeout(timer);
         if (watching !== undefined) {
-          try { await new Promise<void>((resolve, reject) => watching!.close((error) => error ? reject(error) : resolve())); }
-          catch (error) { errors.push(error); releaseUnconfirmed = true; BatchWorkspace.retain("webpack watch closure remained unresolved"); }
+          try {
+            await new Promise<void>((resolve, reject) =>
+              watching!.close((error) => (error ? reject(error) : resolve())),
+            );
+          } catch (error) {
+            errors.push(error);
+            releaseUnconfirmed = true;
+            BatchWorkspace.retain("webpack watch closure remained unresolved");
+          }
         }
-        try { await closeCompiler(compiler); } catch (error) { errors.push(error); }
+        try {
+          await closeCompiler(compiler);
+        } catch (error) {
+          errors.push(error);
+        }
       }
-      if (errors.length) throw new AggregateError(errors, "webpack watch frontier/closure failed");
+      if (errors.length)
+        throw new AggregateError(
+          errors,
+          "webpack watch frontier/closure failed",
+        );
       assert.equal(phase, 3);
     });
-    for (const withGraph of [true, false]) await collect("webpack persisted cache " + withGraph, async () => {
-      if (!withGraph) {
-        const parsed = JSON.parse(originalConfig.toString("utf8"));
-        parsed.compilerOptions.plugins = parsed.compilerOptions.plugins.filter((plugin: { name: string }) => plugin.name !== "graph");
-        fs.writeFileSync(configFile, JSON.stringify(parsed));
-      }
-      const configuration = config(withGraph ? "persisted-positive" : "persisted-control");
-      const first = await build(configuration);
-      assert.match(first, /ID: STRING/);
-      assert.doesNotMatch(first, /AGE: NUMBER/);
-      fs.writeFileSync(typeFile, replacement);
-      const second = await build(configuration);
-      if (withGraph) assert.match(second, /AGE: NUMBER/);
-      else { assert.match(second, /ID: STRING/); assert.doesNotMatch(second, /AGE: NUMBER/); }
-    });
+    for (const withGraph of [true, false])
+      await collect("webpack persisted cache " + withGraph, async () => {
+        if (!withGraph) {
+          const parsed = JSON.parse(originalConfig.toString("utf8"));
+          parsed.compilerOptions.plugins =
+            parsed.compilerOptions.plugins.filter(
+              (plugin: { name: string }) => plugin.name !== "graph",
+            );
+          fs.writeFileSync(configFile, JSON.stringify(parsed));
+        }
+        const configuration = config(
+          withGraph ? "persisted-positive" : "persisted-control",
+        );
+        const first = await build(configuration);
+        assert.match(first, /ID: STRING/);
+        assert.doesNotMatch(first, /AGE: NUMBER/);
+        fs.writeFileSync(typeFile, replacement);
+        const second = await build(configuration);
+        if (withGraph) assert.match(second, /AGE: NUMBER/);
+        else {
+          assert.match(second, /ID: STRING/);
+          assert.doesNotMatch(second, /AGE: NUMBER/);
+        }
+      });
     await collect("Rollup retained cache", async () => {
       const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("rollup");
       let transforms = 0;
       const main = path.join(root, "src/main.ts");
       const buildRollup = async (cache?: RollupCache) => {
-        const bundle = await rollup({ cache, input: main, plugins: [adapter(), { name: "actual-delivery-counter", transform(_code, id) { if (path.resolve(id) === path.resolve(main)) transforms++; return null; } }] });
+        const bundle = await rollup({
+          cache,
+          input: main,
+          plugins: [
+            adapter(),
+            {
+              name: "actual-delivery-counter",
+              transform(_code, id) {
+                if (path.resolve(id) === path.resolve(main)) transforms++;
+                return null;
+              },
+            },
+          ],
+        });
         const errors: unknown[] = [];
         let result: { cache?: RollupCache; code: string } | undefined;
-        try { const generated = await bundle.generate({ format: "esm" }); result = { cache: bundle.cache, code: TestUnpluginProject.collectRollupOutputCode(generated.output) }; }
-        catch (error) { errors.push(error); }
-        finally { try { await bundle.close(); } catch (error) { releaseUnconfirmed = true; BatchWorkspace.retain("Rollup retained-cache bundle closure remained unresolved"); errors.push(error); } }
-        if (errors.length) throw new AggregateError(errors, "Rollup cached generation and close failed");
+        try {
+          const generated = await bundle.generate({ format: "esm" });
+          result = {
+            cache: bundle.cache,
+            code: TestUnpluginProject.collectRollupOutputCode(generated.output),
+          };
+        } catch (error) {
+          errors.push(error);
+        } finally {
+          try {
+            await bundle.close();
+          } catch (error) {
+            releaseUnconfirmed = true;
+            BatchWorkspace.retain(
+              "Rollup retained-cache bundle closure remained unresolved",
+            );
+            errors.push(error);
+          }
+        }
+        if (errors.length)
+          throw new AggregateError(
+            errors,
+            "Rollup cached generation and close failed",
+          );
         return result!;
       };
       const first = await buildRollup();
@@ -172,5 +343,9 @@ export async function bundlerCacheCorpus(workspace: BatchWorkspace.Workspace): P
     if (previousCache === undefined) delete process.env.TTSC_CACHE_DIR;
     else process.env.TTSC_CACHE_DIR = previousCache;
   }
-  if (failures.length) throw new AggregateError(failures, "actual bundler cache frontier failures");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "actual bundler cache frontier failures",
+    );
 }
