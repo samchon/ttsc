@@ -19,7 +19,7 @@ import (
 // 2. Resolve explicit configFile paths and reject malformed declarations.
 // 3. Resolve discovered config files and reject missing or unusable exports.
 //
-// @evidence contracts/testing.md#behavioral-verification The banner resolver rejects unsupported/invalid pointers, loads tsconfig-relative CJS text, discovers ancestor config and rejects missing, duplicate, bad and empty exports; fake TS launcher cases return no-text envelopes.
+// @evidence contracts/testing.md#behavioral-verification The banner resolver rejects unsupported/invalid pointers, loads tsconfig-relative CJS text, discovers ancestor config and rejects missing, duplicate, bad and empty exports. Missing discovery names all supported suffixes and the configFile migration hint; fake TS launcher cases return no-text envelopes.
 // @evidence contracts/testing.md#independent-expectations Literal pointer/key errors and authored explicit/discovered text are independent expected results. Fake TS empty envelopes specify transport output rather than evaluating TypeScript source.
 // @evidence contracts/testing.md#distinguishing-cases Framework keys contrast with text/config rejection; numeric/blank configFile differ from valid pointers. Explicit/discovered routes exercise missing text, bare string, empty text and ambiguous configs.
 // @evidence contracts/testing.md#execution-ownership TestResolveBannerTextBranches mixes direct resolver decisions with actual Node CJS imports and fake ttsx process payloads. No native sidecar producer executes.
@@ -93,7 +93,7 @@ func TestResolveBannerTextBranches(t *testing.T) {
   }
 
   // Auto-discovery: missing config file.
-  if _, err := shared.BannerResolveBannerText(map[string]any{}, filepath.Join(root, "empty"), ""); err == nil || !strings.Contains(err.Error(), "no banner.config") {
+  if _, err := shared.BannerResolveBannerText(map[string]any{}, filepath.Join(root, "empty"), ""); err == nil || !strings.Contains(err.Error(), "no banner.config.{ts,cts,mts,js,cjs,mjs,json}") || !strings.Contains(err.Error(), `set "configFile" in the tsconfig plugin entry`) {
     t.Fatalf("expected missing config error, got %v", err)
   }
 
