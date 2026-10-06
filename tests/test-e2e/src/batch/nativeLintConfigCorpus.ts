@@ -16,14 +16,16 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *    stream inputs.
  * 2. Contrast one CJS warning-only command with the error graph's native stream.
  * 3. Compile config-less and configured wrappers against the same discovered
- *    inputs.
+ *    inputs. External wrappers share one upfront namespace with no eligible
+ *    ancestor lint config; cwd fallback and local wrapper precedence remain
+ *    distinct from the main graph's ancestor configuration.
  *
  * @evidence contracts/testing.md#behavioral-verification The real launcher reports every independently authored contributor TODO/FIXME/XXX tuple, rejects leaked default marker options, renders the original no-var/prefer-const/TypeScript order and omits ignored generated inputs. A CJS warning-only command must return zero with exactly one no-console warn. Actual compiler API wrapper calls require cwd fallback with two discovery errors and wrapper precedence with only no-var.
  * @evidence contracts/testing.md#independent-expectations Original authored comment messages, option marker XXX versus TODO, source line numbers and literal rule/category tuples define expectations. CLI stderr/parser and actual compile envelopes supply observations; discovery output never generates the expected rules.
  * @evidence contracts/testing.md#distinguishing-cases Typed package contributor/options, builtin-plus-TypeScript stream, globally ignored included dot/declaration files, explicit CJS warning normalization, config-less wrapper fallback and wrapper config precedence remain distinct.
  * @evidence contracts/testing.md#execution-ownership Selected esbuild calls this helper on one upfront lint island with workspace-linked owning lint/demo producers. Two real launcher commands and two actual synchronous compiler API preparations own all distinctions; source units are not treated as native registration/renderer evidence.
  * @evidence contracts/e2e.md#necessary-boundary Executable typed/CJS config evaluation, demo source discovery, serialized options, native rule diagnostic transport and CLI status must agree. Wrapper context must select its own config or actual cwd fallback; Go config/decoder units alone cannot establish that assembly.
- * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured.
+ * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates.
  * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. Direct owning Go units retain pure severity/ignore/option normalization; no new undefined-export or CLI flag behavior is inferred. Written native connections remain unexecuted until CI.
  */
@@ -47,13 +49,14 @@ export function nativeLintConfigCorpus(
     "base.config.json",
     "discovery.config.json",
     "warning.cjs",
-    "../native-lint-wrappers/fallback/tsconfig.json",
-    "../native-lint-wrappers/selected/tsconfig.json",
-    "../native-lint-wrappers/selected/lint.config.json",
   ].map(
     (name) =>
       [path.join(root, name), fs.readFileSync(path.join(root, name))] as const,
   );
+  for (const name of ["fallback/tsconfig.json", "selected/tsconfig.json", "selected/lint.config.json"]) {
+    const file = path.join(workspace.lintWrapperRoot, name);
+    immutableInputs.push([file, fs.readFileSync(file)]);
+  }
   const failures: unknown[] = [];
   let unresolved = false;
   const capture = (name: string, body: () => void): void => {
@@ -243,8 +246,7 @@ export function nativeLintConfigCorpus(
     for (const mode of ["fallback", "selected"])
       capture("external wrapper " + mode, () => {
         const wrapper = path.join(
-          workspace.root,
-          "tools/native-lint-wrappers",
+          workspace.lintWrapperRoot,
           mode,
         );
         assert.equal(

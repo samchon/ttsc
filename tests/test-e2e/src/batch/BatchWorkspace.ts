@@ -30,6 +30,8 @@ export namespace BatchWorkspace {
     allocatedRoot: string;
     root: string;
     graphNegativeRoot: string;
+    /** Wrapper discovery is outside the shared root's eligible lint config. */
+    lintWrapperRoot: string;
     cache: string;
     installedTtsx: string;
     programRunLog: string;
@@ -447,6 +449,29 @@ export namespace BatchWorkspace {
         ),
       ),
     );
+    // A wrapper with no nearby config must reach cwd fallback. Placing it
+    // below root would instead discover root/lint.config.cjs first. Reuse the
+    // upfront uninstalled namespace without adding root package dependencies
+    // or sources selected by its own include:["src"] graph input.
+    const lintWrapperRoot = path.join(
+      fs.realpathSync.native(graphNegativeRoot),
+      "lint-wrappers",
+    );
+    for (const mode of ["fallback", "selected"]) {
+      const original = path.join(root, "tools/native-lint-wrappers", mode);
+      const target = path.join(lintWrapperRoot, mode);
+      await FileSystemIterator.write(target, await FileSystemIterator.read(original));
+      const wrapper = JSON.parse(fs.readFileSync(path.join(original, "tsconfig.json"), "utf8")) as {
+        extends: string;
+        include: string[];
+        files: string[];
+      };
+      fs.writeFileSync(path.join(target, "tsconfig.json"), JSON.stringify({
+        ...wrapper,
+        extends: path.resolve(original, wrapper.extends),
+        files: wrapper.files.map((file) => path.resolve(original, file)),
+      }));
+    }
     await FileSystemIterator.write(
       path.join(root, "tools/public-lint"),
       await FileSystemIterator.read(
@@ -1527,6 +1552,7 @@ export namespace BatchWorkspace {
       root,
       expected,
       graphNegativeRoot,
+      lintWrapperRoot,
       installedTtsx,
       installationOnly,
       sourcePublication,
