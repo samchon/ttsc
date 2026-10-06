@@ -1,1 +1,4 @@
-module.exports = { rules: { "no-console": "warning", "no-debugger": "error" } };
+module.exports = {
+  extends: "./format-only.cjs",
+  rules: { "no-console": "warning", "no-debugger": "error" },
+};
