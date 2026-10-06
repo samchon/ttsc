@@ -843,6 +843,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
             orphan: "<i>orphan</i>",
           },
         },
+        result.stderr,
       );
       assert.deepEqual(
         await FileSystemIterator.read(configuredRoot),

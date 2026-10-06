@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { inspect } from "node:util";
 import type { RollupOutput, RollupWatcher } from "rollup";
 import { build } from "vite";
 
@@ -59,7 +60,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
   const brokerRoot = path.join(workspace.cache, "watch-broker-corpus");
   fs.mkdirSync(brokerRoot, { recursive: true });
   const combinedFailures: unknown[] = [];
-  const broker = test_watch_broker_hears_what_follows_ready(brokerRoot).catch(
+  const broker = test_watch_broker_hears_what_follows_ready(brokerRoot, BatchWorkspace.retain).catch(
     (error: unknown) => {
       combinedFailures.push(error);
     },
@@ -423,7 +424,12 @@ export async function test_e2e_vite_batch(): Promise<void> {
       else process.env.NODE_ENV = previousMode;
     }
   } catch (error) {
-    phase("build-corpus-threw", { error: String(error) });
+    phase("build-corpus-threw", {
+      error: String(error),
+      detail: process.env.TTSC_E2E_TRACE
+        ? inspect(error, { depth: 6, maxArrayLength: 20, maxStringLength: 1000, customInspect: false, getters: false })
+        : undefined,
+    });
     combinedFailures.push(error);
   } finally {
     phase("broker-join-started");

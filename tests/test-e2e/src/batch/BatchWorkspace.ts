@@ -26,6 +26,8 @@ import { shellQuote } from "../internal/ttsc/internal/source-build";
 /** Owns the one corpus all nine real boundary sessions consume. */
 export namespace BatchWorkspace {
   export interface Workspace {
+    /** Exact tmpdir allocation key; native root is a separate input authority. */
+    allocatedRoot: string;
     root: string;
     graphNegativeRoot: string;
     cache: string;
@@ -300,8 +302,8 @@ export namespace BatchWorkspace {
   export function retain(reason: string): void {
     reuseFailure ??= new Error("Shared input reuse is blocked: " + reason);
     if (preparation !== undefined)
-      void preparation.then(({ root }) =>
-        TestProject.retainTemporaryDirectory(root, reason),
+      void preparation.then(({ allocatedRoot }) =>
+        TestProject.retainTemporaryDirectory(allocatedRoot, reason),
       );
   }
 
@@ -335,13 +337,12 @@ export namespace BatchWorkspace {
   async function prepare(): Promise<Workspace> {
     // Choose one native spelling before authoring absolute config/cwd inputs.
     // Intentional project aliases below remain separately authored inputs.
-    const root = fs.realpathSync.native(
-      TestProject.tmpdir("ttsc-shared-boundaries-"),
-    );
+    const allocatedRoot = TestProject.tmpdir("ttsc-shared-boundaries-");
+    const root = fs.realpathSync.native(allocatedRoot);
     // Retain throughout the run. The runner explicitly releases only its own
     // completed consumers; a rejected or unknown lifetime keeps all inputs.
     TestProject.retainTemporaryDirectory(
-      root,
+      allocatedRoot,
       "Shared boundary consumers have not completed",
     );
     const inputs = await FileSystemIterator.read(
@@ -1522,6 +1523,7 @@ export namespace BatchWorkspace {
       );
     }
     return {
+      allocatedRoot,
       root,
       expected,
       graphNegativeRoot,

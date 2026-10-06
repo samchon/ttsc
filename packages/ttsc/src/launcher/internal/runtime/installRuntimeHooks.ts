@@ -892,6 +892,20 @@ function load(
         buildScope: served.buildScope,
       },
     );
+  else if (process.env.TTSC_E2E_TRACE)
+    E2ETrace.runtimePreparation(
+      served.source,
+      filename,
+      format,
+      "ttsx-esm-source-load",
+      {
+        emittedFile: served.emittedFile,
+        moduleOptions: served.moduleOptions,
+        sourceFile: served.sourceFile,
+        selectedTsconfig: served.selectedTsconfig,
+        buildScope: served.buildScope,
+      },
+    );
   return {
     format,
     shortCircuit: true,
