@@ -59,6 +59,22 @@ fs.chmodSync(compiler, 0o755);
 const stamp = 1700000000;
 fs.utimesSync(compiler, stamp, stamp);
 const compilerBytes = fs.readFileSync(compiler);
+// A newly copied or rewritten executable is an actual CLI input before it is
+// a reusable compiler witness. Windows can advance change metadata during its
+// first native access. Keep that preparation outside the identity/cache epoch;
+// the runtime still rejects any instability during its own subsequent reads.
+// Each preparation is one real native CLI lifetime, not a Program or lowering.
+const prepareCompiler = () => {
+  const result = require("node:child_process").spawnSync(compiler, ["--version"], {
+    cwd: compilerRoot,
+    encoding: "utf8",
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^Version /);
+};
+prepareCompiler();
 const priorCompiler = process.env.TTSC_TSGO_BINARY;
 try {
   process.env.TTSC_TSGO_BINARY = compiler;
@@ -79,6 +95,7 @@ try {
   assert.equal(after.mtimeNs, before.mtimeNs);
   assert.equal(after.size, before.size);
   assert.deepEqual(fs.readFileSync(compiler), compilerBytes);
+  prepareCompiler();
   delete require.cache[require.resolve(identitySource)];
   const rewritten = require(identitySource);
   assert.equal(rewritten.value, "lowered");
