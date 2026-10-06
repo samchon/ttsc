@@ -686,7 +686,11 @@ async function runResidentLoaderPool(): Promise<void> {
     recorderRequireResolveAvailable,
     "the selected executable must give both actual hook owners the same capability",
   );
-  const descriptorReuseAvailable = recorderRequireResolveAvailable;
+  // The owned descriptor resolver supplies observed resolution on the supported
+  // floor even when ordinary require.resolve does not consult public hooks.
+  // Keep the independent capability contrast above, but require the owned
+  // descriptor contract rather than withdrawing reuse on that unrelated probe.
+  const descriptorReuseAvailable = true;
   // One physical descriptor, dependency, settings file and native producer own
   // these observation-authority epochs. Rows change the declared read contract;
   // they do not allocate projects, launch old recipes or reset a row's cache.
