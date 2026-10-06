@@ -26,7 +26,7 @@ import (
 // @evidence contracts/performance.md#efficient-algorithms Each accessor snapshots and combines scope reports; input names and JSON map keys sort by text. Encoding and native publication include report population, path and value byte costs and temporary collection copies rather than only the final payload.
 // @evidence contracts/performance.md#reuse-equivalent-work The same check generation's recorded observations supply the result without reparsing sources or reexecuting configuration hooks.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Scope snapshots and encoding buffers are call-local without a payload cap. The shared publisher closes its temporary descriptor before rename and attempts removal on failure, returning cleanup errors; the caller owns the Program, fresh destination, parent directory and final artifact removal.
-func WriteCheckObservationsJSON(fileName string, program *Program, cwd string) error {
+func WriteCheckObservationsJSON(fileName string, program *Program) error {
   if !filepath.IsAbs(fileName) {
     return fmt.Errorf("driver: check observations path must be absolute: %q", fileName)
   }
@@ -34,11 +34,15 @@ func WriteCheckObservationsJSON(fileName string, program *Program, cwd string) e
   hashes := map[string]*string{}
   realpaths := map[string]*string{}
   var complete *bool
+  var graph *TransformGraph
   if program == nil || program.PluginObservationsIncomplete() {
     unavailable := false
     complete = &unavailable
   }
   if program != nil {
+    if program.TSProgram != nil {
+      graph = NewTransformGraph(program, program.TSProgram.GetCurrentDirectory())
+    }
     if recorded := program.PluginHostInputs(); recorded != nil {
       inputs = recorded
     }
@@ -55,7 +59,7 @@ func WriteCheckObservationsJSON(fileName string, program *Program, cwd string) e
     HostInputHashes      map[string]*string `json:"hostInputHashes"`
     HostInputRealpaths   map[string]*string `json:"hostInputRealpaths"`
     ObservationsComplete *bool              `json:"observationsComplete,omitempty"`
-  }{NewTransformGraph(program, cwd), inputs, hashes, realpaths, complete})
+  }{graph, inputs, hashes, realpaths, complete})
   if err != nil {
     return err
   }

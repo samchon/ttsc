@@ -136,7 +136,7 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) (status int) {
   var prog *driver.Program
   defer func() {
     if opts.checkObservationsJSON != "" {
-      if err := driver.WriteCheckObservationsJSON(opts.checkObservationsJSON, prog, opts.cwd); err != nil {
+      if err := driver.WriteCheckObservationsJSON(opts.checkObservationsJSON, prog); err != nil {
         fmt.Fprintf(opts.stderr, "ttsc utility: check observations write failed: %v\n", err)
         if status == 0 {
           status = 3
