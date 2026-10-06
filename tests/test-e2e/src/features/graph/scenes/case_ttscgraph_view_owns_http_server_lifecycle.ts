@@ -107,6 +107,11 @@ export const case_ttscgraph_view_owns_http_server_lifecycle =
         assert.match(stderr, /EADDRINUSE|address already in use/iu);
         assert.doesNotMatch(
           stderr,
+          /@ttsc\/graph: building the graph|@ttsc\/graph: serving the 3D viewer/iu,
+          "binding refusal must precede native preparation and readiness",
+        );
+        assert.doesNotMatch(
+          stderr,
           /Unhandled 'error' event|Emitted 'error' event|node:events/iu,
         );
       } catch (error) {
