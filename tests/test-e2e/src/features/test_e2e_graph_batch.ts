@@ -69,7 +69,12 @@ export async function test_e2e_graph_batch(): Promise<void> {
   } catch (error) {
     failures.push(error);
   }
-  await BatchWorkspace.open();
+  try {
+    await BatchWorkspace.open();
+  } catch (error) {
+    throw new AggregateError([...failures, error],
+      "Graph target failures and blocked viewer input reuse");
+  }
   try {
     await case_ttscgraph_view_owns_http_server_lifecycle({
       root: path.join(workspace.root, "tools/graph-http"),
@@ -79,7 +84,12 @@ export async function test_e2e_graph_batch(): Promise<void> {
   } catch (error) {
     failures.push(error);
   }
-  await BatchWorkspace.open();
+  try {
+    await BatchWorkspace.open();
+  } catch (error) {
+    throw new AggregateError([...failures, error],
+      "Graph completed stage failures and blocked resident input reuse");
+  }
   await FileSystemIterator.write(
     workspace.root,
     await FileSystemIterator.read(path.join(workspace.root, "graph-stage")),
