@@ -182,6 +182,12 @@ func RunBuild(args []string) int {
 // It returns 2 for project/compiler failure and 3 for driver emission or private
 // metadata publication failure.
 //
+// A loaded project's diagnostics retain failing status without preempting the
+// compiler's noEmitOnError policy. False/default can therefore write the whole
+// project despite diagnostics; true withholds output in the emitter. Invalid
+// configuration without a Program and analysis-only diagnostic failure emit
+// nothing. Check, transform and serve retain their separate rejection policy.
+//
 // An absolute private provenance path receives the raw output-to-source map after
 // completed emission, including successful writes from a build with emit
 // diagnostics. Analysis-only success writes an empty map. The original build
@@ -191,7 +197,7 @@ func RunBuild(args []string) int {
 // private metadata. Summary and diagnostic stream writes are best-effort here,
 // so a zero status does not certify delivery to the supplied io.Writer values.
 //
-// @evidence contracts/common.md#principled-implementation Completed emission publishes the same generation's successful writer ownership even when another output failed; original emit diagnostics retain status two, failed metadata alone returns three, and successful noEmit publishes an empty map.
+// @evidence contracts/common.md#principled-implementation A loaded build delegates withholding to native noEmitOnError while retaining project and emit diagnostics with status two. Completed emission publishes the same generation's successful writer ownership even when another output failed; failed metadata alone returns three, and successful noEmit publishes an empty map.
 // @evidence contracts/common.md#clear-and-simple-design One loaded program delegates linked emission and shared diagnostic classification; successful writer keys supply the verbose count.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler error output is not converted into success; banner handling follows the source-preamble contract rather than expected fixture output.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs identify stream ownership, failure statuses, private metadata admission and caller artifact removal following the documentation skill.
@@ -204,12 +210,17 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   if !ok {
     return 2
   }
-  prog, entries, ok := loadUtilityProgram(opts)
-  if !ok {
+  prog, entries, diags, ok := loadUtilityProgramWithDiagnostics(opts)
+  if !ok || prog == nil {
+    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
     return 2
   }
   defer prog.Close()
+  driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
   if opts.noEmit {
+    if len(diags) != 0 {
+      return 2
+    }
     if opts.provenanceJSON != "" {
       if err := driver.WriteEmitProvenanceJSON(opts.provenanceJSON, map[string][]string{}); err != nil {
         fmt.Fprintf(opts.stderr, "ttsc utility: provenance write failed: %v\n", err)
@@ -263,7 +274,7 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   if provenanceErr != nil {
     fmt.Fprintf(opts.stderr, "ttsc utility: provenance write failed: %v\n", provenanceErr)
   }
-  if driver.CountErrors(eDiags) > 0 {
+  if driver.CountErrors(diags) > 0 || driver.CountErrors(eDiags) > 0 {
     fmt.Fprintln(opts.stderr, "ttsc utility: emit failed; build output is incomplete")
     return 2
   }
@@ -572,7 +583,9 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
 
 // loadUtilityProgramWithDiagnostics leaves a loaded Program owned by its caller,
 // even on compiler diagnostics. Transform must publish its recovery graph;
-// check/build/serve retain their existing rejection boundary in the wrapper.
+// check/serve retain their rejection boundary in the wrapper. Build delegates
+// output withholding to the compiler's noEmitOnError policy, but retains the
+// diagnostics and failing status even when that policy permits output.
 func loadUtilityProgramWithDiagnostics(opts hostOptions) (*driver.Program, []driver.PluginEntry, []driver.Diagnostic, bool) {
   entries, err := parsePluginEntries(opts.pluginsJSON)
   if err != nil {
