@@ -137,7 +137,16 @@ export async function test_e2e_vite_batch(): Promise<void> {
           {
             name: "shared-record-output-observation",
             enforce: "post",
+            buildStart() {
+              phase("rollup-build-started");
+            },
+            buildEnd(error) {
+              phase("rollup-build-ended", {
+                error: error === undefined ? undefined : String(error),
+              });
+            },
             generateBundle(_options, bundle) {
+              phase("rollup-output-generated");
               generated = {
                 output: { output: Object.values(bundle) },
                 watchFiles: this.getWatchFiles(),
@@ -163,6 +172,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
       );
       watcher = result as RollupWatcher;
       watcher.on("event", (event) => {
+        phase("rollup-watch-event", { code: event.code });
         if (event.code === "ERROR") failures.push(event.error);
         if (event.code !== "BUNDLE_END") return;
         const capture = (async () => {
