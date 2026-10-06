@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { WatchSession } from "../internal/ttsc/internal/watch";
 import { BatchWorkspace } from "./BatchWorkspace";
+import { residentConfigCorpus } from "./residentConfigCorpus";
 
 /**
  * Preserve native JSON membership, warm inputs, duplicate delivery and
@@ -17,7 +18,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary OS events, Go project-input registration, native resident protocol and fallback argv must agree; source-unit counters cannot prove their connection.
  * @evidence contracts/e2e.md#shared-execution All transitions share one actual watcher and package producer. Duplicate and single config epochs necessarily replace native residents; deliberate death acquires a real fallback. No per-case fixture preparation or plugin-cache deletion occurs.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The upfront nested source/config/Markdown are restored only after nonce-bound actual watcher closure. Failed closure retains the shared root and refuses later mutations; body and shutdown errors are both retained.
- * @evidence contracts/e2e.md#preserved-coverage Restores original valid five-step telemetry, duplicate buffer reuse and dead-host compiler-flag meanings. Counters are native telemetry, not total Program construction proof; Actual edits to the copied selected lint module sibling Go rule and its go.mod require a replacement resident and the edited diagnostic; an owned node_modules Go-byte copy must remain quiet. Full compiler-list/refs/output/case OS topology remains separate unproved coverage. These extra epochs add two actual resident lifetimes and native rebuild work.
+ * @evidence contracts/e2e.md#preserved-coverage Restores original valid five-step telemetry, duplicate buffer reuse and dead-host compiler-flag meanings. Counters are native telemetry, not total Program construction proof; Actual edits to the copied selected lint module sibling Go rule and its go.mod require a replacement resident and the edited diagnostic; an owned node_modules Go-byte copy must remain quiet. Full compiler-list/refs/output/case OS topology remains separate unproved coverage. These extra epochs add two actual resident lifetimes and native rebuild work. After joined restoration, residentConfigCorpus separately owns real/link executable helper counters, raw project-input replies and startup opt-out in two additional children; a failed watch body does not block that body when closure and restoration are proven. Unknown closure or restoration failure blocks the dependent carrier. Original Go resident donors remain selected until actual acceptance.
  */
 export async function nativeWatchCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -46,6 +47,7 @@ export async function nativeWatchCorpus(
   );
   const failures: unknown[] = [];
   let joined = false;
+  let restored = false;
   const session = new WatchSession(root, {
     args: ["--noEmit", "--diagnostics", "--noImplicitAny"],
     env: { TTSC_CACHE_DIR: workspace.cache, TTSC_WATCH_DEBUG_INPUTS: "1" },
@@ -215,6 +217,7 @@ export async function nativeWatchCorpus(
       );
       failures.push(error);
     }
+    const restorationStart = failures.length;
     if (joined)
       for (const restore of [
         ...[...originals].map(
@@ -239,6 +242,14 @@ export async function nativeWatchCorpus(
           );
           failures.push(error);
         }
+    restored = joined && failures.length === restorationStart;
+  }
+  if (restored) {
+    try {
+      await residentConfigCorpus(workspace);
+    } catch (error) {
+      failures.push(error);
+    }
   }
   if (failures.length)
     throw new AggregateError(failures, "native shared watch and shutdown");

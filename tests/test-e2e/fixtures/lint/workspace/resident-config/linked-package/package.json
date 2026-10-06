@@ -1,0 +1,5 @@
+{
+  "name": "resident-config-linked",
+  "type": "module",
+  "exports": "./index.js"
+}

@@ -1,0 +1,5 @@
+{
+  "name": "resident-config-real",
+  "type": "module",
+  "exports": "./index.js"
+}
