@@ -31,6 +31,7 @@ import {
   type LoaderPoolOutcome,
   createLoaderPoolWorker,
 } from "../batch/LoaderPoolWorker";
+import { MetroResidentBoundary } from "../batch/MetroResidentBoundary";
 import { observePluginLockGraph } from "../batch/PluginLockGraph";
 import { deadCompilerClaimCorpus } from "../batch/deadCompilerClaimCorpus";
 import {
@@ -3833,178 +3834,13 @@ async function runResidentLoaderPool(): Promise<void> {
       cacheDir: path.join(workspace.root, "sibling-case-cache"),
       projectRoot: workspace.root,
     });
-    const descriptorFailureRoot = path.join(
-      workspace.root,
-      "descriptor-process-flow",
-    );
-    assert.equal(fs.existsSync(descriptorFailureRoot), false);
-    fs.cpSync(
-      path.join(
-        TestProject.WORKSPACE_ROOT,
-        "tests/test-e2e/fixtures/ttsc/descriptor-process-corpus",
-      ),
-      descriptorFailureRoot,
-      { recursive: true },
-    );
-    const lintDescriptorRoot = path.join(descriptorFailureRoot, "lint-flow");
-    fs.cpSync(
-      path.join(workspace.root, "descriptors/lint-flow"),
-      lintDescriptorRoot,
-      { recursive: true },
-    );
-    const lintAlpha = nativeProbe.fixtureSource as string;
-    const lintBeta = path.join(
-      TestProject.WORKSPACE_ROOT,
-      "packages/lint/plugin",
-    );
-    for (const filename of [
-      "typed-selection.ts",
-      "module-selection.mjs",
-      "logging-contributor.cjs",
-    ]) {
-      const file = path.join(lintDescriptorRoot, filename);
-      fs.writeFileSync(
-        file,
-        fs
-          .readFileSync(file, "utf8")
-          .replace('"__LINT_ALPHA_SOURCE__"', JSON.stringify(lintAlpha)),
+    const residentDescriptorInputs =
+      MetroResidentBoundary.createDescriptorInputs(
+        workspace,
+        nativeProbe.fixtureSource as string,
+        publicNativeProbe.fixtureSource,
       );
-    }
-    const loggingPackage = path.join(
-      lintDescriptorRoot,
-      "node_modules/logging-contributor",
-    );
-    fs.mkdirSync(loggingPackage, { recursive: true });
-    fs.writeFileSync(
-      path.join(loggingPackage, "package.json"),
-      '{"main":"index.cjs"}\n',
-    );
-    fs.copyFileSync(
-      path.join(lintDescriptorRoot, "logging-contributor.cjs"),
-      path.join(loggingPackage, "index.cjs"),
-    );
-    fs.writeFileSync(
-      path.join(lintDescriptorRoot, "lint.config.json"),
-      JSON.stringify({ plugins: { demo: "logging-contributor" } }),
-    );
-    const lintDescriptorBytes = new Map(
-      ["lint.config.ts", "typed-selection.ts", "module-selection.mjs"].map(
-        (name) => [
-          path.join(lintDescriptorRoot, name),
-          fs.readFileSync(path.join(lintDescriptorRoot, name)),
-        ],
-      ),
-    );
-    const descriptorRuntimeRoot = path.join(
-      descriptorFailureRoot,
-      "runtime-inputs",
-    );
-    const runtimeDescriptor = path.join(descriptorRuntimeRoot, "descriptor");
-    const runtimeDescriptorConfig = path.join(
-      runtimeDescriptor,
-      "tsconfig.json",
-    );
-    const runtimeSelection = path.join(runtimeDescriptor, "selection.mjs");
-    const runtimeNear = path.join(descriptorRuntimeRoot, "near/node_modules");
-    const runtimeFar = path.join(descriptorRuntimeRoot, "far/node_modules");
-    const runtimeProbe = path.join(runtimeFar, "descriptor-probe");
-    const runtimeOrphan = path.join(
-      descriptorRuntimeRoot,
-      "orphan/node_modules/orphan-source",
-    );
-    const runtimeRefresh = path.join(
-      descriptorRuntimeRoot,
-      "refresh/node_modules/config-refresh",
-    );
-    for (const directory of [
-      runtimeDescriptor,
-      path.join(runtimeNear, "descriptor-probe"),
-      runtimeProbe,
-      runtimeOrphan,
-      runtimeRefresh,
-    ])
-      fs.mkdirSync(directory, { recursive: true });
-    for (const directory of [runtimeDescriptor, runtimeOrphan, runtimeRefresh])
-      fs.writeFileSync(
-        path.join(directory, "package.json"),
-        '{"private":true,"type":"module"}\n',
-      );
-    fs.writeFileSync(
-      runtimeDescriptorConfig,
-      JSON.stringify({
-        compilerOptions: {
-          allowJs: true,
-          module: "nodenext",
-          moduleResolution: "nodenext",
-          skipLibCheck: true,
-          target: "es2022",
-        },
-        include: ["*.ts", "*.mjs"],
-      }),
-    );
-    fs.writeFileSync(
-      runtimeSelection,
-      `export const source = ${JSON.stringify(publicNativeProbe.fixtureSource)};\n`,
-    );
-    fs.writeFileSync(
-      path.join(runtimeDescriptor, "explicit.tsx"),
-      'export const explicit = "explicit";\n',
-    );
-    fs.writeFileSync(
-      path.join(runtimeProbe, "package.json"),
-      '{"main":"entry"}\n',
-    );
-    fs.writeFileSync(path.join(runtimeProbe, "entry.json"), '"probe"\n');
-    fs.writeFileSync(
-      path.join(runtimeOrphan, "selection.ts"),
-      'export const orphan = "orphan";\n',
-    );
-    const runtimeRefreshConfig = path.join(runtimeRefresh, "tsconfig.json");
-    fs.writeFileSync(
-      path.join(runtimeRefresh, "selection.tsx"),
-      'function factory() { return "configured"; }\nexport const value = <probe />;\n',
-    );
-    fs.writeFileSync(
-      path.join(runtimeRefresh, "seed.ts"),
-      [
-        'import { writeFileSync } from "node:fs";',
-        'import { createRequire } from "node:module";',
-        `writeFileSync(${JSON.stringify(runtimeRefreshConfig)}, ${JSON.stringify(JSON.stringify({ compilerOptions: { jsx: "react", jsxFactory: "factory", module: "nodenext", moduleResolution: "nodenext", target: "es2022" }, include: ["*.ts", "*.tsx"] }))});`,
-        'export const seed = "seed";',
-        'export const { value } = createRequire(import.meta.url)("./selection.tsx");',
-        "",
-      ].join("\n"),
-    );
-    const runtimeDescriptorEntry = path.join(runtimeDescriptor, "index.ts");
-    fs.writeFileSync(
-      runtimeDescriptorEntry,
-      [
-        'import { createRequire } from "node:module";',
-        'import { source } from "./selection";',
-        'import { explicit } from "./explicit.js?descriptor-input";',
-        `import { orphan } from ${JSON.stringify(pathToFileURL(path.join(runtimeOrphan, "selection.ts")).href)};`,
-        `import { seed, value } from ${JSON.stringify(pathToFileURL(path.join(runtimeRefresh, "seed.ts")).href)};`,
-        "const require = createRequire(import.meta.url);",
-        'if (require("descriptor-probe") !== "probe" || orphan !== "orphan" || explicit !== "explicit") throw new Error("descriptor probe failed");',
-        'if (seed !== "seed" || value !== "configured") throw new Error("descriptor config refresh failed");',
-        'export default () => ({ name: "ttsx-inputs", source, capabilities: { projectContextArgs: true } });',
-        "",
-      ].join("\n"),
-    );
-    const runtimeInputConfig = path.join(
-      descriptorRuntimeRoot,
-      "tsconfig.json",
-    );
-    fs.writeFileSync(
-      runtimeInputConfig,
-      JSON.stringify({
-        compilerOptions: { plugins: [{ transform: runtimeDescriptorEntry }] },
-      }),
-    );
-    const runtimeDescriptorConfigHash = crypto
-      .createHash("sha256")
-      .update(fs.readFileSync(runtimeDescriptorConfig))
-      .digest("hex");
+    const { descriptorFailureRoot } = residentDescriptorInputs;
     const pluginLockRoot = path.join(
       workspace.cache,
       "resident-plugin-lock-graph",
@@ -4017,15 +3853,7 @@ async function runResidentLoaderPool(): Promise<void> {
     // Establish this same consumer input owner before its first graph-proof
     // request, not after descriptor flow. All configured contributors and direct
     // package-marker discovery stay unchanged for both captures and later calls.
-    poolConfig.include = [
-      "src/bundle.ts",
-      "src/map.ts",
-      "src/pool-routing/map.ts",
-      "src/console.d.ts",
-      "src/metadata-population.ts",
-      "src/pooled-membership.d.ts",
-    ];
-    poolConfig.compilerOptions.skipLibCheck = false;
+    MetroResidentBoundary.selectAdapterProgram(poolConfig);
     fs.writeFileSync(configPath, JSON.stringify(poolConfig));
     const beforePreparation = fs.existsSync(workspace.programRunLog)
       ? fs.statSync(workspace.programRunLog).size
@@ -4046,46 +3874,12 @@ async function runResidentLoaderPool(): Promise<void> {
     let finalRecord: string | undefined;
     let bodyFailure: unknown;
     try {
-      const preparation = await workers[0]!.ready;
-      assert.ok(
-        preparation,
-        "the first resident owns native installation readiness",
-      );
-      assert.ok(
-        preparation.binaries.length > 0,
-        "public prepare returned actual native binaries",
-      );
-      assert.equal(
-        fs.existsSync(workspace.programRunLog)
-          ? fs.statSync(workspace.programRunLog).size
-          : 0,
+      await MetroResidentBoundary.observeGraphProof(
+        workers[0]!,
+        workspace,
         beforePreparation,
-        "native preparation does not acquire a Program",
+        publicApiFailures,
       );
-      console.log("Resident native preparation", JSON.stringify(preparation));
-      const graphProof = await workers[0]!.request("", undefined, undefined, {
-        api: TestUnpluginRuntime.libUrl("api"),
-        session: path.join(
-          workspace.cache,
-          "graph-proof-refusal",
-          path.basename(workspace.root),
-        ),
-        programRunLog: workspace.programRunLog,
-      });
-      try {
-        assert.equal(graphProof.error, undefined, graphProof.error);
-        assert.deepEqual(graphProof.value, {
-          proofRead: true,
-          nativePrograms: 2,
-          served: true,
-        });
-      } catch (error) {
-        publicApiFailures.push(
-          new Error("outside-walk graph proof publication refusal", {
-            cause: error,
-          }),
-        );
-      }
       await observePluginLockGraph({
         root: pluginLockRoot,
         fixture: path.join(workspace.root, "plugin-lock-session.cjs"),
@@ -4095,245 +3889,11 @@ async function runResidentLoaderPool(): Promise<void> {
         ),
         workers,
       });
-      const descriptorReply = await workers[0]!.request("", undefined, {
-        root: descriptorFailureRoot,
-        api: path.join(
-          TestProject.WORKSPACE_ROOT,
-          "packages/ttsc/lib/plugin/internal/load/loadProjectPlugins.js",
-        ),
-        binary: TestProject.NATIVE_BINARY,
-        tsgo: TestProject.TSGO_BINARY,
-        lint: {
-          root: lintDescriptorRoot,
-          factory: path.join(
-            TestProject.WORKSPACE_ROOT,
-            "packages/lint/lib/index.js",
-          ),
-          ttsx: TestProject.TTSX_BIN,
-          alpha: lintAlpha,
-          beta: lintBeta,
-        },
-      });
-      assert.equal(descriptorReply.error, undefined);
-      const descriptorRecords = descriptorReply.value as {
-        name: string;
-        failed: boolean;
-        message?: string;
-        contributors?: { name: string; source: string }[];
-      }[];
-      assert.deepEqual(
-        descriptorRecords.map((record) => record.name),
-        [
-          "factory",
-          "module",
-          "counterfeit",
-          "counterfeit-missing",
-          "mutated-missing",
-          "late-candidate-race",
-          "directory-candidate-race",
-          "context",
-          "body",
-          "lint-initial",
-          "lint-module-edit",
-          "lint-typed-edit",
-          "lint-typed-collision",
-          "lint-typed-failure",
-          "lint-json-log",
-        ],
-      );
-      for (const [name, contributors] of [
-        ["lint-initial", [{ name: "alpha", source: lintAlpha }]],
-        [
-          "lint-module-edit",
-          [
-            { name: "beta", source: lintBeta },
-            { name: "alpha", source: lintAlpha },
-          ],
-        ],
-        ["lint-typed-edit", [{ name: "beta", source: lintBeta }]],
-        ["lint-json-log", [{ name: "demo", source: lintAlpha }]],
-      ] as const) {
-        const observed = descriptorRecords.find((row) => row.name === name);
-        assert.equal(observed?.failed, false, name + ": " + observed?.message);
-        assert.deepEqual(
-          observed?.contributors,
-          contributors,
-          "actual helper-only re-evaluation and JSON package selection: " +
-            name,
-        );
-      }
-      const lintCollision = descriptorRecords.find(
-        (row) => row.name === "lint-typed-collision",
-      );
-      assert.equal(lintCollision?.failed, true);
-      assert.equal(lintCollision?.contributors, undefined);
-      assert.ok(
-        lintCollision?.message?.includes(
-          path.join(lintDescriptorRoot, "lint.config.ts"),
-        ),
-      );
-      assert.match(
-        lintCollision?.message ?? "",
-        /"react-hooks", "react_hooks" all normalize to "react_hooks"/,
-      );
-      assert.match(
-        lintCollision?.message ?? "",
-        /contributor namespaces collide/,
-      );
-      const lintFailure = descriptorRecords.find(
-        (row) => row.name === "lint-typed-failure",
-      );
-      assert.equal(lintFailure?.failed, true);
-      assert.equal(
-        lintFailure?.contributors,
-        undefined,
-        "failed typed evaluation must not publish contributor JSON",
-      );
-      assert.match(lintFailure?.message ?? "", /intentional config failure/);
-      assert.match(
-        lintFailure?.message ?? "",
-        /evaluation failed with exit code/,
-      );
-      for (const [file, bytes] of lintDescriptorBytes)
-        assert.deepEqual(
-          fs.readFileSync(file),
-          bytes,
-          "the retained worker restores its typed/MJS config epoch before adapter admission",
-        );
-      assert.equal(
-        fs.existsSync(
-          path.join(descriptorFailureRoot, "forbidden-fallback.txt"),
-        ),
-        false,
-      );
-      for (const [name, reason] of [
-        ["factory", /factory-env:effective/],
-        ["module", /module-initialization:loaded/],
-        ["counterfeit", /user-assigned loader code/],
-        ["counterfeit-missing", /Cannot find module '\.\/phantom'/],
-        ["mutated-missing", /Cannot find module '\.\/phantom'/],
-        ["late-candidate-race", /Cannot find module '\.\/late-candidate'/],
-        [
-          "directory-candidate-race",
-          /Cannot find module '\.\/directory-candidate'/,
-        ],
-        ["context", /absent-context-only/],
-        ["body", /failed with exit code 1\ndescriptor-module-body-failed/],
-      ] as const) {
-        try {
-          const record = descriptorRecords.find((entry) => entry.name === name);
-          assert.equal(record?.failed, true);
-          assert.match(record?.message ?? "", reason);
-          if (name !== "context" && name !== "body")
-            assert.equal(
-              fs.readFileSync(
-                path.join(descriptorFailureRoot, name + "-runs.txt"),
-                "utf8",
-              ),
-              "run\n",
-            );
-        } catch (cause) {
-          publicApiFailures.push(
-            new Error("descriptor failure state: " + name, { cause }),
-          );
-        }
-      }
-      assert.equal(
-        fs.readFileSync(
-          path.join(descriptorFailureRoot, "late-candidate.ts"),
-          "utf8",
-        ),
-        "export const value = 1;\n",
-      );
-      assert.equal(
-        fs
-          .statSync(path.join(descriptorFailureRoot, "directory-candidate.ts"))
-          .isDirectory(),
-        true,
-      );
-      const runtimeInputReply = await workers[0]!.request("", undefined, {
-        root: descriptorFailureRoot,
-        api: path.join(
-          TestProject.WORKSPACE_ROOT,
-          "packages/ttsc/lib/plugin/internal/load/loadProjectPlugins.js",
-        ),
-        binary: TestProject.NATIVE_BINARY,
-        tsgo: TestProject.TSGO_BINARY,
-        runtimeInputs: {
-          config: runtimeInputConfig,
-          cache: path.join(workspace.cache, "descriptor-runtime-inputs"),
-          nodePath: [runtimeNear, runtimeFar].join(path.delimiter),
-        },
-      });
-      assert.equal(runtimeInputReply.error, undefined);
-      const runtimeInputs = runtimeInputReply.value as {
-        hostInputs: string[];
-        hostInputHashes: Record<string, string | null>;
-      };
-      const canonicalRuntimeSelection = fs.realpathSync(runtimeSelection);
-      assert.equal(
-        runtimeInputs.hostInputs.includes(canonicalRuntimeSelection),
-        true,
-      );
-      const sameRuntimeFile = (left: string, right: string): boolean => {
-        try {
-          const a = fs.statSync(left),
-            b = fs.statSync(right);
-          return a.ino === 0 || b.ino === 0
-            ? fs.realpathSync(left) === fs.realpathSync(right)
-            : a.dev === b.dev && a.ino === b.ino;
-        } catch {
-          return false;
-        }
-      };
-      assert.equal(
-        runtimeInputs.hostInputs.some((input) =>
-          sameRuntimeFile(input, runtimeDescriptorConfig),
-        ),
-        true,
-      );
-      for (const absent of [
-        canonicalRuntimeSelection.slice(
-          0,
-          -path.extname(canonicalRuntimeSelection).length,
-        ) + ".mts",
-        path.join(runtimeDescriptor, "explicit.ts"),
-      ]) {
-        assert.equal(
-          runtimeInputs.hostInputs.includes(absent),
-          true,
-          JSON.stringify(runtimeInputs),
-        );
-        assert.equal(runtimeInputs.hostInputHashes[absent], null);
-      }
-      for (const [directory, basename] of [
-        [runtimeProbe, "entry.js"],
-        [runtimeOrphan, "tsconfig.json"],
-      ] as const) {
-        const absent = runtimeInputs.hostInputs.find(
-          (input) =>
-            path.basename(input) === basename &&
-            sameRuntimeFile(path.dirname(input), directory),
-        );
-        assert.ok(absent, JSON.stringify(runtimeInputs));
-        assert.equal(runtimeInputs.hostInputHashes[absent], null);
-      }
-      const appearedConfig = runtimeInputs.hostInputs.find((input) =>
-        sameRuntimeFile(input, runtimeRefreshConfig),
-      );
-      assert.ok(appearedConfig, JSON.stringify(runtimeInputs));
-      assert.equal(
-        Object.hasOwn(runtimeInputs.hostInputHashes, appearedConfig),
-        false,
-        "a config created during evaluation remains unproved",
-      );
-      assert.equal(
-        Object.entries(runtimeInputs.hostInputHashes).some(
-          ([input, hash]) =>
-            hash === runtimeDescriptorConfigHash &&
-            sameRuntimeFile(input, runtimeDescriptorConfig),
-        ),
-        true,
+      await MetroResidentBoundary.observeDescriptors(
+        workers[0]!,
+        workspace,
+        residentDescriptorInputs,
+        publicApiFailures,
       );
       // The two real captures above have their own receipt epoch. Initial adapter
       // sharing below still independently requires one additional native Program.
@@ -5231,40 +4791,7 @@ async function runResidentLoaderPool(): Promise<void> {
         if (bodyFailure === undefined)
           fs.rmSync(pluginLockRoot, { recursive: true });
         try {
-          assert.match(
-            workers[0]!.diagnostics(),
-            /DESCRIPTOR_STDOUT_MARKER loaded/,
-          );
-          assert.equal(
-            /factory-env:ambient|absent-ambient/.test(
-              workers[0]!.diagnostics(),
-            ),
-            false,
-          );
-          const lintStderr = workers[0]!.diagnostics();
-          for (const marker of [
-            "loading executable lint config",
-            "executable lint config warning",
-            "loading mjs lint config",
-          ])
-            assert.equal(
-              lintStderr.split(marker).length - 1,
-              3,
-              "each changed healthy graph retains its real evaluator log: " +
-                marker,
-            );
-          for (const marker of [
-            "loading JSON contributor",
-            "JSON contributor warning",
-            "failed config stdout",
-            "failed config stderr",
-          ])
-            assert.equal(
-              lintStderr.split(marker).length - 1,
-              1,
-              "real package/failure logs survive only on the joined stderr channel: " +
-                marker,
-            );
+          MetroResidentBoundary.assertDiagnostics(workers[0]!);
         } catch (error) {
           failures.push(error);
         }
