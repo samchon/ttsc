@@ -88,10 +88,6 @@ const SAVED = OPENED + APPENDED_LINE;
 /** `no-var` alone rewrites the keyword to `let`; `const` needs `prefer-const`. */
 const FIXED = SAVED.replace("var legacy", "let legacy");
 
-const CASCADE_SOURCE =
-  'const icon = "\uD83D\uDE00"; var legacy = 1; let stable = legacy; if (typeof stable == "number") { console.log(icon, stable); }';
-const CASCADE_FIXED =
-  'const icon = "\uD83D\uDE00"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); }';
 const FORMAT_SOURCE = "var legacy = 1\nJSON.stringify(legacy)\n";
 const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
 /** Independent disk bytes must not replace either live formatting buffer. */
@@ -232,8 +228,6 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
     path.join(workspace.lspEditorRoot, "lint.lsp.cascade.config.cjs"),
     `module.exports = {
   extends: "./tools/lint-language/ttsc-lint.config.json",
-  files: ["src/editor-cascade.ts"],
-  rules: { "prefer-const": "error", "eqeqeq": "error" },
 };
 `,
   );
@@ -264,10 +258,6 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
   fs.writeFileSync(evidenceTarget, "export const other = 1;\n");
   fs.writeFileSync(configPath, JSON.stringify(config));
   fs.writeFileSync(path.join(project.tmpdir, "src/editor.ts"), OPENED);
-  fs.writeFileSync(
-    path.join(project.tmpdir, "src/editor-cascade.ts"),
-    CASCADE_SOURCE,
-  );
   fs.writeFileSync(
     path.join(project.tmpdir, "src/editor-format.ts"),
     FORMAT_SOURCE,
@@ -1119,17 +1109,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             ),
           );
         }
-        // These two disjoint documents belong to this same initialized graph.
+        // The formatter remains in this Evidence/language graph. The cascade
+        // uses the existing minimal-config selection session.
         // Native commands are real request costs, not another project or server.
         for (const control of [
-          {
-            filename: "editor-cascade.ts",
-            source: CASCADE_SOURCE,
-            expected: CASCADE_FIXED,
-            only: "source.fixAll.ttsc",
-            command: "ttsc.lint.fixAll",
-            wholeRange: true,
-          },
           {
             filename: "editor-format.ts",
             source: FORMAT_SOURCE,
@@ -1201,7 +1184,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             assert.equal(
               applyTextEdits(control.source, edits),
               control.expected,
-              "cascade reaches const/equality fixed point; formatting retains the var rule violation",
+              "formatting retains the var rule violation",
             );
             assert.equal(
               fs.readFileSync(controlFile, "utf8"),
@@ -1553,12 +1536,12 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
 /**
  * Join ordinary editor behavior and independent terminal selections.
  *
- * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted let fix without writing disk. Disjoint configured documents additionally require actual cascade const/equality fixed-point edits with UTF-16 end coordinates and format-only semicolon edits that retain var while independently authored disk999 bytes stay unchanged. The saved action and workspace command first consume the original unformatted disk and preserve its bytes. The harness then saves disk999 and uses supported textDocument/formatting for the unchanged dirty buffer and its formatted replacement: exact dirty TextEdit and public clean [] are joined to native URI edits and literal raw null; same-invocation raw output, empty stderr, nontruncation, actual argv and successful native status distinguish sidecar transport from JSON-RPC interpretation. The original editor body retains all diagnostic/edit/capability assertions; the selection body retains actual native restart notifications and terminal outcomes. Both results are collected even if one body fails.
+ * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted let fix without writing disk. The existing configured-removal lifetime separately owns cascade const/equality fixed-point edits with UTF-16 end coordinates; this ordinary editor retains format-only semicolon edits that retain var while independently authored disk999 bytes stay unchanged. The saved action and workspace command first consume the original unformatted disk and preserve its bytes. The harness then saves disk999 and uses supported textDocument/formatting for the unchanged dirty buffer and its formatted replacement: exact dirty TextEdit and public clean [] are joined to native URI edits and literal raw null; same-invocation raw output, empty stderr, nontruncation, actual argv and successful native status distinguish sidecar transport from JSON-RPC interpretation. The original editor body retains all diagnostic/edit/capability assertions; the selection body retains actual native restart notifications and terminal outcomes. Both results are collected even if one body fails.
  * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition. Literal disk999, FORMAT_SOURCE/FORMAT_FIXED, one URI/one edit and trimmed raw null independently prescribe both formatting calls; saved buffer SHA and byte counts bind raw output to its actual result invocation. Each owning body supplies authored diagnostics, source coordinates and literal native outcomes; this collector does not reinterpret failure as acceptance.
  * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save. Dirty stdin differs from already formatted disk, then clean stdin differs from dirty output; raw null, empty stderr and actual status0 remain required. Ordinary supported shutdown and five intentionally terminal selection changes are different lifetimes, all required to settle.
  * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself. This is the single selected LSP entry. On failure, only its bounded formatting invocation records and verified raw payloads are copied into an explicitly retained tracked prefix under the configured absolute trace sink, or the original retained allocation when no sink is configured, before shared-cache cleanup; the same actual rows and bounded SHA-verified raw bytes are preserved for CI collection. The new tracked target is retained before copying so a partial copy remains diagnosable; retention failures remain alongside the original failure. It acquires no host itself beyond the explicit bodies and aggregates every rejection.
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge. Editor notifications and native termination are actual process boundaries owned by the invoked bodies, not mocked policy calls.
- * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer prepares a dedicated editor island with the complete original src/native-errors/docs population, actual module links and lint/Evidence configuration. Transform-only producers and other actors' tools/outputs are outside this command-copy root; their emission assertions remain in their owning batches. This same launcher inherits the island as process cwd and omits --cwd, exercising native Getwd admission through actual initialize, project diagnostics and joined shutdown. The malformed command, ordinary fix, cascade fix and formatter retain their real native requests and complete checker Programs; no deadline or rule is weakened. The independent terminal-selection island and five launcher lifetimes remain unchanged. Both bodies borrow the same preparation and source producer/cache; shared availability does not certify packed installation, cache hits, child/build totals or Program reuse.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer prepares a dedicated editor island with the complete original src/native-errors/docs population, actual module links and lint/Evidence configuration. Transform-only producers and other actors' tools/outputs are outside this command-copy root; their emission assertions remain in their owning batches. This same launcher inherits the island as process cwd and omits --cwd, exercising native Getwd admission through actual initialize, project diagnostics and joined shutdown. The malformed command, ordinary fix and formatter retain their real native requests and complete checker Programs; the cascade transfers its existing requests to the configured-removal lifetime and retains its three fresh fix cycles; no deadline or rule is weakened. The independent terminal-selection island and five launcher lifetimes remain unchanged. Both bodies borrow the same preparation and source producer/cache; shared availability does not certify packed installation, cache hits, child/build totals or Program reuse.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned timer/listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure. Promise.allSettled joins both owners before error propagation. Each body alone owns its shutdown and restoration; failed or unknown closure retains shared inputs.
  * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. Upfront LF/CR/CRLF saved documents retain buffer-only param/returns, exact edit and resolution, unchanged disk and outside-block negatives. The same upstream retains inferred legacy number, greet symbol and non-plugin completion after capability registration. Explicit configuration competes with discovered no-console-only JSON after the shared base is moved outside discovery names; positive no-var and negative no-console distinguish the handoff. Necessary internal checker updates are not old per-project launcher recipes, and their total is not asserted to be one. Retains the complete ordinary editor body and original config/dependency/source/descriptor selection terminal assertions. Saved code-action/workspace-command eligibility and live-buffer formatting are distinct supported inputs: replacing the saved control only after the original command completes preserves both without bypassing dirty/generation or suggestion validation. Three actual sidecar executions replace the donor two plus the existing one; the donor private build/root retire. This saved edit and extra formatting request are real watcher/checker work, not zero Program cost. Actual extra launcher sessions number five; native/descendant totals remain unmeasured.
  */

@@ -17,6 +17,24 @@ type PublishDiagnosticsParams = { diagnostics?: Diagnostic[]; uri: string };
 
 const SOURCE = "var legacy = 1;\nexport const kept = legacy;\n";
 
+const CASCADE_SOURCE =
+  'const icon = "\uD83D\uDE00"; var legacy = 1; let stable = legacy; if (typeof stable == "number") { console.log(icon, stable); }';
+const CASCADE_FIXED =
+  'const icon = "\uD83D\uDE00"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); }';
+type CascadeAction = { kind?: string; command?: { command?: string } };
+type CascadeEdit = {
+  changes?: Record<
+    string,
+    Array<{
+      newText: string;
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+    }>
+  >;
+};
+
 /** How long a session may take to act on one watched-file notification. */
 const SELECTION_TIMEOUT = 120_000;
 
@@ -46,9 +64,9 @@ const SELECTION_TIMEOUT = 120_000;
  * @evidence contracts/testing.md#distinguishing-cases Exercises plugin addition and removal through compilerOptions and addition through package discovery, including a plugin-free initial state and a positive next-session diagnostic.
  * @evidence contracts/testing.md#execution-ownership Selected LSP calls this body through lspSelectionCorpus on one upfront island; three actual startup selections and authored editor-style watched-file protocol messages belong to this body. These are not kernel-watch events, packed installation or a count of every child/Program; source fingerprint units do not establish the real notification/close connection.
  * @evidence contracts/e2e.md#necessary-boundary The launcher selection snapshot and live native watched-file handling must agree on restart inputs, including inputs absent from a plugin-free initial selection.
- * @evidence contracts/e2e.md#shared-execution One consumer, unchanged workspace lint producer and explicit suite cache carry the three original sessions. Restart selections cannot collapse to an unchanged host. Shared preparation is available, without cache-hit/build-Program-process total/binary-byte/minimum-cost certification.
+ * @evidence contracts/e2e.md#shared-execution One consumer, unchanged workspace lint producer and explicit suite cache carry the three original sessions. Restart selections cannot collapse to an unchanged host. The cascade transfers two existing requests, one sidecar and three fix cycles from the ordinary editor; one additional upfront source enlarges this selection population without another server, root or prepare. Shared preparation is available, without cache-hit/build-Program-process total/binary-byte/minimum-cost certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the tracked private config/manifest change. Every client is owned before initialize; selection waiters precede writes and positive no-var readiness is armed before didOpen. Each intentional native selection-error close/status1 is joined before the next session or mutation. Failure retains consumer/already-owned cache before bounded shutdown, preserving original and cleanup errors; no unresolved reset/removal, forced success, arbitrary descendant or loaded-image proof is claimed.
- * @evidence contracts/e2e.md#preserved-coverage Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
+ * @evidence contracts/e2e.md#preserved-coverage The configured-removal lifetime owns the transferred cascade action/command, exact const/equality edit, astral UTF-16 range and unchanged disk under the original three-rule authority before plugin removal. Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
  */
 export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes(prepared?: {
   root: string;
@@ -156,7 +174,74 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
     await session((client) => change(client, tsconfig, configured));
 
     // 2. The next session runs it; removing it ends that session too.
-    await session((client) => change(client, tsconfig, withoutPlugins), true);
+    await session(async (client) => {
+      if (prepared !== undefined) {
+        const cascadeFile = path.join(project.tmpdir, "src/editor-cascade.ts");
+        const cascadeUri = pathToFileURL(cascadeFile).href;
+        assert.equal(fs.readFileSync(cascadeFile, "utf8"), CASCADE_SOURCE);
+        client.notify("textDocument/didOpen", {
+          textDocument: {
+            uri: cascadeUri,
+            languageId: "typescript",
+            version: 1,
+            text: CASCADE_SOURCE,
+          },
+        });
+        try {
+          const actions = await client.request<CascadeAction[]>(
+            "textDocument/codeAction",
+            {
+              textDocument: { uri: cascadeUri },
+              range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: CASCADE_SOURCE.length },
+              },
+              context: { diagnostics: [], only: ["source.fixAll.ttsc"] },
+            },
+            60_000,
+          );
+          const action = actions.find(
+            (candidate) => candidate.command?.command === "ttsc.lint.fixAll",
+          );
+          assert.ok(action, "the native manifest must route ttsc.lint.fixAll");
+          assert.equal(action.kind, "source.fixAll.ttsc");
+          const edit = await client.request<CascadeEdit>(
+            "workspace/executeCommand",
+            {
+              command: "ttsc.lint.fixAll",
+              arguments: [cascadeUri],
+            },
+            60_000,
+          );
+          const edits = edit.changes?.[cascadeUri] ?? [];
+          assert.deepEqual(Object.keys(edit.changes ?? {}), [cascadeUri]);
+          assert.equal(edits.length, 1);
+          assert.deepEqual(
+            edits[0]?.range,
+            {
+              start: { line: 0, character: 0 },
+              end: { line: 0, character: CASCADE_SOURCE.length },
+            },
+            "the whole-source edit retains the astral UTF-16 range",
+          );
+          assert.equal(
+            edits[0]?.newText,
+            CASCADE_FIXED,
+            "the three-rule cascade reaches its const/equality fixed point",
+          );
+          assert.equal(
+            fs.readFileSync(cascadeFile, "utf8"),
+            CASCADE_SOURCE,
+            "native editor commands return edits without changing disk",
+          );
+        } finally {
+          client.notify("textDocument/didClose", {
+            textDocument: { uri: cascadeUri },
+          });
+        }
+      }
+      await change(client, tsconfig, withoutPlugins);
+    }, true);
 
     // 3. A dependency that publishes a plugin.
     const previous = fs.existsSync(manifest)
