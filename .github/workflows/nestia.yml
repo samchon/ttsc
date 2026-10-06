@@ -13,7 +13,7 @@ jobs:
       TTSC_GO_BINARY: go
       TTSC_CACHE_DIR: ${{ github.workspace }}/node_modules/.cache/ttsc
       GOCACHE: ${{ github.workspace }}/node_modules/.cache/ttsc/go-build
-      GOMODCACHE: ${{ github.workspace }}/node_modules/.cache/ttsc/go-mod
+      GOMODCACHE: ${{ runner.temp }}/nestia-go-modules
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -27,6 +27,13 @@ jobs:
         with:
           go-version-file: packages/ttsc/go.mod
           cache: false
+      - name: Cache Go modules before the candidate build
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GOMODCACHE }}
+          key: ttsc-go-mod-v1-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'pnpm-lock.yaml', '.github/workflows/nestia.yml') }}
+          restore-keys: |
+            ttsc-go-mod-v1-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
@@ -52,9 +59,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: node_modules/.cache/ttsc
-          key: ttsc-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*', 'experimental/nestia/packages/*/test/**/*.go') }}
+          key: ttsc-artifacts-v2-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*', 'experimental/nestia/packages/*/test/**/*.go') }}
           restore-keys: |
-            ttsc-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
+            ttsc-artifacts-v2-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
       - run: node .github/workflows/scripts/nestia-source-admission.cjs admit experimental/nestia
       - run: pnpm build
         working-directory: experimental/nestia
