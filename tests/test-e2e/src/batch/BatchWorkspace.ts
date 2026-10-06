@@ -701,6 +701,11 @@ export namespace BatchWorkspace {
       );
       const workspaceRequire = createRequire(import.meta.url);
       fs.symlinkSync(
+        path.dirname(workspaceRequire.resolve("mocha/package.json")),
+        path.join(modules, "mocha"),
+        "junction",
+      );
+      fs.symlinkSync(
         path.dirname(workspaceRequire.resolve("tslib/package.json")),
         path.join(modules, "tslib"),
         "junction",
