@@ -67,7 +67,9 @@ func (r *projectInputReader) Unavailable() {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
 func (r *projectInputReader) record(name string, digest *string, physical *string) {
-  name = filepath.Clean(name)
+  absolute, err := filepath.Abs(name)
+  if err != nil { r.Unavailable(); return }
+  name = filepath.Clean(absolute)
   r.mu.Lock(); defer r.mu.Unlock()
   prior, seen := r.inputs[name]
   if seen && (!equalObservedString(prior, digest) || !equalObservedString(r.realpaths[name], physical)) { r.incomplete = true }
@@ -103,12 +105,12 @@ func (r *projectInputReader) ReadFile(name string) ([]byte, error) {
   }
   before, beforeErr := file.Stat()
   selectedBefore, selectedBeforeErr := os.Stat(name)
-  physicalBefore, physicalBeforeErr := filepath.EvalSymlinks(name)
+  physicalBefore, physicalBeforeErr := filepath.EvalSymlinks(absoluteInputName(name))
   content, readErr := io.ReadAll(file)
   after, afterErr := file.Stat()
   closeErr := file.Close()
   selected, selectedErr := os.Stat(name)
-  physical, physicalErr := filepath.EvalSymlinks(name)
+  physical, physicalErr := filepath.EvalSymlinks(absoluteInputName(name))
   stable := beforeErr == nil && afterErr == nil && selectedBeforeErr == nil && selectedErr == nil &&
     physicalBeforeErr == nil && physicalErr == nil && physicalBefore == physical &&
     os.SameFile(before, selectedBefore) && os.SameFile(before, after) && os.SameFile(after, selected) &&
@@ -131,14 +133,14 @@ func (r *projectInputReader) ReadFile(name string) ([]byte, error) {
 func (r *projectInputReader) Stat(name string) (os.FileInfo, error) {
   info, err := os.Stat(name)
   if err != nil {
-    if os.IsNotExist(err) { r.compiler.observe(name, observedInput{proof: transformInputObservation{Stat: stringPointer("missing")}}) } else { r.Unavailable() }
+    if os.IsNotExist(err) { r.observe(name, observedInput{proof: transformInputObservation{Stat: stringPointer("missing")}}) } else { r.Unavailable() }
     return info, err
   }
   kind := "file"
   if info.IsDir() { kind = "directory" } else if !info.Mode().IsRegular() { r.Unavailable() }
-  physical, physicalErr := filepath.EvalSymlinks(name)
+  physical, physicalErr := filepath.EvalSymlinks(absoluteInputName(name))
   if physicalErr != nil { r.Unavailable(); return info, err }
-  r.compiler.observe(name, observedInput{proof: transformInputObservation{Stat: &kind, Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
+  r.observe(name, observedInput{proof: transformInputObservation{Stat: &kind, Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
   return info, err
 }
 
@@ -153,7 +155,7 @@ func (r *projectInputReader) Stat(name string) (os.FileInfo, error) {
 func (r *projectInputReader) Lstat(name string) (os.FileInfo, error) {
   info, err := os.Lstat(name)
   if err != nil {
-    if os.IsNotExist(err) { r.compiler.observe(name, observedInput{proof: transformInputObservation{Stat: stringPointer("missing")}}) } else { r.Unavailable() }
+    if os.IsNotExist(err) { r.observe(name, observedInput{proof: transformInputObservation{Stat: stringPointer("missing")}}) } else { r.Unavailable() }
     return info, err
   }
   // A symlink's own metadata has no representation in the compiler protocol.
@@ -161,9 +163,9 @@ func (r *projectInputReader) Lstat(name string) (os.FileInfo, error) {
   if info.Mode()&os.ModeSymlink != 0 { r.Unavailable(); return info, err }
   kind := "file"
   if info.IsDir() { kind = "directory" } else if !info.Mode().IsRegular() { r.Unavailable() }
-  physical, physicalErr := filepath.EvalSymlinks(name)
+  physical, physicalErr := filepath.EvalSymlinks(absoluteInputName(name))
   if physicalErr != nil { r.Unavailable(); return info, err }
-  r.compiler.observe(name, observedInput{proof: transformInputObservation{Stat: &kind, Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
+  r.observe(name, observedInput{proof: transformInputObservation{Stat: &kind, Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
   return info, err
 }
 
@@ -194,9 +196,9 @@ func (r *projectInputReader) ReadDir(name string) ([]os.DirEntry, error) {
     if entry.IsDir() { directories = append(directories, entry.Name()) } else { files = append(files, entry.Name()) }
   }
   sort.Strings(files); sort.Strings(directories)
-  physical, physicalErr := filepath.EvalSymlinks(name)
+  physical, physicalErr := filepath.EvalSymlinks(absoluteInputName(name))
   if physicalErr != nil { r.Unavailable(); return entries, err }
-  r.compiler.observe(name, observedInput{proof: transformInputObservation{DirectoryExists: boolPointer(true), AccessibleEntries: &transformInputEntriesObservation{Files: files, Directories: directories}, Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
+  r.observe(name, observedInput{proof: transformInputObservation{DirectoryExists: boolPointer(true), AccessibleEntries: &transformInputEntriesObservation{Files: files, Directories: directories}, Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
   return entries, err
 }
 
@@ -214,7 +216,7 @@ func (r *projectInputReader) Readlink(name string) (string, error) {
   before, beforeErr := os.Lstat(name)
   target, err := os.Readlink(name)
   after, afterErr := os.Lstat(name)
-  physical, physicalErr := filepath.EvalSymlinks(name)
+  physical, physicalErr := filepath.EvalSymlinks(absoluteInputName(name))
   stable := beforeErr == nil && afterErr == nil && os.SameFile(before, after) && before.Mode() == after.Mode() && before.Size() == after.Size() && before.ModTime().Equal(after.ModTime())
   encoded := ""
   if stable {
@@ -231,7 +233,8 @@ func (r *projectInputReader) Readlink(name string) (string, error) {
   sum := sha256.Sum256([]byte(encoded))
   predicate := nativeInputPredicate{Version: 1, Kind: "entry", Digest: hex.EncodeToString(sum[:]), IdentityStable: true, Realpath: realpath, Scope: "cache"}
   r.mu.Lock()
-  key := filepath.Clean(name)
+  key := filepath.Clean(absoluteInputName(name))
+  if !filepath.IsAbs(key) { r.incomplete = true }
   if prior, exists := r.nativeInputs[key]; exists && (prior.Digest != predicate.Digest || !equalObservedString(prior.Realpath, predicate.Realpath)) { r.incomplete = true }
   r.nativeInputs[key] = predicate
   r.mu.Unlock()
@@ -249,7 +252,7 @@ func (r *projectInputReader) Readlink(name string) (string, error) {
 func (r *projectInputReader) EvalSymlinks(name string) (string, error) {
   physical, err := filepath.EvalSymlinks(name)
   if err != nil { r.Unavailable(); return physical, err }
-  r.compiler.observe(name, observedInput{proof: transformInputObservation{Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
+  r.observe(name, observedInput{proof: transformInputObservation{Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(absoluteInputName(physical))}}})
   return physical, err
 }
 
@@ -297,4 +300,38 @@ func (r *projectInputReader) walk(name string, entry fs.DirEntry, visit fs.WalkD
     }
   }
   return nil
+}
+
+// absoluteInputName records the same address the OS call resolved against its
+// current working directory; it does not reinterpret a contributor path as
+// project-root-relative or change that call's native result/error spelling.
+//
+// @evidence contracts/common.md#principled-implementation filepath.Abs anchors the caller's spelling to the actual process cwd used by native relative-path operations.
+// @evidence contracts/common.md#clear-and-simple-design One helper provides absolute wire coordinates independently of the caller-facing native answer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No project-root substitution or later filesystem read manufactures the address.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies process cwd ownership and preserved result/error spelling.
+// @evidence contracts/portability.md#os-neutral-implementation The native filepath package owns volume/root and relative spelling rules.
+// @evidence contracts/performance.md#efficient-algorithms Resolves one spelling with path-byte cost and a cwd query when relative.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This helper caches no cwd or address across calls.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It acquires no handle or retained state.
+func absoluteInputName(name string) string {
+  absolute, err := filepath.Abs(name)
+  if err != nil { return name }
+  return absolute
+}
+
+// observe records a native predicate only with an absolute call address.
+//
+// @evidence contracts/common.md#principled-implementation A failed cwd/absolute conversion withdraws completeness instead of dropping an observed relative input silently.
+// @evidence contracts/common.md#clear-and-simple-design Native reader operations delegate coordinate normalization to this single ledger bridge.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No project root or later input query replaces a missing native address.
+// @evidence contracts/common.md#meaningful-documentation The comment identifies the absolute-coordinate and missing-address contract.
+// @evidence contracts/portability.md#os-neutral-implementation filepath.Abs uses native process-cwd and volume semantics.
+// @evidence contracts/performance.md#efficient-algorithms Normalizes one path and delegates fixed predicate storage/comparison to the compiler ledger.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This bridge caches no address across calls.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It delegates retained observations to the Program ledger without acquiring a handle.
+func (r *projectInputReader) observe(name string, value observedInput) {
+  absolute, err := filepath.Abs(name)
+  if err != nil { r.Unavailable(); return }
+  r.compiler.observe(absolute, value)
 }

@@ -20,7 +20,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification RunCheckWithIO returns status2 and TS2322 while its private result retains the loaded source graph and actual JSON config fingerprint. Direct reader calls preserve BOM bytes, compiler decoding remains distinct, WalkDir sorts and skips, nil generations publish false, unsupported input contributors withdraw authority, and an updated Program cannot inherit the prior graph.
 // @evidence contracts/testing.md#independent-expectations The authored number/string assignment must report TS2322, fixed source adjacency must include index.ts, raw BOM bytes and SHA256 are independently authored, nil authority must be false, and literal WalkDir visit names prescribe traversal. The JSON file fingerprint must retain version1, file kind, watch scope and stable identity.
-// @evidence contracts/testing.md#distinguishing-cases Failed check with valid Program differs from nil Program and unsupported contributor; raw and decoded BOM hashes differ; skipped children are absent; the file fingerprint retains its raw-byte encoding; update invalidates the old generation.
+// @evidence contracts/testing.md#distinguishing-cases Failed check with valid Program differs from nil Program and unsupported contributor; raw and decoded BOM hashes differ; relative native reads retain absolute wire coordinates; skipped children are absent; the file fingerprint retains its raw-byte encoding; update invalidates the old generation.
 // @evidence contracts/testing.md#execution-ownership This Go unit invokes the owning standalone host APIs in-process with temporary files, buffers and one loaded Program. It restores the prior contributor registration and closes the Program, with no CLI process, extra compiler generation for proof or E2E fixture loop.
 func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
   root := t.TempDir()
@@ -72,6 +72,10 @@ func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
   if err != nil || !bytes.Equal(actual, raw) { t.Fatalf("raw reader changed bytes: %x %v", actual, err) }
   decoded, ok := prog.inputObserver.ReadFile(document)
   if !ok || decoded != "# Before\n" { t.Fatalf("compiler text changed its decoder contract: %q %v", decoded, ok) }
+  t.Chdir(root)
+  relativeRaw, err := prog.inputReader.ReadFile("document.md")
+  if err != nil || !bytes.Equal(relativeRaw, raw) { t.Fatalf("relative raw read: %x %v", relativeRaw, err) }
+  if _, relative := prog.inputReader.inputs["document.md"]; relative { t.Fatal("relative spelling escaped absolute wire coordinates") }
   rawSum := sha256.Sum256(raw)
   if *prog.inputReader.inputs[document] != hex.EncodeToString(rawSum[:]) { t.Fatal("raw host hash substituted decoded compiler text") }
   proof, failure := prog.inputObserver.predicateProof(document)
