@@ -32,6 +32,8 @@ export namespace BatchWorkspace {
     graphNegativeRoot: string;
     /** Wrapper discovery is outside the shared root's eligible lint config. */
     lintWrapperRoot: string;
+    /** Independent default-cache maintenance owner, without a prior consumer. */
+    descriptorCollectionRoot: string;
     cache: string;
     installedTtsx: string;
     programRunLog: string;
@@ -472,6 +474,14 @@ export namespace BatchWorkspace {
         files: wrapper.files.map((file) => path.resolve(original, file)),
       }));
     }
+    const descriptorCollectionRoot = path.join(
+      fs.realpathSync.native(graphNegativeRoot), "descriptor-collection",
+    );
+    await FileSystemIterator.write(descriptorCollectionRoot,
+      await FileSystemIterator.read(path.join(root, "tools/descriptor-collection")));
+    // The native default-cache resolver recognizes this real installation
+    // boundary. No package is installed in the graph-negative root itself.
+    fs.mkdirSync(path.join(descriptorCollectionRoot, "node_modules"));
     await FileSystemIterator.write(
       path.join(root, "tools/public-lint"),
       await FileSystemIterator.read(
@@ -1558,6 +1568,7 @@ export namespace BatchWorkspace {
       expected,
       graphNegativeRoot,
       lintWrapperRoot,
+      descriptorCollectionRoot,
       installedTtsx,
       installationOnly,
       sourcePublication,

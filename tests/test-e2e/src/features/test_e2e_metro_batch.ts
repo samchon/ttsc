@@ -12,6 +12,7 @@ import { pathToFileURL } from "node:url";
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
+import { RuntimeLoaderCapabilities } from "../../../../packages/ttsc/lib/launcher/internal/runtime/RuntimeLoaderCapabilities";
 import { CapabilityResolutionFormat } from "../../../../packages/ttsc/lib/plugin/internal/CapabilityResolutionFormat";
 import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/internal/load/loadProjectPlugins";
 import { pluginModuleReplaceDirectories } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginModuleReplaceDirectories";
@@ -71,6 +72,13 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * ApplyProgram receipts. These precede, and do not satisfy, the separate
  * initial one-Program sharing assertion. No additional Node worker is started.
  * Cache withdrawal schedules disposal; the worker close is joined separately.
+ * Descriptor and capability reuse additionally require the selected Node
+ * evaluator's actual public resolve-hook capability, independently probed by
+ * the existing recorder. Supported observation retains exact cache-hit and
+ * publication assertions. Missing capability instead requires fresh factory
+ * calls, explicit incomplete proof and no reusable answer publication. Default
+ * maintenance borrows one upfront normal package outside prior cache consumers;
+ * neither runtime versions nor operating-system names select these assertions.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
@@ -78,7 +86,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. Later deliveries retain that publication despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
  * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both cache-root queries use the actual platform before native admission, so their directory creation cannot introduce an extra input epoch; the selected Program independently reports that same native comparison policy. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one new real probe tick without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and two actual native producer invocations are costs; recorded native departure is separately acquired and native preparation totals remain unmeasured. The timed holder joins before the resident pool starts, so synchronous descriptor and metadata operations cannot starve its in-flight lock polling. Both independent failures are collected; an unresolved holder retains the workspace and refuses subsequent shared reuse. A live external bundler watcher remains unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
@@ -92,8 +100,11 @@ export async function test_e2e_metro_batch(): Promise<void> {
     () => deadCompilerClaimCorpus(workspace),
     runResidentLoaderPool,
   ]) {
-    try { await operation(); }
-    catch (error) { failures.push(error); }
+    try {
+      await operation();
+    } catch (error) {
+      failures.push(error);
+    }
   }
   if (failures.length)
     throw new AggregateError(
@@ -655,8 +666,20 @@ async function runResidentLoaderPool(): Promise<void> {
   );
   const descriptorEnv = {
     ...process.env,
+    TTSC_NODE_BINARY: process.execPath,
     GOFLAGS: "-tags=ttsc_build_environment_probe_baseline",
   };
+  // This existing recorder probes the actual public hook consulted by the
+  // evaluator's selected executable, not a Node-version or OS assumption.
+  const runtimeRequireResolveAvailable = RuntimeLoaderCapabilities.requireResolveConsultsHooks();
+  const recorderRequireResolveAvailable = (
+    createRequire(import.meta.url)(
+      path.join(
+        TestProject.WORKSPACE_ROOT,
+        "packages/ttsc/driver/resolutioninputs/recorder.cjs",
+      ),
+    ) as { requireResolveConsultsHooks(): boolean }
+  ).requireResolveConsultsHooks();
   // One physical descriptor, dependency, settings file and native producer own
   // these observation-authority epochs. Rows change the declared read contract;
   // they do not allocate projects, launch old recipes or reset a row's cache.
@@ -671,6 +694,11 @@ async function runResidentLoaderPool(): Promise<void> {
     const counter = path.join(traceRoot, "descriptor-" + observation + ".txt");
     const entry = {
       ...nativeProbe,
+      ...(observation === "collection"
+        ? {
+            transform: path.join(workspace.root, "descriptors/default.cjs"),
+          }
+        : {}),
       cacheObservation: observation,
       evaluationCounter: counter,
     };
@@ -680,15 +708,34 @@ async function runResidentLoaderPool(): Promise<void> {
         : descriptorEnv;
     const load = (
       env: NodeJS.ProcessEnv = effectiveDescriptorEnv,
-    ): string | undefined =>
-      loadProjectPlugins({
+    ): string | undefined => {
+      const loaded = loadProjectPlugins({
         binary: TestProject.TSGO_BINARY,
-        cwd: workspace.root,
+        cwd:
+          observation === "collection"
+            ? workspace.descriptorCollectionRoot
+            : workspace.root,
         cacheDir: observation === "collection" ? undefined : descriptorCache,
         entries: [entry],
         env,
-        tsconfig: configPath,
-      }).nativePlugins[0]?.name;
+        tsconfig:
+          observation === "collection"
+            ? path.join(workspace.descriptorCollectionRoot, "tsconfig.json")
+            : configPath,
+      });
+      if (!descriptorReuseAvailable)
+        assert.equal(
+          loaded.observationsComplete,
+          false,
+          "the independently unsupported resolve observer cannot certify this descriptor",
+        );
+      if (!descriptorReuseAvailable && observation !== "collection") {
+        const directory = path.join(descriptorCache, "descriptors");
+        assert.deepEqual(fs.existsSync(directory) ? fs.readdirSync(directory).filter((file) => file.endsWith(".json")) : [], [],
+          "an independently unavailable observer must not persist any descriptor answer in this fresh namespace");
+      }
+      return loaded.nativePlugins[0]?.name;
+    };
     const evaluations = (): number =>
       fs.existsSync(counter) ? fs.readFileSync(counter, "utf8").length : 0;
     try {
@@ -757,15 +804,30 @@ async function runResidentLoaderPool(): Promise<void> {
       }
       if (observation === "collection") {
         const descriptors = path.join(
-          workspace.root,
+          workspace.descriptorCollectionRoot,
           "node_modules/.cache/ttsc/descriptors",
         );
         assert.equal(
           fs.existsSync(descriptors),
           false,
-          "the same prepared workspace owns a fresh default descriptor cache",
+          "the independent upfront package owns a fresh default descriptor cache",
         );
         assert.equal(load(), "collected");
+        if (!descriptorReuseAvailable) {
+          assert.equal(
+            fs.existsSync(descriptors),
+            false,
+            "incomplete observation must not publish an evaluator answer",
+          );
+          assert.equal(load(), "collected");
+          assert.equal(
+            evaluations(),
+            2,
+            "both unsupported-observer requests must execute a fresh factory",
+          );
+          assert.equal(fs.existsSync(descriptors), false);
+          continue;
+        }
         const entries = fs
           .readdirSync(descriptors)
           .filter((name) => name.endsWith(".json"));
@@ -784,7 +846,7 @@ async function runResidentLoaderPool(): Promise<void> {
         assert.equal(load(), "collected");
         assert.equal(
           evaluations(),
-          1,
+          descriptorReuseAvailable ? 1 : 2,
           "the aged in-use answer must be reused before collection",
         );
         assert.equal(
@@ -813,8 +875,8 @@ async function runResidentLoaderPool(): Promise<void> {
         assert.equal(load(), "first");
         assert.equal(
           evaluations(),
-          1,
-          "an unchanged CJS module graph is reused",
+          descriptorReuseAvailable ? 1 : 2,
+          "an observed CJS graph reuses its evaluation; an independently unsupported observer must evaluate each request",
         );
         fs.writeFileSync(
           descriptorModule,
@@ -825,14 +887,14 @@ async function runResidentLoaderPool(): Promise<void> {
           "second",
           "the isolated CJS generation must load the edited dependency value",
         );
-        assert.equal(evaluations(), 2);
+        assert.equal(evaluations(), descriptorReuseAvailable ? 2 : 3);
         assert.equal(
           load({ ...descriptorEnv, DESCRIPTOR_PROBE: "changed" }),
           "second",
         );
         assert.equal(
           evaluations(),
-          3,
+          descriptorReuseAvailable ? 3 : 4,
           "an effective evaluator environment change cannot borrow the earlier generation",
         );
       } else {
@@ -840,8 +902,8 @@ async function runResidentLoaderPool(): Promise<void> {
           assert.equal(load(), "first");
           assert.equal(
             evaluations(),
-            1,
-            "the exact declared settings SHA permits evaluation reuse",
+            descriptorReuseAvailable ? 1 : 2,
+            "declared settings plus available module observation permit reuse; unsupported observation requires fresh evaluation",
           );
         }
         fs.writeFileSync(descriptorSettings, '{"name":"second"}\n');
@@ -853,7 +915,7 @@ async function runResidentLoaderPool(): Promise<void> {
         );
         assert.equal(
           evaluations(),
-          2,
+          observation === "qualified" && !descriptorReuseAvailable ? 3 : 2,
           "missing or changed read authority must re-evaluate: " + observation,
         );
       }
@@ -2165,7 +2227,13 @@ async function runResidentLoaderPool(): Promise<void> {
             fs.mkdirSync(wrapperRoot, { recursive: true });
             const capture = path.join(root, "argv.jsonl");
             const script = path.join(wrapperRoot, "capture.cjs");
-            fs.copyFileSync(path.join(workspace.root, "tools/native-tool-capture/capture.cjs"), script);
+            fs.copyFileSync(
+              path.join(
+                workspace.root,
+                "tools/native-tool-capture/capture.cjs",
+              ),
+              script,
+            );
             const wrapper = path.join(wrapperRoot, "go.cmd");
             fs.writeFileSync(
               wrapper,
@@ -2201,7 +2269,10 @@ async function runResidentLoaderPool(): Promise<void> {
               TTSC_GO_DELAYED: "WRONG_DIRECTORY",
               TTSC_GO_EXPANDS: "WRONG_DIRECTORY",
               TTSC_GO_TEST_NODE: process.execPath,
-              TTSC_GO_METADATA_BINARY: resolveGoCompiler({ ...process.env, TTSC_GO_BINARY: "" }).binary,
+              TTSC_GO_METADATA_BINARY: resolveGoCompiler({
+                ...process.env,
+                TTSC_GO_BINARY: "",
+              }).binary,
               SET_VALUE: "WRONG_ARGUMENT",
             };
             for (const args of commands) {
@@ -2942,6 +3013,7 @@ async function runResidentLoaderPool(): Promise<void> {
   const capabilityEnvironment = {
     TTSC_BINARY: TestProject.TSGO_BINARY,
     TTSC_CACHE_DIR: capabilityCache,
+    TTSC_NODE_BINARY: process.execPath,
     GOFLAGS: baselineBuildEnv.GOFLAGS,
     TTSC_E2E_TRACE: traceRoot,
   };
@@ -2982,7 +3054,7 @@ async function runResidentLoaderPool(): Promise<void> {
     );
     return file!;
   };
-  const capabilityIdentity = (): { binary: string; inode: string } => {
+  const capabilityIdentity = (): { binary: string; inode: string | null } => {
     const traceOffsets = Object.fromEntries(
       fs
         .readdirSync(traceRoot)
@@ -3004,6 +3076,14 @@ async function runResidentLoaderPool(): Promise<void> {
     assert.equal(answer.length, 1);
     assert.equal(fs.existsSync(answer[0]!.binary), true);
     const file = capabilityRecord();
+    if (!descriptorReuseAvailable) {
+      assert.equal(resolution.status, "resolved");
+      assert.equal(resolution.isCurrent(), false,
+        "a runtime without independent resolve observation cannot certify a reusable capability answer");
+      assert.equal(fs.existsSync(file), false,
+        "the actual capability may be returned without publishing unproved reusable authority");
+      return { binary: answer[0]!.binary, inode: null };
+    }
     assert.equal(
       fs.existsSync(file),
       true,
@@ -3052,21 +3132,21 @@ async function runResidentLoaderPool(): Promise<void> {
       first,
       "unchanged proof must retain the actual binary and answer record",
     );
-    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), "x");
+    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), descriptorReuseAvailable ? "x" : "xx");
     fs.appendFileSync(capabilityProducer, "\n// capability source epoch\n");
     const edited = capabilityIdentity();
     assert.notEqual(edited.binary, first.binary);
-    assert.notEqual(edited.inode, first.inode);
+    if (descriptorReuseAvailable) assert.notEqual(edited.inode, first.inode);
     assert.equal(
       fs.readFileSync(capabilityCounter, "utf8"),
-      "x",
+      descriptorReuseAvailable ? "x" : "xxx",
       "unchanged descriptor evaluation survives a source-only rebuild",
     );
     applyCapabilityEnvironment({ GOFLAGS: "-tags=ttsc_capability_probe" });
     const flagged = capabilityIdentity();
     assert.notEqual(flagged.binary, edited.binary);
-    assert.notEqual(flagged.inode, edited.inode);
-    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), "xx");
+    if (descriptorReuseAvailable) assert.notEqual(flagged.inode, edited.inode);
+    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), descriptorReuseAvailable ? "xx" : "xxxx");
     const ignored = path.join(
       path.dirname(nativeProbe.fixtureSource),
       "node_modules/capability-ignored/index.js",
@@ -3551,20 +3631,10 @@ async function runResidentLoaderPool(): Promise<void> {
     cacheDir: workspace.cache,
     projectRoot: workspace.root,
   });
-  const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
-  let siblingCase: boolean;
-  try {
-    Object.defineProperty(process, "platform", {
-      ...platform,
-      value: process.platform === "linux" ? "darwin" : "linux",
-    });
-    siblingCase = compilerUsesCaseSensitiveFileNames({
-      cacheDir: path.join(workspace.root, "sibling-case-cache"),
-      projectRoot: workspace.root,
-    });
-  } finally {
-    Object.defineProperty(process, "platform", platform);
-  }
+  const siblingCase = compilerUsesCaseSensitiveFileNames({
+    cacheDir: path.join(workspace.root, "sibling-case-cache"),
+    projectRoot: workspace.root,
+  });
   const descriptorFailureRoot = path.join(
     workspace.root,
     "descriptor-process-flow",
@@ -4425,7 +4495,7 @@ async function runResidentLoaderPool(): Promise<void> {
     assert.equal(
       siblingCase,
       nativeCase,
-      "the physical root proxy must agree with this actual Program despite the apparent platform",
+      "both actual-platform cache-root queries must agree with this Program's native comparison policy",
     );
     finalRecord = projectRecordFile;
     for (const input of [declaration, candidate])
