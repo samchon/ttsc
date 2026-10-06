@@ -33,7 +33,12 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  * recorded-state validator responsible for proof. A named event rejected by
  * lexical membership policy can still be a native alias of a program path. It
  * withdraws notification authority without asserting a structural change;
- * recorded-state validation supplies the actual verdict. Named events also
+ * recorded-state validation supplies the actual verdict. Content witnesses
+ * preserve captured native input aliases, then reject only an observed normal
+ * directory excluded in both lexical and native spellings. Unknown, missing
+ * and linked ancestry remains conservative. Membership rejection still
+ * withdraws notification authority even when content is outside the walk.
+ * Named events also
  * compare current native identity and case policy with the retained identity
  * transaction. Retargeting withdraws notification authority without changing
  * the meaning of earlier recorded event spellings.
@@ -44,6 +49,8 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  *   A lexical nonmatch is uncertainty rather than native alias exclusion.
  *   Changed native identity premises also withdraw notification proof while
  *   membership and content witnesses keep their independent classifications.
+ *   Content exclusion requires normal directory identity and both policy
+ *   spellings; captured native input aliases remain content witnesses.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One root, directory index and filter set define the tracker; broker and local
  *   paths share those decisions rather than duplicating backend-specific policies.
@@ -65,6 +72,10 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  *   include path text, supplied membership patterns and native metadata work.
  *   Each named event resolves its path and directory in a fresh transaction,
  *   including native ancestor and case-probe listing costs when required.
+ *   Construction indexes captured input identities. An uncaptured possible
+ *   content path may inspect each ancestor with two lstat calls and realpath
+ *   until a proven exclusion; identity resolution and policy matching retain
+ *   their native-query/pattern costs. No file bytes or extra watcher are read.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   One retained identity context and known-directory index serve event overlap;
  *   process-wide native producers share watches where their backend permits it,
@@ -73,7 +84,7 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  *   changing its entries would reinterpret earlier witnesses, so mismatches
  *   withdraw authority instead. A quiet stream alone cannot restore that proof.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Generation-owned directory indexes and watched coverage grow with the walk;
+ *   Generation-owned directory/input-identity indexes and watched coverage grow with the walk;
  *   diagnostic paths stay bounded at eight. Close marks failed before retiring
  *   all acquired local handles or the broker registration.
  *   A recursive root can own many admitted backend directory handles. The
@@ -163,6 +174,61 @@ export async function createProjectMutationTracker(
     if (!membership) tracker.unverified = true;
     return membership;
   };
+  // Content belongs to the walk too. A recursive native backend can report
+  // activity below directories the directory-level backend never opens.
+  // Preserve native aliases of captured inputs before excluding any subtree.
+  let inputIdentityKeys: Set<string> | undefined;
+  try {
+    inputIdentityKeys = new Set(
+      [...covered].map((file) => pathIdentityKey(file, identities)),
+    );
+  } catch {
+    tracker.unverified = true;
+  }
+  const reportsContent = (location: string, filename: string): boolean => {
+    if (!isPossibleProgramFileName(paths.basename(filename), policy)) return false;
+    const changed = paths.resolve(location, filename);
+    if (covered.has(changed)) return true;
+    if (inputIdentityKeys === undefined) return true;
+    try {
+      const current = createHostPathIdentityContext(filesystem);
+      if (
+        inputIdentityKeys.has(pathIdentityKey(changed, identities)) ||
+        inputIdentityKeys.has(pathIdentityKey(changed, current))
+      ) return true;
+    } catch {
+      tracker.unverified = true;
+      return true;
+    }
+    const relative = paths.relative(root, paths.dirname(changed));
+    if (
+      relative === ".." ||
+      relative.startsWith(".." + paths.sep) ||
+      paths.isAbsolute(relative)
+    ) return true;
+    let directory = root;
+    for (const component of relative.split(paths.sep).filter(Boolean)) {
+      directory = paths.join(directory, component);
+      try {
+        const before = filesystem.lstat(directory);
+        if (!before.isDirectory() || before.isSymbolicLink()) return true;
+        const physical = filesystem.realpath(directory);
+        const after = filesystem.lstat(directory);
+        if (
+          !after.isDirectory() || after.isSymbolicLink() ||
+          before.dev !== after.dev || before.ino !== after.ino
+        ) return true;
+        if (
+          !isProjectWalkDirectory(directory, policy, filesystem.platform) &&
+          !isProjectWalkDirectory(physical, policy, filesystem.platform)
+        ) return false;
+      } catch {
+        // Missing/deleted ancestors and unknown native spellings remain events.
+        return true;
+      }
+    }
+    return true;
+  };
   const reportsNewMembership = (
     location: string,
     filename: string,
@@ -181,8 +247,7 @@ export async function createProjectMutationTracker(
       {
         filters: {
           changeAddsMembership: reportsNewMembership,
-          content: (_location, filename) =>
-            isPossibleProgramFileName(paths.basename(filename), policy),
+          content: reportsContent,
           membership: reportsMembership,
         },
         probeRoot: root,
@@ -214,9 +279,7 @@ export async function createProjectMutationTracker(
             (eventType === "rename" || reportsNewMembership(root, filename))
           ) {
             recordProjectMutation(tracker, changed);
-          } else if (
-            isPossibleProgramFileName(paths.basename(filename), policy)
-          ) {
+          } else if (reportsContent(root, filename)) {
             recordProjectChange(tracker, changed);
           }
         },
