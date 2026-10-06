@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import type { ITtscCompilerTransformation } from "ttsc";
 
 import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
@@ -11,6 +12,7 @@ import { pluginSourceState } from "../../../../../packages/unplugin/src/core/tra
 import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
 import type { TtscHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/TtscHostInputValidation";
 import { matchesUniversalHostInputs } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputs";
+import { nativeInputPredicatesHold } from "../../../../../packages/unplugin/src/core/transform/validation/nativeInputPredicatesHold";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -27,9 +29,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Name package.json changed and require success with only that one touch.
  * 3. Clear the change and unproven set and require success with no file touches.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual matchesUniversalHostInputs three times over authored tracker/manifest inputs. Exact touch lists empty/package.json/empty distinguish per-input qualification from an all-or-nothing recheck; existence, lstat, readFile, realpath, stat and statBigInt are counted on the two file spellings.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual matchesUniversalHostInputs three times over authored tracker/manifest inputs. Exact touch lists empty/package.json/empty distinguish per-input qualification from an all-or-nothing recheck; existence, lstat, readFile, realpath, stat and statBigInt are counted on the two file spellings. Direct native gate calls distinguish absent graph, empty native predicate array and legacy-only observations without constructing a project derivation for this scoped validator carrier.
  * @evidence contracts/testing.md#independent-expectations Qualified silence belongs to each covered input. Literal touch lists follow that supported policy, independent of validator loop structure or source-provider output. Actual inputMetadataSignature and pluginSourceState supply baseline setup only, not expected scan counts or independent digest encoding.
- * @evidence contracts/testing.md#distinguishing-cases Two proven files beside one unproven tree contrast with a named changed manifest and finally all-proven coverage. Actual metadata/state must be available; the changed file remains unchanged on disk so its direct metadata proof succeeds. This case measures only the two file spellings, not tree/toolchain work or event transport.
+ * @evidence contracts/testing.md#distinguishing-cases Two proven files beside one unproven tree contrast with a named changed manifest and finally all-proven coverage. Absent, empty and legacy-only native populations contribute no native replay constraints; the owning graph-observation unit separately retains nonempty native mutation/refusal assertions. Actual metadata/state must be available; the changed file remains unchanged on disk so its direct metadata proof succeeds. This case measures only the two file spellings, not tree/toolchain work or event transport.
  * @evidence contracts/testing.md#execution-ownership This discoverable direct unit owns the original four literal fixture files, actual validation operations and native Go environment inputs. Authored tracker fields are supported comparator arguments, not native-watch certification. It builds no compiler/plugin artifact and starts no watcher, installed consumer or host; E2E donor and native broker connection remain preserved.
  */
 export async function test_universal_inputs_their_tracker_proves_are_not_read_beside_one_it_cannot(): Promise<void> {
@@ -62,7 +64,7 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
     stat: count(DEFAULT_FILESYSTEM_OPERATIONS.stat),
     statBigInt: count(DEFAULT_FILESYSTEM_OPERATIONS.statBigInt),
   };
-  const result = { type: "success", typescript: {} };
+  const result: ITtscCompilerTransformation.ISuccess = { type: "success", typescript: {} };
   TRANSFORM_RESULT_FILESYSTEM.set(result as never, filesystem);
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
@@ -78,6 +80,12 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
     hostInputMutationTracker: tracker,
     result,
   } as unknown as TtscCachedProjectTransform;
+  assert.equal(nativeInputPredicatesHold(cached), true, "no graph owns no native predicates");
+  result.graph = { edges: {}, inputObservations: { "config.json": { nativePredicates: [] } } };
+  assert.equal(nativeInputPredicatesHold(cached), true, "an empty native population requires no root derivation");
+  result.graph.inputObservations = { "config.json": { stat: "file" } };
+  assert.equal(nativeInputPredicatesHold(cached), true, "legacy observations remain with their existing proof owners");
+  delete result.graph;
   const entry = (file: string) => {
     const signature = inputMetadataSignature(file);
     assert.ok(signature, "native entry metadata must be readable");
