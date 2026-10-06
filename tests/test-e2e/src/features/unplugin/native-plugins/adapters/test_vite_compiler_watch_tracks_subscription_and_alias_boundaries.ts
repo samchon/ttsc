@@ -4,10 +4,9 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
-
 import { captureWatchInputBaseline } from "../../../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
 import { createViteServeInputWatch } from "../../../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
 
 /**

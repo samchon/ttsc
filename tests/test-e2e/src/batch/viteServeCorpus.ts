@@ -55,7 +55,10 @@ export async function viteServeCorpus(
       if (fs.existsSync(candidate)) fs.unlinkSync(candidate);
       const generated = path.join(root, "node_modules/@types/generated");
       if (fs.existsSync(generated)) fs.rmSync(generated, { recursive: true });
-      const unrelated = path.join(path.dirname(root), "vite-serve-unrelated.ts");
+      const unrelated = path.join(
+        path.dirname(root),
+        "vite-serve-unrelated.ts",
+      );
       if (fs.existsSync(unrelated)) fs.unlinkSync(unrelated);
     } catch (error) {
       errors.push(error);

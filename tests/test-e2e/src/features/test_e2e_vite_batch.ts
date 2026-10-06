@@ -6,11 +6,10 @@ import path from "node:path";
 import type { RollupOutput, RollupWatcher } from "rollup";
 import { build } from "vite";
 
-import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
-
 import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.mjs";
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
 import { projectRecordFile } from "../../../../packages/unplugin/lib/core/bridge/projectRecordFile.mjs";
+import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { viteServeCorpus } from "../batch/viteServeCorpus";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";

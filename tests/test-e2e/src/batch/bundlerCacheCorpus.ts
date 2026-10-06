@@ -15,7 +15,9 @@ import { BatchWorkspace } from "./BatchWorkspace";
 
 // Webpack's filesystem cache reads its own CommonJS require.cache. Use the
 // native CommonJS entry rather than Node 22.15's imported-CJS translator.
-const webpack = createRequire(import.meta.url)("webpack") as typeof import("webpack");
+const webpack = createRequire(import.meta.url)(
+  "webpack",
+) as typeof import("webpack");
 
 /**
  * Preserve real adapter cache frontiers with the original filesystem producer.

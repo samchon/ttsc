@@ -4,15 +4,22 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
-import { maxFunctionCount, physicalRealpath, runTtsxWithCoverage, sourceMapSourcePath } from "../internal/ttsc/internal/ttsx-source-map";
+import {
+  maxFunctionCount,
+  physicalRealpath,
+  runTtsxWithCoverage,
+  sourceMapSourcePath,
+} from "../internal/ttsc/internal/ttsx-source-map";
 import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
  * Verifies actual V8 coverage and stack consumers share the same source maps.
  *
  * 1. Borrow one upfront root and two independently configured dependencies.
- * 2. Run root sourceMap true and false, recording used/unused functions and all throws.
- * 3. Require real inline maps, physical source paths and independent stack coordinates.
+ * 2. Run root sourceMap true and false, recording used/unused functions and all
+ *    throws.
+ * 3. Require real inline maps, physical source paths and independent stack
+ *    coordinates.
  *
  * @evidence contracts/testing.md#behavioral-verification Two real installed ttsx sessions call three used exports, leave three unused exports uncalled, record three thrown stacks and rethrow an actual error. Every V8 script has nonnull map data naming its independently observed physical TypeScript file; unused stays zero and used stays positive. Authored root/dependency throw locations remain exactly12:9 and14:9 in both root configurations.
  * @evidence contracts/testing.md#independent-expectations Checked-in tall-comment source bytes establish used/unused intent and literal throw coordinates; native realpath independently establishes each source identity. Actual V8 coverage and native Error stacks supply observations, never expected data.
@@ -27,65 +34,180 @@ export function runtimeMapsCorpus(workspace: BatchWorkspace.Workspace): void {
   const root = path.join(workspace.root, "tools/runtime-maps");
   const config = path.join(root, "tsconfig.json");
   const original = fs.readFileSync(config);
-  const originals = new Map([
-    "package.json", "tsconfig.json", "src/main.ts", "src/library.ts", "src/boom.ts",
-    ...["mapped", "forced"].flatMap((mode) => ["package.json", "tsconfig.json", "src/index.ts"].map((file) => "packages/" + mode + "/" + file)),
-  ].map((file) => [file, fs.readFileSync(path.join(root, file))]));
+  const originals = new Map(
+    [
+      "package.json",
+      "tsconfig.json",
+      "src/main.ts",
+      "src/library.ts",
+      "src/boom.ts",
+      ...["mapped", "forced"].flatMap((mode) =>
+        ["package.json", "tsconfig.json", "src/index.ts"].map(
+          (file) => "packages/" + mode + "/" + file,
+        ),
+      ),
+    ].map((file) => [file, fs.readFileSync(path.join(root, file))]),
+  );
   const nodeModules = path.join(root, "node_modules");
   fs.mkdirSync(nodeModules);
   for (const mode of ["mapped", "forced"])
-    fs.symlinkSync(path.join(root, "packages", mode), path.join(nodeModules, "map-" + mode), "junction");
+    fs.symlinkSync(
+      path.join(root, "packages", mode),
+      path.join(nodeModules, "map-" + mode),
+      "junction",
+    );
   const failures: unknown[] = [];
   let unresolved = false;
-  const capture = (name: string, body: () => void): void => { try { body(); } catch (error) { failures.push(new Error(name, { cause: error })); } };
+  const capture = (name: string, body: () => void): void => {
+    try {
+      body();
+    } catch (error) {
+      failures.push(new Error(name, { cause: error }));
+    }
+  };
   try {
     for (const sourceMap of [true, false]) {
-      if (unresolved) { failures.push(new Error("preceding map actor has unresolved ownership")); break; }
-      fs.writeFileSync(config, JSON.stringify({ ...JSON.parse(original.toString("utf8")), compilerOptions: { ...JSON.parse(original.toString("utf8")).compilerOptions, sourceMap } }));
-      const recorder = path.join(workspace.cache, "runtime-map-coverage-" + sourceMap);
+      if (unresolved) {
+        failures.push(
+          new Error("preceding map actor has unresolved ownership"),
+        );
+        break;
+      }
+      fs.writeFileSync(
+        config,
+        JSON.stringify({
+          ...JSON.parse(original.toString("utf8")),
+          compilerOptions: {
+            ...JSON.parse(original.toString("utf8")).compilerOptions,
+            sourceMap,
+          },
+        }),
+      );
+      const recorder = path.join(
+        workspace.cache,
+        "runtime-map-coverage-" + sourceMap,
+      );
       fs.mkdirSync(recorder);
       const spawn: typeof TestProject.spawn = (_script, args, options) => {
-        const result = TestProject.spawn(process.execPath, [workspace.installedTtsx, ...args], { ...options, env: { ...options?.env, TTSC_BINARY: undefined, TTSC_TSGO_BINARY: undefined } });
+        const result = TestProject.spawn(
+          process.execPath,
+          [workspace.installedTtsx, ...args],
+          {
+            ...options,
+            env: {
+              ...options?.env,
+              TTSC_BINARY: undefined,
+              TTSC_TSGO_BINARY: undefined,
+            },
+          },
+        );
         if (!isOrdinarilyClosedReadonlyLauncher(result)) {
           unresolved = true;
-          BatchWorkspace.retain("map actor ordinary closure remained unresolved");
-          throw new Error("map actor ordinary closure remained unresolved", { cause: result.error });
+          BatchWorkspace.retain(
+            "map actor ordinary closure remained unresolved",
+          );
+          throw new Error("map actor ordinary closure remained unresolved", {
+            cause: result.error,
+          });
         }
-        try { process.kill(result.pid, 0); unresolved = true; throw new Error("map actor PID remained live"); }
-        catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") { unresolved = true; BatchWorkspace.retain("map actor PID departure remained unresolved"); throw error; } }
+        try {
+          process.kill(result.pid, 0);
+          unresolved = true;
+          throw new Error("map actor PID remained live");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+            unresolved = true;
+            BatchWorkspace.retain(
+              "map actor PID departure remained unresolved",
+            );
+            throw error;
+          }
+        }
         return result;
       };
       let run: ReturnType<typeof runTtsxWithCoverage>;
-      try { run = runTtsxWithCoverage(root, "src/main.ts", { TTSC_CACHE_DIR: workspace.cache }, spawn, recorder); }
-      catch (error) { failures.push(error); continue; }
+      try {
+        run = runTtsxWithCoverage(
+          root,
+          "src/main.ts",
+          { TTSC_CACHE_DIR: workspace.cache },
+          spawn,
+          recorder,
+        );
+      } catch (error) {
+        failures.push(error);
+        continue;
+      }
       capture("sourceMap=" + sourceMap + " execution", () => {
         assert.notEqual(run.status, 0, "actual rethrow must fail the run");
         assert.match(run.stdout, /^used ran\|used ran\|used ran$/m);
-        const line = run.stdout.split(/\r?\n/).find((line) => line.startsWith("TTSC_MAP_STACKS:"));
+        const line = run.stdout
+          .split(/\r?\n/)
+          .find((line) => line.startsWith("TTSC_MAP_STACKS:"));
         assert.ok(line, run.stdout + run.stderr);
-        const records = JSON.parse(line.slice("TTSC_MAP_STACKS:".length)) as { name: string; threw: boolean; stack?: string }[];
-        assert.deepEqual(records.map(({ name, threw }) => ({ name, threw })), [{ name: "boom", threw: true }, { name: "depBoom", threw: true }, { name: "forcedBoom", threw: true }]);
-        for (const [index, file, coordinate, functionName] of [[0, "src/boom.ts", "12:9", "boom"], [1, "packages/mapped/src/index.ts", "14:9", "depBoom"], [2, "packages/forced/src/index.ts", "14:9", "depBoom"]] as const)
-          assert.ok(records[index]?.stack?.includes("at " + functionName + " (" + physicalRealpath(path.join(root, file)) + ":" + coordinate + ")"), records[index]?.stack);
+        const records = JSON.parse(line.slice("TTSC_MAP_STACKS:".length)) as {
+          name: string;
+          threw: boolean;
+          stack?: string;
+        }[];
+        assert.deepEqual(
+          records.map(({ name, threw }) => ({ name, threw })),
+          [
+            { name: "boom", threw: true },
+            { name: "depBoom", threw: true },
+            { name: "forcedBoom", threw: true },
+          ],
+        );
+        for (const [index, file, coordinate, functionName] of [
+          [0, "src/boom.ts", "12:9", "boom"],
+          [1, "packages/mapped/src/index.ts", "14:9", "depBoom"],
+          [2, "packages/forced/src/index.ts", "14:9", "depBoom"],
+        ] as const)
+          assert.ok(
+            records[index]?.stack?.includes(
+              "at " +
+                functionName +
+                " (" +
+                physicalRealpath(path.join(root, file)) +
+                ":" +
+                coordinate +
+                ")",
+            ),
+            records[index]?.stack,
+          );
       });
-      for (const relative of ["src/library.ts", "packages/mapped/src/index.ts", "packages/forced/src/index.ts"])
+      for (const relative of [
+        "src/library.ts",
+        "packages/mapped/src/index.ts",
+        "packages/forced/src/index.ts",
+      ])
         capture("sourceMap=" + sourceMap + " coverage " + relative, () => {
           const script = run.scriptEndingWith(relative);
           assert.ok(script, "actual V8 script: " + relative);
           assert.notEqual(script.sourceMap, null, "actual V8 inline map data");
           const source = sourceMapSourcePath(script);
           assert.ok(source);
-          assert.equal(physicalRealpath(source), physicalRealpath(path.join(root, relative)));
+          assert.equal(
+            physicalRealpath(source),
+            physicalRealpath(path.join(root, relative)),
+          );
           assert.equal(maxFunctionCount(script, "unused"), 0);
           assert.ok(maxFunctionCount(script, "used") >= 1);
         });
     }
-  } finally { if (!unresolved) fs.writeFileSync(config, original); }
+  } finally {
+    if (!unresolved) fs.writeFileSync(config, original);
+  }
   if (!unresolved) {
     for (const [file, bytes] of originals)
-      capture("unchanged map source " + file, () => assert.deepEqual(fs.readFileSync(path.join(root, file)), bytes));
+      capture("unchanged map source " + file, () =>
+        assert.deepEqual(fs.readFileSync(path.join(root, file)), bytes),
+      );
     for (const output of ["lib", "packages/mapped/lib", "packages/forced/lib"])
-      capture("private map outputs " + output, () => assert.equal(fs.existsSync(path.join(root, output)), false));
+      capture("private map outputs " + output, () =>
+        assert.equal(fs.existsSync(path.join(root, output)), false),
+      );
   }
-  if (failures.length) throw new AggregateError(failures, "actual runtime map consumers failed");
+  if (failures.length)
+    throw new AggregateError(failures, "actual runtime map consumers failed");
 }

@@ -11,7 +11,9 @@ import { runRspackShared } from "../batch/runRspackShared";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 
-const webpack = createRequire(import.meta.url)("webpack") as typeof import("webpack");
+const webpack = createRequire(import.meta.url)(
+  "webpack",
+) as typeof import("webpack");
 
 /**
  * Verifies webpack loader transport and source-map publication in one build.

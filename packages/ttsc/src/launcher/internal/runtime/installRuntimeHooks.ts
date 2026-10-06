@@ -1830,11 +1830,13 @@ function serveProjectEmit(real: string): ServedSource | null {
   const operations = {
     owningTsconfig,
     ensureProjectBuilt,
-    isEmptyProjectEmitError: (error: unknown) => error instanceof EmptyProjectEmitError,
+    isEmptyProjectEmitError: (error: unknown) =>
+      error instanceof EmptyProjectEmitError,
     serve: serveBuiltDependency,
     ensureRootBuilt,
   };
-  if (!process.env.TTSC_E2E_TRACE) return OwnedProjectSource.serve(real, operations);
+  if (!process.env.TTSC_E2E_TRACE)
+    return OwnedProjectSource.serve(real, operations);
   let selectedTsconfig: string | undefined;
   let buildScope: string | undefined;
   const served = OwnedProjectSource.serve(real, {

@@ -182,7 +182,10 @@ export async function nativeWatchCorpus(
     fs.copyFileSync(rule, path.join(ignoredPackage, "ignored.go"));
     await session.waitForQuiet(3_000);
     assert.deepEqual(samples(session.transcript().slice(ignoredBoundary)), []);
-    fs.writeFileSync(source, "var legacy = 1;\nJSON.stringify(legacy);\nexport function echo(value) { return value; }\n");
+    fs.writeFileSync(
+      source,
+      "var legacy = 1;\nJSON.stringify(legacy);\nexport function echo(value) { return value; }\n",
+    );
     await cycle(12);
     const healthy = session.transcript();
     const healthyCount = (healthy.match(/TS7006/g) ?? []).length;

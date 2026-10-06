@@ -134,11 +134,15 @@ export async function deadCompilerClaimCorpus(
         120000,
       );
     } catch (error) {
-      throw new Error("actual holder acquisition failed: " + JSON.stringify({
-        holder: holder.result ?? "close not observed",
-        locks: locks(),
-        nativePids: nativePids(),
-      }), { cause: error });
+      throw new Error(
+        "actual holder acquisition failed: " +
+          JSON.stringify({
+            holder: holder.result ?? "close not observed",
+            locks: locks(),
+            nativePids: nativePids(),
+          }),
+        { cause: error },
+      );
     }
     const lock = locks()[0]!;
     const token = fs.readFileSync(path.join(session, lock, "owner"), "utf8");

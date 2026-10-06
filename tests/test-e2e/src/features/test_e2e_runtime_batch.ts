@@ -961,8 +961,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   }
   if (!workspace.installationOnly) {
     await BatchWorkspace.open();
-    try { runtimeMapsCorpus(workspace); }
-    catch (error) { combinedFailures.push(error); }
+    try {
+      runtimeMapsCorpus(workspace);
+    } catch (error) {
+      combinedFailures.push(error);
+    }
   }
   if (combinedFailures.length === 1) throw combinedFailures[0];
   if (combinedFailures.length > 1)

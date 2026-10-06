@@ -335,7 +335,9 @@ export namespace BatchWorkspace {
   async function prepare(): Promise<Workspace> {
     // Choose one native spelling before authoring absolute config/cwd inputs.
     // Intentional project aliases below remain separately authored inputs.
-    const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-shared-boundaries-"));
+    const root = fs.realpathSync.native(
+      TestProject.tmpdir("ttsc-shared-boundaries-"),
+    );
     // Retain throughout the run. The runner explicitly releases only its own
     // completed consumers; a rejected or unknown lifetime keeps all inputs.
     TestProject.retainTemporaryDirectory(
@@ -461,7 +463,11 @@ export namespace BatchWorkspace {
     );
     for (const name of ["native-vite-watch", "native-vite-external"])
       fs.mkdirSync(path.join(root, "tools", name), { recursive: true });
-    fs.symlinkSync(path.dirname(fs.realpathSync.native(process.execPath)), path.join(root, "tools/service/runtime-node"), "junction");
+    fs.symlinkSync(
+      path.dirname(fs.realpathSync.native(process.execPath)),
+      path.join(root, "tools/service/runtime-node"),
+      "junction",
+    );
     const runtimeFailureStorage = path.join(
       root,
       "tools/runtime-cache-failure/storage",
@@ -498,11 +504,27 @@ export namespace BatchWorkspace {
       path.join(serveDeclarations, "index.d.ts"),
     );
     fs.mkdirSync(path.join(root, "tools/vite-serve/node_modules/@types"));
-    fs.symlinkSync(path.join(root, "tools/vite-serve/packages/linked-pkg"), path.join(root, "tools/vite-serve/node_modules/linked-pkg"), "junction");
+    fs.symlinkSync(
+      path.join(root, "tools/vite-serve/packages/linked-pkg"),
+      path.join(root, "tools/vite-serve/node_modules/linked-pkg"),
+      "junction",
+    );
     const lintConfigRoot = path.join(root, "tools/native-lint-config");
     fs.mkdirSync(path.join(lintConfigRoot, ".next/types"), { recursive: true });
-    fs.copyFileSync(path.join(lintConfigRoot, "templates/next-types.ts"), path.join(lintConfigRoot, ".next/types/generated.ts"));
-    for (const [name, target] of [["@ttsc/lint", path.join(TestProject.WORKSPACE_ROOT, "packages/lint")], ["lint-contributor-demo", path.join(TestProject.WORKSPACE_ROOT, "packages/lint/test/lint-contributor-demo")]]) {
+    fs.copyFileSync(
+      path.join(lintConfigRoot, "templates/next-types.ts"),
+      path.join(lintConfigRoot, ".next/types/generated.ts"),
+    );
+    for (const [name, target] of [
+      ["@ttsc/lint", path.join(TestProject.WORKSPACE_ROOT, "packages/lint")],
+      [
+        "lint-contributor-demo",
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages/lint/test/lint-contributor-demo",
+        ),
+      ],
+    ]) {
       const link = path.join(lintConfigRoot, "node_modules", name!);
       fs.mkdirSync(path.dirname(link), { recursive: true });
       fs.symlinkSync(target!, link, "junction");

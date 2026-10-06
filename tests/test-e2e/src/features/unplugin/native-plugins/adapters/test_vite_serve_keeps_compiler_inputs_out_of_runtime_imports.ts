@@ -119,15 +119,37 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     events = await observeReloadEvents(server);
     if (preparedRoot !== undefined) {
       try {
-        await assertFixtureDerivesMissingCandidate({ app: root, linkedPackage: path.join(root, "packages/linked-pkg"), mainFile: path.join(root, "src/candidates.ts"), typeRoot: path.join(root, "node_modules/@types"), missingCandidate: path.join(root, "node_modules/linked-pkg/index.ts"), supersedingSource: path.join(root, "packages/linked-pkg/index.ts") });
+        await assertFixtureDerivesMissingCandidate({
+          app: root,
+          linkedPackage: path.join(root, "packages/linked-pkg"),
+          mainFile: path.join(root, "src/candidates.ts"),
+          typeRoot: path.join(root, "node_modules/@types"),
+          missingCandidate: path.join(root, "node_modules/linked-pkg/index.ts"),
+          supersedingSource: path.join(root, "packages/linked-pkg/index.ts"),
+        });
         const candidate = await server.transformRequest("/src/candidates.ts");
         assert.ok(candidate);
-        const node = await server.environments.client.moduleGraph.getModuleByUrl("/src/candidates.ts");
+        const node =
+          await server.environments.client.moduleGraph.getModuleByUrl(
+            "/src/candidates.ts",
+          );
         assert.ok(node.transformResult);
-        fs.writeFileSync(path.join(path.dirname(root), "vite-serve-unrelated.ts"), "export const unrelated = 1;\n");
+        fs.writeFileSync(
+          path.join(path.dirname(root), "vite-serve-unrelated.ts"),
+          "export const unrelated = 1;\n",
+        );
         await new Promise((resolve) => setTimeout(resolve, 1600));
-        assert.ok(node.transformResult, "unrecorded external creation must preserve the actual cold candidate importer");
-      } catch (error) { failures.push(new Error("cold missing candidates and unrelated negative", { cause: error })); }
+        assert.ok(
+          node.transformResult,
+          "unrecorded external creation must preserve the actual cold candidate importer",
+        );
+      } catch (error) {
+        failures.push(
+          new Error("cold missing candidates and unrelated negative", {
+            cause: error,
+          }),
+        );
+      }
     }
     for (const ssr of [false, true])
       assert.match((await request(ssr)).code, /INITIAL/);
@@ -197,24 +219,70 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     await server.restart();
     assert.match((await request()).code, /RECOVERED/);
     if (preparedRoot !== undefined) {
-      const restartedCandidate = await server.transformRequest("/src/candidates.ts");
-      assert.ok(restartedCandidate, "unchanged absent candidate must remain loadable after the actual server restart");
+      const restartedCandidate =
+        await server.transformRequest("/src/candidates.ts");
+      assert.ok(
+        restartedCandidate,
+        "unchanged absent candidate must remain loadable after the actual server restart",
+      );
       for (const [label, mutate] of [
-        ["automatic type-root membership", () => { const generated = path.join(root, "node_modules/@types/generated"); fs.mkdirSync(generated); fs.writeFileSync(path.join(generated, "index.d.ts"), "declare const generatedTypeRootMember: unique symbol;\n"); }],
-        ["superseding TypeScript candidate", () => fs.writeFileSync(path.join(root, "packages/linked-pkg/index.ts"), 'export const linked: string = "ts";\n')],
+        [
+          "automatic type-root membership",
+          () => {
+            const generated = path.join(root, "node_modules/@types/generated");
+            fs.mkdirSync(generated);
+            fs.writeFileSync(
+              path.join(generated, "index.d.ts"),
+              "declare const generatedTypeRootMember: unique symbol;\n",
+            );
+          },
+        ],
+        [
+          "superseding TypeScript candidate",
+          () =>
+            fs.writeFileSync(
+              path.join(root, "packages/linked-pkg/index.ts"),
+              'export const linked: string = "ts";\n',
+            ),
+        ],
       ] as const) {
-        let candidateEvents: Awaited<ReturnType<typeof observeReloadEvents>> | undefined;
+        let candidateEvents:
+          | Awaited<ReturnType<typeof observeReloadEvents>>
+          | undefined;
         try {
           assert.ok(await server.transformRequest("/src/candidates.ts"));
-          const node = await server.environments.client.moduleGraph.getModuleByUrl("/src/candidates.ts");
+          const node =
+            await server.environments.client.moduleGraph.getModuleByUrl(
+              "/src/candidates.ts",
+            );
           assert.ok(node.transformResult);
           candidateEvents = await observeReloadEvents(server);
           mutate();
-          await waitFor(() => !node.transformResult, label + " must invalidate its cached importer");
-          await waitFor(() => candidateEvents!.some((event) => event.type === "full-reload"), label + " must send an actual HMR full reload");
+          await waitFor(
+            () => !node.transformResult,
+            label + " must invalidate its cached importer",
+          );
+          await waitFor(
+            () =>
+              candidateEvents!.some((event) => event.type === "full-reload"),
+            label + " must send an actual HMR full reload",
+          );
           assert.ok(await server.transformRequest("/src/candidates.ts"));
-        } catch (error) { if (error instanceof AggregateError && error.message === "HMR startup and closure") clientJoined = false; failures.push(new Error(label, { cause: error })); }
-        finally { try { await candidateEvents?.close(); } catch (error) { clientJoined = false; failures.push(error); } }
+        } catch (error) {
+          if (
+            error instanceof AggregateError &&
+            error.message === "HMR startup and closure"
+          )
+            clientJoined = false;
+          failures.push(new Error(label, { cause: error }));
+        } finally {
+          try {
+            await candidateEvents?.close();
+          } catch (error) {
+            clientJoined = false;
+            failures.push(error);
+          }
+        }
       }
     }
     const restarted = (await nodes())[0];

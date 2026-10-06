@@ -3422,7 +3422,11 @@ async function runResidentLoaderPool(): Promise<void> {
           GOFLAGS: baselineBuildEnv.GOFLAGS,
         },
       }).transform();
-      assert.equal(result.type, stage === "transform" ? "success" : "failure", JSON.stringify(result));
+      assert.equal(
+        result.type,
+        stage === "transform" ? "success" : "failure",
+        JSON.stringify(result),
+      );
       assert.equal(result.hostInputs?.includes(descriptorSettings), true);
       assert.equal(
         Object.hasOwn(result.hostInputHashes ?? {}, descriptorSettings),
