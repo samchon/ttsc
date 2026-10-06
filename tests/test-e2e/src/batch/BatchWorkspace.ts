@@ -34,6 +34,8 @@ export namespace BatchWorkspace {
     lintWrapperRoot: string;
     /** Independent default-cache maintenance owner, without a prior consumer. */
     descriptorCollectionRoot: string;
+    /** Editor source/config island; command copies exclude other actor assets. */
+    lspEditorRoot: string;
     cache: string;
     /** Relative CLI contrast stays local even with an external absolute cache. */
     runtimeCliCache: string;
@@ -1616,6 +1618,42 @@ export namespace BatchWorkspace {
         path.join(runtimeRace, "package.json"),
       );
     }
+    // Editor commands copy their actual project root to protect saved bytes.
+    // Keep its complete source and Evidence inputs without copying native
+    // producers, bundler outputs or other actors' mutable tools on each command.
+    const lspEditorRoot = path.join(root, "tools/lsp-editor");
+    if (!installationOnly) {
+      fs.mkdirSync(lspEditorRoot, { recursive: true });
+      for (const directory of ["src", "native-errors", "docs"])
+        fs.cpSync(path.join(root, directory), path.join(lspEditorRoot, directory), {
+          recursive: true,
+        });
+      fs.copyFileSync(
+        path.join(root, "lint.config.cjs"),
+        path.join(lspEditorRoot, "lint.config.cjs"),
+      );
+      const editorConfig = JSON.parse(
+        fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"),
+      );
+      const editorLint = editorConfig.compilerOptions.plugins.find(
+        (entry: { transform?: string }) => entry.transform === "@ttsc/lint",
+      );
+      assert.ok(editorLint, "editor preparation requires the actual lint plugin");
+      editorConfig.compilerOptions.plugins = [editorLint];
+      fs.writeFileSync(
+        path.join(lspEditorRoot, "tsconfig.json"),
+        JSON.stringify(editorConfig),
+      );
+      fs.writeFileSync(
+        path.join(lspEditorRoot, "package.json"),
+        JSON.stringify({
+          name: "ttsc-editor-boundary-corpus",
+          private: true,
+          type: "commonjs",
+        }),
+      );
+      fs.symlinkSync(modules, path.join(lspEditorRoot, "node_modules"), "junction");
+    }
     return {
       allocatedRoot,
       root,
@@ -1623,6 +1661,7 @@ export namespace BatchWorkspace {
       graphNegativeRoot,
       lintWrapperRoot,
       descriptorCollectionRoot,
+      lspEditorRoot,
       installedTtsx,
       installationOnly,
       sourcePublication,

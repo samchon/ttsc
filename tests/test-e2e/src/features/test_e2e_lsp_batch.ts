@@ -122,8 +122,8 @@ const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
  */
 async function runEditorCorpus() {
   const workspace = await BatchWorkspace.open();
-  const project = { tmpdir: workspace.root };
-  const configPath = path.join(workspace.root, "tsconfig.json");
+  const project = { tmpdir: workspace.lspEditorRoot };
+  const configPath = path.join(workspace.lspEditorRoot, "tsconfig.json");
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
   config.compilerOptions.rootDir = ".";
   config.include = [
@@ -140,7 +140,7 @@ async function runEditorCorpus() {
     (entry: { transform?: string }) => entry.transform === "@ttsc/lint",
   );
   assert.ok(lintEntry, "the actual lint contributor must remain selected");
-  const languageRoot = path.join(workspace.root, "tools/lint-language");
+  const languageRoot = path.join(workspace.lspEditorRoot, "tools/lint-language");
   fs.cpSync(
     path.resolve(
       import.meta.dirname,
@@ -212,18 +212,18 @@ async function runEditorCorpus() {
   );
   lintEntry.configFile = "./lint.lsp.config.cjs";
   fs.renameSync(
-    path.join(workspace.root, "lint.config.cjs"),
-    path.join(workspace.root, "lint-shared-base.cjs"),
+    path.join(workspace.lspEditorRoot, "lint.config.cjs"),
+    path.join(workspace.lspEditorRoot, "lint-shared-base.cjs"),
   );
   fs.writeFileSync(
-    path.join(workspace.root, "lint.lsp.base.config.cjs"),
+    path.join(workspace.lspEditorRoot, "lint.lsp.base.config.cjs"),
     `const base = require("./lint-shared-base.cjs");
 const graph = base.rules["evidence/graph"][1];
 module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "error", "evidence/graph": ["error", { ...graph, claims: [...graph.claims, { type: "markdown", files: ["review.md"], symbol: "h2", reference: { type: "typescript", root: "./external", files: ["*.ts"], symbol: "property" } }] }] } };
 `,
   );
   fs.writeFileSync(
-    path.join(workspace.root, "lint.lsp.cascade.config.cjs"),
+    path.join(workspace.lspEditorRoot, "lint.lsp.cascade.config.cjs"),
     `module.exports = {
   extends: "./tools/lint-language/ttsc-lint.config.json",
   files: ["src/editor-cascade.ts"],
@@ -232,7 +232,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
 `,
   );
   fs.writeFileSync(
-    path.join(workspace.root, "lint.lsp.config.cjs"),
+    path.join(workspace.lspEditorRoot, "lint.lsp.config.cjs"),
     `module.exports = {
   extends: "./lint.lsp.cascade.config.cjs",
   files: ["src/editor-format.ts"],
@@ -241,15 +241,15 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
 `,
   );
   fs.copyFileSync(
-    path.join(workspace.root, "native-errors/lsp-default-decoy.json"),
-    path.join(workspace.root, "lint.config.json"),
+    path.join(workspace.lspEditorRoot, "native-errors/lsp-default-decoy.json"),
+    path.join(workspace.lspEditorRoot, "lint.config.json"),
   );
   fs.writeFileSync(
-    path.join(workspace.root, "review.md"),
+    path.join(workspace.lspEditorRoot, "review.md"),
     "## Review\n<!-- @link external/example.ts#value Reviews the value. -->\n",
   );
-  fs.mkdirSync(path.join(workspace.root, "external"), { recursive: true });
-  const evidenceTarget = path.join(workspace.root, "external/example.ts");
+  fs.mkdirSync(path.join(workspace.lspEditorRoot, "external"), { recursive: true });
+  const evidenceTarget = path.join(workspace.lspEditorRoot, "external/example.ts");
   fs.writeFileSync(evidenceTarget, "export const other = 1;\n");
   fs.writeFileSync(configPath, JSON.stringify(config));
   fs.writeFileSync(path.join(project.tmpdir, "src/editor.ts"), OPENED);
@@ -776,7 +776,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             ["alias-preset-valid.ts", null],
           ] as const) {
             const invalidFile = path.join(
-              workspace.root,
+              workspace.lspEditorRoot,
               "native-errors",
               name,
             );
@@ -893,7 +893,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
           );
           assert.equal(
             fs.readFileSync(
-              path.join(workspace.root, "lint.config.json"),
+              path.join(workspace.lspEditorRoot, "lint.config.json"),
               "utf8",
             ),
             '{"rules":{"no-console":"error"}}\n',
@@ -1293,7 +1293,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
  * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save. Ordinary supported shutdown and five intentionally terminal selection changes are different lifetimes, all required to settle.
  * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself. This is the single selected LSP entry. It acquires no host itself beyond the explicit bodies and aggregates every rejection.
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge. Editor notifications and native termination are actual process boundaries owned by the invoked bodies, not mocked policy calls.
- * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer, project and initialized server execute the ordered lifecycle using the explicit suite cache. This same launcher inherits the owned workspace as process cwd and omits --cwd, exercising native Getwd admission through its actual initialize, project diagnostics and joined shutdown. Direct runLSP tests own explicit --cwd projection; uninitialized EOF remains a separate unresolved boundary. The malformed command, ordinary fix, cascade fix and formatter are real native request costs within this graph, not a claimed single sidecar process or preparation with zero cost. They add no server or per-command project/profile. Shared availability is not a packed installation, cache-hit, child/build-total or Program-reuse assertion; direct rule units own separate semantic contributions and require their own selection/execution evidence. Both bodies borrow the same single preparation and shared source producer/cache, with disjoint upfront source/config islands and independent actual lifetimes.
+ * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer prepares a dedicated editor island with the complete original src/native-errors/docs population, actual module links and lint/Evidence configuration. Transform-only producers and other actors' tools/outputs are outside this command-copy root; their emission assertions remain in their owning batches. This same launcher inherits the island as process cwd and omits --cwd, exercising native Getwd admission through actual initialize, project diagnostics and joined shutdown. The malformed command, ordinary fix, cascade fix and formatter retain their real native requests and complete checker Programs; no deadline or rule is weakened. The independent terminal-selection island and five launcher lifetimes remain unchanged. Both bodies borrow the same preparation and source producer/cache; shared availability does not certify packed installation, cache hits, child/build totals or Program reuse.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned timer/listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure. Promise.allSettled joins both owners before error propagation. Each body alone owns its shutdown and restoration; failed or unknown closure retains shared inputs.
  * @evidence contracts/e2e.md#preserved-coverage Keeps every capability, range, severity, message, dirty/saved predicate, action target and exact WorkspaceEdit/disk assertion. Upfront disjoint alias islands preserve boolean/string and number/string native rejection plus a valid numeric twin; actual source wrapper units own leaf/JSONC/package-preset configuration derivation. This shared checker session does not claim it replays each original wrapper profile. Upfront LF/CR/CRLF saved documents retain buffer-only param/returns, exact edit and resolution, unchanged disk and outside-block negatives. The same upstream retains inferred legacy number, greet symbol and non-plugin completion after capability registration. Explicit configuration competes with discovered no-console-only JSON after the shared base is moved outside discovery names; positive no-var and negative no-console distinguish the handoff. Necessary internal checker updates are not old per-project launcher recipes, and their total is not asserted to be one. Retains the complete ordinary editor body and original config/dependency/source/descriptor selection terminal assertions. Actual extra launcher sessions number five; native/descendant totals remain unmeasured.
  */
