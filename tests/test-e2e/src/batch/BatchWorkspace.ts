@@ -459,6 +459,7 @@ export namespace BatchWorkspace {
     );
     for (const name of ["native-vite-watch", "native-vite-external"])
       fs.mkdirSync(path.join(root, "tools", name), { recursive: true });
+    fs.symlinkSync(path.dirname(fs.realpathSync.native(process.execPath)), path.join(root, "tools/service/runtime-node"), "junction");
     const runtimeFailureStorage = path.join(
       root,
       "tools/runtime-cache-failure/storage",

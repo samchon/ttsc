@@ -1,10 +1,12 @@
-import { E2eProcessTrace, TestUnpluginRuntime } from "@ttsc/testing";
+import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { RollupOutput, RollupWatcher } from "rollup";
 import { build } from "vite";
+
+import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 
 import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.mjs";
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";

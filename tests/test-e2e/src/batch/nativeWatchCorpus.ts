@@ -109,7 +109,7 @@ export async function nativeWatchCorpus(
     ];
     fs.writeFileSync(
       source,
-      "var legacy = 1;\nJSON.stringify(legacy);\nexport function echo(value) { return value; }\n",
+      "var legacy = 1;\nJSON.stringify(legacy);\nexport function echo(value: unknown) { return value; }\n",
     );
     await cycle(6);
     const duplicateBoundary = session.transcript().length;
@@ -182,6 +182,8 @@ export async function nativeWatchCorpus(
     fs.copyFileSync(rule, path.join(ignoredPackage, "ignored.go"));
     await session.waitForQuiet(3_000);
     assert.deepEqual(samples(session.transcript().slice(ignoredBoundary)), []);
+    fs.writeFileSync(source, "var legacy = 1;\nJSON.stringify(legacy);\nexport function echo(value) { return value; }\n");
+    await cycle(12);
     const healthy = session.transcript();
     const healthyCount = (healthy.match(/TS7006/g) ?? []).length;
     assert.ok(healthyCount >= 1, healthy);
@@ -192,7 +194,7 @@ export async function nativeWatchCorpus(
     );
     process.kill(moduleEpoch[0]!.pid);
     fs.appendFileSync(source, "// changed after actual resident death\n");
-    await cycle(12);
+    await cycle(13);
     assert.equal(
       (session.transcript().match(/TS7006/g) ?? []).length,
       healthyCount + 1,

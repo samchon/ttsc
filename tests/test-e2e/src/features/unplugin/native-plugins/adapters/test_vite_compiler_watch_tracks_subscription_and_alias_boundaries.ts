@@ -1,8 +1,10 @@
-import { E2eProcessTrace, TestProject } from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 
 import { captureWatchInputBaseline } from "../../../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
 import { createViteServeInputWatch } from "../../../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";

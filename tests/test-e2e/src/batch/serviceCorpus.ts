@@ -43,7 +43,8 @@ export async function serviceCorpus(
   );
   fs.symlinkSync(root, rootAlias, "junction");
   const executable = fs.realpathSync.native(process.execPath);
-  const relativeNode = path.relative(fs.realpathSync.native(root), executable);
+  const relativeNode = path.join("runtime-node", path.basename(executable));
+  assert.equal(fs.realpathSync.native(path.join(root, relativeNode)), executable);
   assert.notEqual(path.resolve(workspace.root, relativeNode), executable);
   const context = {
     cwd: workspace.root,
