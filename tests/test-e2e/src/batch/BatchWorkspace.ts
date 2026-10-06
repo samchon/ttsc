@@ -651,10 +651,10 @@ export namespace BatchWorkspace {
           "packages/lint/test/lint-contributor-demo",
         ),
       ],
-    ]) {
+    ] as const) {
       const link = path.join(lintConfigRoot, "node_modules", name);
       fs.mkdirSync(path.dirname(link), { recursive: true });
-      fs.symlinkSync(target!, link, "junction");
+      fs.symlinkSync(target, link, "junction");
     }
     const orphanPackage = path.join(
       root,
