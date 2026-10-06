@@ -459,6 +459,16 @@ export namespace BatchWorkspace {
     );
     for (const name of ["native-vite-watch", "native-vite-external"])
       fs.mkdirSync(path.join(root, "tools", name), { recursive: true });
+    const runtimeFailureStorage = path.join(root, "tools/runtime-cache-failure/storage");
+    for (const mode of ["root", "index"] as const) {
+      const original = path.join(runtimeFailureStorage, mode + "-original");
+      const victim = path.join(runtimeFailureStorage, mode + "-victim");
+      const cache = path.join(runtimeFailureStorage, mode + "-cache");
+      fs.mkdirSync(original, { recursive: true });
+      fs.mkdirSync(victim, { recursive: true });
+      if (mode === "index") fs.mkdirSync(cache);
+      fs.symlinkSync(original, mode === "root" ? cache : path.join(cache, "project"), process.platform === "win32" ? "junction" : "dir");
+    }
     const serveDeclarations = path.join(
       root,
       "tools/vite-serve/node_modules/types-only",

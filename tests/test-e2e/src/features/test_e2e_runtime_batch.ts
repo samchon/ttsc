@@ -6,6 +6,7 @@ import path from "node:path";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
+import { runtimeCacheFailureCorpus } from "../batch/runtimeCacheFailureCorpus";
 import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
 import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";
@@ -349,6 +350,12 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     try {
       await BatchWorkspace.open();
       await runtimeFrontdoorsCorpus(workspace);
+    } catch (error) {
+      combinedFailures.push(error);
+    }
+    try {
+      await BatchWorkspace.open();
+      await runtimeCacheFailureCorpus(workspace);
     } catch (error) {
       combinedFailures.push(error);
     }

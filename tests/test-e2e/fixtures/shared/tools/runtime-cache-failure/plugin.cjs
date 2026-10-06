@@ -1,0 +1,13 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const original = process.env.TTSC_TEST_ORIGINAL_RUNS;
+const victim = process.env.TTSC_TEST_VICTIM_RUNS;
+const alias = process.env.TTSC_TEST_RETARGET_ALIAS;
+const generations = fs.readdirSync(original);
+if (generations.length !== 1) throw new Error("expected exactly one allocated runtime generation");
+fs.rmSync(alias, { recursive: true, force: true });
+fs.symlinkSync(process.env.TTSC_TEST_RETARGET_TARGET, alias, process.platform === "win32" ? "junction" : "dir");
+const victimGeneration = path.join(victim, generations[0]);
+fs.mkdirSync(victimGeneration, { recursive: true });
+fs.writeFileSync(path.join(victimGeneration, "keep.txt"), "victim");
+module.exports = { name: "retarget", source: path.join(__dirname, "missing-plugin") };
