@@ -113,7 +113,8 @@ jobs:
         with:
           name: e2e-observations-${{ matrix.name }}-${{ github.run_attempt }}
           path: |
-            ${{ steps.e2e-trace.outputs.root }}/*.jsonl
-            ${{ steps.e2e-trace.outputs.root }}/*.jsonl.integrity
+            ${{ steps.e2e-trace.outputs.root }}/**/*.jsonl
+            ${{ steps.e2e-trace.outputs.root }}/**/*.jsonl.integrity
+            ${{ steps.e2e-trace.outputs.root }}/**/preparation-environment.json
           if-no-files-found: error
           retention-days: 7

@@ -75,10 +75,12 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * An independent tracked observation directory carries the real native
  * command/key/terminal receipts and the inherited cache selection. Successful
  * traces remain exit-owned; failed traces transfer to the reporting caller
- * before that cleanup. It retains no copied fixture or Go cache. Retention
- * failure accompanies the original error rather than replacing it. Descriptor
- * and capability reuse additionally require the selected Node evaluator's
- * actual public resolve-hook capability, independently probed by the existing
+ * before that cleanup. When the runner configures an observation sink, this
+ * allocation is its child so the artifact owner can collect the native
+ * receipts. It retains no copied fixture or Go cache. Retention failure
+ * accompanies the original error rather than replacing it. Descriptor and
+ * capability reuse additionally require the selected Node evaluator's actual
+ * public resolve-hook capability, independently probed by the existing
  * recorder. Supported observation retains exact cache-hit and publication
  * assertions. Missing capability instead requires fresh factory calls, explicit
  * incomplete proof and no reusable answer publication. Default maintenance
@@ -145,7 +147,13 @@ async function runResidentLoaderPool(): Promise<void> {
   );
   // The observation allocation owns only this invocation's trace files. It
   // cannot inherit the shared Go/plugin cache's unconditional exit cleanup.
-  const traceRoot = TestProject.tmpdir("ttsc-loader-pool-observations-");
+  const configuredTraceRoot = process.env.TTSC_E2E_TRACE;
+  if (configuredTraceRoot !== undefined)
+    assert.ok(path.isAbsolute(configuredTraceRoot));
+  const traceRoot = TestProject.tmpdir(
+    "ttsc-loader-pool-observations-",
+    configuredTraceRoot,
+  );
   try {
     fs.writeFileSync(
       path.join(traceRoot, "preparation-environment.json"),
