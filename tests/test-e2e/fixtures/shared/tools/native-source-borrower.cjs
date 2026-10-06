@@ -20,18 +20,40 @@ assert.equal(fs.existsSync(done), false);
 assert.equal(fs.existsSync(report), false);
 assert.equal(typeof process.env.TTSC_E2E_SOURCE_PUBLICATION, "string");
 assert.equal(typeof process.env.TTSC_E2E_ORPHAN_COMPILER, "string");
+// Both required race lowerings delegate to this same private executable.
+// The publication witness waits for its compiler child with command.Run();
+// returning from these actual loads establishes their process ownership,
+// not a claim that an unobserved OS metadata writer has stopped.
+const compilerRoot = path.join(root, "tools/source-publication/identity-compiler");
+assert.equal(fs.existsSync(compilerRoot), false);
+fs.cpSync(path.dirname(process.env.TTSC_E2E_ORPHAN_COMPILER), compilerRoot, { recursive: true });
+const compiler = path.join(compilerRoot, path.basename(process.env.TTSC_E2E_ORPHAN_COMPILER));
+fs.chmodSync(compiler, 0o755);
+const stamp = 1700000000;
+fs.utimesSync(compiler, stamp, stamp);
+const compilerBytes = fs.readFileSync(compiler);
+const preparationReport = path.join(root, "tools/source-publication/runtime-identity-preparation.json");
+const preparations = [];
 try {
   process.env.TTSC_TSGO_BINARY = process.env.TTSC_E2E_SOURCE_PUBLICATION;
-  process.env.ORPHAN_RACE_COMPILER = process.env.TTSC_E2E_ORPHAN_COMPILER;
+  process.env.ORPHAN_RACE_COMPILER = compiler;
   process.env.ORPHAN_RACE_SOURCE = source;
   process.env.ORPHAN_RACE_DONE = done;
+  const firstStartedAt = new Date().toISOString();
   const first = require(source).value;
+  preparations.push({ source, compiler, delegate: process.env.TTSC_TSGO_BINARY,
+    ownerPid: process.pid, startedAt: firstStartedAt, returnedAt: new Date().toISOString(), value: first });
+  fs.writeFileSync(preparationReport, JSON.stringify({ preparations }));
   assert.equal(first, "two", "the real delegate changes the bytes that are actually lowered");
   assert.equal(fs.existsSync(done), true, "the native mutation branch must execute");
   assert.equal(fs.readFileSync(source, "utf8"), 'export const value: string = "two";\n');
   fs.writeFileSync(source, original);
   delete require.cache[require.resolve(source)];
+  const secondStartedAt = new Date().toISOString();
   const second = require(source).value;
+  preparations.push({ source, compiler, delegate: process.env.TTSC_TSGO_BINARY,
+    ownerPid: process.pid, startedAt: secondStartedAt, returnedAt: new Date().toISOString(), value: second });
+  fs.writeFileSync(preparationReport, JSON.stringify({ preparations }));
   assert.equal(second, "one", "the raced emit must not poison the original source key");
   fs.writeFileSync(report, JSON.stringify({ first, second, nativeMutation: true }));
 } finally {
@@ -51,56 +73,6 @@ const manifest = RuntimeManifestRegistry.runtimeManifests().find((owner) => type
 assert.ok(manifest, "the actual runtime owner must name its orphan cache");
 const orphanCache = manifest.orphanCacheDir;
 const identitySource = path.join(path.dirname(source), "identity.ts");
-const compilerRoot = path.join(root, "tools/source-publication/identity-compiler");
-assert.equal(fs.existsSync(compilerRoot), false);
-fs.cpSync(path.dirname(process.env.TTSC_E2E_ORPHAN_COMPILER), compilerRoot, { recursive: true });
-const compiler = path.join(compilerRoot, path.basename(process.env.TTSC_E2E_ORPHAN_COMPILER));
-fs.chmodSync(compiler, 0o755);
-const stamp = 1700000000;
-fs.utimesSync(compiler, stamp, stamp);
-const compilerBytes = fs.readFileSync(compiler);
-// The copied compiler must perform the same native lowering operation before
-// the cache comparison epoch. --version alone did not establish that premise:
-// an actual lowering changed ctime between otherwise equal stable identities.
-// This preparation emits an independent source outside the orphan cache. It
-// neither supplies that cache's output nor permits a changed identity at its
-// subsequent admission. Rewriting the executable starts a new preparation
-// epoch and must still refuse the old marked artifact.
-const { RuntimeIsolatedEmit } = require(path.join(launcher, "internal/runtime/RuntimeIsolatedEmit.js"));
-const preparationSource = path.join(compilerRoot, "compiler-preparation.ts");
-const preparationOutput = path.join(compilerRoot, "preparation-output");
-fs.writeFileSync(preparationSource, 'export const prepared: string = "native preparation";\n');
-fs.mkdirSync(preparationOutput);
-const preparations = [];
-const preparationReport = path.join(root, "tools/source-publication/runtime-identity-preparation.json");
-const compilerMetadata = (stat) => Object.fromEntries(
-  ["dev", "ino", "mode", "size", "atimeNs", "mtimeNs", "ctimeNs", "birthtimeNs"].map((name) => [name, String(stat[name])]),
-);
-const prepareCompiler = () => {
-  const before = fs.statSync(compiler, { bigint: true });
-  const args = RuntimeIsolatedEmit.compilerArgs(preparationSource, preparationOutput, "commonjs", "execution");
-  const startedAt = new Date().toISOString();
-  const result = require("node:child_process").spawnSync(compiler,
-    args, {
-    cwd: preparationOutput,
-    encoding: "utf8",
-  });
-  const returnedAt = new Date().toISOString();
-  const after = fs.statSync(compiler, { bigint: true });
-  preparations.push({ compiler, args, cwd: preparationOutput, startedAt, returnedAt,
-    pid: result.pid, before: compilerMetadata(before), after: compilerMetadata(after),
-    beforeCtime: String(before.ctimeNs), afterCtime: String(after.ctimeNs),
-    status: result.status, signal: result.signal, error: result.error?.message,
-    stdout: result.stdout?.slice(-65536), stderr: result.stderr?.slice(-65536) });
-  // Persist the completed preparation receipt before the strict orphan-cache
-  // assertion: a rejected admission must not erase its preceding native epoch.
-  fs.writeFileSync(preparationReport, JSON.stringify({ preparations }));
-  assert.equal(result.error, undefined);
-  assert.equal(result.signal, null);
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(fs.readFileSync(path.join(preparationOutput, "compiler-preparation.js"), "utf8"), /native preparation/);
-};
-prepareCompiler();
 const priorCompiler = process.env.TTSC_TSGO_BINARY;
 try {
   process.env.TTSC_TSGO_BINARY = compiler;
@@ -121,12 +93,11 @@ try {
   assert.equal(after.mtimeNs, before.mtimeNs);
   assert.equal(after.size, before.size);
   assert.deepEqual(fs.readFileSync(compiler), compilerBytes);
-  prepareCompiler();
   delete require.cache[require.resolve(identitySource)];
   const rewritten = require(identitySource);
   assert.equal(rewritten.value, "lowered");
   assert.equal(rewritten.cachedMarker, undefined, "a real same-byte executable rewrite must not borrow the marked old artifact");
-  fs.writeFileSync(path.join(root, "tools/source-publication/runtime-identity.json"), JSON.stringify({ first: initial.value, warm: warm.value, warmMarker: warm.cachedMarker, rewritten: rewritten.value, rewrittenMarker: rewritten.cachedMarker === true, preparations }));
+  fs.writeFileSync(path.join(root, "tools/source-publication/runtime-identity.json"), JSON.stringify({ first: initial.value, warm: warm.value, warmMarker: warm.cachedMarker, rewritten: rewritten.value, rewrittenMarker: rewritten.cachedMarker === true }));
 } finally {
   if (priorCompiler === undefined) delete process.env.TTSC_TSGO_BINARY;
   else process.env.TTSC_TSGO_BINARY = priorCompiler;

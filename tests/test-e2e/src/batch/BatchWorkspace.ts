@@ -1659,9 +1659,23 @@ export namespace BatchWorkspace {
     const graphRoot = path.join(root, "tools/graph-resident");
     if (!installationOnly) {
       fs.mkdirSync(graphRoot, { recursive: true });
-      fs.cpSync(path.join(root, "src"), path.join(graphRoot, "src"), { recursive: true });
+      // Resident graph refresh consumes the Evidence document population and
+      // its contributor as well as TypeScript sources. Preserve these actual
+      // inputs while excluding other actors' native transform producers.
+      for (const directory of ["src", "docs", "native-errors"])
+        fs.cpSync(path.join(root, directory), path.join(graphRoot, directory), {
+          recursive: true,
+        });
+      fs.copyFileSync(
+        path.join(root, "lint.config.cjs"),
+        path.join(graphRoot, "lint.config.cjs"),
+      );
       const graphConfig = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"));
-      delete graphConfig.compilerOptions.plugins;
+      const graphLint = graphConfig.compilerOptions.plugins.find(
+        (entry: { transform?: string }) => entry.transform === "@ttsc/lint",
+      );
+      assert.ok(graphLint, "resident graph preparation requires the actual lint contributor");
+      graphConfig.compilerOptions.plugins = [graphLint];
       fs.writeFileSync(path.join(graphRoot, "tsconfig.json"), JSON.stringify(graphConfig));
       fs.writeFileSync(path.join(graphRoot, "package.json"), JSON.stringify({
         name: "ttsc-graph-boundary-corpus", private: true, type: "commonjs",

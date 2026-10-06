@@ -224,7 +224,13 @@ assert.deepEqual(priorRejectionObservation,
     response: { statuses: [0, 0, 2] } });
 assert.equal(receiptCount(), registerBefore, "frontend refusals and plugin-free readonly calls must not execute a context-reporting fixture contributor; this is not a raw compiler/Program count");
 unchanged();
-const explicitOrphans = path.join(process.env.TTSC_CACHE_DIR, "ttsx-orphan");
+// The authored --cacheDir authority overrides the separate plugin-cache env.
+// Its independently allocated path is supplied by the owning Runtime feature;
+// an observed output path never serves as this placement expectation.
+const explicitRuntimeCache = process.env.TTSC_E2E_RUNTIME_CLI_CACHE;
+assert.equal(typeof explicitRuntimeCache, "string");
+assert.equal(path.isAbsolute(explicitRuntimeCache), true);
+const explicitOrphans = path.join(explicitRuntimeCache, "ttsx-orphan");
 const defaultOrphans = path.join(root, "node_modules/.cache/ttsc/ttsx-orphan");
 const temporary = path.join(__dirname, "runtime-placement-temp");
 assert.equal(fs.existsSync(temporary), false);
@@ -245,7 +251,7 @@ assert.equal(lowerings(explicitOrphans).filter((name) => !explicitBefore.has(nam
 const defaultBefore = new Set(lowerings(defaultOrphans));
 // An excluded source still owns its nearest config and uses checked root
 // emission. The placement control must actually have no config owner.
-const configlessDirectory = path.join(process.env.TTSC_CACHE_DIR, "runtime-configless-placement");
+const configlessDirectory = path.join(explicitRuntimeCache, "runtime-configless-placement");
 const configlessPlacement = path.join(configlessDirectory, "runtime-placement.ts");
 assert.equal(fs.existsSync(configlessDirectory), false);
 fs.mkdirSync(configlessDirectory);

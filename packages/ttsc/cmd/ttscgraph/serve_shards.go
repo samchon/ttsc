@@ -6,6 +6,7 @@ import (
   "encoding/json"
   "fmt"
   "maps"
+  "os"
   "path/filepath"
   "sort"
   "strings"
@@ -874,6 +875,15 @@ func partitionServeGraphFacts(
     sourceCopy := source
     sourceCopy.File = relative
     key := sourceServeGraphShardKey(identity, relative, source, resolutionDigests[source.File])
+    if prior, exists := relativeToPhysical[relative]; exists {
+      // Provenance authenticated aliases before partitioning. Retain both raw
+      // input owners, but never combine distinct semantic resolution scopes.
+      if sourceKeys[prior] != key {
+        return nil, nil, nil, nil, nil, fmt.Errorf("ttscgraph: source aliases %q and %q have conflicting resolution or generation proof at %q", prior, source.File, relative)
+      }
+      sourceKeys[source.File] = key
+      continue
+    }
     shards[key] = emptyServeGraphShard(key, &sourceCopy)
     sourceKeys[source.File] = key
     relativeToPhysical[relative] = source.File
@@ -1100,16 +1110,29 @@ func normalizeServeGraphProvenance(project string, provenance graph.Provenance, 
   normalized.Capabilities = append([]string{}, provenance.Capabilities...)
   normalized.Sources = make([]graph.SourceDigest, 0, len(provenance.Sources))
   wireSources := make(map[string]string, len(provenance.Sources))
-  sourceOwners := map[string]string{}
+  sourceOwners := map[string]graph.SourceDigest{}
   for _, source := range provenance.Sources {
     file, err := serveGraphFile(project, source.File, caseSensitive...)
     if err != nil {
       return graph.Provenance{}, nil, err
     }
     if previous, exists := sourceOwners[file]; exists {
-      return graph.Provenance{}, nil, fmt.Errorf("ttscgraph: source paths %q and %q collide at wire identity %q", previous, source.File, file)
+      // The same resident Program can retain a reference spelling alongside
+      // the resolver's physical spelling. A coordinate alone is not identity:
+      // require native same-file identity and matching complete generation
+      // digests before sharing one wire source. Unknown/different proof fails.
+      priorInfo, priorErr := os.Stat(previous.File)
+      nextInfo, nextErr := os.Stat(source.File)
+      if priorErr != nil || nextErr != nil || !priorInfo.Mode().IsRegular() ||
+        !nextInfo.Mode().IsRegular() || !os.SameFile(priorInfo, nextInfo) ||
+        previous.Checker == "" || previous.Disk == "" ||
+        source.Checker != previous.Checker || source.Disk != previous.Disk {
+        return graph.Provenance{}, nil, fmt.Errorf("ttscgraph: source paths %q and %q collide at wire identity %q", previous.File, source.File, file)
+      }
+      wireSources[source.File] = file
+      continue
     }
-    sourceOwners[file] = source.File
+    sourceOwners[file] = source
     wireSources[source.File] = file
     normalized.Sources = append(normalized.Sources, graph.SourceDigest{
       File:    file,
