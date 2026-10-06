@@ -90,8 +90,8 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
- * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. Ignored hashed output creation contrasts with three delete/recreate transitions of an owned directory below the configured outDir, followed by retained publication and unchanged ApplyProgram receipt.
- * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with simultaneous unrelated candidate-directory and ignored hashed-output churn. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. Later deliveries retain that publication despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
+ * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. A new root member must replace the consumed directory generation and advance ApplyProgram; three later delete/recreate transitions inside the existing excluded outDir must retain that replacement publication and receipt.
+ * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with root-membership invalidation followed by excluded output churn in the same existing two deliveries. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. The first churn delivery replaces its publication after a new root member, and the next retains the replacement despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
  * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer. The existing six adapter roots and skipLibCheck=false policy are established before the first graph-proof request; imported dependencies and the later membership root remain selected, while runtime-only roots keep their separate runtime owner. This moves the existing config write without adding a request, producer, Program or warmup. Descriptor observation/search, separate project-root, replacement and moving-proof consumers share the pool's Go object storage only when their effective environment has neither a dedicated nor external cache; binary authorities and required preparations remain independent. Collection/default ownership, admission, tool-environment, ambient capability and native failure lanes retain their original cache inputs. Object sharing is delegated to Go's input validation and does not assert a cache hit or measured time reduction.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both cache-root queries use the actual platform before native admission, so their directory creation cannot introduce an extra input epoch; the selected Program independently reports that same native comparison policy. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs. The independent observation allocation is retained on every propagated pool failure, including setup or cleanup failure, with its path reported. Its identity-checked retention and any failure remain separate from native result acceptance; a successful whole pool leaves trace reclamation to the tracked exit owner. The initial adapter arms its native write only after the independent graph-proof captures and serializes that current tick immediately before delivery; its owned observation directory is outside compiler input membership and is removed after joined workers close.
@@ -5079,10 +5079,12 @@ async function runResidentLoaderPool(): Promise<void> {
         "native output must use disk bytes rather than stale delivered text",
       );
       const changedExternal = publications();
-      const beforeIgnoredChurn = fs.statSync(workspace.programRunLog).size;
+      const beforeRootMembershipChange = fs.statSync(
+        workspace.programRunLog,
+      ).size;
       fs.writeFileSync(
         unrelatedPath,
-        "Unrelated text is not a resolution/config input.\n",
+        "This new name changes the consumed root directory membership.\n",
       );
       fs.mkdirSync(path.dirname(ignoredOutput), { recursive: true });
       fs.writeFileSync(
@@ -5114,17 +5116,25 @@ async function runResidentLoaderPool(): Promise<void> {
       assert.deepEqual(
         externalReplay[1]!.value.cacheability,
         [],
-        "unchanged ordinary cache delivery must not invent volatility",
+        "a stable replacement generation must not invent volatility",
+      );
+      const afterRootMembershipChange = publications();
+      assert.notDeepEqual(
+        afterRootMembershipChange,
+        changedExternal,
+        "a new member of the consumed root directory replaces the publication",
       );
       assert.deepEqual(
-        publications(),
-        changedExternal,
-        "unrelated candidate-directory and excluded output churn keep the publication",
+        afterRootMembershipChange.map(({ name, type }) => ({ name, type })),
+        changedExternal.map(({ name, type }) => ({ name, type })),
+        "root membership replaces the generation without changing its owners or outcomes",
       );
-      assert.equal(
-        fs.statSync(workspace.programRunLog).size,
-        beforeIgnoredChurn,
-        "ignored churn does not invoke native ApplyProgram again",
+      const afterRootMembershipPrograms = fs.statSync(
+        workspace.programRunLog,
+      ).size;
+      assert.ok(
+        afterRootMembershipPrograms > beforeRootMembershipChange,
+        "a changed consumed directory requires a new native ApplyProgram",
       );
       // All three transitions affect only this experiment's subtree of the actual
       // excluded outDir. The next existing delivery must retain the publication
@@ -5158,12 +5168,12 @@ async function runResidentLoaderPool(): Promise<void> {
       assert.deepEqual(repeatedDivergence[1]!.value.cacheability, []);
       assert.deepEqual(
         publications(),
-        changedExternal,
+        afterRootMembershipChange,
         "recreated excluded output directories and repeated divergent host text preserve the native generation",
       );
       assert.equal(
         fs.statSync(workspace.programRunLog).size,
-        beforeIgnoredChurn,
+        afterRootMembershipPrograms,
       );
     } catch (error) {
       bodyFailure = error;
