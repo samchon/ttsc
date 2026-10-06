@@ -138,9 +138,9 @@ export function buildSourcePlugin(opts: {
       pluginName: opts.pluginName,
       goBinary,
       key, dir, entry,
-      sourceDigests: Object.fromEntries(sourceDigests),
-      overlayDirs,
-      contributorNames: contributors.map((contributor) => contributor.name),
+      sourceDigestsJson: JSON.stringify(Object.fromEntries(sourceDigests)),
+      overlayDirsJson: JSON.stringify(overlayDirs),
+      contributorNamesJson: JSON.stringify(contributors.map((contributor) => contributor.name)),
       unchanged: PluginBuildEnvironmentWitness.holds(environmentWitness, "key-created"),
     });
   }
