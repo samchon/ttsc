@@ -27,9 +27,14 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
   let descriptor: number | undefined;
   let stage = "lexical-stat";
-  const unavailable = (reason: string, expected?: string, observed?: string) => {
+  const unavailable = (reason: string, expected?: string, observed?: string,
+    observations?: { before: fs.BigIntStats; after: fs.BigIntStats }) => {
     E2ETrace.capabilityResolution("runtime-executable-identity-unavailable", {
       runtime, stage, reason, expected, observed,
+      expectedAtimeNs: observations === undefined ? undefined : String(observations.before.atimeNs),
+      observedAtimeNs: observations === undefined ? undefined : String(observations.after.atimeNs),
+      expectedBirthtimeNs: observations === undefined ? undefined : String(observations.before.birthtimeNs),
+      observedBirthtimeNs: observations === undefined ? undefined : String(observations.after.birthtimeNs),
     });
     return undefined;
   };
@@ -61,7 +66,7 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
     stage = "post-read-opened-stat";
     const afterOpened = fs.fstatSync(descriptor, { bigint: true });
     if (fileIdentity(afterOpened) !== fileIdentity(opened))
-      return unavailable("opened-file-changed-during-read", fileIdentity(opened), fileIdentity(afterOpened));
+      return unavailable("opened-file-changed-during-read", fileIdentity(opened), fileIdentity(afterOpened), { before: opened, after: afterOpened });
     stage = "post-read-realpath";
     const afterPath = fs.realpathSync.native(runtime);
     if (afterPath !== physicalPath)

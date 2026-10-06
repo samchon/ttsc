@@ -2235,10 +2235,12 @@ function dependencyCachePaths(
 /** A runtime build may publish only under the compiler content that keyed it. */
 function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
   if (proof === undefined) return;
-  const current = runtimeExecutableIdentity(
-    resolveTsgo({ cwd: path.dirname(tsconfig) }).binary,
-  );
+  const binary = resolveTsgo({ cwd: path.dirname(tsconfig) }).binary;
+  const current = runtimeExecutableIdentity(binary);
   if (current !== proof) {
+    E2ETrace.capabilityResolution("runtime-compiler-publication-refused", {
+      tsconfig, binary, expectedCompiler: proof, currentCompiler: current,
+    });
     throw new Error(
       `ttsx: compiler changed while building ${tsconfig}; the runtime generation was not published`,
     );
