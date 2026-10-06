@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import type { BatchWorkspace } from "./BatchWorkspace";
 import type { createLoaderPoolWorker } from "./LoaderPoolWorker";
