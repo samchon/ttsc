@@ -4790,8 +4790,26 @@ async function runResidentLoaderPool(): Promise<void> {
       workers.map((worker) => worker.request()),
     );
     for (const reply of repaired) assertHostObservation(reply);
+    const repairFailure = repaired.some((reply) => reply.error !== undefined)
+      ? JSON.stringify({
+          repaired,
+          inputs: [contractPath, declaration].map((file, index) => ({
+            file,
+            expectedHash: crypto.createHash("sha256").update(
+              index === 0 ? originalContract : healthyDeclaration,
+            ).digest("hex"),
+            actualHash: crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"),
+          })),
+          publications: publications(),
+          // The worker-owned sink is removed only after joined close below.
+          // Preserve its actual failed epoch in the assertion before cleanup.
+          invocationTrace: Object.entries(failureTrace()).flatMap(([name, rows]) =>
+            rows.slice(failureTraceOffsets[name] ?? 0).map((event) => ({ file: name, event })),
+          ),
+        })
+      : undefined;
     for (const reply of repaired) {
-      assert.equal(reply.error, undefined);
+      assert.equal(reply.error, undefined, repairFailure);
       assert.ok(reply.value);
     }
     assert.equal(
