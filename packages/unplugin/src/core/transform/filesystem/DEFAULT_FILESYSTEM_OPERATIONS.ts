@@ -45,8 +45,9 @@ export const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
  * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous filesystem calls release their handles before returning; the caller owns the returned entry array.
  */
 function readRawDirectory(location: string): fs.Dirent<Buffer>[] {
+  const directory = path.resolve(location);
   const prefix = Buffer.from(
-    location.endsWith(path.sep) ? location : location + path.sep,
+    directory.endsWith(path.sep) ? directory : directory + path.sep,
   );
   return fs.readdirSync(location, { encoding: "buffer" }).map((name) => {
     const stats = fs.lstatSync(Buffer.concat([prefix, name]));
