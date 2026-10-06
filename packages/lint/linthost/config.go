@@ -2405,14 +2405,6 @@ func loadJSONConfigFile(location string) (any, error) {
 // loadJSONConfigEvaluation retains the raw bytes actually decoded by this call
 // beside its native identity. The BOM affects the byte witness even though JSON
 // decoding strips it. Read failures never produce a complete config proof.
-// @evidence contracts/common.md#principled-implementation The exact raw bytes decoded by this descriptor read are fingerprinted before BOM stripping; identity instability stays explicit.
-// @evidence contracts/common.md#clear-and-simple-design loadJSONConfigEvaluation owns one configuration/generation boundary without a second Program or global reader.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No late hash repairs consumed bytes or upgrades unstable identity.
-// @evidence contracts/common.md#meaningful-documentation Native prose documents the actual generation or BOM/raw-byte responsibility.
-// @evidence contracts/portability.md#os-neutral-implementation Native metadata/path answers are preserved when this operation reads config; pure slice plumbing imposes no platform policy.
-// @evidence contracts/performance.md#efficient-algorithms Reads, hashes and decodes this config once, with linear raw byte storage plus decoder cost.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation owns no independent result cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The owned file is closed on every read outcome before decode; errors prevent a successful config result.
 func loadJSONConfigEvaluation(location string) (evaluatedConfigFile, error) {
   beforePhysical := configDependencyRealpath(location)
   file, err := os.Open(location)

@@ -8,15 +8,7 @@ import { sameHostInputRealpath } from "./sameHostInputRealpath";
 
 /**
  * One versioned native input predicate borrowed from the compiler result schema.
- *
- * @evidence contracts/common.md#principled-implementation The indexed alias retains the producer schema instead of maintaining a second kind union.
- * @evidence contracts/common.md#clear-and-simple-design This local alias names one element used by the replay function.
- * @evidenceExclude contracts/common.md#prohibited-implementation-shortcuts A type alias executes no fallback or behavior.
- * @evidence contracts/common.md#meaningful-documentation The comment identifies the versioned input and shared schema owner.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A type alias performs no native operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type alias performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type alias owns no reusable work.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type alias owns no retained state.
+ * The indexed alias keeps the decoder and replay tied to that producer schema.
  */
 type Predicate = NonNullable<ITtscCompilerTransformation.IInputObservation["nativePredicates"]>[number];
 

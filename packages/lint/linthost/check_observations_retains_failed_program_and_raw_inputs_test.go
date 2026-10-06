@@ -19,28 +19,18 @@ import (
 // same Program cycle; it has no separate fixture/process or filesystem hook.
 type observedProjectInputRule struct { location string }
 
-// @evidence contracts/testing.md#behavioral-verification Returns the independently authored registry identity used by the owning unit.
-// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
-// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
-// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+// Name supplies the independently authored registry identity used by the unit.
 func (r observedProjectInputRule) Name() string { return "test/observed-project-input" }
 
-// @evidence contracts/testing.md#behavioral-verification Declares that this raw-input consumer does not acquire or inspect checker state.
-// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
-// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
-// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+// NeedsTypeChecker keeps this raw-reader contributor independent of checker use.
 func (r observedProjectInputRule) NeedsTypeChecker() bool { return false }
 
-// @evidence contracts/testing.md#behavioral-verification Declares actual reader responsibility independently of any consumed byte proof.
-// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
-// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
-// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+// UsesProjectInputReader declares responsibility; the unit separately checks
+// actual returned bytes and authority, so this marker cannot prove consumption.
 func (r observedProjectInputRule) UsesProjectInputReader() bool { return true }
 
-// @evidence contracts/testing.md#behavioral-verification Consumes the authored raw path through the supplied reader and publishes its actual bytes/error through the supported cycle state.
-// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
-// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
-// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+// Check exposes the actual read bytes/error through supported cycle state,
+// letting the owning unit compare them with its separately authored BOM bytes.
 func (r observedProjectInputRule) Check(ctx *publicrule.ProjectContext) { body, err := ctx.Inputs.ReadFile(r.location); ctx.SetState(struct { Body []byte; Err error }{body, err}) }
 
 // TestCheckObservationsRetainsFailedProgramAndRawInputs exercises the actual

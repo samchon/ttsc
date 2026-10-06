@@ -750,14 +750,8 @@ func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir stri
   parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(filepath.Join(cwd, outDir))
 }
 
-// @evidence contracts/common.md#principled-implementation An absent reader yields no interface value rather than a typed nil; an observed Program supplies only its own reader.
-// @evidence contracts/common.md#clear-and-simple-design projectInputReaders owns one configuration/generation boundary without a second Program or global reader.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No late hash repairs consumed bytes or upgrades unstable identity.
-// @evidence contracts/common.md#meaningful-documentation Native prose documents the actual generation or BOM/raw-byte responsibility.
-// @evidence contracts/portability.md#os-neutral-implementation Native metadata/path answers are preserved when this operation reads config; pure slice plumbing imposes no platform policy.
-// @evidence contracts/performance.md#efficient-algorithms Returns an empty or singleton slice.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation owns no independent result cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The returned slice borrows the Program reader and acquires no resource.
+// projectInputReaders exposes only this loaded generation's reader. Manual or
+// unobserved Programs keep the legacy nil-reader contributor behavior.
 func (p *program) projectInputReaders() []publicrule.ProjectInputReader {
   if p == nil || p.inputReader == nil { return nil }
   return []publicrule.ProjectInputReader{p.inputReader}

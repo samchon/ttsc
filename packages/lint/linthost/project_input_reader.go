@@ -16,14 +16,6 @@ import (
 // one loaded Program cycle. Raw bytes stay independent of decoded compiler
 // text. Unsupported native link predicates withdraw completeness; they never
 // become guessed file content or an assumed successful enumeration.
-// @evidence contracts/common.md#principled-implementation projectInputReader preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design projectInputReader owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts projectInputReader introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This private state/wire shape performs no native operation; the reader and publisher own native observations.
-// @evidenceExclude contracts/performance.md#efficient-algorithms This type declares state rather than an algorithm.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This type supplies no independent cache/reuse decision.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The owning Program/reader or caller, rather than the declaration, owns stored observations.
 type projectInputReader struct {
   compiler *inputObservationFS
   mu sync.Mutex
@@ -33,39 +25,21 @@ type projectInputReader struct {
   incomplete bool
 }
 
-// @evidence contracts/common.md#principled-implementation newProjectInputReader preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design newProjectInputReader owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts newProjectInputReader introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Allocates only empty per-generation maps; later observation operations own population growth.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// newProjectInputReader starts empty raw-byte and native-entry maps for one
+// compiler observer. It neither shares prior generations nor acquires handles.
 func newProjectInputReader(compiler *inputObservationFS) *projectInputReader {
   return &projectInputReader{compiler: compiler, inputs: map[string]*string{}, realpaths: map[string]*string{}, nativeInputs: map[string]nativeInputPredicate{}}
 }
 
-// @evidence contracts/common.md#principled-implementation Unavailable preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design Unavailable owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Unavailable introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// Unavailable is a locked, sticky withdrawal; no successful later read resets it.
 func (r *projectInputReader) Unavailable() {
   r.mu.Lock(); defer r.mu.Unlock()
   r.incomplete = true
 }
 
-// @evidence contracts/common.md#principled-implementation record preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design record owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts record introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms One map lookup/update plus digest/path comparison retains one current witness per cleaned input; conflicts stay incomplete.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// record preserves the OS call's absolute address and compares both digest and
+// physical identity with a prior witness. Equal bytes on a retargeted path do
+// not restore authority; retained records grow only with consumed addresses.
 func (r *projectInputReader) record(name string, digest *string, physical *string) {
   absolute, err := filepath.Abs(name)
   if err != nil { r.Unavailable(); return }
@@ -77,26 +51,16 @@ func (r *projectInputReader) record(name string, digest *string, physical *strin
   r.realpaths[name] = physical
 }
 
-// @evidence contracts/common.md#principled-implementation equalObservedString preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design equalObservedString owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts equalObservedString introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// equalObservedString distinguishes absent identity/content from present empty
+// text; nonnil equality compares values rather than pointer allocation.
 func equalObservedString(a, b *string) bool {
   return a == nil && b == nil || a != nil && b != nil && *a == *b
 }
 
-// @evidence contracts/common.md#principled-implementation ReadFile preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design ReadFile owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts ReadFile introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Hashes only returned raw bytes after the owned read; time and buffer size follow file bytes plus native metadata and identity queries.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// ReadFile owns and closes one descriptor, hashing its returned raw bytes only
+// after descriptor/path metadata and physical spelling checks. Those checks
+// detect sampled changes; they do not prove every possible filesystem ABA.
+// Query/read/close failures withdraw authority without rereading for proof.
 func (r *projectInputReader) ReadFile(name string) ([]byte, error) {
   file, err := os.Open(name)
   if err != nil {
@@ -122,14 +86,8 @@ func (r *projectInputReader) ReadFile(name string) ([]byte, error) {
   return content, readErr
 }
 
-// @evidence contracts/common.md#principled-implementation Stat preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design Stat owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Stat introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// Stat records native target kind and resolved spelling beside its actual
+// result. Nonregular unsupported kinds and non-absence errors withdraw proof.
 func (r *projectInputReader) Stat(name string) (os.FileInfo, error) {
   info, err := os.Stat(name)
   if err != nil {
@@ -144,14 +102,8 @@ func (r *projectInputReader) Stat(name string) (os.FileInfo, error) {
   return info, err
 }
 
-// @evidence contracts/common.md#principled-implementation Lstat preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design Lstat owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Lstat introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// Lstat preserves entry metadata; a link entry cannot be represented by the
+// compiler's target-kind predicate, so it returns normally but withdraws proof.
 func (r *projectInputReader) Lstat(name string) (os.FileInfo, error) {
   info, err := os.Lstat(name)
   if err != nil {
@@ -169,24 +121,12 @@ func (r *projectInputReader) Lstat(name string) (os.FileInfo, error) {
   return info, err
 }
 
-// @evidence contracts/common.md#principled-implementation stringPointer preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design stringPointer owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts stringPointer introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// stringPointer preserves a present string predicate independently of absence.
 func stringPointer(value string) *string { return &value }
 
-// @evidence contracts/common.md#principled-implementation ReadDir preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design ReadDir owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts ReadDir introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Copies and sorts only the returned child names, costing child/name bytes and O(N log N) comparisons.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// ReadDir records one consumed native listing in separate sorted file/directory
+// lists. Link entries withdraw completeness because their followed-target
+// semantics differ from this contributor query. No child content is read.
 func (r *projectInputReader) ReadDir(name string) ([]os.DirEntry, error) {
   entries, err := os.ReadDir(name)
   if err != nil { r.Unavailable(); return entries, err }
@@ -204,14 +144,6 @@ func (r *projectInputReader) ReadDir(name string) ([]os.DirEntry, error) {
 
 // Readlink records the selected entry's kind or link bytes alongside its native
 // answer. A changed entry or unexplained failure withdraws the whole generation.
-// @evidence contracts/common.md#principled-implementation Readlink preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design Readlink owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Readlink introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Queries one entry and hashes its returned link bytes or kind marker, with cost proportional to path/link bytes.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
 func (r *projectInputReader) Readlink(name string) (string, error) {
   before, beforeErr := os.Lstat(name)
   target, err := os.Readlink(name)
@@ -241,14 +173,8 @@ func (r *projectInputReader) Readlink(name string) (string, error) {
   return target, err
 }
 
-// @evidence contracts/common.md#principled-implementation EvalSymlinks preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design EvalSymlinks owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts EvalSymlinks introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// EvalSymlinks returns the caller's native result spelling while recording an
+// absolute coordinate; an unresolved native path never becomes a proof.
 func (r *projectInputReader) EvalSymlinks(name string) (string, error) {
   physical, err := filepath.EvalSymlinks(name)
   if err != nil { r.Unavailable(); return physical, err }
@@ -258,14 +184,6 @@ func (r *projectInputReader) EvalSymlinks(name string) (string, error) {
 
 // WalkDir mirrors filepath.WalkDir using this reader's actual Lstat and ReadDir
 // results. It does not enumerate a skipped directory or follow a linked entry.
-// @evidence contracts/common.md#principled-implementation error preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design error owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts error introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
 func (r *projectInputReader) WalkDir(root string, visit fs.WalkDirFunc) error {
   info, err := r.Lstat(root)
   if err != nil { err = visit(root, nil, err) } else { err = r.walk(root, fs.FileInfoToDirEntry(info), visit) }
@@ -273,14 +191,9 @@ func (r *projectInputReader) WalkDir(root string, visit fs.WalkDirFunc) error {
   return err
 }
 
-// @evidence contracts/common.md#principled-implementation error preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design error owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts error introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// walk visits before listing a directory, so SkipDir prevents observing its
+// children. Recursive frames follow selected depth; native sorted listings
+// preserve WalkDir order, and callbacks retain error/SkipAll control.
 func (r *projectInputReader) walk(name string, entry fs.DirEntry, visit fs.WalkDirFunc) error {
   if err := visit(name, entry, nil); err != nil || !entry.IsDir() {
     if err == fs.SkipDir && entry.IsDir() { return nil }
@@ -306,14 +219,6 @@ func (r *projectInputReader) walk(name string, entry fs.DirEntry, visit fs.WalkD
 // current working directory; it does not reinterpret a contributor path as
 // project-root-relative or change that call's native result/error spelling.
 //
-// @evidence contracts/common.md#principled-implementation filepath.Abs anchors the caller's spelling to the actual process cwd used by native relative-path operations.
-// @evidence contracts/common.md#clear-and-simple-design One helper provides absolute wire coordinates independently of the caller-facing native answer.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No project-root substitution or later filesystem read manufactures the address.
-// @evidence contracts/common.md#meaningful-documentation Native prose identifies process cwd ownership and preserved result/error spelling.
-// @evidence contracts/portability.md#os-neutral-implementation The native filepath package owns volume/root and relative spelling rules.
-// @evidence contracts/performance.md#efficient-algorithms Resolves one spelling with path-byte cost and a cwd query when relative.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This helper caches no cwd or address across calls.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It acquires no handle or retained state.
 func absoluteInputName(name string) string {
   absolute, err := filepath.Abs(name)
   if err != nil { return name }
@@ -322,14 +227,6 @@ func absoluteInputName(name string) string {
 
 // observe records a native predicate only with an absolute call address.
 //
-// @evidence contracts/common.md#principled-implementation A failed cwd/absolute conversion withdraws completeness instead of dropping an observed relative input silently.
-// @evidence contracts/common.md#clear-and-simple-design Native reader operations delegate coordinate normalization to this single ledger bridge.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No project root or later input query replaces a missing native address.
-// @evidence contracts/common.md#meaningful-documentation The comment identifies the absolute-coordinate and missing-address contract.
-// @evidence contracts/portability.md#os-neutral-implementation filepath.Abs uses native process-cwd and volume semantics.
-// @evidence contracts/performance.md#efficient-algorithms Normalizes one path and delegates fixed predicate storage/comparison to the compiler ledger.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This bridge caches no address across calls.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It delegates retained observations to the Program ledger without acquiring a handle.
 func (r *projectInputReader) observe(name string, value observedInput) {
   absolute, err := filepath.Abs(name)
   if err != nil { r.Unavailable(); return }

@@ -15,14 +15,6 @@ func (graphRule) Name() string { return graphRuleName }
 // UsesProjectInputReader declares the actual external-input read boundary.
 // Native readers use the supplied generation reader; external bridges withdraw
 // completeness because their independent module/input reads are not observed.
-// @evidence contracts/common.md#principled-implementation The marker declares actual reader responsibility but does not certify any consumed input.
-// @evidence contracts/common.md#clear-and-simple-design One optional capability keeps existing ProjectRule compatibility.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts External bridges explicitly withdraw completeness instead of inheriting this marker as proof.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes generation reader support from unobserved bridge inputs.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This marker performs no native operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Returns one fixed capability value.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Owns no reusable computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Owns no resource.
 func (graphRule) UsesProjectInputReader() bool { return true }
 
 func (graphRule) NeedsTypeChecker() bool { return false }

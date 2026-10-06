@@ -15,14 +15,6 @@ import (
 
 // nativeInputPredicate retains the actual config loader's fingerprint semantics.
 // The wire version is independent of the executable config cache namespace.
-// @evidence contracts/common.md#principled-implementation nativeInputPredicate preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design nativeInputPredicate owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts nativeInputPredicate introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This private state/wire shape performs no native operation; the reader and publisher own native observations.
-// @evidenceExclude contracts/performance.md#efficient-algorithms This type declares state rather than an algorithm.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This type supplies no independent cache/reuse decision.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The owning Program/reader or caller, rather than the declaration, owns stored observations.
 type nativeInputPredicate struct {
   Version int `json:"version"`
   Kind string `json:"kind"`
@@ -35,14 +27,6 @@ type nativeInputPredicate struct {
 // lintCheckGraph is a private wire schema matching the compiler's check result.
 // The standalone public lint module cannot import the unpublished ttsc driver.
 // Its source and predicate proofs come from the same Program's host filesystem.
-// @evidence contracts/common.md#principled-implementation lintCheckGraph preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design lintCheckGraph owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts lintCheckGraph introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This private state/wire shape performs no native operation; the reader and publisher own native observations.
-// @evidenceExclude contracts/performance.md#efficient-algorithms This type declares state rather than an algorithm.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This type supplies no independent cache/reuse decision.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The owning Program/reader or caller, rather than the declaration, owns stored observations.
 type lintCheckGraph struct {
   Edges map[string][]string `json:"edges"`
   Globals []string `json:"globals"`
@@ -55,28 +39,18 @@ type lintCheckGraph struct {
   UseCaseSensitiveFileNames bool `json:"useCaseSensitiveFileNames"`
 }
 
-// @evidence contracts/common.md#principled-implementation lintInputKey preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design lintInputKey owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts lintInputKey introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Performs fixed bookkeeping or one selected native metadata/identity query, with path and returned result comparison costs delegated to their native operation.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// lintInputKey uses relative wire spelling only inside cwd; cross-volume and
+// outside-root paths retain absolute native addresses with slash separators.
 func lintInputKey(cwd, name string) string {
   relative, err := filepath.Rel(cwd, name)
   if err != nil || relative == ".." || strings.HasPrefix(relative, ".." + string(filepath.Separator)) { return filepath.ToSlash(name) }
   return filepath.ToSlash(relative)
 }
 
-// @evidence contracts/common.md#principled-implementation checkGraph preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design checkGraph owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts checkGraph introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Traverses this Program sources, references and actual observed/config paths, copies proofs and sorts recorded lists; no new Program or input read is performed.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// checkGraph projects this Program's resident sources and observed predicates.
+// Sorting makes wire lists deterministic. Config fingerprints keep their own
+// versioned kind/scope encoding; disagreeing same-kind witnesses remain failed.
+// No source file is reread to fill a missing construction-time observation.
 func (p *program) checkGraph() *lintCheckGraph {
   if p == nil || p.tsProgram == nil || p.inputObserver == nil { return nil }
   graph := &lintCheckGraph{Edges: map[string][]string{}, Globals: []string{}, Configs: []string{}, ResolutionInputs: []string{}, InputObservations: map[string]transformInputObservation{}, InputHashes: map[string]*string{}, InputRealpaths: map[string]*string{}, InputProofFailures: map[string]string{}, UseCaseSensitiveFileNames: p.tsProgram.UseCaseSensitiveFileNames()}
@@ -156,14 +130,10 @@ func (p *program) checkGraph() *lintCheckGraph {
   return graph
 }
 
-// @evidence contracts/common.md#principled-implementation writeCheckObservations preserves the actual operation/result boundary described above; absent authority cannot become a successful input proof.
-// @evidence contracts/common.md#clear-and-simple-design writeCheckObservations owns this reader or publisher step; compiler text, raw contributor bytes and typed config predicates remain separate representations.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts writeCheckObservations introduces no global filesystem replacement, fixture branch, later proof synthesis or relaxed admission guard.
-// @evidence contracts/common.md#meaningful-documentation The surrounding native prose and signatures identify the owning operation, representation and unavailable-result boundary.
-// @evidence contracts/portability.md#os-neutral-implementation Uses actual native filesystem/path answers and preserves their error/kind distinctions; unsupported or unstable evidence withdraws authority rather than inferring an OS default.
-// @evidence contracts/performance.md#efficient-algorithms Serializes the current graph and raw input map once, then writes one private temporary file and atomically renames it; byte cost follows that envelope.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records/publishes or delegates the supplied generation; it creates no independent cross-request reuse cache.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The Program owns per-generation maps until release; native ReadFile closes its descriptor before return. Publication closes its private temporary file and reports non-missing cleanup errors, with no watcher or historical generation retained.
+// writeCheckObservations publishes before the owning Program is released.
+// Absent Programs and withdrawn readers publish false, never invented true.
+// The invocation owns its temporary file through close/rename and reports
+// non-missing cleanup errors alongside the original publication error.
 func (p *program) writeCheckObservations(name string) (resultErr error) {
   if !filepath.IsAbs(name) { return fmt.Errorf("@ttsc/lint: check observations path must be absolute: %q", name) }
   inputs := []string{}
