@@ -33,6 +33,9 @@ export interface LoaderPoolOutcome {
  * Requests are bounded observations of that same adapter/cache/session. An
  * optional deliveredSource carries the caller's earlier bytes independently of
  * the current disk input, without changing the worker or compiler options. A
+ * graphProof command uses this same resident and the public filesystem seam;
+ * its two actual native captures have a separate publication/receipt epoch.
+ * Cache withdrawal schedules disposal and does not certify backend closure. A
  * descriptorFlow command uses the same Node caller before adapter admission; it
  * does not start a worker and its evaluator attempts remain actual cost. A
  * mixed lint input graph uses that same command and worker stdout/stderr to
@@ -159,6 +162,7 @@ export function createLoaderPoolWorker(props: {
           beta: string;
         };
       },
+      graphProof?: { api: string; session: string; programRunLog: string },
     ) =>
       new Promise<LoaderPoolOutcome>((resolve, reject) => {
         const id = ++next;
@@ -175,6 +179,7 @@ export function createLoaderPoolWorker(props: {
             sourceSuffix,
             deliveredSource,
             descriptorFlow,
+            graphProof,
           }) + "\n",
         );
       }),

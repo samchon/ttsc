@@ -92,7 +92,11 @@ try { for await (const line of createInterface({ input: process.stdin })) {
   if (command.close) break;
   try {
     let value;
-    if (command.pluginLock) value = pluginLockSession.operation(command.pluginLock);
+    if (command.graphProof) {
+      const { observeGraphProofRefusal } = await import(new URL("./tools/graph-proof-refusal.mjs", import.meta.url));
+      value = await observeGraphProofRefusal(root, command.graphProof);
+    }
+    else if (command.pluginLock) value = pluginLockSession.operation(command.pluginLock);
     else if (command.descriptorFlow) {
       const scope = command.descriptorFlow.root;
       const { loadProjectPlugins } = createRequire(import.meta.url)(command.descriptorFlow.api);
