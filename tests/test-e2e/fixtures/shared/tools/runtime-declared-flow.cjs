@@ -182,6 +182,10 @@ try { process.kill(rejected.pid, 0); throw new Error("rejection actor closure re
 catch (error) { if (error.code !== "ESRCH") throw error; }
 const readonlyActive = process.env.TTSC_E2E_READONLY_DENIED === "1";
 const rejectedLines = rejected.stdout.trim().split(/\r?\n/);
+const dependencyDeliveryPrefix = "dependency entry ran";
+assert.deepEqual(rejectedLines.filter((line) => line.startsWith(dependencyDeliveryPrefix)),
+  ["dependency entry ran hello"], "the importing entry must deliver the dependency's authored value exactly once under its own diagnostic policy");
+const responseLines = rejectedLines.filter((line) => !line.startsWith(dependencyDeliveryPrefix));
 const cjsMainPrefix = "TTSC_CJS_MAIN:";
 const cjsMainLines = rejectedLines.filter((line) => line.startsWith(cjsMainPrefix));
 assert.equal(cjsMainLines.length, 1);
@@ -189,7 +193,7 @@ const cjsMain = JSON.parse(cjsMainLines[0].slice(cjsMainPrefix.length));
 assert.equal(fs.realpathSync.native(cjsMain.argv1), fs.realpathSync.native(path.join(__dirname, "runtime-negative/readonly/src/main.ts")));
 const { argv1: cjsArgv, ...cjsIdentity } = cjsMain;
 assert.deepEqual(cjsIdentity, { main: true, cache: "object", shared: true }, "the existing typed CommonJS child must stay the main module under an actual import preload");
-assert.equal(rejectedLines.filter((line) => !line.startsWith(cjsMainPrefix)).join("\n"), "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:true\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nread-only-ran\nHello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:false\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nincluded-ran", "the two existing entry children must preserve complete decorator effects, opposite native response targets and automatic/forwarded preserved JSX");
+assert.equal(responseLines.filter((line) => !line.startsWith(cjsMainPrefix)).join("\n"), "Hello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:true\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nread-only-ran\nHello Class Foo\nHello Function getBar\nabc\nTTSC_RESPONSE_OPTIONAL:false\nTTSC_RESPONSE_JSX:<div>hello</div><b>world</b>\nincluded-ran", "the two existing entry children must preserve complete decorator effects, opposite native response targets and automatic/forwarded preserved JSX");
 assert.doesNotMatch(rejected.stdout, /(?:^|\r?\n)(?:ran|outside-ran)(?:\r?\n|$)/, "neither the refused JavaScript entry nor the excluded typed entry may execute");
 assert.match(rejected.stderr, /-r requires a value/);
 assert.match(rejected.stderr, /ttsx: entry not found:/);
@@ -200,7 +204,6 @@ assert.match(rejected.stderr, /script\.js is JavaScript/);
 assert.match(rejected.stderr, /TS6046/);
 assert.match(rejected.stderr, /TS6133/);
 assert.match(rejected.stderr, /tools[\\/]configured-owners[\\/]diagnostic[\\/]src[\\/]index\.ts/);
-assert.doesNotMatch(rejected.stdout, /dependency entry ran/);
 if (readonlyActive) {
   assert.match(rejected.stderr, /is not writable/);
   assert.ok(rejected.stderr.includes(process.env.TTSC_E2E_READONLY_ROOT));
@@ -208,8 +211,9 @@ if (readonlyActive) {
 }
 const rejectedObservation = JSON.parse(fs.readFileSync(path.join(__dirname, "runtime-negative/observed.json"), "utf8"));
 assert.equal(typeof rejectedObservation.dependencyStatus, "number");
-assert.notEqual(rejectedObservation.dependencyStatus, 0);
-const { dependencyStatus, ...priorRejectionObservation } = rejectedObservation;
+assert.equal(rejectedObservation.dependencyStatus, 2);
+assert.equal(rejectedObservation.dependencyDeliveryStatus, 0);
+const { dependencyStatus, dependencyDeliveryStatus, ...priorRejectionObservation } = rejectedObservation;
 assert.deepEqual(priorRejectionObservation,
   { statuses: [2, 2], exitCode: 2, pid: rejected.pid,
     readonly: readonlyActive ? { skipped: false, statuses: [0, 2, 0] } : { skipped: true, statuses: [] },
