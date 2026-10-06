@@ -1,12 +1,12 @@
 package evidence
 
 import (
-  "errors"
-  "io/fs"
-  "path"
-  "path/filepath"
-  "sort"
-  "strings"
+	"errors"
+	"io/fs"
+	"path"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // populationBase is the directory one rooted artifact population resolves
@@ -27,31 +27,31 @@ import (
 // does: moving the base moves the address space with it (`graph.go`,
 // `materializePackageGlobReference`).
 type populationBase struct {
-  inputs evidenceInputReader
-  // Absolute is the canonical directory, and the identity two populations are
-  // judged the same base by.
-  Absolute string
-  // Declared is the author's own spelling of this base, empty for the default
-  // base. It sits beside the derived Display because a message that names a
-  // configuration property and a message that names a location want different
-  // spellings; `populationRootLabel` owns that split and the reasoning for it.
-  //
-  // It arrives already normalized and is stored untouched. `normalizeRootPath`
-  // owns that step, refusing the two forms a root may not take and reducing the
-  // rest to one slash-separated spelling before a project identity exists to
-  // resolve against — so a second normalization here would be a branch no
-  // configuration can reach.
-  Declared string
-  // Display is what a location names: project-relative, ascending with `..`
-  // when the base sits above the project, and absolute only when no relative
-  // spelling exists, which on Windows is another volume or a UNC share against a
-  // drive-lettered project. Empty for the default base, whose files are already
-  // named by their project-relative path.
-  Display string
-  // Default marks the base a population takes when it declares no root. Its
-  // addresses stay plain project-relative paths, which is what leaves every
-  // existing citation, unit identity, and diagnostic byte-identical.
-  Default bool
+	inputs evidenceInputReader
+	// Absolute is the canonical directory, and the identity two populations are
+	// judged the same base by.
+	Absolute string
+	// Declared is the author's own spelling of this base, empty for the default
+	// base. It sits beside the derived Display because a message that names a
+	// configuration property and a message that names a location want different
+	// spellings; `populationRootLabel` owns that split and the reasoning for it.
+	//
+	// It arrives already normalized and is stored untouched. `normalizeRootPath`
+	// owns that step, refusing the two forms a root may not take and reducing the
+	// rest to one slash-separated spelling before a project identity exists to
+	// resolve against — so a second normalization here would be a branch no
+	// configuration can reach.
+	Declared string
+	// Display is what a location names: project-relative, ascending with `..`
+	// when the base sits above the project, and absolute only when no relative
+	// spelling exists, which on Windows is another volume or a UNC share against a
+	// drive-lettered project. Empty for the default base, whose files are already
+	// named by their project-relative path.
+	Display string
+	// Default marks the base a population takes when it declares no root. Its
+	// addresses stay plain project-relative paths, which is what leaves every
+	// existing citation, unit identity, and diagnostic byte-identical.
+	Default bool
 }
 
 // artifactAddress is the three spellings one loaded file answers to.
@@ -62,19 +62,19 @@ type populationBase struct {
 // populations that reached the same file through different roots — where the
 // file is one thing and its target is two.
 type artifactAddress struct {
-  Base     populationBase
-  Relative string
-  Display  string
-  Key      string
+	Base     populationBase
+	Relative string
+	Display  string
+	Key      string
 }
 
 func (base populationBase) addressOf(relative string) artifactAddress {
-  return artifactAddress{
-    Base:     base,
-    Relative: relative,
-    Display:  base.display(relative),
-    Key:      base.address(relative),
-  }
+	return artifactAddress{
+		Base:     base,
+		Relative: relative,
+		Display:  base.display(relative),
+		Key:      base.address(relative),
+	}
 }
 
 // display spells a base-relative path the way a reader must open it.
@@ -86,13 +86,13 @@ func (base populationBase) addressOf(relative string) artifactAddress {
 // a path without this would print `D://requirements`, in every file location as
 // well as in the two walk messages.
 func (base populationBase) display(relative string) string {
-  if base.Display == "" {
-    return relative
-  }
-  if strings.HasSuffix(base.Display, "/") {
-    return base.Display + relative
-  }
-  return base.Display + "/" + relative
+	if base.Display == "" {
+		return relative
+	}
+	if strings.HasSuffix(base.Display, "/") {
+		return base.Display + relative
+	}
+	return base.Display + "/" + relative
 }
 
 // address composes the key one artifact is filed under.
@@ -108,10 +108,10 @@ func (base populationBase) display(relative string) string {
 // inventory key, and the whole TypeScript path space are exactly what they were
 // before roots existed.
 func (base populationBase) address(relative string) string {
-  if base.Default {
-    return relative
-  }
-  return base.Absolute + "\x00" + relative
+	if base.Default {
+		return relative
+	}
+	return base.Absolute + "\x00" + relative
 }
 
 // relativeOf inverts address, recovering the base-relative path an inventory key
@@ -123,13 +123,13 @@ func (base populationBase) address(relative string) string {
 // wrote it — silently, since a drifted key matches nothing and reads exactly
 // like a glob that selects nothing.
 func (base populationBase) relativeOf(address string) (string, bool) {
-  if base.Default {
-    if strings.Contains(address, "\x00") {
-      return "", false
-    }
-    return address, true
-  }
-  return strings.CutPrefix(address, base.Absolute+"\x00")
+	if base.Default {
+		if strings.Contains(address, "\x00") {
+			return "", false
+		}
+		return address, true
+	}
+	return strings.CutPrefix(address, base.Absolute+"\x00")
 }
 
 // resolveProjectPath turns a path a diagnostic names back into a location on
@@ -139,11 +139,11 @@ func (base populationBase) relativeOf(address string) (string, bool) {
 // would produce a path under the project that does not exist, and the failure
 // would arrive as a missing file rather than as the configuration error it is.
 func resolveProjectPath(root string, relative string) string {
-  local := filepath.FromSlash(relative)
-  if filepath.IsAbs(local) {
-    return filepath.Clean(local)
-  }
-  return filepath.Join(root, local)
+	local := filepath.FromSlash(relative)
+	if filepath.IsAbs(local) {
+		return filepath.Clean(local)
+	}
+	return filepath.Join(root, local)
 }
 
 // resolvePopulationBase anchors a declared root against the ttsc project root.
@@ -156,22 +156,22 @@ func resolveProjectPath(root string, relative string) string {
 // configuration property, and giving it one would be a second identity for the
 // one thing this branch exists to keep single.
 func resolvePopulationBase(root string, declared string) populationBase {
-  if declared == "" {
-    return populationBase{Absolute: root, Default: true}
-  }
-  absolute := filepath.FromSlash(declared)
-  if !declaredRootIsAbsolute(declared) {
-    absolute = filepath.Join(root, absolute)
-  }
-  absolute = filepath.Clean(absolute)
-  if absolute == root {
-    return populationBase{Absolute: root, Default: true}
-  }
-  return populationBase{
-    Absolute: absolute,
-    Declared: declared,
-    Display:  projectRelativeDisplay(root, absolute),
-  }
+	if declared == "" {
+		return populationBase{Absolute: root, Default: true}
+	}
+	absolute := filepath.FromSlash(declared)
+	if !declaredRootIsAbsolute(declared) {
+		absolute = filepath.Join(root, absolute)
+	}
+	absolute = filepath.Clean(absolute)
+	if absolute == root {
+		return populationBase{Absolute: root, Default: true}
+	}
+	return populationBase{
+		Absolute: absolute,
+		Declared: declared,
+		Display:  projectRelativeDisplay(root, absolute),
+	}
 }
 
 // declaredRootIsAbsolute reports whether a declared root names its own location
@@ -189,7 +189,7 @@ func resolvePopulationBase(root string, declared string) populationBase {
 // project, so a message reading this predicate keeps telling the truth on that
 // platform while one reading the spelling would not.
 func declaredRootIsAbsolute(declared string) bool {
-  return filepath.IsAbs(filepath.FromSlash(declared))
+	return filepath.IsAbs(filepath.FromSlash(declared))
 }
 
 // projectRelativeDisplay spells a directory the way the project sees it.
@@ -205,15 +205,15 @@ func declaredRootIsAbsolute(declared string) bool {
 // configuration does, because it is a different reader doing a different thing:
 // editing a file rather than opening one.
 func projectRelativeDisplay(root string, absolute string) string {
-  relative, err := filepath.Rel(root, absolute)
-  if err != nil {
-    return filepath.ToSlash(absolute)
-  }
-  slashed := filepath.ToSlash(relative)
-  if slashed == "." {
-    return ""
-  }
-  return slashed
+	relative, err := filepath.Rel(root, absolute)
+	if err != nil {
+		return filepath.ToSlash(absolute)
+	}
+	slashed := filepath.ToSlash(relative)
+	if slashed == "." {
+		return ""
+	}
+	return slashed
 }
 
 // resolveGraphBases anchors every configured population against the project
@@ -223,16 +223,16 @@ func projectRelativeDisplay(root string, absolute string) string {
 // project identity, which is also what lets `ProjectInputs` declare a rooted
 // population's topology without touching the filesystem.
 func resolveGraphBases(root string, config *graphConfig) {
-  for claimIndex := range config.Claims {
-    claim := &config.Claims[claimIndex]
-    claim.Base = resolvePopulationBase(root, claim.Root)
-    claim.Base.inputs = config.inputs
-    for referenceIndex := range claim.References {
-      reference := &claim.References[referenceIndex]
-      reference.Base = resolvePopulationBase(root, reference.Root)
-      reference.Base.inputs = config.inputs
-    }
-  }
+	for claimIndex := range config.Claims {
+		claim := &config.Claims[claimIndex]
+		claim.Base = resolvePopulationBase(root, claim.Root)
+		claim.Base.inputs = config.inputs
+		for referenceIndex := range claim.References {
+			reference := &claim.References[referenceIndex]
+			reference.Base = resolvePopulationBase(root, reference.Root)
+			reference.Base.inputs = config.inputs
+		}
+	}
 }
 
 // configuredBases lists the distinct directories one artifact kind is loaded
@@ -250,29 +250,29 @@ func resolveGraphBases(root string, config *graphConfig) {
 // population diagnostic reads that population's own base and therefore keeps
 // naming the spelling its own author wrote.
 func configuredBases(config graphConfig, kind artifactKind) []populationBase {
-  bases := []populationBase{}
-  seen := map[string]bool{}
-  add := func(base populationBase) {
-    if seen[base.Absolute] {
-      return
-    }
-    seen[base.Absolute] = true
-    bases = append(bases, base)
-  }
-  for _, claim := range config.Claims {
-    if claim.Type == kind {
-      add(claim.Base)
-    }
-    for _, reference := range claim.References {
-      if reference.Type == kind {
-        add(reference.Base)
-      }
-    }
-  }
-  sort.Slice(bases, func(left int, right int) bool {
-    return bases[left].Absolute < bases[right].Absolute
-  })
-  return bases
+	bases := []populationBase{}
+	seen := map[string]bool{}
+	add := func(base populationBase) {
+		if seen[base.Absolute] {
+			return
+		}
+		seen[base.Absolute] = true
+		bases = append(bases, base)
+	}
+	for _, claim := range config.Claims {
+		if claim.Type == kind {
+			add(claim.Base)
+		}
+		for _, reference := range claim.References {
+			if reference.Type == kind {
+				add(reference.Base)
+			}
+		}
+	}
+	sort.Slice(bases, func(left int, right int) bool {
+		return bases[left].Absolute < bases[right].Absolute
+	})
+	return bases
 }
 
 // populationRootLabel names the configuration property a reader has to edit,
@@ -299,10 +299,10 @@ func configuredBases(config graphConfig, kind artifactKind) []populationBase {
 // the fallback asks for an edit to a property that is not there, which is what
 // makes the spelling usable where no property exists.
 func populationRootLabel(base populationBase) string {
-  if base.Declared == "" {
-    return filepath.ToSlash(base.Absolute)
-  }
-  return base.Declared
+	if base.Declared == "" {
+		return filepath.ToSlash(base.Absolute)
+	}
+	return base.Declared
 }
 
 // baseDirectoryProblem reports a declared root that is not a usable directory.
@@ -322,41 +322,41 @@ func populationRootLabel(base populationBase) string {
 // root, and its diagnostic names the ttsc project identity as the repair rather
 // than a configuration property that does not exist there.
 func baseDirectoryProblem(base populationBase, kind artifactKind) string {
-  if base.Default {
-    return ""
-  }
-  info, err := base.inputs.Stat(base.Absolute)
-  if err == nil && info.IsDir() {
-    return ""
-  }
-  // A link with no target is the one state where the two calls disagree about
-  // whether anything is there: `Stat` follows it and reports the target as
-  // absent, while `Lstat` finds the link itself. Told to create a directory over
-  // one, the author gets `EEXIST` and reads the same sentence again, which is
-  // the repair this predicate exists to avoid.
-  //
-  // Only an absent answer is asked the second question. A loop, a parent that
-  // denies traversal, a name the filesystem refuses, and a path too long each
-  // already say something the rule cannot improve on, and promoting one here
-  // would trade the operating system's own sentence for an assertion that a
-  // non-directory is in the way, which is the guess the third state exists to
-  // refuse. The second call is made only on the absent path, so an ordinary
-  // root still costs one stat.
-  //
-  // `fs.ErrNotExist` is the whole of that test, and Windows answers it for more
-  // than an absent path: `ERROR_BAD_NETPATH` maps to it, so a UNC root whose
-  // server is unreachable reads as missing and is told to create a directory it
-  // cannot create. That is the second concession of the same shape as a path
-  // whose parent is a file, and it is left for the same reason: separating it
-  // means reading errno numbers per platform inside a file whose whole subject
-  // is that a path means the same thing on both.
-  occupied := err == nil
-  if errors.Is(err, fs.ErrNotExist) {
-    if _, linkErr := base.inputs.Lstat(base.Absolute); linkErr == nil {
-      occupied = true
-    }
-  }
-  return describeBaseDirectoryProblem(base, kind, occupied, err)
+	if base.Default {
+		return ""
+	}
+	info, err := base.inputs.Stat(base.Absolute)
+	if err == nil && info.IsDir() {
+		return ""
+	}
+	// A link with no target is the one state where the two calls disagree about
+	// whether anything is there: `Stat` follows it and reports the target as
+	// absent, while `Lstat` finds the link itself. Told to create a directory over
+	// one, the author gets `EEXIST` and reads the same sentence again, which is
+	// the repair this predicate exists to avoid.
+	//
+	// Only an absent answer is asked the second question. A loop, a parent that
+	// denies traversal, a name the filesystem refuses, and a path too long each
+	// already say something the rule cannot improve on, and promoting one here
+	// would trade the operating system's own sentence for an assertion that a
+	// non-directory is in the way, which is the guess the third state exists to
+	// refuse. The second call is made only on the absent path, so an ordinary
+	// root still costs one stat.
+	//
+	// `fs.ErrNotExist` is the whole of that test, and Windows answers it for more
+	// than an absent path: `ERROR_BAD_NETPATH` maps to it, so a UNC root whose
+	// server is unreachable reads as missing and is told to create a directory it
+	// cannot create. That is the second concession of the same shape as a path
+	// whose parent is a file, and it is left for the same reason: separating it
+	// means reading errno numbers per platform inside a file whose whole subject
+	// is that a path means the same thing on both.
+	occupied := err == nil
+	if errors.Is(err, fs.ErrNotExist) {
+		if _, linkErr := base.inputs.Lstat(base.Absolute); linkErr == nil {
+			occupied = true
+		}
+	}
+	return describeBaseDirectoryProblem(base, kind, occupied, err)
 }
 
 // describeBaseDirectoryProblem says what a declared root turned out to be, and
@@ -438,67 +438,67 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
 // rather than one noun against another: the walkers want the sources on disk,
 // and TypeScript wants them in the Program.
 func describeBaseDirectoryProblem(
-  base populationBase,
-  kind artifactKind,
-  occupied bool,
-  cause error,
+	base populationBase,
+	kind artifactKind,
+	occupied bool,
+	cause error,
 ) string {
-  unexaminable := !occupied && !errors.Is(cause, fs.ErrNotExist)
-  label := populationRootLabel(base)
-  // Two questions, two tests, and they are not the same one. Restating the
-  // resolved path tells a reader something only where it differs from the label,
-  // which almost every absolute declared root fails and a UNC spelling on POSIX
-  // passes, because `filepath.Clean` collapses its leading slashes while the
-  // declaration keeps them. Whether the project root was composed into the
-  // spelling at all is a different question, it is what gates the clause that
-  // says so, and only `declaredRootIsAbsolute` answers it.
-  restate := label != filepath.ToSlash(base.Absolute)
-  resolved := !declaredRootIsAbsolute(base.Declared)
-  if unexaminable {
-    message := "Evidence graph could not examine the " + string(kind) + " root '" + label + "'"
-    if restate {
-      message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
-    }
-    message += ": " + causeText(cause) + ". Correct the 'root' property, or clear the condition the filesystem reported"
-    if resolved {
-      message += "; it resolves against the ttsc project root"
-    }
-    if kind != artifactTypeScript {
-      return message + "."
-    }
-    return message + ". A " + string(kind) +
-      " root is checked by this stat alone: it re-bases Program sources onto itself rather than scanning the filesystem."
-  }
-  message := "Evidence graph could not read the " + string(kind) + " root '" + label + "'"
-  if kind == artifactTypeScript {
-    message = "Evidence graph found no directory at the " + string(kind) + " root '" + label + "'"
-  }
-  if restate {
-    message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
-  }
-  if occupied {
-    message += ", because that path is not a directory"
-  }
-  message += ". Correct the 'root' property, or "
-  switch {
-  case kind == artifactTypeScript && occupied:
-    message += "replace that path with a directory and make its sources part of the tsconfig Program"
-  case kind == artifactTypeScript:
-    message += "add that directory and make its sources part of the tsconfig Program"
-  case occupied:
-    message += "replace that path with a directory and the " + string(kind) + " sources it should hold"
-  default:
-    message += "create that directory and the " + string(kind) + " sources it should hold"
-  }
-  message += "; "
-  if resolved {
-    message += "it resolves against the ttsc project root, and "
-  }
-  if kind == artifactTypeScript {
-    return message + "a " + string(kind) +
-      " root re-bases Program sources onto itself rather than scanning the filesystem."
-  }
-  return message + "an empty directory leaves the population just as empty."
+	unexaminable := !occupied && !errors.Is(cause, fs.ErrNotExist)
+	label := populationRootLabel(base)
+	// Two questions, two tests, and they are not the same one. Restating the
+	// resolved path tells a reader something only where it differs from the label,
+	// which almost every absolute declared root fails and a UNC spelling on POSIX
+	// passes, because `filepath.Clean` collapses its leading slashes while the
+	// declaration keeps them. Whether the project root was composed into the
+	// spelling at all is a different question, it is what gates the clause that
+	// says so, and only `declaredRootIsAbsolute` answers it.
+	restate := label != filepath.ToSlash(base.Absolute)
+	resolved := !declaredRootIsAbsolute(base.Declared)
+	if unexaminable {
+		message := "Evidence graph could not examine the " + string(kind) + " root '" + label + "'"
+		if restate {
+			message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
+		}
+		message += ": " + causeText(cause) + ". Correct the 'root' property, or clear the condition the filesystem reported"
+		if resolved {
+			message += "; it resolves against the ttsc project root"
+		}
+		if kind != artifactTypeScript {
+			return message + "."
+		}
+		return message + ". A " + string(kind) +
+			" root is checked by this stat alone: it re-bases Program sources onto itself rather than scanning the filesystem."
+	}
+	message := "Evidence graph could not read the " + string(kind) + " root '" + label + "'"
+	if kind == artifactTypeScript {
+		message = "Evidence graph found no directory at the " + string(kind) + " root '" + label + "'"
+	}
+	if restate {
+		message += ", which resolves to '" + filepath.ToSlash(base.Absolute) + "'"
+	}
+	if occupied {
+		message += ", because that path is not a directory"
+	}
+	message += ". Correct the 'root' property, or "
+	switch {
+	case kind == artifactTypeScript && occupied:
+		message += "replace that path with a directory and make its sources part of the tsconfig Program"
+	case kind == artifactTypeScript:
+		message += "add that directory and make its sources part of the tsconfig Program"
+	case occupied:
+		message += "replace that path with a directory and the " + string(kind) + " sources it should hold"
+	default:
+		message += "create that directory and the " + string(kind) + " sources it should hold"
+	}
+	message += "; "
+	if resolved {
+		message += "it resolves against the ttsc project root, and "
+	}
+	if kind == artifactTypeScript {
+		return message + "a " + string(kind) +
+			" root re-bases Program sources onto itself rather than scanning the filesystem."
+	}
+	return message + "an empty directory leaves the population just as empty."
 }
 
 // resolvedBaseDirectory is the directory a base's files sit in, and reports
@@ -539,12 +539,12 @@ func describeBaseDirectoryProblem(
 // from the configuration as declared. All of it stays off the loop this feeds,
 // which is every source file of the project.
 func resolvedBaseDirectory(base populationBase) (string, bool) {
-  from, resolved := resolveLinkedPath(base.Absolute, base.inputs)
-  if !resolved {
-    return from, false
-  }
-  info, err := base.inputs.Lstat(from)
-  return from, err == nil && info.IsDir()
+	from, resolved := resolveLinkedPath(base.Absolute, base.inputs)
+	if !resolved {
+		return from, false
+	}
+	info, err := base.inputs.Lstat(from)
+	return from, err == nil && info.IsDir()
 }
 
 // resolveLinkedPath resolves a link at any component of an absolute path.
@@ -569,26 +569,26 @@ func resolvedBaseDirectory(base populationBase) (string, bool) {
 // comparison misses, which is the same silent failure as an unresolved leaf, one component
 // further up.
 func resolveLinkedPath(absolute string, readers ...evidenceInputReader) (string, bool) {
-  inputs := inputReader(readers)
-  volume := filepath.VolumeName(absolute)
-  rest := absolute[len(volume):]
-  current := volume + string(filepath.Separator)
-  walked := false
-  for _, segment := range strings.Split(filepath.ToSlash(rest), "/") {
-    if segment == "" {
-      continue
-    }
-    walked = true
-    resolved, settled := resolveLinkedDirectory(filepath.Join(current, segment), inputs)
-    if !settled {
-      return filepath.FromSlash(resolved), false
-    }
-    current = resolved
-  }
-  if !walked {
-    return filepath.Clean(absolute), true
-  }
-  return filepath.FromSlash(current), true
+	inputs := inputReader(readers)
+	volume := filepath.VolumeName(absolute)
+	rest := absolute[len(volume):]
+	current := volume + string(filepath.Separator)
+	walked := false
+	for _, segment := range strings.Split(filepath.ToSlash(rest), "/") {
+		if segment == "" {
+			continue
+		}
+		walked = true
+		resolved, settled := resolveLinkedDirectory(filepath.Join(current, segment), inputs)
+		if !settled {
+			return filepath.FromSlash(resolved), false
+		}
+		current = resolved
+	}
+	if !walked {
+		return filepath.Clean(absolute), true
+	}
+	return filepath.FromSlash(current), true
 }
 
 // unresolvedBaseProblem reports a base whose links this rule stops following
@@ -613,26 +613,26 @@ func resolveLinkedPath(absolute string, readers ...evidenceInputReader) (string,
 // a line their configuration does not contain. It is the ttsc project root, so
 // it is named as one and the repair is the invocation.
 func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
-  label := populationRootLabel(base)
-  message := "Evidence graph found no directory at the end of the "
-  if base.Default {
-    message += "ttsc project root '" + label + "'"
-  } else {
-    message += string(kind) + " root '" + label + "'"
-  }
-  // The resolved path is restated only when it differs from the label, which is
-  // the whole question: an absolute declared root and the default base both name
-  // the path they landed on, while a UNC spelling on POSIX does not, because
-  // `filepath.Clean` collapses its leading slashes and the two genuinely differ.
-  // `describeBaseDirectoryProblem` makes the same test for the same reason.
-  if resolved := filepath.ToSlash(base.Absolute); label != resolved {
-    message += ", which resolves to '" + resolved + "'"
-  }
-  message += ". That path passes through a chain of links longer than this rule follows. "
-  if base.Default {
-    return message + "Run ttsc against the directory those links end at."
-  }
-  return message + "Correct the 'root' property to name the directory those links end at."
+	label := populationRootLabel(base)
+	message := "Evidence graph found no directory at the end of the "
+	if base.Default {
+		message += "ttsc project root '" + label + "'"
+	} else {
+		message += string(kind) + " root '" + label + "'"
+	}
+	// The resolved path is restated only when it differs from the label, which is
+	// the whole question: an absolute declared root and the default base both name
+	// the path they landed on, while a UNC spelling on POSIX does not, because
+	// `filepath.Clean` collapses its leading slashes and the two genuinely differ.
+	// `describeBaseDirectoryProblem` makes the same test for the same reason.
+	if resolved := filepath.ToSlash(base.Absolute); label != resolved {
+		message += ", which resolves to '" + resolved + "'"
+	}
+	message += ". That path passes through a chain of links longer than this rule follows. "
+	if base.Default {
+		return message + "Run ttsc against the directory those links end at."
+	}
+	return message + "Correct the 'root' property to name the directory those links end at."
 }
 
 // causeText spells a reason for a sentence that owns its own terminator.
@@ -648,7 +648,7 @@ func unresolvedBaseProblem(base populationBase, kind artifactKind) string {
 // terminator, which is what lets a quoted glob error that writes none end with
 // one instead of ending bare.
 func causeText(cause error) string {
-  return causeReason(cause.Error())
+	return causeReason(cause.Error())
 }
 
 // causeReason is the same rule for a failure already reduced to text. A package
@@ -656,7 +656,7 @@ func causeText(cause error) string {
 // loader, and the Prisma and Swagger bridges hand back a parser's own sentence,
 // so those five sites reach the rule this way rather than through an error.
 func causeReason(text string) string {
-  return strings.TrimSuffix(text, ".")
+	return strings.TrimSuffix(text, ".")
 }
 
 // unlistableBaseProblem reports a population whose own base could not be
@@ -679,13 +679,13 @@ func causeReason(text string) string {
 // now, because that failure is the resolver's bound and this repair is about
 // access.
 func unlistableBaseProblem(
-  base populationBase,
-  sources string,
-  cause error,
+	base populationBase,
+	sources string,
+	cause error,
 ) string {
-  return "Evidence graph could not walk " + sources + " root '" + populationRootLabel(base) +
-    "': " + causeText(cause) + ". Make that root a directory this process can list, so its configured " +
-    sources + " sources can be indexed."
+	return "Evidence graph could not walk " + sources + " root '" + populationRootLabel(base) +
+		"': " + causeText(cause) + ". Make that root a directory this process can list, so its configured " +
+		sources + " sources can be indexed."
 }
 
 // unreadableEntryProblem decides whether a walk failure inside a population
@@ -705,18 +705,18 @@ func unlistableBaseProblem(
 // the root they declared either way. The base itself never arrives here: it is
 // not one entry among many, and each walker answers it before this is asked.
 func unreadableEntryProblem(
-  base populationBase,
-  from string,
-  sources string,
-  current string,
-  cause error,
-  reads func(relative string) bool,
+	base populationBase,
+	from string,
+	sources string,
+	current string,
+	cause error,
+	reads func(relative string) bool,
 ) (string, bool) {
-  relative, ok := relativeProjectPath(from, current)
-  if !ok || !reads(relative) {
-    return "", false
-  }
-  return unreadableWalkEntryProblem(base, relative, sources, cause), true
+	relative, ok := relativeProjectPath(from, current)
+	if !ok || !reads(relative) {
+		return "", false
+	}
+	return unreadableWalkEntryProblem(base, relative, sources, cause), true
 }
 
 // unreadableWalkEntryProblem names one path a population walk could not
@@ -733,14 +733,14 @@ func unreadableEntryProblem(
 // OS-native absolute path of its own, and rewriting a sentence this rule did
 // not author is a different claim than spelling its own paths one way.
 func unreadableWalkEntryProblem(
-  base populationBase,
-  relative string,
-  sources string,
-  cause error,
+	base populationBase,
+	relative string,
+	sources string,
+	cause error,
 ) string {
-  return "Evidence graph could not inspect '" + base.display(relative) +
-    "': " + causeText(cause) + ". Fix filesystem access so configured " + sources +
-    " sources can be indexed."
+	return "Evidence graph could not inspect '" + base.display(relative) +
+		"': " + causeText(cause) + ". Fix filesystem access so configured " + sources +
+		" sources can be indexed."
 }
 
 // normalizeRootPath validates a declared root without resolving it.
@@ -759,38 +759,38 @@ func unreadableWalkEntryProblem(
 // the one place where declaring it is visible in the configuration rather than
 // buried in a pattern.
 func normalizeRootPath(value string) (string, string) {
-  if value == "" {
-    return "", "the root must not be empty."
-  }
-  if strings.TrimSpace(value) != value {
-    return "", "the root must not have leading or trailing whitespace."
-  }
-  normalized := strings.ReplaceAll(value, "\\", "/")
-  if strings.ContainsAny(normalized, "*?") {
-    return "", "'" + value + "' is a glob; a root names one directory, and the patterns that select files inside it belong in 'files'."
-  }
-  if hasWindowsDrivePrefix(normalized) && !strings.HasPrefix(normalized[2:], "/") {
-    return "", "'" + value + "' is drive-relative, so it resolves against whatever directory that drive currently sits on rather than against a stable base. Write the full path."
-  }
-  // A UNC share is cleaned by hand because `path.Clean` collapses its leading
-  // `//` into one slash, which turns `//server/share` into an absolute path on
-  // the local volume — a different location that still looks like the one that
-  // was written.
-  if strings.HasPrefix(normalized, "//") {
-    normalized = "//" + strings.TrimPrefix(path.Clean(normalized), "/")
-  } else {
-    normalized = path.Clean(normalized)
-  }
-  if normalized == "." {
-    return "", ""
-  }
-  // `path.Clean` reads a drive prefix as an ordinary segment and strips the
-  // separator behind it, so `C:/` becomes `C:` — which the Windows path API
-  // then calls relative and resolves against the project. The separator is
-  // restored rather than the clean skipped, because a drive root is the one
-  // directory whose separator is part of its identity.
-  if len(normalized) == 2 && hasWindowsDrivePrefix(normalized) {
-    return normalized + "/", ""
-  }
-  return normalized, ""
+	if value == "" {
+		return "", "the root must not be empty."
+	}
+	if strings.TrimSpace(value) != value {
+		return "", "the root must not have leading or trailing whitespace."
+	}
+	normalized := strings.ReplaceAll(value, "\\", "/")
+	if strings.ContainsAny(normalized, "*?") {
+		return "", "'" + value + "' is a glob; a root names one directory, and the patterns that select files inside it belong in 'files'."
+	}
+	if hasWindowsDrivePrefix(normalized) && !strings.HasPrefix(normalized[2:], "/") {
+		return "", "'" + value + "' is drive-relative, so it resolves against whatever directory that drive currently sits on rather than against a stable base. Write the full path."
+	}
+	// A UNC share is cleaned by hand because `path.Clean` collapses its leading
+	// `//` into one slash, which turns `//server/share` into an absolute path on
+	// the local volume — a different location that still looks like the one that
+	// was written.
+	if strings.HasPrefix(normalized, "//") {
+		normalized = "//" + strings.TrimPrefix(path.Clean(normalized), "/")
+	} else {
+		normalized = path.Clean(normalized)
+	}
+	if normalized == "." {
+		return "", ""
+	}
+	// `path.Clean` reads a drive prefix as an ordinary segment and strips the
+	// separator behind it, so `C:/` becomes `C:` — which the Windows path API
+	// then calls relative and resolves against the project. The separator is
+	// restored rather than the clean skipped, because a drive root is the one
+	// directory whose separator is part of its identity.
+	if len(normalized) == 2 && hasWindowsDrivePrefix(normalized) {
+		return normalized + "/", ""
+	}
+	return normalized, ""
 }

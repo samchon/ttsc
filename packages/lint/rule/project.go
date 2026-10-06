@@ -1,10 +1,10 @@
 package rule
 
 import (
-  "encoding/json"
+	"encoding/json"
 
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-  shimchecker "github.com/microsoft/typescript-go/shim/checker"
+	shimast "github.com/microsoft/typescript-go/shim/ast"
+	shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // ProjectIdentity names one loaded TypeScript Program without conflating the
@@ -25,30 +25,30 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectIdentity is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectIdentity is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectIdentity struct {
-  // LifecycleID is minted by the host for each loaded Program cycle;
-  // a supplied caller value is replaced during host normalization.
-  LifecycleID string `json:"lifecycleId"`
+	// LifecycleID is minted by the host for each loaded Program cycle;
+	// a supplied caller value is replaced during host normalization.
+	LifecycleID string `json:"lifecycleId"`
 
-  // InvocationCwd is the caller's working directory.
-  InvocationCwd string `json:"invocationCwd"`
+	// InvocationCwd is the caller's working directory.
+	InvocationCwd string `json:"invocationCwd"`
 
-  // LogicalConfigPath is the caller-facing config path spelling.
-  LogicalConfigPath string `json:"logicalConfigPath"`
+	// LogicalConfigPath is the caller-facing config path spelling.
+	LogicalConfigPath string `json:"logicalConfigPath"`
 
-  // LogicalProjectRoot is the root used for caller-facing locations.
-  LogicalProjectRoot string `json:"logicalProjectRoot"`
+	// LogicalProjectRoot is the root used for caller-facing locations.
+	LogicalProjectRoot string `json:"logicalProjectRoot"`
 
-  // PhysicalConfigPath is the config identity used by the compiler filesystem.
-  PhysicalConfigPath string `json:"physicalConfigPath"`
+	// PhysicalConfigPath is the config identity used by the compiler filesystem.
+	PhysicalConfigPath string `json:"physicalConfigPath"`
 
-  // PhysicalProjectRoot anchors local dependency declarations.
-  PhysicalProjectRoot string `json:"physicalProjectRoot"`
+	// PhysicalProjectRoot anchors local dependency declarations.
+	PhysicalProjectRoot string `json:"physicalProjectRoot"`
 
-  // ExplicitProjectRoot is empty when no caller override was supplied.
-  ExplicitProjectRoot string `json:"explicitProjectRoot,omitempty"`
+	// ExplicitProjectRoot is empty when no caller override was supplied.
+	ExplicitProjectRoot string `json:"explicitProjectRoot,omitempty"`
 
-  // PluginConfigOrigin is empty when no separate discovery origin was supplied.
-  PluginConfigOrigin string `json:"pluginConfigOrigin,omitempty"`
+	// PluginConfigOrigin is empty when no separate discovery origin was supplied.
+	PluginConfigOrigin string `json:"pluginConfigOrigin,omitempty"`
 }
 
 // ProjectRuleStatus describes whether a named project rule exists, was
@@ -65,11 +65,11 @@ type ProjectIdentity struct {
 type ProjectRuleStatus string
 
 const (
-  ProjectRuleAbsent       ProjectRuleStatus = "absent"
-  ProjectRuleOff          ProjectRuleStatus = "off"
-  ProjectRuleNotEvaluated ProjectRuleStatus = "not_evaluated"
-  ProjectRulePassed       ProjectRuleStatus = "passed"
-  ProjectRuleFailed       ProjectRuleStatus = "failed"
+	ProjectRuleAbsent       ProjectRuleStatus = "absent"
+	ProjectRuleOff          ProjectRuleStatus = "off"
+	ProjectRuleNotEvaluated ProjectRuleStatus = "not_evaluated"
+	ProjectRulePassed       ProjectRuleStatus = "passed"
+	ProjectRuleFailed       ProjectRuleStatus = "failed"
 )
 
 // ProjectFinding is a non-file finding retained in a project rule's cycle
@@ -84,11 +84,11 @@ const (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectFinding is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectFinding is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectFinding struct {
-  // Message describes the project-wide finding.
-  Message string
+	// Message describes the project-wide finding.
+	Message string
 
-  // Severity is the reported level, which can differ from the rule default.
-  Severity Severity
+	// Severity is the reported level, which can differ from the rule default.
+	Severity Severity
 }
 
 // ProjectRuleResult is one snapshot of a named project rule in the current
@@ -110,16 +110,16 @@ type ProjectFinding struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRuleResult is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRuleResult is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectRuleResult struct {
-  // Status is the rule outcome when this snapshot was read.
-  Status ProjectRuleStatus
+	// Status is the rule outcome when this snapshot was read.
+	Status ProjectRuleStatus
 
-  // State is the exact contributor-owned value, without a deep copy.
-  State any
+	// State is the exact contributor-owned value, without a deep copy.
+	State any
 
-  // Findings contains copied project findings at the snapshot boundary.
-  Findings []ProjectFinding
+	// Findings contains copied project findings at the snapshot boundary.
+	Findings []ProjectFinding
 
-  reporter ProjectReporter
+	reporter ProjectReporter
 }
 
 // NewProjectRuleResult constructs one host-owned project-result snapshot.
@@ -135,17 +135,17 @@ type ProjectRuleResult struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation intentionally returns independent mutable finding storage for its supplied snapshot; the caller controls snapshot freshness and may not share that backing slice between readers. State and reporter references retain their declared shared identity.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The constructor transfers a newly copied finding slice to the returned snapshot owner, proportional to input findings. Exact contributor state and the host reporter remain borrowed references; a retained snapshot can retain those objects, but reporter finalization owns mutation closure. No handle or task is acquired and no process-global history is stored.
 func NewProjectRuleResult(
-  status ProjectRuleStatus,
-  state any,
-  findings []ProjectFinding,
-  reporter ProjectReporter,
+	status ProjectRuleStatus,
+	state any,
+	findings []ProjectFinding,
+	reporter ProjectReporter,
 ) ProjectRuleResult {
-  return ProjectRuleResult{
-    Status:   status,
-    State:    state,
-    Findings: append([]ProjectFinding(nil), findings...),
-    reporter: reporter,
-  }
+	return ProjectRuleResult{
+		Status:   status,
+		State:    state,
+		Findings: append([]ProjectFinding(nil), findings...),
+		reporter: reporter,
+	}
 }
 
 // Fail marks this evaluated project result failed without adding a finding.
@@ -160,9 +160,9 @@ func NewProjectRuleResult(
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Fail performs the requested mutation through the retained cycle reporter rather than computing a reusable snapshot. Reporter identity and finalization own validity; arbitrary reporter effects cannot be suppressed by treating a previous call as equivalent work.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Fail forwards through the snapshot's existing borrowed reporter without acquiring or retaining a new resource. The reporter owns its lock and active-cycle lifetime, while the snapshot owner controls retention of its references.
 func (r ProjectRuleResult) Fail() {
-  if r.reporter != nil {
-    r.reporter.Fail()
-  }
+	if r.reporter != nil {
+		r.reporter.Fail()
+	}
 }
 
 // Report records one project finding and marks this evaluated result failed.
@@ -178,9 +178,9 @@ func (r ProjectRuleResult) Fail() {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting is an effect on the retained cycle channel, not a reusable snapshot computation. The standard reporter owns equal-message deduplication and active/finalized validity; this wrapper must preserve each supported callback invocation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper borrows the snapshot's reporter and retains no message independently. The standard host reporter owns unique message strings for the active cycle, closes mutations at finalization and can remain retained through externally held snapshots; this method introduces no separate historical cache or handle.
 func (r ProjectRuleResult) Report(message string) {
-  if r.reporter != nil {
-    r.reporter.Report(message)
-  }
+	if r.reporter != nil {
+		r.reporter.Report(message)
+	}
 }
 
 // ProjectResultReader supplies live project state to later file-rule contexts.
@@ -195,17 +195,17 @@ func (r ProjectRuleResult) Report(message string) {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectResultReader is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectResultReader is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectResultReader interface {
-  // ProjectResult snapshots the named rule in the current Program cycle.
-  //
-  // @evidence contracts/common.md#principled-implementation The named snapshot preserves registration and evaluation distinctions required before consuming project state.
-  // @evidence contracts/common.md#clear-and-simple-design The method exposes only lookup rather than the host's mutable storage.
-  // @evidence contracts/common.md#prohibited-implementation-shortcuts Consumers obtain state through declared lookup instead of injecting assumed project results.
-  // @evidence contracts/common.md#meaningful-documentation The native method comment identifies cycle scope with a separated tag block under documentation guidance.
-  // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectResultReader.ProjectResult is a method signature without a body; each implementation owns any filesystem or process behavior.
-  // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectResultReader.ProjectResult is a method signature without a body; each implementation chooses its own algorithm.
-  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectResultReader.ProjectResult is a method signature without a body; each implementation decides what, if anything, to share.
-  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectResultReader.ProjectResult is a method signature without a body; each implementation owns any retained state.
-  ProjectResult(name string) ProjectRuleResult
+	// ProjectResult snapshots the named rule in the current Program cycle.
+	//
+	// @evidence contracts/common.md#principled-implementation The named snapshot preserves registration and evaluation distinctions required before consuming project state.
+	// @evidence contracts/common.md#clear-and-simple-design The method exposes only lookup rather than the host's mutable storage.
+	// @evidence contracts/common.md#prohibited-implementation-shortcuts Consumers obtain state through declared lookup instead of injecting assumed project results.
+	// @evidence contracts/common.md#meaningful-documentation The native method comment identifies cycle scope with a separated tag block under documentation guidance.
+	// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectResultReader.ProjectResult is a method signature without a body; each implementation owns any filesystem or process behavior.
+	// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectResultReader.ProjectResult is a method signature without a body; each implementation chooses its own algorithm.
+	// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectResultReader.ProjectResult is a method signature without a body; each implementation decides what, if anything, to share.
+	// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectResultReader.ProjectResult is a method signature without a body; each implementation owns any retained state.
+	ProjectResult(name string) ProjectRuleResult
 }
 
 // ProjectRule is a contributor check that runs once per project evaluation
@@ -221,29 +221,29 @@ type ProjectResultReader interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRule is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRule is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectRule interface {
-  // Name is the rules-map identity of this project check.
-  //
-  // @evidence contracts/common.md#principled-implementation A stable string maps configuration and results to the same registered project rule.
-  // @evidence contracts/common.md#clear-and-simple-design Identity is one method separate from effectful checking.
-  // @evidence contracts/common.md#prohibited-implementation-shortcuts The registered name is a public key rather than an inferred fixture identifier.
-  // @evidence contracts/common.md#meaningful-documentation The native comment explains configuration identity with a separated tag block under documentation guidance.
-  // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectRule.Name is a method signature without a body; each implementation owns any filesystem or process behavior.
-  // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectRule.Name is a method signature without a body; each implementation chooses its own algorithm.
-  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRule.Name is a method signature without a body; each implementation decides what, if anything, to share.
-  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRule.Name is a method signature without a body; each implementation owns any retained state.
-  Name() string
+	// Name is the rules-map identity of this project check.
+	//
+	// @evidence contracts/common.md#principled-implementation A stable string maps configuration and results to the same registered project rule.
+	// @evidence contracts/common.md#clear-and-simple-design Identity is one method separate from effectful checking.
+	// @evidence contracts/common.md#prohibited-implementation-shortcuts The registered name is a public key rather than an inferred fixture identifier.
+	// @evidence contracts/common.md#meaningful-documentation The native comment explains configuration identity with a separated tag block under documentation guidance.
+	// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectRule.Name is a method signature without a body; each implementation owns any filesystem or process behavior.
+	// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectRule.Name is a method signature without a body; each implementation chooses its own algorithm.
+	// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRule.Name is a method signature without a body; each implementation decides what, if anything, to share.
+	// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRule.Name is a method signature without a body; each implementation owns any retained state.
+	Name() string
 
-  // Check evaluates the loaded Program and publishes findings or state through ctx.
-  //
-  // @evidence contracts/common.md#principled-implementation The project context supplies the Program binding and reporter for one whole-project evaluation.
-  // @evidence contracts/common.md#clear-and-simple-design One operation owns project validation before file dispatch.
-  // @evidence contracts/common.md#prohibited-implementation-shortcuts Findings and state use context APIs without replacing host dispatch.
-  // @evidence contracts/common.md#meaningful-documentation The native comment states evaluation and publication responsibility; the tag boundary follows documentation guidance.
-  // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectRule.Check is a method signature without a body; each implementation owns any filesystem or process behavior.
-  // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectRule.Check is a method signature without a body; each implementation chooses its own algorithm.
-  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRule.Check is a method signature without a body; each implementation decides what, if anything, to share.
-  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRule.Check is a method signature without a body; each implementation owns any retained state.
-  Check(ctx *ProjectContext)
+	// Check evaluates the loaded Program and publishes findings or state through ctx.
+	//
+	// @evidence contracts/common.md#principled-implementation The project context supplies the Program binding and reporter for one whole-project evaluation.
+	// @evidence contracts/common.md#clear-and-simple-design One operation owns project validation before file dispatch.
+	// @evidence contracts/common.md#prohibited-implementation-shortcuts Findings and state use context APIs without replacing host dispatch.
+	// @evidence contracts/common.md#meaningful-documentation The native comment states evaluation and publication responsibility; the tag boundary follows documentation guidance.
+	// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectRule.Check is a method signature without a body; each implementation owns any filesystem or process behavior.
+	// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectRule.Check is a method signature without a body; each implementation chooses its own algorithm.
+	// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRule.Check is a method signature without a body; each implementation decides what, if anything, to share.
+	// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRule.Check is a method signature without a body; each implementation owns any retained state.
+	Check(ctx *ProjectContext)
 }
 
 // ProjectInputKind distinguishes one exact local path from a glob population.
@@ -261,8 +261,8 @@ type ProjectRule interface {
 type ProjectInputKind string
 
 const (
-  ProjectInputFile ProjectInputKind = "file"
-  ProjectInputGlob ProjectInputKind = "glob"
+	ProjectInputFile ProjectInputKind = "file"
+	ProjectInputGlob ProjectInputKind = "glob"
 )
 
 // ProjectInput declares one local filesystem dependency of a ProjectRule.
@@ -280,11 +280,11 @@ const (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInput is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInput is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectInput struct {
-  // Kind chooses exact-file or glob-population observation.
-  Kind ProjectInputKind `json:"kind"`
+	// Kind chooses exact-file or glob-population observation.
+	Kind ProjectInputKind `json:"kind"`
 
-  // Pattern is a native path or glob resolved from the physical project root.
-  Pattern string `json:"pattern"`
+	// Pattern is a native path or glob resolved from the physical project root.
+	Pattern string `json:"pattern"`
 }
 
 // ProjectInputRule is the optional dependency-publication contract for a
@@ -300,17 +300,17 @@ type ProjectInput struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputRule is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputRule is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectInputRule interface {
-  // ProjectInputs declares local dependency topology for the resolved rule options.
-  //
-  // @evidence contracts/common.md#principled-implementation Returned file and glob declarations describe all local inputs relevant to the configured check before evaluation succeeds.
-  // @evidence contracts/common.md#clear-and-simple-design One declarative method keeps dependency selection separate from checking and watcher mechanics.
-  // @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit dependency channel avoids inventing successful-read-only watch coverage.
-  // @evidence contracts/common.md#meaningful-documentation The native comment explains options-based topology with a separated tag block under documentation guidance.
-  // @evidence contracts/portability.md#os-neutral-implementation The bodyless method still defines a native dependency boundary: returned Patterns are local paths or supported globs interpreted by the host against the project root, not protocol URLs. Implementations choose the configured declarations; ProjectInput and host normalization own spelling, missing-ancestor and actual case-policy distinctions.
-  // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputRule.ProjectInputs is a method signature without a body; each implementation chooses its own algorithm.
-  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputRule.ProjectInputs is a method signature without a body; each implementation decides what, if anything, to share.
-  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputRule.ProjectInputs is a method signature without a body; each implementation owns any retained state.
-  ProjectInputs(ctx *ProjectInputContext) []ProjectInput
+	// ProjectInputs declares local dependency topology for the resolved rule options.
+	//
+	// @evidence contracts/common.md#principled-implementation Returned file and glob declarations describe all local inputs relevant to the configured check before evaluation succeeds.
+	// @evidence contracts/common.md#clear-and-simple-design One declarative method keeps dependency selection separate from checking and watcher mechanics.
+	// @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit dependency channel avoids inventing successful-read-only watch coverage.
+	// @evidence contracts/common.md#meaningful-documentation The native comment explains options-based topology with a separated tag block under documentation guidance.
+	// @evidence contracts/portability.md#os-neutral-implementation The bodyless method still defines a native dependency boundary: returned Patterns are local paths or supported globs interpreted by the host against the project root, not protocol URLs. Implementations choose the configured declarations; ProjectInput and host normalization own spelling, missing-ancestor and actual case-policy distinctions.
+	// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputRule.ProjectInputs is a method signature without a body; each implementation chooses its own algorithm.
+	// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputRule.ProjectInputs is a method signature without a body; each implementation decides what, if anything, to share.
+	// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputRule.ProjectInputs is a method signature without a body; each implementation owns any retained state.
+	ProjectInputs(ctx *ProjectInputContext) []ProjectInput
 }
 
 // ProjectInputContext contains a snapshot of resolved configuration while a
@@ -325,14 +325,14 @@ type ProjectInputRule interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputContext is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectInputContext struct {
-  // Identity names the invocation and physical dependency root.
-  Identity ProjectIdentity
+	// Identity names the invocation and physical dependency root.
+	Identity ProjectIdentity
 
-  // Severity is the resolved project-rule level.
-  Severity Severity
+	// Severity is the resolved project-rule level.
+	Severity Severity
 
-  // Options owns copied configured bytes; DecodeOptions preserves defaults when empty.
-  Options json.RawMessage
+	// Options owns copied configured bytes; DecodeOptions preserves defaults when empty.
+	Options json.RawMessage
 }
 
 // NewProjectInputContext constructs the context passed to
@@ -348,15 +348,15 @@ type ProjectInputContext struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each publication receives independently mutable option storage from its supplied resolved snapshot; sharing that backing slice would permit one publisher to change host or another publisher input. Upstream resolution owns snapshot equivalence, not this copying boundary.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The constructor transfers copied option bytes and one context record to the returned owner, proportional to supplied bytes. Identity strings are shared immutable values; the caller controls context retention, and no process-global history, native handle or task is acquired.
 func NewProjectInputContext(
-  identity ProjectIdentity,
-  severity Severity,
-  options json.RawMessage,
+	identity ProjectIdentity,
+	severity Severity,
+	options json.RawMessage,
 ) *ProjectInputContext {
-  return &ProjectInputContext{
-    Identity: identity,
-    Severity: severity,
-    Options:  append(json.RawMessage(nil), options...),
-  }
+	return &ProjectInputContext{
+		Identity: identity,
+		Severity: severity,
+		Options:  append(json.RawMessage(nil), options...),
+	}
 }
 
 // DecodeOptions unmarshals the configured project-rule options into out. A
@@ -371,10 +371,10 @@ func NewProjectInputContext(
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding updates the supplied destination, preserves its omitted defaults and can invoke destination-defined unmarshaling effects. Equal JSON alone does not make different destinations or calls interchangeable; this helper owns no cross-request result cache.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded values and their allocations belong to the caller-supplied destination; custom unmarshaler retention is owned by that implementation. This helper neither stores destination history nor acquires native handles or tasks, and its receiver owner controls the existing raw option bytes.
 func (c *ProjectInputContext) DecodeOptions(out interface{}) error {
-  if c == nil || len(c.Options) == 0 {
-    return nil
-  }
-  return json.Unmarshal(c.Options, out)
+	if c == nil || len(c.Options) == 0 {
+		return nil
+	}
+	return json.Unmarshal(c.Options, out)
 }
 
 // ProjectReporter is the cycle-scoped failure channel available to project
@@ -390,29 +390,29 @@ func (c *ProjectInputContext) DecodeOptions(out interface{}) error {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectReporter is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectReporter is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectReporter interface {
-  // Fail marks the project rule failed without adding a finding.
-  //
-  // @evidence contracts/common.md#principled-implementation The channel can invalidate a result even when no additional message is appropriate.
-  // @evidence contracts/common.md#clear-and-simple-design A distinct method separates state failure from diagnostic creation.
-  // @evidence contracts/common.md#prohibited-implementation-shortcuts Failure remains explicit instead of manufacturing a message or a passed result.
-  // @evidence contracts/common.md#meaningful-documentation Native prose states the diagnostic-free effect; the tag block follows documentation guidance.
-  // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectReporter.Fail is a method signature without a body; each implementation owns any filesystem or process behavior.
-  // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectReporter.Fail is a method signature without a body; each implementation chooses its own algorithm.
-  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectReporter.Fail is a method signature without a body; each implementation decides what, if anything, to share.
-  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectReporter.Fail is a method signature without a body; each implementation owns any retained state.
-  Fail()
+	// Fail marks the project rule failed without adding a finding.
+	//
+	// @evidence contracts/common.md#principled-implementation The channel can invalidate a result even when no additional message is appropriate.
+	// @evidence contracts/common.md#clear-and-simple-design A distinct method separates state failure from diagnostic creation.
+	// @evidence contracts/common.md#prohibited-implementation-shortcuts Failure remains explicit instead of manufacturing a message or a passed result.
+	// @evidence contracts/common.md#meaningful-documentation Native prose states the diagnostic-free effect; the tag block follows documentation guidance.
+	// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectReporter.Fail is a method signature without a body; each implementation owns any filesystem or process behavior.
+	// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectReporter.Fail is a method signature without a body; each implementation chooses its own algorithm.
+	// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectReporter.Fail is a method signature without a body; each implementation decides what, if anything, to share.
+	// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectReporter.Fail is a method signature without a body; each implementation owns any retained state.
+	Fail()
 
-  // Report adds one project finding and marks the current rule failed.
-  //
-  // @evidence contracts/common.md#principled-implementation A message-bearing failure is delivered to the host's cycle aggregator.
-  // @evidence contracts/common.md#clear-and-simple-design One reporter method owns the finding-plus-failure operation.
-  // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported project channel avoids fabricated file ranges or direct host-map mutation.
-  // @evidence contracts/common.md#meaningful-documentation The native method comment states both effects with separated tags under documentation guidance.
-  // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectReporter.Report is a method signature without a body; each implementation owns any filesystem or process behavior.
-  // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectReporter.Report is a method signature without a body; each implementation chooses its own algorithm.
-  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectReporter.Report is a method signature without a body; each implementation decides what, if anything, to share.
-  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectReporter.Report is a method signature without a body; each implementation owns any retained state.
-  Report(message string)
+	// Report adds one project finding and marks the current rule failed.
+	//
+	// @evidence contracts/common.md#principled-implementation A message-bearing failure is delivered to the host's cycle aggregator.
+	// @evidence contracts/common.md#clear-and-simple-design One reporter method owns the finding-plus-failure operation.
+	// @evidence contracts/common.md#prohibited-implementation-shortcuts The supported project channel avoids fabricated file ranges or direct host-map mutation.
+	// @evidence contracts/common.md#meaningful-documentation The native method comment states both effects with separated tags under documentation guidance.
+	// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectReporter.Report is a method signature without a body; each implementation owns any filesystem or process behavior.
+	// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectReporter.Report is a method signature without a body; each implementation chooses its own algorithm.
+	// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectReporter.Report is a method signature without a body; each implementation decides what, if anything, to share.
+	// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectReporter.Report is a method signature without a body; each implementation owns any retained state.
+	Report(message string)
 }
 
 // ProjectSeverityReporter optionally accepts a severity for each finding.
@@ -428,17 +428,17 @@ type ProjectReporter interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectSeverityReporter is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectSeverityReporter is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectSeverityReporter interface {
-  // ReportSeverity records a non-off finding at its supplied level while the cycle is active.
-  //
-  // @evidence contracts/common.md#principled-implementation The finding's level is represented separately from the rule's default severity.
-  // @evidence contracts/common.md#clear-and-simple-design One optional operation extends reporting without a second project-result store.
-  // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit severity travels through a declared interface rather than patched reporter internals.
-  // @evidence contracts/common.md#meaningful-documentation The native comment names explicit-level reporting with a separated tag block under documentation guidance.
-  // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation owns any filesystem or process behavior.
-  // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation chooses its own algorithm.
-  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation decides what, if anything, to share.
-  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation owns any retained state.
-  ReportSeverity(severity Severity, message string)
+	// ReportSeverity records a non-off finding at its supplied level while the cycle is active.
+	//
+	// @evidence contracts/common.md#principled-implementation The finding's level is represented separately from the rule's default severity.
+	// @evidence contracts/common.md#clear-and-simple-design One optional operation extends reporting without a second project-result store.
+	// @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit severity travels through a declared interface rather than patched reporter internals.
+	// @evidence contracts/common.md#meaningful-documentation The native comment names explicit-level reporting with a separated tag block under documentation guidance.
+	// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation owns any filesystem or process behavior.
+	// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation chooses its own algorithm.
+	// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation decides what, if anything, to share.
+	// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectSeverityReporter.ReportSeverity is a method signature without a body; each implementation owns any retained state.
+	ReportSeverity(severity Severity, message string)
 }
 
 // ProjectContext contains a resolved input snapshot for one project-rule check.
@@ -464,31 +464,31 @@ type ProjectSeverityReporter interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectContext struct {
-  // Inputs is the optional host-owned reader for this Program generation.
-  // Nil preserves native filesystem behavior for manually constructed contexts.
-  Inputs ProjectInputReader
+	// Inputs is the optional host-owned reader for this Program generation.
+	// Nil preserves native filesystem behavior for manually constructed contexts.
+	Inputs ProjectInputReader
 
-  // Identity binds the check to one loaded Program cycle.
-  Identity ProjectIdentity
+	// Identity binds the check to one loaded Program cycle.
+	Identity ProjectIdentity
 
-  // Sources copies the slice, not the AST objects; contributors must not mutate the Program.
-  Sources []*shimast.SourceFile
+	// Sources copies the slice, not the AST objects; contributors must not mutate the Program.
+	Sources []*shimast.SourceFile
 
-  // Checker is the host's Program checker, when the rule requests type information.
-  Checker *shimchecker.Checker
+	// Checker is the host's Program checker, when the rule requests type information.
+	Checker *shimchecker.Checker
 
-  // Severity is the resolved rule level.
-  Severity Severity
+	// Severity is the resolved rule level.
+	Severity Severity
 
-  // Options carries the raw resolved payload; decode it into contributor-owned values.
-  Options json.RawMessage
+	// Options carries the raw resolved payload; decode it into contributor-owned values.
+	Options json.RawMessage
 
-  reporter    ProjectReporter
-  stateSetter projectStateSetter
+	reporter    ProjectReporter
+	stateSetter projectStateSetter
 }
 
 type projectStateSetter interface {
-  SetState(state any)
+	SetState(state any)
 }
 
 // NewProjectContext constructs the context a host passes to ProjectRule.Check.
@@ -503,24 +503,24 @@ type projectStateSetter interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each context owns independently mutable slice storage for one supplied check snapshot, so sharing source or options backing arrays could let one contributor alter another input. Host resolution and projectSources own shared upstream computation; checker, AST objects and cycle reporter deliberately remain shared references.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned owner retains one context plus O(s+b) copied source slots and option bytes. Source ASTs, checker and reporter remain host-owned shared references and can keep their reachable data alive while a caller retains the context; the host closes the reporter at cycle finalization. The constructor adds no historical cache, native handle or task.
 func NewProjectContext(
-  identity ProjectIdentity,
-  sources []*shimast.SourceFile,
-  checker *shimchecker.Checker,
-  severity Severity,
-  options json.RawMessage,
-  reporter ProjectReporter,
+	identity ProjectIdentity,
+	sources []*shimast.SourceFile,
+	checker *shimchecker.Checker,
+	severity Severity,
+	options json.RawMessage,
+	reporter ProjectReporter,
 ) *ProjectContext {
-  copiedSources := append([]*shimast.SourceFile(nil), sources...)
-  stateSetter, _ := reporter.(projectStateSetter)
-  return &ProjectContext{
-    Identity:    identity,
-    Sources:     copiedSources,
-    Checker:     checker,
-    Severity:    severity,
-    Options:     append(json.RawMessage(nil), options...),
-    reporter:    reporter,
-    stateSetter: stateSetter,
-  }
+	copiedSources := append([]*shimast.SourceFile(nil), sources...)
+	stateSetter, _ := reporter.(projectStateSetter)
+	return &ProjectContext{
+		Identity:    identity,
+		Sources:     copiedSources,
+		Checker:     checker,
+		Severity:    severity,
+		Options:     append(json.RawMessage(nil), options...),
+		reporter:    reporter,
+		stateSetter: stateSetter,
+	}
 }
 
 // DecodeOptions unmarshals the configured project-rule options into out. A
@@ -535,10 +535,10 @@ func NewProjectContext(
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding updates the supplied destination, preserves its omitted defaults and can invoke destination-defined unmarshaling effects. Equal JSON alone does not make different destinations or calls interchangeable; this helper owns no cross-request result cache.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded values and their allocations belong to the caller-supplied destination; custom unmarshaler retention is owned by that implementation. This helper neither stores destination history nor acquires native handles or tasks, and its receiver owner controls the existing raw option bytes.
 func (c *ProjectContext) DecodeOptions(out interface{}) error {
-  if c == nil || len(c.Options) == 0 {
-    return nil
-  }
-  return json.Unmarshal(c.Options, out)
+	if c == nil || len(c.Options) == 0 {
+		return nil
+	}
+	return json.Unmarshal(c.Options, out)
 }
 
 // SetState attaches one contributor-owned value to this rule's evaluated
@@ -555,10 +555,10 @@ func (c *ProjectContext) DecodeOptions(out interface{}) error {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Publishing the supplied reference changes the current cycle state; equal-looking values do not make calls to different cycles or setters interchangeable. The host owns the state slot rather than this method owning a shareable computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The host setter owns the current cycle state slot, replaces its prior reference and rejects publication after closure. Contributor state can retain an arbitrary object graph without a byte-size cap, and existing result readers can retain older references; this forwarding method adds no separate history, handle or task.
 func (c *ProjectContext) SetState(state any) {
-  if c == nil || c.stateSetter == nil || c.Severity == SeverityOff {
-    return
-  }
-  c.stateSetter.SetState(state)
+	if c == nil || c.stateSetter == nil || c.Severity == SeverityOff {
+		return
+	}
+	c.stateSetter.SetState(state)
 }
 
 // Fail marks the current project rule failed without adding a diagnostic.
@@ -572,10 +572,10 @@ func (c *ProjectContext) SetState(state any) {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Failure publication is an effect on the supplied cycle channel. The host makes repeated failure idempotent within that channel; the wrapper cannot replace publication across different reporters or cycles with a cached success.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The host reporter owns the cycle failure flag and finalization gate; this forwarding method stores no additional result history and acquires no handle or task. A retained context still retains its reporter reference, whose lifetime belongs to that owner.
 func (c *ProjectContext) Fail() {
-  if c == nil || c.reporter == nil || c.Severity == SeverityOff {
-    return
-  }
-  c.reporter.Fail()
+	if c == nil || c.reporter == nil || c.Severity == SeverityOff {
+		return
+	}
+	c.reporter.Fail()
 }
 
 // Report records one non-file project finding and marks the rule failed.
@@ -589,10 +589,10 @@ func (c *ProjectContext) Fail() {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call publishes failure and a message to its supplied cycle channel; identical text across different reporters is not equivalent work. The default host already deduplicates message records within one reporter while preserving the strongest level.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The host reporter owns messages retained for the cycle, growing with distinct message count and bytes without a size cap; closure stops new mutation and owner reachability controls release. This wrapper retains no separate message history, handle or task.
 func (c *ProjectContext) Report(message string) {
-  if c == nil || c.reporter == nil || c.Severity == SeverityOff {
-    return
-  }
-  c.reporter.Report(message)
+	if c == nil || c.reporter == nil || c.Severity == SeverityOff {
+		return
+	}
+	c.reporter.Report(message)
 }
 
 // ReportSeverity records a finding at an explicit level. An off rule or off
@@ -607,14 +607,14 @@ func (c *ProjectContext) Report(message string) {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Explicit severity changes the publication effect and fallback uses the configured level of its actual reporter. Equal message strings alone do not make channels or supplied levels interchangeable; the default host combines duplicate messages with strongest-level preservation within a single cycle.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The selected reporter owns cycle message storage and its closure policy; the default host retains distinct message bytes without a size cap until owner references cease to retain them. The wrapper stores no independent history and acquires no handle or task.
 func (c *ProjectContext) ReportSeverity(severity Severity, message string) {
-  if c == nil || c.reporter == nil || c.Severity == SeverityOff || severity == SeverityOff {
-    return
-  }
-  if reporter, ok := c.reporter.(ProjectSeverityReporter); ok {
-    reporter.ReportSeverity(severity, message)
-  } else {
-    c.reporter.Report(message)
-  }
+	if c == nil || c.reporter == nil || c.Severity == SeverityOff || severity == SeverityOff {
+		return
+	}
+	if reporter, ok := c.reporter.(ProjectSeverityReporter); ok {
+		reporter.ReportSeverity(severity, message)
+	} else {
+		c.reporter.Report(message)
+	}
 }
 
 var projectRegistry []ProjectRule
@@ -631,10 +631,10 @@ var projectRegistry []ProjectRule
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration is a distinct initialization-time publication effect, including duplicate entries that the host must later inspect and diagnose. Caching by rule name here would discard that validation input rather than reuse equivalent computation.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The process registry retains n initialization-time entries and their shared rule references for the process lifetime, including duplicates pending host validation. Entry count and reachable contributor data have no configured size cap or release; this API relies on initialization-time collection rather than concurrent runtime registration.
 func RegisterProject(r ProjectRule) {
-  if r == nil {
-    panic("rule: RegisterProject called with nil rule")
-  }
-  projectRegistry = append(projectRegistry, r)
+	if r == nil {
+		panic("rule: RegisterProject called with nil rule")
+	}
+	projectRegistry = append(projectRegistry, r)
 }
 
 // RegisteredProjects returns a defensive copy of all registered project rules.
@@ -650,7 +650,7 @@ func RegisterProject(r ProjectRule) {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each accessor call transfers independently mutable slice slots; returning a shared cached slice would expose registry membership or another caller snapshot to mutation. Shared rule objects remain borrowed, and host bootstrap owns reuse of inspected contributor metadata.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the returned O(n) slice allocation and its lifetime; referenced rule objects remain shared with the process registry and can retain arbitrary contributor data. This accessor creates no historical snapshot cache, handle or task, and does not release the process-owned registry.
 func RegisteredProjects() []ProjectRule {
-  out := make([]ProjectRule, len(projectRegistry))
-  copy(out, projectRegistry)
-  return out
+	out := make([]ProjectRule, len(projectRegistry))
+	copy(out, projectRegistry)
+	return out
 }
