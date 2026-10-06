@@ -2,8 +2,12 @@
   "name": "@ttsc/darwin-x64",
   "version": "0.30.4",
   "description": "macOS x64 native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
-  "os": ["darwin"],
-  "cpu": ["x64"],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "scripts": {
     "build": "node ../ttsc/build/platform-package.cjs"
   },
@@ -13,7 +17,11 @@
   },
   "author": "Jeongho Nam",
   "license": "MIT",
-  "files": ["bin", "package.json", "README.md"],
+  "files": [
+    "bin",
+    "package.json",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public",
     "executableFiles": [
@@ -21,7 +29,15 @@
       "./bin/ttscserver",
       "./bin/ttscgraph",
       "./bin/go/bin/go",
-      "./bin/go/bin/gofmt"
+      "./bin/go/bin/gofmt",
+      "./bin/go/pkg/tool/darwin_amd64/asm",
+      "./bin/go/pkg/tool/darwin_amd64/cgo",
+      "./bin/go/pkg/tool/darwin_amd64/compile",
+      "./bin/go/pkg/tool/darwin_amd64/cover",
+      "./bin/go/pkg/tool/darwin_amd64/fix",
+      "./bin/go/pkg/tool/darwin_amd64/link",
+      "./bin/go/pkg/tool/darwin_amd64/preprofile",
+      "./bin/go/pkg/tool/darwin_amd64/vet"
     ]
   }
 }

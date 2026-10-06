@@ -2,8 +2,12 @@
   "name": "@ttsc/linux-arm",
   "version": "0.30.4",
   "description": "Linux arm native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
-  "os": ["linux"],
-  "cpu": ["arm"],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm"
+  ],
   "scripts": {
     "build": "node ../ttsc/build/platform-package.cjs"
   },
@@ -13,7 +17,11 @@
   },
   "author": "Jeongho Nam",
   "license": "MIT",
-  "files": ["bin", "package.json", "README.md"],
+  "files": [
+    "bin",
+    "package.json",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public",
     "executableFiles": [
@@ -21,7 +29,15 @@
       "./bin/ttscserver",
       "./bin/ttscgraph",
       "./bin/go/bin/go",
-      "./bin/go/bin/gofmt"
+      "./bin/go/bin/gofmt",
+      "./bin/go/pkg/tool/linux_arm/asm",
+      "./bin/go/pkg/tool/linux_arm/cgo",
+      "./bin/go/pkg/tool/linux_arm/compile",
+      "./bin/go/pkg/tool/linux_arm/cover",
+      "./bin/go/pkg/tool/linux_arm/fix",
+      "./bin/go/pkg/tool/linux_arm/link",
+      "./bin/go/pkg/tool/linux_arm/preprofile",
+      "./bin/go/pkg/tool/linux_arm/vet"
     ]
   }
 }
