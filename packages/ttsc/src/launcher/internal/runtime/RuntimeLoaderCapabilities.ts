@@ -1,7 +1,9 @@
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { Worker } from "node:worker_threads";
+import { Worker, threadId } from "node:worker_threads";
+
+import { E2ETrace } from "../../../internal/E2ETrace";
 
 /**
  * What this runtime's module loader does on its own, read by asking it rather
@@ -85,7 +87,7 @@ export namespace RuntimeLoaderCapabilities {
    * @evidence contracts/portability.md#os-neutral-implementation Node workers and pathToFileURL handle the native execution boundary without process shell commands or platform-specific loader guesses.
    * @evidence contracts/performance.md#efficient-algorithms Worker construction delegates native thread/startup work; one four-byte shared answer and a bounded Atomics wait coordinate this attempt. Repeated accessor calls read the helper-instance memo, including cached conservative negatives, without another worker.
    * @evidence contracts/performance.md#reuse-equivalent-work The running Node loader's require behavior is shared across imports; a conservative negative result after failure consistently selects the facade that supplies ordinary require.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One worker belongs to initialization and receives terminate in finally; one boolean remains afterwards. The synchronous accessor does not await termination, so completion of teardown is not independently bounded here.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources One worker belongs to initialization and receives terminate in finally; one boolean remains afterwards. The synchronous accessor does not await termination, so completion of teardown is not independently bounded here. Opt-in observations distinguish its actual creation, termination request returning a Promise, and exit event under one probe id. No await, rejection handler or error listener changes the existing termination/unhandled-error behavior. Exit reports this worker lifecycle only and cannot establish an OS executable-lock owner.
    */
   export function hookedCommonJsImportKeepsRequire(): boolean {
     hookedCommonJsRequire ??= probeHookedCommonJsRequire();
@@ -95,6 +97,7 @@ export namespace RuntimeLoaderCapabilities {
   let requireResolve: boolean | undefined;
   let moduleExportsKey: boolean | undefined;
   let hookedCommonJsRequire: boolean | undefined;
+  let probeTraceOrdinal = 0;
 
   /**
    * Ask the runtime by running the path that narrows `require`: an `import()`,
@@ -117,10 +120,38 @@ export namespace RuntimeLoaderCapabilities {
     } catch {
       return false;
     }
+    const workerThreadId = worker.threadId;
+    const probeId = process.env.TTSC_E2E_TRACE
+      ? String(++probeTraceOrdinal)
+      : undefined;
+    if (probeId !== undefined) {
+      try {
+        const fields = { probeId, pid: process.pid, threadId, workerThreadId };
+        E2ETrace.capabilityResolution("runtime-loader-worker-created", fields);
+        worker.once("exit", (exitCode) =>
+          E2ETrace.capabilityResolution("runtime-loader-worker-exited", {
+            ...fields,
+            exitCode,
+          }),
+        );
+      } catch {
+        // Observer registration must not change the probe or worker errors.
+      }
+    }
     try {
       Atomics.wait(answer, 0, 0, HOOKED_COMMONJS_REQUIRE_PROBE_TIMEOUT_MS);
     } finally {
       void worker.terminate();
+      if (probeId !== undefined)
+        E2ETrace.capabilityResolution(
+          "runtime-loader-worker-terminate-requested",
+          {
+            probeId,
+            pid: process.pid,
+            threadId,
+            workerThreadId,
+          },
+        );
     }
     // Anything but a "kept" answer counts as narrowed: the facade the runtime
     // then uses supplies the supported public createRequire adaptation,

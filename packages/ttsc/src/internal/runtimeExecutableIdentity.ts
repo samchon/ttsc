@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { threadId } from "node:worker_threads";
 
 import { E2ETrace } from "./E2ETrace";
 
@@ -21,12 +22,13 @@ import { E2ETrace } from "./E2ETrace";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation establishes whether later work is equivalent; retaining a digest by metadata would reproduce the stale-byte defect it must prevent.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One descriptor and one fixed buffer belong to this synchronous call; finally attempts closure after read/observation failures as well as success. A close failure returns no identity but cannot confirm native release. Returned path/metadata/digest text transfers to the caller and no helper history survives.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One descriptor and one fixed buffer belong to this synchronous call; finally attempts closure after read/observation failures as well as success. A close failure returns no identity but cannot confirm native release. Returned path/metadata/digest text transfers to the caller and no helper history survives. Opt-in opened/closed/close-failed observations carry one trace-only call id and actual descriptor, PID/thread and already observed physical identity. The existing finally performs the single close; no observer retries it or converts an unavailable identity to success. An observed close is release of this Node descriptor, not proof that an OS image lock or another actor has released the executable.
  */
 export function runtimeExecutableIdentity(runtime: string): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
   const startedAt = new Date().toISOString();
   let descriptor: number | undefined;
+  let traceLease: Readonly<Record<string, string | number>> | undefined;
   let stage = "lexical-stat";
   const unavailable = (reason: string, expected?: string, observed?: string,
     observations?: { before: fs.BigIntStats; after: fs.BigIntStats }) => {
@@ -48,6 +50,22 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
     if (!physical.isFile()) return unavailable("not-regular", undefined, fileIdentity(physical));
     stage = "open";
     descriptor = fs.openSync(physicalPath, "r");
+    if (process.env.TTSC_E2E_TRACE) {
+      traceLease = {
+        callId: String(++identityTraceOrdinal),
+        runtime,
+        physicalPath,
+        descriptor,
+        pid: process.pid,
+        threadId,
+        dev: String(physical.dev),
+        ino: String(physical.ino),
+      };
+      E2ETrace.capabilityResolution(
+        "runtime-executable-identity-opened",
+        traceLease,
+      );
+    }
     stage = "opened-stat";
     const opened = fs.fstatSync(descriptor, { bigint: true });
     if (fileIdentity(opened) !== fileIdentity(physical))
@@ -99,13 +117,29 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
     if (descriptor !== undefined) {
       try {
         fs.closeSync(descriptor);
+        if (traceLease !== undefined)
+          E2ETrace.capabilityResolution(
+            "runtime-executable-identity-closed",
+            traceLease,
+          );
       } catch (error) {
+        if (traceLease !== undefined)
+          E2ETrace.capabilityResolution(
+            "runtime-executable-identity-close-failed",
+            {
+              ...traceLease,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          );
         stage = "close";
         return unavailable("descriptor-close-error", undefined, error instanceof Error ? error.message : String(error));
       }
     }
   }
 }
+
+// Trace-only ordinal distinguishes sequential uses of a reused descriptor.
+let identityTraceOrdinal = 0;
 
 /** Bigint metadata distinguishes file replacement and observed writes. */
 function fileIdentity(stat: fs.BigIntStats): string {
