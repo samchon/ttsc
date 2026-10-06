@@ -1,6 +1,7 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { E2eProcessTrace, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import type { RollupOutput, RollupWatcher } from "rollup";
 import { build } from "vite";
@@ -37,7 +38,16 @@ import { test_watch_broker_hears_what_follows_ready } from "./unplugin/transform
  * @evidence contracts/e2e.md#preserved-coverage Combines real Vite transform delivery, underlying Rollup assembly and actual utility/value meanings. It does not certify every original independent adapter lifecycle or mapped unit's execution.
  */
 export async function test_e2e_vite_batch(): Promise<void> {
+  const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
+    begin(): string | undefined;
+    record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+  };
+  const invocation = trace.begin();
+  const phase = (phase: string, data: Record<string, unknown> = {}): void =>
+    trace.record("vite-lifecycle", invocation, { pid: process.pid, data: { phase, ...data } });
+  phase("workspace-open-started");
   const workspace = await BatchWorkspace.open();
+  phase("workspace-open-returned");
   const brokerRoot = path.join(workspace.cache, "watch-broker-corpus");
   fs.mkdirSync(brokerRoot, { recursive: true });
   const combinedFailures: unknown[] = [];
@@ -100,6 +110,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const captures = new Set<Promise<void>>();
     try {
       const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
+      phase("build-started");
       const result = await build({
         root: workspace.root,
         configFile: false,
@@ -146,6 +157,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
           },
         },
       });
+      phase("build-returned");
       assert.ok(
         !Array.isArray(result) && "on" in result && "close" in result,
         "one retained host must own all record states",
@@ -162,7 +174,9 @@ export async function test_e2e_vite_batch(): Promise<void> {
               delivered,
               "the actual host must render its graph before BUNDLE_END",
             );
+            phase("bundle-result-close-started", { generation: generations.length });
             await event.result.close();
+            phase("bundle-result-close-returned", { generation: generations.length });
             generations.push(delivered);
           } catch (error) {
             failures.push(error);
@@ -353,11 +367,14 @@ export async function test_e2e_vite_batch(): Promise<void> {
         BatchWorkspace.readBundle(restoredChunk.code),
         workspace.expected,
       );
+      phase("captures-join-started", { captures: captures.size });
       await Promise.all(captures);
+      phase("captures-join-returned");
     } finally {
       if (watcher !== undefined) {
         let closingTimer: ReturnType<typeof setTimeout> | undefined;
         try {
+          phase("watcher-close-started");
           await Promise.race([
             watcher.close(),
             new Promise<never>((_resolve, reject) => {
@@ -372,7 +389,10 @@ export async function test_e2e_vite_batch(): Promise<void> {
               );
             }),
           ]);
+          phase("watcher-close-returned");
+          phase("close-captures-join-started", { captures: captures.size });
           await Promise.all(captures);
+          phase("close-captures-join-returned");
         } finally {
           if (closingTimer !== undefined) clearTimeout(closingTimer);
         }
@@ -391,14 +411,21 @@ export async function test_e2e_vite_batch(): Promise<void> {
       else process.env.NODE_ENV = previousMode;
     }
   } catch (error) {
+    phase("build-corpus-threw", { error: String(error) });
     combinedFailures.push(error);
   } finally {
+    phase("broker-join-started");
     await broker;
+    phase("broker-join-returned");
+    phase("native-input-watch-join-started");
     await nativeInputWatch;
+    phase("native-input-watch-join-returned");
   }
   await BatchWorkspace.open();
   try {
+    phase("serve-corpus-started");
     await viteServeCorpus(workspace);
+    phase("serve-corpus-returned");
   } catch (error) {
     combinedFailures.push(error);
   }

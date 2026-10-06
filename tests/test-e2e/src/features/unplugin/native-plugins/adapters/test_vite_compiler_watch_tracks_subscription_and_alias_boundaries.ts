@@ -1,6 +1,7 @@
-import { TestProject } from "@ttsc/testing";
+import { E2eProcessTrace, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import { captureWatchInputBaseline } from "../../../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
@@ -40,6 +41,11 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
   externalRoot: string;
   retain(reason: string): void;
 }): Promise<void> {
+  const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
+    begin(): string | undefined;
+    record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+  };
+  const invocation = trace.begin();
   const root = fs.realpathSync.native(
     prepared?.root ?? TestProject.tmpdir("ttsc-vite-watch-boundary-"),
   );
@@ -219,8 +225,11 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
     failures.push(error);
   } finally {
     try {
+      trace.record("vite-native-input-dispose", invocation, { pid: process.pid, data: { phase: "started" } });
       await watch.dispose();
+      trace.record("vite-native-input-dispose", invocation, { pid: process.pid, data: { phase: "returned" } });
     } catch (error) {
+      trace.record("vite-native-input-dispose", invocation, { pid: process.pid, data: { phase: "threw", error: String(error) } });
       prepared?.retain(
         "native Vite input observer disposal was not acknowledged",
       );

@@ -17,6 +17,13 @@ export async function observeConfiguredOwners(): Promise<unknown> {
   console.info("entry:" + esnext.strippedDependency);
   const manifest = JSON.parse(fs.readFileSync((globalThis as any).process.env.TTSX_RUNTIME_MANIFEST, "utf8")) as { depCacheDir: string };
   const emitted = fs.readdirSync(manifest.depCacheDir, { recursive: true }) as string[];
+  if (!emitted.some((file) => file.endsWith("configured-unused.js"))) {
+    console.error("TTSC_CONFIGURED_OWNER_EMIT:" + JSON.stringify({
+      manifest: (globalThis as any).process.env.TTSX_RUNTIME_MANIFEST,
+      depCacheDir: manifest.depCacheDir,
+      emitted,
+    }));
+  }
   return {
     esnext: [esnext.hello(), esnext.sentinel, esnext.derived], legacy: legacy.default.values,
     wholeProject: { wrapped: esnext.wrap(7), unimportedEmitted: emitted.some((file) => file.endsWith("configured-unused.js")) },
