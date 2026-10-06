@@ -116,5 +116,7 @@ jobs:
             ${{ steps.e2e-trace.outputs.root }}/**/*.jsonl
             ${{ steps.e2e-trace.outputs.root }}/**/*.jsonl.integrity
             ${{ steps.e2e-trace.outputs.root }}/**/preparation-environment.json
+            ${{ steps.e2e-trace.outputs.root }}/lsp-format-observations-*/*-stdout.bin
+            ${{ steps.e2e-trace.outputs.root }}/lsp-format-observations-*/*-stderr.bin
           if-no-files-found: error
           retention-days: 7
