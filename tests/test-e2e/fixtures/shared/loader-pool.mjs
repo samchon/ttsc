@@ -121,7 +121,9 @@ try { for await (const line of createInterface({ input: process.stdin })) {
       if (command.descriptorFlow.runtimeInputs) {
         const inputs = command.descriptorFlow.runtimeInputs;
         const loaded = loadProjectPlugins({ binary: "", cacheDir: inputs.cache, tsconfig: inputs.config,
-          env: { ...process.env, TTSC_BINARY: command.descriptorFlow.binary, TTSC_TSGO_BINARY: command.descriptorFlow.tsgo, NODE_PATH: inputs.nodePath } });
+          env: { ...process.env,
+            ...(inputs.goBuildCache ? { TTSC_GO_CACHE_DIR: inputs.goBuildCache } : {}),
+            TTSC_BINARY: command.descriptorFlow.binary, TTSC_TSGO_BINARY: command.descriptorFlow.tsgo, NODE_PATH: inputs.nodePath } });
         value = { hostInputs: loaded.hostInputs, hostInputHashes: loaded.hostInputHashes, hostInputRealpaths: loaded.hostInputRealpaths };
       } else {
       const cases = [

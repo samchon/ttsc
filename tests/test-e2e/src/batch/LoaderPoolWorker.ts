@@ -57,7 +57,7 @@ export interface LoaderPoolOutcome {
  * @evidence contracts/testing.md#execution-ownership The loader-pool experiment initially owns Metro and Turbopack workers, then acquires one fresh Metro worker only after both actually join, to distinguish offline edits from old in-memory validation. Other request calls reuse their existing process; native preparation totals are not certified.
  * @evidence contracts/e2e.md#necessary-boundary Actual built adapter processes and their session-native producer must communicate before publication sharing can be observed.
  * @evidence contracts/e2e.md#shared-execution The initial Metro resident owns one additional public prepare call and descriptor/admission re-observation before bounded delivery; it does not acquire a Program or certify a cache hit. One command stream keeps each adapter module/cache owner resident across the same project states.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit owned cwd/cache/session and complete close receipts bound reuse; unresolved delivery/close is failure, never release proof or forced process termination.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit owned cwd/cache/session and complete close receipts bound reuse; unresolved delivery/close is failure, never release proof or forced process termination. An optional runtime-inputs object-cache coordinate is command data only; worker environment, binary namespace and request deadline remain intact. It is supplied only after native-name inspection finds no nonempty inherited dedicated/external cache.
  * @evidence contracts/e2e.md#preserved-coverage The caller retains initial Metro forwarding/Turbopack map and dependency controls while extending actual failure sharing/replay/repair; no legacy case/profile loop is invoked.
  */
 export function createLoaderPoolWorker(props: {
@@ -219,7 +219,13 @@ export function createLoaderPoolWorker(props: {
         api: string;
         binary: string;
         tsgo: string;
-        runtimeInputs?: { config: string; cache: string; nodePath: string };
+        runtimeInputs?: {
+          config: string;
+          cache: string;
+          nodePath: string;
+          /** Invocation-only object cache; absent keeps inherited selection. */
+          goBuildCache?: string;
+        };
         lint?: {
           root: string;
           factory: string;

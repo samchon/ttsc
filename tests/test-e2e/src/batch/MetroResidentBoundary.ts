@@ -5,6 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { SidecarEnvironment } from "../../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment";
+
 import type { BatchWorkspace } from "./BatchWorkspace";
 import type { createLoaderPoolWorker } from "./LoaderPoolWorker";
 
@@ -290,7 +292,7 @@ export namespace MetroResidentBoundary {
    * @evidence contracts/testing.md#distinguishing-cases Counterfeit/missing/body/context errors, helper-only selection changes, namespace collision, failed config logs and evaluation-time absent input proof retain their separate assertions.
    * @evidence contracts/testing.md#execution-ownership Both consumers submit these same two descriptorFlow protocol commands; no direct private evaluator substitutes for the resident reply.
    * @evidence contracts/e2e.md#necessary-boundary Actual descriptorFlow line responses bind contributor choices, errors and observed runtime input paths to the same native loader invocation; ordinary normalization units cannot certify that transport.
-   * @evidence contracts/e2e.md#shared-execution One resident handles the original mixed-lint command and runtime-input command against the shared authored population. Typed helper edits perform real evaluator work rather than zero-cost fixture transitions.
+   * @evidence contracts/e2e.md#shared-execution One resident handles the original mixed-lint command and runtime-input command against the shared authored population. Typed helper edits perform real evaluator work rather than zero-cost fixture transitions. Its runtime-inputs invocation shares only Go object storage when the effective parent has neither a dedicated nor external cache; the separate descriptor-runtime-inputs binary namespace and its one actual load remain unchanged. Windows native-name lookup preserves inherited cache values. This avoids an unasserted fresh object-cache split without pre-evaluating config appearance or claiming a cache hit/latency result.
    * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The command retains original typed/MJS input snapshots and requires the child to restore them. Runtime-created configs remain unproved where evaluation observed their absence; caller-owned worker close bounds cleanup.
    * @evidence contracts/e2e.md#preserved-coverage All original descriptor reason rows, contributor tuples, collisions, failed logs and runtime discovery/config-absence assertions are moved intact to this function; unrelated full-pool transitions remain selected separately.
    */
@@ -483,6 +485,13 @@ export namespace MetroResidentBoundary {
         config: runtimeInputConfig,
         cache: path.join(workspace.cache, "descriptor-runtime-inputs"),
         nodePath: [runtimeNear, runtimeFar].join(path.delimiter),
+        // Object storage is not this descriptor's binary/input authority.
+        // Nonempty inherited cache inputs keep their original selection.
+        goBuildCache:
+          SidecarEnvironment.read(process.env, "TTSC_GO_CACHE_DIR") ||
+          SidecarEnvironment.read(process.env, "GOCACHE")
+            ? undefined
+            : path.join(workspace.cache, "go-build"),
       },
     });
     assert.equal(runtimeInputReply.error, undefined);
