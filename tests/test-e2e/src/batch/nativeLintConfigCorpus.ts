@@ -33,14 +33,14 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *    ancestor lint config; cwd fallback and local wrapper precedence remain
  *    distinct from the main graph's ancestor configuration.
  *
- * @evidence contracts/testing.md#behavioral-verification The real launcher reports every independently authored contributor TODO/FIXME/XXX tuple, rejects leaked default marker options, renders the original no-var/prefer-const/TypeScript order and omits ignored generated inputs. The same typed check must return exactly2 with empty stdout and the authored structured Legacy restriction's exact custom message. A CJS warning-only command must return zero and empty stdout with exactly one no-console warn, while its actual normalized loader envelope retains both no-console:warning and no-debugger:error. The typed graph adds a real no-explicit-any diagnostic at authored mixed.ts line11 and verifies that same rule value in the typed evaluator envelope. Actual compiler API wrapper calls require cwd fallback with two discovery errors and wrapper precedence with only no-var.
- * @evidence contracts/testing.md#independent-expectations Original authored comment messages, option marker XXX versus TODO, source line numbers and literal rule/category tuples define expectations. The Legacy source and literal Use Safe instead. option independently require the exact no-restricted-types message, empty stdout and check status2; fixWith/suggest remain input fields, not claimed edit assertions. CLI stderr/parser and actual compile envelopes supply observations; discovery output never generates the expected rules.
- * @evidence contracts/testing.md#distinguishing-cases Typed package contributor/options, structured builtin rule options reaching the actual renderer, builtin-plus-TypeScript stream, globally ignored included dot/declaration files, explicit CJS warning normalization, config-less wrapper fallback and wrapper config precedence remain distinct.
+ * @evidence contracts/testing.md#behavioral-verification The real launcher reports every independently authored contributor TODO/FIXME/XXX tuple, rejects leaked default marker options, renders the original no-var/prefer-const/TypeScript order and omits ignored generated inputs. The same typed check must return exactly2 with empty stdout and the authored structured Legacy restriction's exact custom message. A CJS warning-only command must return zero and empty stdout with exactly one no-console warn, while its actual normalized loader envelope retains both no-console:warning and no-debugger:error. The typed graph adds a real no-explicit-any diagnostic at authored mixed.ts line11 and verifies that same rule value in the typed evaluator envelope. A namespace-spread helper supplies no-debugger:error, while the same root evaluator retains local ignores: main.ts line3 must report that rule and the included functional source must report nothing. Actual compiler API wrapper calls require cwd fallback with two discovery errors and wrapper precedence with only no-var.
+ * @evidence contracts/testing.md#independent-expectations Original authored comment messages, option marker XXX versus TODO, source line numbers and literal rule/category tuples define expectations. The Legacy source and literal Use Safe instead. option independently require the exact no-restricted-types message, empty stdout and check status2; fixWith/suggest remain input fields, not claimed edit assertions. The authored main debugger and included functional debugger independently contrast active and locally ignored paths. The paired typed loader payload must retain the inherited no-debugger severity and the three literal ignore globs. CLI stderr/parser and actual compile envelopes supply observations; discovery output never generates the expected rules.
+ * @evidence contracts/testing.md#distinguishing-cases Typed package contributor/options, structured builtin rule options reaching the actual renderer, builtin-plus-TypeScript stream, globally ignored included dot/declaration files, explicit CJS warning normalization, synchronous namespace-default composition with inherited rules versus local ignores, config-less wrapper fallback and wrapper config precedence remain distinct.
  * @evidence contracts/testing.md#execution-ownership Selected esbuild calls this helper on one upfront lint island with workspace-linked owning lint/demo producers. Two real launcher commands and two actual synchronous compiler API preparations own all distinctions; source units are not treated as native registration/renderer evidence.
  * @evidence contracts/e2e.md#necessary-boundary Executable typed/CJS config evaluation, demo source discovery, serialized options, native rule diagnostic transport and CLI status must agree. Wrapper context must select its own config or actual cwd fallback; Go config/decoder units alone cannot establish that assembly.
  * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates.
- * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. Authored transfer acceptance remains subject to execution.
+ * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. Authored transfer acceptance remains subject to execution.
  */
 export function nativeLintConfigCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -57,6 +57,8 @@ export function nativeLintConfigCorpus(
   const originalTyped = fs.readFileSync(typed);
   const immutableInputs = [
     "src/main.ts",
+    "src/functional/api.ts",
+    "shared-lint.config.ts",
     "src/options.ts",
     "src/diagnostic-stream.ts",
     "src/mixed.ts",
@@ -139,9 +141,27 @@ export function nativeLintConfigCorpus(
       const result = run();
       assert.equal(result.status, 2, result.stderr);
       assert.equal(result.stdout, "", result.stderr);
-      assertExecutableConfigRules(result.traces, traceRoot, typed, {
-        "typescript/no-explicit-any": "error",
-      });
+      const evaluated = assertExecutableConfigRules(
+        result.traces,
+        traceRoot,
+        typed,
+        {
+          "typescript/no-explicit-any": "error",
+          "no-debugger": "error",
+        },
+      );
+      assert.deepEqual(evaluated.ignores, [
+        ".next/**/*.ts",
+        "next-env.d.ts",
+        "src/functional/**/*.ts",
+      ]);
+      assert.equal(
+        result.diagnostics.some((row) =>
+          row.file.replace(/\\/g, "/").includes("/src/functional/"),
+        ),
+        false,
+        result.stderr,
+      );
       assert.ok(
         result.stderr.includes("[typescript/no-restricted-types]"),
         result.stderr,
@@ -223,6 +243,7 @@ export function nativeLintConfigCorpus(
           ["discovery.ts", 1, "no-var", "error"],
           ["discovery.ts", 2, "no-console", "error"],
           ["main.ts", 1, "demo/no-todo-comment", "error"],
+          ["main.ts", 3, "no-debugger", "error"],
           ["mixed.ts", 1, "no-var", "error"],
           ["mixed.ts", 2, "prefer-const", "error"],
           ["mixed.ts", 8, "typescript/no-restricted-types", "error"],
@@ -419,7 +440,7 @@ function assertExecutableConfigRules(
   traceRoot: string,
   location: string,
   rules: Readonly<Record<string, string>>,
-): void {
+): Record<string, unknown> {
   assert.deepEqual(traces.integrityProblems, []);
   const results = traces.writerObservations
     .map((row) => row.observation)
@@ -484,4 +505,5 @@ function assertExecutableConfigRules(
       severity,
       location + ": " + rule,
     );
+  return value as Record<string, unknown>;
 }

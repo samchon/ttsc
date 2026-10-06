@@ -1,25 +1,6 @@
-import type { ITtscLintConfig } from "@ttsc/lint";
-import demoPlugin from "lint-contributor-demo";
+import * as shared from "./shared-lint.config.ts";
 
 export default {
-  extends: "./base.config.json",
-  ignores: [".next/**/*.ts", "next-env.d.ts"],
-  plugins: { demo: demoPlugin },
-  rules: {
-    "typescript/no-explicit-any": "error",
-    "demo/no-todo-comment": "error",
-    "demo/no-marker-comment": ["error", { markers: ["XXX"] }],
-    "typescript/no-restricted-types": [
-      "error",
-      {
-        types: {
-          Legacy: {
-            message: "Use Safe instead.",
-            fixWith: "Safe",
-            suggest: ["Safer"],
-          },
-        },
-      },
-    ],
-  },
-} satisfies ITtscLintConfig;
+  ...shared,
+  ignores: [".next/**/*.ts", "next-env.d.ts", "src/functional/**/*.ts"],
+};
