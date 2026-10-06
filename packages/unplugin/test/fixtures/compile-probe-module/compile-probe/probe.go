@@ -35,6 +35,9 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
     return nil, fmt.Errorf("shared native pipeline requires a suffix")
   }
   switch operation {
+  case "source-pipeline":
+    // This explicitly selected lane mutates Program source in ApplyProgram.
+    return nil, nil
   case "", "prefix", "upper", "suffix", "identity":
   default:
     return nil, fmt.Errorf("unknown shared native pipeline operation %q", operation)
@@ -69,18 +72,18 @@ func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransfor
       if node != nil && node.Kind == shimast.KindStringLiteral {
         text := node.Text()
         if operation == "" && text == "__TTSC_NATIVE_PIPELINE__" {
-          return ec.Factory.NewStringLiteral(strings.ToUpper(prefix + "plugin") + suffix, 0)
+          return ec.Factory.NewStringLiteral(strings.ToUpper(prefix+"plugin")+suffix, 0)
         }
         const ordered = "__TTSC_ORDERED__:"
         if operation != "" && strings.HasPrefix(text, ordered) {
           payload := strings.TrimPrefix(text, ordered)
           switch operation {
           case "prefix":
-            return ec.Factory.NewStringLiteral(ordered + prefix + payload, 0)
+            return ec.Factory.NewStringLiteral(ordered+prefix+payload, 0)
           case "upper":
-            return ec.Factory.NewStringLiteral(ordered + strings.ToUpper(payload), 0)
+            return ec.Factory.NewStringLiteral(ordered+strings.ToUpper(payload), 0)
           case "suffix":
-            return ec.Factory.NewStringLiteral(payload + suffix, 0)
+            return ec.Factory.NewStringLiteral(payload+suffix, 0)
           }
         }
       }
@@ -138,6 +141,32 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
   }
   if err := appendContextReceipt(program, context); err != nil {
     return err
+  }
+  if operation, _ := context.Entry.Config["operation"].(string); operation == "source-pipeline" {
+    prefix, prefixOK := context.Entry.Config["prefix"].(string)
+    suffix, suffixOK := context.Entry.Config["suffix"].(string)
+    if !prefixOK || !suffixOK {
+      return fmt.Errorf("source pipeline requires prefix and suffix strings")
+    }
+    // The utility host prints the actual Program source after ApplyProgram;
+    // its transform lane does not invoke EmitTransform. This independently
+    // authored sentinel therefore crosses that real source-to-source lane.
+    factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
+    var visitor *shimast.NodeVisitor
+    visitor = shimast.NewNodeVisitor(func(node *shimast.Node) *shimast.Node {
+      if node != nil && node.Kind == shimast.KindStringLiteral && node.Text() == "__TTSC_NATIVE_PIPELINE__" {
+        replacement := factory.NewStringLiteral(strings.ToUpper(prefix+"plugin")+suffix, 0)
+        replacement.Loc = node.Loc
+        return replacement
+      }
+      return visitor.VisitEachChild(node)
+    }, factory, shimast.NodeVisitorHooks{})
+    for _, source := range program.TSProgram.GetSourceFiles() {
+      if !source.IsDeclarationFile {
+        transformed := visitor.VisitSourceFile(source)
+        source.Statements = transformed.Statements
+      }
+    }
   }
   return reportConfiguredDependencies(program, context)
 }
@@ -257,40 +286,40 @@ func reportConfiguredDependencies(program *driver.Program, context driver.Plugin
 func appendContextReceipt(program *driver.Program, context driver.PluginContext) error {
   records := []struct {
     option string
-    value any
+    value  any
   }{
     {
       option: "contextReceipt",
       value: struct {
-        Name string `json:"name"`
-        Operation any `json:"operation"`
-        Prefix any `json:"prefix"`
-        Suffix any `json:"suffix"`
+        Name      string `json:"name"`
+        Operation any    `json:"operation"`
+        Prefix    any    `json:"prefix"`
+        Suffix    any    `json:"suffix"`
       }{
-        Name: context.Entry.Name,
+        Name:      context.Entry.Name,
         Operation: context.Entry.Config["operation"],
-        Prefix: context.Entry.Config["prefix"],
-        Suffix: context.Entry.Config["suffix"],
+        Prefix:    context.Entry.Config["prefix"],
+        Suffix:    context.Entry.Config["suffix"],
       },
     },
     {
       option: "configPathReceipt",
       value: struct {
-        Name string `json:"name"`
-        Config any `json:"config"`
-        ConfigFile any `json:"configFile"`
-        Cwd string `json:"cwd"`
-        Tsconfig string `json:"tsconfig"`
+        Name       string `json:"name"`
+        Config     any    `json:"config"`
+        ConfigFile any    `json:"configFile"`
+        Cwd        string `json:"cwd"`
+        Tsconfig   string `json:"tsconfig"`
       }{
-        Name: context.Entry.Name,
-        Config: context.Entry.Config["config"],
+        Name:       context.Entry.Name,
+        Config:     context.Entry.Config["config"],
         ConfigFile: context.Entry.Config["configFile"],
-        Cwd: context.Cwd,
-        Tsconfig: context.Tsconfig,
+        Cwd:        context.Cwd,
+        Tsconfig:   context.Tsconfig,
       },
     },
-    { option: "pathsReceipt" },
-    { option: "casePolicyReceipt" },
+    {option: "pathsReceipt"},
+    {option: "casePolicyReceipt"},
   }
   for _, record := range records {
     configured, present := context.Entry.Config[record.option]
@@ -324,10 +353,10 @@ func appendContextReceipt(program *driver.Program, context driver.PluginContext)
         }
       }
       value = struct {
-        Name string `json:"name"`
+        Name  string              `json:"name"`
         Paths map[string][]string `json:"paths"`
       }{
-        Name: context.Entry.Name,
+        Name:  context.Entry.Name,
         Paths: paths,
       }
     } else if record.option == "casePolicyReceipt" {
@@ -335,10 +364,10 @@ func appendContextReceipt(program *driver.Program, context driver.PluginContext)
         return fmt.Errorf("casePolicyReceipt requires the actual loaded Program")
       }
       value = struct {
-        Name string `json:"name"`
-        UseCaseSensitiveFileNames bool `json:"useCaseSensitiveFileNames"`
+        Name                      string `json:"name"`
+        UseCaseSensitiveFileNames bool   `json:"useCaseSensitiveFileNames"`
       }{
-        Name: context.Entry.Name,
+        Name:                      context.Entry.Name,
         UseCaseSensitiveFileNames: program.TSProgram.UseCaseSensitiveFileNames(),
       }
     }
