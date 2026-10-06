@@ -17,16 +17,17 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * 1. Observe a real holder's lock token and first native invocation receipt.
  * 2. Kill only that owned Node holder and observe its actual close and native
  *    departure.
- * 3. Require a survivor's native result, second receipt and complete lock removal.
+ * 3. Require two survivor native results, second/third receipts and complete
+ *    lock removal, sampling the entire native hold in each completed epoch.
  *
  * @evidence contracts/testing.md#behavioral-verification Two actual public unplugin API workers share one claim identity/state. The holder dies after its PID-owned lock and native invocation; the survivor must return PROBED, acquire another native invocation and remove the residual lock.
  * @evidence contracts/testing.md#independent-expectations Literal PROBE/PROBED source, the actual lock owner PID and the producer's existing native receipt distinguish takeover and real output from deleting a lock or returning stale text. Native PIDs are actual invocation owners, not a Program count.
  * @evidence contracts/testing.md#distinguishing-cases An interrupted in-flight owner contrasts with its succeeding live worker. Existing former-holder units own timestamp takeover/fencing and pruning units own seeded dead-owner cleanup; neither replaces this processGone-to-native-publication connection.
- * @evidence contracts/testing.md#execution-ownership The selected Metro DAG collects this independent helper beside its existing resident loader pool. Two extra Node worker lifetimes and two actual native producer invocations are explicit costs; no per-case fixture or new production API is introduced.
+ * @evidence contracts/testing.md#execution-ownership The selected Metro DAG collects this independent helper beside its existing resident loader pool. Two extra Node worker lifetimes and three actual native producer invocations are explicit costs. The survivor performs two five-second holds in fresh transform states, including one after actual source mutation; no per-case fixture or new production API is introduced.
  * @evidence contracts/e2e.md#necessary-boundary Actual cross-process lock ownership, death detection, native capture and survivor publication cannot be proved by in-process timestamp aging or record pruning alone.
  * @evidence contracts/e2e.md#shared-execution Both workers use one upfront immutable source project, one owning Go producer copy, one SDK availability cache and one private claim store. The failed holder and survivor must have separate lifetimes; neither installs or creates another source project. Native build/preparation totals remain unmeasured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the observed owned Node holder receives SIGKILL. Every acquired worker joins close and PID departure; recorded native PIDs must become ESRCH without being killed by this helper. Unknown closure/departure retains shared inputs. The claim store remains until BatchWorkspace closes after all consumers.
- * @evidence contracts/e2e.md#preserved-coverage Preserves the original actual-holder lock, native-start receipt, killed outcome, residual lock, survivor PROBED/second native receipt and empty-lock assertions. Native descendant departure is an explicit strengthening over the original unjoined descendant; single-digit independent execution remains uncertified.
+ * @evidence contracts/e2e.md#preserved-coverage Preserves the original actual-holder lock, native-start receipt, killed outcome, residual lock, survivor PROBED/second native receipt and empty-lock assertions. The original responsiveness boundary retains two real native holds, truthy output, each initial/intertick/terminal gap below 750ms and unchanged TEMP/TMP/TMPDIR. Immutable producer preparation is outside those epochs; the larger resident graph's synchronous first loading is separately observed rather than attributed to the native hold. Native descendant departure is an explicit strengthening over the original unjoined descendant; single-digit independent execution remains uncertified.
  */
 export async function deadCompilerClaimCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -85,7 +86,7 @@ export async function deadCompilerClaimCorpus(
       throw error;
     }
   };
-  const start = () => {
+  const start = (mode = "holder") => {
     const child = E2eProcessTrace.spawn(
       process.execPath,
       [
@@ -93,6 +94,7 @@ export async function deadCompilerClaimCorpus(
         TestUnpluginRuntime.libUrl("api"),
         root,
         options,
+        mode,
       ],
       {
         cwd: root,
@@ -194,7 +196,7 @@ export async function deadCompilerClaimCorpus(
       "interrupted holder native PID departure",
       120000,
     );
-    const survivor = start();
+    const survivor = start("responsive");
     await waitFor(
       () => survivor.result !== undefined,
       "actual survivor capture and close",
@@ -206,14 +208,37 @@ export async function deadCompilerClaimCorpus(
     const reply = JSON.parse(survivor.result!.stdout.trim()) as {
       error?: string;
       code?: string;
+      observations: {
+        code: string | null;
+        before: [string, string | null][];
+        after: [string, string | null][];
+        maximumGapMs: number;
+        elapsedMs: number;
+        nativeRuns: number;
+      }[];
     };
     assert.equal(reply.error, undefined, reply.error);
     assert.match(reply.code ?? "", /PROBED/);
     assert.equal(
       nativePids().length,
-      2,
+      3,
       "the survivor must actually invoke the native producer instead of only dropping the lock",
     );
+    assert.equal(reply.observations.length, 2);
+    assert.deepEqual(
+      reply.observations.map(({ nativeRuns }) => nativeRuns),
+      [2, 3],
+      "both completed survivor epochs must perform their own actual native hold",
+    );
+    for (const observation of reply.observations) {
+      assert.match(observation.code ?? "", /PROBED/);
+      assert.deepEqual(observation.after, observation.before);
+      assert.ok(observation.elapsedMs >= 5000, JSON.stringify(observation));
+      assert.ok(
+        observation.maximumGapMs < 750,
+        "initial, intertick and terminal gaps through each native hold must remain below 750ms: " + JSON.stringify(observation),
+      );
+    }
     assert.deepEqual(
       locks(),
       [],
