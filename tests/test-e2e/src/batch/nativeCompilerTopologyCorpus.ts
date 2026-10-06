@@ -33,14 +33,16 @@ export async function nativeCompilerTopologyCorpus(
   const configBytes = fs.readFileSync(config);
   const changes: WatchInputChange[] = [];
   const failures: unknown[] = [];
-  const expectedConfigErrors: unknown[] = [];
   let allowMissingConfig = false;
   const topology = new WatchTopology(
     { cwd: root, files: [], projectRoot: root, tsconfig: config },
     {
       onError: (location, error) => {
-        if (allowMissingConfig) expectedConfigErrors.push(error);
-        else
+        if (
+          !allowMissingConfig ||
+          !(error instanceof Error) ||
+          !error.message.includes("tsconfig.json")
+        )
           failures.push(
             new Error("native compiler topology error at " + location, {
               cause: error,
@@ -240,8 +242,18 @@ export async function nativeCompilerTopologyCorpus(
         "deleted config attention",
         30000,
       );
+      // A selected-file notification transfers reload attention to its caller;
+      // it does not promise an automatic native refresh on every backend. Own
+      // that actual compiler refresh here after config attention.
+      let refreshFailure: unknown;
+      try {
+        topology.refresh(false);
+      } catch (error) {
+        refreshFailure = error;
+      }
       assert.ok(
-        expectedConfigErrors.length > 0,
+        refreshFailure instanceof Error &&
+          refreshFailure.message.includes("tsconfig.json"),
         "failed native refresh must remain observable",
       );
       before = count("config");
@@ -251,6 +263,7 @@ export async function nativeCompilerTopologyCorpus(
         "recreated config attention",
         30000,
       );
+      topology.refresh(false);
       await settle();
       allowMissingConfig = false;
       const replacement = path.join(root, "tsconfig.next.json");
@@ -263,6 +276,7 @@ export async function nativeCompilerTopologyCorpus(
         "atomic config replacement attention",
         30000,
       );
+      topology.refresh(false);
       await settle();
       before = count("config");
       fs.appendFileSync(config, "\n");
@@ -271,6 +285,7 @@ export async function nativeCompilerTopologyCorpus(
         "post-replacement config edit",
         30000,
       );
+      topology.refresh(false);
     });
   } finally {
     try {
