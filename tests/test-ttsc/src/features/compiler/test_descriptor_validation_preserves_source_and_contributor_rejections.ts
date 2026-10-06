@@ -95,8 +95,8 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
       { name: "second", source: sourceB },
     ]),
     [
-      { name: "first", source: fs.realpathSync(sourceA) },
-      { name: "second", source: fs.realpathSync(sourceB) },
+      { name: "first", source: fs.realpathSync.native(sourceA) },
+      { name: "second", source: fs.realpathSync.native(sourceB) },
     ],
   );
   assert.throws(
