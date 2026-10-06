@@ -51,14 +51,14 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  *   native identity indexes follow the generation's output/path population,
  *   while validators replace current signature/directory witnesses. No new
  *   independent handle or historical epoch collection is acquired here.
- * @evidence contracts/performance.md#efficient-algorithms
+ * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification. 
  *   Fresh-only rejection precedes native identity work. Baseline-bearing paths
  *   hash delivered text and divergent paths read/hash host bytes; unrelated
  *   absent outputs can return before that hash after an initial K-output index.
  *   Epoch-qualified first checkpoints share the complete proof. Other paths
  *   pay derived-input or complete project/external/universal proof costs,
  *   including path/byte populations, native observations and clock refresh.
- * @evidence contracts/performance.md#reuse-equivalent-work A complete generation earns one whole-snapshot proof per new delivery epoch; later first deliveries share it, while repeated or persistent deliveries revalidate their authoritative dependency scope.
+ * @evidence contracts/performance.md#reuse-equivalent-work Typed config predicate replay is not cached by this coordinator and remains mandatory even when the following existing shortcut shares other proof.  A complete generation earns one whole-snapshot proof per new delivery epoch; later first deliveries share it, while repeated or persistent deliveries revalidate their authoritative dependency scope.
  */
 export function matchesCachedSource(
   /** Generation retaining recorded baselines and distinct proof authority. */
