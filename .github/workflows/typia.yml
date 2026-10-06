@@ -35,20 +35,21 @@ jobs:
           printf 'GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
           printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
           printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+          printf 'epoch=%s\n' "$(node -p 'Math.floor(Date.now() / 604800000)')" >> "$GITHUB_OUTPUT"
       - name: Cache Go modules and objects
         uses: actions/cache@v4
         with:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.objects }}
-          key: ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-${{ hashFiles('**/*.go', '**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum', 'package.json', 'packages/ttsc/package.json', 'packages/ttsc-*/package.json', 'packages/ttsc/build/**', 'packages/ttsc/driver/resolutioninputs/recorder.cjs', 'packages/ttsc/test/driver/fixtures/rewrite-runtime/**', 'packages/lint/linthost/polyfill_data_gen.json', 'packages/lint/linthost/rule_codes.json', 'pnpm-lock.yaml', '.github/workflows/patches/**', '.github/workflows/typia.yml') }}
+          # Go validates each object's source, compiler and flags; share only object/module caches.
+          # A weekly snapshot admits new objects without creating a copy for every source edit/workflow.
+          key: ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-${{ steps.go-cache.outputs.epoch }}
           restore-keys: |
-            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
             ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
-            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-build-host-
-            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-website-host-
             ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
-            setup-go-${{ runner.os }}-${{ steps.go-cache.outputs.node-arch }}-${{ runner.os == 'Linux' && format('{0}-', steps.go-cache.outputs.image) || '' }}go-${{ steps.go.outputs.go-version }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"

@@ -18,11 +18,6 @@ jobs:
           - { name: linux-arm64, runner: ubuntu-24.04-arm, node: floor }
           - { name: darwin-arm64, runner: macos-15, node: current }
     steps:
-      - name: Set shared Go object cache environment
-        shell: bash
-        run: |
-          shared_go_cache="${RUNNER_TEMP}/e2e-shared-go-object-cache"
-          printf 'GOCACHE=%s\nTTSC_GO_CACHE_DIR=%s\n' "$shared_go_cache" "$shared_go_cache" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
         with:
@@ -42,8 +37,10 @@ jobs:
         run: |
           printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
           printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\nTTSC_GO_CACHE_DIR=%s\n' "$(go env GOCACHE)" "$(go env GOCACHE)" >> "$GITHUB_ENV"
           printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
           printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+          printf 'epoch=%s\n' "$(node -p 'Math.floor(Date.now() / 604800000)')" >> "$GITHUB_OUTPUT"
       - name: Restore Go modules and objects
         id: go-objects
         uses: actions/cache/restore@v4
@@ -51,11 +48,14 @@ jobs:
           path: |
             ${{ steps.go-cache.outputs.modules }}
             ${{ steps.go-cache.outputs.objects }}
-          key: ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-${{ hashFiles('**/*.go', '**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum', 'package.json', 'packages/ttsc/package.json', 'packages/ttsc-*/package.json', 'packages/ttsc/build/**', 'packages/ttsc/driver/resolutioninputs/recorder.cjs', 'packages/ttsc/test/driver/fixtures/rewrite-runtime/**', 'packages/lint/linthost/polyfill_data_gen.json', 'packages/lint/linthost/rule_codes.json', 'pnpm-lock.yaml', 'tests/test-e2e/src/batch/**', 'tests/test-e2e/src/features/**', 'tests/test-e2e/fixtures/**', '.github/workflows/e2e.yml') }}
+          # Go validates each object's source, compiler and flags; share only object/module caches.
+          # A weekly snapshot admits new objects without creating a copy for every source edit/workflow.
+          key: ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-${{ steps.go-cache.outputs.epoch }}
           restore-keys: |
-            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
             ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
-            setup-go-${{ runner.os }}-${{ steps.go-cache.outputs.node-arch }}-${{ runner.os == 'Linux' && format('{0}-', steps.go-cache.outputs.image) || '' }}go-${{ steps.go.outputs.go-version }}-
       - run: pnpm install --frozen-lockfile
       - uses: oven-sh/setup-bun@v2
       - run: npm install --global yarn
