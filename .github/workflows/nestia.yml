@@ -9,11 +9,12 @@ concurrency:
 jobs:
   nestia:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     env:
       TTSC_GO_BINARY: go
-      TTSC_CACHE_DIR: ${{ github.workspace }}/node_modules/.cache/ttsc
-      GOCACHE: ${{ github.workspace }}/node_modules/.cache/ttsc/go-build
-      GOMODCACHE: ${{ github.workspace }}/node_modules/.cache/nestia-go-modules
+      TTSC_CACHE_DIR: ${{ github.workspace }}/node_modules/.cache/ttsc-native-artifacts
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -27,13 +28,28 @@ jobs:
         with:
           go-version-file: packages/ttsc/go.mod
           cache: false
-      - name: Cache Go modules before the candidate build
+      - name: Locate Go caches
+        id: go-cache
+        shell: bash
+        run: |
+          printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\nTTSC_GO_CACHE_DIR=%s\n' "$(go env GOCACHE)" "$(go env GOCACHE)" >> "$GITHUB_ENV"
+          printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
+          printf 'epoch=%s\n' "$(node -p 'Math.floor(Date.now() / 604800000)')" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules and objects
         uses: actions/cache@v4
         with:
-          path: ${{ env.GOMODCACHE }}
-          key: ttsc-go-mod-v1-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'pnpm-lock.yaml', '.github/workflows/nestia.yml') }}
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          # Go owns content-addressed source/compiler/flag validation; these objects have one shared owner.
+          key: ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-${{ steps.go-cache.outputs.epoch }}
           restore-keys: |
-            ttsc-go-mod-v1-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
       - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
@@ -58,10 +74,9 @@ jobs:
         id: compiler-cache
         uses: actions/cache/restore@v4
         with:
-          path: node_modules/.cache/ttsc
-          key: ttsc-artifacts-v2-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*', 'experimental/nestia/packages/*/test/**/*.go') }}
-          restore-keys: |
-            ttsc-artifacts-v2-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
+          # Preserve the complete native tree and exact candidate source admission; Go objects live elsewhere.
+          path: ${{ env.TTSC_CACHE_DIR }}
+          key: ttsc-native-artifacts-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*', 'experimental/nestia/packages/*/test/**/*.go') }}
       - run: node .github/workflows/scripts/nestia-source-admission.cjs admit experimental/nestia
       - run: pnpm build
         working-directory: experimental/nestia
@@ -81,11 +96,37 @@ jobs:
         env:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
       - name: Save Verified Compiler Artifacts
-        if: steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true'
+        id: compiler-cache-save
+        if: github.event.pull_request.head.repo.full_name == github.repository && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: node_modules/.cache/ttsc
+          path: ${{ env.TTSC_CACHE_DIR }}
           key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Retire Superseded Native Snapshots
+        if: github.event.pull_request.head.repo.full_name == github.repository && (steps.compiler-cache.outputs.cache-hit == 'true' || steps.compiler-cache-save.outcome == 'success')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_CACHE_KEY: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+          CACHE_FAMILY: ttsc-native-artifacts-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-nestia-
+          LEGACY_CACHE_FAMILY: ttsc-artifacts-v2-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
+        run: |
+          # Only this PR's obsolete native snapshots retire after the current exact source passed validation.
+          # Shared Go CAS entries, another ref, and the current complete native snapshot are never selected.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" --jq '.actions_caches[] | [.id, .key, .ref] | @tsv' > "$RUNNER_TEMP/nestia-native-cache-index.tsv"
+          while IFS=$'\t' read -r cache_id cache_key cache_ref; do
+            [[ "$cache_id" =~ ^[0-9]+$ ]] || exit 1
+            [[ "$cache_ref" == "$GITHUB_REF" && "$cache_key" != "$CURRENT_CACHE_KEY" ]] || continue
+            if [[ "$cache_key" == "$CACHE_FAMILY"* ]]; then
+              suffix="${cache_key#"$CACHE_FAMILY"}"
+            elif [[ "$cache_key" == "$LEGACY_CACHE_FAMILY"* ]]; then
+              suffix="${cache_key#"$LEGACY_CACHE_FAMILY"}"
+            else
+              continue
+            fi
+            [[ "$suffix" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$cache_id"
+          done < "$RUNNER_TEMP/nestia-native-cache-index.tsv"
       - run: pnpm test:e2e
         working-directory: experimental/nestia
         env:
