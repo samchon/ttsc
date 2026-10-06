@@ -47,7 +47,7 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns an effectful program run and fresh arguments; reusable compiler generations belong to prepareExecution and the runtime build owners.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One program run retains its child and fixed platform signal-listener set; helpers own additional preparation resources. Finally removes launcher listeners and attempts output relinquishment/removal under the cooperative lock; live or unknown owner claims and native failures can retain storage. Direct child close is joined before cleanup but does not establish descendant settlement, and an unresponsive program child has no forced-kill deadline here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One program run retains its child and fixed platform signal-listener set; helpers own additional preparation resources. Finally removes launcher listeners and attempts output relinquishment/removal under the cooperative lock; live or unknown owner claims and native failures can retain storage. Direct child close is joined before cleanup but does not establish descendant settlement. Opt-in cleanup observations report only the actual computed ownership, removal/retention branch and caught native error without repeating those decisions, and an unresponsive program child has no forced-kill deadline here.
  */
 export async function runTtsx(
   argv: readonly string[] = process.argv.slice(2),
@@ -500,15 +500,28 @@ const TERMINATION_SIGNALS: readonly NodeJS.Signals[] =
     : ["SIGINT", "SIGTERM", "SIGHUP"];
 
 function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
+  const observe = E2ETrace.runtimeCleanup(directory, runtimeCacheDir);
+  let stage = "lock";
   try {
     withRuntimeDirectoryLock(runtimeCacheDir, () => {
+      observe?.("lock-entered");
+      stage = "relinquish";
       ProcessOwnedDirectory.relinquish(directory);
+      stage = "ownership";
       const ownership = ProcessOwnedDirectory.ownership(directory);
+      observe?.("ownership", ownership);
       if (ownership === "abandoned" || ownership === "unowned") {
+        stage = "remove";
         fs.rmSync(directory, { force: true, recursive: true });
+        observe?.("removed", ownership);
+      } else {
+        observe?.("retained", ownership);
       }
+      stage = "lock-release";
     });
-  } catch {
+    observe?.("completed");
+  } catch (error) {
+    observe?.(stage, undefined, error);
     // Best effort: cleanup must not replace the child process exit status.
   }
 }

@@ -32,6 +32,81 @@ import path from "node:path";
  */
 export namespace E2ETrace {
   /**
+   * Observe one runtime cleanup without repeating ownership or filesystem work.
+   *
+   * The returned observer shares an invocation across actual lock, ownership,
+   * removal and failure phases. It records caller-computed values only. Disabled
+   * tracing allocates no writer; observer errors never replace cleanup results.
+   *
+   * @evidence contracts/common.md#principled-implementation One token binds the caller's actual cleanup phases and computed classification; an event does not establish an unobserved owner incarnation or successful deletion.
+   * @evidence contracts/common.md#clear-and-simple-design A private optional callback reuses the existing writer, metadata schema and error absorption without changing runtime ownership APIs.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No ownership scan, liveness probe, file observation, policy decision or retry is performed by tracing.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes computed phases from OS ownership proof and documents disabled and failed-sink behavior.
+   * @evidence contracts/portability.md#os-neutral-implementation The caller's native directory coordinates and error code are recorded without path rewriting, shell commands or OS-name inference.
+   * @evidence contracts/performance.md#efficient-algorithms Enabled metadata encoding and synchronous sink IO scale with actual field/error text; disabled mode returns before copying argv or creating writer state.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each cleanup occurrence owns its effect and observer token; previous classifications cannot certify a later cleanup.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources One callback/token lives with the cleanup call and retains no history. Existing writer budgets, append-close lifecycle and coordinator scratch ownership remain unchanged.
+   */
+  export function runtimeCleanup(
+    directory: string,
+    runtimeCacheDir: string,
+  ):
+    | ((phase: string, ownership?: string, error?: unknown) => void)
+    | undefined {
+    const selected = process.env.TTSC_E2E_TRACE;
+    if (!selected) return undefined;
+    try {
+      if (!admit(selected)) return undefined;
+      const token: Token = {
+        invocation: String(++ordinal),
+        argv: [...process.argv],
+        cwd: process.cwd(),
+        lower: new Date().toISOString(),
+        origin: "ttsx-runtime-cleanup",
+        argv0: null,
+      };
+      const record = (
+        phase: string,
+        ownership?: string,
+        error?: unknown,
+      ): void => {
+        try {
+          const detail =
+            error !== null && typeof error === "object"
+              ? (error as Record<string, unknown>)
+              : undefined;
+          event(token, "runtime-cleanup", process.pid, {
+            phase,
+            directory,
+            runtimeCacheDir,
+            ownership,
+            errorName:
+              detail && typeof detail.name === "string"
+                ? detail.name
+                : undefined,
+            errorCode:
+              detail && typeof detail.code === "string"
+                ? detail.code
+                : undefined,
+            errorMessage:
+              detail && typeof detail.message === "string"
+                ? detail.message
+                : undefined,
+            origin: token.origin,
+          });
+        } catch {
+          failed = true;
+        }
+      };
+      record("attempt");
+      return record;
+    } catch {
+      failed = true;
+      return undefined;
+    }
+  }
+
+  /**
    * Record already-computed capability cache gates as non-process observations.
    * Disabled tracing performs no sink IO. Writer admission, budgets and failed
    * sink handling are shared with the other private observations; no gate is
