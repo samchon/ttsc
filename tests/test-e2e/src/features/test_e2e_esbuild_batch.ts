@@ -11,6 +11,7 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { nativeLintConfigCorpus } from "../batch/nativeLintConfigCorpus";
 import { nativeWatchCorpus } from "../batch/nativeWatchCorpus";
 import { serviceCorpus } from "../batch/serviceCorpus";
+import { nativeLintConnections } from "../internal/lint/nativeLintConnections";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 import { test_lint_write_commands_share_one_consumer } from "./lint/native-plugins/fix/case_lint_write_commands_share_one_consumer";
@@ -30,7 +31,7 @@ import { test_watch_topology_classifies_config_and_plugin_reload_inputs } from "
  * @evidence contracts/testing.md#behavioral-verification One real esbuild output must yield all661 exact native string values and authored contract/JSON neighbors with parsed-source controls retained; its public disposal must occur exactly once.
  * @evidence contracts/testing.md#independent-expectations Pre-print UTF-16 literals and authored42/retained values fix expected meaning. onDispose is the public host event rather than a predicted native process count.
  * @evidence contracts/testing.md#distinguishing-cases All quote/context/control string contrasts and parsed-source controls coexist in the same graph. Disposal is distinguished from a build that leaves its registered owner alive.
- * @evidence contracts/testing.md#execution-ownership This selected batch invokes esbuild.build exactly once. The rows are assertions on returned bytes, never separate context/rebuild calls. A separate upfront service subtree also owns one actual public one-shot transform and one native resident for the combined FIFO/update/link/runtime-selection corpus; those native connections and update generations are explicit additional costs. One additional Node owner runs up to three actual compiler-list topology lifetimes and native refreshes; Windows capability admission may use two owned-directory fsutil calls. Independent corpus failures are collected.
+ * @evidence contracts/testing.md#execution-ownership This selected batch invokes esbuild.build exactly once. The rows are assertions on returned bytes, never separate context/rebuild calls. A separate upfront service subtree owns one public one-shot transform and one native resident. One additional Node owner runs up to three compiler-list topology lifetimes. Native lint config uses two real launcher and two compiler API calls; nativeLintConnections runs fifteen original owning Go bodies in one package process, preserving actual executable-config children, three in-process resident scopes, two independent Node witnesses and two compiled sidecar calls plus its native build. Those costs and native refreshes are not one execution; complete subprocess/Program totals remain unmeasured. Independent corpus failures are collected.
  * @evidence contracts/e2e.md#necessary-boundary Public esbuild plugin setup, native output delivery and onDispose must agree under the real host; captured hooks alone cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing input graph, plugin artifact and one build serve every value. Compatible inputs share preparation; this test starts no per-row compiler or project.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity write:false preserves inputs and public onDispose is awaited after the actual build. Cache environment restores in finally; a failed build remains an error and does not certify successful teardown.
@@ -42,6 +43,8 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
   try { nativeLintConfigCorpus(workspace); }
   catch (error) { combinedFailures.push(error); }
   await BatchWorkspace.open();
+  try { nativeLintConnections(); }
+  catch (error) { combinedFailures.push(error); }
   try {
     const topologyRoot = path.join(workspace.root, "tools/native-compiler-topology");
     const result = E2eProcessTrace.spawnSync(process.execPath, [
