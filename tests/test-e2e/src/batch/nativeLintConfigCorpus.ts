@@ -36,19 +36,23 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * 1. Run one typed-config graph containing all original contributor and mixed
  *    stream inputs.
  * 2. Contrast one CJS warning-only command with the error graph's native stream.
- * 3. Compile config-less and configured wrappers against the same discovered
+ * 3. Join the unchanged CJS counter and raw directory digest to actual Go disk
+ *    admission, then require A-B-A transient output with unstable proof and
+ *    three actual not-current outcomes. Raw non-UTF-8 names remain conditional
+ *    on their actual native byte preservation.
+ * 4. Compile config-less and configured wrappers against the same discovered
  *    inputs. External wrappers share one upfront namespace with no eligible
  *    ancestor lint config; cwd fallback and local wrapper precedence remain
  *    distinct from the main graph's ancestor configuration.
  *
  * @evidence contracts/testing.md#behavioral-verification The real launcher reports every independently authored contributor TODO/FIXME/XXX tuple, rejects leaked default marker options, renders the original no-var/prefer-const/TypeScript order and omits ignored generated inputs. The same typed check must return exactly2 with empty stdout and the authored structured Legacy restriction's exact custom message. A CJS warning-only command must return zero and empty stdout with exactly one no-console warn, while its actual normalized loader envelope retains both no-console:warning and no-debugger:error. The typed graph adds a real no-explicit-any diagnostic at authored mixed.ts line11 and verifies that same rule value in the typed evaluator envelope. The first typed command evaluates the pure CJS format-only child and its successful raw export must equal the single format/printWidth120 object; the subsequent warning command can reuse its valid cache entry. A namespace-spread helper supplies no-debugger:error, while the same root evaluator retains local ignores: main.ts line3 must report that rule and the included functional source must report nothing. Actual compiler API wrapper calls require cwd fallback with two discovery errors and wrapper precedence with only no-var.
- * @evidence contracts/testing.md#independent-expectations Original authored comment messages, option marker XXX versus TODO, source line numbers and literal rule/category tuples define expectations. The Legacy source and literal Use Safe instead. option independently require the exact no-restricted-types message, empty stdout and check status2; fixWith/suggest remain input fields, not claimed edit assertions. The authored main debugger and included functional debugger independently contrast active and locally ignored paths. The paired typed loader payload must retain the inherited no-debugger severity and the three literal ignore globs. The literal pure CJS printWidth120 object independently specifies the evaluator payload; TestFormatBlockPropagatesPrettierOptionsToRule owns the nonempty decoded width120 option. CLI stderr/parser and actual compile envelopes supply observations; discovery output never generates the expected rules.
+ * @evidence contracts/testing.md#independent-expectations Original authored comment messages, option marker XXX versus TODO, source line numbers and literal rule/category tuples define expectations. The Legacy source and literal Use Safe instead. option independently require the exact no-restricted-types message, empty stdout and check status2; fixWith/suggest remain input fields, not claimed edit assertions. The authored main debugger and included functional debugger independently contrast active and locally ignored paths. The paired typed loader payload must retain the inherited no-debugger severity and the three literal ignore globs. The literal pure CJS printWidth120 object independently specifies the evaluator payload; TestFormatBlockPropagatesPrettierOptionsToRule owns the nonempty decoded width120 option. CLI stderr/parser and actual compile envelopes supply observations; discovery output never generates the expected rules. The literal counter1, static UTF8 name and conditionally preserved raw filename connect CJS directory observation to Go's actual same-key disk admission. A-B-A must return during/rule off with restored original bytes, identityStable:false and digest empty, followed by actual not-current outcomes1/2/3 and returnedUncached only on3.
  * @evidence contracts/testing.md#distinguishing-cases Typed package contributor/options, structured builtin rule options reaching the actual renderer, builtin-plus-TypeScript stream, globally ignored included dot/declaration files, explicit CJS warning normalization and its pure format-only extended export, namespace-default composition across an awaited factory return with inherited rules versus local ignores, config-less wrapper fallback and wrapper config precedence remain distinct.
  * @evidence contracts/testing.md#execution-ownership Selected esbuild calls this helper on one upfront lint island with workspace-linked owning lint/demo producers. Two real launcher commands and two actual synchronous compiler API preparations own all distinctions; source units are not treated as native registration/renderer evidence.
  * @evidence contracts/e2e.md#necessary-boundary Executable typed/CJS config evaluation, demo source discovery, serialized options, native rule diagnostic transport and CLI status must agree. Wrapper context must select its own config or actual cwd fallback; Go config/decoder units alone cannot establish that assembly.
  * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured. Existing CLI count stays two. Relative to the old typed evaluation plus the donor's two evaluations, the candidate uses two typed evaluations; the warning command now pays a real typed evaluator and its required native preparation. Format defaults remain off in checks through expandFormatBlock, as independently owned by TestFormatBlockDefaultSeverityOffKeepsFormatRulesOutOfCheck. Internal Program/process totals and independent execution reduction remain unverified.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates. The helper mutation changes exactly one literal after the first CLI has closed. The typed entry bytes stay fixed, while the final owned restoration restores the helper before the pre-existing immutable-input comparison; unresolved child ownership still prevents restoration.
- * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now verifies its pure CJS export on the first typed evaluator that consumes the shared extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. TestConfigDependencyGraphNeverPublishesTheFilesystemRoot now shares this warning evaluator: literal error/warning/warning module results and exact missing entry/watch versus owned directory/watch are checked on the same completed loader result, with no filesystem-root dependency and all watch directories physically within this config root. Authored transfer acceptance remains subject to execution. The async returned-default factory donor's real transport now accompanies these same two CLIs: logging dynamic import returns the namespace-spread helper with local ignores, then only that helper's debugger severity changes before the warning CLI evaluates the unchanged typed entry again. Both raw values retain semi:false and exact file/watch provenance. TestConfigStoreResolvesOptionsWithEntryScope and TestFormatBlockPropagatesPrettierOptionsToRule own pure error/off resolution and prefer-never decoding; the accepted loader provenance feeds appendConfigPaths, without certifying a public project-inputs reply. The tagged donor remains selected until this authored carrier receives actual validation.
+ * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now verifies its pure CJS export on the first typed evaluator that consumes the shared extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. TestConfigDependencyGraphNeverPublishesTheFilesystemRoot now shares this warning evaluator: literal error/warning/warning module results and exact missing entry/watch versus owned directory/watch are checked on the same completed loader result, with no filesystem-root dependency and all watch directories physically within this config root. Authored transfer acceptance remains subject to execution. The async returned-default factory donor's real transport now accompanies these same two CLIs: logging dynamic import returns the namespace-spread helper with local ignores, then only that helper's debugger severity changes before the warning CLI evaluates the unchanged typed entry again. Both raw values retain semi:false and exact file/watch provenance. TestConfigStoreResolvesOptionsWithEntryScope and TestFormatBlockPropagatesPrettierOptionsToRule own pure error/off resolution and prefer-never decoding; the accepted loader provenance feeds appendConfigPaths, without certifying a public project-inputs reply. The tagged donor remains selected until this authored carrier receives actual validation. TestConfigCachePortableDependencyPolicies owns native memo/digest/normalization policies. The remaining tagged ConfigCache real transport now uses the unchanged pure-format output of the first typed loader and the warning command's same-key disk-hit with counter1, exact raw/native directory digest equality and native filename witnesses. Its A-B-A hook executes only in the existing warning extends graph; all three mandatory cache attempts must return transient off while the restored dependency has unstable empty-digest proof and the cache refuses publication. The original direct A-B-A evaluation1 becomes actual cached attempts3; CLI2, shared preparation and selected entries remain unchanged. No donor is removed by authoring this carrier.
  */
 export function nativeLintConfigCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -80,6 +84,9 @@ export function nativeLintConfigCorpus(
     "discovery.config.json",
     "warning.cjs",
     "format-only.cjs",
+    "챕",
+    "cache-aba/config.cjs",
+    "cache-aba/selection.cjs",
     "owned-root-boundary/target.cjs",
     "root-boundary-templates/root-boundary-absent-main/index.js",
     "root-boundary-templates/root-boundary-root-main/index.js",
@@ -95,6 +102,41 @@ export function nativeLintConfigCorpus(
     const file = path.join(workspace.lintWrapperRoot, name);
     immutableInputs.push([file, fs.readFileSync(file)]);
   }
+  const counterRoot = TestProject.tmpdir(
+    "lint-cache-counter-",
+    workspace.cache,
+  );
+  const counterRelative = path.relative(
+    TestProject.physicalPath(root),
+    TestProject.physicalPath(counterRoot),
+  );
+  assert.ok(
+    path.isAbsolute(counterRelative) || counterRelative === ".." ||
+      counterRelative.startsWith(".." + path.sep),
+  );
+  const counter = path.join(counterRoot, "calls");
+  fs.writeFileSync(counter, "", { flag: "wx" });
+  const rawName = Buffer.from([0xff, 0x78]);
+  const rawFile = Buffer.concat([Buffer.from(root + path.sep), rawName]);
+  let rawFileOwned = false;
+  let rawNameAdmitted = false;
+  try {
+    fs.writeFileSync(rawFile, "", { flag: "wx" });
+    rawFileOwned = true;
+  } catch (error) {
+    // The original counterpart is conditional on native admission of these bytes.
+    if (fs.existsSync(rawFile)) throw error;
+  }
+  if (rawFileOwned)
+    rawNameAdmitted = fs
+      .readdirSync(root, { encoding: "buffer" })
+      .some((name) => name.equals(rawName));
+  if (rawFileOwned && !rawNameAdmitted) {
+    fs.unlinkSync(rawFile);
+    rawFileOwned = false;
+  }
+  let parityKey: string | undefined;
+  let parityDigest: string | undefined;
   const failures: unknown[] = [];
   let unresolved = false;
   const capture = (name: string, body: () => void): void => {
@@ -121,6 +163,7 @@ export function nativeLintConfigCorpus(
           TTSC_CACHE_DIR: workspace.cache,
           PATH: lintGoPath(),
           TTSC_E2E_TRACE: traceRoot,
+          TTSC_LINT_TEST_CACHE_COUNTER: counter,
         },
       },
     );
@@ -175,8 +218,40 @@ export function nativeLintConfigCorpus(
         traceRoot,
         path.join(root, "format-only.cjs"),
         null,
+        1,
+        (dependencies) => {
+          parityDigest = assertConfigDirectoryProof(dependencies, root);
+        },
       );
       assert.deepEqual(formatOnly, { format: { printWidth: 120 } });
+      assert.equal(fs.readFileSync(counter, "utf8"), "1");
+      assert.equal(fs.existsSync(path.join(root, "챕")), true);
+      if (rawNameAdmitted)
+        assert.ok(
+          fs
+            .readdirSync(root, { encoding: "buffer" })
+            .some((name) => name.equals(rawName)),
+        );
+      const published = result.traces.writerObservations
+        .map((row) => row.observation)
+        .filter(
+          (row) =>
+            row.event === "config-cache-outcome" &&
+            row.data?.location === path.join(root, "format-only.cjs"),
+        );
+      assert.equal(published.length, 1);
+      const publication = published[0];
+      assert.ok(publication !== undefined);
+      assert.equal(publication.data?.outcome, "memory-published");
+      assert.equal(publication.data?.dependenciesTracked, true);
+      const key: unknown = publication.data?.key;
+      assert.ok(typeof key === "string");
+      parityKey = key;
+      assert.ok(parityDigest !== undefined);
+      assert.equal(
+        assertConfigDirectoryProof(publication.data?.dependencies, root),
+        parityDigest,
+      );
       assertAsyncConfigWatchPaths(result.traces, typed, helper);
       assert.equal(
         result.diagnostics.some((row) =>
@@ -356,6 +431,64 @@ export function nativeLintConfigCorpus(
       assertAsyncConfigWatchPaths(result.traces, typed, helper);
       assert.deepEqual(fs.readFileSync(typed), originalTyped);
       assertRootBoundaryDependencies(result.traces, root);
+      assert.equal(fs.readFileSync(counter, "utf8"), "1");
+      const hits = result.traces.writerObservations
+        .map((row) => row.observation)
+        .filter(
+          (row) =>
+            row.event === "config-cache-outcome" &&
+            row.data?.location === path.join(root, "format-only.cjs"),
+        );
+      assert.equal(hits.length, 1);
+      const hit = hits[0];
+      assert.ok(
+        hit !== undefined &&
+          parityKey !== undefined &&
+          parityDigest !== undefined,
+      );
+      assert.equal(hit.data?.outcome, "disk-hit");
+      assert.equal(hit.data?.key, parityKey);
+      assert.equal(hit.data?.dependenciesTracked, true);
+      assert.equal(
+        assertConfigDirectoryProof(hit.data?.dependencies, root),
+        parityDigest,
+      );
+      assertExecutableConfigRules(
+        result.traces,
+        traceRoot,
+        path.join(root, "cache-aba/config.cjs"),
+        { "during/rule": "off" },
+        3,
+        (dependencies) =>
+          assertUnstableConfigDependency(
+            dependencies,
+            path.join(root, "cache-aba/selection.cjs"),
+          ),
+      );
+      const abaLocation = path.join(root, "cache-aba/config.cjs");
+      const abaDependency = path.join(root, "cache-aba/selection.cjs");
+      const refusals = result.traces.writerObservations
+        .map((row) => row.observation)
+        .filter(
+          (row) =>
+            row.event === "config-cache-outcome" &&
+            row.data?.location === abaLocation,
+        );
+      assert.equal(refusals.length, 3);
+      for (const [index, refusal] of refusals.entries()) {
+        assert.equal(refusal.data?.outcome, "not-current");
+        assert.equal(refusal.data?.attempt, index + 1);
+        assert.equal(refusal.data?.returnedUncached, index === 2);
+        assertUnstableConfigDependency(
+          refusal.data?.dependencies,
+          abaDependency,
+        );
+      }
+      const originalAba = immutableInputs.find(
+        ([file]) => file === abaDependency,
+      );
+      assert.ok(originalAba !== undefined);
+      assert.deepEqual(fs.readFileSync(abaDependency), originalAba[1]);
       assert.deepEqual(
         result.diagnostics.map(({ rule, severity }) => [rule, severity]),
         [["no-console", "warn"]],
@@ -425,6 +558,13 @@ export function nativeLintConfigCorpus(
   } finally {
     if (!unresolved) {
       for (const restore of [
+        () => {
+          if (rawFileOwned) fs.unlinkSync(rawFile);
+        },
+        () => {
+          fs.unlinkSync(counter);
+          fs.rmdirSync(counterRoot);
+        },
         () => fs.writeFileSync(config, originalConfig),
         () => fs.writeFileSync(typed, originalTyped),
         () => fs.writeFileSync(helper, originalHelper),
@@ -484,12 +624,17 @@ export function nativeLintConfigCorpus(
  * run a second module evaluation. Rule-bearing exports require their literal
  * rules; a format-only export instead returns the same validated value for the
  * caller to compare as a complete object, without inventing a rules field.
+ * The A-B-A input requires the owning cache's three uncached attempts; each
+ * still binds its own child outcome and raw bytes. The optional observer reads
+ * dependencies from those same already captured bytes, without re-evaluation.
  */
 function assertExecutableConfigRules(
   traces: TraceMeasurements,
   traceRoot: string,
   location: string,
   rules: Readonly<Record<string, string>> | null,
+  expectedResults: 1 | 3 = 1,
+  observeDependencies?: (dependencies: unknown) => void,
 ): Record<string, unknown> {
   assert.deepEqual(traces.integrityProblems, []);
   const results = traces.writerObservations
@@ -498,66 +643,79 @@ function assertExecutableConfigRules(
       (row) =>
         row.event === "config-loader-result" && row.data?.location === location,
     );
-  assert.equal(results.length, 1, "one actual loader result for " + location);
-  const [result] = results;
-  assert.ok(result !== undefined);
-  assert.equal(result.data?.readOutcome, "complete");
-  assert.equal(result.data?.normalizationAttempted, true);
-  assert.equal(result.data?.normalizationAccepted, true);
-  assert.equal(typeof result.data?.dependenciesTracked, "boolean");
-  assert.equal(result.data?.success, true);
-  const invocation = traces.writerObservations
-    .map((row) => row.observation)
-    .filter(
-      (row) =>
-        row.writerPid === result.writerPid &&
-        row.instance === result.instance &&
-        row.invocation === result.invocation,
-    );
-  const attempts = invocation.filter((row) => row.event === "process-attempt");
-  const terminals = invocation.filter((row) => row.event === "process-result");
-  assert.equal(attempts.length, 1);
-  assert.equal(terminals.length, 1);
-  const [attempt] = attempts;
-  const [terminal] = terminals;
-  assert.ok(attempt !== undefined && terminal !== undefined);
-  assert.ok(
-    attempt.sequence < terminal.sequence && terminal.sequence < result.sequence,
+  assert.equal(
+    results.length,
+    expectedResults,
+    "actual loader result count for " + location,
   );
-  assert.equal(terminal.data?.owner, "lint-config-loader");
-  assert.ok(
-    typeof terminal.pid === "number" &&
-      Number.isSafeInteger(terminal.pid) &&
-      terminal.pid > 0,
-  );
-  assert.equal(terminal.data?.started, true);
-  assert.equal(terminal.data?.exitObserved, true);
-  assert.equal(terminal.data?.exitCode, 0);
-  assert.equal(terminal.data?.success, true);
-  const captured = readE2eTracePayload(traceRoot, result, result.data?.raw);
-  const envelope: unknown = JSON.parse(
-    new TextDecoder("utf-8", { fatal: true }).decode(captured.bytes),
-  );
-  assert.ok(envelope !== null && typeof envelope === "object");
-  const value = (envelope as Record<string, unknown>).value;
-  assert.ok(
-    value !== null && typeof value === "object" && !Array.isArray(value),
-  );
-  if (rules !== null) {
-    const actualRules = (value as Record<string, unknown>).rules;
-    assert.ok(
-      actualRules !== null &&
-        typeof actualRules === "object" &&
-        !Array.isArray(actualRules),
-    );
-    for (const [rule, severity] of Object.entries(rules))
-      assert.equal(
-        (actualRules as Record<string, unknown>)[rule],
-        severity,
-        location + ": " + rule,
+  let evaluated: Record<string, unknown> | undefined;
+  for (const result of results) {
+    assert.equal(result.data?.readOutcome, "complete");
+    assert.equal(result.data?.normalizationAttempted, true);
+    assert.equal(result.data?.normalizationAccepted, true);
+    assert.equal(typeof result.data?.dependenciesTracked, "boolean");
+    assert.equal(result.data?.success, true);
+    const invocation = traces.writerObservations
+      .map((row) => row.observation)
+      .filter(
+        (row) =>
+          row.writerPid === result.writerPid &&
+          row.instance === result.instance &&
+          row.invocation === result.invocation,
       );
+    const attempts = invocation.filter(
+      (row) => row.event === "process-attempt",
+    );
+    const terminals = invocation.filter(
+      (row) => row.event === "process-result",
+    );
+    assert.equal(attempts.length, 1);
+    assert.equal(terminals.length, 1);
+    const [attempt] = attempts;
+    const [terminal] = terminals;
+    assert.ok(attempt !== undefined && terminal !== undefined);
+    assert.ok(
+      attempt.sequence < terminal.sequence &&
+        terminal.sequence < result.sequence,
+    );
+    assert.equal(terminal.data?.owner, "lint-config-loader");
+    assert.ok(
+      typeof terminal.pid === "number" &&
+        Number.isSafeInteger(terminal.pid) &&
+        terminal.pid > 0,
+    );
+    assert.equal(terminal.data?.started, true);
+    assert.equal(terminal.data?.exitObserved, true);
+    assert.equal(terminal.data?.exitCode, 0);
+    assert.equal(terminal.data?.success, true);
+    const captured = readE2eTracePayload(traceRoot, result, result.data?.raw);
+    const envelope: unknown = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(captured.bytes),
+    );
+    assert.ok(envelope !== null && typeof envelope === "object");
+    observeDependencies?.((envelope as Record<string, unknown>).dependencies);
+    const value = (envelope as Record<string, unknown>).value;
+    assert.ok(
+      value !== null && typeof value === "object" && !Array.isArray(value),
+    );
+    if (rules !== null) {
+      const actualRules = (value as Record<string, unknown>).rules;
+      assert.ok(
+        actualRules !== null &&
+          typeof actualRules === "object" &&
+          !Array.isArray(actualRules),
+      );
+      for (const [rule, severity] of Object.entries(rules))
+        assert.equal(
+          (actualRules as Record<string, unknown>)[rule],
+          severity,
+          location + ": " + rule,
+        );
+    }
+    evaluated = value as Record<string, unknown>;
   }
-  return value as Record<string, unknown>;
+  assert.ok(evaluated !== undefined);
+  return evaluated;
 }
 
 /**
@@ -680,4 +838,65 @@ function assertAsyncConfigWatchPaths(
     assert.ok("digest" in dependency && typeof dependency.digest === "string");
     assert.match(dependency.digest, /^[a-f0-9]{64}$/);
   }
+}
+
+/**
+ * Validate the same CJS directory proof in raw output and Go cache admission.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The actual dependency array must contain one stable watch-directory fingerprint for the config root with its native physical path and a nonempty SHA256 digest.
+ * @evidence contracts/testing.md#independent-expectations Literal directory/watch, physical config root and the fingerprint grammar independently define the expected record; the caller compares two actual boundary observations rather than generating a successful reuse result.
+ * @evidence contracts/testing.md#distinguishing-cases Missing or duplicate root observations, unavailable identity and malformed digests fail instead of being interpreted as unchanged inputs.
+ * @evidence contracts/testing.md#execution-ownership The selected esbuild native config corpus invokes this assertion on its first completed raw loader and the following actual same-key disk-hit; the helper starts no process or evaluator.
+ */
+function assertConfigDirectoryProof(
+  dependencies: unknown,
+  root: string,
+): string {
+  assert.ok(Array.isArray(dependencies));
+  const matching = dependencies.filter(
+    (row: unknown) =>
+      row !== null &&
+      typeof row === "object" &&
+      (row as Record<string, unknown>).path === root &&
+      (row as Record<string, unknown>).kind === "directory" &&
+      (row as Record<string, unknown>).scope === "watch",
+  );
+  assert.equal(matching.length, 1);
+  const dependency: unknown = matching[0];
+  assert.ok(dependency !== null && typeof dependency === "object");
+  const entry = dependency as Record<string, unknown>;
+  assert.equal(entry.identityStable, true);
+  assert.equal(entry.realpath, TestProject.physicalPath(root));
+  const digest: unknown = entry.digest;
+  assert.ok(typeof digest === "string");
+  assert.match(digest, /^[a-f0-9]{64}$/);
+  return digest;
+}
+
+/**
+ * Require the restored A-B-A file to retain the consumed unstable observation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The real raw loader and each actual not-current admission outcome must identify one file record for the authored dependency, identityStable false and empty digest.
+ * @evidence contracts/testing.md#independent-expectations Original A bytes are checked separately against the static input; the actual transient B value and false/empty proof jointly distinguish restored disk bytes from a reusable consumed input.
+ * @evidence contracts/testing.md#distinguishing-cases Missing or duplicate file proof and stable/nonempty proof fail, even if the raw module returned the expected off rule.
+ * @evidence contracts/testing.md#execution-ownership The existing warning CLI owns the three required cache attempts and the native config corpus passes their actual raw and admission records here without launching another evaluator.
+ */
+function assertUnstableConfigDependency(
+  dependencies: unknown,
+  location: string,
+): void {
+  assert.ok(Array.isArray(dependencies));
+  const matching = dependencies.filter(
+    (row: unknown) =>
+      row !== null &&
+      typeof row === "object" &&
+      (row as Record<string, unknown>).path === location &&
+      (row as Record<string, unknown>).kind === "file",
+  );
+  assert.equal(matching.length, 1);
+  const observed: unknown = matching[0];
+  assert.ok(observed !== null && typeof observed === "object");
+  const fingerprint = observed as Record<string, unknown>;
+  assert.equal(fingerprint.identityStable, false);
+  assert.equal(fingerprint.digest, "");
 }
