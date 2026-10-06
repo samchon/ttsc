@@ -116,7 +116,6 @@ const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
  *    the first eight consumed source lines. It creates no replacement server or
  *    compiler request and does not infer the nested cause from a package
  *    marker.
- *
  */
 async function runEditorCorpus() {
   const workspace = await BatchWorkspace.open();

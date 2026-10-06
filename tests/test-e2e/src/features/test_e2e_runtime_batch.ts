@@ -5,8 +5,8 @@ import path from "node:path";
 
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
-import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
 import { runtimeCacheFailureCorpus } from "../batch/runtimeCacheFailureCorpus";
+import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
 import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
 import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";

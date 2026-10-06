@@ -459,10 +459,18 @@ export namespace BatchWorkspace {
     );
     for (const name of ["native-vite-watch", "native-vite-external"])
       fs.mkdirSync(path.join(root, "tools", name), { recursive: true });
-    const runtimeFailureStorage = path.join(root, "tools/runtime-cache-failure/storage");
+    const runtimeFailureStorage = path.join(
+      root,
+      "tools/runtime-cache-failure/storage",
+    );
     await FileSystemIterator.write(
       path.join(root, "tools/native-dead-claim/native-producer"),
-      await FileSystemIterator.read(path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/native-transform-producer")),
+      await FileSystemIterator.read(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages/unplugin/test/fixtures/native-transform-producer",
+        ),
+      ),
     );
     for (const mode of ["root", "index"] as const) {
       const original = path.join(runtimeFailureStorage, mode + "-original");
@@ -471,7 +479,11 @@ export namespace BatchWorkspace {
       fs.mkdirSync(original, { recursive: true });
       fs.mkdirSync(victim, { recursive: true });
       if (mode === "index") fs.mkdirSync(cache);
-      fs.symlinkSync(original, mode === "root" ? cache : path.join(cache, "project"), process.platform === "win32" ? "junction" : "dir");
+      fs.symlinkSync(
+        original,
+        mode === "root" ? cache : path.join(cache, "project"),
+        process.platform === "win32" ? "junction" : "dir",
+      );
     }
     const serveDeclarations = path.join(
       root,

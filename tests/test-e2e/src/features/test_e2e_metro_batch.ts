@@ -24,12 +24,12 @@ import {
 } from "../../../../packages/ttsc/lib/plugin/resolveCapabilityPlugins";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
-import { deadCompilerClaimCorpus } from "../batch/deadCompilerClaimCorpus";
 import {
   type LoaderPoolOutcome,
   createLoaderPoolWorker,
 } from "../batch/LoaderPoolWorker";
 import { observePluginLockGraph } from "../batch/PluginLockGraph";
+import { deadCompilerClaimCorpus } from "../batch/deadCompilerClaimCorpus";
 import {
   buildSourcePlugin,
   computeCacheKey,
@@ -76,9 +76,18 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
-  const results = await Promise.allSettled([runResidentLoaderPool(), deadCompilerClaimCorpus(workspace)]);
-  const failures = results.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
-  if (failures.length) throw new AggregateError(failures, "resident loader pool and actual dead claim");
+  const results = await Promise.allSettled([
+    runResidentLoaderPool(),
+    deadCompilerClaimCorpus(workspace),
+  ]);
+  const failures = results.flatMap((result) =>
+    result.status === "rejected" ? [result.reason] : [],
+  );
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "resident loader pool and actual dead claim",
+    );
 }
 
 async function runResidentLoaderPool(): Promise<void> {

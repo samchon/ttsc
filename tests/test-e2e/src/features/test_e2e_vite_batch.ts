@@ -40,11 +40,18 @@ import { test_watch_broker_hears_what_follows_ready } from "./unplugin/transform
 export async function test_e2e_vite_batch(): Promise<void> {
   const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
     begin(): string | undefined;
-    record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+    record(
+      event: string,
+      invocation: string | undefined,
+      fields: Record<string, unknown>,
+    ): void;
   };
   const invocation = trace.begin();
   const phase = (phase: string, data: Record<string, unknown> = {}): void =>
-    trace.record("vite-lifecycle", invocation, { pid: process.pid, data: { phase, ...data } });
+    trace.record("vite-lifecycle", invocation, {
+      pid: process.pid,
+      data: { phase, ...data },
+    });
   phase("workspace-open-started");
   const workspace = await BatchWorkspace.open();
   phase("workspace-open-returned");
@@ -174,9 +181,13 @@ export async function test_e2e_vite_batch(): Promise<void> {
               delivered,
               "the actual host must render its graph before BUNDLE_END",
             );
-            phase("bundle-result-close-started", { generation: generations.length });
+            phase("bundle-result-close-started", {
+              generation: generations.length,
+            });
             await event.result.close();
-            phase("bundle-result-close-returned", { generation: generations.length });
+            phase("bundle-result-close-returned", {
+              generation: generations.length,
+            });
             generations.push(delivered);
           } catch (error) {
             failures.push(error);

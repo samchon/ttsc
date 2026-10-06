@@ -43,7 +43,11 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
 }): Promise<void> {
   const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
     begin(): string | undefined;
-    record(event: string, invocation: string | undefined, fields: Record<string, unknown>): void;
+    record(
+      event: string,
+      invocation: string | undefined,
+      fields: Record<string, unknown>,
+    ): void;
   };
   const invocation = trace.begin();
   const root = fs.realpathSync.native(
@@ -225,11 +229,20 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
     failures.push(error);
   } finally {
     try {
-      trace.record("vite-native-input-dispose", invocation, { pid: process.pid, data: { phase: "started" } });
+      trace.record("vite-native-input-dispose", invocation, {
+        pid: process.pid,
+        data: { phase: "started" },
+      });
       await watch.dispose();
-      trace.record("vite-native-input-dispose", invocation, { pid: process.pid, data: { phase: "returned" } });
+      trace.record("vite-native-input-dispose", invocation, {
+        pid: process.pid,
+        data: { phase: "returned" },
+      });
     } catch (error) {
-      trace.record("vite-native-input-dispose", invocation, { pid: process.pid, data: { phase: "threw", error: String(error) } });
+      trace.record("vite-native-input-dispose", invocation, {
+        pid: process.pid,
+        data: { phase: "threw", error: String(error) },
+      });
       prepared?.retain(
         "native Vite input observer disposal was not acknowledged",
       );
