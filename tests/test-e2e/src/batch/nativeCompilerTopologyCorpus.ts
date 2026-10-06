@@ -356,6 +356,16 @@ export async function nativeCompilerTopologyCorpus(
   });
   await capture("case-distinct output and external input", async () => {
     const external = path.join(root, "external/case-profile");
+    // The case profile owns a distinct project root. Its declared inputs and
+    // outputs remain adjacent external trees rather than internal declarations
+    // whose supported recursive owner is the whole project root.
+    const caseRoot = path.join(root, "case-project");
+    const caseConfig = path.join(caseRoot, "tsconfig.json");
+    fs.mkdirSync(path.join(caseRoot, "src"), { recursive: true });
+    fs.copyFileSync(
+      path.join(root, "src/main.ts"),
+      path.join(caseRoot, "src/main.ts"),
+    );
     fs.mkdirSync(external, { recursive: true });
     if (process.platform === "win32") {
       const enabled = E2eProcessTrace.spawnSync(
@@ -389,7 +399,7 @@ export async function nativeCompilerTopologyCorpus(
       if (enabled.error !== undefined || enabled.status !== 0) return;
     }
     fs.writeFileSync(
-      config,
+      caseConfig,
       JSON.stringify({
         compilerOptions: {
           declaration: true,
@@ -404,7 +414,7 @@ export async function nativeCompilerTopologyCorpus(
     const caseChanges: WatchInputChange[] = [];
     let liveRoots: readonly string[] = [];
     const caseTopology = new WatchTopology(
-      { cwd: root, files: [], projectRoot: root, tsconfig: config },
+      { cwd: caseRoot, files: [], projectRoot: caseRoot, tsconfig: caseConfig },
       {
         onError: (location, error) =>
           failures.push(
@@ -424,7 +434,7 @@ export async function nativeCompilerTopologyCorpus(
     try {
       caseTopology.refresh(false);
       caseTopology.setProjectInputs({
-        root,
+        root: caseRoot,
         files: [exact, exactInput],
         globs: [path.join(globRoot, "**/*.json")],
       });
