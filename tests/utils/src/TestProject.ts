@@ -247,8 +247,11 @@ export namespace TestProject {
    * plugin build again. Tests that observe cold builds or cache lifecycle still
    * pass their own explicit `tmpdir`. A retained internally owned cache has
    * unresolved readers and cannot serve a new consumer in this process.
+   * The first caller can select the existing tmpdir parent contract when its
+   * owned project and relative cache arguments must share a filesystem root.
+   * An existing allocation or externally selected cache is never relocated.
    */
-  export function sharedPluginCache(): string {
+  export function sharedPluginCache(parent?: string): string {
     if (
       sharedPluginCacheDir !== undefined &&
       RETAINED_TEMP_DIRS.has(sharedPluginCacheDir)
@@ -259,7 +262,7 @@ export namespace TestProject {
       );
     return (
       process.env.TTSC_TEST_CACHE_DIR ??
-      (sharedPluginCacheDir ??= tmpdir("ttsc-shared-plugin-cache-"))
+      (sharedPluginCacheDir ??= tmpdir("ttsc-shared-plugin-cache-", parent))
     );
   }
 

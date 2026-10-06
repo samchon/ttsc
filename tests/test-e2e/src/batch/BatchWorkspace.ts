@@ -35,6 +35,8 @@ export namespace BatchWorkspace {
     /** Independent default-cache maintenance owner, without a prior consumer. */
     descriptorCollectionRoot: string;
     cache: string;
+    /** Relative CLI contrast stays local even with an external absolute cache. */
+    runtimeCliCache: string;
     installedTtsx: string;
     programRunLog: string;
     contextReceipt: string;
@@ -315,8 +317,15 @@ export namespace BatchWorkspace {
   export async function close(): Promise<void> {
     if (reuseFailure !== undefined) return;
     if (preparation === undefined) return;
-    const { root, projectAlias, graphNegativeRoot } = await preparation;
+    const { root, projectAlias, graphNegativeRoot, cache, runtimeCliCache } = await preparation;
     if (!fs.existsSync(root)) return;
+    if (runtimeCliCache !== cache)
+      fs.rmSync(runtimeCliCache, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 100,
+      });
     if (root !== projectAlias)
       fs.rmSync(path.dirname(projectAlias), {
         recursive: true,
@@ -341,11 +350,23 @@ export namespace BatchWorkspace {
   async function prepare(): Promise<Workspace> {
     // Choose one native spelling before authoring absolute config/cwd inputs.
     // Intentional project aliases below remain separately authored inputs.
-    const allocatedRoot = TestProject.tmpdir(
-      "ttsc-shared-boundaries-",
-      path.join(path.dirname(TestProject.WORKSPACE_ROOT), ".ttsc-e2e-projects"),
+    const temporaryParent = path.join(
+      path.dirname(TestProject.WORKSPACE_ROOT),
+      ".ttsc-e2e-projects",
     );
+    const cache = TestProject.sharedPluginCache(temporaryParent);
+    const allocatedRoot = TestProject.tmpdir("ttsc-shared-boundaries-", temporaryParent);
     const root = fs.realpathSync.native(allocatedRoot);
+    // An external absolute cache remains selected for the shared consumers.
+    // The CLI's relative-path contrast needs its own same-volume authority.
+    const runtimeCliCache = path.isAbsolute(path.relative(root, cache))
+      ? TestProject.tmpdir("ttsc-runtime-relative-cache-", temporaryParent)
+      : cache;
+    if (runtimeCliCache !== cache)
+      TestProject.retainTemporaryDirectory(
+        runtimeCliCache,
+        "Relative runtime cache consumers have not completed",
+      );
     // Retain throughout the run. The runner explicitly releases only its own
     // completed consumers; a rejected or unknown lifetime keeps all inputs.
     TestProject.retainTemporaryDirectory(
@@ -715,7 +736,10 @@ export namespace BatchWorkspace {
     const casePolicyReceipt = path.join(root, "native-case-policy.jsonl");
     let projectAlias = root;
     if (!installationOnly) {
-      const aliasParent = TestProject.tmpdir("ttsc-shared-project-alias-");
+      const aliasParent = TestProject.tmpdir(
+        "ttsc-shared-project-alias-",
+        path.dirname(allocatedRoot),
+      );
       TestProject.retainTemporaryDirectory(
         aliasParent,
         "Shared linked project consumers have not completed",
@@ -1605,7 +1629,8 @@ export namespace BatchWorkspace {
       pathsReceipt,
       casePolicyReceipt,
       projectAlias,
-      cache: TestProject.sharedPluginCache(),
+      cache,
+      runtimeCliCache,
     };
   }
 

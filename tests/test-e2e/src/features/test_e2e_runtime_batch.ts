@@ -203,13 +203,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     }
   };
   const base = path.join(workspace.root, "runtime-base.json");
-  const callerParent = path.join(workspace.cache, "runtime-caller");
+  const runtimeCliCache = workspace.runtimeCliCache;
+  const callerParent = path.join(runtimeCliCache, "runtime-caller");
   const callerDirectory = path.join(callerParent, "isolated");
-  const relativeCache = path.relative(workspace.projectAlias, workspace.cache);
+  const relativeCache = path.relative(workspace.projectAlias, runtimeCliCache);
   const wrongCallerCache = path.resolve(callerDirectory, relativeCache);
   if (!workspace.installationOnly) {
     assert.equal(path.isAbsolute(relativeCache), false);
-    assert.notEqual(wrongCallerCache, workspace.cache);
+    assert.notEqual(wrongCallerCache, runtimeCliCache);
     assert.equal(fs.existsSync(callerParent), false);
     assert.equal(fs.existsSync(callerDirectory), false);
     assert.equal(fs.existsSync(wrongCallerCache), false);
@@ -409,10 +410,10 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         fs.existsSync(path.join(wrongCallerCache, "plugins")),
         false,
       );
-      assert.equal(fs.existsSync(path.join(workspace.cache, "plugins")), true);
-      assert.equal(fs.existsSync(path.join(workspace.cache, "project")), true);
+      assert.equal(fs.existsSync(path.join(runtimeCliCache, "plugins")), true);
+      assert.equal(fs.existsSync(path.join(runtimeCliCache, "project")), true);
       assert.deepEqual(
-        fs.readdirSync(path.join(workspace.cache, "project")),
+        fs.readdirSync(path.join(runtimeCliCache, "project")),
         [],
       );
       fs.rmdirSync(callerDirectory);
