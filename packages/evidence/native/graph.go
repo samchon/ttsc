@@ -1,7 +1,6 @@
 package evidence
 
 import (
-  "os"
   "path/filepath"
   "sort"
   "strings"
@@ -12,6 +11,19 @@ import (
 type graphRule struct{}
 
 func (graphRule) Name() string { return graphRuleName }
+
+// UsesProjectInputReader declares the actual external-input read boundary.
+// Native readers use the supplied generation reader; external bridges withdraw
+// completeness because their independent module/input reads are not observed.
+// @evidence contracts/common.md#principled-implementation The marker declares actual reader responsibility but does not certify any consumed input.
+// @evidence contracts/common.md#clear-and-simple-design One optional capability keeps existing ProjectRule compatibility.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts External bridges explicitly withdraw completeness instead of inheriting this marker as proof.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes generation reader support from unobserved bridge inputs.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This marker performs no native operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Returns one fixed capability value.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Owns no reusable computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Owns no resource.
+func (graphRule) UsesProjectInputReader() bool { return true }
 
 func (graphRule) NeedsTypeChecker() bool { return false }
 
@@ -43,6 +55,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     reportProblems(ctx, problems)
     return
   }
+  config.inputs = evidenceInputReader{host: ctx.Inputs}
   resolveGraphSeverities(&config, ctx.Severity)
   config = enabledGraphConfig(config)
   if len(config.Claims) == 0 {
@@ -54,7 +67,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     ctx.Report("Evidence graph could not resolve the project root. Run ttsc with a project config or explicit project root so project-relative evidence globs have one stable base.")
     return
   }
-  info, err := os.Stat(root)
+  info, err := config.inputs.Stat(root)
   if err != nil || !info.IsDir() {
     ctx.Report("Evidence graph project root '" + root + "' is not a readable directory. Fix the ttsc project identity before evaluating evidence globs.")
     return
@@ -109,7 +122,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   diagnostics = append(diagnostics, prismaProblems...)
   diagnostics = append(diagnostics, swaggerProblems...)
   diagnostics = append(diagnostics, unreadableTypeScriptTags(typescript, governed, declared)...)
-  loader := newTypeScriptLoader(root, typescript)
+  loader := newTypeScriptLoader(root, typescript, config.inputs)
   states, stateProblems := materializeClaimStates(
     config,
     markdown,
@@ -178,7 +191,7 @@ func claimPopulationConfig(
     claim.References = nil
     claims = append(claims, claim)
   }
-  return graphConfig{Claims: claims}
+  return graphConfig{Claims: claims, inputs: config.inputs}
 }
 
 // activeGraphConfig omits healthy claim populations that contain no own unit

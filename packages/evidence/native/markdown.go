@@ -2,7 +2,6 @@ package evidence
 
 import (
   "io/fs"
-  "os"
   "path/filepath"
   "regexp"
   "strings"
@@ -54,7 +53,7 @@ func loadMarkdownBase(
     recordPopulationFailure(inventories, artifactMarkdown, base)
     return problems.add(severity, unresolvedBaseProblem(base, artifactMarkdown))
   }
-  err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
+  err := base.inputs.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {
       // The walk root belongs to its population by construction, so a failure
       // to list it is a failure of the population and is never decided by what
@@ -112,7 +111,7 @@ func loadMarkdownBase(
     }
     severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
     address := base.addressOf(relative)
-    content, readErr := os.ReadFile(current)
+    content, readErr := base.inputs.ReadFile(current)
     if readErr != nil {
       inventories[address.Key] = &artifactInventory{
         Path:       address.Display,

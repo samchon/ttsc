@@ -3,7 +3,6 @@ package evidence
 import (
   "encoding/json"
   "io/fs"
-  "os"
   "path"
   "path/filepath"
   "sort"
@@ -22,6 +21,7 @@ import (
 // that symbol is precisely the one an obligation needs to name — an evidence
 // graph exists to report the operation the frontend never called.
 type typeScriptLoader struct {
+  inputs evidenceInputReader
   boundary      *populationBase
   root          string
   identityRoot  string
@@ -38,8 +38,10 @@ type typeScriptLoader struct {
 func newTypeScriptLoader(
   root string,
   program map[string]*artifactInventory,
+  readers ...evidenceInputReader,
 ) *typeScriptLoader {
   loader := &typeScriptLoader{
+    inputs: inputReader(readers),
     root:          strings.ReplaceAll(root, "\\", "/"),
     program:       map[string]*artifactInventory{},
     programIDs:    map[string]*artifactInventory{},
@@ -50,7 +52,7 @@ func newTypeScriptLoader(
     identities:    map[string]typeScriptModuleIdentity{},
     installs:      map[string]installedPackageLocation{},
   }
-  loader.identityRoot, _ = physicalTypeScriptPath(filepath.FromSlash(loader.root))
+  loader.identityRoot, _ = physicalTypeScriptPath(filepath.FromSlash(loader.root), loader.inputs)
   keys := make([]string, 0, len(program))
   for key := range program {
     keys = append(keys, key)
@@ -116,7 +118,7 @@ func (loader *typeScriptLoader) inventory(relative string) (result *artifactInve
 
 func (loader *typeScriptLoader) parse(relative string) *artifactInventory {
   relative = loader.projectPath(relative)
-  content, err := os.ReadFile(resolveProjectPath(loader.root, relative))
+  content, err := loader.inputs.ReadFile(resolveProjectPath(loader.root, relative))
   if err != nil {
     loader.failures[relative] = err.Error()
     return nil
@@ -178,7 +180,7 @@ func (loader *typeScriptLoader) programInventory(module string) *artifactInvento
 // candidate, and a watch cycle resolves every re-export in the population — so
 // callers that can answer from the Program should do that first.
 func (loader *typeScriptLoader) existsOnDisk(relative string) bool {
-  info, err := os.Stat(resolveProjectPath(loader.root, relative))
+  info, err := loader.inputs.Stat(resolveProjectPath(loader.root, relative))
   return err == nil && !info.IsDir()
 }
 
@@ -263,7 +265,7 @@ func (loader *typeScriptLoader) moduleIdentity(module string) (string, bool) {
     return cached.Path, cached.Resolved
   }
   absolute := resolveProjectPath(loader.root, module)
-  resolved, ok := physicalTypeScriptPath(absolute)
+  resolved, ok := physicalTypeScriptPath(absolute, loader.inputs)
   // Resolve both sides before taking a relative identity. Canonicalizing only
   // the file makes a project junction or Windows 8.3 root leak the checkout's
   // absolute location into every unit ID and invalidate unchanged reviews.
@@ -272,16 +274,17 @@ func (loader *typeScriptLoader) moduleIdentity(module string) (string, bool) {
   return identity, ok
 }
 
-func physicalTypeScriptPath(absolute string) (string, bool) {
+func physicalTypeScriptPath(absolute string, readers ...evidenceInputReader) (string, bool) {
+  inputs := inputReader(readers)
   current := filepath.Clean(absolute)
   // A directory link can introduce another link in an already-walked parent.
   // Settle the complete path, with the same finite bound as directory chains.
   for range 32 {
-    resolved, ok := resolveLinkedPath(current)
+    resolved, ok := resolveLinkedPath(current, inputs)
     if !ok {
       return resolved, false
     }
-    resolved = expandTypeScriptPath(resolved)
+    resolved = expandTypeScriptPath(resolved, inputs)
     if resolved == current {
       return resolved, true
     }
@@ -293,11 +296,12 @@ func physicalTypeScriptPath(absolute string) (string, bool) {
 // An unsaved or deleted file still has an identity. Expand the deepest existing
 // prefix so Windows short names do not reappear when EvalSymlinks cannot read
 // the complete path, then restore the missing suffix without changing its case.
-func expandTypeScriptPath(absolute string) string {
+func expandTypeScriptPath(absolute string, readers ...evidenceInputReader) string {
+  inputs := inputReader(readers)
   probe := absolute
   suffix := []string{}
   for {
-    if final, err := filepath.EvalSymlinks(probe); err == nil {
+    if final, err := inputs.EvalSymlinks(probe); err == nil {
       if !strings.EqualFold(final, probe) {
         probe = final
       }
@@ -454,6 +458,7 @@ func (loader *typeScriptLoader) locateInstalledPackage(
     manifest := readPackageManifest(
       loader.root,
       path.Join(directory, "package.json"),
+      loader.inputs,
     )
     if manifest != nil {
       return directory, manifest
@@ -491,17 +496,18 @@ func (loader *typeScriptLoader) locateInstalledPackage(
 // every earlier ending is a return from inside the loop. Refusing it instead
 // would turn a root that works into an error at the boundary, which is what
 // this rule exists to keep from happening in the other direction.
-func resolveLinkedDirectory(directory string) (string, bool) {
+func resolveLinkedDirectory(directory string, readers ...evidenceInputReader) (string, bool) {
+  inputs := inputReader(readers)
   current := directory
   for range 32 {
-    info, err := os.Lstat(current)
+    info, err := inputs.Lstat(current)
     if err != nil || info.IsDir() {
       return current, true
     }
-    if target, err := os.Stat(current); err != nil || !target.IsDir() {
+    if target, err := inputs.Stat(current); err != nil || !target.IsDir() {
       return current, true
     }
-    linked, err := os.Readlink(current)
+    linked, err := inputs.Readlink(current)
     if err != nil {
       return current, true
     }
@@ -510,7 +516,7 @@ func resolveLinkedDirectory(directory string) (string, bool) {
     }
     current = filepath.ToSlash(linked)
   }
-  info, err := os.Lstat(current)
+  info, err := inputs.Lstat(current)
   return current, err == nil && info.IsDir()
 }
 
@@ -533,10 +539,10 @@ func (loader *typeScriptLoader) walk(base string) ([]string, string) {
   // owed there is a better cause, not a diagnostic that does not exist. A
   // declared base has no such report behind it, which is why
   // `resolvedBaseDirectory` does refuse.
-  walked, _ := resolveLinkedDirectory(root)
+  walked, _ := resolveLinkedDirectory(root, loader.inputs)
   found := []string{}
   problem := ""
-  err := filepath.WalkDir(walked, func(current string, entry fs.DirEntry, err error) error {
+  err := loader.inputs.WalkDir(walked, func(current string, entry fs.DirEntry, err error) error {
     if walked != root {
       if inside, ok := containedProjectPath(walked, filepath.ToSlash(current)); ok {
         current = path.Join(root, inside)

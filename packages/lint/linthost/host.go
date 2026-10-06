@@ -25,6 +25,7 @@ import (
   shimcore "github.com/microsoft/typescript-go/shim/core"
   "github.com/microsoft/typescript-go/shim/tsoptions"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+  "github.com/microsoft/typescript-go/shim/vfs"
   "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 
@@ -42,6 +43,9 @@ const semanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 // checker used only by type-aware lint rules.
 type program struct {
   cwd          string
+  inputObserver *inputObservationFS
+  inputReader *projectInputReader
+  configInputs []configDependencyFingerprint
   tsProgram    *shimcompiler.Program
   parsed       *tsoptions.ParsedCommandLine
   checker      *shimchecker.Checker
@@ -59,6 +63,7 @@ type program struct {
 }
 
 type loadProgramOptions struct {
+  observeInputs bool
   forceEmit          bool
   forceNoEmit        bool
   outDir             string
@@ -100,7 +105,14 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     resolved = filepath.Join(cwd, resolved)
   }
 
-  fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+  var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+  var observer *inputObservationFS
+  var reader *projectInputReader
+  if options.observeInputs {
+    observer = newInputObservationFS(fs)
+    reader = newProjectInputReader(observer)
+    fs = observer
+  }
   host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 
   commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
@@ -167,6 +179,8 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   }
   return &program{
     cwd:       cwd,
+    inputObserver: observer,
+    inputReader: reader,
     tsProgram: tsProgram,
     parsed:    parsed,
     checker:   checker,
@@ -343,7 +357,7 @@ func (p *program) runDocumentWriteScopedCycle(engine *Engine, target *shimast.So
     return nil
   }
   if p.projectCycle == nil {
-    p.projectCycle = engine.evaluateProject(p.identity, p.projectSourceFiles(), p.checker)
+    p.projectCycle = engine.evaluateProject(p.identity, p.projectSourceFiles(), p.checker, p.projectInputReaders()...)
   }
   fileFindings := engine.runFiles([]*shimast.SourceFile{target}, p.checker, p.projectCycle.results, p.cwd)
   return append(p.projectCycle.finalize(), fileFindings...)
@@ -362,7 +376,7 @@ func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*F
     return nil
   }
   if p.projectCycle == nil {
-    p.projectCycle = engine.evaluateProject(p.identity, files, p.checker)
+    p.projectCycle = engine.evaluateProject(p.identity, files, p.checker, p.projectInputReaders()...)
   }
   fileFindings := engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)
   return append(p.projectCycle.finalize(), fileFindings...)
@@ -419,6 +433,12 @@ func (p *program) applyChange(absPath string) bool {
   changed := shimtspath.ToPath(name, p.cwd, fs.UseCaseSensitiveFileNames())
   newProg, reused := p.tsProgram.UpdateProgram(changed, host, nil)
   if newProg != nil {
+    // An updated generation cannot inherit a one-shot check's observed inputs.
+    // Resident commands currently negotiate no check sidecar; keep an explicit
+    // limitation if an observed Program is updated by an internal caller.
+    if p.inputReader != nil { p.inputReader.Unavailable() }
+    p.inputObserver = nil
+    p.configInputs = nil
     p.tsProgram = newProg
     if p.checker != nil {
       p.checker, _ = shimchecker.NewChecker(newProg, nil)
@@ -728,4 +748,17 @@ func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir stri
     return
   }
   parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(filepath.Join(cwd, outDir))
+}
+
+// @evidence contracts/common.md#principled-implementation An absent reader yields no interface value rather than a typed nil; an observed Program supplies only its own reader.
+// @evidence contracts/common.md#clear-and-simple-design projectInputReaders owns one configuration/generation boundary without a second Program or global reader.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No late hash repairs consumed bytes or upgrades unstable identity.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents the actual generation or BOM/raw-byte responsibility.
+// @evidence contracts/portability.md#os-neutral-implementation Native metadata/path answers are preserved when this operation reads config; pure slice plumbing imposes no platform policy.
+// @evidence contracts/performance.md#efficient-algorithms Returns an empty or singleton slice.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation owns no independent result cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned slice borrows the Program reader and acquires no resource.
+func (p *program) projectInputReaders() []publicrule.ProjectInputReader {
+  if p == nil || p.inputReader == nil { return nil }
+  return []publicrule.ProjectInputReader{p.inputReader}
 }

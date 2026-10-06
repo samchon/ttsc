@@ -3,7 +3,6 @@ package evidence
 import (
   "crypto/sha256"
   "encoding/hex"
-  "os"
   "strings"
   "sync"
 )
@@ -137,10 +136,11 @@ func (cache *swaggerCache) store(digest string, outcome swaggerDocumentOutcome) 
 // An HTTP(S) source never participates. A URL has no validator without a
 // fetch, and the fetch is most of what the normalizer costs, so a remote
 // document cannot be shown unchanged without paying the price of finding out.
-func swaggerContentDigests(root string, sources []string) map[string]string {
+func swaggerContentDigests(root string, sources []string, readers ...evidenceInputReader) map[string]string {
+  inputs := inputReader(readers)
   digests := map[string]string{}
   for _, source := range sources {
-    digest := swaggerContentDigest(root, source)
+    digest := swaggerContentDigest(root, source, inputs)
     if digest != "" {
       digests[source] = digest
     }
@@ -148,11 +148,12 @@ func swaggerContentDigests(root string, sources []string) map[string]string {
   return digests
 }
 
-func swaggerContentDigest(root string, source string) string {
+func swaggerContentDigest(root string, source string, readers ...evidenceInputReader) string {
+  inputs := inputReader(readers)
   if isRemoteSwaggerSource(source) {
     return ""
   }
-  content, err := os.ReadFile(swaggerSourcePath(root, source))
+  content, err := inputs.ReadFile(swaggerSourcePath(root, source))
   if err != nil {
     return ""
   }

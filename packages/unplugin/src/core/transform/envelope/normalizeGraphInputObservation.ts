@@ -18,7 +18,7 @@ import { graphInputObservationCompatible } from "./graphInputObservationCompatib
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol hash syntax and absolute-realpath checks validate genuine producer data; neither missing predicates nor malformed evidence receive fabricated values.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain undefined outcomes, copied lists, hash form, platform interpretation and unknown versus absent fields with documentation-skill paragraph and tag separation.
  * @evidence contracts/portability.md#os-neutral-implementation The declared producer platform chooses realpath parsing and resolution, while the host platform is only the default; native case behavior is not inferred or rewritten by this structural parser.
- * @evidence contracts/performance.md#efficient-algorithms Each of E entry-list slots is validated and copied in one indexed traversal; missing slots yield undefined rather than being skipped. Hash syntax and producer-path normalization add work proportional to their supplied text, while other predicate fields are fixed in number. Temporary space is O(E) copied string references plus normalized path text; immutable entry strings are shared, not reread from the filesystem.
+ * @evidence contracts/performance.md#efficient-algorithms Each native predicate is validated/copied once with a kind/scope uniqueness Set; work includes digest/path text and retained predicate count. Each of E entry-list slots is validated and copied in one indexed traversal; missing slots yield undefined rather than being skipped. Hash syntax and producer-path normalization add work proportional to their supplied text, while other predicate fields are fixed in number. Temporary space is O(E) copied string references plus normalized path text; immutable entry strings are shared, not reread from the filesystem.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
@@ -33,6 +33,28 @@ export function normalizeGraphInputObservation(
   }
   const entry = value as Record<string, unknown>;
   const observation: ITtscCompilerTransformation.IInputObservation = {};
+  if (Object.prototype.hasOwnProperty.call(entry, "nativePredicates")) {
+    if (!Array.isArray(entry.nativePredicates) || entry.nativePredicates.length === 0) return undefined;
+    const native: NonNullable<ITtscCompilerTransformation.IInputObservation["nativePredicates"]> = [];
+    const kinds = new Set<string>();
+    for (let index = 0; index < entry.nativePredicates.length; index++) {
+      const value = entry.nativePredicates[index];
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+      const predicate = value as Record<string, unknown>;
+      if (predicate.version !== 1 ||
+        !["file", "directory", "entry", "optional-file"].includes(predicate.kind as string) ||
+        typeof predicate.digest !== "string" || !/^[0-9a-f]{64}$/.test(predicate.digest) ||
+        typeof predicate.identityStable !== "boolean" ||
+        !["cache", "watch"].includes(predicate.scope as string) ||
+        (predicate.realpath !== null && (typeof predicate.realpath !== "string" || !(platform === "win32" ? path.win32 : path.posix).isAbsolute(predicate.realpath))) ||
+        kinds.has(`${predicate.kind}:${predicate.scope}`)) return undefined;
+      kinds.add(`${predicate.kind}:${predicate.scope}`);
+      native.push({version: 1, kind: predicate.kind as "file" | "directory" | "entry" | "optional-file", digest: predicate.digest,
+        identityStable: predicate.identityStable, realpath: predicate.realpath as string | null,
+        scope: predicate.scope as "cache" | "watch"});
+    }
+    observation.nativePredicates = native;
+  }
   if (Object.prototype.hasOwnProperty.call(entry, "accessibleEntries")) {
     const accessible = entry.accessibleEntries;
     if (

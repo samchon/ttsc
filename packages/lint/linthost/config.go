@@ -782,7 +782,8 @@ func (s *ConfigStore) ConfigDirectories() []string {
 // that produced this store. Executable configs retain their complete dependency
 // fingerprints, including package implementation files that must invalidate a
 // resident answer without becoming public project-watch inputs. JSON configs
-// retain only their own files because they have no executable module graph.
+// retain the actual raw-byte fingerprint captured by their decoding read; no
+// later hash substitutes for the consumed input.
 func (s *ConfigStore) residentRuleConfigState() residentRuleConfigState {
   if s == nil {
     return residentRuleConfigState{}
@@ -1674,7 +1675,10 @@ func appendResidentConfigEvaluation(
       cloned.Realpath = cloneConfigDependencyRealpath(dependency.Realpath)
       store.cacheDependencies = append(store.cacheDependencies, cloned)
     }
-    return
+    // JSON retains its existing timestamp-window resident guard as well as
+    // the new consumed-byte proof. Executable evaluations keep their own
+    // dependency population and never acquire this JSON-only path guard.
+    if !strings.EqualFold(filepath.Ext(location), ".json") { return }
   }
   location = filepath.Clean(location)
   if !containsPath(store.cacheFiles, location) {
@@ -1920,8 +1924,7 @@ func loadConfigFileEvaluationWithin(
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {
   case ".json":
-    value, err := loadJSONConfigFile(location)
-    return evaluatedConfigFile{value: value}, err
+    return loadJSONConfigEvaluation(location)
   case ".js", ".cjs", ".mjs":
     return loadCachedConfigEvaluationForRoot(
       location,
@@ -2395,23 +2398,43 @@ func writeConfigDiskCache(key string, cached cachedConfigEvaluation) {
 // loadJSONConfigFile reads and JSON-parses a lint config file. A leading UTF-8
 // BOM is stripped before parsing so files saved by Windows editors are accepted.
 func loadJSONConfigFile(location string) (any, error) {
-  body, err := os.ReadFile(location)
-  if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err)
-  }
-  // Strip a leading UTF-8 BOM so files saved by Windows editors round
-  // trip through `json.Unmarshal` without an opaque "invalid character"
-  // failure. Mirrors the equivalent JS-side guard in
-  // `packages/lint/src/index.ts::readJsonConfigPlugins`.
+  evaluated, err := loadJSONConfigEvaluation(location)
+  return evaluated.value, err
+}
+
+// loadJSONConfigEvaluation retains the raw bytes actually decoded by this call
+// beside its native identity. The BOM affects the byte witness even though JSON
+// decoding strips it. Read failures never produce a complete config proof.
+// @evidence contracts/common.md#principled-implementation The exact raw bytes decoded by this descriptor read are fingerprinted before BOM stripping; identity instability stays explicit.
+// @evidence contracts/common.md#clear-and-simple-design loadJSONConfigEvaluation owns one configuration/generation boundary without a second Program or global reader.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No late hash repairs consumed bytes or upgrades unstable identity.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents the actual generation or BOM/raw-byte responsibility.
+// @evidence contracts/portability.md#os-neutral-implementation Native metadata/path answers are preserved when this operation reads config; pure slice plumbing imposes no platform policy.
+// @evidence contracts/performance.md#efficient-algorithms Reads, hashes and decodes this config once, with linear raw byte storage plus decoder cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation owns no independent result cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The owned file is closed on every read outcome before decode; errors prevent a successful config result.
+func loadJSONConfigEvaluation(location string) (evaluatedConfigFile, error) {
+  beforePhysical := configDependencyRealpath(location)
+  file, err := os.Open(location)
+  if err != nil { return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, err) }
+  before, beforeErr := file.Stat()
+  body, readErr := io.ReadAll(file)
+  after, afterErr := file.Stat()
+  closeErr := file.Close()
+  if readErr != nil { return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: read config file %s: %w", location, readErr) }
+  if closeErr != nil { return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: close config file %s: %w", location, closeErr) }
+  digest := sha256.Sum256(body)
+  selected, selectedErr := os.Stat(location)
+  physical := configDependencyRealpath(location)
+  stable := beforeErr == nil && afterErr == nil && selectedErr == nil && os.SameFile(before, after) && os.SameFile(after, selected) &&
+    before.Mode() == after.Mode() && before.Size() == after.Size() && before.ModTime().Equal(after.ModTime()) &&
+    sameConfigDependencyRealpath(beforePhysical, physical)
   body = bytes.TrimPrefix(body, []byte{0xEF, 0xBB, 0xBF})
   out, err := decodeConfigJSON(body)
-  if err != nil {
-    return nil, fmt.Errorf("@ttsc/lint: parse config file %s: %w", location, err)
-  }
-  if !isConfigObject(out) {
-    return nil, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
-  }
-  return out, nil
+  if err != nil { return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: parse config file %s: %w", location, err) }
+  if !isConfigObject(out) { return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location) }
+  return evaluatedConfigFile{value: out, dependencies: []string{location}, dependenciesTracked: true,
+    dependencyDigests: []configDependencyFingerprint{{Path: filepath.Clean(location), Digest: hex.EncodeToString(digest[:]), IdentityStable: stable, Kind: configDependencyFile, Realpath: physical, Scope: configDependencyWatch}}}, nil
 }
 
 // serializableConfigKeys is the single source of truth for the ITtscLintConfig

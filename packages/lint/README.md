@@ -1224,6 +1224,9 @@ func (evidenceRule) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectI
 
 Relative patterns are anchored to `ctx.Identity.PhysicalProjectRoot`. Exact files remain dependencies while missing, and globs remain populations while they match nothing, so later create, rename, and repair events are observable. The host normalizes symlink aliases and shares duplicate declarations before publishing one snapshot. Declare configured topology rather than only files a successful `Check` happened to read; `ProjectInputs` runs after options and project identity are resolved but before a TypeScript Program is loaded. HTTP(S) URLs are not filesystem inputs and require a contributor-owned polling or conditional-revalidation policy.
 
+For reusable check results, read external inputs through the optional `ctx.Inputs` reader and implement `rule.ProjectInputObservationRule` with `UsesProjectInputReader() bool` returning `true`. The reader belongs to the current Program: its `ReadFile` returns raw bytes and its native directory/path operations preserve their normal results. Keep the existing OS operations when `ctx.Inputs == nil`, as in manually constructed contexts. Call `ctx.Inputs.Unavailable()` when an external bridge or other operation consumes inputs the reader cannot observe. The capability declaration and `ProjectInputs` topology do not certify consumed bytes; unsupported, conflicting or incomplete observations prevent reuse of that check result.
+
+
 Use `ctx.SetState(value)` when a later file rule needs the exact project binding selected during that check. The host returns the same value without interpreting or serializing it:
 
 ```go

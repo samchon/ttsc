@@ -145,6 +145,21 @@ export namespace ITtscCompilerTransformation {
    * @evidence contracts/portability.md#os-neutral-implementation Member results preserve the compiler filesystem's file/directory predicates and accessible entry names; successful realpaths carry native absolute path spelling rather than URL or project-relative identity. Missing predicates and failed queries make no platform capability assertion, and a missing Stat result reflects the filesystem adapter's null result rather than independently proving physical absence.
    */
   export interface IInputObservation {
+    /**
+     * Actual native contributor/config predicates with their original raw-byte,
+     * directory-member, link-entry or optional-file fingerprint semantics.
+     * Version 1 never uses these digests as decoded compiler text hashes.
+     * Scope preserves cache-only dependencies independently of watch topology.
+     */
+    nativePredicates?: {
+      version: 1;
+      kind: "file" | "directory" | "entry" | "optional-file";
+      digest: string;
+      identityStable: boolean;
+      realpath: string | null;
+      scope: "cache" | "watch";
+    }[];
+
     /** Result returned by `GetAccessibleEntries`, preserving both name lists. */
     accessibleEntries?: {
       directories: string[];

@@ -1,3 +1,4 @@
+import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import { matchesProjectRootFile } from "../../tsconfig/matchesProjectRootFile";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
@@ -69,6 +70,7 @@ export function matchesCachedSource(
   /** Current host pass, or undefined for persistent input validation. */
   epoch: number | undefined,
 ): boolean {
+  if (!nativeInputPredicatesHold(cached)) return false;
   if (cached.freshDeliveryOnly === true) return false;
   const identities = envelopeDerivation(cached).identityContext;
   const currentKey = toProjectKey(cached.projectRoot, file, identities);

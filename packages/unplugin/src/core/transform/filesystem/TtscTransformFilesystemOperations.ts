@@ -20,6 +20,34 @@ import type { FilesystemPathIdentityOperations } from "ttsc/path-identity";
  *   or retained state at runtime.
  */
 export interface TtscTransformFilesystemOperations {
+  /**
+   * Optional native byte-preserving link text for contributor predicates.
+   *
+   * @evidence contracts/common.md#principled-implementation Raw native link text is retained independently of target bytes and metadata.
+   * @evidence contracts/common.md#clear-and-simple-design An optional native capability preserves existing structural filesystem adapters; missing support refuses the corresponding predicate.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Native bytes are not replaced with decoded text or an OS-default guess.
+   * @evidence contracts/common.md#meaningful-documentation The member comment identifies the byte-preserving query and contributor predicate consumer.
+   * @evidence contracts/portability.md#os-neutral-implementation The supplied native view owns link and filename bytes; consumers choose its declared path dialect.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms Only an operation signature is declared; the implementing view owns query cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This signature provides no independent cache.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This signature owns no resource lifetime.
+   */
+  readlink?(location: string | Buffer): Buffer;
+
+  /**
+   * Optional byte-preserving native directory names for contributor predicates.
+   *
+   * @evidence contracts/common.md#principled-implementation Byte-preserving entry names retain directory fingerprint meaning on native byte-name filesystems.
+   * @evidence contracts/common.md#clear-and-simple-design An optional native capability preserves existing structural filesystem adapters; missing support refuses the corresponding predicate.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Native bytes are not replaced with decoded text or an OS-default guess.
+   * @evidence contracts/common.md#meaningful-documentation The member comment identifies the byte-preserving query and contributor predicate consumer.
+   * @evidence contracts/portability.md#os-neutral-implementation The supplied native view owns link and filename bytes; consumers choose its declared path dialect.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms Only an operation signature is declared; the implementing view owns query cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This signature provides no independent cache.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This signature owns no resource lifetime.
+   */
+  readdirRaw?(location: string): fs.Dirent<Buffer>[];
+
   /** Override the case policy when the observed filesystem is not the host. */
   caseSensitive?: FilesystemPathIdentityOperations["caseSensitive"];
 

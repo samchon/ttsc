@@ -24,6 +24,7 @@ type TtscPluginContributor = {
 /** Descriptor shape returned to ttsc's plugin builder by the factory. */
 type TtscPluginDescriptor = {
   capabilities?: {
+    checkObservations?: true;
     diagnosticsTiming?: boolean;
     graphNodes?: boolean;
     lsp?: boolean;
@@ -138,6 +139,7 @@ export default function createTtscPlugin(
   // tests) see the same surface as before this feature shipped.
   const descriptor: TtscPluginDescriptor = {
     capabilities: {
+      checkObservations: true,
       diagnosticsTiming: true,
       graphNodes: true,
       lsp: true,

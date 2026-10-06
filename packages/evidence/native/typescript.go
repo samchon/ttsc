@@ -156,11 +156,12 @@ func typeScriptMatchBases(
   bases := configuredBases(config, artifactTypeScript)
   entries := make([]typeScriptMatchBase, 0, len(bases))
   paths := &typeScriptSourcePaths{
+    inputs: config.inputs,
     directories: map[string]string{},
     files:       map[string]string{},
   }
   if root != "" {
-    paths.directories[filepath.Clean(root)] = canonicalTypeScriptDirectory(root)
+    paths.directories[filepath.Clean(root)] = canonicalTypeScriptDirectory(root, config.inputs)
   }
   for _, base := range bases {
     // The declared-root gate reports a chain it cannot finish. A partial
@@ -172,7 +173,7 @@ func typeScriptMatchBases(
     }
     entries = append(entries, typeScriptMatchBase{
       base:     base,
-      resolved: canonicalTypeScriptDirectory(resolved),
+      resolved: canonicalTypeScriptDirectory(resolved, config.inputs),
       paths:    paths,
     })
   }
@@ -187,6 +188,7 @@ func (entry typeScriptMatchBase) relativeOf(name string) (string, bool) {
 // directory once per population pass. The Program may spell the same file
 // through another link, while a base has already resolved to its target.
 type typeScriptSourcePaths struct {
+  inputs evidenceInputReader
   directories map[string]string
   files       map[string]string
 }
@@ -199,11 +201,11 @@ func (paths *typeScriptSourcePaths) resolve(name string) string {
   directory := filepath.Dir(cleaned)
   physical, ok := paths.directories[directory]
   if !ok {
-    physical = canonicalTypeScriptDirectory(directory)
+    physical = canonicalTypeScriptDirectory(directory, paths.inputs)
     paths.directories[directory] = physical
   }
   candidate := filepath.Join(filepath.FromSlash(physical), filepath.Base(cleaned))
-  if evaluated, err := filepath.EvalSymlinks(candidate); err == nil {
+  if evaluated, err := paths.inputs.EvalSymlinks(candidate); err == nil {
     candidate = evaluated
   }
   resolved := filepath.ToSlash(candidate)
@@ -219,16 +221,17 @@ func (paths *typeScriptSourcePaths) resolve(name string) string {
 // does not claim that the bounded resolver followed the entire link chain.
 // A missing directory likewise keeps its existing prefix and missing suffix,
 // which lets an unsaved Program source still match its base.
-func canonicalTypeScriptDirectory(directory string) string {
+func canonicalTypeScriptDirectory(directory string, readers ...evidenceInputReader) string {
+  inputs := inputReader(readers)
   current := filepath.Clean(filepath.FromSlash(directory))
   missing := []string{}
   for {
-    info, err := os.Stat(current)
+    info, err := inputs.Stat(current)
     if err == nil {
       if !info.IsDir() {
         return filepath.ToSlash(directory)
       }
-      resolved, settled := resolveLinkedPath(current)
+      resolved, settled := resolveLinkedPath(current, inputs)
       if !settled {
         // The bounded resolver protects declared roots, but a Program base
         // can still be reached through a longer chain the host itself opens.
@@ -236,7 +239,7 @@ func canonicalTypeScriptDirectory(directory string) string {
         // declared spelling.
         resolved = current
       }
-      if evaluated, err := filepath.EvalSymlinks(filepath.FromSlash(resolved)); err == nil {
+      if evaluated, err := inputs.EvalSymlinks(filepath.FromSlash(resolved)); err == nil {
         resolved = evaluated
       } else if !settled {
         // Native expansion may succeed for the base but fail below the same
@@ -245,7 +248,7 @@ func canonicalTypeScriptDirectory(directory string) string {
         prefix := filepath.Dir(current)
         suffix := []string{filepath.Base(current)}
         for {
-          if evaluated, err := filepath.EvalSymlinks(prefix); err == nil {
+          if evaluated, err := inputs.EvalSymlinks(prefix); err == nil {
             resolved = filepath.Join(append([]string{evaluated}, suffix...)...)
             break
           }
@@ -265,7 +268,7 @@ func canonicalTypeScriptDirectory(directory string) string {
     }
     // A broken link is present but does not name a directory. Do not treat it
     // as a missing segment that can be placed below another physical parent.
-    if _, linkErr := os.Lstat(current); linkErr == nil || !os.IsNotExist(linkErr) {
+    if _, linkErr := inputs.Lstat(current); linkErr == nil || !os.IsNotExist(linkErr) {
       return filepath.ToSlash(directory)
     }
     parent := filepath.Dir(current)

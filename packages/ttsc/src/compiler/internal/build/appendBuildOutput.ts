@@ -111,9 +111,24 @@ export function mergeCheckGraphs(
     const b = right.inputObservations?.[key];
     if (b === undefined) continue;
     const merged = { ...a, ...b };
-    for (const field of Object.keys(a) as (keyof typeof a)[])
+    for (const field of Object.keys(a) as (keyof typeof a)[]) {
+      if (field === "nativePredicates") continue;
       if (Object.hasOwn(b, field) && JSON.stringify(a[field]) !== JSON.stringify(b[field]))
         failures[key] = "conflicting-check-generations";
+    }
+    if (a.nativePredicates !== undefined || b.nativePredicates !== undefined) {
+      const predicates = new Map<string, NonNullable<typeof a.nativePredicates>[number]>();
+      const witnesses = new Map<string, string>();
+      for (const predicate of [...(a.nativePredicates ?? []), ...(b.nativePredicates ?? [])]) {
+        const { scope, ...witness } = predicate;
+        const serialized = JSON.stringify(witness);
+        const prior = witnesses.get(predicate.kind);
+        if (prior !== undefined && prior !== serialized) failures[key] = "conflicting-check-generations";
+        witnesses.set(predicate.kind, serialized);
+        predicates.set(`${predicate.kind}:${scope}`, predicate);
+      }
+      merged.nativePredicates = [...predicates.values()].sort((a, b) => `${a.kind}:${a.scope}`.localeCompare(`${b.kind}:${b.scope}`));
+    }
     observations[key] = merged;
   }
   return {

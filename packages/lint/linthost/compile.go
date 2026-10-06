@@ -280,6 +280,7 @@ type subcommandOpts struct {
   checkers           int
   tsgoArgs           []string
   projectIdentity    publicrule.ProjectIdentity
+  checkObservationsJSON string
   stdout             io.Writer
   stderr             io.Writer
 }
@@ -315,8 +316,19 @@ func parseSubcommandFlagsWithIO(name string, args []string, stdout, stderr io.Wr
   singleThreaded := fs.Bool("singleThreaded", false, "")
   checkers := fs.Int("checkers", 0, "")
   tsgoArgsRaw := fs.String("tsgo-args", "", "")
-  if err := fs.Parse(filterKnownFlags(args, LintFlagAllowList)); err != nil {
+  checkObservationsJSON := ""
+  known := LintFlagAllowList
+  if name == "check" {
+    fs.StringVar(&checkObservationsJSON, "check-observations-json", "", "private absolute check input result path")
+    known = make(map[string]bool, len(LintFlagAllowList) + 1)
+    for key, value := range LintFlagAllowList { known[key] = value }
+    known["check-observations-json"] = true
+  }
+  if err := fs.Parse(filterKnownFlags(args, known)); err != nil {
     return nil, err
+  }
+  if checkObservationsJSON != "" && !filepath.IsAbs(checkObservationsJSON) {
+    return nil, errors.New("@ttsc/lint: check observations path must be absolute")
   }
   if *emit && *noEmit {
     return nil, errors.New("@ttsc/lint: --emit and --noEmit are mutually exclusive")
@@ -348,6 +360,7 @@ func parseSubcommandFlagsWithIO(name string, args []string, stdout, stderr io.Wr
     checkers:           *checkers,
     tsgoArgs:           tsgoArgs,
     projectIdentity:    projectIdentity,
+    checkObservationsJSON: checkObservationsJSON,
     stdout:             stdout,
     stderr:             stderr,
   }, nil
@@ -386,7 +399,17 @@ func decodeTsgoArgs(raw string) ([]string, error) {
 // runProject is the shared body of RunCheck and RunBuild. It loads the
 // program, collects diagnostics, renders them, and optionally emits
 // JavaScript output when the config allows it.
-func runProject(opts *subcommandOpts) int {
+func runProject(opts *subcommandOpts) (code int) {
+  var observedProgram *program
+  defer func() {
+    if opts.checkObservationsJSON != "" {
+      if err := observedProgram.writeCheckObservations(opts.checkObservationsJSON); err != nil {
+        fmt.Fprintln(opts.stderr, err)
+        if code == 0 { code = 2 }
+      }
+    }
+    if observedProgram != nil { observedProgram.close() }
+  }()
   rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(opts.stderr, err)
@@ -405,6 +428,7 @@ func runProject(opts *subcommandOpts) int {
 
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceEmit:          opts.emit,
+    observeInputs:      opts.checkObservationsJSON != "",
     forceNoEmit:        opts.noEmit,
     outDir:             opts.outDir,
     semanticConfigPath: opts.semanticConfigPath,
@@ -422,7 +446,22 @@ func runProject(opts *subcommandOpts) int {
     shimdw.FormatASTDiagnosticsWithColorAndContext(opts.stderr, parseDiags, opts.cwd)
     return 2
   }
-  defer prog.close()
+  observedProgram = prog
+  if prog.inputReader != nil {
+    if source, ok := rules.(interface{ residentRuleConfigState() residentRuleConfigState }); ok {
+      state := source.residentRuleConfigState()
+      prog.configInputs = state.dependencies
+      // A JSON resident path guard is not itself consumed-byte authority.
+      // It is covered only by its separately retained actual file fingerprint.
+      for _, file := range state.files {
+        observed := false
+        for _, input := range state.dependencies {
+          if input.Kind == configDependencyFile && filepath.Clean(input.Path) == filepath.Clean(file) { observed = true; break }
+        }
+        if !observed { prog.inputReader.Unavailable() }
+      }
+    }
+  }
 
   astDiags, lintDiags, diagnosticsTiming, err := collectDiagnosticsTimed(prog, engine)
   if err != nil {

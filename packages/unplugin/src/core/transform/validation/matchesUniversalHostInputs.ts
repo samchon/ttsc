@@ -1,3 +1,4 @@
+import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
@@ -32,6 +33,7 @@ export function matchesUniversalHostInputs(
   cached: TtscCachedProjectTransform,
   validation: TtscHostInputValidation,
 ): boolean {
+  if (!nativeInputPredicatesHold(cached)) return false;
   let notificationsProveAll = true;
   for (const input of validation.covered) {
     if (!trackerProvesInputUnchanged(cached.hostInputMutationTracker, input)) {

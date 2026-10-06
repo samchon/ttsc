@@ -19,9 +19,9 @@ import type { TtscBuildResult } from "../../../../../packages/ttsc/src/structure
  * 4. Preserve sticky witness loss and the plugin-failure recovery gate, seed
  *    diagnostic, original status and filtered-batch identity.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual appendBuildOutput and PluginFailureDiagnostics operations with authored records and options; observes phase merging, recovery admission, process-report seeding, original failure status, null-result identity and input preservation.
+ * @evidence contracts/testing.md#behavioral-verification Typed native kind/scope observations survive phase composition, while incompatible same-kind witnesses leave sticky graph proof failure across a later agreeing phase. Calls actual appendBuildOutput and PluginFailureDiagnostics operations with authored records and options; observes phase merging, recovery admission, process-report seeding, original failure status, null-result identity and input preservation.
  * @evidence contracts/testing.md#independent-expectations Literal expected records follow the phase-result contract: right failure wins, earlier failure survives right success, only later emission owns provenance, agreeing declaring phases retain proof, null records absence and missing keys provide none. Native-looking input strings are opaque producer data, not filesystem claims.
- * @evidence contracts/testing.md#distinguishing-cases Phase success/failure, emission and witness distinctions remain separate from format/skip/terminal admission and emit-neutral controls. Recovery contrasts stderr/stdout precedence, whitespace/empty exit fallback, existing reports and null batches while preserving ordered reports and sticky witness loss.
+ * @evidence contracts/testing.md#distinguishing-cases Native same-kind equal witnesses with different scopes contrast conflicting digests and later attempted repair of the same generation. Phase success/failure, emission and witness distinctions remain separate from format/skip/terminal admission and emit-neutral controls. Recovery contrasts stderr/stdout precedence, whitespace/empty exit fallback, existing reports and null batches while preserving ordered reports and sticky witness loss.
  * @evidence contracts/testing.md#execution-ownership The feature export directly calls production-used source operations in process. Supplied records do not certify native diagnostic acquisition, plugin dispatch, check-failure early return, emission branches or transport; no compiler, host or child process is invoked by this body.
  */
 export function test_append_build_output_preserves_phase_results_and_sticky_witness_loss(): void {
@@ -388,6 +388,21 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
     assert.deepEqual(result.emittedFiles, ["recovered.js"]);
     assert.deepEqual(result.emittedSources, { "recovered.js": [] });
     assert.deepEqual({ failure, batch }, before);
+  });
+  check("typed config witnesses retain scopes and sticky phase conflicts", () => {
+    const predicate = {version: 1 as const, kind: "file" as const, digest: "a".repeat(64), identityStable: true, realpath: "/physical/config.json", scope: "watch" as const};
+    const graph = (value: typeof predicate | (Omit<typeof predicate, "scope"> & {scope: "cache"})) => ({edges: {}, globals: [], configs: [], inputObservations: {"config.json": {nativePredicates: [value]}}});
+    const first = phase({graph: graph(predicate), status: 2});
+    const otherScope = phase({graph: graph({...predicate, scope: "cache"})});
+    const combined = appendBuildOutput(first, otherScope);
+    assert.equal(combined.graph!.inputObservations!["config.json"]!.nativePredicates!.length, 2);
+    assert.deepEqual(combined.graph!.inputProofFailures, {});
+    const conflict = appendBuildOutput(first, phase({graph: graph({...predicate, digest: "b".repeat(64)})}));
+    assert.equal(conflict.graph!.inputProofFailures!["config.json"], "conflicting-check-generations");
+    const later = appendBuildOutput(conflict, first);
+    assert.equal(later.graph!.inputProofFailures!["config.json"], "conflicting-check-generations");
+    assert.equal(later.status, 2);
+    assert.deepEqual(first.graph!.inputObservations!["config.json"]!.nativePredicates, [predicate]);
   });
   if (failures.length)
     throw new AggregateError(failures, "Build phase merge distinctions failed");

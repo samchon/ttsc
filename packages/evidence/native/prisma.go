@@ -163,7 +163,10 @@ func loadPrismaInventories(
   // resident host repeats this every cycle, so an unchanged schema would
   // otherwise be re-parsed on every TypeScript keystroke that rebuilds.
   severity := prismaSetSeverity(config, inventories)
-  digest := prismaContentDigest(root, set.Sources)
+  // The bridge owns additional module/file reads outside this native reader.
+  // Neither a memo hit nor a later disk hash proves those producer inputs.
+  config.inputs.Unavailable()
+  digest := prismaContentDigest(root, set.Sources, config.inputs)
   trace := newEvidenceBridgeTrace("prisma")
   if trace != nil {
     trace.nativeLookup = true
@@ -271,7 +274,7 @@ func configuredPrismaAddressesWithHealth(
       failedBases = append(failedBases, base)
       continue
     }
-    err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
+    err := base.inputs.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
       if walkErr != nil {
         // The walk root belongs to its population by construction, so a
         // failure to list it is a failure of the population. The relevance test
@@ -387,7 +390,7 @@ func distinctPrismaSources(root string, addresses []artifactAddress) prismaSourc
       continue
     }
     seen[address.Display] = true
-    identity, err := os.Stat(resolveProjectPath(root, address.Display))
+    identity, err := address.Base.inputs.Stat(resolveProjectPath(root, address.Display))
     var host *physicalSchema
     if err == nil {
       for _, file := range files {

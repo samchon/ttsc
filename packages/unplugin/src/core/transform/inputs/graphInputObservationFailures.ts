@@ -5,6 +5,7 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { compilerAccessibleEntries } from "./compilerAccessibleEntries";
 import { compilerInputRealpathObservation } from "./compilerInputRealpathObservation";
 import { compilerStatKind } from "./compilerStatKind";
+import { nativeInputPredicateMatches } from "./nativeInputPredicateMatches";
 import { graphInputReadHash } from "./graphInputReadHash";
 import { sameHostInputRealpath } from "./sameHostInputRealpath";
 
@@ -19,7 +20,7 @@ import { sameHostInputRealpath } from "./sameHostInputRealpath";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrecorded predicates are not invented, and read or resolution failure is compared against recorded failure instead of replaced by a convenient cache match.
  * @evidence contracts/common.md#meaningful-documentation Native prose states full collection, absent-predicate behavior and shared observations, with separated acknowledgment tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral replay uses the supplied filesystem and identity context; accessible-entry joining selects that view's path dialect and realpath equality follows actual case capabilities.
- * @evidence contracts/performance.md#efficient-algorithms One kind stat serves existence, kind and read checks; native listing/link/identity operations retain their path costs. Selected listings encode name bytes, sort E names by compared UTF-8 prefixes and serialize current/recorded names for equality; text decoding/hashing scans B read bytes. Temporary storage follows listing names/encodings/serialized text, read buffers and supplied identity observations; the returned failure list has at most six fixed predicate names. Absent listing/read predicates perform neither operation.
+ * @evidence contracts/performance.md#efficient-algorithms One kind stat serves existence, kind and read checks; native listing/link/identity operations retain their path costs. Selected listings encode name bytes, sort E names by compared UTF-8 prefixes and serialize current/recorded names for equality; text decoding/hashing scans B read bytes. Temporary storage follows listing names/encodings/serialized text, read buffers and supplied identity observations; the returned failure list has the six compiler predicate names plus one name per supplied native predicate. Absent listing/read predicates perform neither operation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This collects one current replay; the generation owner decides whether an earlier replay remains valid across requests.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Entry arrays and failure names are observation-local, with no persistent cache, descriptor or running task owned by the collector.
  */
@@ -30,6 +31,11 @@ export function graphInputObservationFailures(
   identities: FilesystemPathIdentityContext,
 ): string[] {
   const failures: string[] = [];
+  for (const predicate of observation.nativePredicates ?? []) {
+    if (!nativeInputPredicateMatches(file, predicate, filesystem, identities)) {
+      failures.push(`native-${predicate.kind}-changed`);
+    }
+  }
   if (observation.accessibleEntries !== undefined) {
     const current = compilerAccessibleEntries(file, filesystem);
     if (

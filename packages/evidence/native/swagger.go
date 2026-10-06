@@ -115,7 +115,8 @@ func loadSwaggerInventories(
   // two-hundred-operation one pay nearly the same. A resident host repeats
   // this every cycle, so an unchanged document is re-normalized on every
   // TypeScript keystroke that triggers a rebuild.
-  digests := swaggerContentDigests(root, sources)
+  config.inputs.Unavailable()
+  digests := swaggerContentDigests(root, sources, config.inputs)
   trace := newEvidenceBridgeTrace("swagger")
   if trace != nil {
     trace.nativeLookup = true

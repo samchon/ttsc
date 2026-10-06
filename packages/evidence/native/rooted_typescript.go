@@ -2,7 +2,6 @@ package evidence
 
 import (
   "io/fs"
-  "os"
   "path/filepath"
   "sort"
   "strings"
@@ -14,7 +13,7 @@ func materializeRootedTypeScriptReference(claim claimSpec, reference referenceSp
   state := referenceState{Spec: reference, Healthy: false, UnitsByScope: map[string][]*evidenceUnit{}}
   context := claimLabel(claim) + " " + referenceLabel(reference)
   base := reference.Base
-  if info, err := os.Stat(base.Absolute); err != nil || !info.IsDir() {
+  if info, err := loader.inputs.Stat(base.Absolute); err != nil || !info.IsDir() {
     cause := "the path names a file"
     if err != nil {
       cause = causeText(err)
@@ -25,13 +24,13 @@ func materializeRootedTypeScriptReference(claim claimSpec, reference referenceSp
   if !resolved {
     return state, []string{unresolvedBaseProblem(base, artifactTypeScript)}
   }
-  from, resolved = physicalTypeScriptPath(from)
+  from, resolved = physicalTypeScriptPath(from, loader.inputs)
   if !resolved {
     return state, []string{unresolvedBaseProblem(base, artifactTypeScript)}
   }
   entries := map[string]bool{}
   problems := []string{}
-  err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
+  err := loader.inputs.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {
       return walkErr
     }

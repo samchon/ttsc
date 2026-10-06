@@ -3,7 +3,6 @@ package evidence
 import (
   "crypto/sha256"
   "encoding/hex"
-  "os"
   "strings"
   "sync"
 
@@ -129,10 +128,11 @@ func copyPrismaOutcome(outcome prismaSetOutcome) prismaSetOutcome {
 //
 // An unreadable file yields no digest at all, which keeps the set out of the
 // cache and leaves the loader's own diagnostic for it.
-func prismaContentDigest(root string, sources []string) string {
+func prismaContentDigest(root string, sources []string, readers ...evidenceInputReader) string {
+  inputs := inputReader(readers)
   composite := sha256.New()
   for _, source := range sources {
-    content, err := os.ReadFile(resolveProjectPath(root, source))
+    content, err := inputs.ReadFile(resolveProjectPath(root, source))
     if err != nil {
       return ""
     }
@@ -191,7 +191,7 @@ func prismaUnitsFromOutcome(
       prismaNormalizationFailure(outcome.Problem),
     ))
   }
-  locations, comments := locatePrismaDeclarations(root, set.Sources)
+  locations, comments := locatePrismaDeclarations(root, set.Sources, config.inputs)
   fallback := ""
   if len(set.Sources) != 0 {
     fallback = set.Sources[0]

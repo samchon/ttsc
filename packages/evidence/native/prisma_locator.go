@@ -1,7 +1,6 @@
 package evidence
 
 import (
-  "os"
   "strings"
   "unicode"
 )
@@ -107,11 +106,13 @@ var prismaMemberBlocks = map[string]bool{
 func locatePrismaDeclarations(
   root string,
   sources []string,
+  readers ...evidenceInputReader,
 ) (map[string]prismaLocation, []prismaCommentRun) {
+  inputs := inputReader(readers)
   locations := map[string]prismaLocation{}
   comments := []prismaCommentRun{}
   for _, source := range sources {
-    content, err := os.ReadFile(resolveProjectPath(root, source))
+    content, err := inputs.ReadFile(resolveProjectPath(root, source))
     if err != nil {
       continue
     }

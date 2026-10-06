@@ -14,6 +14,8 @@ import { mergeGraphInputObservations } from "../../../../../packages/unplugin/sr
 import { normalizeGraphInputObservation } from "../../../../../packages/unplugin/src/core/transform/envelope/normalizeGraphInputObservation";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { removeCaptureScratch } from "../../../../../packages/unplugin/src/core/transform/generation/removeCaptureScratch";
+import { nativeInputPredicateMatches } from "../../../../../packages/unplugin/src/core/transform/inputs/nativeInputPredicateMatches";
+import { nativeInputPredicatesHold } from "../../../../../packages/unplugin/src/core/transform/validation/nativeInputPredicatesHold";
 import { compilerInputRealpathObservation } from "../../../../../packages/unplugin/src/core/transform/inputs/compilerInputRealpathObservation";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
@@ -41,12 +43,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 5. Release an owned scratch wrapper without invalidating persistent graph
  *    inputs, including malformed/conflicting scratch facts. The original config
  *    and a same-prefix sibling remain independently validated.
+ * 7. Replay versioned raw file, directory, entry and optional-file witnesses; mutation refuses both direct replay and generation admission while repaired bytes restore validity. Malformed versions and unstable producer identity remain refused.
  * 6. Preserve a proof failure on one lexical alias even when another spelling of
  *    the same native file has an independently recorded successful proof.
  *
- * @evidence contracts/testing.md#behavioral-verification Directly calls normalization, mergeGraphInputObservations, graphInputObservationCompatible and legacyProjectionOfGraphInputObservation. Asserts all six repeated predicates agree or reject, complementary predicates merge, incompatible cross-fields reject and legacy encoding preserves exact supported outputs/failure kinds. Actual envelope indexing, compilerGraphInputProofFailures, captureExternalInputSnapshot and evidencedWatchInput preserve rich speculative predicates/public not-file evidence, reject legacy contradictions and avoid candidate content reads for existence-only observations.
- * @evidence contracts/testing.md#independent-expectations Authored file/directory/missing facts, ordered entry lists, distinct literal hashes and absolute POSIX targets define equality/conflict expectations. Independent Node SHA-256 of the documented directory marker and native file bytes defines legacy digests. Literal graph/proof-conflict path/detail expectations and exact candidate-only read counters distinguish representations without generating expected classifications from the validator.
- * @evidence contracts/testing.md#distinguishing-cases All six duplicate fields contrast equal and different values; equal normalized read-field order contrasts changed directory-list order. Empty lists/failed reads remain compatible unknowns, while successful reads, listings and stat/existence contradictions reject. Projection separates null-negative, readable, directory, missing realpath, missing content and unsupported observations; inputs remain unchanged. Rich-only file-existence facts contrast readable rich facts with a contradictory legacy hash and unprojectable rich facts with a supplied legacy proof; present and absent native candidates retain distinct public evidence. Actual tracker registration throws ENOSPC and remains failed; explicitly invoked validator replay probes unchanged candidates without content reads, rejects appearance and recovers after removal. This does not certify the coordinator's automatic replay routing or native capture counts.
+ * @evidence contracts/testing.md#behavioral-verification Versioned native predicates preserve independent byte/kind/scope semantics, reject mutation and untrusted identity, and gate cached generation admission even without legacy hashes. Directly calls normalization, mergeGraphInputObservations, graphInputObservationCompatible and legacyProjectionOfGraphInputObservation. Asserts all six repeated predicates agree or reject, complementary predicates merge, incompatible cross-fields reject and legacy encoding preserves exact supported outputs/failure kinds. Actual envelope indexing, compilerGraphInputProofFailures, captureExternalInputSnapshot and evidencedWatchInput preserve rich speculative predicates/public not-file evidence, reject legacy contradictions and avoid candidate content reads for existence-only observations.
+ * @evidence contracts/testing.md#independent-expectations Literal BOM raw bytes, file\0/missing\0 prefixes and sorted directory a\0file\0\0z\0directory\0 records prescribe native predicate digests independently of replay. Authored file/directory/missing facts, ordered entry lists, distinct literal hashes and absolute POSIX targets define equality/conflict expectations. Independent Node SHA-256 of the documented directory marker and native file bytes defines legacy digests. Literal graph/proof-conflict path/detail expectations and exact candidate-only read counters distinguish representations without generating expected classifications from the validator.
+ * @evidence contracts/testing.md#distinguishing-cases Native file bytes versus entry kind, directory membership, absent/present optional files, false identityStable, malformed wire version, cross-scope agreement/conflict and repaired content are distinguished. All six duplicate fields contrast equal and different values; equal normalized read-field order contrasts changed directory-list order. Empty lists/failed reads remain compatible unknowns, while successful reads, listings and stat/existence contradictions reject. Projection separates null-negative, readable, directory, missing realpath, missing content and unsupported observations; inputs remain unchanged. Rich-only file-existence facts contrast readable rich facts with a contradictory legacy hash and unprojectable rich facts with a supplied legacy proof; present and absent native candidates retain distinct public evidence. Actual tracker registration throws ENOSPC and remains failed; explicitly invoked validator replay probes unchanged candidates without content reads, rejects appearance and recovers after removal. This does not certify the coordinator's automatic replay routing or native capture counts.
  * @evidence contracts/testing.md#execution-ownership One source unit calls actual production operations in process on caller-owned normalized records and a native temporary file corpus. The existing result filesystem capability counts only candidate content reads and forwards native operations. Authored envelope facts exercise index, external capture, compiler proof validation and watch evidence, not native compiler acquisition, retry-loop I/O formulas, observers, peers, sessions or process transport.
  */
 export async function test_graph_observation_merge_preserves_predicates_and_legacy_limits(): Promise<void> {
@@ -694,4 +697,51 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
   } finally {
     fs.unlinkSync(candidateAliasDirectory);
   }
+  const nativeRoot = fs.realpathSync.native(TestProject.createProject({
+    "config.json": Buffer.from([0xef, 0xbb, 0xbf]).toString("utf8") + "{}",
+    "members/a": "a",
+    "members/z/.keep": "",
+  }));
+  const nativeFile = path.join(nativeRoot, "config.json");
+  const nativeDirectory = path.join(nativeRoot, "members");
+  const optional = path.join(nativeRoot, "optional.json");
+  const sha = (body: string | Buffer): string => createHash("sha256").update(body).digest("hex");
+  const nativeResult: ITtscCompilerTransformation.ISuccess = {type: "success", typescript: {}, graph: {edges: {}}};
+  const nativeCached: TtscCachedProjectTransform = {
+    projectRoot: nativeRoot,
+    tsconfig: path.join(nativeRoot, "tsconfig.json"),
+    inputHashes: {},
+    result: nativeResult,
+  };
+  const identities = envelopeDerivation(nativeCached).identityContext;
+  type Native = NonNullable<Observation["nativePredicates"]>[number];
+  const authored: Array<[string, Native]> = [
+    [nativeFile, {version: 1, kind: "file", scope: "watch", digest: sha(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]), Buffer.from("{}")])), realpath: nativeFile, identityStable: true}],
+    [nativeFile, {version: 1, kind: "entry", scope: "cache", digest: sha("file\0"), realpath: nativeFile, identityStable: true}],
+    [nativeDirectory, {version: 1, kind: "directory", scope: "watch", digest: sha("a\0file\0\0z\0directory\0"), realpath: nativeDirectory, identityStable: true}],
+    [optional, {version: 1, kind: "optional-file", scope: "cache", digest: sha("missing\0"), realpath: null, identityStable: true}],
+  ];
+  for (const [file, predicate] of authored) {
+    assert.equal(nativeInputPredicateMatches(file, predicate, DEFAULT_FILESYSTEM_OPERATIONS, identities), true, predicate.kind);
+    assert.equal(nativeInputPredicateMatches(file, {...predicate, identityStable: false}, DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
+    assert.equal(normalizeGraphInputObservation({nativePredicates: [{...predicate, version: 2}]}, process.platform), undefined);
+  }
+  const filePredicate = authored[0]![1];
+  const observed = normalizeGraphInputObservation({nativePredicates: [filePredicate]}, process.platform)!;
+  const cacheScope = normalizeGraphInputObservation({nativePredicates: [{...filePredicate, scope: "cache"}]}, process.platform)!;
+  assert.equal(mergeGraphInputObservations(observed, cacheScope)!.nativePredicates!.length, 2);
+  assert.equal(mergeGraphInputObservations(observed, {...cacheScope, nativePredicates: [{...filePredicate, scope: "cache", digest: otherHash}]}), undefined);
+  nativeResult.graph!.inputObservations = {"config.json": observed};
+  assert.equal(nativeInputPredicatesHold(nativeCached), true);
+  fs.writeFileSync(nativeFile, "changed");
+  assert.equal(nativeInputPredicateMatches(nativeFile, filePredicate, DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
+  assert.equal(nativeInputPredicatesHold(nativeCached), false);
+  assert.equal(nativeInputPredicateMatches(nativeFile, authored[1]![1], DEFAULT_FILESYSTEM_OPERATIONS, identities), true, "entry kind is independent of content");
+  fs.writeFileSync(nativeFile, Buffer.concat([Buffer.from([0xef,0xbb,0xbf]), Buffer.from("{}")]));
+  assert.equal(nativeInputPredicatesHold(nativeCached), true);
+  fs.writeFileSync(path.join(nativeDirectory, "new"), "new");
+  assert.equal(nativeInputPredicateMatches(nativeDirectory, authored[2]![1], DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
+  fs.writeFileSync(optional, "present");
+  assert.equal(nativeInputPredicateMatches(optional, authored[3]![1], DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
+
 }

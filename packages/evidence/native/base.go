@@ -28,6 +28,7 @@ import (
 // does: moving the base moves the address space with it (`graph.go`,
 // `materializePackageGlobReference`).
 type populationBase struct {
+  inputs evidenceInputReader
   // Absolute is the canonical directory, and the identity two populations are
   // judged the same base by.
   Absolute string
@@ -226,9 +227,11 @@ func resolveGraphBases(root string, config *graphConfig) {
   for claimIndex := range config.Claims {
     claim := &config.Claims[claimIndex]
     claim.Base = resolvePopulationBase(root, claim.Root)
+    claim.Base.inputs = config.inputs
     for referenceIndex := range claim.References {
       reference := &claim.References[referenceIndex]
       reference.Base = resolvePopulationBase(root, reference.Root)
+      reference.Base.inputs = config.inputs
     }
   }
 }
@@ -323,7 +326,7 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
   if base.Default {
     return ""
   }
-  info, err := os.Stat(base.Absolute)
+  info, err := base.inputs.Stat(base.Absolute)
   if err == nil && info.IsDir() {
     return ""
   }
@@ -350,7 +353,7 @@ func baseDirectoryProblem(base populationBase, kind artifactKind) string {
   // is that a path means the same thing on both.
   occupied := err == nil
   if errors.Is(err, fs.ErrNotExist) {
-    if _, linkErr := os.Lstat(base.Absolute); linkErr == nil {
+    if _, linkErr := base.inputs.Lstat(base.Absolute); linkErr == nil {
       occupied = true
     }
   }
@@ -537,11 +540,11 @@ func describeBaseDirectoryProblem(
 // from the configuration as declared. All of it stays off the loop this feeds,
 // which is every source file of the project.
 func resolvedBaseDirectory(base populationBase) (string, bool) {
-  from, resolved := resolveLinkedPath(base.Absolute)
+  from, resolved := resolveLinkedPath(base.Absolute, base.inputs)
   if !resolved {
     return from, false
   }
-  info, err := os.Lstat(from)
+  info, err := base.inputs.Lstat(from)
   return from, err == nil && info.IsDir()
 }
 
@@ -566,7 +569,8 @@ func resolvedBaseDirectory(base populationBase) (string, bool) {
 // onto it would produce a path the filesystem opens and every string
 // comparison misses, which is the same silent failure as an unresolved leaf, one component
 // further up.
-func resolveLinkedPath(absolute string) (string, bool) {
+func resolveLinkedPath(absolute string, readers ...evidenceInputReader) (string, bool) {
+  inputs := inputReader(readers)
   volume := filepath.VolumeName(absolute)
   rest := absolute[len(volume):]
   current := volume + string(filepath.Separator)
@@ -576,7 +580,7 @@ func resolveLinkedPath(absolute string) (string, bool) {
       continue
     }
     walked = true
-    resolved, settled := resolveLinkedDirectory(filepath.Join(current, segment))
+    resolved, settled := resolveLinkedDirectory(filepath.Join(current, segment), inputs)
     if !settled {
       return filepath.FromSlash(resolved), false
     }

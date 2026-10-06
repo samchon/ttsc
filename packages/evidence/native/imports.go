@@ -2,7 +2,6 @@ package evidence
 
 import (
   "encoding/json"
-  "os"
   "path"
   "strings"
 
@@ -175,8 +174,9 @@ func splitPackageSpecifier(specifier string) (string, string) {
   return name, subpath
 }
 
-func readPackageManifest(root string, relative string) map[string]json.RawMessage {
-  content, err := os.ReadFile(path.Join(strings.ReplaceAll(root, "\\", "/"), relative))
+func readPackageManifest(root string, relative string, readers ...evidenceInputReader) map[string]json.RawMessage {
+  inputs := inputReader(readers)
+  content, err := inputs.ReadFile(path.Join(strings.ReplaceAll(root, "\\", "/"), relative))
   if err != nil {
     return nil
   }

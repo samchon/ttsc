@@ -464,6 +464,10 @@ type ProjectSeverityReporter interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectContext struct {
+  // Inputs is the optional host-owned reader for this Program generation.
+  // Nil preserves native filesystem behavior for manually constructed contexts.
+  Inputs ProjectInputReader
+
   // Identity binds the check to one loaded Program cycle.
   Identity ProjectIdentity
 

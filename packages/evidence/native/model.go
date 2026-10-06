@@ -54,6 +54,7 @@ const (
 )
 
 type graphConfig struct {
+  inputs evidenceInputReader
   Claims []claimSpec
 }
 

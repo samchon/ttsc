@@ -1,3 +1,4 @@
+import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { declaredProjectInputKeys } from "../envelope/declaredProjectInputKeys";
@@ -51,6 +52,7 @@ export function matchesCompleteInputSnapshot(
    */
   cached: TtscCachedProjectTransform,
 ): boolean {
+  if (!nativeInputPredicatesHold(cached)) return false;
   if (
     cached.projectSnapshotComplete !== true ||
     cached.projectDirectories === undefined
