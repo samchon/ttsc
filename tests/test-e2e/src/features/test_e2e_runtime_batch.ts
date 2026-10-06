@@ -8,6 +8,7 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { runtimeCacheFailureCorpus } from "../batch/runtimeCacheFailureCorpus";
 import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
 import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
+import { runtimeMapsCorpus } from "../batch/runtimeMapsCorpus";
 import { assertRuntimeNodeCorpus } from "../batch/runtimeNodeCorpus";
 import { assertRuntimeNormalPopulation } from "../batch/runtimeNormalPopulation";
 import {
@@ -85,7 +86,7 @@ import {
  * Those same two entries carry complete standard-decorator effects, opposite optional-chain emission and configured automatic versus direct/response-preserved JSX HTML. The included CommonJS entry also carries an actual import preload, main-module identity, physical argv1 and native shared require.cache identity without another entry child. Nested response before/after visible target flags selects ESNext versus ES2019; an invalid response is a failed dispatcher call with no extra entry child. Privileged runs use an explicit external cache for these two controls while retaining zero permission coverage. The existing register actor starts in the upfront legacy owner's preserve-mode TSX graph and then loads the original declared/descendant graph, keeping its native preparations as explicit work.
  * The already retained lock-holder actor installs public registration, rejects an included number-to-string error before its marker and leaves an empty register project index. Repairing that same source permits FIRST from one excluded index; the next same-basename index fails its entry check before its marker. The final missing owned output still causes actual exit1 and dead-holder cleanup. These checked loads retain native work but introduce no extra host or private profile.
  *
- * @evidence contracts/testing.md#execution-ownership This selected function invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant) and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children; native preparations remain additional work. Their failures and this original Runtime body's failures are collected together.
+ * @evidence contracts/testing.md#execution-ownership The main graph invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant) and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
  * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Default/explicit clean need no separate launcher. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
@@ -957,6 +958,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     );
   } catch (error) {
     combinedFailures.push(error);
+  }
+  if (!workspace.installationOnly) {
+    await BatchWorkspace.open();
+    try { runtimeMapsCorpus(workspace); }
+    catch (error) { combinedFailures.push(error); }
   }
   if (combinedFailures.length === 1) throw combinedFailures[0];
   if (combinedFailures.length > 1)
