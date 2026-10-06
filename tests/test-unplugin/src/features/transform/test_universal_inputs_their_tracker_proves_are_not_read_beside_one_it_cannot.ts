@@ -77,6 +77,7 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
     unproven: new Set([source]),
   };
   const cached = {
+    projectRoot: root,
     hostInputMutationTracker: tracker,
     result,
   } as unknown as TtscCachedProjectTransform;
