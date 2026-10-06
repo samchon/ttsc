@@ -149,6 +149,16 @@ export namespace E2ETrace {
       sourceFile?: string;
       selectedTsconfig?: string;
       buildScope?: string;
+      /** Actual already-computed orphan cache gates or failed native write. */
+      orphanCache?: {
+        file?: string;
+        sourceHeld?: boolean;
+        expectedCompiler?: string;
+        currentCompiler?: string;
+        lowered?: boolean;
+        cacheKeyAvailable?: boolean;
+        error?: string;
+      };
       nativeBuildFailure?: {
         status: number;
         stdout: string;

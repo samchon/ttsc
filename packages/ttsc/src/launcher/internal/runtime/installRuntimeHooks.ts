@@ -1356,13 +1356,30 @@ function emitOrphanSource(
     // held still across both reads, lowered by a compiler that is still the
     // keyed one, is what the key names; otherwise the lowering serves this run
     // and is not recorded.
-    if (
-      lowered !== null &&
-      cache !== null &&
-      orphanSourceHeld(filename, cache) &&
-      compilerIdentity(tsgo) === cache.compiler
-    ) {
-      writeOrphanCache(cache.file, lowered);
+    if (lowered !== null && cache !== null) {
+      const sourceHeld = orphanSourceHeld(filename, cache);
+      const currentCompiler = sourceHeld ? compilerIdentity(tsgo) : undefined;
+      if (sourceHeld && currentCompiler === cache.compiler)
+        writeOrphanCache(cache.file, lowered);
+      E2ETrace.runtimePreparation("", filename, format, "orphan-cache-admission", {
+        moduleOptions: null,
+        emittedFile: emitted ?? undefined,
+        orphanCache: {
+          file: cache.file,
+          sourceHeld,
+          expectedCompiler: cache.compiler,
+          currentCompiler,
+        },
+      });
+    } else {
+      E2ETrace.runtimePreparation("", filename, format, "orphan-cache-unavailable", {
+        moduleOptions: null,
+        emittedFile: emitted ?? undefined,
+        orphanCache: {
+          lowered: lowered !== null,
+          cacheKeyAvailable: cache !== null,
+        },
+      });
     }
     return lowered;
   } catch (error) {
@@ -1598,7 +1615,11 @@ function writeOrphanCache(cacheFile: string, lowered: string): void {
     fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
     fs.writeFileSync(tmp, lowered);
     fs.renameSync(tmp, cacheFile);
-  } catch {
+  } catch (error) {
+    E2ETrace.runtimePreparation("", cacheFile, "unconsumed", "orphan-cache-write-failed", {
+      moduleOptions: null,
+      orphanCache: { file: cacheFile, error: String(error) },
+    });
     // ignore — caching is an optimization, correctness does not depend on it
   } finally {
     try {
