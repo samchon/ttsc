@@ -36,8 +36,17 @@ func TestLSPCommandWorkspacePreservesNestedDependencyScopes(t *testing.T) {
     if label == "" { label = "root" }
     assertFileText(t, filepath.Join(staged, scope, "node_modules/same/index.js"), label)
     assertFileText(t, filepath.Join(staged, scope, "node_modules/@types/node/index.d.ts"), "// " + label + "\ndeclare const __dirname: string;\n")
-    if resolveDirLink(filepath.Join(staged, scope, "node_modules")) != resolveDirLink(filepath.Join(root, scope, "node_modules")) {
-      t.Fatalf("dependency scope was copied or replaced: %s", scope)
+    stagedModules := filepath.Join(staged, scope, "node_modules")
+    originalModules := filepath.Join(root, scope, "node_modules")
+    stagedInfo, err := os.Stat(stagedModules)
+    if err != nil { t.Fatal(err) }
+    originalInfo, err := os.Stat(originalModules)
+    if err != nil { t.Fatal(err) }
+    // Readlink preserves spelling; the staged root may have followed an OS
+    // short-name alias. Native file identity must still be the same original
+    // directory, so copied module bytes cannot satisfy this assertion.
+    if !os.SameFile(stagedInfo, originalInfo) {
+      t.Fatalf("dependency scope was copied or replaced: %s => %s", stagedModules, originalModules)
     }
   }
   if aliasAvailable {
