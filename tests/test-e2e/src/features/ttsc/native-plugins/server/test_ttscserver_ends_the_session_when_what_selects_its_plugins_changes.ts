@@ -187,7 +187,8 @@ export async function test_ttscserver_ends_the_session_when_what_selects_its_plu
     const reason = "plugin-selector session startup, body or close failed";
     if (prepared !== undefined) prepared.retain(reason);
     try {
-      TestProject.retainTemporaryDirectory(project.tmpdir, reason);
+      if (prepared === undefined)
+        TestProject.retainTemporaryDirectory(project.tmpdir, reason);
     } catch (retentionError) {
       failures.push(retentionError);
     }

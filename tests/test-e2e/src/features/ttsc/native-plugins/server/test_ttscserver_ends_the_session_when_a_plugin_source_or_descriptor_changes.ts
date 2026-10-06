@@ -216,12 +216,14 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
       "copied plugin-selection session startup, body or join failed";
     if (prepared !== undefined) prepared.retain(reason);
     try {
-      TestProject.retainTemporaryDirectory(project.tmpdir, reason);
+      if (prepared === undefined)
+        TestProject.retainTemporaryDirectory(project.tmpdir, reason);
     } catch (retentionError) {
       failures.push(retentionError);
     }
     try {
-      TestProject.retainTemporaryDirectory(copy, reason);
+      if (prepared === undefined)
+        TestProject.retainTemporaryDirectory(copy, reason);
     } catch (retentionError) {
       failures.push(retentionError);
     }
