@@ -4,7 +4,7 @@ import { createInterface } from "node:readline";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
-const [mode, root, metroUrl, loaderUrl] = process.argv.slice(2);
+const [mode, root, metroUrl, loaderUrl, prepareNative, prepareApi] = process.argv.slice(2);
 const pluginLockSession = createRequire(import.meta.url)(path.join(root, "plugin-lock-session.cjs"));
 const project = path.join(root, "tsconfig.json");
 const rootPaths = JSON.parse(fs.readFileSync(project, "utf8")).compilerOptions.paths;
@@ -82,6 +82,24 @@ async function deliver(sourceSuffix = "", deliveredSource) {
     sample();
     hostObservation = { before, after: Object.fromEntries(["TEMP", "TMP", "TMPDIR"].map((name) => [name, process.env[name] ?? null])),
       elapsedMs: performance.now() - started, maximumGapMs: maximum, ticks };
+  }
+}
+// The first consumer owns source-plugin installation in this same resident.
+// This public preparation creates no Program; later delivery still reloads and
+// validates the actual descriptors, native keys and publication inputs.
+if (prepareNative === "prepare-native") {
+  const startedAt = new Date().toISOString();
+  const started = performance.now();
+  try {
+    const { TtscCompiler } = createRequire(fileURLToPath(prepareApi))("ttsc");
+    const binaries = new TtscCompiler({ cwd: root, projectRoot: root,
+      pluginConfigDir: root, tsconfig: project, env: { ...process.env } }).prepare();
+    process.stdout.write(JSON.stringify({ readiness: true, preparation: {
+      binaries, startedAt, finishedAt: new Date().toISOString(), elapsedMs: performance.now() - started,
+    } }) + "\n");
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ readiness: true,
+      error: error instanceof Error ? error.message : String(error) }) + "\n");
   }
 }
 // Bounded requests share these exact adapter/module/cache owners and session.

@@ -72,6 +72,10 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * bytes from the actual native compiler; a successful retry must have two real
  * ApplyProgram receipts. These precede, and do not satisfy, the separate
  * initial one-Program sharing assertion. No additional Node worker is started.
+ * The same Metro resident completes one public native preparation before its
+ * first bounded graph-proof delivery. Its actual binary paths and elapsed time
+ * are reported, and the Program receipt must remain unchanged by preparation.
+ * Descriptor and build admission repeat at capture; no held binary is forced.
  * Cache withdrawal schedules disposal; the worker close is joined separately.
  * An independent tracked observation directory carries the real native
  * command/key/terminal receipts and the inherited cache selection. Successful
@@ -93,7 +97,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. A new root member must replace the consumed directory generation and advance ApplyProgram; three later delete/recreate transitions inside the existing excluded outDir must retain that replacement publication and receipt.
  * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with root-membership invalidation followed by excluded output churn in the same existing two deliveries. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. The first churn delivery replaces its publication after a new root member, and the next retains the replacement despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
- * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer. The existing six adapter roots and skipLibCheck=false policy are established before the first graph-proof request; imported dependencies and the later membership root remain selected, while runtime-only roots keep their separate runtime owner. This moves the existing config write without adding a request, producer, Program or warmup. Descriptor observation/search, separate project-root, replacement and moving-proof consumers share the pool's Go object storage only when their effective environment has neither a dedicated nor external cache; binary authorities and required preparations remain independent. Collection/default ownership, admission, tool-environment, ambient capability and native failure lanes retain their original cache inputs. Object sharing is delegated to Go's input validation and does not assert a cache hit or measured time reduction.
+ * @evidence contracts/e2e.md#shared-execution One public prepare call in the initial Metro resident owns its required native installation before the graph-proof delivery deadline. This adds descriptor/admission observation without a Program, worker or transform; actual binary paths and elapsed time are reported, and later capture revalidates its selected keys instead of accepting readiness as proof. Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer. The existing six adapter roots and skipLibCheck=false policy are established before the first graph-proof request; imported dependencies and the later membership root remain selected, while runtime-only roots keep their separate runtime owner. This moves the existing config write without adding a request, producer, Program or warmup. Descriptor observation/search, separate project-root, replacement and moving-proof consumers share the pool's Go object storage only when their effective environment has neither a dedicated nor external cache; binary authorities and required preparations remain independent. Collection/default ownership, admission, tool-environment, ambient capability and native failure lanes retain their original cache inputs. Object sharing is delegated to Go's input validation and does not assert a cache hit or measured time reduction.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both cache-root queries use the actual platform before native admission, so their directory creation cannot introduce an extra input epoch; the selected Program independently reports that same native comparison policy. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs. The independent observation allocation is retained on every propagated pool failure, including setup or cleanup failure, with its path reported. Its identity-checked retention and any failure remain separate from native result acceptance; a successful whole pool leaves trace reclamation to the tracked exit owner. The initial adapter arms its native write only after the independent graph-proof captures and serializes that current tick immediately before delivery; its owned observation directory is outside compiler input membership and is removed after joined workers close.
  * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one new real probe tick without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and three actual native producer invocations are costs; the survivor owns two completed five-second native holds, each with unchanged temporary environment and sub-750ms initial/intertick/terminal gaps. The resident graph startup receipt remains separate from that strict native boundary; recorded native departure is separately acquired and native preparation totals remain unmeasured. The timed holder joins before the resident pool starts, so synchronous descriptor and metadata operations cannot starve its in-flight lock polling. Both independent failures are collected; an unresolved holder retains the workspace and refuses subsequent shared reuse. A live external bundler watcher remains unproved.
  */
@@ -4023,6 +4027,9 @@ async function runResidentLoaderPool(): Promise<void> {
     ];
     poolConfig.compilerOptions.skipLibCheck = false;
     fs.writeFileSync(configPath, JSON.stringify(poolConfig));
+    const beforePreparation = fs.existsSync(workspace.programRunLog)
+      ? fs.statSync(workspace.programRunLog).size
+      : 0;
     const workers = (["metro", "turbopack"] as const).map((mode) =>
       createLoaderPoolWorker({
         mode,
@@ -4030,6 +4037,8 @@ async function runResidentLoaderPool(): Promise<void> {
         cache: workspace.cache,
         session,
         traceRoot,
+        prepareNative:
+          mode === "metro" ? TestUnpluginRuntime.libUrl("api") : undefined,
         metro: pathToFileURL(path.join(lib, "transformer.js")).href,
         turbopack: TestUnpluginRuntime.libUrl("turbopack"),
       }),
@@ -4037,6 +4046,23 @@ async function runResidentLoaderPool(): Promise<void> {
     let finalRecord: string | undefined;
     let bodyFailure: unknown;
     try {
+      const preparation = await workers[0]!.ready;
+      assert.ok(
+        preparation,
+        "the first resident owns native installation readiness",
+      );
+      assert.ok(
+        preparation.binaries.length > 0,
+        "public prepare returned actual native binaries",
+      );
+      assert.equal(
+        fs.existsSync(workspace.programRunLog)
+          ? fs.statSync(workspace.programRunLog).size
+          : 0,
+        beforePreparation,
+        "native preparation does not acquire a Program",
+      );
+      console.log("Resident native preparation", JSON.stringify(preparation));
       const graphProof = await workers[0]!.request("", undefined, undefined, {
         api: TestUnpluginRuntime.libUrl("api"),
         session: path.join(
