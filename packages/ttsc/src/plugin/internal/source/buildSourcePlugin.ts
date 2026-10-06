@@ -58,6 +58,9 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * reader token retained by this process until exit; registration shares the
  * builder/collector lease, and other consumers register independent readers.
  * Failure to establish ownership propagates.
+ * Private opt-in tracing additionally checks the same metadata witness after
+ * key creation and immediately around Go execution. These diagnostic reads
+ * add native metadata work, not a build, retry or publication permission.
  *
  * @evidence contracts/common.md#principled-implementation Compilation compares materialized and external source digests and checks pre-read toolchain witnesses before publication. These checks use trusted supplied readings and the witness's metadata policy; they detect observed disagreement without providing an atomic input snapshot or validating existing executable bytes.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
@@ -130,6 +133,13 @@ export function buildSourcePlugin(opts: {
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });
+  if (process.env.TTSC_E2E_TRACE) {
+    E2ETrace.capabilityResolution("plugin-build-environment-key-created", {
+      pluginName: opts.pluginName,
+      goBinary,
+      unchanged: PluginBuildEnvironmentWitness.holds(environmentWitness, "key-created"),
+    });
+  }
   const paths = resolveSourceBuildCachePaths(opts.baseDir, opts.cacheDir, env);
   SourcePluginAdmission.requireCachesOutsideSources(
     [paths.root, paths.goBuildRoot],
@@ -329,6 +339,13 @@ function compileSourcePlugin(opts: {
         opts.manageGoBuildCache,
         (goBuildCacheRoot) => {
           attemptedGoBuildCacheRoot = goBuildCacheRoot;
+          if (process.env.TTSC_E2E_TRACE) {
+            E2ETrace.capabilityResolution("plugin-build-environment-go-starting", {
+              pluginName: opts.pluginName,
+              goBinary: opts.goBinary,
+              unchanged: PluginBuildEnvironmentWitness.holds(opts.environmentWitness, "go-starting"),
+            });
+          }
           runGoBuild(
             scratchDir,
             opts.entry,
@@ -339,6 +356,13 @@ function compileSourcePlugin(opts: {
             opts.env,
             opts.normalizeGoToolPermissions,
           );
+          if (process.env.TTSC_E2E_TRACE) {
+            E2ETrace.capabilityResolution("plugin-build-environment-go-returned", {
+              pluginName: opts.pluginName,
+              goBinary: opts.goBinary,
+              unchanged: PluginBuildEnvironmentWitness.holds(opts.environmentWitness, "go-returned"),
+            });
+          }
         },
       );
     } finally {
@@ -356,7 +380,7 @@ function compileSourcePlugin(opts: {
     // toolchain's. Change time also detects reverted writes when native
     // metadata distinguishes those edits; the witness
     // documents that premise rather than certifying a second byte comparison.
-    if (!PluginBuildEnvironmentWitness.holds(opts.environmentWitness)) {
+    if (!PluginBuildEnvironmentWitness.holds(opts.environmentWitness, "publication")) {
       E2ETrace.capabilityResolution(
         "plugin-build-environment-publication-refused",
         {
