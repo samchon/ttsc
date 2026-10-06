@@ -69,7 +69,7 @@ export async function serviceCorpus(
   const failures: unknown[] = [];
   try {
     const transformed = new TtscCompiler(context).transform();
-    assert.equal(transformed.type, "success");
+    assert.equal(transformed.type, "success", JSON.stringify(transformed));
     if (transformed.type !== "success")
       throw new Error("one-shot service corpus transform failed");
     const oneShot = transformed.typescript["src/main.ts"];

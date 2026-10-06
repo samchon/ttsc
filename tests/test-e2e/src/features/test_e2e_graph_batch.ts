@@ -248,7 +248,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
     assert.ok(nested.includes("Promise<void>"));
     assert.equal(nested.includes("Promise.resolve()"), false);
     const seven = ['"a"', '"b"', '"c"', '"d"', '"e"', '"f"', '"g"'];
-    assert.deepEqual(node("Wrapped")?.literals, seven);
+    assert.deepEqual(node("Wrapped")?.literals, seven, JSON.stringify(details));
     assert.deepEqual(node("Flat")?.literals, seven);
     assert.deepEqual(node("LiteralColors")?.literals, [
       '"red"',

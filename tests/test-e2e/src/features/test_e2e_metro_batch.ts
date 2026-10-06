@@ -17,6 +17,7 @@ import { loadProjectPlugins } from "../../../../packages/ttsc/lib/plugin/interna
 import { pluginModuleReplaceDirectories } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginModuleReplaceDirectories";
 import { pluginSourceState } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginSourceState";
 import { prunesPluginSourceDirectory } from "../../../../packages/ttsc/lib/plugin/internal/source/prunesPluginSourceDirectory";
+import { resolveGoCompiler } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveGoCompiler";
 import { spawnGoTool as actualSpawnGoTool } from "../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool";
 import {
   resolveCapabilityPluginResolution,
@@ -78,17 +79,22 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
  * @evidence contracts/e2e.md#shared-execution Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both case-root proxies are queried before native admission so their cache directory creation cannot introduce an extra input epoch; the exact apparent-platform descriptor is restored synchronously. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs.
- * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one new real probe tick without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and two actual native producer invocations are costs; recorded native departure is separately acquired and native preparation totals remain unmeasured. Promise.allSettled joins this disjoint owner with the resident pool even when either fails. A live external bundler watcher remains unproved.
+ * @evidence contracts/e2e.md#preserved-coverage Metro forwarding and Turbopack source/authored-map/dependency delivery retain the two-worker single-compile distinction. Adds actual shared failed publication/replay/repair and relative nested configFile selection over a discovered-root decoy while preserving initial arguments/authored-map/dependency delivery; The existing Turbopack watching worker additionally owns real declaration signal/repeat/acknowledgment, ignored package bytes, preferred candidate appearance, source membership and persistent record after joined close. Additional native recompilation and predicate revalidation are state costs of this same pool, not claimed as one total Program. A genuinely fresh Metro worker after both old workers close must deliver an offline-edited marker and one new real probe tick without deleting retained publications; it adds one Node worker and necessary native preparation. The same public entry independently collects deadCompilerClaimCorpus on one upfront native producer project: an actual PID-owned holder lock/native receipt precedes holder death, then a survivor must produce PROBED with a second native receipt and remove the lock. Two additional Node workers and two actual native producer invocations are costs; recorded native departure is separately acquired and native preparation totals remain unmeasured. The timed holder joins before the resident pool starts, so synchronous descriptor and metadata operations cannot starve its in-flight lock polling. Both independent failures are collected; an unresolved holder retains the workspace and refuses subsequent shared reuse. A live external bundler watcher remains unproved.
  */
 export async function test_e2e_metro_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
-  const results = await Promise.allSettled([
-    runResidentLoaderPool(),
-    deadCompilerClaimCorpus(workspace),
-  ]);
-  const failures = results.flatMap((result) =>
-    result.status === "rejected" ? [result.reason] : [],
-  );
+  const failures: unknown[] = [];
+  // The timed holder's lock must be observed while its native call is in flight.
+  // The resident pool also performs synchronous descriptor and Go metadata
+  // operations, which can prevent this parent's polling from running at all.
+  // Collect both owners, but join the timed owner before starting that work.
+  for (const operation of [
+    () => deadCompilerClaimCorpus(workspace),
+    runResidentLoaderPool,
+  ]) {
+    try { await operation(); }
+    catch (error) { failures.push(error); }
+  }
   if (failures.length)
     throw new AggregateError(
       failures,
@@ -2159,22 +2165,7 @@ async function runResidentLoaderPool(): Promise<void> {
             fs.mkdirSync(wrapperRoot, { recursive: true });
             const capture = path.join(root, "argv.jsonl");
             const script = path.join(wrapperRoot, "capture.cjs");
-            fs.writeFileSync(
-              script,
-              [
-                'const fs = require("node:fs");',
-                "fs.appendFileSync(",
-                "  process.env.TTSC_GO_ARGV_CAPTURE,",
-                "  JSON.stringify({",
-                "    args: process.argv.slice(2),",
-                "    sentinel: process.env.TTSC_GO_CALLER_SENTINEL,",
-                '  }) + "\\n",',
-                '  "utf8",',
-                ");",
-                "",
-              ].join("\n"),
-              "utf8",
-            );
+            fs.copyFileSync(path.join(workspace.root, "tools/native-tool-capture/capture.cjs"), script);
             const wrapper = path.join(wrapperRoot, "go.cmd");
             fs.writeFileSync(
               wrapper,
@@ -2210,6 +2201,7 @@ async function runResidentLoaderPool(): Promise<void> {
               TTSC_GO_DELAYED: "WRONG_DIRECTORY",
               TTSC_GO_EXPANDS: "WRONG_DIRECTORY",
               TTSC_GO_TEST_NODE: process.execPath,
+              TTSC_GO_METADATA_BINARY: resolveGoCompiler({ ...process.env, TTSC_GO_BINARY: "" }).binary,
               SET_VALUE: "WRONG_ARGUMENT",
             };
             for (const args of commands) {

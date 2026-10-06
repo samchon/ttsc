@@ -93,7 +93,7 @@ namespace DocumentArtifactRefresh {
     const marker = `## ${before} {#accepted-value}`;
     assert.equal(original.toString("utf8").split(marker).length, 2);
     const expected = (name: string) => [
-      { id: address, name, kind: "markdown_section", file: "docs/contract.md" },
+      { id: address, name: `Markdown H2 '${name}'`, kind: "markdown_section", file: "docs/contract.md" },
     ];
     const failures: unknown[] = [];
     try {
