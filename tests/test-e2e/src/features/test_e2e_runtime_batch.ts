@@ -1,13 +1,10 @@
-import {
-  E2eProcessTrace,
-  FileSystemIterator,
-  TestProject,
-} from "@ttsc/testing";
+import { FileSystemIterator, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
+import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { runtimeCacheFailureCorpus } from "../batch/runtimeCacheFailureCorpus";
 import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
