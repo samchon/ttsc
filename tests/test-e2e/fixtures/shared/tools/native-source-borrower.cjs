@@ -94,6 +94,7 @@ try {
 // withdrawn between loads, so the second route must resolve the typed source.
 const staleSource = path.join(root, "node_modules/root-pkg/stale.ts");
 assert.equal(require("root-pkg").value, "root-ran", "the actual installed package entry must execute without publishing into its input tree");
+require("./observe-installed-banner.cjs")(root);
 assert.equal(require(staleSource).tool, "fresh tool.ts");
 delete require.cache[require.resolve(staleSource)];
 assert.equal(require(path.join(root, "src/runtime-corpus/stale-reader.cts")).observed, "fresh tool.ts");

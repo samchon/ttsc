@@ -78,6 +78,13 @@ import {
  * within the existing runtime, with no per-case project or launch. Native owner
  * preparation and fallback are additional explicit Program costs; the outer
  * runtime count alone does not certify total independent experimentation.
+ * The existing native-source borrower also loads the copied root-pkg's
+ * out-of-include index.ts through its own banner plugin/config. Its helper
+ * independently resolves that installed source, requires one singleton-owned
+ * JavaScript output in the manifest-selected dependency cache, and requires
+ * exactly one package root banner. Missing/ambiguous ownership cannot pass.
+ * This adds no actor; package/root fallback and native plugin work remain
+ * additional unmeasured work. Authored installed bytes/no-write checks remain.
  *
  * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
