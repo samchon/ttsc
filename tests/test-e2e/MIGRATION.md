@@ -1440,3 +1440,13 @@ The separate object-reuse original, preparation, recorder creation and Go env qu
 ### Actual resident responsiveness is observed on existing deliveries
 
 Each existing adapter delivery now samples its caller's monotonic event-loop gaps and preserves TEMP/TMP/TMPDIR before and after. Initial/metadata/failure/replay/repair commands require identical environments and a maximum gap below the original 750 ms bound; elapsed time and sample counts remain actual reply observations. Timers clear in finally, including errors and failed-module evaluation. No delivery, native compile, host or input profile is added. These are observations during real producer work, not a fabricated 1500 ms held peer or a certificate that short warm requests exercised that duration. The old responsiveness original therefore remains pending precise meaning retirement; actual D0/current288/native44, authored/unexecuted.
+
+### Structured TypeScript rule options share the existing lint check
+
+| Original case | Actual destination and preserved assertions |
+| --- | --- |
+| `packages/lint/linthost/command_check_loads_no_restricted_types_options_from_typescript_config_e2e_test.go::TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig` | `test_e2e_esbuild_batch` calls `nativeLintConfigCorpus`. Its existing typed-error CLI result must have status 2, empty stdout, the `typescript/no-restricted-types` marker and exactly the authored message `Don't use Legacy as a type. Use Safe instead.` with the renderer's original backticks around Legacy. The same parsed result retains the error diagnostic at mixed.ts line 8. |
+
+The existing typed config now contains the original structured Legacy options, including its message, fixWith and suggest inputs. The existing mixed source contains the original type alias, annotation and JSON.stringify use. They join the same source/config DAG before its existing launcher invocation; no extra project, fixture family, CLI call, Program preparation or sidecar invocation is added. All original contributor tuples, mixed diagnostic order, ignored paths, CJS warning result and wrapper-origin contrasts remain asserted.
+
+The selected Go donor and its registry name retire together. Other fourteen tagged Go entries and their shared helpers remain. Their Node/ttsx/LSP boundaries have not thereby moved, and no complete execution denominator or campaign completion is claimed. This transfer is authored; acceptance requires the existing selected esbuild boundary after shipment. The donor never asserted fixWith or suggest edits, so retaining those inputs does not claim new edit coverage.
