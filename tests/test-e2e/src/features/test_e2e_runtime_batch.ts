@@ -1,4 +1,8 @@
-import { FileSystemIterator, TestProject } from "@ttsc/testing";
+import {
+  E2eProcessTrace,
+  FileSystemIterator,
+  TestProject,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -24,6 +28,10 @@ import {
  * tests own both noEmitOnError callback lanes; this one false-lane public
  * request owns the publisher connection, not two CLI executions or a
  * Program-count certificate.
+ *
+ * The actual same-file compiler rewrite emits opt-in attempt/result or original
+ * error observations using its existing stat and the shared test trace runtime;
+ * these records identify the caller thread, not an OS image-lock owner.
  *
  * Native string decoding, resolved JSON and unchanged neighboring values reach
  * one real ttsx entry. Unremoved configured discard calls throw, so successful
@@ -86,7 +94,7 @@ import {
  * This adds no actor; package/root fallback and native plugin work remain
  * additional unmeasured work. Authored installed bytes/no-write checks remain.
  *
- * @evidence contracts/testing.md#behavioral-verification The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
+ * @evidence contracts/testing.md#behavioral-verification Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
  * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
  * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
  * The existing rejection actor also consumes one upfront readonly namespace. Native permission denial is required before its default-cache success, explicit-cache excluded refusal and included success; restored writes and complete input bytes establish release and nonmutation. Root privilege supplies zero readonly coverage. The two successful dispatches launch two real entry children, while the three former CLI parent launches and separate readonly staging disappear.
@@ -310,6 +318,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           TTSC_TSGO_BINARY: undefined,
           TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary,
           TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY,
+          TTSC_E2E_PROCESS_TRACE_RUNTIME: E2eProcessTrace.runtimePath,
           TTSC_E2E_RUNTIME_CLI_CACHE: runtimeCliCache,
           TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx,
           TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias,

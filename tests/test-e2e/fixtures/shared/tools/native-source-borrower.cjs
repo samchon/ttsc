@@ -87,7 +87,40 @@ try {
   assert.equal(warm.value, "lowered");
   assert.equal(warm.cachedMarker, true, "the unchanged executable must deliver the actual marked artifact");
   const before = fs.statSync(compiler, { bigint: true });
-  fs.writeFileSync(compiler, compilerBytes);
+  // Observe this actual primitive once; trace failure never changes its result.
+  // The existing stat is reused, and no probe opens the executable on failure.
+  let rewriteTrace;
+  let rewriteInvocation;
+  if (process.env.TTSC_E2E_TRACE) {
+    try {
+      rewriteTrace = require(process.env.TTSC_E2E_PROCESS_TRACE_RUNTIME);
+      rewriteInvocation = rewriteTrace.begin();
+      rewriteTrace.record("runtime-compiler-rewrite-attempt", rewriteInvocation, {
+        data: { compiler, pid: process.pid,
+          isMainThread: require("node:worker_threads").isMainThread,
+          threadId: require("node:worker_threads").threadId,
+          before: { dev: String(before.dev), ino: String(before.ino),
+            size: String(before.size), mtimeNs: String(before.mtimeNs),
+            ctimeNs: String(before.ctimeNs) } },
+      });
+    } catch {}
+  }
+  try {
+    fs.writeFileSync(compiler, compilerBytes);
+  } catch (error) {
+    try {
+      rewriteTrace?.record("runtime-compiler-rewrite-threw", rewriteInvocation, {
+        data: { compiler, pid: process.pid, error: { name: error.name,
+          message: error.message, code: error.code, errno: error.errno,
+          syscall: error.syscall, path: error.path } },
+      });
+    } catch {}
+    throw error;
+  }
+  try {
+    rewriteTrace?.record("runtime-compiler-rewrite-returned", rewriteInvocation,
+      { data: { compiler, pid: process.pid } });
+  } catch {}
   fs.utimesSync(compiler, stamp, stamp);
   const after = fs.statSync(compiler, { bigint: true });
   assert.equal(after.mtimeNs, before.mtimeNs);
