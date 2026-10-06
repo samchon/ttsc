@@ -13,7 +13,8 @@ import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
  * blocked, missing or outside its package. Export arrays can skip an invalid
  * target, while an array of blocked targets remains blocked.
  *
- * 1. Author thirteen export maps and two independent project-local ordinary packages.
+ * 1. Author thirteen export maps and two independent project-local ordinary
+ *    packages.
  * 2. Resolve every package through the owning source operation.
  * 3. Compare all selected files and refusal codes with literal contract outcomes.
  *
@@ -124,12 +125,19 @@ export async function test_plugin_export_targets_preserve_selection_and_rejectio
         "node_modules/local-plugin/descriptor.cjs": project,
       });
       assert.equal(
-        PluginPackageResolution.resolvePluginRequest("local-plugin", projectRoot),
+        PluginPackageResolution.resolvePluginRequest(
+          "local-plugin",
+          projectRoot,
+        ),
         path.join(projectRoot, "node_modules/local-plugin/descriptor.cjs"),
         "ordinary packages resolve from each consuming project's authority",
       );
       assert.throws(
-        () => PluginPackageResolution.resolvePluginRequest("absent-plugin", projectRoot),
+        () =>
+          PluginPackageResolution.resolvePluginRequest(
+            "absent-plugin",
+            projectRoot,
+          ),
         { code: "MODULE_NOT_FOUND" },
       );
     }

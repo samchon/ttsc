@@ -69,17 +69,27 @@ export async function test_e2e_bun_batch(): Promise<void> {
     .split(/\r?\n/)
     .filter((line) => line.startsWith("TTSC_BUN_TICKS:"));
   assert.equal(tickLines.length, 1);
-  const deliveredTicks = JSON.parse(tickLines[0].slice("TTSC_BUN_TICKS:".length)) as number[];
+  const deliveredTicks = JSON.parse(
+    tickLines[0].slice("TTSC_BUN_TICKS:".length),
+  ) as number[];
   assert.equal(deliveredTicks.length, 3);
   assert.equal(deliveredTicks[0], tickOffset);
   for (let pass = 0; pass < 2; pass++) {
-    assert.ok(Number.isInteger(deliveredTicks[pass + 1]) && deliveredTicks[pass + 1] > deliveredTicks[pass],
-      "each full graph build must actually acquire its native producer");
+    assert.ok(
+      Number.isInteger(deliveredTicks[pass + 1]) &&
+        deliveredTicks[pass + 1] > deliveredTicks[pass],
+      "each full graph build must actually acquire its native producer",
+    );
   }
   assert.equal(fs.statSync(workspace.programRunLog).size, deliveredTicks[2]);
-  const singleTicks = result.stdout.split(/\r?\n/).filter((line) => line.startsWith("TTSC_BUN_SINGLE_ENTRY_TICKS:"));
+  const singleTicks = result.stdout
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("TTSC_BUN_SINGLE_ENTRY_TICKS:"));
   assert.equal(singleTicks.length, 1);
-  assert.deepEqual(JSON.parse(singleTicks[0].slice("TTSC_BUN_SINGLE_ENTRY_TICKS:".length)), [0, 1, 2]);
+  assert.deepEqual(
+    JSON.parse(singleTicks[0].slice("TTSC_BUN_SINGLE_ENTRY_TICKS:".length)),
+    [0, 1, 2],
+  );
   for (let pass = 0; pass < 2; pass++) {
     assert.ok(
       Number.isInteger(epochs[pass + 1]) && epochs[pass + 1] > epochs[pass],
@@ -123,20 +133,32 @@ export async function test_e2e_bun_batch(): Promise<void> {
   BatchWorkspace.assertContextReceipts(
     BatchWorkspace.readContextReceipts(workspace).slice(epochs[2]),
   );
-  assert.ok(fs.statSync(workspace.programRunLog).size > deliveredTicks[2],
-    "the fresh full graph preload must not borrow a completed build's generation");
+  assert.ok(
+    fs.statSync(workspace.programRunLog).size > deliveredTicks[2],
+    "the fresh full graph preload must not borrow a completed build's generation",
+  );
   const singleRoot = path.join(workspace.root, "tools/bun-native-sessions");
-  const singleRuntime = TestProject.spawn(process.env.TTSC_BUN_BINARY ?? "bun", [
-    "--preload",
-    path.join(path.dirname(TestUnpluginRuntime.libPath("bun", "mjs")), "bun-register.mjs"),
-    "runtime.mjs",
-  ], { cwd: singleRoot, env: { TTSC_CACHE_DIR: workspace.cache } });
+  const singleRuntime = TestProject.spawn(
+    process.env.TTSC_BUN_BINARY ?? "bun",
+    [
+      "--preload",
+      path.join(
+        path.dirname(TestUnpluginRuntime.libPath("bun", "mjs")),
+        "bun-register.mjs",
+      ),
+      "runtime.mjs",
+    ],
+    { cwd: singleRoot, env: { TTSC_CACHE_DIR: workspace.cache } },
+  );
   assert.equal(singleRuntime.error, undefined);
   assert.equal(singleRuntime.signal, null);
   assert.equal(singleRuntime.status, 0, singleRuntime.stderr);
   assert.equal(singleRuntime.stdout.trim(), "PLUGIN");
-  assert.equal(fs.statSync(path.join(singleRoot, "program-runs.bin")).size, 3,
-    "the original single-entry public preload owns exactly one additional named native ApplyProgram invocation");
+  assert.equal(
+    fs.statSync(path.join(singleRoot, "program-runs.bin")).size,
+    3,
+    "the original single-entry public preload owns exactly one additional named native ApplyProgram invocation",
+  );
   for (const child of [runtime, singleRuntime]) {
     if (!(child.pid > 0)) {
       BatchWorkspace.retain("Bun preload returned no owned process identity");
@@ -144,7 +166,9 @@ export async function test_e2e_bun_batch(): Promise<void> {
     }
     try {
       process.kill(child.pid, 0);
-      BatchWorkspace.retain("Bun preload remains live after its synchronous return");
+      BatchWorkspace.retain(
+        "Bun preload remains live after its synchronous return",
+      );
       throw new Error("Bun preload closure unresolved");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;

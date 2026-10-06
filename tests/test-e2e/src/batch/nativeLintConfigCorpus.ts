@@ -53,7 +53,11 @@ export function nativeLintConfigCorpus(
     (name) =>
       [path.join(root, name), fs.readFileSync(path.join(root, name))] as const,
   );
-  for (const name of ["fallback/tsconfig.json", "selected/tsconfig.json", "selected/lint.config.json"]) {
+  for (const name of [
+    "fallback/tsconfig.json",
+    "selected/tsconfig.json",
+    "selected/lint.config.json",
+  ]) {
     const file = path.join(workspace.lintWrapperRoot, name);
     immutableInputs.push([file, fs.readFileSync(file)]);
   }
@@ -245,10 +249,7 @@ export function nativeLintConfigCorpus(
     }
     for (const mode of ["fallback", "selected"])
       capture("external wrapper " + mode, () => {
-        const wrapper = path.join(
-          workspace.lintWrapperRoot,
-          mode,
-        );
+        const wrapper = path.join(workspace.lintWrapperRoot, mode);
         assert.equal(
           path.relative(root, wrapper).startsWith(".." + path.sep),
           true,

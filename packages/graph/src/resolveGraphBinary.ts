@@ -46,7 +46,9 @@ export function resolveGraphBinary(
   try {
     // Anchor package lookup at the absolute project root so a relative `--cwd`
     // resolves the same way the native process interprets it.
-    const fromProject = createRequire(path.join(path.resolve(cwd), "package.json"));
+    const fromProject = createRequire(
+      path.join(path.resolve(cwd), "package.json"),
+    );
     const ttscPackageJson = fromProject.resolve("ttsc/package.json");
     const fromTtsc = createRequire(ttscPackageJson);
     return fromTtsc.resolve(

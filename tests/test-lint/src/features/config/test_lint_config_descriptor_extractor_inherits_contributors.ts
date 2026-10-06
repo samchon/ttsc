@@ -348,19 +348,34 @@ export function test_lint_config_descriptor_extractor_inherits_contributors(): v
     assert.equal(addedLaunches, 10);
     const typedDirectory = path.join(root, "typed-module");
     fs.mkdirSync(typedDirectory);
-    fs.writeFileSync(path.join(typedDirectory, "package.json"), '{"type":"module"}');
+    fs.writeFileSync(
+      path.join(typedDirectory, "package.json"),
+      '{"type":"module"}',
+    );
     const typedBase = path.join(typedDirectory, "base.ts");
-    fs.writeFileSync(typedBase, `if (!import.meta.url.endsWith("/base.ts")) throw new Error("typed leaf lost its own module");\nexport default { plugins: { typed: { source: ${JSON.stringify(first)} } } };\n`);
-    fs.writeFileSync(rootConfig, JSON.stringify({ extends: "./typed-module/base.ts" }));
+    fs.writeFileSync(
+      typedBase,
+      `if (!import.meta.url.endsWith("/base.ts")) throw new Error("typed leaf lost its own module");\nexport default { plugins: { typed: { source: ${JSON.stringify(first)} } } };\n`,
+    );
+    fs.writeFileSync(
+      rootConfig,
+      JSON.stringify({ extends: "./typed-module/base.ts" }),
+    );
     const beforeTyped = fs.readFileSync(counter, "utf8").split("\n").length - 1;
     const typed = factory(context);
     assert.deepEqual(typed.contributors, [{ name: "typed", source: first }]);
     assert.ok(typed.hostInputs?.includes(typedBase));
-    assert.equal(fs.readFileSync(counter, "utf8").split("\n").length - 1, beforeTyped + 2,
-      "the root and its typed base each have an actual evaluator authority");
+    assert.equal(
+      fs.readFileSync(counter, "utf8").split("\n").length - 1,
+      beforeTyped + 2,
+      "the root and its typed base each have an actual evaluator authority",
+    );
     assert.deepEqual(factory(context).contributors, typed.contributors);
-    assert.equal(fs.readFileSync(counter, "utf8").split("\n").length - 1, beforeTyped + 2,
-      "unchanged transitive typed inputs must reuse their validated aggregate");
+    assert.equal(
+      fs.readFileSync(counter, "utf8").split("\n").length - 1,
+      beforeTyped + 2,
+      "unchanged transitive typed inputs must reuse their validated aggregate",
+    );
     cacheFiles.push(cachePath("v12"));
   } finally {
     for (const [key, value] of Object.entries(previous)) {

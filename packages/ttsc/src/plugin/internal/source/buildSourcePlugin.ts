@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
-import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { GoSourceInputs } from "./GoSourceInputs";
 import { GoToolResolution } from "./GoToolResolution";
@@ -357,17 +357,20 @@ function compileSourcePlugin(opts: {
     // metadata distinguishes those edits; the witness
     // documents that premise rather than certifying a second byte comparison.
     if (!PluginBuildEnvironmentWitness.holds(opts.environmentWitness)) {
-      E2ETrace.capabilityResolution("plugin-build-environment-publication-refused", {
-        pluginName: opts.pluginName,
-        goBinary: opts.goBinary,
-        GOTOOLCHAIN: opts.env?.GOTOOLCHAIN,
-        GOROOT: opts.env?.GOROOT,
-        GOENV: opts.env?.GOENV,
-        GOFLAGS: opts.env?.GOFLAGS,
-        CGO_ENABLED: opts.env?.CGO_ENABLED,
-        CC: opts.env?.CC,
-        CXX: opts.env?.CXX,
-      });
+      E2ETrace.capabilityResolution(
+        "plugin-build-environment-publication-refused",
+        {
+          pluginName: opts.pluginName,
+          goBinary: opts.goBinary,
+          GOTOOLCHAIN: opts.env?.GOTOOLCHAIN,
+          GOROOT: opts.env?.GOROOT,
+          GOENV: opts.env?.GOENV,
+          GOFLAGS: opts.env?.GOFLAGS,
+          CGO_ENABLED: opts.env?.CGO_ENABLED,
+          CC: opts.env?.CC,
+          CXX: opts.env?.CXX,
+        },
+      );
       throw new Error(
         `ttsc: the Go toolchain of plugin "${opts.pluginName}" changed while it ` +
           `was being built, so the binary was not cached under the key of its ` +

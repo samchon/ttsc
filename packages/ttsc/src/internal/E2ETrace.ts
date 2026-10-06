@@ -176,8 +176,16 @@ export namespace E2ETrace {
           selectedFormat,
           emitAttribution: coordinates,
           status: nativeBuildFailure.status,
-          stdout: payload(token, "runtime-build-stdout", nativeBuildFailure.stdout),
-          stderr: payload(token, "runtime-build-stderr", nativeBuildFailure.stderr),
+          stdout: payload(
+            token,
+            "runtime-build-stdout",
+            nativeBuildFailure.stdout,
+          ),
+          stderr: payload(
+            token,
+            "runtime-build-stderr",
+            nativeBuildFailure.stderr,
+          ),
           representation: "returned-build-envelope-without-project-emit",
         });
         return;

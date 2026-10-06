@@ -42,7 +42,10 @@ export function test_lint_config_descriptor_extractor_emits_parseable_source(): 
       source = source.replace(token, JSON.stringify(values[index]));
     }
     assert.ok(source.includes("%CONFIG_CHAIN%"));
-    source = source.replace("%CONFIG_CHAIN%", JSON.stringify([values[2] + "/lint.config.ts"]));
+    source = source.replace(
+      "%CONFIG_CHAIN%",
+      JSON.stringify([values[2] + "/lint.config.ts"]),
+    );
     assert.deepEqual(parseDiagnostics(source), []);
   }
   assert.notEqual(parseDiagnostics('const broken = "raw\nnewline";').length, 0);

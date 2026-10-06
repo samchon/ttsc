@@ -1998,8 +1998,8 @@ function isValidConfigPluginEntry(entry: unknown): entry is ConfigPluginEntry {
 /**
  * Evaluate typed bases with their own project and merge base-first entries and
  * observed inputs. JavaScript and JSON bases remain in their containing
- * evaluator. A call-owned memo avoids evaluating the same typed base twice;
- * no result escapes the validated aggregate config cache.
+ * evaluator. A call-owned memo avoids evaluating the same typed base twice; no
+ * result escapes the validated aggregate config cache.
  */
 function evaluateTtsxConfigPlugins(
   configPath: string,
@@ -2177,7 +2177,10 @@ function evaluateTtsxConfigPlugins(
     try {
       payload = JSON.parse(fs.readFileSync(outputPath, "utf8")) as {
         dependencies?: ConfigDependencyFingerprint[];
-        entries?: (ConfigPluginEntry | { configFile: string; chain: string[] })[];
+        entries?: (
+          | ConfigPluginEntry
+          | { configFile: string; chain: string[] }
+        )[];
       };
     } catch (error) {
       throw new Error(
@@ -2193,15 +2196,34 @@ function evaluateTtsxConfigPlugins(
     }
     const nestedDependencies: ConfigDependencyFingerprint[] = [];
     const entries = payload.entries.flatMap((entry): ConfigPluginEntry[] => {
-      if (entry !== null && typeof entry === "object" && "configFile" in entry) {
+      if (
+        entry !== null &&
+        typeof entry === "object" &&
+        "configFile" in entry
+      ) {
         if (
-          typeof entry.configFile !== "string" || !path.isAbsolute(entry.configFile) ||
-          !Array.isArray(entry.chain) || entry.chain.length <= chain.length || entry.chain.length > 32 ||
-          entry.chain.some((location, index) => typeof location !== "string" ||
-            (index < chain.length && location !== chain[index])) ||
-          entry.chain.at(-1) !== entry.configFile || new Set(entry.chain).size !== entry.chain.length
-        ) throw new Error(`@ttsc/lint: lint config ${configPath} evaluator returned a malformed base-config request`);
-        const base = evaluateTtsxConfigPlugins(entry.configFile, context, entry.chain, evaluated);
+          typeof entry.configFile !== "string" ||
+          !path.isAbsolute(entry.configFile) ||
+          !Array.isArray(entry.chain) ||
+          entry.chain.length <= chain.length ||
+          entry.chain.length > 32 ||
+          entry.chain.some(
+            (location, index) =>
+              typeof location !== "string" ||
+              (index < chain.length && location !== chain[index]),
+          ) ||
+          entry.chain.at(-1) !== entry.configFile ||
+          new Set(entry.chain).size !== entry.chain.length
+        )
+          throw new Error(
+            `@ttsc/lint: lint config ${configPath} evaluator returned a malformed base-config request`,
+          );
+        const base = evaluateTtsxConfigPlugins(
+          entry.configFile,
+          context,
+          entry.chain,
+          evaluated,
+        );
         nestedDependencies.push(...base.dependencies);
         return base.entries;
       }
@@ -2253,13 +2275,23 @@ function evaluateTtsxConfigPlugins(
     for (const dependency of [...dependencies, ...nestedDependencies]) {
       const key = dependency.kind + "\0" + dependency.path;
       const previous = merged.get(key);
-      if (previous !== undefined && (previous.digest !== dependency.digest || previous.realpath !== dependency.realpath)) {
-        throw new Error(`@ttsc/lint: config dependency changed between base evaluations: ${dependency.path}`);
+      if (
+        previous !== undefined &&
+        (previous.digest !== dependency.digest ||
+          previous.realpath !== dependency.realpath)
+      ) {
+        throw new Error(
+          `@ttsc/lint: config dependency changed between base evaluations: ${dependency.path}`,
+        );
       }
       merged.set(key, {
         ...dependency,
-        identityStable: dependency.identityStable && (previous?.identityStable ?? true),
-        scope: dependency.scope === "watch" || previous?.scope === "watch" ? "watch" : "cache",
+        identityStable:
+          dependency.identityStable && (previous?.identityStable ?? true),
+        scope:
+          dependency.scope === "watch" || previous?.scope === "watch"
+            ? "watch"
+            : "cache",
       });
     }
     const evaluation = { dependencies: [...merged.values()], entries };

@@ -284,7 +284,8 @@ export namespace PluginPackageResolution {
    * Absolute and relative specifiers are paths. A package specifier honors the
    * package's `ttsc` export condition first, so a package whose main entry is a
    * runtime barrel can point plugin loading at a runtime-free descriptor, and
-   * otherwise resolves through a Node require anchored at the consuming project.
+   * otherwise resolves through a Node require anchored at the consuming
+   * project.
    *
    * @evidence contracts/common.md#principled-implementation Native absolute/relative inputs use their explicit base; bare packages opt into ttsc target semantics only when a matching branch exists, otherwise createRequire anchors Node resolution at the consuming project's package.json. This authority remains explicit when the caller was itself imported as CommonJS through an ESM loader.
    * @evidence contracts/common.md#clear-and-simple-design One dispatcher keeps plugin-only conditions local and returns best-effort canonical selection to descriptor loading; unsuccessful realpath is not physical-identity proof.
@@ -316,7 +317,9 @@ export namespace PluginPackageResolution {
     if (conditioned !== null) {
       return conditioned;
     }
-    const projectRequire = createRequire(path.join(projectRoot, "package.json"));
+    const projectRequire = createRequire(
+      path.join(projectRoot, "package.json"),
+    );
     return resolveRealPath(projectRequire.resolve(specifier));
   }
 

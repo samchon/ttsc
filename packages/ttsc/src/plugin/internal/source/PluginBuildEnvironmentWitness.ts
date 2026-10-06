@@ -157,17 +157,20 @@ export namespace PluginBuildEnvironmentWitness {
   export function holds(witness: Record): boolean {
     for (const [file, recorded] of witness) {
       const current = file.startsWith(ENVIRONMENT_PREFIX)
-          ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
-          : file.startsWith(LINK_PREFIX)
-            ? linkSignature(file.slice(LINK_PREFIX.length))
-            : signature(file);
+        ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
+        : file.startsWith(LINK_PREFIX)
+          ? linkSignature(file.slice(LINK_PREFIX.length))
+          : signature(file);
       if (current !== recorded) {
-        E2ETrace.capabilityResolution("plugin-build-environment-witness-mismatch", {
-          key: file,
-          recorded,
-          current,
-          refused: recorded === UNWITNESSABLE,
-        });
+        E2ETrace.capabilityResolution(
+          "plugin-build-environment-witness-mismatch",
+          {
+            key: file,
+            recorded,
+            current,
+            refused: recorded === UNWITNESSABLE,
+          },
+        );
         return false;
       }
     }
