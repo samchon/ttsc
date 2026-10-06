@@ -25,6 +25,7 @@ import { E2ETrace } from "./E2ETrace";
  */
 export function runtimeExecutableIdentity(runtime: string): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
+  const startedAt = new Date().toISOString();
   let descriptor: number | undefined;
   let stage = "lexical-stat";
   const unavailable = (reason: string, expected?: string, observed?: string,
@@ -79,11 +80,18 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
     const afterPhysical = fs.statSync(physicalPath, { bigint: true });
     if (fileIdentity(afterPhysical) !== fileIdentity(physical))
       return unavailable("physical-file-changed-during-read", fileIdentity(physical), fileIdentity(afterPhysical));
+    const digest = hash.digest("hex");
+    E2ETrace.capabilityResolution("runtime-executable-identity-observed", {
+      runtime, physicalPath, startedAt, finishedAt: new Date().toISOString(),
+      lexical: fileIdentity(lexical), physical: fileIdentity(physical), digest,
+      openedAtimeNs: String(opened.atimeNs), afterOpenedAtimeNs: String(afterOpened.atimeNs),
+      openedBirthtimeNs: String(opened.birthtimeNs), afterOpenedBirthtimeNs: String(afterOpened.birthtimeNs),
+    });
     return [
       physicalPath,
       fileIdentity(lexical),
       fileIdentity(physical),
-      hash.digest("hex"),
+      digest,
     ].join("\0");
   } catch (error) {
     return unavailable("filesystem-error", undefined, error instanceof Error ? error.message : String(error));

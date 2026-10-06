@@ -3,6 +3,7 @@ package ttsc_test
 import (
   "bytes"
   "encoding/json"
+  "os"
   "path/filepath"
   "slices"
   "strings"
@@ -21,6 +22,8 @@ func (plugin failureGraphMutationProbe) ApplyProgram(*driver.Program, driver.Plu
 
 // TestTransformFailureRetainsMissingResolutionGraph verifies invalid Programs
 // publish their missing dependency observations without running source mutations.
+// The same failed check publishes its compiler graph through the negotiated
+// metadata channel before the existing dependency repair recovers transformation.
 //
 // A diagnostic names the importer, not the unresolved declaration. Watch hosts
 // need the original Program's graph to observe a dependency-only repair.
@@ -68,6 +71,23 @@ func TestTransformFailureRetainsMissingResolutionGraph(t *testing.T) {
   }
   if result.Graph == nil || !slices.Contains(result.Graph.Candidates["main.ts"], "node_modules/typed-dep/missing.d.ts") || !slices.Contains(result.Graph.Configs, "tsconfig.json") {
     t.Fatalf("failure dropped resolution or config ownership: %+v", result.Graph)
+  }
+  observations := filepath.Join(root, "check-observations.json")
+  stdout.Reset()
+  stderr.Reset()
+  code = utility.RunCheckWithIO([]string{"--cwd", root, "--check-observations-json", observations}, &stdout, &stderr)
+  observed, err := os.ReadFile(observations)
+  if err != nil {
+    t.Fatalf("failed check lost its same-generation metadata: %v", err)
+  }
+  var check struct {
+    Graph *driver.TransformGraph `json:"graph"`
+  }
+  if err := json.Unmarshal(observed, &check); err != nil {
+    t.Fatalf("invalid check graph metadata: %v", err)
+  }
+  if code != 2 || calls != 0 || check.Graph == nil || !slices.Contains(check.Graph.Candidates["main.ts"], "node_modules/typed-dep/missing.d.ts") {
+    t.Fatalf("failed check did not retain its compiler generation: code=%d calls=%d graph=%+v stderr=%s", code, calls, check.Graph, &stderr)
   }
   writeProjectFile(t, root, "node_modules/typed-dep/missing.d.ts", "export interface Shape { id: number }\n")
   stdout.Reset()

@@ -36,6 +36,8 @@ export namespace BatchWorkspace {
     descriptorCollectionRoot: string;
     /** Editor source/config island; command copies exclude other actor assets. */
     lspEditorRoot: string;
+    /** Checker/MCP source owner without another actor's emission producers. */
+    graphRoot: string;
     cache: string;
     /** Relative CLI contrast stays local even with an external absolute cache. */
     runtimeCliCache: string;
@@ -1654,6 +1656,18 @@ export namespace BatchWorkspace {
       );
       fs.symlinkSync(modules, path.join(lspEditorRoot, "node_modules"), "junction");
     }
+    const graphRoot = path.join(root, "tools/graph-resident");
+    if (!installationOnly) {
+      fs.mkdirSync(graphRoot, { recursive: true });
+      fs.cpSync(path.join(root, "src"), path.join(graphRoot, "src"), { recursive: true });
+      const graphConfig = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"));
+      delete graphConfig.compilerOptions.plugins;
+      fs.writeFileSync(path.join(graphRoot, "tsconfig.json"), JSON.stringify(graphConfig));
+      fs.writeFileSync(path.join(graphRoot, "package.json"), JSON.stringify({
+        name: "ttsc-graph-boundary-corpus", private: true, type: "commonjs",
+      }));
+      fs.symlinkSync(modules, path.join(graphRoot, "node_modules"), "junction");
+    }
     return {
       allocatedRoot,
       root,
@@ -1662,6 +1676,7 @@ export namespace BatchWorkspace {
       lintWrapperRoot,
       descriptorCollectionRoot,
       lspEditorRoot,
+      graphRoot,
       installedTtsx,
       installationOnly,
       sourcePublication,

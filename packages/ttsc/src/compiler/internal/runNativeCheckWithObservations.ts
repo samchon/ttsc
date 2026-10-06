@@ -4,6 +4,7 @@ import path from "node:path";
 import { createCanonicalTempDirectory } from "../../internal/createCanonicalTempDirectory";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { parseReferenceGraph } from "./parseNativeTransformOutput";
 
 /**
  * Execute a check with its same-generation input observations, preserving the
@@ -132,6 +133,7 @@ function parseObservations(
   | "hostInputHashes"
   | "hostInputRealpaths"
   | "observationsComplete"
+  | "graph"
 > {
   if (!isRecord(value) || !Array.isArray(value.hostInputs))
     throw new Error("expected an observation record and input list");
@@ -146,7 +148,13 @@ function parseObservations(
       throw new Error("expected absolute native input paths");
     inputs.add(path.resolve(input));
   }
+  const graph = parseReferenceGraph(value.graph);
+  const graphUnavailable = graph === undefined ||
+    (graph.inputHashes === undefined && graph.inputObservations === undefined &&
+      graph.inputRealpaths === undefined && graph.inputProofFailures === undefined);
   return {
+    ...(graph === undefined ? {} : { graph }),
+    ...(graphUnavailable ? { observationsComplete: false as const } : {}),
     hostInputs: [...inputs],
     hostInputHashes: parseWitnesses(value.hostInputHashes, inputs, false),
     hostInputRealpaths: parseWitnesses(value.hostInputRealpaths, inputs, true),

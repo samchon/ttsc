@@ -1,4 +1,5 @@
 import type { ITtscCompilerDiagnostic } from "../ITtscCompilerDiagnostic";
+import type { ITtscCompilerTransformation } from "../ITtscCompilerTransformation";
 
 /**
  * Internal result captured from TypeScript-Go or native plugin sidecars.
@@ -13,6 +14,8 @@ import type { ITtscCompilerDiagnostic } from "../ITtscCompilerDiagnostic";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface TtscBuildResult {
+  /** Compiler-time graph of the same check generation, when transported. */
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
   /** Structured compiler/plugin diagnostics, supplied or parsed from output. */
   diagnostics: ITtscCompilerDiagnostic[];
 

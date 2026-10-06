@@ -772,14 +772,15 @@ export async function captureTransformGeneration(props: {
     // on this disk or because this worker's own window moved around it, and
     // only the first speaks against the publication (samchon/ttsc#1479). The
     // retry refuses a refuted one for the same state, and adopts one that held.
-    // A failure envelope is proven by its external inputs alone, as its
-    // verdict is its diagnostics.
+    // Diagnostics depend on the failed check's actual compiler generation too.
+    // Its graph and universal observations retain the same proof obligations
+    // as transformed output, including inputs outside root membership.
     if (adopted !== undefined && state !== undefined) {
       TRANSFORM_ADOPTED_RESULTS.set(result, {
         refuted:
           adoptionFailure !== undefined ||
           !externalInputSnapshot.complete ||
-          (result.type === "success" && !(graphProofs && universalInputs)),
+          !(graphProofs && universalInputs),
         state,
       });
     }

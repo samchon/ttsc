@@ -10,7 +10,7 @@ import type { ITtscCompilerTransformation } from "../../structures/ITtscCompiler
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
-import { appendBuildOutput } from "./build/appendBuildOutput";
+import { appendBuildOutput, mergeCheckGraphs } from "./build/appendBuildOutput";
 import { normalizeBuildOutput } from "./build/normalizeBuildOutput";
 import { buildNativeCompiler } from "./buildNativeCompiler";
 import { outputText } from "./outputText";
@@ -341,12 +341,14 @@ function transformProjectWithPlugins(
   );
   if (checked.status !== 0) {
     return {
+      ...(checked.graph === undefined ? {} : { graph: checked.graph }),
       ...observationLimitations(
         [loaded, checked],
         checkedHostInputHashes,
         checkedHostInputRealpaths,
         unprovenCheckInputs,
       ),
+      ...(checked.graph === undefined ? { observationsComplete: false as const } : {}),
       hostInputHashes: checkedHostInputHashes,
       hostInputRealpaths: checkedHostInputRealpaths,
       hostInputs: checkedHostInputs,
@@ -378,6 +380,7 @@ function transformProjectWithPlugins(
     );
     return {
       ...envelopeSideChannels(transformed),
+      graph: mergeCheckGraphs(checked.graph, transformed.graph),
       ...observationLimitations(
         [loaded, checked, transformed],
         hostInputHashes,
@@ -459,6 +462,7 @@ function transformProjectWithPlugins(
   );
   return {
     ...envelopeSideChannels(output),
+    graph: mergeCheckGraphs(checked.graph, output.graph),
     ...observationLimitations(
       [loaded, checked, output],
       hostInputHashes,

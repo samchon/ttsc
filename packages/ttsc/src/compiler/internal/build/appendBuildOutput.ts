@@ -35,6 +35,7 @@ export function appendBuildOutput(
     ...new Set([...(left.hostInputs ?? []), ...(right.hostInputs ?? [])]),
   ];
   return normalizeBuildOutput({
+    graph: mergeCheckGraphs(left.graph, right.graph),
     diagnostics: [...left.diagnostics, ...right.diagnostics],
     emittedFiles:
       right.emittedFiles !== undefined ? right.emittedFiles : left.emittedFiles,
@@ -66,6 +67,65 @@ export function appendBuildOutput(
     stdout: left.stdout + right.stdout,
     stderr: left.stderr + right.stderr,
   });
+}
+
+/**
+ * Preserve each phase's source closure and refuse contradictory witnesses.
+ *
+ * @evidence contracts/common.md#principled-implementation Unioned memberships retain every producer's source authority; conflicting content, physical and predicate observations leave an explicit proof failure instead of selecting a later witness.
+ * @evidence contracts/common.md#clear-and-simple-design One graph combiner serves check composition and the later transform phase without reading inputs or creating a Program.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Reported omissions remain omissions; incompatible witnesses cannot be replaced by current filesystem observations.
+ * @evidence contracts/common.md#meaningful-documentation The native description states phase composition and the unresolved-witness behavior without claiming execution acceptance.
+ */
+export function mergeCheckGraphs(
+  left: TtscBuildResult["graph"],
+  right: TtscBuildResult["graph"],
+): TtscBuildResult["graph"] {
+  if (left === undefined) return right;
+  if (right === undefined) return left;
+  const failures = { ...left.inputProofFailures, ...right.inputProofFailures };
+  if (left.useCaseSensitiveFileNames !== undefined &&
+    right.useCaseSensitiveFileNames !== undefined &&
+    left.useCaseSensitiveFileNames !== right.useCaseSensitiveFileNames)
+    for (const key of new Set([...Object.keys(left.edges), ...Object.keys(right.edges)]))
+      failures[key] = "conflicting-check-case-policy";
+  const mergeLists = (a: Record<string, string[]> = {}, b: Record<string, string[]> = {}) =>
+    Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])]
+      .map((key) => [key, [...new Set([...(a[key] ?? []), ...(b[key] ?? [])])]]));
+  const mergeProofs = <T>(a: Record<string, T> = {}, b: Record<string, T> = {}): Record<string, T> => {
+    const merged = { ...a, ...b };
+    for (const key of Object.keys(a))
+      if (Object.hasOwn(b, key) && JSON.stringify(a[key]) !== JSON.stringify(b[key])) {
+        delete merged[key];
+        failures[key] = "conflicting-check-generations";
+      }
+    return merged;
+  };
+  const observations = { ...left.inputObservations, ...right.inputObservations };
+  for (const key of Object.keys(left.inputObservations ?? {})) {
+    const a = left.inputObservations![key]!;
+    const b = right.inputObservations?.[key];
+    if (b === undefined) continue;
+    const merged = { ...a, ...b };
+    for (const field of Object.keys(a) as (keyof typeof a)[])
+      if (Object.hasOwn(b, field) && JSON.stringify(a[field]) !== JSON.stringify(b[field]))
+        failures[key] = "conflicting-check-generations";
+    observations[key] = merged;
+  }
+  return {
+    edges: mergeLists(left.edges, right.edges),
+    globals: [...new Set([...left.globals, ...right.globals])],
+    configs: [...new Set([...left.configs, ...right.configs])],
+    candidates: mergeLists(left.candidates, right.candidates),
+    resolutionInputs: [...new Set([...(left.resolutionInputs ?? []), ...(right.resolutionInputs ?? [])])],
+    inputHashes: mergeProofs(left.inputHashes, right.inputHashes),
+    inputRealpaths: mergeProofs(left.inputRealpaths, right.inputRealpaths),
+    inputObservations: observations,
+    inputProofFailures: failures,
+    ...(left.useCaseSensitiveFileNames === right.useCaseSensitiveFileNames
+      ? { useCaseSensitiveFileNames: left.useCaseSensitiveFileNames }
+      : {}),
+  };
 }
 
 /**

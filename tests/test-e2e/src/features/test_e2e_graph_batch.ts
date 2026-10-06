@@ -91,14 +91,14 @@ export async function test_e2e_graph_batch(): Promise<void> {
       "Graph completed stage failures and blocked resident input reuse");
   }
   await FileSystemIterator.write(
-    workspace.root,
+    workspace.graphRoot,
     await FileSystemIterator.read(path.join(workspace.root, "graph-stage")),
   );
-  writeGraphEncodedInputs(workspace.root);
-  const restoreIdentity = prepareGraphIdentityCorpus(workspace.root);
+  writeGraphEncodedInputs(workspace.graphRoot);
+  const restoreIdentity = prepareGraphIdentityCorpus(workspace.graphRoot);
   const client = TtsgraphClient.start(
-    workspace.root,
-    path.join(workspace.root, "graph-native-starts.jsonl"),
+    workspace.graphRoot,
+    path.join(workspace.graphRoot, "graph-native-starts.jsonl"),
   );
   try {
     const initialization = await client.request("initialize", {
@@ -107,7 +107,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
       clientInfo: { name: "shared-e2e", version: "1" },
     });
     client.notify("notifications/initialized", {});
-    const configFile = path.join(workspace.root, "tsconfig.json");
+    const configFile = path.join(workspace.graphRoot, "tsconfig.json");
     const originalConfig = fs.readFileSync(configFile);
     assert.equal(
       client.nativeSpawnCount(),
@@ -175,13 +175,13 @@ export async function test_e2e_graph_batch(): Promise<void> {
       ["tour", () => assertGraphTourInputCorpus(client)],
       [
         "native shape",
-        () => assertGraphNativeShapeCorpus(client, workspace.root),
+        () => assertGraphNativeShapeCorpus(client, workspace.graphRoot),
       ],
-      ["refresh", () => assertGraphRefreshCorpus(client, workspace.root)],
-      ["encoding", () => assertGraphEncodedCorpus(client, workspace.root)],
+      ["refresh", () => assertGraphRefreshCorpus(client, workspace.graphRoot)],
+      ["encoding", () => assertGraphEncodedCorpus(client, workspace.graphRoot)],
       [
         "package identity",
-        () => assertGraphIdentityCorpus(client, workspace.root),
+        () => assertGraphIdentityCorpus(client, workspace.graphRoot),
       ],
     ] as const) {
       try {

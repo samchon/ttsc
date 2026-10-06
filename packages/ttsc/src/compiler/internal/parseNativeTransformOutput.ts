@@ -323,7 +323,7 @@ function parseGraphEdges(value: unknown): Record<string, string[]> | undefined {
  * narrows on their declared optional types therefore sees the same shape from
  * the decoded envelope and the wire.
  */
-function parseReferenceGraph(
+export function parseReferenceGraph(
   value: unknown,
 ): ITtscCompilerTransformation.IReferenceGraph | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

@@ -137,6 +137,10 @@ export function buildSourcePlugin(opts: {
     E2ETrace.capabilityResolution("plugin-build-environment-key-created", {
       pluginName: opts.pluginName,
       goBinary,
+      key, dir, entry,
+      sourceDigests: Object.fromEntries(sourceDigests),
+      overlayDirs,
+      contributorNames: contributors.map((contributor) => contributor.name),
       unchanged: PluginBuildEnvironmentWitness.holds(environmentWitness, "key-created"),
     });
   }
@@ -168,12 +172,16 @@ export function buildSourcePlugin(opts: {
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
   if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
+    E2ETrace.capabilityResolution("plugin-build-cache-admission", {
+      pluginName: opts.pluginName, key, cacheDir, binaryPath, outcome: "held-binary",
+    });
     touchCacheEntry(cacheDir);
     return binaryPath;
   }
   fs.mkdirSync(cacheDir, { recursive: true });
   const label = opts.label ?? "source plugin";
   const quiet = opts.quiet === true;
+  let compiled = false;
   const built = buildUnderPluginLock(
     cacheDir,
     binaryPath,
@@ -183,6 +191,10 @@ export function buildSourcePlugin(opts: {
       quiet,
     },
     () => {
+      compiled = true;
+      E2ETrace.capabilityResolution("plugin-build-cache-admission", {
+        pluginName: opts.pluginName, key, cacheDir, binaryPath, outcome: "compile-owned",
+      });
       // GC owns the same key lease before deleting a binary entry. It may have
       // removed this directory before acquisition, so recreate and validate it
       // only after this build has entered its protected publication interval.
@@ -210,6 +222,10 @@ export function buildSourcePlugin(opts: {
       });
     },
   );
+  E2ETrace.capabilityResolution("plugin-build-cache-admission", {
+    pluginName: opts.pluginName, key, cacheDir, binaryPath,
+    outcome: compiled ? "compile-returned" : "lock-adopted",
+  });
   if (managePluginCache) {
     // The pre-build daily pass cannot account for the binary this cold build
     // just published. Attempt size-policy maintenance after publication, once this

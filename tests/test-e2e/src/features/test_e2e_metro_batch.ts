@@ -4954,16 +4954,6 @@ async function runResidentLoaderPool(): Promise<void> {
   } catch (error) {
     bodyFailure = error;
   } finally {
-    fs.writeFileSync(contractPath, originalContract);
-    fs.writeFileSync(bannerPath, originalBanner);
-    for (let index = 0; index < deliveredPaths.length; index++)
-      fs.writeFileSync(deliveredPaths[index]!, originalDelivered[index]!);
-    fs.writeFileSync(declaration, originalDeclaration);
-    for (const owned of [candidate, unrelatedPackageFile, addedRoot])
-      fs.rmSync(owned, { force: true });
-    fs.rmSync(unrelatedPath, { force: true });
-    fs.rmSync(ignoredOutput, { force: true });
-    fs.rmSync(recreatedOutputDirectory, { recursive: true, force: true });
     const closes = await Promise.allSettled(
       workers.map((worker) => worker.close()),
     );
@@ -4975,6 +4965,19 @@ async function runResidentLoaderPool(): Promise<void> {
       ...failedCloses.map((entry) => entry.reason),
     ];
     if (failedCloses.length === 0) {
+      // A timed-out delivery may still be reading these inputs. Restore only
+      // after both real adapter owners have joined; uncertain closure retains
+      // the epoch and its original failure instead of changing live inputs.
+      fs.writeFileSync(contractPath, originalContract);
+      fs.writeFileSync(bannerPath, originalBanner);
+      for (let index = 0; index < deliveredPaths.length; index++)
+        fs.writeFileSync(deliveredPaths[index]!, originalDelivered[index]!);
+      fs.writeFileSync(declaration, originalDeclaration);
+      for (const owned of [candidate, unrelatedPackageFile, addedRoot])
+        fs.rmSync(owned, { force: true });
+      fs.rmSync(unrelatedPath, { force: true });
+      fs.rmSync(ignoredOutput, { force: true });
+      fs.rmSync(recreatedOutputDirectory, { recursive: true, force: true });
       if (bodyFailure === undefined)
         fs.rmSync(pluginLockRoot, { recursive: true });
       try {
@@ -5014,10 +5017,12 @@ async function runResidentLoaderPool(): Promise<void> {
         failures.push(error);
       }
       assert.equal(path.dirname(descriptorFailureRoot), workspace.root);
-      fs.rmSync(descriptorFailureRoot, { recursive: true });
-      for (const name of fs.readdirSync(traceRoot))
-        fs.unlinkSync(path.join(traceRoot, name));
-      fs.rmdirSync(traceRoot);
+      if (bodyFailure === undefined && failures.length === 0) {
+        fs.rmSync(descriptorFailureRoot, { recursive: true });
+        for (const name of fs.readdirSync(traceRoot))
+          fs.unlinkSync(path.join(traceRoot, name));
+        fs.rmdirSync(traceRoot);
+      }
       fs.writeFileSync(configPath, originalConfig);
       fs.rmSync(nonInputRaceFile, { force: true });
       fs.rmSync(optionalDescriptor, { force: true });

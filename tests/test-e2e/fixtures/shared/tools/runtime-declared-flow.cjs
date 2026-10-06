@@ -203,7 +203,11 @@ for (const option of ["--project", "--no-plugins", "--strict", "@tools/runtime-n
 assert.match(rejected.stderr, /script\.js is JavaScript/);
 assert.match(rejected.stderr, /TS6046/);
 assert.match(rejected.stderr, /TS6133/);
-assert.match(rejected.stderr, /tools[\\/]configured-owners[\\/]diagnostic[\\/]src[\\/]index\.ts/);
+// Native pretty diagnostics are relative to the explicitly selected owner's
+// cwd. The refusal names that complete config owner independently.
+const plainRejectedDiagnostics = rejected.stderr.replace(/\x1b\[[0-9;]*m/g, "");
+assert.match(plainRejectedDiagnostics, /tools[\\/]configured-owners[\\/]diagnostic[\\/]tsconfig\.json/);
+assert.match(plainRejectedDiagnostics, /src[\\/]index\.ts:[^\r\n]*TS6133[^\r\n]*unused/);
 if (readonlyActive) {
   assert.match(rejected.stderr, /is not writable/);
   assert.ok(rejected.stderr.includes(process.env.TTSC_E2E_READONLY_ROOT));
