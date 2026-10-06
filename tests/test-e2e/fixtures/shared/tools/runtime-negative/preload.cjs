@@ -11,6 +11,7 @@ let completed;
 let readonly;
 let response;
 let dependencyStatus;
+let dependencyDeliveryStatus;
 // Both preflight queries stop before compiler or program creation. The real
 // installed CLI that follows this preload owns the JavaScript rejection exit.
 Promise.all([
@@ -57,9 +58,14 @@ Promise.all([
   const dependencyFiles = ["package.json", "tsconfig.json", "src/dependency-entry.ts"].map((file) => path.join(__dirname, "dependency", file));
   dependencyFiles.push(...["package.json", "tsconfig.json", "banner.config.json", "src/index.ts"].map((file) => path.join(root, "tools/configured-owners/diagnostic", file)));
   const dependencyBytes = dependencyFiles.map((file) => fs.readFileSync(file));
-  dependencyStatus = await runTtsx(["--cwd", root, "-P", "tools/runtime-negative/dependency/tsconfig.json", "tools/runtime-negative/dependency/src/dependency-entry.ts"]);
+  dependencyDeliveryStatus = await runTtsx(["--cwd", root, "-P", "tools/runtime-negative/dependency/tsconfig.json", "tools/runtime-negative/dependency/src/dependency-entry.ts"]);
+  assert.equal(dependencyDeliveryStatus, 0, "dependency emit-only delivery keeps the entry project's diagnostic policy");
+  // This project's unused declaration belongs to its own explicit entry gate,
+  // not the importing entry's noUnusedLocals:false dependency emit lane.
+  const diagnosticRoot = path.join(root, "tools/configured-owners/diagnostic");
+  dependencyStatus = await runTtsx(["--cwd", diagnosticRoot, "-P", "tsconfig.json", "src/index.ts"]);
   assert.equal(typeof dependencyStatus, "number");
-  assert.notEqual(dependencyStatus, 0, "the imported workspace project's own check must reject before the entry success effect");
+  assert.equal(dependencyStatus, 2, "the diagnostic project's explicit entry check must reject its own unused declaration");
   for (let index = 0; index < dependencyFiles.length; index++)
     assert.deepEqual(fs.readFileSync(dependencyFiles[index]), dependencyBytes[index]);
   assert.equal(fs.existsSync(path.join(__dirname, "dependency/dependency-output")), false);
@@ -75,6 +81,7 @@ process.once("beforeExit", () => {
   assert.equal(fs.existsSync(path.join(root, "missing-entry.ts")), false);
   assert.ok(readonly, "the owned readonly transition must settle before the actor exits");
   assert.equal(typeof dependencyStatus, "number");
-  assert.notEqual(dependencyStatus, 0);
-  fs.writeFileSync(path.join(__dirname, "observed.json"), JSON.stringify({ statuses: completed, exitCode: process.exitCode, pid: process.pid, readonly, response, dependencyStatus }));
+  assert.equal(dependencyDeliveryStatus, 0);
+  assert.equal(dependencyStatus, 2);
+  fs.writeFileSync(path.join(__dirname, "observed.json"), JSON.stringify({ statuses: completed, exitCode: process.exitCode, pid: process.pid, readonly, response, dependencyStatus, dependencyDeliveryStatus }));
 });

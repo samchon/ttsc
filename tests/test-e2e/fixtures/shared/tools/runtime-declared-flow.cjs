@@ -176,6 +176,7 @@ if (rejected.error || rejected.signal !== null || rejected.status === null || !(
 assert.equal(rejected.error, undefined);
 assert.equal(rejected.signal, null);
 assert.equal(rejected.status, 2, rejected.stderr);
+assert.match(rejected.stderr, /TS6133[^\r\n]*unused/, "the explicit diagnostic-project entry preserves its own unused-local error");
 assert.ok(rejected.pid > 0);
 try { process.kill(rejected.pid, 0); throw new Error("rejection actor closure remained unresolved"); }
 catch (error) { if (error.code !== "ESRCH") throw error; }
