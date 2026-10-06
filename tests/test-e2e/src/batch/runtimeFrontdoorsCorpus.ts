@@ -16,10 +16,11 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * The existing JavaScript-main register actor hosts actual Mocha over three
  * excluded checked TypeScript roots in two owning projects before its ordinary
  * dependency load. Literal suite results, exact three live generations and
- * post-exit empty index/no nested node_modules preserve coexistence and cleanup.
- * Mocha 12's public default export, addFile, run, pass event and actual stats
- * are used; no callback or framework success is fabricated. There is no extra
- * Node actor, but three real checked root preparations are additional work.
+ * post-exit empty index/no nested node_modules preserve coexistence and
+ * cleanup. Mocha 12's public default export, addFile, run, pass event and
+ * actual stats are used; no callback or framework success is fabricated. There
+ * is no extra Node actor, but three real checked root preparations are
+ * additional work.
  *
  * @evidence contracts/testing.md#behavioral-verification Real installed public register and CLI children preserve CommonJS main/native cache/prefix-only builtins/typed dependency, ESM SQLite, JavaScript main under import preload with exact tail argv, handled exception survival and actual exit7/throw1/rejection1 statuses.
  * @evidence contracts/testing.md#independent-expectations Authored dep+leaf, main/cache booleans, UUID36, SQLite-close completion, exact forwarded tokens and literal OS statuses are independent of product outputs. Original input bytes and actual synchronous child closure are checked.
@@ -238,8 +239,17 @@ export async function runtimeFrontdoorsCorpus(
       roots: { passes: 3, names: ["first", "second", "third"], coexist: 3 },
     });
     const runtimeIndex = path.join(workspace.cache, "ttsx/project");
-    assert.deepEqual(fs.existsSync(runtimeIndex) ? fs.readdirSync(runtimeIndex) : [], [], "the three checked roots release after the actual Mocha host exits");
-    for (const name of ["one", "two"]) assert.equal(fs.existsSync(path.join(root, name, "node_modules")), false, "checked roots must not create nested node_modules");
+    assert.deepEqual(
+      fs.existsSync(runtimeIndex) ? fs.readdirSync(runtimeIndex) : [],
+      [],
+      "the three checked roots release after the actual Mocha host exits",
+    );
+    for (const name of ["one", "two"])
+      assert.equal(
+        fs.existsSync(path.join(root, name, "node_modules")),
+        false,
+        "checked roots must not create nested node_modules",
+      );
   });
   capture("ESM register SQLite", () => {
     const result = run(["--require", register, "src/esm.mts"]);

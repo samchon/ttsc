@@ -60,11 +60,12 @@ export async function test_e2e_vite_batch(): Promise<void> {
   const brokerRoot = path.join(workspace.cache, "watch-broker-corpus");
   fs.mkdirSync(brokerRoot, { recursive: true });
   const combinedFailures: unknown[] = [];
-  const broker = test_watch_broker_hears_what_follows_ready(brokerRoot, BatchWorkspace.retain).catch(
-    (error: unknown) => {
-      combinedFailures.push(error);
-    },
-  );
+  const broker = test_watch_broker_hears_what_follows_ready(
+    brokerRoot,
+    BatchWorkspace.retain,
+  ).catch((error: unknown) => {
+    combinedFailures.push(error);
+  });
   const nativeInputWatch =
     test_vite_compiler_watch_tracks_subscription_and_alias_boundaries({
       root: path.join(workspace.root, "tools/native-vite-watch"),
@@ -427,7 +428,13 @@ export async function test_e2e_vite_batch(): Promise<void> {
     phase("build-corpus-threw", {
       error: String(error),
       detail: process.env.TTSC_E2E_TRACE
-        ? inspect(error, { depth: 6, maxArrayLength: 20, maxStringLength: 1000, customInspect: false, getters: false })
+        ? inspect(error, {
+            depth: 6,
+            maxArrayLength: 20,
+            maxStringLength: 1000,
+            customInspect: false,
+            getters: false,
+          })
         : undefined,
     });
     combinedFailures.push(error);

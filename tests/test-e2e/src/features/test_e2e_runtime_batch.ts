@@ -77,8 +77,8 @@ import {
  * disappear while dependency-value reaches the parent. Both are requested
  * within the existing runtime, with no per-case project or launch. Native owner
  * preparation and fallback are additional explicit Program costs; the outer
- * runtime count alone does not certify total independent experimentation.
- * The existing native-source borrower also loads the copied root-pkg's
+ * runtime count alone does not certify total independent experimentation. The
+ * existing native-source borrower also loads the copied root-pkg's
  * out-of-include index.ts through its own banner plugin/config. Its helper
  * independently resolves that installed source, requires one singleton-owned
  * JavaScript output in the manifest-selected dependency cache, and requires

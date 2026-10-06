@@ -41,7 +41,8 @@ export async function test_watch_broker_hears_what_follows_ready(
   preparedRoot?: string,
   retain?: (reason: string) => void,
 ): Promise<void> {
-  const allocation = preparedRoot ?? TestProject.tmpdir("ttsc-unplugin-watch-broker-");
+  const allocation =
+    preparedRoot ?? TestProject.tmpdir("ttsc-unplugin-watch-broker-");
   const root = fs.realpathSync.native(allocation);
   const binding =
     process.platform === "darwin" ? fseventsBindingPath() : undefined;
@@ -277,8 +278,10 @@ export async function test_watch_broker_hears_what_follows_ready(
     } catch (error) {
       errors.push(new Error("broker child exit", { cause: error }));
       if (broker.unresolvedChild()) {
-        const reason = "Watch broker supported shutdown has not joined its process and IPC channel";
-        if (preparedRoot === undefined) TestProject.retainTemporaryDirectory(allocation, reason);
+        const reason =
+          "Watch broker supported shutdown has not joined its process and IPC channel";
+        if (preparedRoot === undefined)
+          TestProject.retainTemporaryDirectory(allocation, reason);
         else {
           // The selected subtree belongs to the shared plugin cache, outside
           // the prepared source root. Both uncertain owners must survive exit.
@@ -334,13 +337,20 @@ function openBroker(fsevents: string | null | undefined) {
   let childFailure: Error | undefined;
   let joined = false;
   let finishExit!: () => void, finishDisconnect!: () => void;
-  const exited = new Promise<void>((resolve) => { finishExit = resolve; });
-  const disconnected = new Promise<void>((resolve) => { finishDisconnect = resolve; });
+  const exited = new Promise<void>((resolve) => {
+    finishExit = resolve;
+  });
+  const disconnected = new Promise<void>((resolve) => {
+    finishDisconnect = resolve;
+  });
   const childError = (error: Error): void => {
     childFailure = error;
     fail(error);
     // Failed spawn has no PID or process to join, and remains a real failure.
-    if (child.pid === undefined) { finishExit(); finishDisconnect(); }
+    if (child.pid === undefined) {
+      finishExit();
+      finishDisconnect();
+    }
   };
   const childExit = (
     code: number | null,
@@ -440,10 +450,14 @@ function openBroker(fsevents: string | null | undefined) {
       closing = true;
       fail(new Error("watch broker fixture closing"));
       let timer: ReturnType<typeof setTimeout> | undefined;
-      const shutdown = Promise.all([exited, disconnected]).then(() => { joined = true; });
+      const shutdown = Promise.all([exited, disconnected]).then(() => {
+        joined = true;
+      });
       const deadline = new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
-          const error = new Error("watch broker did not join process and IPC shutdown after supported disconnect");
+          const error = new Error(
+            "watch broker did not join process and IPC shutdown after supported disconnect",
+          );
           childFailure ??= error;
           child.kill("SIGKILL");
           reject(error); // Forced cleanup and timeout are failures, never proof.
@@ -469,13 +483,21 @@ function openBroker(fsevents: string | null | undefined) {
       }
       if (disconnectError !== undefined) throw disconnectError;
       if (childFailure !== undefined) throw childFailure;
-      assert.deepEqual(child.stdio, [null, null, null, null], "this broker owns no stdio pipes requiring a stream-close join");
+      assert.deepEqual(
+        child.stdio,
+        [null, null, null, null],
+        "this broker owns no stdio pipes requiring a stream-close join",
+      );
       assert.equal(child.connected, false);
       assert.equal(child.channel, null);
       assert.equal(child.exitCode, 0);
       assert.equal(child.signalCode, null);
       assert.ok(child.pid !== undefined);
-      assert.throws(() => process.kill(child.pid!, 0), (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH", "the actually exited broker PID must be gone");
+      assert.throws(
+        () => process.kill(child.pid!, 0),
+        (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
+        "the actually exited broker PID must be gone",
+      );
     },
   };
 }

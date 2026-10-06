@@ -2,7 +2,8 @@ import { test_residenttransformprocess_lifecycle } from "../../../../test-e2e/sr
 import { test_residenttransformprocess_request_bounds } from "../../../../test-e2e/src/features/ttsc/api/test_residenttransformprocess_request_bounds";
 
 /**
- * Connect the retained actual controlled-pipe meanings to the owning unit suite.
+ * Connect the retained actual controlled-pipe meanings to the owning unit
+ * suite.
  *
  * The peer is a Node protocol program, not a Go compiler. The original bodies
  * already combine compatible requests and join every owned child; this entry
@@ -18,6 +19,12 @@ export async function test_resident_transform_controlled_pipe_preserves_retireme
     test_residenttransformprocess_lifecycle(),
     test_residenttransformprocess_request_bounds(),
   ]);
-  const failures = results.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
-  if (failures.length) throw new AggregateError(failures, "controlled resident pipe lifecycle and request ownership");
+  const failures = results.flatMap((result) =>
+    result.status === "rejected" ? [result.reason] : [],
+  );
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "controlled resident pipe lifecycle and request ownership",
+    );
 }

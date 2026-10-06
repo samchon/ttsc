@@ -67,9 +67,9 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * The existing Metro caller also owns one fresh outside-walk graph-proof
  * publication namespace. Its first external declaration proof sees different
  * bytes from the actual native compiler; a successful retry must have two real
- * ApplyProgram receipts. These precede, and do not satisfy, the separate initial
- * one-Program sharing assertion. No additional Node worker is started. Cache
- * withdrawal schedules disposal; the worker close is joined separately.
+ * ApplyProgram receipts. These precede, and do not satisfy, the separate
+ * initial one-Program sharing assertion. No additional Node worker is started.
+ * Cache withdrawal schedules disposal; the worker close is joined separately.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
@@ -3760,21 +3760,39 @@ async function runResidentLoaderPool(): Promise<void> {
   try {
     const graphProof = await workers[0]!.request("", undefined, undefined, {
       api: TestUnpluginRuntime.libUrl("api"),
-      session: path.join(workspace.cache, "graph-proof-refusal", path.basename(workspace.root)),
+      session: path.join(
+        workspace.cache,
+        "graph-proof-refusal",
+        path.basename(workspace.root),
+      ),
       programRunLog: workspace.programRunLog,
     });
     try {
       assert.equal(graphProof.error, undefined, graphProof.error);
-      assert.deepEqual(graphProof.value, { proofRead: true, nativePrograms: 2, served: true });
+      assert.deepEqual(graphProof.value, {
+        proofRead: true,
+        nativePrograms: 2,
+        served: true,
+      });
     } catch (error) {
-      publicApiFailures.push(new Error("outside-walk graph proof publication refusal", { cause: error }));
+      publicApiFailures.push(
+        new Error("outside-walk graph proof publication refusal", {
+          cause: error,
+        }),
+      );
     }
     // The two real captures above have their own receipt epoch. Initial adapter
     // sharing below still independently requires one additional native Program.
-    baseline = fs.existsSync(workspace.programRunLog) ? fs.statSync(workspace.programRunLog).size : 0;
+    baseline = fs.existsSync(workspace.programRunLog)
+      ? fs.statSync(workspace.programRunLog).size
+      : 0;
     receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
     caseOffset = fs.existsSync(workspace.casePolicyReceipt)
-      ? fs.readFileSync(workspace.casePolicyReceipt, "utf8").split(/\r?\n/).filter(Boolean).length : 0;
+      ? fs
+          .readFileSync(workspace.casePolicyReceipt, "utf8")
+          .split(/\r?\n/)
+          .filter(Boolean).length
+      : 0;
     nativeProbe.raceAttempt = baseline;
     await observePluginLockGraph({
       root: pluginLockRoot,
