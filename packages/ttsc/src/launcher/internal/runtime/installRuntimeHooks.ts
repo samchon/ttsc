@@ -2311,6 +2311,22 @@ function buildDependency(
     // output directory is the real failure; the caller then falls back to
     // isolated emit of the one file.
     if (!DependencyBuildGeneration.emittedAnything(emitDir)) {
+      E2ETrace.runtimePreparation(
+        "",
+        tsconfig,
+        "unconsumed",
+        "dependency-project-empty-emit",
+        {
+          moduleOptions: projectModuleOptions(project.compilerOptions),
+          selectedTsconfig: tsconfig,
+          buildScope: "project",
+          nativeBuildFailure: {
+            status: result.status,
+            stdout: result.stdout,
+            stderr: result.stderr,
+          },
+        },
+      );
       throw new EmptyProjectEmitError(
         [
           `ttsx: dependency build produced no output for ${tsconfig}`,

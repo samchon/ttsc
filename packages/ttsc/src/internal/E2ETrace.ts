@@ -119,20 +119,22 @@ export namespace E2ETrace {
   }
 
   /**
-   * Observe the actual source string before CommonJS preparation, not a launch.
+   * Observe the actual source string before runtime preparation, not a launch.
    * UTF-16LE preserves JavaScript code units, including unpaired surrogates;
    * these bytes represent the consumed string, not original disk or emit bytes.
    * Optional served-emit coordinates report the caller's selected ownership
    * metadata, not current artifact identity or successful preparation. Disabled
-   * tracing performs no sink IO or source conversion. Observer failure leaves
-   * the caller's preparation and exception behavior untouched.
+   * An empty project build may instead report its actual returned failure
+   * envelope; that distinct event contains no consumed source or emit claim.
+   * Disabled tracing performs no sink IO or source conversion. Observer failure
+   * leaves the caller's preparation and exception behavior untouched.
    *
-   * @evidence contracts/common.md#principled-implementation The caller supplies its already-read source, filename and selected format; the observation precedes the unchanged preparation without certifying parsing success or executable identity.
+   * @evidence contracts/common.md#principled-implementation The caller supplies its already-read source, filename and selected format; the observation precedes unchanged preparation without certifying parsing success or executable identity. An empty project emit reports only its actual returned build envelope in a distinct failed event, preserving the original fallback and exception.
    * @evidence contracts/common.md#clear-and-simple-design One non-process event and bounded raw-string payload use the existing private writer, invocation schema and integrity policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No source is reconstructed, product result replaced, syntax admitted, or launch inferred from this observation; no public product API or test dependency is introduced.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes consumed UTF-16 code units from disk bytes, process starts and preparation success.
    * @evidence contracts/portability.md#os-neutral-implementation Native filenames and selected format remain caller metadata; Node's explicit utf16le encoding preserves source code units without filesystem case or module-format guessing.
-   * @evidence contracts/performance.md#efficient-algorithms Enabled source conversion and payload IO scale with twice the source code-unit count; metadata encoding and synchronous sink IO add latency. Disabled tracing returns before conversion, and oversized source is rejected before allocation.
+   * @evidence contracts/performance.md#efficient-algorithms Enabled source conversion and payload IO scale with twice the source code-unit count; returned build text is budget-checked and serialized by its actual size. Metadata encoding and synchronous sink IO add latency. Disabled tracing returns before conversion, and oversized source is rejected before allocation.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each preparation observation concerns its actual caller input, not a shared compilation or historical execution answer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation retains no source history or handle; the existing writer owns bounded payload writes, failure metadata and coordinator-owned scratch cleanup.
    */
@@ -147,6 +149,11 @@ export namespace E2ETrace {
       sourceFile?: string;
       selectedTsconfig?: string;
       buildScope?: string;
+      nativeBuildFailure?: {
+        status: number;
+        stdout: string;
+        stderr: string;
+      };
     },
   ): void {
     const selected = process.env.TTSC_E2E_TRACE;
@@ -161,6 +168,20 @@ export namespace E2ETrace {
         origin,
         argv0: null,
       };
+      if (emitAttribution?.nativeBuildFailure !== undefined) {
+        const { nativeBuildFailure, ...coordinates } = emitAttribution;
+        event(token, "runtime-source-preparation-failed", process.pid, {
+          origin,
+          filename,
+          selectedFormat,
+          emitAttribution: coordinates,
+          status: nativeBuildFailure.status,
+          stdout: payload(token, "runtime-build-stdout", nativeBuildFailure.stdout),
+          stderr: payload(token, "runtime-build-stderr", nativeBuildFailure.stderr),
+          representation: "returned-build-envelope-without-project-emit",
+        });
+        return;
+      }
       if (source.length > PAYLOAD_LIMIT / 2) {
         integrity(token, "payload-budget-exceeded");
         return;
