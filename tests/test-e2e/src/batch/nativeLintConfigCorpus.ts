@@ -656,7 +656,7 @@ function assertAsyncConfigWatchPaths(
   const dependencies: unknown = result.data?.dependencies;
   assert.ok(Array.isArray(dependencies));
   for (const expected of [entry, helper]) {
-    const matches = dependencies.filter(
+    const matches: unknown[] = dependencies.filter(
       (dependency: unknown) =>
         dependency !== null &&
         typeof dependency === "object" &&
