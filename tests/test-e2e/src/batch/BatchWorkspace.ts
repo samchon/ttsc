@@ -494,6 +494,8 @@ export namespace BatchWorkspace {
       path.join(root, "tools/vite-serve/external.d.ts"),
       path.join(serveDeclarations, "index.d.ts"),
     );
+    fs.mkdirSync(path.join(root, "tools/vite-serve/node_modules/@types"));
+    fs.symlinkSync(path.join(root, "tools/vite-serve/packages/linked-pkg"), path.join(root, "tools/vite-serve/node_modules/linked-pkg"), "junction");
     const orphanPackage = path.join(
       root,
       "tools/runtime-frontdoors/node_modules/runtime-cache-control",
