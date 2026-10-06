@@ -771,7 +771,12 @@ func cacheTransform(args []string) int {
 
 	if logPath := cacheStringValue(cfg, "runLog"); logPath != "" {
 		if f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
-			f.WriteString("x")
+			if cacheBoolValue(cfg, "runLogPids") {
+				// The same native invocation receipt exposes its real process owner.
+				f.WriteString(strconv.Itoa(os.Getpid()) + "\n")
+			} else {
+				f.WriteString("x")
+			}
 			f.Close()
 		}
 	}

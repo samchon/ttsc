@@ -460,6 +460,10 @@ export namespace BatchWorkspace {
     for (const name of ["native-vite-watch", "native-vite-external"])
       fs.mkdirSync(path.join(root, "tools", name), { recursive: true });
     const runtimeFailureStorage = path.join(root, "tools/runtime-cache-failure/storage");
+    await FileSystemIterator.write(
+      path.join(root, "tools/native-dead-claim/native-producer"),
+      await FileSystemIterator.read(path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/native-transform-producer")),
+    );
     for (const mode of ["root", "index"] as const) {
       const original = path.join(runtimeFailureStorage, mode + "-original");
       const victim = path.join(runtimeFailureStorage, mode + "-victim");
