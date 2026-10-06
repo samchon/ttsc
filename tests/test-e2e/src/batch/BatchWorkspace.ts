@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import vm from "node:vm";
 
 import factory, { TsPrinter } from "../../../../packages/factory/src/index";
+import { resolveGraphBinary } from "../../../../packages/graph/src/resolveGraphBinary";
 import { buildSourcePlugin } from "../../../../packages/ttsc/lib/plugin/internal/source/buildSourcePlugin.js";
 import { copiesPluginSourceEntry } from "../../../../packages/ttsc/lib/plugin/internal/source/copiesPluginSourceEntry.js";
 import { ensureExecutableGoToolchain } from "../../../../packages/ttsc/lib/plugin/internal/source/ensureExecutableGoToolchain.js";
@@ -23,7 +24,14 @@ import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepare
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { shellQuote } from "../internal/ttsc/internal/source-build";
 
-/** Owns the one corpus all nine real boundary sessions consume. */
+/**
+ * Owns the one corpus all nine real boundary sessions consume. The authored
+ * host-platform override binds nested optional edges to the same packed
+ * candidate as the root dependency. Default compiler/server/Go/Graph locators
+ * must select that physical file and the independent pack producer bytes;
+ * locator assertions do not certify subsequent CLI execution or override
+ * lanes.
+ */
 export namespace BatchWorkspace {
   export interface Workspace {
     /** Exact tmpdir allocation key; native root is a separate input authority. */
@@ -723,6 +731,13 @@ export namespace BatchWorkspace {
           [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
           typescript: "7.0.2",
         },
+        pnpm: {
+          ...authoredManifest.pnpm,
+          overrides: {
+            ...authoredManifest.pnpm?.overrides,
+            [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+          },
+        },
       }),
     );
     assert.deepEqual(
@@ -747,6 +762,72 @@ export namespace BatchWorkspace {
     );
     const installed = createRequire(path.join(root, "package.json"));
     const sdk = path.dirname(installed.resolve("ttsc/package.json"));
+    // Root and nested optional edges must select the same packed candidate.
+    // Version equality alone cannot establish the consumed executable bytes.
+    const candidatePlatform = path.dirname(
+      installed.resolve(`@ttsc/${target}/package.json`),
+    );
+    const fromInstalledSdk = createRequire(path.join(sdk, "package.json"));
+    const executableSuffix = process.platform === "win32" ? ".exe" : "";
+    const defaultNativePaths = [
+      [
+        "ttsc",
+        fromInstalledSdk("ttsc/binary").resolveBinary({ env: {} }),
+        `bin/ttsc${executableSuffix}`,
+      ],
+      [
+        "ttscserver",
+        fromInstalledSdk(
+          path.join(sdk, "lib/launcher/internal/resolveTtscserverBinary.js"),
+        ).resolveTtscserverBinary({ env: {} }),
+        `bin/ttscserver${executableSuffix}`,
+      ],
+      [
+        "go",
+        fromInstalledSdk(
+          path.join(sdk, "lib/plugin/internal/source/resolveGoCompiler.js"),
+        ).resolveGoCompiler({}).binary,
+        `bin/go/bin/go${executableSuffix}`,
+      ],
+      [
+        "ttscgraph",
+        resolveGraphBinary({}, root),
+        `bin/ttscgraph${executableSuffix}`,
+      ],
+    ] as const;
+    for (const [name, selected, relativeBinary] of defaultNativePaths) {
+      assert.ok(
+        typeof selected === "string",
+        name + " must select the installed candidate",
+      );
+      const expected = path.join(candidatePlatform, relativeBinary);
+      const candidateIdentity = fs.statSync(expected, { bigint: true });
+      const selectedIdentity = fs.statSync(selected, { bigint: true });
+      assert.equal(
+        fs.realpathSync.native(selected),
+        fs.realpathSync.native(expected),
+        name + " must resolve the candidate physical file",
+      );
+      assert.equal(selectedIdentity.dev, candidateIdentity.dev);
+      assert.equal(selectedIdentity.ino, candidateIdentity.ino);
+      const producerBytes = fs.readFileSync(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages",
+          `ttsc-${target}`,
+          relativeBinary,
+        ),
+      );
+      assert.equal(
+        crypto
+          .createHash("sha256")
+          .update(fs.readFileSync(selected))
+          .digest("hex"),
+        crypto.createHash("sha256").update(producerBytes).digest("hex"),
+        name + " must consume the packed producer bytes",
+      );
+    }
+
     assert.equal(
       fs.realpathSync
         .native(sdk)

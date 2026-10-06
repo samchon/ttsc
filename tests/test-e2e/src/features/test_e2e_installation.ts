@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import nodeChildProcessForTrace from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { resolveGraphBinary } from "../../../../packages/graph/src/resolveGraphBinary";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { GoBoundary } from "../internal/GoBoundary";
 
@@ -13,6 +15,11 @@ const cp = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 /**
  * Verifies installed SDK filesystem identities and actual process lifetimes.
+ *
+ * The host-platform override binds nested optional dependencies to the root
+ * packed candidate. Default compiler/server/Go/Graph locators must match its
+ * physical identity and independent pack producer bytes; the scenes still own
+ * actual CLI execution.
  *
  * This entry packs and installs its own SDK consumer. Testing a source copy
  * would miss a stale or missing owner in the package that users actually
@@ -24,8 +31,8 @@ const cp = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
  * 2. Execute each filesystem, process and compiler case with its installed owner.
  * 3. Collect independent failures and release the consumer through its OS owner.
  *
- * @evidence contracts/testing.md#behavioral-verification Resolves the packed SDK from the owned CLI consumer and calls the three volume/path-identity cases, held-generation retirement case and real child/pipe lifetime entry with its actual exported owners. The ordinary-volume compiler case-only resolution probe, Windows ttsx junction and ttsc short-cwd cases and two source-owned VS Code command-shim cases retain their original assertions; each failure leaves independent cases observable.
- * @evidence contracts/testing.md#independent-expectations This entry resolves its SDK from its authored tarball dependencies and compares the consumer's physical parent and basename with independent temporary-root facts, not a marker. Filesystem scenes own their native alias/case premises; observed authority is not an independent OS-name classifier oracle. Process scenes use authored exit statuses and inherited pipes rather than fabricated close events.
+ * @evidence contracts/testing.md#behavioral-verification Runs the installed default compiler, server and Go locators plus project-anchored Graph lookup; each must match the direct candidate physical file and independent pack producer SHA rather than only its version. Resolves the packed SDK from the owned CLI consumer and calls the three volume/path-identity cases, held-generation retirement case and real child/pipe lifetime entry with its actual exported owners. The ordinary-volume compiler case-only resolution probe, Windows ttsx junction and ttsc short-cwd cases and two source-owned VS Code command-shim cases retain their original assertions; each failure leaves independent cases observable.
+ * @evidence contracts/testing.md#independent-expectations The authored host-platform override applies the same file tarball to nested optional edges; producer binary bytes prescribe executable SHA while root candidate native dev/ino and realpath prescribe identity independently of default locator outputs. This entry resolves its SDK from its authored tarball dependencies and compares the consumer's physical parent and basename with independent temporary-root facts, not a marker. Filesystem scenes own their native alias/case premises; observed authority is not an independent OS-name classifier oracle. Process scenes use authored exit statuses and inherited pipes rather than fabricated close events.
  * @evidence contracts/testing.md#distinguishing-cases Physical aliases, ordinary empty/missing-directory authority, Windows sensitive-directory overrides and open-descriptor rename refusal retain their distinct named cases. Installed process closure additionally distinguishes EOF zero/two, forced termination and short/long inherited pipe holds. Portable injected authority remains in source units and Windows Go kernel cases run in their own same-install batch.
  * @evidence contracts/testing.md#execution-ownership This entry performs its own two packs and install, resolves SDK operations and calls the named filesystem/process/compiler scenes. The Graph line-peer scene explicitly imports authored Graph source, and VS Code command scenes own their source-side shim transport; those are not installed SDK owners. Per-case failures and final cleanup failures remain named and observable.
  * @evidence contracts/e2e.md#necessary-boundary The installed SDK identity, retirement, process-closure and compiler-resolution owners must agree with real filesystem, child and pipe behavior. Windows junction/short-cwd runtime and source-owned VS Code shim transport additionally cross their actual native boundaries; direct source units cannot prove these installed connections.
@@ -61,6 +68,9 @@ export async function test_e2e_installation(): Promise<void> {
           [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
           typescript: "7.0.2",
         },
+        pnpm: {
+          overrides: { [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz` },
+        },
       }),
     );
     pnpm(["install", "--ignore-scripts", "--no-frozen-lockfile"], consumer);
@@ -75,6 +85,67 @@ export async function test_e2e_installation(): Promise<void> {
     assert(path.basename(physicalConsumer).startsWith("ttsc-cli-smoke-"));
     const requireInstalled = createRequire(path.join(consumer, "package.json"));
     const sdk = path.dirname(requireInstalled.resolve("ttsc/package.json"));
+    // Root and nested optional edges must select the same packed candidate.
+    // Version equality alone cannot establish the consumed executable bytes.
+    const candidatePlatform = path.dirname(
+      requireInstalled.resolve(`@ttsc/${target}/package.json`),
+    );
+    const fromInstalledSdk = createRequire(path.join(sdk, "package.json"));
+    const executableSuffix = process.platform === "win32" ? ".exe" : "";
+    const defaultNativePaths = [
+      [
+        "ttsc",
+        fromInstalledSdk("ttsc/binary").resolveBinary({ env: {} }),
+        `bin/ttsc${executableSuffix}`,
+      ],
+      [
+        "ttscserver",
+        fromInstalledSdk(
+          path.join(sdk, "lib/launcher/internal/resolveTtscserverBinary.js"),
+        ).resolveTtscserverBinary({ env: {} }),
+        `bin/ttscserver${executableSuffix}`,
+      ],
+      [
+        "go",
+        fromInstalledSdk(
+          path.join(sdk, "lib/plugin/internal/source/resolveGoCompiler.js"),
+        ).resolveGoCompiler({}).binary,
+        `bin/go/bin/go${executableSuffix}`,
+      ],
+      [
+        "ttscgraph",
+        resolveGraphBinary({}, consumer),
+        `bin/ttscgraph${executableSuffix}`,
+      ],
+    ] as const;
+    for (const [name, selected, relativeBinary] of defaultNativePaths) {
+      assert.ok(
+        typeof selected === "string",
+        name + " must select the installed candidate",
+      );
+      const expected = path.join(candidatePlatform, relativeBinary);
+      const candidateIdentity = fs.statSync(expected, { bigint: true });
+      const selectedIdentity = fs.statSync(selected, { bigint: true });
+      assert.equal(
+        fs.realpathSync.native(selected),
+        fs.realpathSync.native(expected),
+        name + " must resolve the candidate physical file",
+      );
+      assert.equal(selectedIdentity.dev, candidateIdentity.dev);
+      assert.equal(selectedIdentity.ino, candidateIdentity.ino);
+      const producerBytes = fs.readFileSync(
+        path.join(repository, "packages", `ttsc-${target}`, relativeBinary),
+      );
+      assert.equal(
+        crypto
+          .createHash("sha256")
+          .update(fs.readFileSync(selected))
+          .digest("hex"),
+        crypto.createHash("sha256").update(producerBytes).digest("hex"),
+        name + " must consume the packed producer bytes",
+      );
+    }
+
     const cases = [
       [
         "watch",
