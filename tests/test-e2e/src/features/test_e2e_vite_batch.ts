@@ -5,8 +5,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { inspect } from "node:util";
 import type { RollupOutput, RollupWatcher } from "rollup";
+import { type ITtscProjectPluginConfig, TtscCompiler } from "ttsc";
 import { build } from "vite";
-import { TtscCompiler, type ITtscProjectPluginConfig } from "ttsc";
 
 import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.mjs";
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
@@ -113,7 +113,9 @@ export async function test_e2e_vite_batch(): Promise<void> {
       const plugins: ITtscProjectPluginConfig[] = JSON.parse(
         fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8"),
       ).compilerOptions.plugins.map((entry: ITtscProjectPluginConfig) =>
-        entry.name === "native-order-prefix" ? { ...entry, prefix: "d:" } : entry,
+        entry.name === "native-order-prefix"
+          ? { ...entry, prefix: "d:" }
+          : entry,
       );
       // The public preparation pays actual native build cost before the watch
       // deadline; it creates no Program and does not certify later reuse.
