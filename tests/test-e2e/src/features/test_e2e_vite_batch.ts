@@ -66,14 +66,6 @@ export async function test_e2e_vite_batch(): Promise<void> {
   ).catch((error: unknown) => {
     combinedFailures.push(error);
   });
-  const nativeInputWatch =
-    test_vite_compiler_watch_tracks_subscription_and_alias_boundaries({
-      root: path.join(workspace.root, "tools/native-vite-watch"),
-      externalRoot: path.join(workspace.root, "tools/native-vite-external"),
-      retain: BatchWorkspace.retain,
-    }).catch((error: unknown) => {
-      combinedFailures.push(error);
-    });
   try {
     const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
     const pathsReceiptOffset =
@@ -208,11 +200,11 @@ export async function test_e2e_vite_batch(): Promise<void> {
             );
           const generation = generations
             .slice(offset)
-            .find((candidate) => candidate.watchFiles.includes(expectedRecord));
+            .find((candidate) => candidate.watchFiles.some((file) => path.resolve(file) === path.resolve(expectedRecord)));
           if (generation) return generation;
           assert.ok(
             Date.now() < deadline,
-            "the retained host did not deliver record state " + expectedRecord,
+            "the retained host did not deliver record state " + expectedRecord + " actual generations: " + JSON.stringify(generations.map(({ watchFiles }) => watchFiles)),
           );
           await new Promise((resolve) => setTimeout(resolve, 25));
         }
@@ -302,12 +294,12 @@ export async function test_e2e_vite_batch(): Promise<void> {
         );
       assert.ok(chunks[0]!.map, "the actual host must return a source map");
       assert.equal(
-        initial.watchFiles.filter((file) => file === primary).length,
+        initial.watchFiles.filter((file) => path.resolve(file) === path.resolve(primary)).length,
         1,
         "one project record reaches the actual Rollup host",
       );
       assert.equal(
-        initial.watchFiles.includes(declaration),
+        initial.watchFiles.some((file) => path.resolve(file) === path.resolve(declaration)),
         false,
         "raw compiler declarations must remain behind the record channel",
       );
@@ -404,6 +396,11 @@ export async function test_e2e_vite_batch(): Promise<void> {
           phase("close-captures-join-started", { captures: captures.size });
           await Promise.all(captures);
           phase("close-captures-join-returned");
+        } catch (error) {
+          BatchWorkspace.retain(
+            "shared Vite watcher or output capture closure is unobserved",
+          );
+          throw error;
         } finally {
           if (closingTimer !== undefined) clearTimeout(closingTimer);
         }
@@ -439,9 +436,20 @@ export async function test_e2e_vite_batch(): Promise<void> {
     phase("broker-join-started");
     await broker;
     phase("broker-join-returned");
-    phase("native-input-watch-join-started");
-    await nativeInputWatch;
+  }
+  await BatchWorkspace.open();
+  // Both watchers observe this workspace's project membership. Their authored
+  // mutations must occupy separate epochs even though they own distinct files.
+  try {
+    phase("native-input-watch-started");
+    await test_vite_compiler_watch_tracks_subscription_and_alias_boundaries({
+      root: path.join(workspace.root, "tools/native-vite-watch"),
+      externalRoot: path.join(workspace.root, "tools/native-vite-external"),
+      retain: BatchWorkspace.retain,
+    });
     phase("native-input-watch-join-returned");
+  } catch (error) {
+    combinedFailures.push(error);
   }
   await BatchWorkspace.open();
   try {
