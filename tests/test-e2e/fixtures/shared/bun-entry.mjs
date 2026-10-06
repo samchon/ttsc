@@ -42,3 +42,24 @@ ticks.push(tickCount());
 }
 console.info("TTSC_BUN_EPOCHS:" + JSON.stringify(epochs));
 console.info("TTSC_BUN_TICKS:" + JSON.stringify(ticks));
+// The original lifecycle contrast owns one typed delivery per build. The
+// richer graph above may require fresh native delivery when Bun cannot supply
+// reusable observer proof, so its receipt population is a separate boundary.
+const singleRoot = path.resolve("tools/bun-native-sessions");
+const singleLog = path.join(singleRoot, "program-runs.bin");
+const singlePlugin = ttsc({ project: path.join(singleRoot, "tsconfig.json") });
+const singleTicks = [fs.existsSync(singleLog) ? fs.statSync(singleLog).size : 0];
+assert.equal(singleTicks[0], 0, "the original single-entry lifetime starts cold");
+for (let pass = 0; pass < 2; pass++) {
+  const build = await Bun.build({
+    entrypoints: [path.join(singleRoot, "src/main.ts")],
+    plugins: [singlePlugin],
+    target: "bun",
+  });
+  assert.equal(build.success, true, build.logs.join("\n"));
+  assert.equal(build.outputs.length, 1);
+  assert.match(await build.outputs[0].text(), /"PLUGIN"/);
+  singleTicks.push(fs.statSync(singleLog).size);
+  assert.equal(singleTicks[pass + 1], pass + 1, "each completed single-entry build releases its native generation");
+}
+console.info("TTSC_BUN_SINGLE_ENTRY_TICKS:" + JSON.stringify(singleTicks));

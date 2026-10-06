@@ -770,6 +770,11 @@ export namespace BatchWorkspace {
         ),
       );
       const fixtureSource = path.join(producerModule, "compile-probe");
+      const bunSingleConfig = path.join(root, "tools/bun-native-sessions/tsconfig.json");
+      const bunSingle = JSON.parse(fs.readFileSync(bunSingleConfig, "utf8"));
+      bunSingle.compilerOptions.plugins[0].fixtureSource = fixtureSource;
+      bunSingle.compilerOptions.plugins[0].runLog = path.join(root, "tools/bun-native-sessions/program-runs.bin");
+      fs.writeFileSync(bunSingleConfig, JSON.stringify(bunSingle));
       config.compilerOptions.plugins.push({
         name: "shared-real-program-probe",
         transform: "./descriptors/default.cjs",
