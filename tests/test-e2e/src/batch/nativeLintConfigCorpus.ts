@@ -52,7 +52,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary Executable typed/CJS config evaluation, demo source discovery, serialized options, native rule diagnostic transport and CLI status must agree. Wrapper context must select its own config or actual cwd fallback; Go config/decoder units alone cannot establish that assembly.
  * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured. Existing CLI count stays two. Relative to the old typed evaluation plus the donor's two evaluations, the candidate uses two typed evaluations; the warning command now pays a real typed evaluator and its required native preparation. Format defaults remain off in checks through expandFormatBlock, as independently owned by TestFormatBlockDefaultSeverityOffKeepsFormatRulesOutOfCheck. Internal Program/process totals and independent execution reduction remain unverified.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates. The helper mutation changes exactly one literal after the first CLI has closed. The typed entry bytes stay fixed, while the final owned restoration restores the helper before the pre-existing immutable-input comparison; unresolved child ownership still prevents restoration.
- * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now verifies its pure CJS export on the first typed evaluator that consumes the shared extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. TestConfigDependencyGraphNeverPublishesTheFilesystemRoot now shares this warning evaluator: literal error/warning/warning module results and exact missing entry/watch versus owned directory/watch are checked on the same completed loader result, with no filesystem-root dependency and all watch directories physically within this config root. Authored transfer acceptance remains subject to execution. The async returned-default factory donor's real transport now accompanies these same two CLIs: logging dynamic import returns the namespace-spread helper with local ignores, then only that helper's debugger severity changes before the warning CLI evaluates the unchanged typed entry again. Both raw values retain semi:false and exact file/watch provenance. TestConfigStoreResolvesOptionsWithEntryScope and TestFormatBlockPropagatesPrettierOptionsToRule own pure error/off resolution and prefer-never decoding; the accepted loader provenance feeds appendConfigPaths, without certifying a public project-inputs reply. The tagged donor remains selected until this authored carrier receives actual validation. TestConfigCachePortableDependencyPolicies owns native memo/digest/normalization policies. The remaining tagged ConfigCache real transport now uses the unchanged pure-format output of the first typed loader and the warning command's same-key disk-hit with native counter1 and descriptor evaluations separately paired to their actual close receipts, exact raw/native directory digest equality and native filename witnesses. Its A-B-A hook executes only in the existing warning extends graph; all three mandatory cache attempts must return transient off while the restored dependency has unstable empty-digest proof and the cache refuses publication. The original direct A-B-A evaluation1 becomes actual native cached attempts3 plus descriptor unstable-proof attempts3; CLI2, shared preparation and selected entries remain unchanged. No donor is removed by authoring this carrier.
+ * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now verifies its pure CJS export on the first typed evaluator that consumes the shared extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. TestConfigDependencyGraphNeverPublishesTheFilesystemRoot now shares this warning evaluator: literal error/warning/warning module results and exact missing entry/watch versus owned directory/watch are checked on the same completed loader result, with no filesystem-root dependency and all watch directories physically within this config root. Authored transfer acceptance remains subject to execution. The async returned-default factory donor's real transport now accompanies these same two CLIs: logging dynamic import returns the namespace-spread helper with local ignores, then only that helper's debugger severity changes before the warning CLI evaluates the unchanged typed entry again. Both raw values retain semi:false and exact file/watch provenance. TestConfigStoreResolvesOptionsWithEntryScope and TestFormatBlockPropagatesPrettierOptionsToRule own pure error/off resolution and prefer-never decoding; the accepted loader provenance feeds appendConfigPaths, without certifying a public project-inputs reply. The tagged donor remains selected until this authored carrier receives actual validation. TestConfigCachePortableDependencyPolicies owns native memo/digest/normalization policies. The remaining tagged ConfigCache real transport now uses the unchanged pure-format output of the first typed loader and the warning command's same-key disk-hit with native counter1 and descriptor evaluations separately paired to their actual close receipts, exact raw/native directory digest equality and native filename witnesses. Its A-B-A hook executes only in the existing warning extends graph; all three mandatory cache attempts must return transient off while the restored dependency has unstable empty-digest proof and the cache refuses publication. The original direct A-B-A evaluation1 becomes actual native cached attempts3 plus separately owned descriptor root and typed-base evaluations; CLI2, shared preparation and selected entries remain unchanged. No donor is removed by authoring this carrier.
  */
 export function nativeLintConfigCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -234,7 +234,7 @@ export function nativeLintConfigCorpus(
         result.traces,
         path.join(root, "format-only.cjs"),
         nativeFormatPids,
-        1,
+        typed,
       );
       assert.equal(fs.existsSync(path.join(root, "챕")), true);
       if (rawNameAdmitted)
@@ -417,113 +417,142 @@ export function nativeLintConfigCorpus(
       const result = run();
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.stdout, "", result.stderr);
-      assertExecutableConfigRules(
-        result.traces,
-        traceRoot,
-        path.join(root, "warning.cjs"),
-        {
-          "no-console": "warning",
-          "no-debugger": "error",
-          eqeqeq: "warning",
-        },
-      );
-      const refreshed = assertExecutableConfigRules(
-        result.traces,
-        traceRoot,
-        typed,
-        { "no-debugger": "warning", "typescript/no-explicit-any": "error" },
-      );
-      assert.deepEqual(refreshed.format, { semi: false });
-      assert.deepEqual(refreshed.ignores, [
-        ".next/**/*.ts",
-        "next-env.d.ts",
-        "src/functional/**/*.ts",
-      ]);
-      assertAsyncConfigWatchPaths(result.traces, typed, helper);
-      assert.deepEqual(fs.readFileSync(typed), originalTyped);
-      assertRootBoundaryDependencies(result.traces, root);
+      const verificationErrors: unknown[] = [];
+      const verify = (name: string, body: () => void): void => {
+        try {
+          body();
+        } catch (cause) {
+          verificationErrors.push(new Error(name, { cause }));
+        }
+      };
       const warningCounterStart = counterCursor;
-      assertConfigEvaluationCounter(
-        counter,
-        warningCounterStart,
-        result.traces,
-        path.join(root, "format-only.cjs"),
-        [],
-        3,
-      );
-      const hits = result.traces.writerObservations
-        .map((row) => row.observation)
-        .filter(
-          (row) =>
-            row.event === "config-cache-outcome" &&
-            row.data?.location === path.join(root, "format-only.cjs"),
+      verify("warning raw rules", () => {
+        assertExecutableConfigRules(
+          result.traces,
+          traceRoot,
+          path.join(root, "warning.cjs"),
+          {
+            "no-console": "warning",
+            "no-debugger": "error",
+            eqeqeq: "warning",
+          },
         );
-      assert.equal(hits.length, 1);
-      const hit = hits[0];
-      assert.ok(
-        hit !== undefined &&
-          parityKey !== undefined &&
-          parityDigest !== undefined,
-      );
-      assert.equal(hit.data?.outcome, "disk-hit");
-      assert.equal(hit.data?.key, parityKey);
-      assert.equal(hit.data?.dependenciesTracked, true);
-      assert.equal(
-        assertConfigDirectoryProof(hit.data?.dependencies, root),
-        parityDigest,
-      );
-      const nativeAbaPids: number[] = [];
-      assertExecutableConfigRules(
-        result.traces,
-        traceRoot,
-        path.join(root, "cache-aba/config.cjs"),
-        { "no-debugger": "off" },
-        3,
-        (dependencies, pid) => {
-          nativeAbaPids.push(pid);
-          assertUnstableConfigDependency(
-            dependencies,
-            path.join(root, "cache-aba/selection.cjs"),
+      });
+      verify("async helper refresh", () => {
+        const refreshed = assertExecutableConfigRules(
+          result.traces,
+          traceRoot,
+          typed,
+          { "no-debugger": "warning", "typescript/no-explicit-any": "error" },
+        );
+        assert.deepEqual(refreshed.format, { semi: false });
+        assert.deepEqual(refreshed.ignores, [
+          ".next/**/*.ts",
+          "next-env.d.ts",
+          "src/functional/**/*.ts",
+        ]);
+        assertAsyncConfigWatchPaths(result.traces, typed, helper);
+        assert.deepEqual(fs.readFileSync(typed), originalTyped);
+      });
+      verify("root boundary dependencies", () => {
+        assertRootBoundaryDependencies(result.traces, root);
+      });
+      verify("format counter ownership", () => {
+        assertConfigEvaluationCounter(
+          counter,
+          warningCounterStart,
+          result.traces,
+          path.join(root, "format-only.cjs"),
+          [],
+          typed,
+        );
+      });
+      verify("format disk admission", () => {
+        const hits = result.traces.writerObservations
+          .map((row) => row.observation)
+          .filter(
+            (row) =>
+              row.event === "config-cache-outcome" &&
+              row.data?.location === path.join(root, "format-only.cjs"),
           );
-        },
-      );
-      counterCursor = assertConfigEvaluationCounter(
-        counter,
-        warningCounterStart,
-        result.traces,
-        path.join(root, "cache-aba/config.cjs"),
-        nativeAbaPids,
-        3,
-      );
-      const abaLocation = path.join(root, "cache-aba/config.cjs");
-      const abaDependency = path.join(root, "cache-aba/selection.cjs");
-      const refusals = result.traces.writerObservations
-        .map((row) => row.observation)
-        .filter(
-          (row) =>
-            row.event === "config-cache-outcome" &&
-            row.data?.location === abaLocation,
+        assert.equal(hits.length, 1);
+        const hit = hits[0];
+        assert.ok(
+          hit !== undefined &&
+            parityKey !== undefined &&
+            parityDigest !== undefined,
         );
-      assert.equal(refusals.length, 3);
-      for (const [index, refusal] of refusals.entries()) {
-        assert.equal(refusal.data?.outcome, "not-current");
-        assert.equal(refusal.data?.attempt, index + 1);
-        assert.equal(refusal.data?.returnedUncached, index === 2);
-        assertUnstableConfigDependency(
-          refusal.data?.dependencies,
-          abaDependency,
+        assert.equal(hit.data?.outcome, "disk-hit");
+        assert.equal(hit.data?.key, parityKey);
+        assert.equal(hit.data?.dependenciesTracked, true);
+        assert.equal(
+          assertConfigDirectoryProof(hit.data?.dependencies, root),
+          parityDigest,
         );
-      }
-      const originalAba = immutableInputs.find(
-        ([file]) => file === abaDependency,
-      );
-      assert.ok(originalAba !== undefined);
-      assert.deepEqual(fs.readFileSync(abaDependency), originalAba[1]);
-      assert.deepEqual(
-        result.diagnostics.map(({ rule, severity }) => [rule, severity]),
-        [["no-console", "warn"]],
-        result.stderr,
-      );
+      });
+      verify("ABA raw transport", () => {
+        const nativeAbaPids: number[] = [];
+        assertExecutableConfigRules(
+          result.traces,
+          traceRoot,
+          path.join(root, "cache-aba/config.cjs"),
+          { "no-debugger": "off" },
+          3,
+          (dependencies, pid) => {
+            nativeAbaPids.push(pid);
+            assertUnstableConfigDependency(
+              dependencies,
+              path.join(root, "cache-aba/selection.cjs"),
+            );
+          },
+        );
+        counterCursor = assertConfigEvaluationCounter(
+          counter,
+          warningCounterStart,
+          result.traces,
+          path.join(root, "cache-aba/config.cjs"),
+          nativeAbaPids,
+          path.join(root, "warning.cjs"),
+        );
+      });
+      verify("ABA admission refusal", () => {
+        const abaLocation = path.join(root, "cache-aba/config.cjs");
+        const abaDependency = path.join(root, "cache-aba/selection.cjs");
+        const refusals = result.traces.writerObservations
+          .map((row) => row.observation)
+          .filter(
+            (row) =>
+              row.event === "config-cache-outcome" &&
+              row.data?.location === abaLocation,
+          );
+        assert.equal(refusals.length, 3);
+        for (const [index, refusal] of refusals.entries()) {
+          assert.equal(refusal.data?.outcome, "not-current");
+          assert.equal(refusal.data?.attempt, index + 1);
+          assert.equal(refusal.data?.returnedUncached, index === 2);
+          assertUnstableConfigDependency(
+            refusal.data?.dependencies,
+            abaDependency,
+          );
+        }
+      });
+      verify("ABA restored bytes", () => {
+        const abaDependency = path.join(root, "cache-aba/selection.cjs");
+        const originalAba = immutableInputs.find(
+          ([file]) => file === abaDependency,
+        );
+        assert.ok(originalAba !== undefined);
+        assert.deepEqual(fs.readFileSync(abaDependency), originalAba[1]);
+      });
+      verify("warning diagnostic tuple", () => {
+        assert.deepEqual(
+          result.diagnostics.map(({ rule, severity }) => [rule, severity]),
+          [["no-console", "warn"]],
+          result.stderr,
+        );
+      });
+      if (verificationErrors.length !== 0)
+        throw new AggregateError(verificationErrors, "warning config observations");
     });
     if (!unresolved) {
       fs.writeFileSync(config, originalConfig);
@@ -939,6 +968,9 @@ function assertUnstableConfigDependency(
  * loader PIDs come from the same raw-result invocation; descriptor evaluations
  * instead join consumed-source observations to their own actual close receipt.
  * The corpus enables its existing trace sink even without an ambient opt-in.
+ * The containing entry identifies one actual descriptor runtime. Its child
+ * close joins the launcher to the extractor's successful attempt/result; the
+ * bounded aggregate retry limit is not a prescribed module execution count.
  * No descriptor evaluation is counted as a native inner-cache lookup or hidden.
  */
 function assertConfigEvaluationCounter(
@@ -947,7 +979,7 @@ function assertConfigEvaluationCounter(
   traces: TraceMeasurements,
   location: string,
   nativePids: readonly number[],
-  expectedDescriptors: number,
+  descriptorEntry: string,
 ): number {
   const records: unknown[] = fs
     .readFileSync(counter, "utf8")
@@ -961,7 +993,57 @@ function assertConfigEvaluationCounter(
     return record.location === location;
   });
   const native: number[] = [];
-  let descriptors = 0;
+  // A PID may name a later incarnation. Bind both child and launcher to
+  // their invocation-local start/close intervals before matching source records.
+  const ownsDescriptorSource = (
+    source: (typeof rows)[number],
+    close: (typeof rows)[number],
+  ): boolean =>
+    close.event === "process-close" &&
+    close.pid === source.writerPid &&
+    close.data?.status === 0 &&
+    close.data?.signal === null &&
+    Date.parse(close.at) >= Date.parse(source.at) &&
+    rows.some(
+      (started) =>
+        started.event === "process-start" &&
+        started.pid === source.writerPid &&
+        started.writerPid === close.writerPid &&
+        started.instance === close.instance &&
+        started.invocation === close.invocation &&
+        Date.parse(started.at) <= Date.parse(source.at) &&
+        rows.some(
+          (extractor) =>
+            extractor.event === "process-result" &&
+            extractor.pid === close.writerPid &&
+            extractor.data?.owner ===
+              "lint-typescript-config-plugin-extractor" &&
+            extractor.data?.status === 0 &&
+            extractor.data?.signal === null &&
+            extractor.data?.exitObserved === true &&
+            Date.parse(extractor.at) >= Date.parse(close.at) &&
+            rows.some(
+              (attempt) =>
+                attempt.event === "process-attempt" &&
+                attempt.writerPid === extractor.writerPid &&
+                attempt.instance === extractor.instance &&
+                attempt.invocation === extractor.invocation &&
+                attempt.data?.owner ===
+                  "lint-typescript-config-plugin-extractor" &&
+                Date.parse(attempt.at) <= Date.parse(started.at),
+            ),
+        ),
+    );
+  const descriptorSources = rows.filter(
+    (row) =>
+      row.event === "runtime-source-preparation" &&
+      row.data?.filename === descriptorEntry &&
+      rows.some((close) => ownsDescriptorSource(row, close)),
+  );
+  assert.equal(descriptorSources.length, 1, "one containing descriptor runtime");
+  const descriptorSource = descriptorSources[0];
+  assert.ok(descriptorSource !== undefined);
+  const descriptorPids: number[] = [];
   for (const record of matching) {
     assert.ok(record !== null && typeof record === "object");
     assert.ok("pid" in record && typeof record.pid === "number");
@@ -993,6 +1075,7 @@ function assertConfigEvaluationCounter(
       (row) =>
         row.event === "runtime-source-preparation" &&
         row.writerPid === pid &&
+        row.instance === descriptorSource.instance &&
         row.data?.filename === location &&
         Date.parse(row.at) <= Date.parse(at),
     );
@@ -1003,25 +1086,58 @@ function assertConfigEvaluationCounter(
     );
     const closes = rows.filter(
       (row) =>
-        row.event === "process-close" &&
+        ownsDescriptorSource(descriptorSource, row) &&
         row.pid === pid &&
-        Date.parse(row.at) >= Date.parse(at) &&
-        row.data?.status === 0 &&
-        row.data?.signal === null,
+        Date.parse(row.at) >= Date.parse(at),
     );
     assert.equal(closes.length, 1, "descriptor actual close for " + location);
-    descriptors++;
+    const close = closes[0];
+    assert.ok(close !== undefined);
+    assert.equal(pid, descriptorSource.writerPid);
+    assert.ok(Date.parse(descriptorSource.at) <= Date.parse(at));
+    const extractors = rows.filter(
+      (row) =>
+        row.event === "process-result" &&
+        row.pid === close.writerPid &&
+        row.data?.owner === "lint-typescript-config-plugin-extractor" &&
+        row.data?.status === 0 &&
+        row.data?.signal === null &&
+        row.data?.exitObserved === true &&
+        Date.parse(row.at) >= Date.parse(close.at) &&
+        rows.some(
+          (attempt) =>
+            attempt.event === "process-attempt" &&
+            attempt.writerPid === row.writerPid &&
+            attempt.instance === row.instance &&
+            attempt.invocation === row.invocation &&
+            Date.parse(attempt.at) <= Date.parse(descriptorSource.at),
+        ),
+    );
+    assert.equal(extractors.length, 1, "descriptor launcher/extractor success");
+    const extractor = extractors[0];
+    assert.ok(extractor !== undefined);
+    const attempts = rows.filter(
+      (row) =>
+        row.event === "process-attempt" &&
+        row.writerPid === extractor.writerPid &&
+        row.instance === extractor.instance &&
+        row.invocation === extractor.invocation &&
+        row.data?.owner === "lint-typescript-config-plugin-extractor" &&
+        Date.parse(row.at) <= Date.parse(descriptorSource.at),
+    );
+    assert.equal(attempts.length, 1, "descriptor extractor actual attempt");
+    descriptorPids.push(pid);
   }
   assert.deepEqual(
     native.sort((a, b) => a - b),
     [...nativePids].sort((a, b) => a - b),
     "one module evaluation per actual native loader, none for disk reuse",
   );
-  assert.equal(
-    descriptors,
-    expectedDescriptors,
-    "separate descriptor evaluations",
+  assert.deepEqual(
+    descriptorPids,
+    [descriptorSource.writerPid],
+    "one module execution in its separate containing descriptor runtime",
   );
-  assert.equal(matching.length, nativePids.length + expectedDescriptors);
+  assert.equal(matching.length, nativePids.length + descriptorPids.length);
   return records.length;
 }
