@@ -777,7 +777,12 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
   ];
   const nativeView = transformFilesystem(createTtscTransformCache());
   assert.ok(nativeView.readdirRaw !== undefined);
-  assert.deepEqual(nativeView.readdirRaw(path.join(nativeDirectory, "z")), []);
+  const keptEntries = nativeView.readdirRaw(path.join(nativeDirectory, "z"));
+  assert.equal(keptEntries.length, 1);
+  assert.ok(keptEntries[0]!.name.equals(Buffer.from(".keep")));
+  assert.equal(keptEntries[0]!.isFile(), true);
+  assert.equal(keptEntries[0]!.isDirectory(), false);
+  assert.equal(keptEntries[0]!.isSymbolicLink(), false);
   const rawEntries = nativeView.readdirRaw(nativeDirectory);
   assert.deepEqual(rawEntries.map((entry) => entry.name).sort(Buffer.compare), [
     Buffer.from("a"),
