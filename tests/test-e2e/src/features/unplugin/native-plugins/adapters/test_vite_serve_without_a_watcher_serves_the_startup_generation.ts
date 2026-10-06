@@ -74,7 +74,9 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
     assert.ok(first, "Vite serve must transform the entry module");
     fs.writeFileSync(
       TestUnpluginProject.mainFile(root),
-      "export const broken = true;\n",
+      preparedRoot === undefined
+        ? "export const broken = true;\n"
+        : 'export const broken: number = "authored type error";\n',
       "utf8",
     );
     const lazyResult = await server.transformRequest("/src/lazy.ts");
