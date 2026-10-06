@@ -13,7 +13,7 @@ jobs:
       TTSC_GO_BINARY: go
       TTSC_CACHE_DIR: ${{ github.workspace }}/node_modules/.cache/ttsc
       GOCACHE: ${{ github.workspace }}/node_modules/.cache/ttsc/go-build
-      GOMODCACHE: ${{ runner.temp }}/nestia-go-modules
+      GOMODCACHE: ${{ github.workspace }}/node_modules/.cache/nestia-go-modules
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
