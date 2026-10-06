@@ -54,7 +54,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Versioned native predicates preserve independent byte/kind/scope semantics, reject mutation and untrusted identity, and gate cached generation admission even without legacy hashes. The actual directory replay additionally keeps matching/refused verdicts and one directory query with tracing off/on, emits only the existing digest/physical comparison, and preserves refusal when the absolute sink is a regular file. An authored EACCES directory query remains refused with tracing off/on and carries its actual error fields without inventing a current digest. Directly calls normalization, mergeGraphInputObservations, graphInputObservationCompatible and legacyProjectionOfGraphInputObservation. Asserts all six repeated predicates agree or reject, complementary predicates merge, incompatible cross-fields reject and legacy encoding preserves exact supported outputs/failure kinds. Actual envelope indexing, compilerGraphInputProofFailures, captureExternalInputSnapshot and evidencedWatchInput preserve rich speculative predicates/public not-file evidence, reject legacy contradictions and avoid candidate content reads for existence-only observations.
  * @evidence contracts/testing.md#independent-expectations Literal BOM raw bytes, file\0/missing\0 prefixes and sorted directory a\0file\0\0z\0directory\0 records prescribe native predicate digests independently of replay. A distinct literal directory digest prescribes refusal; the receipt must carry the already-authored original digest, exact path and stage rather than a new read-derived oracle. Authored file/directory/missing facts, ordered entry lists, distinct literal hashes and absolute POSIX targets define equality/conflict expectations. Independent Node SHA-256 of the documented directory marker and native file bytes defines legacy digests. Literal graph/proof-conflict path/detail expectations and exact candidate-only read counters distinguish representations without generating expected classifications from the validator.
- * @evidence contracts/testing.md#distinguishing-cases Native file bytes versus entry kind, directory membership, absent/present optional files, false identityStable, malformed wire version, cross-scope agreement/conflict and repaired content are distinguished. All six duplicate fields contrast equal and different values; equal normalized read-field order contrasts changed directory-list order. Empty lists/failed reads remain compatible unknowns, while successful reads, listings and stat/existence contradictions reject. Projection separates null-negative, readable, directory, missing realpath, missing content and unsupported observations; inputs remain unchanged. Rich-only file-existence facts contrast readable rich facts with a contradictory legacy hash and unprojectable rich facts with a supplied legacy proof; present and absent native candidates retain distinct public evidence. Actual tracker registration throws ENOSPC and remains failed; explicitly invoked validator replay probes unchanged candidates without content reads, rejects appearance and recovers after removal. This does not certify the coordinator's automatic replay routing or native capture counts.
+ * @evidence contracts/testing.md#distinguishing-cases Default raw entries retain Buffer names and independently authored file/directory/link kinds, including conditionally admitted non-UTF8 bytes without following link targets. Native file bytes versus entry kind, directory membership, absent/present optional files, false identityStable, malformed wire version, cross-scope agreement/conflict and repaired content are distinguished. All six duplicate fields contrast equal and different values; equal normalized read-field order contrasts changed directory-list order. Empty lists/failed reads remain compatible unknowns, while successful reads, listings and stat/existence contradictions reject. Projection separates null-negative, readable, directory, missing realpath, missing content and unsupported observations; inputs remain unchanged. Rich-only file-existence facts contrast readable rich facts with a contradictory legacy hash and unprojectable rich facts with a supplied legacy proof; present and absent native candidates retain distinct public evidence. Actual tracker registration throws ENOSPC and remains failed; explicitly invoked validator replay probes unchanged candidates without content reads, rejects appearance and recovers after removal. This does not certify the coordinator's automatic replay routing or native capture counts.
  * @evidence contracts/testing.md#execution-ownership One source unit calls actual production operations in process on caller-owned normalized records and a native temporary file corpus. Native predicate replay also uses the actual cache-created filesystem table, contrasting default link/raw-name capabilities, invoked overrides and explicit unsupported reads. The existing result filesystem capability counts only candidate content reads and forwards native operations. A native directory alias uses Node symlink/junction creation; default and overridden readers replay the independently authored name/kind/target bytes, while deletion and explicitly unsupported capabilities refuse reuse. Authored envelope facts exercise index, external capture, compiler proof validation and watch evidence, not native compiler acquisition, retry-loop I/O formulas, observers, peers, sessions or process transport.
  */
 export async function test_graph_observation_merge_preserves_predicates_and_legacy_limits(): Promise<void> {
@@ -776,6 +776,56 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
     ],
   ];
   const nativeView = transformFilesystem(createTtscTransformCache());
+  assert.ok(nativeView.readdirRaw !== undefined);
+  assert.deepEqual(nativeView.readdirRaw(path.join(nativeDirectory, "z")), []);
+  const rawEntries = nativeView.readdirRaw(nativeDirectory);
+  assert.deepEqual(rawEntries.map((entry) => entry.name).sort(Buffer.compare), [
+    Buffer.from("a"),
+    Buffer.from("z"),
+  ]);
+  const rawFileEntry = rawEntries.find((entry) =>
+    entry.name.equals(Buffer.from("a")),
+  );
+  const rawDirectoryEntry = rawEntries.find((entry) =>
+    entry.name.equals(Buffer.from("z")),
+  );
+  assert.ok(rawFileEntry !== undefined && rawDirectoryEntry !== undefined);
+  assert.equal(rawFileEntry.isFile(), true);
+  assert.equal(rawFileEntry.isDirectory(), false);
+  assert.equal(rawDirectoryEntry.isDirectory(), true);
+  assert.equal(rawDirectoryEntry.isSymbolicLink(), false);
+  const byteName = Buffer.from([0xff, 0x78]);
+  const bytePath = Buffer.concat([
+    Buffer.from(nativeDirectory + path.sep),
+    byteName,
+  ]);
+  let byteFileOwned = false;
+  try {
+    try {
+      fs.writeFileSync(bytePath, "", { flag: "wx" });
+      byteFileOwned = true;
+    } catch (error) {
+      if (fs.existsSync(bytePath)) throw error;
+    }
+    if (
+      byteFileOwned &&
+      fs
+        .readdirSync(nativeDirectory, { encoding: "buffer" })
+        .some((name) => name.equals(byteName))
+    ) {
+      const byteEntry = nativeView
+        .readdirRaw(nativeDirectory)
+        .find((entry) => entry.name.equals(byteName));
+      assert.ok(
+        byteEntry !== undefined,
+        "native byte-name admission must survive the default raw adapter",
+      );
+      assert.equal(byteEntry.isFile(), true);
+      assert.equal(byteEntry.isSymbolicLink(), false);
+    }
+  } finally {
+    if (byteFileOwned) fs.unlinkSync(bytePath);
+  }
   const directoryWitness = authored[2]![1];
   const refusedDirectory = {
     ...directoryWitness,
@@ -969,6 +1019,16 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
     path.join(linkDirectory, "alias"),
     process.platform === "win32" ? "junction" : "dir",
   );
+  const linkEntries = nativeView.readdirRaw(linkDirectory);
+  assert.equal(linkEntries.length, 1);
+  assert.ok(linkEntries[0]!.name.equals(Buffer.from("alias")));
+  assert.equal(linkEntries[0]!.isSymbolicLink(), true);
+  assert.equal(
+    linkEntries[0]!.isDirectory(),
+    false,
+    "classification must not follow the directory link",
+  );
+  assert.equal(linkEntries[0]!.isFile(), false);
   const linkPredicate: Native = {
     version: 1,
     kind: "directory",

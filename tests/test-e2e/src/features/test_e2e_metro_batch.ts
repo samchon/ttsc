@@ -96,7 +96,7 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
  * @evidence contracts/testing.md#distinguishing-cases Two resident processes request different modules through different built adapters, then observe failure/replay/repair under the same options/session; real publication identities distinguish reuse from another compile. The original native compile-count assertion is limited to initial pool admission, before the explicit declaration/candidate/membership transitions. A new root member must replace the consumed directory generation and advance ApplyProgram; three later delete/recreate transitions inside the existing excluded outDir must retain that replacement publication and receipt.
- * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with root-membership invalidation followed by excluded output churn in the same existing two deliveries. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. The first churn delivery replaces its publication after a new root member, and the next retains the replacement despite divergent host text, and joined real stderr must contain one divergent-source warning per resident. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
+ * @evidence contracts/testing.md#execution-ownership One pool starts two resident workers, the existing Turbopack owner in development mode with its real default bridge, each observing normal/failure/replay/repair and changed-external/replay states with root-membership invalidation followed by excluded output churn in the same existing two deliveries. The existing external-config epoch also changes both delivered source files while its two requests carry their original stale bytes; actual native source and executable value must follow disk. The first churn delivery replaces its publication after a new root member, and the next retains the replacement despite divergent host text, and real stderr must contain one divergent-source warning per captured generation, including rejected adoption before retry, with no additional warning during reuse of the accepted generation. The first Metro response additionally forwards one excluded source unchanged; later commands do not repeat that control. This is seventeen planned adapter transforms within sixteen worker commands. No request creates another worker, host, project or configuration profile; initial native producer receipt and later publication identities are asserted separately.
  * @evidence contracts/e2e.md#necessary-boundary Built loaders, inherited session and real producer cross process boundaries. The existing Metro worker now exercises CJS withTtsc and requires its actual returned transformer, executes getCacheKey and retains a native-banner-shifted upstream AST identifier whose start/end must return to independently authored source coordinates. This is not a running Next or Metro server; key shape is not proof of a productive snapshot.
  * @evidence contracts/e2e.md#shared-execution One public prepare call in the initial Metro resident owns its required native installation before the graph-proof delivery deadline. This adds descriptor/admission observation without a Program, worker or transform; actual binary paths and elapsed time are reported, and later capture revalidates its selected keys instead of accepting readiness as proof. Upfront public prepare requests share the owned native source with two instance cache namespaces; plugin/Go cache admission and source/environment edits then exercise that same producer before adapter startup. These are actual build/key/native-transform phases of this experiment, not a single Program assertion or per-original fixture loop. The Metro Node caller advances one descriptor scope through nine failure inputs before its adapter admission, with real evaluator attempts and no extra worker. The pool borrows one prepared population. Metro explicitly selects its root project; Turbopack discovers the nested files-empty solution and selects that same root through its reference. Both requests must still share one initial native admission. No worker creates a project or a per-case producer. The existing six adapter roots and skipLibCheck=false policy are established before the first graph-proof request; imported dependencies and the later membership root remain selected, while runtime-only roots keep their separate runtime owner. This moves the existing config write without adding a request, producer, Program or warmup. Descriptor observation/search, separate project-root, replacement and moving-proof consumers share the pool's Go object storage only when their effective environment has neither a dedicated nor external cache; binary authorities and required preparations remain independent. Collection/default ownership, admission, tool-environment, ambient capability and native failure lanes retain their original cache inputs. Object sharing is delegated to Go's input validation and does not assert a cache hit or measured time reduction.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Environment copies and a fresh session isolate the pool. Both cache-root queries use the actual platform before native admission, so their directory creation cannot introduce an extra input epoch; the selected Program independently reports that same native comparison policy. Source/config bytes and both authored churn files are restored before close; the initially absent output recreation subtree is owned exclusively and removed. The capture-time producer configuration and its initially absent log are restored only after both workers join. Actual close is joined; missed deadlines reject as unresolved ownership and retain inputs. The independent observation allocation is retained on every propagated pool failure, including setup or cleanup failure, with its path reported. Its identity-checked retention and any failure remain separate from native result acceptance; a successful whole pool leaves trace reclamation to the tracked exit owner. The initial adapter arms its native write only after the independent graph-proof captures and serializes that current tick immediately before delivery; its owned observation directory is outside compiler input membership and is removed after joined workers close.
@@ -3873,6 +3873,7 @@ async function runResidentLoaderPool(): Promise<void> {
     );
     let finalRecord: string | undefined;
     let bodyFailure: unknown;
+    let joinedWarningCounts: number[] | undefined;
     try {
       await MetroResidentBoundary.observeGraphProof(
         workers[0]!,
@@ -4464,6 +4465,132 @@ async function runResidentLoaderPool(): Promise<void> {
                 .map((line) => JSON.parse(line)),
             ]),
         );
+      const traceCursor = (): Record<string, number> =>
+        Object.fromEntries(
+          Object.entries(failureTrace()).map(([name, rows]) => [
+            name,
+            rows.length,
+          ]),
+        );
+      // Stderr and reply use separate pipes, so compare the complete warning
+      // stream only after close. Phase-local proofs identify the warning owners.
+      // Each proof belongs to a newly captured object, even when adoption is
+      // rejected. Reporting owns that object before publication validation.
+      const assertDivergentPhase = (
+        cursor: Record<string, number>,
+        rootMembershipChanged: boolean,
+      ): void => {
+        const rows = Object.entries(failureTrace())
+          .flatMap(([name, events]) => events.slice(cursor[name] ?? 0))
+          .flatMap((value) => {
+            assert.ok(value !== null && typeof value === "object");
+            assert.ok("event" in value && typeof value.event === "string");
+            if (
+              ![
+                "bridge-generation-proof",
+                "bridge-attempt-disposition",
+                "bridge-publication",
+              ].includes(value.event)
+            )
+              return [];
+            assert.ok(
+              "data" in value &&
+                value.data !== null &&
+                typeof value.data === "object",
+            );
+            return [
+              {
+                event: value.event,
+                data: value.data as Record<string, unknown>,
+                invocation:
+                  "invocation" in value ? value.invocation : undefined,
+              },
+            ];
+          });
+        const expected = joinedWarningCounts ?? workers.map(() => 0);
+        for (const [index, file] of deliveredPaths.entries()) {
+          const proofs = rows.filter(
+            (row) =>
+              row.event === "bridge-generation-proof" &&
+              "currentFile" in row.data &&
+              row.data.currentFile === file,
+          );
+          assert.ok(
+            proofs.length > 0,
+            "divergent delivery observes an actual captured generation",
+          );
+          if (!rootMembershipChanged) assert.equal(proofs.length, 1);
+          for (const [proofIndex, proof] of proofs.entries()) {
+            assert.ok(
+              "scratchDirectory" in proof.data &&
+                typeof proof.data.scratchDirectory === "string",
+            );
+            assert.ok(
+              "claimKind" in proof.data &&
+                (proof.data.claimKind === "compile" ||
+                  proof.data.claimKind === "adopt"),
+            );
+            assert.ok("stableProjectSnapshot" in proof.data);
+            const accepted = proofIndex === proofs.length - 1;
+            assert.equal(proof.data.stableProjectSnapshot, accepted);
+            if (!accepted) {
+              assert.equal(rootMembershipChanged, true);
+              assert.equal(proof.data.claimKind, "adopt");
+              assert.ok(
+                "failures" in proof.data &&
+                  proof.data.failures !== null &&
+                  typeof proof.data.failures === "object",
+              );
+              assert.ok(
+                "entries" in proof.data.failures &&
+                  Array.isArray(proof.data.failures.entries),
+              );
+              assert.ok(
+                proof.data.failures.entries.some(
+                  (entry: unknown) =>
+                    entry !== null &&
+                    typeof entry === "object" &&
+                    "path" in entry &&
+                    entry.path === workspace.root &&
+                    "kind" in entry &&
+                    entry.kind === "native-directory-changed",
+                ),
+              );
+            }
+            const dispositions = rows.filter(
+              (row) =>
+                row.event === "bridge-attempt-disposition" &&
+                "currentFile" in row.data &&
+                row.data.currentFile === file &&
+                "scratchDirectory" in row.data &&
+                row.data.scratchDirectory === proof.data.scratchDirectory &&
+                "kind" in row.data &&
+                row.data.kind === (accepted ? "accepted" : "retry"),
+            );
+            assert.equal(
+              dispositions.length,
+              1,
+              "capture has its actual adoption/retry disposition",
+            );
+            if (accepted && proof.data.claimKind === "compile") {
+              assert.ok("invocation" in proof);
+              assert.equal(
+                rows.filter(
+                  (row) =>
+                    row.event === "bridge-publication" &&
+                    "invocation" in row &&
+                    row.invocation === proof.invocation &&
+                    "action" in row.data &&
+                    row.data.action === "publish-attempt",
+                ).length,
+                1,
+              );
+            }
+          }
+          expected[index] = expected[index]! + proofs.length;
+        }
+        joinedWarningCounts = expected;
+      };
       const failureTraceOffsets = Object.fromEntries(
         Object.entries(failureTrace()).map(([name, rows]) => [
           name,
@@ -4639,6 +4766,7 @@ async function runResidentLoaderPool(): Promise<void> {
       }
       const divergentSuffix =
         "\n// changed by the host before native delivery\n";
+      const externalCursor = traceCursor();
       const external = await Promise.all(
         workers.map((worker, index) =>
           worker.request("", originalDelivered[index]),
@@ -4664,6 +4792,7 @@ async function runResidentLoaderPool(): Promise<void> {
         "disk-drifted-marker",
         "native output must use disk bytes rather than stale delivered text",
       );
+      assertDivergentPhase(externalCursor, false);
       const changedExternal = publications();
       const beforeRootMembershipChange = fs.statSync(
         workspace.programRunLog,
@@ -4677,6 +4806,7 @@ async function runResidentLoaderPool(): Promise<void> {
         ignoredOutput,
         "console.log('hashed generated output');\n",
       );
+      const rootMembershipCursor = traceCursor();
       const externalReplay = await Promise.all(
         workers.map((worker) => worker.request(divergentSuffix)),
       );
@@ -4704,6 +4834,7 @@ async function runResidentLoaderPool(): Promise<void> {
         [],
         "a stable replacement generation must not invent volatility",
       );
+      assertDivergentPhase(rootMembershipCursor, true);
       const afterRootMembershipChange = publications();
       assert.notDeepEqual(
         afterRootMembershipChange,
@@ -4733,8 +4864,28 @@ async function runResidentLoaderPool(): Promise<void> {
           `export const revision = ${revision};\n`,
         );
       }
+      const repeatedCursor = traceCursor();
       const repeatedDivergence = await Promise.all(
         workers.map((worker) => worker.request(divergentSuffix)),
+      );
+      const repeatedCaptures = Object.entries(failureTrace())
+        .flatMap(([name, rows]) => rows.slice(repeatedCursor[name] ?? 0))
+        .filter(
+          (row) =>
+            row !== null &&
+            typeof row === "object" &&
+            "event" in row &&
+            row.event === "bridge-generation-proof" &&
+            "data" in row &&
+            row.data !== null &&
+            typeof row.data === "object" &&
+            "currentFile" in row.data &&
+            deliveredPaths.includes(String(row.data.currentFile)),
+        );
+      assert.equal(
+        repeatedCaptures.length,
+        0,
+        "excluded-output churn reuses the same captured objects without another warning owner",
       );
       for (const reply of repeatedDivergence)
         assert.equal(reply.error, undefined);
@@ -4815,13 +4966,14 @@ async function runResidentLoaderPool(): Promise<void> {
           failures.push(error);
         }
       if (bodyFailure === undefined && failedCloses.length === 0)
-        for (const worker of workers) {
+        for (const [index, worker] of workers.entries()) {
           try {
+            assert.ok(joinedWarningCounts !== undefined);
             assert.equal(
               worker.diagnostics().split("differs from the file on disk")
                 .length - 1,
-              1,
-              "each real resident reports divergent delivery once",
+              joinedWarningCounts[index],
+              "joined stderr reports exactly once per verified capture, with none added by same-generation reuse or close",
             );
           } catch (error) {
             failures.push(error);

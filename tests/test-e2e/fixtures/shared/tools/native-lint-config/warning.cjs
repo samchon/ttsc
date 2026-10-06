@@ -1,5 +1,5 @@
 module.exports = {
-  extends: ["./lint.config.ts", "./cache-aba/config.cjs"],
+  extends: "./cache-aba/config.cjs",
   rules: {
     "no-console": require("root-boundary-root-main"),
     "no-debugger": require("root-boundary-absent-main"),

@@ -1,1 +1,1 @@
-module.exports = { rules: { "before/rule": "off" } };
+module.exports = { rules: { "no-debugger": "error" } };
