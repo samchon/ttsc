@@ -8,56 +8,11 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
-  shimprinter "github.com/microsoft/typescript-go/shim/printer"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 type plugin struct{}
-
-// EmitTransform replaces only the authored goUpper call. The real compiler
-// retains every other statement, its source map and the banner preamble.
-// Helper bytes are read and witnessed at consumption, rather than copied into
-// an invented compiler output or resolution graph.
-func (plugin) EmitTransform(context driver.PluginContext) (driver.PluginTransform, error) {
-  operation, _ := context.Entry.Config["operation"].(string)
-  if operation == "emit-dependencies" {
-    return nil, nil
-  }
-  if operation != "read-configured-helper" && operation != "echo-file" {
-    return nil, fmt.Errorf("unsupported serve fixture operation %q", operation)
-  }
-  helper, _ := context.Entry.Config["path"].(string)
-  if helper == "" {
-    return nil, fmt.Errorf("read-configured-helper requires path")
-  }
-  suffix := ""
-  if operation == "read-configured-helper" {
-    contents, err := readInput(context, helper)
-    if err != nil {
-      return nil, err
-    }
-    suffix = ":" + strings.ToUpper(strings.TrimSpace(string(contents)))
-  }
-  return func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
-    var visitor *shimast.NodeVisitor
-    visitor = ec.NewNodeVisitor(func(node *shimast.Node) *shimast.Node {
-      if node != nil && node.Kind == shimast.KindCallExpression {
-        call := node.AsCallExpression()
-        expression := call.Expression
-        if expression != nil && expression.Kind == shimast.KindIdentifier && expression.Text() == "goUpper" &&
-          call.Arguments != nil && len(call.Arguments.Nodes) == 1 {
-          argument := call.Arguments.Nodes[0]
-          if argument.Kind == shimast.KindStringLiteral {
-            return ec.Factory.NewStringLiteral(strings.ToUpper(argument.Text()) + suffix, 0)
-          }
-        }
-      }
-      return visitor.VisitEachChild(node)
-    })
-    return visitor.VisitSourceFile(sf)
-  }, nil
-}
 
 // ApplyProgram declares the fixture's actual external asset reads for every
 // non-declaration source in this Program. Native compiler resolution supplies
@@ -100,14 +55,47 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
   default:
     return fmt.Errorf("unsupported serve fixture operation %q", operation)
   }
+  var helperContents []byte
   for index, dependency := range dependencies {
-    if _, err := readInput(context, dependency); err != nil {
-      return err
-    }
+    contents, err := readInput(context, dependency)
+    if err != nil { return err }
+    if operation == "read-configured-helper" { helperContents = contents }
     if !filepath.IsAbs(dependency) {
       dependency = filepath.Join(context.Cwd, dependency)
     }
     dependencies[index] = dependency
+  }
+  if operation == "read-configured-helper" || operation == "echo-file" {
+    suffix := ""
+    if operation == "read-configured-helper" {
+      suffix = ":" + strings.ToUpper(strings.TrimSpace(string(helperContents)))
+    }
+    factory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
+    var visitor *shimast.NodeVisitor
+    visitor = shimast.NewNodeVisitor(func(node *shimast.Node) *shimast.Node {
+      if node != nil && node.Kind == shimast.KindCallExpression {
+        call := node.AsCallExpression()
+        expression := call.Expression
+        if expression != nil && expression.Kind == shimast.KindIdentifier && expression.Text() == "goUpper" &&
+          call.Arguments != nil && len(call.Arguments.Nodes) == 1 {
+          argument := call.Arguments.Nodes[0]
+          if argument.Kind == shimast.KindStringLiteral {
+            replacement := factory.NewStringLiteral(strings.ToUpper(argument.Text()) + suffix, 0)
+            replacement.Loc = node.Loc
+            return replacement
+          }
+        }
+      }
+      return visitor.VisitEachChild(node)
+    }, factory, shimast.NodeVisitorHooks{})
+    for _, source := range program.TSProgram.GetSourceFiles() {
+      if source.IsDeclarationFile { continue }
+      // ApplyProgram owns the source-to-source lane used by unplugin. The
+      // utility host prints this actual SourceFile; emit-only callbacks are
+      // deliberately not invoked by its transform operation.
+      transformed := visitor.VisitSourceFile(source)
+      source.Statements = transformed.Statements
+    }
   }
   for _, source := range program.TSProgram.GetSourceFiles() {
     if source.IsDeclarationFile {
