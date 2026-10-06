@@ -322,6 +322,15 @@ function parseGraphEdges(value: unknown): Record<string, string[]> | undefined {
  * Optional resolver-input members are left off when empty. A consumer that
  * narrows on their declared optional types therefore sees the same shape from
  * the decoded envelope and the wire.
+ *
+ * @evidence contracts/common.md#principled-implementation Normalized adjacency preserves leaf membership while optional resolver, content, physical and predicate reports retain their distinct proof meanings. Malformed predicate reports carry explicit failures; decoding supplies observations rather than current-state or completeness authority.
+ * @evidence contracts/common.md#clear-and-simple-design One graph decoder composes the existing list, map and predicate decoders and omits absent optional channels. Native capture and later generation validation remain separate owners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No source read, new Program or guessed witness repairs unavailable data. Empty unusable sections remain absent, conflicting predicate observations remain failures, and the compiler case policy comes only from an actual boolean report.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs state tolerant graph normalization, leaf retention and optional channel shapes, separating wire decoding from behavioral acceptance.
+ * @evidence contracts/performance.md#efficient-algorithms Decoding enumerates the supplied graph maps and lists, copies accepted members and normalizes predicate records. Work includes their field/path/value bytes and delegated native-path text checks, with temporary entry arrays and output maps proportional to accepted and inspected populations; no payload ceiling is imposed here.
+ * @evidence contracts/performance.md#reuse-equivalent-work Each call decodes its supplied wire record without retaining a previous answer. Recorded witnesses transfer unchanged in meaning to the generation consumer, which separately proves whether the actual inputs still match.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary enumeration arrays and parsed maps are call-owned; the returned DTO transfers to its caller without a historical cache, descriptor or task. The input wire value remains caller-owned and no byte or member cap is added.
+ * @evidence contracts/portability.md#os-neutral-implementation Logical graph keys retain compiler protocol spelling; delegated physical/predicate decoding uses native path validation, and reported case policy is preserved rather than inferred from the OS. Decoding performs no filesystem observation or fixture-specific path substitution.
  */
 export function parseReferenceGraph(
   value: unknown,

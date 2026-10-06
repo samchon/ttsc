@@ -76,6 +76,10 @@ export function appendBuildOutput(
  * @evidence contracts/common.md#clear-and-simple-design One graph combiner serves check composition and the later transform phase without reading inputs or creating a Program.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Reported omissions remain omissions; incompatible witnesses cannot be replaced by current filesystem observations.
  * @evidence contracts/common.md#meaningful-documentation The native description states phase composition and the unresolved-witness behavior without claiming execution acceptance.
+ * @evidence contracts/performance.md#efficient-algorithms Each graph map and list is visited to union memberships and compare overlapping witnesses. Set membership avoids list cross-products; JSON comparison still visits overlapping predicate/value bytes and allocates comparison strings. Temporary maps, lists and Sets follow both graph populations, without a size ceiling here.
+ * @evidence contracts/performance.md#reuse-equivalent-work The combiner preserves supplied generation authority and compares overlapping witnesses; it retains no prior merged verdict and performs no input observation. A merged graph does not authorize reuse until the consuming generation validates every preserved witness and failure.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Union maps, arrays, Sets and comparison strings are call-owned and the returned graph transfers to its caller. Inputs remain borrowed, and no historical graph population, native handle or background task is retained here; payload size is not capped.
+ * @evidence contracts/portability.md#os-neutral-implementation Compiler-reported graph coordinates and physical witnesses pass through unchanged. Case policy is retained only when both reports agree, and incompatible explicit policies leave proof failures; this combiner performs no native path lookup, separator rewriting or OS-name inference.
  */
 export function mergeCheckGraphs(
   left: TtscBuildResult["graph"],
