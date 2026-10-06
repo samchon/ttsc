@@ -1,6 +1,7 @@
 package linthost
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -17,18 +18,19 @@ import (
 // text. Unsupported native link predicates withdraw completeness; they never
 // become guessed file content or an assumed successful enumeration.
 type projectInputReader struct {
-	compiler     *inputObservationFS
-	mu           sync.Mutex
-	inputs       map[string]*string
-	realpaths    map[string]*string
-	nativeInputs map[string]nativeInputPredicate
-	incomplete   bool
+	compiler        *inputObservationFS
+	mu              sync.Mutex
+	inputs          map[string]*string
+	realpaths       map[string]*string
+	nativeInputs    map[string]nativeInputPredicate
+	directoryInputs map[string]nativeInputPredicate
+	incomplete      bool
 }
 
 // newProjectInputReader starts empty raw-byte and native-entry maps for one
 // compiler observer. It neither shares prior generations nor acquires handles.
 func newProjectInputReader(compiler *inputObservationFS) *projectInputReader {
-	return &projectInputReader{compiler: compiler, inputs: map[string]*string{}, realpaths: map[string]*string{}, nativeInputs: map[string]nativeInputPredicate{}}
+	return &projectInputReader{compiler: compiler, inputs: map[string]*string{}, realpaths: map[string]*string{}, nativeInputs: map[string]nativeInputPredicate{}, directoryInputs: map[string]nativeInputPredicate{}}
 }
 
 // Unavailable is a locked, sticky withdrawal; no successful later read resets it.
@@ -163,34 +165,65 @@ func (r *projectInputReader) Lstat(name string) (os.FileInfo, error) {
 // stringPointer preserves a present string predicate independently of absence.
 func stringPointer(value string) *string { return &value }
 
-// ReadDir records one consumed native listing in separate sorted file/directory
-// lists. Link entries withdraw completeness because their followed-target
-// semantics differ from this contributor query. No child content is read.
+// ReadDir returns the native caller's listing unchanged, but does not label it
+// as compiler GetAccessibleEntries: native links and special entries have
+// different selection semantics. Its native directory predicate retains names,
+// kinds and link bytes in the same versioned encoding as executable config
+// membership. Metadata and physical spelling bracket the actual listing and
+// supplemental entry/link reads; any unexplained error withdraws this cycle.
+// No child content is read and no I/O occurs while the record lock is held.
 func (r *projectInputReader) ReadDir(name string) ([]os.DirEntry, error) {
+	before, beforeErr := os.Stat(name)
+	physicalBefore, physicalBeforeErr := filepath.EvalSymlinks(absoluteInputName(name))
 	entries, err := os.ReadDir(name)
 	if err != nil {
 		r.Unavailable()
 		return entries, err
 	}
-	files, directories := []string{}, []string{}
+	records := make([][]byte, 0, len(entries))
+	complete := beforeErr == nil && physicalBeforeErr == nil
 	for _, entry := range entries {
-		if entry.Type()&os.ModeSymlink != 0 {
-			r.Unavailable()
+		info, infoErr := entry.Info()
+		if infoErr != nil {
+			complete = false
+			continue
 		}
-		if entry.IsDir() {
-			directories = append(directories, entry.Name())
-		} else {
-			files = append(files, entry.Name())
+		kind, target := "other", ""
+		entryPath := filepath.Join(name, entry.Name())
+		if link, linkErr := os.Readlink(entryPath); linkErr == nil {
+			// Readlink recognizes junctions whose Go FileMode lacks ModeSymlink.
+			kind, target = "symlink", link
+		} else if info.Mode()&os.ModeSymlink != 0 {
+			// A consumed link whose target bytes cannot be observed has no proof.
+			complete = false
+		} else if info.IsDir() {
+			kind = "directory"
+		} else if info.Mode().IsRegular() {
+			kind = "file"
 		}
+		records = append(records, []byte(entry.Name()+"\x00"+kind+"\x00"+target))
 	}
-	sort.Strings(files)
-	sort.Strings(directories)
-	physical, physicalErr := filepath.EvalSymlinks(absoluteInputName(name))
-	if physicalErr != nil {
+	after, afterErr := os.Stat(name)
+	physicalAfter, physicalAfterErr := filepath.EvalSymlinks(absoluteInputName(name))
+	complete = complete && afterErr == nil && physicalAfterErr == nil
+	if complete {
+		complete = os.SameFile(before, after) && before.Mode() == after.Mode() && before.Size() == after.Size() && before.ModTime().Equal(after.ModTime()) && filepath.Clean(physicalBefore) == filepath.Clean(physicalAfter)
+	}
+	if !complete {
 		r.Unavailable()
 		return entries, err
 	}
-	r.observe(name, observedInput{proof: transformInputObservation{DirectoryExists: boolPointer(true), AccessibleEntries: &transformInputEntriesObservation{Files: files, Directories: directories}, Realpath: &transformInputRealpathObservation{OK: true, Path: filepath.Clean(physical)}}})
+	sort.Slice(records, func(i, j int) bool { return bytes.Compare(records[i], records[j]) < 0 })
+	sum := sha256.Sum256(bytes.Join(records, []byte{0}))
+	physical := filepath.Clean(physicalAfter)
+	predicate := nativeInputPredicate{Version: 1, Kind: "directory", Digest: hex.EncodeToString(sum[:]), IdentityStable: true, Realpath: &physical, Scope: "cache"}
+	key := filepath.Clean(absoluteInputName(name))
+	r.mu.Lock()
+	if prior, exists := r.directoryInputs[key]; exists && (prior.Digest != predicate.Digest || !equalObservedString(prior.Realpath, predicate.Realpath)) {
+		r.incomplete = true
+	}
+	r.directoryInputs[key] = predicate
+	r.mu.Unlock()
 	return entries, err
 }
 

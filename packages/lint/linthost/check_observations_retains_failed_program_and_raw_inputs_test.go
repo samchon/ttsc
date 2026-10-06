@@ -43,9 +43,9 @@ func (r observedProjectInputRule) Check(ctx *publicrule.ProjectContext) {
 // creates no installed consumer or native child. Typed configuration encoding
 // and missing/unsupported input authority remain independent of diagnostics.
 //
-// @evidence contracts/testing.md#behavioral-verification RunCheckWithIO selects the explicitly configured JSON through the authored lint plugin manifest and returns status2 and TS2322 while its private result retains the loaded source graph and actual JSON config fingerprint. Direct reader calls preserve BOM bytes, compiler decoding remains distinct, WalkDir sorts and skips, nil generations publish false, unsupported input contributors withdraw authority, and an updated Program cannot inherit the prior graph.
-// @evidence contracts/testing.md#independent-expectations The authored number/string assignment must report TS2322, the authored import must map index.ts to the actual dependency.ts source, raw BOM bytes and SHA256 are independently authored, nil authority must be false, and literal WalkDir visit names prescribe traversal. The JSON file fingerprint must retain version1, file kind, watch scope and stable identity.
-// @evidence contracts/testing.md#distinguishing-cases Failed check with valid Program differs from nil Program; supported actual-read contributor retains raw bytes/authority while topology-only unsupported contributor withdraws it; raw and decoded BOM hashes differ; relative native reads retain absolute wire coordinates; skipped children are absent; the file fingerprint retains its raw-byte encoding; update invalidates the old generation.
+// @evidence contracts/testing.md#behavioral-verification RunCheckWithIO selects the explicitly configured JSON through the authored lint plugin manifest and returns status2 and TS2322 while its private result retains the loaded source graph and actual JSON config fingerprint. Direct reader calls preserve BOM bytes, compiler decoding remains distinct, WalkDir sorts and skips, raw ReadDir membership is separately encoded from actual compiler AccessibleEntries and both survive the same-generation graph, failed listings withdraw authority, nil generations publish false, unsupported input contributors withdraw authority, and an updated Program cannot inherit the prior graph.
+// @evidence contracts/testing.md#independent-expectations The authored number/string assignment must report TS2322, the authored import must map index.ts to the actual dependency.ts source, raw BOM bytes and SHA256 are independently authored, nil authority must be false, and literal WalkDir visit names prescribe traversal. The independently encoded a/file and skip/directory records require the exact native directory digest; a raw query must not create an AccessibleEntries predicate, and a later real compiler query must retain its own lists. The JSON file fingerprint must retain version1, file kind, watch scope and stable identity.
+// @evidence contracts/testing.md#distinguishing-cases Failed check with valid Program differs from nil Program; supported actual-read contributor retains raw bytes/authority while topology-only unsupported contributor withdraws it; raw and decoded BOM hashes differ; relative native reads retain absolute wire coordinates; skipped children are absent; raw and compiler directory queries remain distinct, while a failed native listing remains incomplete; the file fingerprint retains its raw-byte encoding; update invalidates the old generation.
 // @evidence contracts/testing.md#execution-ownership This Go unit invokes the owning standalone host APIs in-process with temporary files, buffers and one loaded Program. It restores the prior contributor registration and closes the Program, with no CLI process, extra compiler generation for proof or E2E fixture loop.
 func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
 	root := t.TempDir()
@@ -175,6 +175,41 @@ func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
 	}
 	if !reflect.DeepEqual(visited, []string{".", "a", "skip"}) {
 		t.Fatalf("WalkDir selection/ordering: %v", visited)
+	}
+
+	// The raw native listing must not manufacture a compiler accessible query.
+	rawListing, err := prog.inputReader.ReadDir(tree)
+	if err != nil || len(rawListing) != 2 {
+		t.Fatalf("native listing: %v %v", rawListing, err)
+	}
+	rawProof, rawFailure := prog.inputObserver.predicateProof(tree)
+	if rawFailure != "" || rawProof.AccessibleEntries != nil {
+		t.Fatalf("raw ReadDir borrowed compiler query authority: %#v %s", rawProof, rawFailure)
+	}
+	directory := prog.inputReader.directoryInputs[tree]
+	directorySum := sha256.Sum256([]byte("a\x00file\x00\x00skip\x00directory\x00"))
+	if directory.Kind != "directory" || directory.Version != 1 || directory.Digest != hex.EncodeToString(directorySum[:]) || !directory.IdentityStable {
+		t.Fatalf("native listing lost authored membership proof: %#v", directory)
+	}
+	compilerListing := prog.inputObserver.GetAccessibleEntries(tree)
+	if !reflect.DeepEqual(compilerListing.Files, []string{"a"}) || !reflect.DeepEqual(compilerListing.Directories, []string{"skip"}) {
+		t.Fatalf("compiler listing changed: %#v", compilerListing)
+	}
+	if _, err := prog.inputReader.ReadDir(tree); err != nil {
+		t.Fatal(err)
+	}
+	compilerProof, compilerFailure := prog.inputObserver.predicateProof(tree)
+	if compilerFailure != "" || compilerProof.AccessibleEntries == nil || prog.inputReader.incomplete {
+		t.Fatalf("raw/compiler queries conflicted: %#v %s", compilerProof, compilerFailure)
+	}
+	graphAfterListing := prog.checkGraph()
+	listingKey := lintInputKey(prog.cwd, tree)
+	if got := graphAfterListing.InputObservations[listingKey].NativePredicates; len(got) != 1 || got[0].Digest != directory.Digest {
+		t.Fatalf("same-generation publisher lost native listing: %#v", got)
+	}
+	failureReader := newProjectInputReader(prog.inputObserver)
+	if _, err := failureReader.ReadDir(filepath.Join(tree, "missing")); err == nil || !failureReader.incomplete || len(failureReader.directoryInputs) != 0 {
+		t.Fatal("failed native listing gained observation authority")
 	}
 
 	supportedAdapter, err := inspectProjectContributor(observedProjectInputRule{location: document})

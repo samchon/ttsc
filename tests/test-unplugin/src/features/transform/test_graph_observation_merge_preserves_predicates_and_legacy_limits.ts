@@ -6,6 +6,8 @@ import type { ITtscCompilerTransformation } from "ttsc";
 
 import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import { createTtscTransformCache } from "../../../../../packages/unplugin/src/core/transform/cache/createTtscTransformCache";
+import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { envelopeGraphIndexes } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeGraphIndexes";
 import { graphInputObservationCompatible } from "../../../../../packages/unplugin/src/core/transform/envelope/graphInputObservationCompatible";
@@ -53,7 +55,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification Versioned native predicates preserve independent byte/kind/scope semantics, reject mutation and untrusted identity, and gate cached generation admission even without legacy hashes. Directly calls normalization, mergeGraphInputObservations, graphInputObservationCompatible and legacyProjectionOfGraphInputObservation. Asserts all six repeated predicates agree or reject, complementary predicates merge, incompatible cross-fields reject and legacy encoding preserves exact supported outputs/failure kinds. Actual envelope indexing, compilerGraphInputProofFailures, captureExternalInputSnapshot and evidencedWatchInput preserve rich speculative predicates/public not-file evidence, reject legacy contradictions and avoid candidate content reads for existence-only observations.
  * @evidence contracts/testing.md#independent-expectations Literal BOM raw bytes, file\0/missing\0 prefixes and sorted directory a\0file\0\0z\0directory\0 records prescribe native predicate digests independently of replay. Authored file/directory/missing facts, ordered entry lists, distinct literal hashes and absolute POSIX targets define equality/conflict expectations. Independent Node SHA-256 of the documented directory marker and native file bytes defines legacy digests. Literal graph/proof-conflict path/detail expectations and exact candidate-only read counters distinguish representations without generating expected classifications from the validator.
  * @evidence contracts/testing.md#distinguishing-cases Native file bytes versus entry kind, directory membership, absent/present optional files, false identityStable, malformed wire version, cross-scope agreement/conflict and repaired content are distinguished. All six duplicate fields contrast equal and different values; equal normalized read-field order contrasts changed directory-list order. Empty lists/failed reads remain compatible unknowns, while successful reads, listings and stat/existence contradictions reject. Projection separates null-negative, readable, directory, missing realpath, missing content and unsupported observations; inputs remain unchanged. Rich-only file-existence facts contrast readable rich facts with a contradictory legacy hash and unprojectable rich facts with a supplied legacy proof; present and absent native candidates retain distinct public evidence. Actual tracker registration throws ENOSPC and remains failed; explicitly invoked validator replay probes unchanged candidates without content reads, rejects appearance and recovers after removal. This does not certify the coordinator's automatic replay routing or native capture counts.
- * @evidence contracts/testing.md#execution-ownership One source unit calls actual production operations in process on caller-owned normalized records and a native temporary file corpus. The existing result filesystem capability counts only candidate content reads and forwards native operations. Authored envelope facts exercise index, external capture, compiler proof validation and watch evidence, not native compiler acquisition, retry-loop I/O formulas, observers, peers, sessions or process transport.
+ * @evidence contracts/testing.md#execution-ownership One source unit calls actual production operations in process on caller-owned normalized records and a native temporary file corpus. Native predicate replay also uses the actual cache-created filesystem table, contrasting default link/raw-name capabilities, invoked overrides and explicit unsupported reads. The existing result filesystem capability counts only candidate content reads and forwards native operations. A native directory alias uses Node symlink/junction creation; default and overridden readers replay the independently authored name/kind/target bytes, while deletion and explicitly unsupported capabilities refuse reuse. Authored envelope facts exercise index, external capture, compiler proof validation and watch evidence, not native compiler acquisition, retry-loop I/O formulas, observers, peers, sessions or process transport.
  */
 export async function test_graph_observation_merge_preserves_predicates_and_legacy_limits(): Promise<void> {
   type Observation = ITtscCompilerTransformation.IInputObservation;
@@ -773,14 +775,105 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
       },
     ],
   ];
+  const nativeView = transformFilesystem(createTtscTransformCache());
+  const linkDirectory = path.join(nativeRoot, "links");
+  const linkTarget = path.join(nativeDirectory, "z");
+  fs.mkdirSync(linkDirectory);
+  fs.symlinkSync(
+    linkTarget,
+    path.join(linkDirectory, "alias"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const linkPredicate: Native = {
+    version: 1,
+    kind: "directory",
+    scope: "watch",
+    digest: sha("alias\0symlink\0" + linkTarget),
+    realpath: linkDirectory,
+    identityStable: true,
+  };
+  assert.equal(
+    nativeInputPredicateMatches(
+      linkDirectory,
+      linkPredicate,
+      nativeView,
+      identities,
+    ),
+    true,
+    "the actual default cache must retain link-byte capability",
+  );
+  let linkReads = 0,
+    rawReads = 0;
+  const overrideView = transformFilesystem(
+    createTtscTransformCache({
+      readlink(location) {
+        linkReads++;
+        return fs.readlinkSync(location, { encoding: "buffer" });
+      },
+      readdirRaw(location) {
+        rawReads++;
+        return fs.readdirSync(location, {
+          encoding: "buffer",
+          withFileTypes: true,
+        });
+      },
+    }),
+  );
+  assert.equal(
+    nativeInputPredicateMatches(
+      linkDirectory,
+      linkPredicate,
+      overrideView,
+      identities,
+    ),
+    true,
+  );
+  assert.ok(linkReads > 0, "the explicit link reader must actually run");
+  assert.equal(
+    rawReads > 0,
+    process.platform !== "win32",
+    "raw-name replay is required on POSIX, while Windows uses UTF-8 names",
+  );
+  const noLinks = transformFilesystem(
+    createTtscTransformCache({ readlink: undefined }),
+  );
+  assert.equal(
+    nativeInputPredicateMatches(
+      linkDirectory,
+      linkPredicate,
+      noLinks,
+      identities,
+    ),
+    false,
+    "unsupported link bytes cannot borrow native authority",
+  );
+  const noRawNames = transformFilesystem(
+    createTtscTransformCache({ readdirRaw: undefined }),
+  );
+  assert.equal(
+    nativeInputPredicateMatches(
+      nativeDirectory,
+      authored[2]![1],
+      noRawNames,
+      identities,
+    ),
+    process.platform === "win32",
+    "unsupported raw names refuse the platforms whose producer uses them",
+  );
+  fs.unlinkSync(path.join(linkDirectory, "alias"));
+  assert.equal(
+    nativeInputPredicateMatches(
+      linkDirectory,
+      linkPredicate,
+      nativeView,
+      identities,
+    ),
+    false,
+    "membership deletion still refuses the authored link listing",
+  );
   for (const [file, predicate] of authored) {
     assert.equal(
-      nativeInputPredicateMatches(
-        file,
-        predicate,
-        DEFAULT_FILESYSTEM_OPERATIONS,
-        identities,
-      ),
+      nativeInputPredicateMatches(file, predicate, nativeView, identities),
       true,
       predicate.kind,
     );
@@ -788,7 +881,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
       nativeInputPredicateMatches(
         file,
         { ...predicate, identityStable: false },
-        DEFAULT_FILESYSTEM_OPERATIONS,
+        nativeView,
         identities,
       ),
       false,
@@ -830,7 +923,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
     nativeInputPredicateMatches(
       nativeFile,
       filePredicate,
-      DEFAULT_FILESYSTEM_OPERATIONS,
+      nativeView,
       identities,
     ),
     false,
@@ -840,7 +933,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
     nativeInputPredicateMatches(
       nativeFile,
       authored[1]![1],
-      DEFAULT_FILESYSTEM_OPERATIONS,
+      nativeView,
       identities,
     ),
     true,
@@ -856,7 +949,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
     nativeInputPredicateMatches(
       nativeDirectory,
       authored[2]![1],
-      DEFAULT_FILESYSTEM_OPERATIONS,
+      nativeView,
       identities,
     ),
     false,
@@ -866,7 +959,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
     nativeInputPredicateMatches(
       optional,
       authored[3]![1],
-      DEFAULT_FILESYSTEM_OPERATIONS,
+      nativeView,
       identities,
     ),
     false,

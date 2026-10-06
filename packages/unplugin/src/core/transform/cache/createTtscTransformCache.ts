@@ -7,8 +7,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * Create an empty persistent transform cache with isolated filesystem reads.
  *
  * @evidence contracts/common.md#principled-implementation Each cache receives its own filesystem operation table, so supplied capabilities govern that cache without changing defaults for other adapters.
- * @evidence contracts/common.md#clear-and-simple-design A Map stores compile promises and a WeakMap stores its operation table; omitted operations independently use the native defaults.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit dependency injection supplies filesystem capabilities without replacing foreign methods or adding test-specific behavior.
+ * @evidence contracts/common.md#clear-and-simple-design A Map stores compile promises and a WeakMap stores its operation table; omitted operations independently use the native defaults. Raw directory and link reads also reach the table; explicitly supplied undefined for these optional capabilities preserves unsupported authority rather than enabling a native fallback.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit dependency injection supplies filesystem capabilities without replacing foreign methods or adding test-specific behavior. Native predicate replay receives the caller's raw directory/link functions; an explicitly unavailable optional function remains unavailable.
  * @evidence contracts/common.md#meaningful-documentation The comment describes the empty cache and isolated reads; the parameter type distinguishes required native defaults from optional watch and case-policy capabilities.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   One fixed capability table follows the cache through a weak association;
@@ -36,6 +36,12 @@ export function createTtscTransformCache(
     lstat: operations.lstat ?? DEFAULT_FILESYSTEM_OPERATIONS.lstat,
     readFile: operations.readFile ?? DEFAULT_FILESYSTEM_OPERATIONS.readFile,
     readdir: operations.readdir ?? DEFAULT_FILESYSTEM_OPERATIONS.readdir,
+    readlink: Object.hasOwn(operations, "readlink")
+      ? operations.readlink
+      : DEFAULT_FILESYSTEM_OPERATIONS.readlink,
+    readdirRaw: Object.hasOwn(operations, "readdirRaw")
+      ? operations.readdirRaw
+      : DEFAULT_FILESYSTEM_OPERATIONS.readdirRaw,
     realpath: operations.realpath ?? DEFAULT_FILESYSTEM_OPERATIONS.realpath,
     stat: operations.stat ?? DEFAULT_FILESYSTEM_OPERATIONS.stat,
     statBigInt:

@@ -82,7 +82,7 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  * @evidence contracts/common.md#principled-implementation Before/after walk agreement, compiler graph read proofs, external dependency witnesses and host validation jointly establish the captured generation's supported reuse premises; adopted publications are validated against their recorded external state on this worker's disk.
  * @evidence contracts/common.md#clear-and-simple-design One capture owns the compile window and final resource handoff, delegating config overlays, shared compile claiming, input selection, proof composition and tracker operations to their owning helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Scratch config preserves compiler physical anchoring instead of compensating path guesses; local plugin dependencies require pre-compile witnesses, and adopted dependencies match the publisher's recorded state. Unverifiable graph or host input cannot be upgraded to success by a quiet post-compile watcher.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe capture proofs and ownership transfer, inline comments explain temporal boundaries and publication policy, and separated props identify inherited facts and host capabilities.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe capture proofs and ownership transfer, inline comments explain temporal boundaries and publication policy, and separated props identify inherited facts and host capabilities. The existing proof event also records whether this cache retained native link and raw-name replay capabilities; it observes the supplied table without adding filesystem reads or certifying a proof.
  * @evidence contracts/portability.md#os-neutral-implementation compilerProjectSpelling anchors physical config meaning, the supplied filesystem owns native observations and tracker capabilities, reported case policy governs membership and transformScratchEnvironment isolates worker environment without mutating host globals.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Complete pre/post walks pay admitted directory-entry, metadata and file-byte
@@ -824,6 +824,10 @@ export async function captureTransformGeneration(props: {
         dependenciesProven: externalInputSnapshot.dependenciesProven,
         externalSnapshotComplete: externalInputSnapshot.complete,
         adoptionFailure: adoptionFailure ?? null,
+        nativeProofCapabilities: {
+          readlink: typeof props.filesystem.readlink === "function",
+          readdirRaw: typeof props.filesystem.readdirRaw === "function",
+        },
         graphProofs,
         universalInputs,
         stableProjectSnapshot,

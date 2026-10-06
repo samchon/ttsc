@@ -64,10 +64,10 @@ type ProjectInputReader interface {
 	Lstat(string) (os.FileInfo, error)
 
 	// ReadDir returns the selected directory's entries in native os.ReadDir
-	// name order. Observation support must retain entry distinctions it consumes
+	// name order. Its native membership/link predicate is distinct from the compiler's followed-target GetAccessibleEntries query. Observation support must retain entry distinctions it consumes
 	// or withdraw completeness; it must not enumerate unrelated children.
 	//
-	// @evidence contracts/common.md#principled-implementation The entry list preserves directory membership and entry kinds rather than treating directory existence as a complete listing.
+	// @evidence contracts/common.md#principled-implementation The entry list preserves native directory membership and entry kinds, including links and special entries, without labeling raw os.ReadDir selection as compiler followed-target membership. Unsupported or failed observations withdraw authority rather than treating directory existence as a complete listing.
 	// @evidence contracts/common.md#clear-and-simple-design One directory query supplies the contributor's list, independently of recursive traversal policy.
 	// @evidence contracts/common.md#prohibited-implementation-shortcuts Neither unrelated recursive inventory nor a guessed empty list can replace the actual consumed entries.
 	// @evidence contracts/common.md#meaningful-documentation The comment distinguishes one listing from recursive walking and specifies native name order.

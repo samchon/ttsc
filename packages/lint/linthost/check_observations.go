@@ -142,6 +142,13 @@ func (p *program) checkGraph() *lintCheckGraph {
 			graph.InputObservations[key] = observation
 			graph.ResolutionInputs = append(graph.ResolutionInputs, key)
 		}
+		for name, predicate := range p.inputReader.directoryInputs {
+			key := lintInputKey(p.cwd, name)
+			observation := graph.InputObservations[key]
+			observation.NativePredicates = append(observation.NativePredicates, predicate)
+			graph.InputObservations[key] = observation
+			graph.ResolutionInputs = append(graph.ResolutionInputs, key)
+		}
 		p.inputReader.mu.Unlock()
 	}
 	sort.Strings(graph.ResolutionInputs)
