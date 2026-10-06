@@ -233,6 +233,9 @@ interface ServedSource {
   moduleOptions: OwningModuleOptions | null;
   emittedFile?: string;
   sourceFile?: string;
+  /** Private observation of actual owning-config/build selection only. */
+  selectedTsconfig?: string;
+  buildScope?: string;
 }
 
 type NextResolve = (
@@ -850,6 +853,8 @@ function load(
           emittedFile: served.emittedFile,
           moduleOptions: served.moduleOptions,
           sourceFile: served.sourceFile,
+          selectedTsconfig: served.selectedTsconfig,
+          buildScope: served.buildScope,
         },
       );
       return {
@@ -883,6 +888,8 @@ function load(
         emittedFile: served.emittedFile,
         moduleOptions: served.moduleOptions,
         sourceFile: served.sourceFile,
+        selectedTsconfig: served.selectedTsconfig,
+        buildScope: served.buildScope,
       },
     );
   return {
@@ -1820,13 +1827,33 @@ function serveEntryEmit(real: string): ServedSource | null {
  * package the project build already serves.
  */
 function serveProjectEmit(real: string): ServedSource | null {
-  return OwnedProjectSource.serve(real, {
+  const operations = {
     owningTsconfig,
     ensureProjectBuilt,
-    isEmptyProjectEmitError: (error) => error instanceof EmptyProjectEmitError,
+    isEmptyProjectEmitError: (error: unknown) => error instanceof EmptyProjectEmitError,
     serve: serveBuiltDependency,
     ensureRootBuilt,
+  };
+  if (!process.env.TTSC_E2E_TRACE) return OwnedProjectSource.serve(real, operations);
+  let selectedTsconfig: string | undefined;
+  let buildScope: string | undefined;
+  const served = OwnedProjectSource.serve(real, {
+    ...operations,
+    owningTsconfig(source) {
+      const selected = owningTsconfig(source);
+      selectedTsconfig = selected ?? undefined;
+      return selected;
+    },
+    ensureProjectBuilt(config) {
+      buildScope = "project";
+      return ensureProjectBuilt(config);
+    },
+    ensureRootBuilt(config, source) {
+      buildScope = "single-root";
+      return ensureRootBuilt(config, source);
+    },
   });
+  return served === null ? null : { ...served, selectedTsconfig, buildScope };
 }
 
 function serveBuiltDependency(

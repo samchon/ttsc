@@ -147,7 +147,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
         request: { type: "lookup", query: "Recoverable" },
       },
     })) as { isError?: boolean; structuredContent?: unknown };
-    assert.equal(recovered.isError, undefined);
+    assert.equal(recovered.isError, undefined, JSON.stringify(recovered));
     assert.match(
       JSON.stringify(recovered.structuredContent ?? {}),
       /Recoverable/,

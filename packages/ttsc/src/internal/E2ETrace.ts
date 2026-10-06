@@ -145,6 +145,8 @@ export namespace E2ETrace {
       emittedFile?: string;
       moduleOptions: { module?: string; target?: string } | null;
       sourceFile?: string;
+      selectedTsconfig?: string;
+      buildScope?: string;
     },
   ): void {
     const selected = process.env.TTSC_E2E_TRACE;

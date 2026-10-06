@@ -333,7 +333,9 @@ export namespace BatchWorkspace {
   }
 
   async function prepare(): Promise<Workspace> {
-    const root = TestProject.tmpdir("ttsc-shared-boundaries-");
+    // Choose one native spelling before authoring absolute config/cwd inputs.
+    // Intentional project aliases below remain separately authored inputs.
+    const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-shared-boundaries-"));
     // Retain throughout the run. The runner explicitly releases only its own
     // completed consumers; a rejected or unknown lifetime keeps all inputs.
     TestProject.retainTemporaryDirectory(

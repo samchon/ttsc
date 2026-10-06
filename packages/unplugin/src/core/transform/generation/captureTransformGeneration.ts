@@ -395,7 +395,7 @@ export async function captureTransformGeneration(props: {
         }).transformAsync();
         compileTrace?.("bridge-result", {
           pid: process.pid,
-          data: { outcome: "returned", type: result.type },
+          data: { outcome: "returned", type: result.type, ...(result.type === "exception" ? { error: result.error } : {}), projectRoot, tsconfig: configured.path, currentFile: props.currentFile, pluginConfigDir: compilerProject.configDir },
         });
       } catch (error) {
         compileTrace?.("bridge-result", {

@@ -1,14 +1,17 @@
 import { TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
-import webpack from "webpack";
+import type { Compiler, Stats } from "webpack";
 
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { bundlerCacheCorpus } from "../batch/bundlerCacheCorpus";
 import { runRspackShared } from "../batch/runRspackShared";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
+
+const webpack = createRequire(import.meta.url)("webpack") as typeof import("webpack");
 
 /**
  * Verifies webpack loader transport and source-map publication in one build.
@@ -37,7 +40,7 @@ export async function test_e2e_webpack_batch(): Promise<void> {
       BatchWorkspace.readConfigPathReceipts(workspace).length;
     const previous = process.env.TTSC_CACHE_DIR;
     process.env.TTSC_CACHE_DIR = workspace.cache;
-    let compiler: webpack.Compiler | undefined;
+    let compiler: Compiler | undefined;
     try {
       const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("webpack");
       const directory = path.join(workspace.root, "webpack-output");
@@ -90,7 +93,7 @@ export async function test_e2e_webpack_batch(): Promise<void> {
       const paired = runRspackShared(workspace);
       const webpackChecks = (async () => {
         const owned = compiler!;
-        const stats = await new Promise<webpack.Stats>((resolve, reject) => {
+        const stats = await new Promise<Stats>((resolve, reject) => {
           owned.run((error, result) =>
             error
               ? reject(error)

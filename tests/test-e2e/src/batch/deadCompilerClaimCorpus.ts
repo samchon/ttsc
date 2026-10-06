@@ -127,11 +127,19 @@ export async function deadCompilerClaimCorpus(
   const failures: unknown[] = [];
   try {
     const holder = start();
-    await waitFor(
-      () => locks().length === 1 && nativePids().length === 1,
-      "actual dead-claim holder lock and native invocation",
-      120000,
-    );
+    try {
+      await waitFor(
+        () => locks().length === 1 && nativePids().length === 1,
+        "actual dead-claim holder lock and native invocation",
+        120000,
+      );
+    } catch (error) {
+      throw new Error("actual holder acquisition failed: " + JSON.stringify({
+        holder: holder.result ?? "close not observed",
+        locks: locks(),
+        nativePids: nativePids(),
+      }), { cause: error });
+    }
     const lock = locks()[0]!;
     const token = fs.readFileSync(path.join(session, lock, "owner"), "utf8");
     assert.match(token, /^\d+:[0-9a-f-]+$/i);

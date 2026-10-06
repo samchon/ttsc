@@ -1,15 +1,21 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { type RollupCache, rollup } from "rollup";
-import webpack, {
+import type {
+  Compiler,
   type Configuration,
   type Stats,
   type Watching,
 } from "webpack";
 
 import { BatchWorkspace } from "./BatchWorkspace";
+
+// Webpack's filesystem cache reads its own CommonJS require.cache. Use the
+// native CommonJS entry rather than Node 22.15's imported-CJS translator.
+const webpack = createRequire(import.meta.url)("webpack") as typeof import("webpack");
 
 /**
  * Preserve real adapter cache frontiers with the original filesystem producer.
@@ -84,7 +90,7 @@ export async function bundlerCacheCorpus(
       buildDependencies: { hash: true, timestamp: false },
     },
   });
-  const closeCompiler = async (compiler: webpack.Compiler): Promise<void> => {
+  const closeCompiler = async (compiler: Compiler): Promise<void> => {
     try {
       await new Promise<void>((resolve, reject) =>
         compiler.close((error) => (error ? reject(error) : resolve())),
