@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { E2ETrace } from "./E2ETrace";
+
 /**
  * Fingerprint an absolute executable's spelling, target and actual bytes.
  *
@@ -24,49 +26,69 @@ import path from "node:path";
 export function runtimeExecutableIdentity(runtime: string): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
   let descriptor: number | undefined;
+  let stage = "lexical-stat";
+  const unavailable = (reason: string, expected?: string, observed?: string) => {
+    E2ETrace.capabilityResolution("runtime-executable-identity-unavailable", {
+      runtime, stage, reason, expected, observed,
+    });
+    return undefined;
+  };
   try {
     const lexical = fs.lstatSync(runtime, { bigint: true });
+    stage = "physical-realpath";
     const physicalPath = fs.realpathSync.native(runtime);
+    stage = "physical-stat";
     const physical = fs.statSync(physicalPath, { bigint: true });
-    if (!physical.isFile()) return undefined;
+    if (!physical.isFile()) return unavailable("not-regular", undefined, fileIdentity(physical));
+    stage = "open";
     descriptor = fs.openSync(physicalPath, "r");
+    stage = "opened-stat";
     const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (fileIdentity(opened) !== fileIdentity(physical)) return undefined;
+    if (fileIdentity(opened) !== fileIdentity(physical))
+      return unavailable("opened-file-changed", fileIdentity(physical), fileIdentity(opened));
     const hash = crypto.createHash("sha256");
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let remaining = opened.size;
+    stage = "read";
     while (remaining > 0n) {
       const requested =
         remaining > BigInt(buffer.length) ? buffer.length : Number(remaining);
       const length = fs.readSync(descriptor, buffer, 0, requested, null);
-      if (length === 0) return undefined;
+      if (length === 0) return unavailable("premature-eof", String(opened.size), String(opened.size - remaining));
       hash.update(buffer.subarray(0, length));
       remaining -= BigInt(length);
     }
-    if (
-      fileIdentity(fs.fstatSync(descriptor, { bigint: true })) !==
-        fileIdentity(opened) ||
-      fs.realpathSync.native(runtime) !== physicalPath ||
-      fileIdentity(fs.lstatSync(runtime, { bigint: true })) !==
-        fileIdentity(lexical) ||
-      fileIdentity(fs.statSync(physicalPath, { bigint: true })) !==
-        fileIdentity(physical)
-    )
-      return undefined;
+    stage = "post-read-opened-stat";
+    const afterOpened = fs.fstatSync(descriptor, { bigint: true });
+    if (fileIdentity(afterOpened) !== fileIdentity(opened))
+      return unavailable("opened-file-changed-during-read", fileIdentity(opened), fileIdentity(afterOpened));
+    stage = "post-read-realpath";
+    const afterPath = fs.realpathSync.native(runtime);
+    if (afterPath !== physicalPath)
+      return unavailable("physical-target-changed", physicalPath, afterPath);
+    stage = "post-read-lexical-stat";
+    const afterLexical = fs.lstatSync(runtime, { bigint: true });
+    if (fileIdentity(afterLexical) !== fileIdentity(lexical))
+      return unavailable("lexical-file-changed-during-read", fileIdentity(lexical), fileIdentity(afterLexical));
+    stage = "post-read-physical-stat";
+    const afterPhysical = fs.statSync(physicalPath, { bigint: true });
+    if (fileIdentity(afterPhysical) !== fileIdentity(physical))
+      return unavailable("physical-file-changed-during-read", fileIdentity(physical), fileIdentity(afterPhysical));
     return [
       physicalPath,
       fileIdentity(lexical),
       fileIdentity(physical),
       hash.digest("hex"),
     ].join("\0");
-  } catch {
-    return undefined;
+  } catch (error) {
+    return unavailable("filesystem-error", undefined, error instanceof Error ? error.message : String(error));
   } finally {
     if (descriptor !== undefined) {
       try {
         fs.closeSync(descriptor);
-      } catch {
-        return undefined;
+      } catch (error) {
+        stage = "close";
+        return unavailable("descriptor-close-error", undefined, error instanceof Error ? error.message : String(error));
       }
     }
   }
