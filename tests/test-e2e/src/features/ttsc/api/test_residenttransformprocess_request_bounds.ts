@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 
 import { ResidentTransformProcess } from "../../../../../../packages/ttsc/lib/compiler/internal/ResidentTransformProcess.js";
 import { observeResidentTransformClose } from "../../../internal/ttsc/internal/observeResidentTransformClose";
@@ -37,14 +38,6 @@ function spawnStub(stub: string): ResidentTransformProcess {
   });
 }
 
-function pendingCount(process: ResidentTransformProcess): number {
-  return (
-    process as unknown as {
-      pending: unknown[];
-    }
-  ).pending.length;
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -73,14 +66,14 @@ function delay(ms: number): Promise<void> {
  * 4. Deliver a synthetic late protocol line after retirement and prove it cannot
  *    settle a later caller; dispose remains idempotent.
  *
- * @evidence contracts/testing.md#behavioral-verification Exercises delayed reply acceptance, pre-enqueue abort without host damage, post-enqueue abort with distinct collateral retirement, empty pending queue and ignored late line after retirement.
- * @evidence contracts/testing.md#independent-expectations Authored delayed/silent peers, abort reasons and filenames establish reply and error ownership independently. The pending-array length is a separate storage-shape observation, not an independent process or unsettled-request oracle.
+ * @evidence contracts/testing.md#behavioral-verification Exercises delayed reply acceptance, pre-enqueue abort without host damage, post-enqueue abort with distinct collateral retirement, settled callers, removed abort listener and ignored late line after retirement.
+ * @evidence contracts/testing.md#independent-expectations Authored delayed/silent peers, abort reasons and filenames establish reply and error ownership independently. Actual Promise outcomes, a later request's identical terminal error and standard AbortSignal listener inspection observe retirement without assuming private queue storage.
  * @evidence contracts/testing.md#distinguishing-cases Pre-write and in-flight cancellation intentionally differ; delayed success distinguishes latency from failure, and synthetic late delivery checks the terminal reader branch.
  * @evidence contracts/testing.md#execution-ownership The owning test-ttsc controlled-pipe entry explicitly calls this retained body; the selected eight E2E batches do not discover it independently. Three actual Node peers run through ResidentTransformProcess and join close; one late-line probe invokes the private reader directly and certifies no native pipe ordering.
  * @evidence contracts/e2e.md#necessary-boundary Real pending requests, live pipes and abort delivery must settle without shifting FIFO ownership; the direct late-line injection isolates a race branch without claiming an actual OS kill ordering.
  * @evidence contracts/e2e.md#shared-execution Delayed success and preabort healthy reuse share one delayed peer; queued abort and late-tail terminal checks each require their own lifetime.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each independent phase subscribes to actual child close before requests, then disposes and awaits that receipt in finally while preserving preparation/verdict/cleanup failures. Concurrent abort promises have settlement observers before abort. Private child access is cleanup-only and timeout is failure, not arbitrary descendant termination; controllers and slots remain phase-local.
- * @evidence contracts/e2e.md#preserved-coverage Original 40ms delayed identity, preabort reason/healthy reply, in-flight AbortError/editor reason/collateral error, pending-length0, private late-line input/10ms pause/later rejection and repeated disposal remain. A finite delay does not prove every latency, and direct late injection is not an observed OS kill race. All three phases remain independently attempted.
+ * @evidence contracts/e2e.md#preserved-coverage Original 40ms delayed identity, preabort reason/healthy reply, in-flight AbortError/editor reason/collateral error, private late-line input/10ms pause/later rejection and repeated disposal remain. The obsolete transport pending-array length is replaced by actual caller settlement, terminal error identity and abort-listener removal; the selected owning ResidentTransformRequests unit independently verifies current-slot absence after retirement. A finite delay does not prove every latency, and direct late injection is not an observed OS kill race. All three phases remain independently attempted.
  */
 export const test_residenttransformprocess_request_bounds = async () => {
   const failures: unknown[] = [];
@@ -130,13 +123,14 @@ export const test_residenttransformprocess_request_bounds = async () => {
     try {
       proc = spawnStub(SILENT_STUB);
       release = observeResidentTransformClose(proc);
+      const client = proc;
       const cancelled = proc.request({ file: "cancelled.ts" }, "transform", {
         signal: controller.signal,
       });
       const collateral = proc.request({ file: "other.ts" }, "transform");
       const settled = Promise.allSettled([cancelled, collateral]);
       controller.abort("editor closed the file");
-      await settled;
+      const outcomes = await settled;
       await assert.rejects(
         cancelled,
         (error: Error) =>
@@ -147,7 +141,13 @@ export const test_residenttransformprocess_request_bounds = async () => {
         collateral,
         /retired after another request was cancelled/,
       );
-      assert.equal(pendingCount(proc), 0);
+      const collateralResult = outcomes[1];
+      assert.ok(collateralResult?.status === "rejected");
+      assert.equal(getEventListeners(controller.signal, "abort").length, 0);
+      await assert.rejects(
+        () => client.request({ file: "after-retirement.ts" }, "transform"),
+        (error: unknown) => error === collateralResult.reason,
+      );
     } catch (error) {
       failures.push(new Error("In-flight abort phase", { cause: error }));
     } finally {
