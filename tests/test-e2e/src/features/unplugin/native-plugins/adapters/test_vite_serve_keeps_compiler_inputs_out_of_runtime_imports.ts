@@ -120,7 +120,8 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
   let events: Awaited<ReturnType<typeof observeReloadEvents>> | undefined;
   try {
     await server.listen();
-    events = await observeReloadEvents(server);
+    const observedEvents = await observeReloadEvents(server);
+    events = observedEvents;
     if (preparedRoot !== undefined) {
       try {
         await assertFixtureDerivesMissingCandidate({
@@ -216,7 +217,7 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     events.length = 0;
     fs.writeFileSync(dependency, 'export type Secret = "recovered";\n');
     await waitFor(
-      () => events.length !== 0,
+      () => observedEvents.length !== 0,
       "failed transform recovery notification before refetch",
     );
     assert.match((await request()).code, /RECOVERED/);

@@ -113,7 +113,7 @@ export function case_lint_loader_preserves_observed_raw_normalization(
     ] as const) {
       assert.ok(Array.isArray(actual));
       for (const dependency of required) {
-        const selected = actual.filter(
+        const selected: unknown[] = actual.filter(
           (item) =>
             item !== null &&
             typeof item === "object" &&

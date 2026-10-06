@@ -156,8 +156,8 @@ export async function case_lint_executable_configs_preserve_pattern_precedence(
         );
         phases.push(phase);
         if (phase.traces) cursor = phase.traces.lastWriterSequences;
-        assert.equal(phase.outcome.returned, true);
         if (!phase.outcome.returned) throw phase.outcome.error;
+        assert.equal(phase.outcome.returned, true);
         const result = phase.outcome.value;
         if (result.error || result.status === null || result.signal !== null)
           EvidenceProcessOwnership.retain(

@@ -113,8 +113,8 @@ export async function case_lint_native_format_preserves_the_live_buffer_boundary
       phases.push(phase);
       if (phase.traces) cursor = phase.traces.lastWriterSequences;
       assert.deepEqual(phase.observationErrors, []);
-      assert.equal(phase.outcome.returned, true);
       if (!phase.outcome.returned) throw phase.outcome.error;
+      assert.equal(phase.outcome.returned, true);
       const result = phase.outcome.value;
       assert.ok(Number.isSafeInteger(result.pid) && result.pid > 0);
       assert.equal(result.error, undefined);

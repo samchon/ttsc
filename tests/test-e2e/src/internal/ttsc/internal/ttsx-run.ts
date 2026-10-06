@@ -1,5 +1,7 @@
 import { TestProject } from "@ttsc/testing";
-import nodeChildProcessForTrace from "node:child_process";
+import nodeChildProcessForTrace, {
+  type ChildProcess,
+} from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,7 +14,7 @@ const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 /** A ttsx run whose program is up and waiting. */
 export interface IWaitingRun {
   /** The launcher process. */
-  launcher: child_process.ChildProcess;
+  launcher: ChildProcess;
   /** Resolves after the owned launcher and its captured stdio have closed. */
   closed: Promise<void>;
   /** Request completion through this fixture program's private nonce channel. */
@@ -194,7 +196,7 @@ export async function stopWaitingRun(run: IWaitingRun): Promise<void> {
 
 /** Startup may fail before a program PID exists; its owned tree still closes. */
 async function stopWaitingProcessTree(
-  launcher: child_process.ChildProcess,
+  launcher: ChildProcess,
   program: number | undefined,
 ): Promise<void> {
   const failures: unknown[] = [];

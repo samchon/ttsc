@@ -1,5 +1,5 @@
 import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
-import { build } from "esbuild";
+import { type PluginBuild, build } from "esbuild";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -167,7 +167,7 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
           adapter(),
           {
             name: "observe-shared-build-disposal",
-            setup(host) {
+            setup(host: PluginBuild) {
               host.onDispose(() => {
                 disposals++;
                 resolveDisposed();

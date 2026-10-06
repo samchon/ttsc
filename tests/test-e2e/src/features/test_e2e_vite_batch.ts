@@ -108,8 +108,16 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const heldPrimary = `${primary}.vite-held`;
     assert.equal(fs.existsSync(heldPrimary), false);
     let primaryHeld = false;
-    const generations: { output: RollupOutput; watchFiles: string[] }[] = [];
-    let generated: { output: RollupOutput; watchFiles: string[] } | undefined;
+    const generations: {
+      output: { output: RollupOutput["output"][number][] };
+      watchFiles: string[];
+    }[] = [];
+    let generated:
+      | {
+          output: { output: RollupOutput["output"][number][] };
+          watchFiles: string[];
+        }
+      | undefined;
     const failures: unknown[] = [];
     const captures = new Set<Promise<void>>();
     const pendingBuilds = new Set<Promise<void>>();
@@ -118,7 +126,9 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const startBuild = (): void => {
       if (currentBuild !== undefined) return;
       let finish!: () => void;
-      const done = new Promise<void>((resolve) => { finish = resolve; });
+      const done = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
       currentBuild = { done, finish };
       pendingBuilds.add(done);
     };
@@ -223,20 +233,28 @@ export async function test_e2e_vite_batch(): Promise<void> {
         const capture = (async () => {
           try {
             if (event.code === "ERROR") failures.push(event.error);
-            const delivered = event.code === "BUNDLE_END" ? generated : undefined;
+            const delivered =
+              event.code === "BUNDLE_END" ? generated : undefined;
             generated = undefined;
             if (event.result !== null && event.result !== undefined) {
-              phase("bundle-result-close-started", { generation: generations.length });
+              phase("bundle-result-close-started", {
+                generation: generations.length,
+              });
               try {
                 await event.result.close();
               } catch (error) {
                 closureFailures.push(error);
                 throw error;
               }
-              phase("bundle-result-close-returned", { generation: generations.length });
+              phase("bundle-result-close-returned", {
+                generation: generations.length,
+              });
             }
             if (event.code === "BUNDLE_END") {
-              assert.ok(delivered, "the actual host must render its graph before BUNDLE_END");
+              assert.ok(
+                delivered,
+                "the actual host must render its graph before BUNDLE_END",
+              );
               generations.push(delivered);
             }
           } catch (error) {
@@ -311,13 +329,10 @@ export async function test_e2e_vite_batch(): Promise<void> {
       const authored = fs
         .readFileSync(path.join(workspace.root, "src/map.ts"), "utf8")
         .replace(/\r\n/g, "\n");
-      assert.equal(
-        map.sourcesContent[map.sources.indexOf(original.source)]!.replace(
-          /\r\n/g,
-          "\n",
-        ),
-        authored,
-      );
+      const sourceContent =
+        map.sourcesContent?.[map.sources.indexOf(original.source)];
+      assert.ok(typeof sourceContent === "string");
+      assert.equal(sourceContent.replace(/\r\n/g, "\n"), authored);
       assert.deepEqual(
         { line: original.line, column: original.column },
         positionOf(authored, marker),
@@ -467,10 +482,21 @@ export async function test_e2e_vite_batch(): Promise<void> {
               while (pendingBuilds.size !== 0 || captures.size !== 0) {
                 await Promise.all([...pendingBuilds, ...captures]);
               }
-              assert.equal(pendingBuilds.size, 0, "no started generation may survive host closure");
-              assert.equal(captures.size, 0, "no output capture may survive host closure");
+              assert.equal(
+                pendingBuilds.size,
+                0,
+                "no started generation may survive host closure",
+              );
+              assert.equal(
+                captures.size,
+                0,
+                "no output capture may survive host closure",
+              );
               if (closureFailures.length !== 0)
-                throw new AggregateError(closureFailures, "shared Vite output closure failed");
+                throw new AggregateError(
+                  closureFailures,
+                  "shared Vite output closure failed",
+                );
             })(),
             new Promise<never>((_resolve, reject) => {
               closingTimer = setTimeout(
@@ -489,7 +515,9 @@ export async function test_e2e_vite_batch(): Promise<void> {
         } catch (error) {
           // Even a deadline must stop future watch work. Its completion is not
           // used as proof that the already-running generation has returned.
-          void closingWatcher.close().catch((closeError) => closureFailures.push(closeError));
+          void closingWatcher
+            .close()
+            .catch((closeError) => closureFailures.push(closeError));
           BatchWorkspace.retain(
             "shared Vite watcher or output capture closure is unobserved",
           );
@@ -498,8 +526,12 @@ export async function test_e2e_vite_batch(): Promise<void> {
           if (closingTimer !== undefined) clearTimeout(closingTimer);
         }
       } else if (pendingBuilds.size !== 0 || captures.size !== 0) {
-        BatchWorkspace.retain("shared Vite partially initialized work has no joined watcher owner");
-        throw new Error("shared Vite partial initialization left an unjoined generation");
+        BatchWorkspace.retain(
+          "shared Vite partially initialized work has no joined watcher owner",
+        );
+        throw new Error(
+          "shared Vite partial initialization left an unjoined generation",
+        );
       }
       if (primaryHeld) {
         fs.rmdirSync(primary);

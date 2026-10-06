@@ -475,6 +475,8 @@ function sampleShutdownDescendants(
   };
   for (let index = 0; index < queue.length && visited.size < 64; ++index) {
     const current = queue[index];
+    if (current === undefined)
+      throw new Error("Process identity queue lost its selected entry");
     if (visited.has(current)) continue;
     visited.add(current);
     const root = "/proc/" + current;

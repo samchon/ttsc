@@ -76,7 +76,7 @@ export async function observePluginLockGraph(props: {
   assert.notEqual(first.lease, null);
   const activeA = {
     state: "active",
-    fence: { protocol: "v3", generation: first.lease.generation },
+    fence: { protocol: "v3" as const, generation: first.lease.generation },
   };
   // Inspect includes owner metadata; compare its state/fence independently.
   assert.equal(first.current.state, activeA.state);

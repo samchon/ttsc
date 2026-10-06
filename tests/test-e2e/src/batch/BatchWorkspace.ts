@@ -321,7 +321,8 @@ export namespace BatchWorkspace {
   export async function close(): Promise<void> {
     if (reuseFailure !== undefined) return;
     if (preparation === undefined) return;
-    const { root, projectAlias, graphNegativeRoot, cache, runtimeCliCache } = await preparation;
+    const { root, projectAlias, graphNegativeRoot, cache, runtimeCliCache } =
+      await preparation;
     if (!fs.existsSync(root)) return;
     if (runtimeCliCache !== cache)
       fs.rmSync(runtimeCliCache, {
@@ -359,7 +360,10 @@ export namespace BatchWorkspace {
       ".ttsc-e2e-projects",
     );
     const cache = TestProject.sharedPluginCache(temporaryParent);
-    const allocatedRoot = TestProject.tmpdir("ttsc-shared-boundaries-", temporaryParent);
+    const allocatedRoot = TestProject.tmpdir(
+      "ttsc-shared-boundaries-",
+      temporaryParent,
+    );
     const root = fs.realpathSync.native(allocatedRoot);
     // Always isolate the relative CLI contrast beside its project allocation.
     // A distant shared /tmp cache can resolve identically from both authored
@@ -618,7 +622,7 @@ export namespace BatchWorkspace {
     for (const [template, destination] of [
       ["scoped", "@scope/preload"],
       ["plain", "plain-preload"],
-    ])
+    ] as const)
       await FileSystemIterator.write(
         path.join(root, "tools/runtime-frontdoors/node_modules", destination),
         await FileSystemIterator.read(
@@ -692,7 +696,12 @@ export namespace BatchWorkspace {
       "installation dependencies must preserve the authored descriptor import map",
     );
     pnpm(
-      ["install", "--ignore-workspace", "--ignore-scripts", "--no-frozen-lockfile"],
+      [
+        "install",
+        "--ignore-workspace",
+        "--ignore-scripts",
+        "--no-frozen-lockfile",
+      ],
       root,
     );
     const installed = createRequire(path.join(root, "package.json"));
@@ -1627,9 +1636,13 @@ export namespace BatchWorkspace {
     if (!installationOnly) {
       fs.mkdirSync(lspEditorRoot, { recursive: true });
       for (const directory of ["src", "native-errors", "docs"])
-        fs.cpSync(path.join(root, directory), path.join(lspEditorRoot, directory), {
-          recursive: true,
-        });
+        fs.cpSync(
+          path.join(root, directory),
+          path.join(lspEditorRoot, directory),
+          {
+            recursive: true,
+          },
+        );
       fs.copyFileSync(
         path.join(root, "lint.config.cjs"),
         path.join(lspEditorRoot, "lint.config.cjs"),
@@ -1640,7 +1653,10 @@ export namespace BatchWorkspace {
       const editorLint = editorConfig.compilerOptions.plugins.find(
         (entry: { transform?: string }) => entry.transform === "@ttsc/lint",
       );
-      assert.ok(editorLint, "editor preparation requires the actual lint plugin");
+      assert.ok(
+        editorLint,
+        "editor preparation requires the actual lint plugin",
+      );
       editorConfig.compilerOptions.plugins = [editorLint];
       fs.writeFileSync(
         path.join(lspEditorRoot, "tsconfig.json"),
@@ -1654,7 +1670,11 @@ export namespace BatchWorkspace {
           type: "commonjs",
         }),
       );
-      fs.symlinkSync(modules, path.join(lspEditorRoot, "node_modules"), "junction");
+      fs.symlinkSync(
+        modules,
+        path.join(lspEditorRoot, "node_modules"),
+        "junction",
+      );
     }
     const graphRoot = path.join(root, "tools/graph-resident");
     if (!installationOnly) {
@@ -1670,16 +1690,29 @@ export namespace BatchWorkspace {
         path.join(root, "lint.config.cjs"),
         path.join(graphRoot, "lint.config.cjs"),
       );
-      const graphConfig = JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"));
+      const graphConfig = JSON.parse(
+        fs.readFileSync(path.join(root, "tsconfig.json"), "utf8"),
+      );
       const graphLint = graphConfig.compilerOptions.plugins.find(
         (entry: { transform?: string }) => entry.transform === "@ttsc/lint",
       );
-      assert.ok(graphLint, "resident graph preparation requires the actual lint contributor");
+      assert.ok(
+        graphLint,
+        "resident graph preparation requires the actual lint contributor",
+      );
       graphConfig.compilerOptions.plugins = [graphLint];
-      fs.writeFileSync(path.join(graphRoot, "tsconfig.json"), JSON.stringify(graphConfig));
-      fs.writeFileSync(path.join(graphRoot, "package.json"), JSON.stringify({
-        name: "ttsc-graph-boundary-corpus", private: true, type: "commonjs",
-      }));
+      fs.writeFileSync(
+        path.join(graphRoot, "tsconfig.json"),
+        JSON.stringify(graphConfig),
+      );
+      fs.writeFileSync(
+        path.join(graphRoot, "package.json"),
+        JSON.stringify({
+          name: "ttsc-graph-boundary-corpus",
+          private: true,
+          type: "commonjs",
+        }),
+      );
       fs.symlinkSync(modules, path.join(graphRoot, "node_modules"), "junction");
     }
     return {

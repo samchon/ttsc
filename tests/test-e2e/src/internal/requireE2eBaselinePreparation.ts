@@ -64,7 +64,8 @@ export function requireE2eBaselinePreparation(
   for (const asset of prepared) {
     const label = producerLabels[asset.label]!;
     const before = baseline.assetsBefore.filter((item) => item.label === label);
-    const after = baseline.assetsAfter.filter((item) => item.label === label);
+    const after: NonNullable<TracePhaseObservation<unknown>["assetsAfter"]> =
+      baseline.assetsAfter.filter((item) => item.label === label);
     assert.equal(before.length, 1, `baseline producer ${label}`);
     assert.equal(after.length, 1, `baseline producer ${label}`);
     assert.equal(before[0]!.sha256, after[0]!.sha256);

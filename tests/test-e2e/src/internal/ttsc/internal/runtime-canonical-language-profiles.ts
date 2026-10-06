@@ -14,7 +14,6 @@ import {
   runRuntimeSignalSessions,
   runtimeSignalProgram,
 } from "../../../features/ttsc/ttsx-runtime/test_ttsx_forwards_termination_signals_and_cleans_up_on_posix";
-import { test_ttsx_runs_a_nodenext_dual_format_dependency_graph } from "../../../features/ttsc/ttsx-runtime/test_ttsx_runs_a_nodenext_dual_format_dependency_graph";
 import { FixtureFiles } from "../../FixtureFiles";
 import { isolatedCacheEnvironment } from "./isolated-cache-environment";
 import type { runCanonicalRuntimeProfiles } from "./runtime-canonical-profile-assembly";
@@ -2580,6 +2579,7 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<
           failures,
           "symlinked rootDir whole-project membership assertions failed",
         );
+      return;
     },
   });
   // Source depth is an input distinction: stage the original layouts in
@@ -3305,6 +3305,7 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<
           );
         }
       }
+      return;
     },
   });
   profiles.push({
@@ -3594,6 +3595,7 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<
     run: async (root, _persistent, _spawn, ownAsyncProcess) => {
       if (process.platform === "win32") return false;
       await runRuntimeSignalSessions(root, ownAsyncProcess);
+      return;
     },
   });
   profiles.push({
@@ -3666,8 +3668,73 @@ export function canonicalRuntimeLanguageProfiles(): Parameters<
     // fixture representation. The assembler has already held prior inputs.
     files: {},
     run: (root, _persistent, spawn) => {
-      test_ttsx_runs_a_nodenext_dual_format_dependency_graph({ root, spawn });
+      runNodeNextDualFormatGraph({ root, spawn });
     },
   });
   return profiles;
+}
+
+/**
+ * Run the existing canonical profile's authored NodeNext graph on its borrowed
+ * root. Package type and CTS extension distinguish both dependency formats; the
+ * exact 42:7:esm-ok output requires CommonJS default-import interoperation and
+ * the ESM named export in the same real launcher. The profile assembler owns
+ * input isolation and the supplied guarded spawn; this body allocates neither
+ * an additional fixture nor a second selectable test.
+ */
+function runNodeNextDualFormatGraph(prepared: {
+  root: string;
+  spawn: typeof TestProject.spawn;
+}): void {
+  const files = {
+    "package.json": JSON.stringify({ type: "module", private: true }),
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: {
+        target: "ES2022",
+        module: "nodenext",
+        moduleResolution: "nodenext",
+        strict: true,
+        esModuleInterop: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
+      include: ["src"],
+    }),
+    // CommonJS dependency: `.cts` entry is authoritatively CommonJS under
+    // NodeNext, and its ECMAScript `export const` module syntax must lower to
+    // `module.exports` assignments (a plain type-strip would leave the `export`
+    // tokens and Node's CommonJS loader would throw `Unexpected token 'export'`).
+    "node_modules/cjs-dep/package.json": JSON.stringify({
+      name: "cjs-dep",
+      version: "1.0.0",
+      exports: { ".": "./index.cts" },
+    }),
+    "node_modules/cjs-dep/index.cts":
+      "export const answer: number = 42;\n" +
+      "export const echo = (n: number): number => n;\n",
+    // ESM dependency: `type: module` => ES module. Plain named export.
+    "node_modules/esm-dep/package.json": JSON.stringify({
+      name: "esm-dep",
+      version: "1.0.0",
+      type: "module",
+      exports: { ".": "./index.ts" },
+    }),
+    "node_modules/esm-dep/index.ts": `export const greet = (): string => "esm-ok";\n`,
+    // NodeNext ESM entry pulling both formats into one graph. The CommonJS
+    // dependency comes in through Node's default-import interop; the ESM
+    // dependency uses a named import.
+    "src/main.ts":
+      `import cjs from "cjs-dep";\n` +
+      `import { greet } from "esm-dep";\n` +
+      "console.log(`${cjs.answer}:${cjs.echo(7)}:${greet()}`);\n",
+  };
+  const { root, spawn } = prepared;
+  TestProject.writeFiles(root, files);
+
+  const result = spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], {
+    cwd: root,
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "42:7:esm-ok");
 }

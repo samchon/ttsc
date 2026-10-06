@@ -88,8 +88,8 @@ export async function case_evidence_transport_profiles_share_explicit_preparatio
     labels,
   );
   const pairing = phases.map((phase) => {
-    assert.equal(phase.outcome.returned, true);
     if (!phase.outcome.returned) throw phase.outcome.error;
+    assert.equal(phase.outcome.returned, true);
     for (const asset of input.cold.producerAssets) {
       const baselineLabel = input.baselineProducerLabels[asset.label]!;
       const prior = input.baseline.assetsAfter!.find(

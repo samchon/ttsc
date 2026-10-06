@@ -50,16 +50,22 @@ export async function test_e2e_bun_batch(): Promise<void> {
     .split(/\r?\n/)
     .filter((line) => line.startsWith("TTSC_BUN_SECOND:"));
   assert.equal(second.length, 1);
+  const [secondLine] = second;
+  assert.equal(typeof secondLine, "string");
+  assert.ok(secondLine !== undefined);
   BatchWorkspace.assertResult(
-    JSON.parse(second[0].slice("TTSC_BUN_SECOND:".length)),
+    JSON.parse(secondLine.slice("TTSC_BUN_SECOND:".length)),
     workspace.expected,
   );
   const epochLines = result.stdout
     .split(/\r?\n/)
     .filter((line) => line.startsWith("TTSC_BUN_EPOCHS:"));
   assert.equal(epochLines.length, 1);
+  const [epochLinesLine] = epochLines;
+  assert.equal(typeof epochLinesLine, "string");
+  assert.ok(epochLinesLine !== undefined);
   const epochs = JSON.parse(
-    epochLines[0].slice("TTSC_BUN_EPOCHS:".length),
+    epochLinesLine.slice("TTSC_BUN_EPOCHS:".length),
   ) as number[];
   assert.equal(epochs.length, 3);
   assert.equal(epochs[0], receiptOffset);
@@ -69,15 +75,20 @@ export async function test_e2e_bun_batch(): Promise<void> {
     .split(/\r?\n/)
     .filter((line) => line.startsWith("TTSC_BUN_TICKS:"));
   assert.equal(tickLines.length, 1);
+  const [tickLinesLine] = tickLines;
+  assert.equal(typeof tickLinesLine, "string");
+  assert.ok(tickLinesLine !== undefined);
   const deliveredTicks = JSON.parse(
-    tickLines[0].slice("TTSC_BUN_TICKS:".length),
+    tickLinesLine.slice("TTSC_BUN_TICKS:".length),
   ) as number[];
   assert.equal(deliveredTicks.length, 3);
   assert.equal(deliveredTicks[0], tickOffset);
   for (let pass = 0; pass < 2; pass++) {
+    const currentTick = deliveredTicks[pass];
+    const nextTick = deliveredTicks[pass + 1];
+    assert.ok(currentTick !== undefined && nextTick !== undefined);
     assert.ok(
-      Number.isInteger(deliveredTicks[pass + 1]) &&
-        deliveredTicks[pass + 1] > deliveredTicks[pass],
+      Number.isInteger(nextTick) && nextTick > currentTick,
       "each full graph build must actually acquire its native producer",
     );
   }
@@ -86,16 +97,20 @@ export async function test_e2e_bun_batch(): Promise<void> {
     .split(/\r?\n/)
     .filter((line) => line.startsWith("TTSC_BUN_SINGLE_ENTRY_TICKS:"));
   assert.equal(singleTicks.length, 1);
+  const [singleTicksLine] = singleTicks;
+  assert.equal(typeof singleTicksLine, "string");
+  assert.ok(singleTicksLine !== undefined);
   assert.deepEqual(
-    JSON.parse(singleTicks[0].slice("TTSC_BUN_SINGLE_ENTRY_TICKS:".length)),
+    JSON.parse(singleTicksLine.slice("TTSC_BUN_SINGLE_ENTRY_TICKS:".length)),
     [0, 1, 2],
   );
   for (let pass = 0; pass < 2; pass++) {
-    assert.ok(
-      Number.isInteger(epochs[pass + 1]) && epochs[pass + 1] > epochs[pass],
-    );
+    const currentEpoch = epochs[pass];
+    const nextEpoch = epochs[pass + 1];
+    assert.ok(currentEpoch !== undefined && nextEpoch !== undefined);
+    assert.ok(Number.isInteger(nextEpoch) && nextEpoch > currentEpoch);
     BatchWorkspace.assertContextReceipts(
-      receipts.slice(epochs[pass], epochs[pass + 1]),
+      receipts.slice(currentEpoch, nextEpoch),
     );
   }
   if (!(result.pid > 0)) {
@@ -133,8 +148,10 @@ export async function test_e2e_bun_batch(): Promise<void> {
   BatchWorkspace.assertContextReceipts(
     BatchWorkspace.readContextReceipts(workspace).slice(epochs[2]),
   );
+  const lastDeliveredTick = deliveredTicks[2];
+  assert.ok(lastDeliveredTick !== undefined);
   assert.ok(
-    fs.statSync(workspace.programRunLog).size > deliveredTicks[2],
+    fs.statSync(workspace.programRunLog).size > lastDeliveredTick,
     "the fresh full graph preload must not borrow a completed build's generation",
   );
   const singleRoot = path.join(workspace.root, "tools/bun-native-sessions");

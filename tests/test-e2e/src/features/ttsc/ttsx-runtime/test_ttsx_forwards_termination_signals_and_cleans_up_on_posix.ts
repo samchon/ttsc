@@ -1,6 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import nodeChildProcessForTrace from "node:child_process";
+import nodeChildProcessForTrace, {
+  type ChildProcess,
+} from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -202,7 +204,7 @@ export function runtimeSignalProgram(handles: boolean): string {
 function runUntilSignaled(
   root: string,
   entry: string,
-  signal: (child: child_process.ChildProcess) => void,
+  signal: (child: ChildProcess) => void,
   launcher: string,
   environment?: NodeJS.ProcessEnv,
 ): Promise<{

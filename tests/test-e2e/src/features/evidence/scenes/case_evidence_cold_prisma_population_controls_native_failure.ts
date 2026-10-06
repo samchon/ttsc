@@ -206,8 +206,8 @@ export async function case_evidence_cold_prisma_population_controls_native_failu
       phases.push(phase);
       if (phase.traces) cursor = phase.traces.lastWriterSequences;
       assert.deepEqual(phase.observationErrors, []);
-      assert.equal(phase.outcome.returned, true);
       if (!phase.outcome.returned) throw phase.outcome.error;
+      assert.equal(phase.outcome.returned, true);
       const result = phase.outcome.value;
       assert.equal(result.error, undefined);
       assert.equal(result.signal, null);

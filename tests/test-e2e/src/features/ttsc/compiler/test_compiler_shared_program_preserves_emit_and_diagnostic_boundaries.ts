@@ -55,7 +55,7 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
   runWatch = true,
   preparedWorkspace?: string,
 ): Promise<void> {
-  const files = Object.fromEntries([
+  const files: Record<string, string> = Object.fromEntries([
     ...Object.entries(FixtureFiles.read("ttsc/compiler/corpus")).map(
       ([name, contents]) => [`project/${name}`, contents],
     ),

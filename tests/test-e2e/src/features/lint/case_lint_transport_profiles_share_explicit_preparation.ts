@@ -92,8 +92,8 @@ export async function case_lint_transport_profiles_share_explicit_preparation(in
     labels,
   );
   const pairing = phases.map((phase) => {
-    assert.equal(phase.outcome.returned, true);
     if (!phase.outcome.returned) throw phase.outcome.error;
+    assert.equal(phase.outcome.returned, true);
     const paired = pairE2eTraceWriterManifest(
       phase,
       input.requirements[phase.label]!.map((requirement) => ({

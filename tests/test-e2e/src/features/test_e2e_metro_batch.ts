@@ -2575,7 +2575,10 @@ async function runResidentLoaderPool(): Promise<void> {
             // replacement parser. A replacement-named module would trigger
             // that independent metadata query even for the intentionally
             // non-Go executable used by the extended-name identity contrast.
-            fs.writeFileSync(path.join(plugin, "go.mod"), "module example.com/native-tool-identity\n\ngo 1.26\n");
+            fs.writeFileSync(
+              path.join(plugin, "go.mod"),
+              "module example.com/native-tool-identity\n\ngo 1.26\n",
+            );
             for (const toolchain of [relativeToolchainA, relativeToolchainB]) {
               fs.copyFileSync(script, path.join(toolchain, "capture.cjs"));
             }
@@ -4795,16 +4798,23 @@ async function runResidentLoaderPool(): Promise<void> {
           repaired,
           inputs: [contractPath, declaration].map((file, index) => ({
             file,
-            expectedHash: crypto.createHash("sha256").update(
-              index === 0 ? originalContract : healthyDeclaration,
-            ).digest("hex"),
-            actualHash: crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"),
+            expectedHash: crypto
+              .createHash("sha256")
+              .update(index === 0 ? originalContract : healthyDeclaration)
+              .digest("hex"),
+            actualHash: crypto
+              .createHash("sha256")
+              .update(fs.readFileSync(file))
+              .digest("hex"),
           })),
           publications: publications(),
           // The worker-owned sink is removed only after joined close below.
           // Preserve its actual failed epoch in the assertion before cleanup.
-          invocationTrace: Object.entries(failureTrace()).flatMap(([name, rows]) =>
-            rows.slice(failureTraceOffsets[name] ?? 0).map((event) => ({ file: name, event })),
+          invocationTrace: Object.entries(failureTrace()).flatMap(
+            ([name, rows]) =>
+              rows
+                .slice(failureTraceOffsets[name] ?? 0)
+                .map((event) => ({ file: name, event })),
           ),
         })
       : undefined;
@@ -5076,7 +5086,8 @@ async function runResidentLoaderPool(): Promise<void> {
           turbopack: TestUnpluginRuntime.libUrl("turbopack"),
         });
         const reply = await restarted.request();
-        assert.equal(reply.ok, true, reply.error);
+        assert.equal(reply.error, undefined);
+        assert.ok(reply.value !== undefined);
         assert.match(reply.value.ast.source, /offline-restart-marker/);
         assert.doesNotMatch(reply.value.ast.source, /["']authored-marker["']/);
         assert.equal(

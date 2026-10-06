@@ -1,5 +1,7 @@
 import { TestProject } from "@ttsc/testing";
-import nodeChildProcessForTrace from "node:child_process";
+import nodeChildProcessForTrace, {
+  type ChildProcess,
+} from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
@@ -244,7 +246,7 @@ export const case_ttscgraph_view_owns_http_server_lifecycle =
   };
 
 async function waitForViewerUrl(
-  child: childProcess.ChildProcess,
+  child: ChildProcess,
   stderr: () => string,
   spawnFailure: () => Error | undefined,
 ): Promise<string> {

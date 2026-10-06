@@ -72,8 +72,10 @@ export async function test_e2e_graph_batch(): Promise<void> {
   try {
     await BatchWorkspace.open();
   } catch (error) {
-    throw new AggregateError([...failures, error],
-      "Graph target failures and blocked viewer input reuse");
+    throw new AggregateError(
+      [...failures, error],
+      "Graph target failures and blocked viewer input reuse",
+    );
   }
   try {
     await case_ttscgraph_view_owns_http_server_lifecycle({
@@ -87,8 +89,10 @@ export async function test_e2e_graph_batch(): Promise<void> {
   try {
     await BatchWorkspace.open();
   } catch (error) {
-    throw new AggregateError([...failures, error],
-      "Graph completed stage failures and blocked resident input reuse");
+    throw new AggregateError(
+      [...failures, error],
+      "Graph completed stage failures and blocked resident input reuse",
+    );
   }
   await FileSystemIterator.write(
     workspace.graphRoot,
@@ -251,9 +255,11 @@ export async function test_e2e_graph_batch(): Promise<void> {
     const simple = node("oneLiner")?.signature;
     const nested = node("withTypeLiteral")?.signature;
     assert.equal(typeof simple, "string");
+    assert.ok(typeof simple === "string");
     assert.ok(simple.includes("n: number"));
     assert.equal(simple.includes("return n * 2"), false);
     assert.equal(typeof nested, "string");
+    assert.ok(typeof nested === "string");
     assert.ok(nested.includes("port: number"));
     assert.ok(nested.includes("Promise<void>"));
     assert.equal(nested.includes("Promise.resolve()"), false);

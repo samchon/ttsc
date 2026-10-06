@@ -4,12 +4,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { type RollupCache, rollup } from "rollup";
-import type {
-  Compiler,
-  type Configuration,
-  type Stats,
-  type Watching,
-} from "webpack";
+import type { Compiler, Configuration, Stats, Watching } from "webpack";
 
 import { BatchWorkspace } from "./BatchWorkspace";
 
