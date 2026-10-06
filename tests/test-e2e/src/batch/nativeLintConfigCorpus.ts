@@ -986,7 +986,7 @@ function assertConfigEvaluationCounter(
     .split(/\r?\n/)
     .filter(Boolean)
     .map((line) => JSON.parse(line));
-  const rows = traces.writerObservations.map((row): boolean => row.observation);
+  const rows = traces.writerObservations.map((row) => row.observation);
   const matching = records.slice(cursor).filter((record) => {
     assert.ok(record !== null && typeof record === "object");
     assert.ok("location" in record && typeof record.location === "string");
