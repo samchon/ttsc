@@ -7,3 +7,5 @@ const invalid: number = "wrong";
 type Legacy = string;
 const legacy: Legacy = "value";
 JSON.stringify(legacy);
+
+export type ExplicitAny = any;

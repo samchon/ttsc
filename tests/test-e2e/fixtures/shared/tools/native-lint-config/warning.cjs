@@ -1,1 +1,1 @@
-module.exports = { rules: { "no-console": "warning" } };
+module.exports = { rules: { "no-console": "warning", "no-debugger": "error" } };

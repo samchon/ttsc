@@ -6,11 +6,24 @@ import path from "node:path";
 import { TtscCompiler } from "../../../../packages/ttsc/lib/index.js";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { lintGoPath } from "../internal/lint/internal/config-file";
+import {
+  type TraceMeasurements,
+  readE2eTraceMeasurements,
+} from "../internal/readE2eTraceMeasurements";
+import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
  * Verifies typed contributor/config discovery and native CLI diagnostic
  * transport.
+ *
+ * The existing two CLIs also own basic typed/CJS routing. Their actual loader
+ * invocation carries returned raw bytes, child success and accepted dependency
+ * normalization. Dependency tracking may remain unavailable without denying a
+ * correctly loaded rule value; this transfer does not certify cache reuse. A
+ * configured observation sink is borrowed; otherwise the existing opt-in writer
+ * is enabled only in these children with an owned trace-only allocation. No
+ * additional evaluator or compiler is invoked.
  *
  * 1. Run one typed-config graph containing all original contributor and mixed
  *    stream inputs.
@@ -20,19 +33,24 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *    ancestor lint config; cwd fallback and local wrapper precedence remain
  *    distinct from the main graph's ancestor configuration.
  *
- * @evidence contracts/testing.md#behavioral-verification The real launcher reports every independently authored contributor TODO/FIXME/XXX tuple, rejects leaked default marker options, renders the original no-var/prefer-const/TypeScript order and omits ignored generated inputs. The same typed check must return exactly2 with empty stdout and the authored structured Legacy restriction's exact custom message. A CJS warning-only command must return zero with exactly one no-console warn. Actual compiler API wrapper calls require cwd fallback with two discovery errors and wrapper precedence with only no-var.
+ * @evidence contracts/testing.md#behavioral-verification The real launcher reports every independently authored contributor TODO/FIXME/XXX tuple, rejects leaked default marker options, renders the original no-var/prefer-const/TypeScript order and omits ignored generated inputs. The same typed check must return exactly2 with empty stdout and the authored structured Legacy restriction's exact custom message. A CJS warning-only command must return zero and empty stdout with exactly one no-console warn, while its actual normalized loader envelope retains both no-console:warning and no-debugger:error. The typed graph adds a real no-explicit-any diagnostic at authored mixed.ts line11 and verifies that same rule value in the typed evaluator envelope. Actual compiler API wrapper calls require cwd fallback with two discovery errors and wrapper precedence with only no-var.
  * @evidence contracts/testing.md#independent-expectations Original authored comment messages, option marker XXX versus TODO, source line numbers and literal rule/category tuples define expectations. The Legacy source and literal Use Safe instead. option independently require the exact no-restricted-types message, empty stdout and check status2; fixWith/suggest remain input fields, not claimed edit assertions. CLI stderr/parser and actual compile envelopes supply observations; discovery output never generates the expected rules.
  * @evidence contracts/testing.md#distinguishing-cases Typed package contributor/options, structured builtin rule options reaching the actual renderer, builtin-plus-TypeScript stream, globally ignored included dot/declaration files, explicit CJS warning normalization, config-less wrapper fallback and wrapper config precedence remain distinct.
  * @evidence contracts/testing.md#execution-ownership Selected esbuild calls this helper on one upfront lint island with workspace-linked owning lint/demo producers. Two real launcher commands and two actual synchronous compiler API preparations own all distinctions; source units are not treated as native registration/renderer evidence.
  * @evidence contracts/e2e.md#necessary-boundary Executable typed/CJS config evaluation, demo source discovery, serialized options, native rule diagnostic transport and CLI status must agree. Wrapper context must select its own config or actual cwd fallback; Go config/decoder units alone cannot establish that assembly.
  * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates.
- * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. Authored transfer acceptance remains subject to execution.
+ * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. Authored transfer acceptance remains subject to execution.
  */
 export function nativeLintConfigCorpus(
   workspace: BatchWorkspace.Workspace,
 ): void {
   const root = path.join(workspace.root, "tools/native-lint-config");
+  const traceRoot =
+    process.env.TTSC_E2E_TRACE ??
+    TestProject.tmpdir("ttsc-lint-loader-observations-");
+  assert.ok(path.isAbsolute(traceRoot));
+  fs.mkdirSync(traceRoot, { recursive: true });
   const config = path.join(root, "tsconfig.json");
   const typed = path.join(root, "lint.config.ts");
   const originalConfig = fs.readFileSync(config);
@@ -77,12 +95,17 @@ export function nativeLintConfigCorpus(
     }
   };
   const run = () => {
+    const cursor = readE2eTraceMeasurements(traceRoot, []).lastWriterSequences;
     const result = TestProject.spawn(
       TestProject.TTSC_BIN,
       ["--cwd", root, "--noEmit"],
       {
         cwd: root,
-        env: { TTSC_CACHE_DIR: workspace.cache, PATH: lintGoPath() },
+        env: {
+          TTSC_CACHE_DIR: workspace.cache,
+          PATH: lintGoPath(),
+          TTSC_E2E_TRACE: traceRoot,
+        },
       },
     );
     if (!isOrdinarilyClosedReadonlyLauncher(result)) {
@@ -105,13 +128,20 @@ export function nativeLintConfigCorpus(
         throw error;
       }
     }
-    return { ...result, diagnostics: TestLint.parseDiagnostics(result.stderr) };
+    return {
+      ...result,
+      diagnostics: TestLint.parseDiagnostics(result.stderr),
+      traces: readE2eTraceMeasurements(traceRoot, [], cursor),
+    };
   };
   try {
     capture("typed contributor and mixed native stream", () => {
       const result = run();
       assert.equal(result.status, 2, result.stderr);
       assert.equal(result.stdout, "", result.stderr);
+      assertExecutableConfigRules(result.traces, traceRoot, typed, {
+        "typescript/no-explicit-any": "error",
+      });
       assert.ok(
         result.stderr.includes("[typescript/no-restricted-types]"),
         result.stderr,
@@ -196,6 +226,7 @@ export function nativeLintConfigCorpus(
           ["mixed.ts", 1, "no-var", "error"],
           ["mixed.ts", 2, "prefer-const", "error"],
           ["mixed.ts", 8, "typescript/no-restricted-types", "error"],
+          ["mixed.ts", 11, "typescript/no-explicit-any", "error"],
           ["options.ts", 1, "demo/no-marker-comment", "error"],
           ["options.ts", 3, "demo/no-todo-comment", "error"],
           ["warning.ts", 1, "no-console", "error"],
@@ -210,6 +241,7 @@ export function nativeLintConfigCorpus(
           ["no-var", 1],
           ["prefer-const", 2],
           ["typescript/no-restricted-types", 8],
+          ["typescript/no-explicit-any", 11],
         ],
         result.stderr,
       );
@@ -246,6 +278,16 @@ export function nativeLintConfigCorpus(
       );
       const result = run();
       assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout, "", result.stderr);
+      assertExecutableConfigRules(
+        result.traces,
+        traceRoot,
+        path.join(root, "warning.cjs"),
+        {
+          "no-console": "warning",
+          "no-debugger": "error",
+        },
+      );
       assert.deepEqual(
         result.diagnostics.map(({ rule, severity }) => [rule, severity]),
         [["no-console", "warn"]],
@@ -350,6 +392,96 @@ export function nativeLintConfigCorpus(
         }
     }
   }
-  if (failures.length)
+  if (failures.length) {
+    if (process.env.TTSC_E2E_TRACE === undefined) {
+      try {
+        TestProject.retainTemporaryDirectory(
+          traceRoot,
+          "Native lint loader assertions retain their actual raw evaluator observations",
+        );
+        console.error("Native lint loader observations retained: " + traceRoot);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
     throw new AggregateError(failures, "native lint config boundaries failed");
+  }
+}
+
+/**
+ * Read the completed loader's captured bytes under its exact native writer and
+ * invocation. This joins the evaluator result to its own child outcome and
+ * successful dependency normalization; it does not infer values from sources or
+ * run a second module evaluation.
+ */
+function assertExecutableConfigRules(
+  traces: TraceMeasurements,
+  traceRoot: string,
+  location: string,
+  rules: Readonly<Record<string, string>>,
+): void {
+  assert.deepEqual(traces.integrityProblems, []);
+  const results = traces.writerObservations
+    .map((row) => row.observation)
+    .filter(
+      (row) =>
+        row.event === "config-loader-result" && row.data?.location === location,
+    );
+  assert.equal(results.length, 1, "one actual loader result for " + location);
+  const [result] = results;
+  assert.ok(result !== undefined);
+  assert.equal(result.data?.readOutcome, "complete");
+  assert.equal(result.data?.normalizationAttempted, true);
+  assert.equal(result.data?.normalizationAccepted, true);
+  assert.equal(typeof result.data?.dependenciesTracked, "boolean");
+  assert.equal(result.data?.success, true);
+  const invocation = traces.writerObservations
+    .map((row) => row.observation)
+    .filter(
+      (row) =>
+        row.writerPid === result.writerPid &&
+        row.instance === result.instance &&
+        row.invocation === result.invocation,
+    );
+  const attempts = invocation.filter((row) => row.event === "process-attempt");
+  const terminals = invocation.filter((row) => row.event === "process-result");
+  assert.equal(attempts.length, 1);
+  assert.equal(terminals.length, 1);
+  const [attempt] = attempts;
+  const [terminal] = terminals;
+  assert.ok(attempt !== undefined && terminal !== undefined);
+  assert.ok(
+    attempt.sequence < terminal.sequence && terminal.sequence < result.sequence,
+  );
+  assert.equal(terminal.data?.owner, "lint-config-loader");
+  assert.ok(
+    typeof terminal.pid === "number" &&
+      Number.isSafeInteger(terminal.pid) &&
+      terminal.pid > 0,
+  );
+  assert.equal(terminal.data?.started, true);
+  assert.equal(terminal.data?.exitObserved, true);
+  assert.equal(terminal.data?.exitCode, 0);
+  assert.equal(terminal.data?.success, true);
+  const captured = readE2eTracePayload(traceRoot, result, result.data?.raw);
+  const envelope: unknown = JSON.parse(
+    new TextDecoder("utf-8", { fatal: true }).decode(captured.bytes),
+  );
+  assert.ok(envelope !== null && typeof envelope === "object");
+  const value = (envelope as Record<string, unknown>).value;
+  assert.ok(
+    value !== null && typeof value === "object" && !Array.isArray(value),
+  );
+  const actualRules = (value as Record<string, unknown>).rules;
+  assert.ok(
+    actualRules !== null &&
+      typeof actualRules === "object" &&
+      !Array.isArray(actualRules),
+  );
+  for (const [rule, severity] of Object.entries(rules))
+    assert.equal(
+      (actualRules as Record<string, unknown>)[rule],
+      severity,
+      location + ": " + rule,
+    );
 }

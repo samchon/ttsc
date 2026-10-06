@@ -6,6 +6,7 @@ export default {
   ignores: [".next/**/*.ts", "next-env.d.ts"],
   plugins: { demo: demoPlugin },
   rules: {
+    "typescript/no-explicit-any": "error",
     "demo/no-todo-comment": "error",
     "demo/no-marker-comment": ["error", { markers: ["XXX"] }],
     "typescript/no-restricted-types": [
