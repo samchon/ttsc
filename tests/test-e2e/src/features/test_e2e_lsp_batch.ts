@@ -1257,7 +1257,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
       failures.push(traceError);
     }
     try {
-      TestProject.retainTemporaryDirectory(project.tmpdir, reason);
+      TestProject.retainTemporaryDirectory(workspace.allocatedRoot, reason);
     } catch (retentionError) {
       failures.push(retentionError);
     }
