@@ -1,3 +1,4 @@
+import "./runtime-corpus/import-binding/main.mjs";
 import { observeConfiguredOwners } from "./runtime-corpus/configured-owners.mjs";
 import { observeExportPopulation } from "./runtime-corpus/export-population/observe.mjs";
 import adapterEntries from "../adapter-entries.json" with { type: "json" };
