@@ -34,15 +34,6 @@ export const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
  * The raw-name and withFileTypes combination is not a common Dirent contract
  * across supported runtimes. Separate byte listing and lstat keep that boundary
  * explicit; errors still refuse the caller's generation proof.
- *
- * @evidence contracts/common.md#principled-implementation Native byte names and non-following lstat supply each Dirent name and kind independently of runtime-specific raw Dirent representations.
- * @evidence contracts/common.md#clear-and-simple-design One default filesystem adapter normalizes the raw listing; predicate encoding and explicit overrides remain with their existing owners.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts No UTF8 name conversion, inferred kind, missing-entry fallback or runtime-specific fixture branch substitutes for a native observation.
- * @evidence contracts/common.md#meaningful-documentation Explains the two-query boundary and propagation of observation errors.
- * @evidence contracts/portability.md#os-neutral-implementation Native separators join Buffer paths without decoding names, and lstat distinguishes links from their targets on the observed filesystem.
- * @evidence contracts/performance.md#efficient-algorithms One listing and one lstat per entry cost O(n) native queries and O(total name bytes) retained name storage; predicate sorting remains unchanged.
- * @evidence contracts/performance.md#reuse-equivalent-work Each proof observes current membership and kind; this adapter adds no cache whose validity could outlive those inputs.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous filesystem calls release their handles before returning; the caller owns the returned entry array.
  */
 function readRawDirectory(location: string): fs.Dirent<Buffer>[] {
   const directory = path.resolve(location);
