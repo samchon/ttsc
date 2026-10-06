@@ -15,5 +15,6 @@ export default (context: {
   return {
     name: context.plugin.name,
     source: path.resolve(context.dirname, "../../..", "native-producer"),
+    hostInputHashes: {},
   };
 };

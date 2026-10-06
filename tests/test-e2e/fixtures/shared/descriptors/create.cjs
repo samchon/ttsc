@@ -1,1 +1,1 @@
-exports.createTtscPlugin = (context) => ({ name: context.plugin.name, source: context.plugin.fixtureSource });
+exports.createTtscPlugin = (context) => ({ name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {} });

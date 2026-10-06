@@ -8,5 +8,5 @@ module.exports = (context) => {
     filename: context.filename, dirname: context.dirname,
     ambientFilename: __filename, ambientDirname: __dirname,
   }));
-  return { name: context.plugin.name, source: context.plugin.fixtureSource };
+  return { name: context.plugin.name, source: context.plugin.fixtureSource, hostInputHashes: {} };
 };
