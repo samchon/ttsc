@@ -596,6 +596,47 @@ export namespace BatchWorkspace {
       "junction",
     );
     const lintConfigRoot = path.join(root, "tools/native-lint-config");
+    // Resolve-only root candidates stay absent. Their fallback bytes and owned
+    // target share this already necessary config island; preparation writes only
+    // its package manifests, never a filesystem-root entry.
+    const filesystemRoot = path.parse(lintConfigRoot).root;
+    const absentAncestor = path.join(
+      filesystemRoot,
+      "ttsc-lint-absent-ancestor",
+    );
+    const rootLevelMain = path.join(
+      filesystemRoot,
+      "ttsc-lint-absent-root-main.js",
+    );
+    for (const missing of [absentAncestor, rootLevelMain])
+      assert.throws(() => fs.lstatSync(missing), { code: "ENOENT" });
+    for (const [name, main] of [
+      ["root-boundary-absent-main", path.join(absentAncestor, "main.cjs")],
+      ["root-boundary-root-main", rootLevelMain],
+      [
+        "root-boundary-owned-main",
+        path.join(lintConfigRoot, "owned-root-boundary/target.cjs"),
+      ],
+    ] as const)
+      await FileSystemIterator.write(
+        path.join(lintConfigRoot, "node_modules", name),
+        {
+          "package.json": JSON.stringify({ main }),
+          ...(name !== "root-boundary-owned-main"
+            ? {
+                "index.js": fs.readFileSync(
+                  path.join(
+                    lintConfigRoot,
+                    "root-boundary-templates",
+                    name,
+                    "index.js",
+                  ),
+                  "utf8",
+                ),
+              }
+            : {}),
+        },
+      );
     fs.mkdirSync(path.join(lintConfigRoot, ".next/types"), { recursive: true });
     fs.copyFileSync(
       path.join(lintConfigRoot, "templates/next-types.ts"),
@@ -611,7 +652,7 @@ export namespace BatchWorkspace {
         ),
       ],
     ]) {
-      const link = path.join(lintConfigRoot, "node_modules", name!);
+      const link = path.join(lintConfigRoot, "node_modules", name);
       fs.mkdirSync(path.dirname(link), { recursive: true });
       fs.symlinkSync(target!, link, "junction");
     }

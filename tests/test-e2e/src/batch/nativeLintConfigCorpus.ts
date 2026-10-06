@@ -22,10 +22,14 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * normalization. Dependency tracking may remain unavailable without denying a
  * correctly loaded rule value; this transfer does not certify cache reuse. The
  * CJS warning module also extends a pure format-only child. Its exact raw width
- * survives the same actual command without introducing another launcher. A
- * configured observation sink is borrowed; otherwise the existing opt-in writer
- * is enabled only in these children with an owned trace-only allocation. No
- * additional evaluator or compiler is invoked.
+ * survives the same actual command without introducing another launcher. A The
+ * same CJS invocation resolves two missing absolute manifest mains through
+ * their literal fallbacks and one owned main. Exact entry/watch observations,
+ * owned directory/watch and filesystem-root exclusion preserve the original
+ * resolution graph boundary without a separate evaluator. A configured
+ * observation sink is borrowed; otherwise the existing opt-in writer is enabled
+ * only in these children with an owned trace-only allocation. No additional
+ * evaluator or compiler is invoked.
  *
  * 1. Run one typed-config graph containing all original contributor and mixed
  *    stream inputs.
@@ -42,7 +46,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/e2e.md#necessary-boundary Executable typed/CJS config evaluation, demo source discovery, serialized options, native rule diagnostic transport and CLI status must agree. Wrapper context must select its own config or actual cwd fallback; Go config/decoder units alone cannot establish that assembly.
  * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates.
- * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now evaluates its pure CJS export as the warning module extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. Authored transfer acceptance remains subject to execution.
+ * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now evaluates its pure CJS export as the warning module extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. TestConfigDependencyGraphNeverPublishesTheFilesystemRoot now shares this warning evaluator: literal error/warning/warning module results and exact missing entry/watch versus owned directory/watch are checked on the same completed loader result, with no filesystem-root dependency and all watch directories physically within this config root. Authored transfer acceptance remains subject to execution.
  */
 export function nativeLintConfigCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -72,6 +76,9 @@ export function nativeLintConfigCorpus(
     "discovery.config.json",
     "warning.cjs",
     "format-only.cjs",
+    "owned-root-boundary/target.cjs",
+    "root-boundary-templates/root-boundary-absent-main/index.js",
+    "root-boundary-templates/root-boundary-root-main/index.js",
   ].map(
     (name) =>
       [path.join(root, name), fs.readFileSync(path.join(root, name))] as const,
@@ -310,8 +317,10 @@ export function nativeLintConfigCorpus(
         {
           "no-console": "warning",
           "no-debugger": "error",
+          eqeqeq: "warning",
         },
       );
+      assertRootBoundaryDependencies(result.traces, root);
       const formatOnly = assertExecutableConfigRules(
         result.traces,
         traceRoot,
@@ -520,4 +529,69 @@ function assertExecutableConfigRules(
       );
   }
   return value as Record<string, unknown>;
+}
+
+/**
+ * The existing warning evaluator owns both missing-root topologies and the
+ * ordinary owned-parent control. These literal coordinates are authored before
+ * evaluation; normalized dependencies come from the same actual result whose
+ * raw severity values and process completion were already checked.
+ */
+function assertRootBoundaryDependencies(
+  traces: TraceMeasurements,
+  root: string,
+): void {
+  const results = traces.writerObservations
+    .map((row) => row.observation)
+    .filter(
+      (row) =>
+        row.event === "config-loader-result" &&
+        row.data?.location === path.join(root, "warning.cjs"),
+    );
+  assert.equal(results.length, 1);
+  const [result] = results;
+  assert.ok(result !== undefined);
+  assert.equal(result.data?.dependenciesTracked, true);
+  const dependencies: unknown = result.data?.dependencies;
+  assert.ok(Array.isArray(dependencies));
+  const filesystemRoot = path.parse(root).root;
+  const expected = [
+    [path.join(filesystemRoot, "ttsc-lint-absent-ancestor"), "entry"],
+    [path.join(filesystemRoot, "ttsc-lint-absent-root-main.js"), "entry"],
+    [path.join(root, "owned-root-boundary"), "directory"],
+  ] as const;
+  const matched = new Set<string>();
+  const physicalRoot = fs.realpathSync.native(root);
+  for (const input of dependencies) {
+    const dependency: unknown = input;
+    assert.ok(dependency !== null && typeof dependency === "object");
+    assert.ok("path" in dependency && typeof dependency.path === "string");
+    assert.ok("kind" in dependency && typeof dependency.kind === "string");
+    assert.ok("scope" in dependency && typeof dependency.scope === "string");
+    assert.notEqual(
+      path.resolve(dependency.path),
+      path.resolve(filesystemRoot),
+    );
+    for (const [location, kind] of expected)
+      if (path.resolve(dependency.path) === path.resolve(location)) {
+        assert.equal(dependency.kind, kind);
+        assert.equal(dependency.scope, "watch");
+        matched.add(location);
+      }
+    if (dependency.kind === "directory" && dependency.scope === "watch") {
+      const relative = path.relative(
+        physicalRoot,
+        fs.realpathSync.native(dependency.path),
+      );
+      assert.equal(path.isAbsolute(relative), false);
+      assert.equal(
+        relative === ".." || relative.startsWith(".." + path.sep),
+        false,
+      );
+    }
+  }
+  assert.deepEqual(
+    [...matched].sort(),
+    expected.map(([location]) => location).sort(),
+  );
 }
