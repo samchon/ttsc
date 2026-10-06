@@ -120,7 +120,7 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   // served or recorded as an input of the program.
   nativeRequireResolveHooks =
     RuntimeLoaderCapabilities.requireResolveConsultsHooks();
-  CommonJsRuntimeSource.configure(resolveCommonJsRequest);
+  CommonJsRuntimeSource.configure(resolveCommonJsRequest, !nativeRequireResolveHooks);
   RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   // Error stacks use the served source maps. This supported switch is applied
   // only after the required public loader capabilities have been established.
@@ -128,7 +128,7 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
     process.setSourceMapsEnabled(true);
   }
   registerHooks({ load, resolve });
-  PluginDescriptorInputObservation.begin();
+  PluginDescriptorInputObservation.begin(true);
   installed = true;
 }
 
@@ -333,6 +333,9 @@ function resolve(
     }
     selected = result.url;
     recordPluginDescriptorResolution(specifier, context.parentURL, result.url);
+    const moduleApi = CommonJsRuntimeSource.moduleSource();
+    if (!nativeRequireResolveHooks && result.url === "node:module" && context.parentURL !== moduleApi.url && !isDescriptorEvaluatorBootstrap(context.parentURL ?? ""))
+      return { shortCircuit: true, url: moduleApi.url };
     rememberCommonJsImportRole(result.url, context);
     return result;
   } finally {
@@ -820,6 +823,9 @@ function load(
   context: LoadContext,
   nextLoad: NextLoad,
 ): LoadResult {
+  const moduleApi = CommonJsRuntimeSource.moduleSource();
+  if (url === moduleApi.url)
+    return { shortCircuit: true, format: "module", source: moduleApi.source };
   // Preserve Node's file-entry evaluation without facade/export-name scans of
   // the owned bootstrap or observations of its temporary path and manifests.
   if (isDescriptorEvaluatorBootstrap(url)) return nextLoad(url, context);

@@ -85,6 +85,10 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     configFile: false,
     logLevel: "silent",
     root,
+    // Vite's default legalComments:none removes even a compiler-produced
+    // preamble. This attribution case deliberately preserves its authored
+    // @preserve banner through the real downstream TypeScript transform.
+    esbuild: { legalComments: "inline" },
     optimizeDeps: { noDiscovery: true },
     plugins: [
       adapter(),

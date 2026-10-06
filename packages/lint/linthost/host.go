@@ -331,6 +331,24 @@ func (p *program) runWriteScopedCycle(engine *Engine) []*Finding {
   return p.runCycleOver(engine, p.projectSourceFiles())
 }
 
+// runDocumentWriteScopedCycle preserves the project's complete project-rule
+// population and checker while walking file rules only on the document the
+// command can edit. Sibling findings were discarded by the command after a
+// full file walk; they cannot contribute an edit to this document. Project
+// rules still see all project-owned files and retain their cross-file results.
+// Each cascade pass has a fresh Program and cycle, so fixes never reuse a
+// project result from the preceding document state.
+func (p *program) runDocumentWriteScopedCycle(engine *Engine, target *shimast.SourceFile) []*Finding {
+  if p == nil || engine == nil || target == nil {
+    return nil
+  }
+  if p.projectCycle == nil {
+    p.projectCycle = engine.evaluateProject(p.identity, p.projectSourceFiles(), p.checker)
+  }
+  fileFindings := engine.runFiles([]*shimast.SourceFile{target}, p.checker, p.projectCycle.results, p.cwd)
+  return append(p.projectCycle.finalize(), fileFindings...)
+}
+
 // runCycleOver evaluates the project rules and the file rules over one file set,
 // memoizing the current project cycle on the program. Calls sharing that memo
 // do not re-evaluate a rule; resident acquire resets it before a new request.

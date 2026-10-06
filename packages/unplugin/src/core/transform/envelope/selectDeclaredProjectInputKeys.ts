@@ -13,8 +13,9 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
  * candidates carry their own graph proof; asking the project observer to
  * witness them as well makes unrelated activity in ignored directories
  * invalidate an otherwise complete generation. Returns `undefined` for an
- * envelope with no graph, which declares no input set and therefore keeps
- * whole-walk comparison.
+ * successful envelope with no graph, and for failed results whose diagnostics
+ * concern the whole program rather than a successful output's dependency set.
+ * Both keep whole-walk comparison.
  *
  * @evidence contracts/common.md#principled-implementation Declared inputs intersect actual project snapshot keys, so narrowing never asks the project walk to prove out-of-walk inputs; undefined preserves whole-walk comparison when the graph cannot declare a bound.
  * @evidence contracts/common.md#clear-and-simple-design A local add adapter owns validity, scratch exclusion and project-key intersection, while each producer input category contributes through that same rule.
@@ -43,7 +44,7 @@ export function selectDeclaredProjectInputKeys(props: {
   result: ITtscCompilerTransformation;
   scratchDirectory?: string;
 }): Set<string> | undefined {
-  if (props.result.type === "exception" || props.result.graph === undefined) {
+  if (props.result.type !== "success" || props.result.graph === undefined) {
     return undefined;
   }
   const graph = props.result.graph;

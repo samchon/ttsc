@@ -20,7 +20,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  */
 export function observeValidationUnitGeneration(
   root: string,
-  result: ITtscCompilerTransformation.ISuccess,
+  result: ITtscCompilerTransformation.ISuccess | ITtscCompilerTransformation.IFailure,
 ): TtscCachedProjectTransform {
   const tsconfig = path.join(root, "tsconfig.json");
   const cached: TtscCachedProjectTransform = {

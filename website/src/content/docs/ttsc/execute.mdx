@@ -18,7 +18,7 @@ Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
 The entry can also be a JavaScript host that loads TypeScript, such as `npx ttsx tools/run.js`. A JavaScript entry has no project to check up front. It runs as it would under `node --require ttsc/register`, and each TypeScript file it reaches is checked and built through its own project before it runs. The options that only configure the up-front build (`-P`, `--cache-dir`, `--checkers`, `--singleThreaded`, `--no-plugins`, and forwarded compiler options) are refused before a JavaScript entry; set compiler options in the `tsconfig.json` that owns the TypeScript it loads.
 
-`ttsx` requires Node's synchronous `module.registerHooks` API and a CommonJS resolver that sends `require.resolve()` through those hooks. API presence alone is insufficient: the runtime checks that resolution capability and rejects a host that bypasses it. Several Node releases provide the API while bypassing hooks for `require.resolve()`, so Node 22.15 alone does not establish runtime support.
+`ttsx` requires Node's synchronous `module.registerHooks` API. It checks whether native `require.resolve()` consults those hooks. When it does not, served CommonJS modules and direct `module.createRequire()` consumers use an owned resolution view that records actual resolution inputs. Node still owns loading and its shared module cache; the runtime does not replace Node's builtin exports. Missing or unstable input observations prevent cache reuse.
 
 Bun and Deno report a Node.js version but do not implement the native loading capabilities required here. `ttsx` and `ttsc/register` reject unsupported runtimes with a Node.js diagnostic before running the entry. `bunx ttsx` uses Node.js unless `--bun` is given.
 

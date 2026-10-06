@@ -26,7 +26,9 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * still matches the filesystem. An incomplete generation may not take this
  * shortcut: otherwise a sibling output captured during a filesystem race could
  * still be served once. Later graph-bearing requests validate the file's
- * derived input set and project membership; graph-free envelopes conservatively
+ * derived input set and project membership. A failed result is a diagnostic of
+ * the whole loaded program, so its repair cannot be proved by one delivered
+ * output's dependency closure. Failed and graph-free envelopes conservatively
  * validate the complete project and out-of-walk snapshots, reusing qualified
  * signatures. A mismatch rejects this generation for the delivery; its caller
  * chooses replacement or capture. Delivered text that differs while the disk
@@ -154,7 +156,7 @@ export function matchesCachedSource(
     resultFilesystem(cached.result),
   );
   if (
-    cached.result.type !== "exception" &&
+    cached.result.type === "success" &&
     cached.result.graph !== undefined &&
     cached.projectSnapshotComplete === true &&
     cached.projectDirectories !== undefined &&

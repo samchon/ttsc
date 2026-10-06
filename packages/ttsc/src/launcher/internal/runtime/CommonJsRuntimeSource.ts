@@ -1,6 +1,6 @@
 import { parse } from "acorn";
-import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import NativeModule, { createRequire } from "node:module";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
  * Give a hook-served CommonJS module its own source-aware require function.
@@ -23,9 +23,11 @@ import { pathToFileURL } from "node:url";
  */
 export namespace CommonJsRuntimeSource {
   /**
-   * Install the runtime's resolution policy before loading user modules.
+   * Install the runtime's resolution policy before loading user modules. The
+   * capability owner also selects whether direct module API consumers need an
+   * owned createRequire view; native hook-complete runtimes keep Node's API.
    *
-   * @evidence contracts/common.md#principled-implementation The callback receives Node's original resolver and actual module filename, keeping successful native resolutions authoritative.
+   * @evidence contracts/common.md#principled-implementation The callback receives Node's original resolver and actual module filename, keeping successful native resolutions authoritative. The supplied actual hook capability selects the owned API view, rather than an OS or version-name exception.
    * @evidence contracts/common.md#clear-and-simple-design Installation stores one policy; per-module factories do not duplicate runtime project or descriptor-observation logic.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback is owned state and does not replace any Node method.
    * @evidence contracts/common.md#meaningful-documentation The native purpose states the ordering prerequisite and policy owner.
@@ -34,9 +36,34 @@ export namespace CommonJsRuntimeSource {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Policy installation does not authorize sharing a compiled result.
    * @evidence contracts/performance.md#bound-retention-and-release-resources This helper instance retains one replaceable policy; its installation-owned global symbol slot retains the factory even if its CommonJS cache entry is removed. No per-request history or native handle is added.
    */
-  export function configure(policy: Resolver): void {
+  export function configure(policy: Resolver, adaptModuleApi: boolean = false): void {
     resolve = policy;
+    moduleApiAdapted = adaptModuleApi;
     factories[FACTORY_KEY] = create;
+    (globalThis as unknown as Record<symbol, unknown>)[MODULE_KEY] = moduleFacade;
+  }
+
+  /**
+   * A private public-hook URL serves an owned view of Node's module API on
+   * runtimes whose native createRequire.resolve does not consult hooks.
+   * The view delegates construction and every unrelated member to Node.
+   * Its createRequire returns the same source-aware callable used by served
+   * CommonJS modules; Node's original exports and module cache are untouched.
+   *
+   * @evidence contracts/common.md#principled-implementation The load hook supplies this module body and bypasses only its own native import. A process-owned symbol supplies the shared facade without assigning a foreign property.
+   * @evidence contracts/common.md#clear-and-simple-design CommonJS and ESM module API consumers share one facade and one require construction policy.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The facade is an owned callable view, not a replacement of Node's builtin exports or private resolver.
+   * @evidence contracts/common.md#meaningful-documentation The native comment states its private URL, delegation and unchanged native ownership.
+   * @evidence contracts/portability.md#os-neutral-implementation Public createRequire validates native paths and file URLs before the adapter converts the accepted anchor.
+   * @evidence contracts/performance.md#efficient-algorithms The fixed module body retains no source population and the process owns one facade.
+   * @evidence contracts/performance.md#reuse-equivalent-work One facade preserves identity across served consumers; Node continues to own evaluated-module reuse.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The installed runtime retains one facade and symbol slot, with no per-request history or native handles.
+   */
+  export function moduleSource(): { url: string; source: string } {
+    return {
+      url: MODULE_URL,
+      source: `export * from "node:module"; import { runInThisContext } from "node:vm"; const owned=runInThisContext(${JSON.stringify(`globalThis[Symbol.for(${JSON.stringify(MODULE_NAME)})]`)}); export const createRequire=owned.createRequire; export const Module=owned; export default owned;`,
+    };
   }
 
   /**
@@ -56,7 +83,13 @@ export namespace CommonJsRuntimeSource {
     filename: string,
   ): NodeJS.Require {
     const native = createRequire(filename);
-    const owned = ((specifier: string) => native(specifier)) as NodeJS.Require;
+    const owned = ((specifier: string) => {
+      const loaded = native(specifier);
+      if (moduleApiAdapted && (specifier === "node:module" || specifier === "module") &&
+          (loaded === NativeModule || loaded?.default === moduleFacade))
+        return moduleFacade;
+      return loaded;
+    }) as NodeJS.Require;
     Object.assign(owned, native, original);
     owned.resolve = ((specifier: string, options?: { paths?: string[] }) =>
       resolve(
@@ -172,10 +205,43 @@ type Resolver = (
 ) => string;
 let resolve: Resolver = (native, specifier, options) =>
   native(specifier, options);
+let moduleApiAdapted = false;
 // The installed hooks outlive individual CommonJS cache entries. This owned
 // symbol retains one factory per helper location without mutating Node's cache.
 const FACTORY_NAME = `ttsc.CommonJsRuntimeSource:${__filename}`;
 const FACTORY_KEY = Symbol.for(FACTORY_NAME);
+const MODULE_NAME = `ttsc.CommonJsRuntimeSource.module:${__filename}`;
+const MODULE_KEY = Symbol.for(MODULE_NAME);
+const MODULE_URL = `ttsc:owned-module:${encodeURIComponent(__filename)}`;
+// The owned callable retains Node's constructor and static API semantics.
+// Configurable property descriptors are copied, so reflective reads of
+// createRequire see the owned function rather than escaping its policy.
+const moduleFacade = function (this: unknown, ...args: unknown[]): unknown {
+  return new.target === undefined
+    ? Reflect.apply(NativeModule, this, args)
+    : Reflect.construct(NativeModule, args, new.target === moduleFacade ? NativeModule : new.target);
+} as unknown as typeof NativeModule;
+Object.setPrototypeOf(moduleFacade, Object.getPrototypeOf(NativeModule));
+for (const key of Reflect.ownKeys(NativeModule)) {
+  const descriptor = Object.getOwnPropertyDescriptor(NativeModule, key)!;
+  const existing = Object.getOwnPropertyDescriptor(moduleFacade, key);
+  if (existing?.configurable === false) continue;
+  Object.defineProperty(moduleFacade, key, descriptor);
+}
+Object.defineProperty(moduleFacade, "createRequire", {
+  ...Object.getOwnPropertyDescriptor(NativeModule, "createRequire"),
+  value: (anchor: string | URL): NodeJS.Require => {
+    const native = createRequire(anchor);
+    const filename = anchor instanceof URL || anchor.startsWith("file:")
+      ? fileURLToPath(anchor)
+      : anchor;
+    return CommonJsRuntimeSource.create(native, filename);
+  },
+});
+Object.defineProperty(moduleFacade, "Module", {
+  ...Object.getOwnPropertyDescriptor(NativeModule, "Module"),
+  value: moduleFacade,
+});
 const factories = globalThis as unknown as Record<
   symbol,
   typeof CommonJsRuntimeSource.create | undefined

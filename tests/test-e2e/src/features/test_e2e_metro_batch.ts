@@ -2567,6 +2567,11 @@ async function runResidentLoaderPool(): Promise<void> {
             fs.mkdirSync(relativeToolchainA, { recursive: true });
             fs.mkdirSync(relativeToolchainB, { recursive: true });
             fs.cpSync(replacementFixture, plugin, { recursive: true });
+            // This matrix proves tool identity and argv transport, not Go's
+            // replacement parser. A replacement-named module would trigger
+            // that independent metadata query even for the intentionally
+            // non-Go executable used by the extended-name identity contrast.
+            fs.writeFileSync(path.join(plugin, "go.mod"), "module example.com/native-tool-identity\n\ngo 1.26\n");
             for (const toolchain of [relativeToolchainA, relativeToolchainB]) {
               fs.copyFileSync(script, path.join(toolchain, "capture.cjs"));
             }

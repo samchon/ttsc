@@ -1079,12 +1079,11 @@ func lspWorkspaceEditForSeededCommand(
       prog.close()
       return nil, 0
     }
-    // This command edits a document, so it walks the project's own sources the
-    // way `format` does. Reading the imported TypeScript the lint cycle covers
-    // would widen nothing here: the edit is bounded to one target below, and a
-    // read-scope widening must not open a write the project never had.
+    // Keep full project-rule/checker authority, but do not execute file rules
+    // for sibling documents whose findings this command cannot return or edit.
+    // CLI format still owns its project-wide file walk.
     observation.record("lsp-command-cycle-started", map[string]any{"pass": pass})
-    findings := filterFindingsForPath(prog.runWriteScopedCycle(engine), tempTarget)
+    findings := filterFindingsForPath(prog.runDocumentWriteScopedCycle(engine, targetFile), tempTarget)
     observation.record("lsp-command-cycle-returned", map[string]any{"pass": pass, "findings": len(findings)})
     observation.record("lsp-command-program-close-started", map[string]any{"pass": pass})
     prog.close()

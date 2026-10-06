@@ -59,20 +59,32 @@ fs.chmodSync(compiler, 0o755);
 const stamp = 1700000000;
 fs.utimesSync(compiler, stamp, stamp);
 const compilerBytes = fs.readFileSync(compiler);
-// A newly copied or rewritten executable is an actual CLI input before it is
-// a reusable compiler witness. Windows can advance change metadata during its
-// first native access. Keep that preparation outside the identity/cache epoch;
-// the runtime still rejects any instability during its own subsequent reads.
-// Each preparation is one real native CLI lifetime, not a Program or lowering.
+// The copied compiler must perform the same native lowering operation before
+// the cache comparison epoch. --version alone did not establish that premise:
+// an actual lowering changed ctime between otherwise equal stable identities.
+// This preparation emits an independent source outside the orphan cache. It
+// neither supplies that cache's output nor permits a changed identity at its
+// subsequent admission. Rewriting the executable starts a new preparation
+// epoch and must still refuse the old marked artifact.
+const { RuntimeIsolatedEmit } = require(path.join(launcher, "internal/runtime/RuntimeIsolatedEmit.js"));
+const preparationSource = path.join(compilerRoot, "compiler-preparation.ts");
+const preparationOutput = path.join(compilerRoot, "preparation-output");
+fs.writeFileSync(preparationSource, 'export const prepared: string = "native preparation";\n');
+fs.mkdirSync(preparationOutput);
+const preparations = [];
 const prepareCompiler = () => {
-  const result = require("node:child_process").spawnSync(compiler, ["--version"], {
-    cwd: compilerRoot,
+  const before = fs.statSync(compiler, { bigint: true });
+  const result = require("node:child_process").spawnSync(compiler,
+    RuntimeIsolatedEmit.compilerArgs(preparationSource, preparationOutput, "commonjs", "execution"), {
+    cwd: preparationOutput,
     encoding: "utf8",
   });
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /^Version /);
+  assert.match(fs.readFileSync(path.join(preparationOutput, "compiler-preparation.js"), "utf8"), /native preparation/);
+  const after = fs.statSync(compiler, { bigint: true });
+  preparations.push({ beforeCtime: String(before.ctimeNs), afterCtime: String(after.ctimeNs), status: result.status });
 };
 prepareCompiler();
 const priorCompiler = process.env.TTSC_TSGO_BINARY;
@@ -100,7 +112,7 @@ try {
   const rewritten = require(identitySource);
   assert.equal(rewritten.value, "lowered");
   assert.equal(rewritten.cachedMarker, undefined, "a real same-byte executable rewrite must not borrow the marked old artifact");
-  fs.writeFileSync(path.join(root, "tools/source-publication/runtime-identity.json"), JSON.stringify({ first: initial.value, warm: warm.value, warmMarker: warm.cachedMarker, rewritten: rewritten.value, rewrittenMarker: rewritten.cachedMarker === true }));
+  fs.writeFileSync(path.join(root, "tools/source-publication/runtime-identity.json"), JSON.stringify({ first: initial.value, warm: warm.value, warmMarker: warm.cachedMarker, rewritten: rewritten.value, rewrittenMarker: rewritten.cachedMarker === true, preparations }));
 } finally {
   if (priorCompiler === undefined) delete process.env.TTSC_TSGO_BINARY;
   else process.env.TTSC_TSGO_BINARY = priorCompiler;

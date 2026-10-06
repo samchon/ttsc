@@ -67,6 +67,7 @@ export async function nativeCompilerTopologyCorpus(
     file: string,
     kind: WatchInputChange["kind"],
     stimulus: () => void,
+    expectedContents?: string,
   ) => {
     await settle();
     const before = changes.length;
@@ -75,18 +76,25 @@ export async function nativeCompilerTopologyCorpus(
       () =>
         changes
           .slice(before)
-          .some(
-            (change) =>
-              change.kind === kind &&
-              (change.path === undefined ||
-                (fs.existsSync(change.path) &&
-                  fs.existsSync(file) &&
-                  fs.realpathSync.native(change.path) ===
-                    fs.realpathSync.native(file))),
-          ),
+          .some((change) => {
+            if (change.kind !== kind) return false;
+            if (change.path === undefined) return true;
+            if (!fs.existsSync(change.path) || !fs.existsSync(file)) return false;
+            const changed = fs.realpathSync.native(change.path);
+            const target = fs.realpathSync.native(file);
+            if (changed === target) return true;
+            if (kind !== "project" || !fs.statSync(change.path).isDirectory()) return false;
+            // The public event retains a named backend ancestor when every
+            // reconciled changed member is below it. Creating a missing tree
+            // can report that directory rather than its newly created file.
+            const relative = path.relative(changed, target);
+            return relative !== "" && !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(".." + path.sep);
+          }),
       kind + " delivery for " + file,
       30000,
     );
+    if (expectedContents !== undefined)
+      assert.equal(fs.readFileSync(file, "utf8"), expectedContents, "the delivered declaration must contain its independently authored changed bytes");
     await settle();
   };
   const quietProject = async (file: string) => {
@@ -138,7 +146,7 @@ export async function nativeCompilerTopologyCorpus(
         await delivered(external, "project", () => {
           fs.mkdirSync(path.dirname(external), { recursive: true });
           fs.writeFileSync(external, "# External\n");
-        });
+        }, "# External\n");
         await delivered(api, "project", () => fs.writeFileSync(api, "{}\n"));
       },
     );
@@ -227,9 +235,8 @@ export async function nativeCompilerTopologyCorpus(
             outDir === "src" ? "src/external.json" : "external.json",
           );
           topology.setProjectInputs({ root, files: [external], globs: [] });
-          await delivered(external, "project", () =>
-            fs.writeFileSync(external, '{"external":true}\n'),
-          );
+          const changed = JSON.stringify({ external: true, layout: name }) + "\n";
+          await delivered(external, "project", () => fs.writeFileSync(external, changed), changed);
         }
       });
     await capture("missing config and recovery", async () => {

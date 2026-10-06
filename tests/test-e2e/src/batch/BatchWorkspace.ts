@@ -452,6 +452,7 @@ export namespace BatchWorkspace {
     );
     const graphNegativeRoot = TestProject.tmpdir(
       "ttsc-shared-graph-uninstalled-",
+      temporaryParent,
     );
     TestProject.retainTemporaryDirectory(
       graphNegativeRoot,

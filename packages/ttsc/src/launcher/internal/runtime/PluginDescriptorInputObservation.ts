@@ -20,6 +20,8 @@ export namespace PluginDescriptorInputObservation {
    * Arm observation after public runtime hooks have installed successfully.
    * After the first begin, reinstallation neither erases records nor recovers a
    * failed proof. Before initial installation, snapshot remains incomplete.
+   * The installer supplies require-resolution authority only after native
+   * hooks and any required owned module API adapter are installed.
    *
    * @evidence contracts/common.md#principled-implementation Successful hook installation establishes the observation owner's initial state; a repeated begin leaves an already invalid proof invalid.
    * @evidence contracts/common.md#clear-and-simple-design One initialization transition belongs to the runtime installer, separate from captured records and consumer snapshots.
@@ -32,10 +34,11 @@ export namespace PluginDescriptorInputObservation {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Initialization creates no handles and preserves this helper instance's existing record population. The first begin arms completeness; subsequent begin calls leave later invalidation intact.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation begin changes only this helper instance's installed/completeness booleans; it opens no file, builds no path and calls no native or process API.
    */
-  export function begin(): void {
+  export function begin(ownedRequireResolution: boolean = false): void {
     if (installed) return;
     installed = true;
     complete = true;
+    requireResolveObserved = ownedRequireResolution;
   }
 
   /**
@@ -76,6 +79,8 @@ export namespace PluginDescriptorInputObservation {
 
   /**
    * Copy the final status and records without exposing mutable owned state.
+   * The require-resolution bit describes installed interception authority;
+   * it does not recover a failed input observation or authorize cache reuse.
    *
    * @evidence contracts/common.md#principled-implementation An uninstalled recorder reports incomplete; the array copy prevents envelope consumers from changing retained observations.
    * @evidence contracts/common.md#clear-and-simple-design One snapshot carries status and records together, so an empty successful channel cannot substitute for missing observation ownership.
@@ -88,11 +93,12 @@ export namespace PluginDescriptorInputObservation {
    * @evidence contracts/performance.md#bound-retention-and-release-resources The copied array transfers to the envelope consumer while the original remains with this helper instance; strings are immutable and no native handles escape.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation snapshot reads module-owned installed/completeness/record state and copies the array without interpreting native paths or calling file/process APIs.
    */
-  export function snapshot(): { complete: boolean; lines: string[] } {
-    return { complete: installed && complete, lines: [...lines] };
+  export function snapshot(): { complete: boolean; lines: string[]; requireResolveObserved: boolean } {
+    return { complete: installed && complete, lines: [...lines], requireResolveObserved: installed && requireResolveObserved };
   }
 }
 
 let installed = false;
 let complete = false;
+let requireResolveObserved = false;
 const lines: string[] = [];

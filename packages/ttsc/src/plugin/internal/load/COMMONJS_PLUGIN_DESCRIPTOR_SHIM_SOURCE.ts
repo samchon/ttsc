@@ -47,7 +47,7 @@ export const COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `  const context = JSON.parse(process.env.TTSC_PLUGIN_CONTEXT);`,
   `  process.env.TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE = "1";`,
   `  const recorder = createResolutionInputRecorder({ extensions: typeof globalThis.Bun === "object" ? [".tsx", ".jsx", ".ts", ".mjs", ".js", ".cjs", ".json"] : [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json", ".node"] });`,
-  `  if (typeof Module.registerHooks !== "function" || !requireResolveConsultsHooks()) recorder.invalidateObservation();`,
+  `  if (typeof Module.registerHooks !== "function" || (!requireResolveConsultsHooks() && !PluginDescriptorInputObservation.snapshot().requireResolveObserved)) recorder.invalidateObservation();`,
   `  function asFile(resolved) {`,
   `    if (typeof resolved !== "string") return undefined;`,
   `    if (!resolved.startsWith("file:")) return path.isAbsolute(resolved) ? path.resolve(resolved) : undefined;`,
