@@ -39,7 +39,7 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  *   self-signalling instead of certifying a normally settled promise or
  *   descendant termination.
  * @evidence contracts/common.md#principled-implementation The shared flag parser separates compiler options from entry argv; TypeScript entries use a checked emit manifest and JavaScript entries install the runtime preload, then Node loads the original entry as its main module.
- * @evidence contracts/common.md#clear-and-simple-design Parsing, preparation, child execution and signal ownership have separate helpers; launcher finally removes its listeners while prepared-entry cleanup attempts relinquishment/removal. Program execution observes error or exit, not an awaited child-close or descendant join.
+ * @evidence contracts/common.md#clear-and-simple-design Parsing, preparation, child execution and signal ownership have separate helpers; launcher finally removes its listeners while prepared-entry cleanup attempts relinquishment/removal. Program execution records spawn errors and joins direct child close before releasing output; descendant ownership remains independently protected.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported build/watch modes and JavaScript-only configuration flags are rejected explicitly; supported Node preloads carry runtime hooks without replacing foreign globals or fabricating a successful child exit.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain execution identity, signal policy, cleanup and exit effects; helper comments distinguish program argv, preload order and best-effort cleanup.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs resolve entries/preloads, spawn receives the current Node executable and argument array, and Windows signal limitations are isolated in LauncherSignals rather than assuming POSIX process behavior.
@@ -47,7 +47,7 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns an effectful program run and fresh arguments; reusable compiler generations belong to prepareExecution and the runtime build owners.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One program run retains its child and fixed platform signal-listener set; helpers own additional preparation resources. Finally removes launcher listeners and attempts output relinquishment/removal under the cooperative lock; live or unknown owner claims and native failures can retain storage. Exit/error observation is not child-close or descendant settlement, and an unresponsive program child has no forced-kill deadline here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One program run retains its child and fixed platform signal-listener set; helpers own additional preparation resources. Finally removes launcher listeners and attempts output relinquishment/removal under the cooperative lock; live or unknown owner claims and native failures can retain storage. Direct child close is joined before cleanup but does not establish descendant settlement, and an unresponsive program child has no forced-kill deadline here.
  */
 export async function runTtsx(
   argv: readonly string[] = process.argv.slice(2),
@@ -340,7 +340,7 @@ async function runPreparedEntry(
       TTSX_RUNTIME_RUNS_DIR: execution.runtimeRunsDir,
     };
     return await runProgram(args, runtimeEnv, cwd, signals, {
-      afterExit: cleanup,
+      afterClose: cleanup,
     });
   } finally {
     cleanup();
@@ -350,7 +350,9 @@ async function runPreparedEntry(
 /**
  * Run the program in a child of the current Node.js runtime and end the way it
  * ended: with its exit code, or by re-raising the signal that killed it.
- * `afterExit` runs once the child is gone, before the signal is re-raised.
+ * `afterClose` runs after direct child close, before the signal is re-raised.
+ * Spawn errors retain their original outcome through that same close boundary.
+ * An exit notification alone does not settle the child handles or output users.
  */
 async function runProgram(
   args: readonly string[],
@@ -358,7 +360,7 @@ async function runProgram(
   cwd: string,
   signals: LauncherSignals,
   hooks: {
-    afterExit?: () => void;
+    afterClose?: () => void;
   } = {},
 ): Promise<number> {
   const trace = E2ETrace.begin(process.execPath, args, { cwd }, "ttsx-runtime");
@@ -375,12 +377,13 @@ async function runProgram(
     signal: NodeJS.Signals | null;
     error?: Error;
   }>((resolve) => {
-    child.once("error", (error) =>
-      resolve({ code: null, signal: null, error }),
-    );
-    child.once("exit", (code, signal) => resolve({ code, signal }));
+    let error: Error | undefined;
+    child.once("error", (cause) => {
+      error = cause;
+    });
+    child.once("close", (code, signal) => resolve({ code, signal, error }));
   });
-  hooks.afterExit?.();
+  hooks.afterClose?.();
   if (outcome.error !== undefined) {
     process.stderr.write(`${outcome.error.message}\n`);
     return 1;
