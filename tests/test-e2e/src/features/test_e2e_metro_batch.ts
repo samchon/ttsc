@@ -681,6 +681,12 @@ async function runResidentLoaderPool(): Promise<void> {
       ),
     ) as { requireResolveConsultsHooks(): boolean }
   ).requireResolveConsultsHooks();
+  assert.equal(
+    runtimeRequireResolveAvailable,
+    recorderRequireResolveAvailable,
+    "the selected executable must give both actual hook owners the same capability",
+  );
+  const descriptorReuseAvailable = recorderRequireResolveAvailable;
   // One physical descriptor, dependency, settings file and native producer own
   // these observation-authority epochs. Rows change the declared read contract;
   // they do not allocate projects, launch old recipes or reset a row's cache.
