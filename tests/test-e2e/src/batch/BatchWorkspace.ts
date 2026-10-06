@@ -357,11 +357,15 @@ export namespace BatchWorkspace {
     const cache = TestProject.sharedPluginCache(temporaryParent);
     const allocatedRoot = TestProject.tmpdir("ttsc-shared-boundaries-", temporaryParent);
     const root = fs.realpathSync.native(allocatedRoot);
-    // An external absolute cache remains selected for the shared consumers.
-    // The CLI's relative-path contrast needs its own same-volume authority.
-    const runtimeCliCache = path.isAbsolute(path.relative(root, cache))
-      ? TestProject.tmpdir("ttsc-runtime-relative-cache-", temporaryParent)
-      : cache;
+    // Always isolate the relative CLI contrast beside its project allocation.
+    // A distant shared /tmp cache can resolve identically from both authored
+    // callers after enough '..' segments reach the filesystem root. Sibling
+    // authority preserves the independently wrong-caller contrast on POSIX as
+    // well as the existing same-volume Windows requirement.
+    const runtimeCliCache = TestProject.tmpdir(
+      "ttsc-runtime-relative-cache-",
+      temporaryParent,
+    );
     if (runtimeCliCache !== cache)
       TestProject.retainTemporaryDirectory(
         runtimeCliCache,
