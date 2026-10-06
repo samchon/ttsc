@@ -72,19 +72,33 @@ const preparationOutput = path.join(compilerRoot, "preparation-output");
 fs.writeFileSync(preparationSource, 'export const prepared: string = "native preparation";\n');
 fs.mkdirSync(preparationOutput);
 const preparations = [];
+const preparationReport = path.join(root, "tools/source-publication/runtime-identity-preparation.json");
+const compilerMetadata = (stat) => Object.fromEntries(
+  ["dev", "ino", "mode", "size", "atimeNs", "mtimeNs", "ctimeNs", "birthtimeNs"].map((name) => [name, String(stat[name])]),
+);
 const prepareCompiler = () => {
   const before = fs.statSync(compiler, { bigint: true });
+  const args = RuntimeIsolatedEmit.compilerArgs(preparationSource, preparationOutput, "commonjs", "execution");
+  const startedAt = new Date().toISOString();
   const result = require("node:child_process").spawnSync(compiler,
-    RuntimeIsolatedEmit.compilerArgs(preparationSource, preparationOutput, "commonjs", "execution"), {
+    args, {
     cwd: preparationOutput,
     encoding: "utf8",
   });
+  const returnedAt = new Date().toISOString();
+  const after = fs.statSync(compiler, { bigint: true });
+  preparations.push({ compiler, args, cwd: preparationOutput, startedAt, returnedAt,
+    pid: result.pid, before: compilerMetadata(before), after: compilerMetadata(after),
+    beforeCtime: String(before.ctimeNs), afterCtime: String(after.ctimeNs),
+    status: result.status, signal: result.signal, error: result.error?.message,
+    stdout: result.stdout?.slice(-65536), stderr: result.stderr?.slice(-65536) });
+  // Persist the completed preparation receipt before the strict orphan-cache
+  // assertion: a rejected admission must not erase its preceding native epoch.
+  fs.writeFileSync(preparationReport, JSON.stringify({ preparations }));
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
   assert.match(fs.readFileSync(path.join(preparationOutput, "compiler-preparation.js"), "utf8"), /native preparation/);
-  const after = fs.statSync(compiler, { bigint: true });
-  preparations.push({ beforeCtime: String(before.ctimeNs), afterCtime: String(after.ctimeNs), status: result.status });
 };
 prepareCompiler();
 const priorCompiler = process.env.TTSC_TSGO_BINARY;
