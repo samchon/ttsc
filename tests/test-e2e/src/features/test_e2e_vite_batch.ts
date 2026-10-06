@@ -108,10 +108,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const originalFallback = fallbackExisted
       ? fs.readFileSync(fallback)
       : undefined;
-    const heldPrimary = path.join(
-      workspace.cache,
-      "vite-held-primary-record.json",
-    );
+    const heldPrimary = `${primary}.vite-held`;
     assert.equal(fs.existsSync(heldPrimary), false);
     let primaryHeld = false;
     const generations: { output: RollupOutput; watchFiles: string[] }[] = [];

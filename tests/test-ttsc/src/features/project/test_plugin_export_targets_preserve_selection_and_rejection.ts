@@ -13,11 +13,11 @@ import { FileSystemIterator } from "../../../../utils/src/FileSystemIterator";
  * blocked, missing or outside its package. Export arrays can skip an invalid
  * target, while an array of blocked targets remains blocked.
  *
- * 1. Author thirteen package export maps and existing descriptor/runtime files.
+ * 1. Author thirteen export maps and two independent project-local ordinary packages.
  * 2. Resolve every package through the owning source operation.
  * 3. Compare all selected files and refusal codes with literal contract outcomes.
  *
- * @evidence contracts/testing.md#behavioral-verification Directly calls PluginPackageResolution.resolvePluginRequest for thirteen export maps and checks exact canonical descriptor/default paths or exact refusal codes. Existing escaping files distinguish target rejection from accidental missing-file rejection; encoded-space selection must choose the decoded filename despite an existing literal-percent distractor. A dedicated condition and wildcard substitution select descriptor files beside throwing runtime files, while absent opt-in selects the default file.
+ * @evidence contracts/testing.md#behavioral-verification Directly calls PluginPackageResolution.resolvePluginRequest for thirteen export maps and checks exact canonical descriptor/default paths or exact refusal codes. Two projects with the same ordinary package name must select their separate authored descriptors, while an absent bare package must fail in both projects. Existing escaping files distinguish target rejection from accidental missing-file rejection; encoded-space selection must choose the decoded filename despite an existing literal-percent distractor. A dedicated condition and wildcard substitution select descriptor files beside throwing runtime files, while absent opt-in selects the default file.
  * @evidence contracts/testing.md#independent-expectations Node package exports defines blocked targets as ERR_PACKAGE_PATH_NOT_EXPORTED, absent selected files as MODULE_NOT_FOUND and escaping targets as ERR_INVALID_PACKAGE_TARGET. Pinned Node v24.18.0 esm/resolve.js resolves target strings as URLs, rejects numeric condition keys and rejects mixed subpath/condition root maps with ERR_INVALID_PACKAGE_CONFIG. The independently authored decoded filename and literal refusal codes do not use this resolver to construct expected values; no reference child is executed.
  * @evidence contracts/testing.md#distinguishing-cases Preserves valid, blocked, missing, escaping, nested blocked, invalid-first fallback and all-blocked array inputs. Encoded-space targets contrast decoded and literal-percent existing files; numeric conditions and mixed top-level maps contrast with valid condition/subpath shapes. Dedicated, patterned and missing-condition populations preserve explicit descriptor selection, substituted prefix selection and ordinary default fallback. Absolute, relative and directory-link requests must select the independently observed native physical file; missing-file fallback preserves its supplied spelling. Runtime entries exist for every row so an inappropriate fallback cannot pass. All export outcomes are collected before comparison.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this matching unit feature and Evidence selects its named exported function. The authored source resolver reads call-owned fixture manifests in process, without native builds, descriptor evaluation, product hosts or reference subprocesses; finally removes the temporary tree. Throwing runtime bytes are resolution inputs only: neither their evaluation nor descriptor execution/native transform delivery is certified.
@@ -113,6 +113,26 @@ export async function test_plugin_export_targets_preserve_selection_and_rejectio
     );
     const missing = path.join(lexicalRoot, "missing-descriptor.cjs");
     assert.equal(PluginPackageResolution.resolveRealPath(missing), missing);
+    for (const project of ["first-project", "second-project"]) {
+      const projectRoot = path.join(root, project);
+      await FileSystemIterator.write(projectRoot, {
+        "package.json": "{}",
+        "node_modules/local-plugin/package.json": JSON.stringify({
+          name: "local-plugin",
+          main: "descriptor.cjs",
+        }),
+        "node_modules/local-plugin/descriptor.cjs": project,
+      });
+      assert.equal(
+        PluginPackageResolution.resolvePluginRequest("local-plugin", projectRoot),
+        path.join(projectRoot, "node_modules/local-plugin/descriptor.cjs"),
+        "ordinary packages resolve from each consuming project's authority",
+      );
+      assert.throws(
+        () => PluginPackageResolution.resolvePluginRequest("absent-plugin", projectRoot),
+        { code: "MODULE_NOT_FOUND" },
+      );
+    }
     const outcomes = Object.fromEntries(
       Object.keys(cases).map((name) => {
         try {

@@ -284,9 +284,9 @@ export namespace PluginPackageResolution {
    * Absolute and relative specifiers are paths. A package specifier honors the
    * package's `ttsc` export condition first, so a package whose main entry is a
    * runtime barrel can point plugin loading at a runtime-free descriptor, and
-   * otherwise resolves as Node would.
+   * otherwise resolves through a Node require anchored at the consuming project.
    *
-   * @evidence contracts/common.md#principled-implementation Native absolute/relative inputs use their explicit base; bare packages opt into ttsc target semantics only when a matching branch exists, otherwise Node owns resolution.
+   * @evidence contracts/common.md#principled-implementation Native absolute/relative inputs use their explicit base; bare packages opt into ttsc target semantics only when a matching branch exists, otherwise createRequire anchors Node resolution at the consuming project's package.json. This authority remains explicit when the caller was itself imported as CommonJS through an ESM loader.
    * @evidence contracts/common.md#clear-and-simple-design One dispatcher keeps plugin-only conditions local and returns best-effort canonical selection to descriptor loading; unsuccessful realpath is not physical-identity proof.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Dedicated condition selection is a declared package extension, not process-wide patching; opted-in invalid targets fail without falling back to unrelated runtime exports.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains path versus package behavior and condition scope; helper comments explain error/null semantics and target constraints, with separated prose under the documentation skill.
@@ -316,9 +316,8 @@ export namespace PluginPackageResolution {
     if (conditioned !== null) {
       return conditioned;
     }
-    return resolveRealPath(
-      require.resolve(specifier, { paths: [projectRoot] }),
-    );
+    const projectRequire = createRequire(path.join(projectRoot, "package.json"));
+    return resolveRealPath(projectRequire.resolve(specifier));
   }
 
   /**
