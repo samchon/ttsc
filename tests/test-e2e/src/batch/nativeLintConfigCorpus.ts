@@ -986,7 +986,7 @@ function assertConfigEvaluationCounter(
     .split(/\r?\n/)
     .filter(Boolean)
     .map((line) => JSON.parse(line));
-  const rows = traces.writerObservations.map((row) => row.observation);
+  const rows = traces.writerObservations.map((row): boolean => row.observation);
   const matching = records.slice(cursor).filter((record) => {
     assert.ok(record !== null && typeof record === "object");
     assert.ok("location" in record && typeof record.location === "string");
@@ -1005,7 +1005,7 @@ function assertConfigEvaluationCounter(
     close.data?.signal === null &&
     Date.parse(close.at) >= Date.parse(source.at) &&
     rows.some(
-      (started) =>
+      (started): boolean =>
         started.event === "process-start" &&
         started.pid === source.writerPid &&
         started.writerPid === close.writerPid &&
@@ -1013,7 +1013,7 @@ function assertConfigEvaluationCounter(
         started.invocation === close.invocation &&
         Date.parse(started.at) <= Date.parse(source.at) &&
         rows.some(
-          (extractor) =>
+          (extractor): boolean =>
             extractor.event === "process-result" &&
             extractor.pid === close.writerPid &&
             extractor.data?.owner ===
@@ -1023,7 +1023,7 @@ function assertConfigEvaluationCounter(
             extractor.data?.exitObserved === true &&
             Date.parse(extractor.at) >= Date.parse(close.at) &&
             rows.some(
-              (attempt) =>
+              (attempt): boolean =>
                 attempt.event === "process-attempt" &&
                 attempt.writerPid === extractor.writerPid &&
                 attempt.instance === extractor.instance &&
@@ -1034,11 +1034,11 @@ function assertConfigEvaluationCounter(
             ),
         ),
     );
-  const descriptorSources = rows.filter(
-    (row) =>
+  const descriptorSources: typeof rows = rows.filter(
+    (row): boolean =>
       row.event === "runtime-source-preparation" &&
       row.data?.filename === descriptorEntry &&
-      rows.some((close) => ownsDescriptorSource(row, close)),
+      rows.some((close): boolean => ownsDescriptorSource(row, close)),
   );
   assert.equal(descriptorSources.length, 1, "one containing descriptor runtime");
   const descriptorSource = descriptorSources[0];
@@ -1048,16 +1048,16 @@ function assertConfigEvaluationCounter(
     assert.ok(record !== null && typeof record === "object");
     assert.ok("pid" in record && typeof record.pid === "number");
     assert.ok("at" in record && typeof record.at === "string");
-    const pid = record.pid,
-      at = record.at;
-    const nativeTerminals = rows.filter(
-      (row) =>
+    const pid: number = record.pid;
+    const at: string = record.at;
+    const nativeTerminals: typeof rows = rows.filter(
+      (row): boolean =>
         row.event === "process-result" &&
         row.pid === pid &&
         row.data?.owner === "lint-config-loader" &&
         Date.parse(row.at) >= Date.parse(at) &&
         rows.some(
-          (attempt) =>
+          (attempt): boolean =>
             attempt.event === "process-attempt" &&
             attempt.writerPid === row.writerPid &&
             attempt.instance === row.instance &&
@@ -1071,8 +1071,8 @@ function assertConfigEvaluationCounter(
       native.push(pid);
       continue;
     }
-    const sources = rows.filter(
-      (row) =>
+    const sources: typeof rows = rows.filter(
+      (row): boolean =>
         row.event === "runtime-source-preparation" &&
         row.writerPid === pid &&
         row.instance === descriptorSource.instance &&
@@ -1084,8 +1084,8 @@ function assertConfigEvaluationCounter(
       1,
       "descriptor consumed source for " + location,
     );
-    const closes = rows.filter(
-      (row) =>
+    const closes: typeof rows = rows.filter(
+      (row): boolean =>
         ownsDescriptorSource(descriptorSource, row) &&
         row.pid === pid &&
         Date.parse(row.at) >= Date.parse(at),
@@ -1095,8 +1095,8 @@ function assertConfigEvaluationCounter(
     assert.ok(close !== undefined);
     assert.equal(pid, descriptorSource.writerPid);
     assert.ok(Date.parse(descriptorSource.at) <= Date.parse(at));
-    const extractors = rows.filter(
-      (row) =>
+    const extractors: typeof rows = rows.filter(
+      (row): boolean =>
         row.event === "process-result" &&
         row.pid === close.writerPid &&
         row.data?.owner === "lint-typescript-config-plugin-extractor" &&
@@ -1105,7 +1105,7 @@ function assertConfigEvaluationCounter(
         row.data?.exitObserved === true &&
         Date.parse(row.at) >= Date.parse(close.at) &&
         rows.some(
-          (attempt) =>
+          (attempt): boolean =>
             attempt.event === "process-attempt" &&
             attempt.writerPid === row.writerPid &&
             attempt.instance === row.instance &&
@@ -1116,8 +1116,8 @@ function assertConfigEvaluationCounter(
     assert.equal(extractors.length, 1, "descriptor launcher/extractor success");
     const extractor = extractors[0];
     assert.ok(extractor !== undefined);
-    const attempts = rows.filter(
-      (row) =>
+    const attempts: typeof rows = rows.filter(
+      (row): boolean =>
         row.event === "process-attempt" &&
         row.writerPid === extractor.writerPid &&
         row.instance === extractor.instance &&
