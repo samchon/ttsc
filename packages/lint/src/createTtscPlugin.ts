@@ -749,7 +749,7 @@ const hooks = registerHooks({
       ? JSON.parse(fs.readFileSync(configLocation, "utf8").replace(/^\uFEFF/, ""))
       : await import(configUrl);
     const current = await resolveConfig(importedConfig, true);
-    const entries = await collectPluginEntries(current, configLocation, [configLocation]);
+    const entries = await collectPluginEntries(current, configLocation, %CONFIG_CHAIN%);
     fs.writeFileSync(outputPath, JSON.stringify({
       dependencies: finalizeDependencies(),
       entries,
@@ -1846,8 +1846,8 @@ async function collectPluginEntries(
   value: unknown,
   location: string,
   chain: readonly string[],
-): Promise<Array<{ namespace: string; source: string }>> {
-  const out: Array<{ namespace: string; source: string }> = [];
+): Promise<Array<{ namespace: string; source: string } | { configFile: string; chain: readonly string[] }>> {
+  const out: Array<{ namespace: string; source: string } | { configFile: string; chain: readonly string[] }> = [];
   if (Array.isArray(value)) {
     for (const item of value) out.push(...await collectPluginEntries(item, location, chain));
     return out;
@@ -1871,11 +1871,18 @@ async function collectPluginEntries(
     graphEdges.push({ child: nextUrl, packageBoundary: false, parent: parentUrl });
     recordDependency("file", next, createHash("sha256").update(fs.readFileSync(next)).digest("hex"), [nextUrl]);
     recordPackageManifests(next, [nextUrl]);
-    const imported = next.toLowerCase().endsWith(".json")
-      ? JSON.parse(fs.readFileSync(next, "utf8").replace(/^\uFEFF/, ""))
-      : await import(nextUrl);
-    const base = await resolveConfig(imported, true);
-    out.push(...await collectPluginEntries(base, next, [...chain, next]));
+    // The owning parent evaluates typed bases under their own synthetic project.
+    // A dynamic import here would give a typed base the consumer's tsconfig
+    // when it falls outside this evaluator's entry manifest.
+    if ([".ts", ".cts", ".mts"].includes(path.extname(next).toLowerCase())) {
+      out.push({ configFile: next, chain: [...chain, next] });
+    } else {
+      const imported = next.toLowerCase().endsWith(".json")
+        ? JSON.parse(fs.readFileSync(next, "utf8").replace(/^\uFEFF/, ""))
+        : await import(nextUrl);
+      const base = await resolveConfig(imported, true);
+      out.push(...await collectPluginEntries(base, next, [...chain, next]));
+    }
   }
   if (hasOwn(value, "plugins") && isObject(value.plugins)) {
     for (const [namespace, plugin] of Object.entries(value.plugins)) {
@@ -1916,7 +1923,10 @@ function extractPluginSource(value: unknown, location: string): string | undefin
  * Resolves contributor plugin entries declared in any executable lint config,
  * memoized through the shared on-disk config cache.
  *
- * Evaluating such a config spawns a full `ttsx` subprocess. A monorepo build
+ * Evaluating such a config spawns a full `ttsx` subprocess. Typed extends bases
+ * additionally use their own synthetic project and launcher, so their package
+ * format is not replaced by the consuming project's compiler options.
+ * JavaScript and JSON bases share their containing evaluator. A monorepo build
  * runs one `ttsc` process per package. A completed cache entry avoids another
  * evaluation of the same unchanged config; simultaneous cold processes may
  * still evaluate it independently. The cache key covers the entry's path and
@@ -1985,10 +1995,20 @@ function isValidConfigPluginEntry(entry: unknown): entry is ConfigPluginEntry {
   }
 }
 
+/**
+ * Evaluate typed bases with their own project and merge base-first entries and
+ * observed inputs. JavaScript and JSON bases remain in their containing
+ * evaluator. A call-owned memo avoids evaluating the same typed base twice;
+ * no result escapes the validated aggregate config cache.
+ */
 function evaluateTtsxConfigPlugins(
   configPath: string,
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
+  chain: readonly string[] = [configPath],
+  evaluated: Map<string, ConfigPluginEvaluation> = new Map(),
 ): ConfigPluginEvaluation {
+  const existing = evaluated.get(configPath);
+  if (existing !== undefined) return existing;
   const tempDir = createCanonicalTempDirectory(
     "ttsc-lint-cfg-",
     loaderTempBase(configPath),
@@ -2002,6 +2022,7 @@ function evaluateTtsxConfigPlugins(
       "%CONFIG_IMPORT%",
       JSON.stringify(pathToFileURL(configPath).href),
     )
+      .replace("%CONFIG_CHAIN%", JSON.stringify(chain))
       .replace("%CONFIG_OUTPUT%", JSON.stringify(outputPath))
       .replace(
         "%CONFIG_ROOT%",
@@ -2151,12 +2172,12 @@ function evaluateTtsxConfigPlugins(
     }
     let payload: {
       dependencies?: ConfigDependencyFingerprint[];
-      entries?: ConfigPluginEntry[];
+      entries?: (ConfigPluginEntry | { configFile: string; chain: string[] })[];
     };
     try {
       payload = JSON.parse(fs.readFileSync(outputPath, "utf8")) as {
         dependencies?: ConfigDependencyFingerprint[];
-        entries?: ConfigPluginEntry[];
+        entries?: (ConfigPluginEntry | { configFile: string; chain: string[] })[];
       };
     } catch (error) {
       throw new Error(
@@ -2170,7 +2191,20 @@ function evaluateTtsxConfigPlugins(
         `@ttsc/lint: lint config ${configPath} evaluator omitted its plugin-entry array`,
       );
     }
-    const entries = payload.entries.map((entry) => {
+    const nestedDependencies: ConfigDependencyFingerprint[] = [];
+    const entries = payload.entries.flatMap((entry): ConfigPluginEntry[] => {
+      if (entry !== null && typeof entry === "object" && "configFile" in entry) {
+        if (
+          typeof entry.configFile !== "string" || !path.isAbsolute(entry.configFile) ||
+          !Array.isArray(entry.chain) || entry.chain.length <= chain.length || entry.chain.length > 32 ||
+          entry.chain.some((location, index) => typeof location !== "string" ||
+            (index < chain.length && location !== chain[index])) ||
+          entry.chain.at(-1) !== entry.configFile || new Set(entry.chain).size !== entry.chain.length
+        ) throw new Error(`@ttsc/lint: lint config ${configPath} evaluator returned a malformed base-config request`);
+        const base = evaluateTtsxConfigPlugins(entry.configFile, context, entry.chain, evaluated);
+        nestedDependencies.push(...base.dependencies);
+        return base.entries;
+      }
       // Contributor objects supply absolute source directories. Validate that
       // boundary without re-routing directories through module resolution.
       if (
@@ -2205,7 +2239,7 @@ function evaluateTtsxConfigPlugins(
           `@ttsc/lint: lint config ${configPath} plugin ${JSON.stringify(entry.namespace)} "source" must be an existing directory: ${entry.source}`,
         );
       }
-      return { namespace: entry.namespace, source: entry.source };
+      return [{ namespace: entry.namespace, source: entry.source }];
     });
     const dependencies = normalizeConfigDependencyFingerprints(
       payload.dependencies,
@@ -2215,7 +2249,22 @@ function evaluateTtsxConfigPlugins(
         `@ttsc/lint: lint config ${configPath} evaluator returned malformed dependency fingerprints`,
       );
     }
-    return { dependencies, entries };
+    const merged = new Map<string, ConfigDependencyFingerprint>();
+    for (const dependency of [...dependencies, ...nestedDependencies]) {
+      const key = dependency.kind + "\0" + dependency.path;
+      const previous = merged.get(key);
+      if (previous !== undefined && (previous.digest !== dependency.digest || previous.realpath !== dependency.realpath)) {
+        throw new Error(`@ttsc/lint: config dependency changed between base evaluations: ${dependency.path}`);
+      }
+      merged.set(key, {
+        ...dependency,
+        identityStable: dependency.identityStable && (previous?.identityStable ?? true),
+        scope: dependency.scope === "watch" || previous?.scope === "watch" ? "watch" : "cache",
+      });
+    }
+    const evaluation = { dependencies: [...merged.values()], entries };
+    evaluated.set(configPath, evaluation);
+    return evaluation;
   } finally {
     removeEvaluationTempDir(tempDir);
   }
@@ -2253,7 +2302,7 @@ function createCanonicalTempDirectory(prefix: string, parent: string): string {
  * `configCacheVersion`; bump both when the shape or evaluator semantics
  * change.
  */
-const CONFIG_CACHE_VERSION = "v11";
+const CONFIG_CACHE_VERSION = "v12";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.

@@ -26,7 +26,7 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
  *    reloads, invalid-source and collision errors, and an unnamed exit status.
  *
  * @evidence contracts/testing.md#behavioral-verification The authored factory launches its emitted extractor through an explicit Node launcher, resolves inherited and CJS helper/package contributors, and returns exact sources and dependency hashes. Changed inputs re-evaluate while unchanged inputs reuse. Malformed contributor values and namespace collisions reject; a config exiting seven without an envelope retains its single-line status error.
- * @evidence contracts/testing.md#independent-expectations Authored fixture directories identify expected contributor sources; SHA-256 establishes input proof. A valid v9 payload must not supply the v10 result. Literal alpha/beta/demo arrays, required nonempty source and hyphen-to-underscore collision names define contributor policy. Authored process.exit(7) independently requires status seven without an invented reason; the launch counter observes each real evaluator attempt.
+ * @evidence contracts/testing.md#independent-expectations Authored fixture directories identify expected contributor sources; SHA-256 establishes input proof. A valid v9 payload must not supply the v12 result. Literal alpha/beta/demo arrays, required nonempty source and hyphen-to-underscore collision names define contributor policy. Authored process.exit(7) independently requires status seven without an invented reason; the launch counter observes each real evaluator attempt.
  * @evidence contracts/testing.md#distinguishing-cases Existing inheritance, cache, cycle, malformed-path and 32/33-depth outcomes remain. CJS helper and package-only alpha/beta changes contrast with unchanged config bytes; number, missing-source object and malformed required module reject separately. Both a-b/a_b and react-hooks/react_hooks collide; exiting before an envelope contrasts with the valid contributor returns.
  * @evidence contracts/testing.md#execution-ownership One source-unit entry, root, selected JSON path and supported Node launcher execute actual factory/extractor calls. The added ten changed or terminal inputs each require a real evaluator process and assert its launch counter increment. No extra caller, compiler Program, Go source/build or product host is created. Typed acquisition, installed ttsx transport and stdout/stderr isolation remain E2E observations.
  */
@@ -93,7 +93,7 @@ export function test_lint_config_descriptor_extractor_inherits_contributors(): v
           .digest("hex")}.json`,
       );
     const oldCache = cachePath("v9");
-    cacheFiles.push(oldCache, cachePath("v10"));
+    cacheFiles.push(oldCache, cachePath("v12"));
     fs.writeFileSync(
       oldCache,
       JSON.stringify({
@@ -171,7 +171,7 @@ export function test_lint_config_descriptor_extractor_inherits_contributors(): v
       rootConfig,
       JSON.stringify({ extends: "./node_modules/base-package/base.json" }),
     );
-    cacheFiles.push(cachePath("v10"));
+    cacheFiles.push(cachePath("v12"));
     const packaged = factory(context);
     assert.deepEqual(packaged.contributors, [
       { name: "packaged", source: first },
@@ -205,7 +205,7 @@ export function test_lint_config_descriptor_extractor_inherits_contributors(): v
       );
     }
     fs.writeFileSync(rootConfig, JSON.stringify({ extends: "./depth/0.json" }));
-    cacheFiles.push(cachePath("v10"));
+    cacheFiles.push(cachePath("v12"));
     assert.deepEqual(factory(context).contributors, [
       { name: "terminal", source: third },
     ]);
@@ -240,7 +240,7 @@ export function test_lint_config_descriptor_extractor_inherits_contributors(): v
       rootConfig,
       JSON.stringify({ extends: "./nested/portable.cjs" }),
     );
-    cacheFiles.push(cachePath("v10"));
+    cacheFiles.push(cachePath("v12"));
     fs.writeFileSync(
       cjsConfig,
       'module.exports = require("./selection.cjs");\n',
@@ -346,6 +346,22 @@ export function test_lint_config_descriptor_extractor_inherits_contributors(): v
     );
     requireNextLaunch();
     assert.equal(addedLaunches, 10);
+    const typedDirectory = path.join(root, "typed-module");
+    fs.mkdirSync(typedDirectory);
+    fs.writeFileSync(path.join(typedDirectory, "package.json"), '{"type":"module"}');
+    const typedBase = path.join(typedDirectory, "base.ts");
+    fs.writeFileSync(typedBase, `if (!import.meta.url.endsWith("/base.ts")) throw new Error("typed leaf lost its own module");\nexport default { plugins: { typed: { source: ${JSON.stringify(first)} } } };\n`);
+    fs.writeFileSync(rootConfig, JSON.stringify({ extends: "./typed-module/base.ts" }));
+    const beforeTyped = fs.readFileSync(counter, "utf8").split("\n").length - 1;
+    const typed = factory(context);
+    assert.deepEqual(typed.contributors, [{ name: "typed", source: first }]);
+    assert.ok(typed.hostInputs?.includes(typedBase));
+    assert.equal(fs.readFileSync(counter, "utf8").split("\n").length - 1, beforeTyped + 2,
+      "the root and its typed base each have an actual evaluator authority");
+    assert.deepEqual(factory(context).contributors, typed.contributors);
+    assert.equal(fs.readFileSync(counter, "utf8").split("\n").length - 1, beforeTyped + 2,
+      "unchanged transitive typed inputs must reuse their validated aggregate");
+    cacheFiles.push(cachePath("v12"));
   } finally {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];

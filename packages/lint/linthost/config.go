@@ -1952,7 +1952,8 @@ func loadConfigFileEvaluationWithin(
 // v9 invalidates module graphs whose identity and package-boundary decisions
 // used lexical case folding instead of actual filesystem identity.
 // v11 preserves rule option object-entry order through evaluation and disk reuse.
-const configCacheVersion = "v11"
+// v12 makes the JS contributor evaluator preserve typed-base project ownership.
+const configCacheVersion = "v12"
 
 // configEvalCache memoizes evaluated .ts/.js lint config objects for the
 // lifetime of one process; the on-disk cache (configCacheDir) extends the

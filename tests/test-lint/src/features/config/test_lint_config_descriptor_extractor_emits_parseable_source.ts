@@ -20,7 +20,7 @@ import { TTSX_EXTRACTOR_SCRIPT } from "../../../../../packages/lint/src/createTt
  *
  * @evidence contracts/testing.md#behavioral-verification The authored extractor template is instantiated with quoted file URL and path inputs and parsed by the independent TypeScript parser; syntax diagnostics must be absent.
  * @evidence contracts/testing.md#independent-expectations TypeScript syntax defines validity independently of the emitter. Literal placeholder tokens are the documented substitution interface, and an intentionally broken string must produce a parser diagnostic.
- * @evidence contracts/testing.md#distinguishing-cases POSIX and Windows path strings containing quotes and backslashes must parse after JSON quoting; a raw newline inside a quoted literal is rejected by the same parser. All three substitution slots must exist before replacement.
+ * @evidence contracts/testing.md#distinguishing-cases POSIX and Windows path strings containing quotes and backslashes must parse after JSON quoting; a raw newline inside a quoted literal is rejected by the same parser. Import, output, root and inherited-chain substitutions must exist before replacement.
  * @evidence contracts/testing.md#execution-ownership This named source unit reads the authored generated value and invokes a parser in process without a built descriptor, config evaluator, consumer installation or native producer. Real config evaluation remains in E2E.
  */
 export function test_lint_config_descriptor_extractor_emits_parseable_source(): void {
@@ -41,6 +41,8 @@ export function test_lint_config_descriptor_extractor_emits_parseable_source(): 
       assert.ok(source.includes(token), token);
       source = source.replace(token, JSON.stringify(values[index]));
     }
+    assert.ok(source.includes("%CONFIG_CHAIN%"));
+    source = source.replace("%CONFIG_CHAIN%", JSON.stringify([values[2] + "/lint.config.ts"]));
     assert.deepEqual(parseDiagnostics(source), []);
   }
   assert.notEqual(parseDiagnostics('const broken = "raw\nnewline";').length, 0);
