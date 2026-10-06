@@ -85,7 +85,7 @@ func (p *program) checkGraph() *lintCheckGraph {
     key := lintInputKey(p.cwd, file.FileName())
     realized[file.FileName()] = true
     targets := []string{}
-    for referenced := range shimcompiler.GetReferencedFilePaths(p.tsProgram, file) {
+    for _, referenced := range shimcompiler.GetReferencedFilePaths(p.tsProgram, file) {
       source := p.tsProgram.GetSourceFileByPath(referenced)
       if source == nil || source == file || strings.HasPrefix(source.FileName(), "bundled:///") { continue }
       realized[source.FileName()] = true

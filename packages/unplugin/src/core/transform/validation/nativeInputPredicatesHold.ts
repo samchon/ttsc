@@ -23,7 +23,7 @@ export function nativeInputPredicatesHold(cached: TtscCachedProjectTransform): b
   const filesystem = resultFilesystem(cached.result);
   const identities = envelopeDerivation(cached).identityContext;
   for (const [name, observation] of Object.entries(cached.result.graph?.inputObservations ?? {})) {
-    const file = (filesystem.platform === "win32" ? path.win32 : path.posix).resolve(cached.projectRoot, name);
+    const file = ((filesystem.platform ?? process.platform) === "win32" ? path.win32 : path.posix).resolve(cached.projectRoot, name);
     for (const predicate of observation.nativePredicates ?? [])
       if (!nativeInputPredicateMatches(file, predicate, filesystem, identities)) return false;
   }

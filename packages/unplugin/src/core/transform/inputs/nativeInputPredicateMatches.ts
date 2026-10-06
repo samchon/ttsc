@@ -45,7 +45,8 @@ export function nativeInputPredicateMatches(
   const hash = (bytes: string | Buffer): string => createHash("sha256").update(bytes).digest("hex");
   const missing = (error: unknown): boolean => typeof error === "object" && error !== null &&
     ("code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR"));
-  const pathApi = filesystem.platform === "win32" ? path.win32 : path.posix;
+  const platform = filesystem.platform ?? process.platform;
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
   try {
     let currentPhysical: string | null;
     try { currentPhysical = filesystem.realpath(file); }
@@ -73,7 +74,7 @@ export function nativeInputPredicateMatches(
       } catch (error) { if (!missing(error)) return false; digest = hash("missing\0"); }
     } else if (predicate.kind === "directory") {
       const records: Buffer[] = [];
-      if (filesystem.platform === "win32") {
+      if (platform === "win32") {
         for (const entry of filesystem.readdir(file)) {
           let target: Buffer = Buffer.alloc(0);
           if (entry.isSymbolicLink()) {

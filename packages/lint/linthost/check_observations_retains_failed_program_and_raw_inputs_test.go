@@ -11,7 +11,37 @@ import (
   "reflect"
   "testing"
 
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
+
 )
+
+// observedProjectInputRule exercises the optional actual reader contract in the
+// same Program cycle; it has no separate fixture/process or filesystem hook.
+type observedProjectInputRule struct { location string }
+
+// @evidence contracts/testing.md#behavioral-verification Returns the independently authored registry identity used by the owning unit.
+// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
+// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
+// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+func (r observedProjectInputRule) Name() string { return "test/observed-project-input" }
+
+// @evidence contracts/testing.md#behavioral-verification Declares that this raw-input consumer does not acquire or inspect checker state.
+// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
+// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
+// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+func (r observedProjectInputRule) NeedsTypeChecker() bool { return false }
+
+// @evidence contracts/testing.md#behavioral-verification Declares actual reader responsibility independently of any consumed byte proof.
+// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
+// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
+// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+func (r observedProjectInputRule) UsesProjectInputReader() bool { return true }
+
+// @evidence contracts/testing.md#behavioral-verification Consumes the authored raw path through the supplied reader and publishes its actual bytes/error through the supported cycle state.
+// @evidence contracts/testing.md#independent-expectations The owning unit authors the registry identity, BOM bytes and path separately from this contributor.
+// @evidence contracts/testing.md#distinguishing-cases This supported reader consumer contrasts the topology-only unsupported contributor in the same owning unit.
+// @evidence contracts/testing.md#execution-ownership The owning TestCheckObservationsRetainsFailedProgramAndRawInputs invokes this contributor through Engine.evaluateProject; it starts no process.
+func (r observedProjectInputRule) Check(ctx *publicrule.ProjectContext) { body, err := ctx.Inputs.ReadFile(r.location); ctx.SetState(struct { Body []byte; Err error }{body, err}) }
 
 // TestCheckObservationsRetainsFailedProgramAndRawInputs exercises the actual
 // standalone check entry, same-Program publisher and generation reader. It
@@ -20,7 +50,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification RunCheckWithIO returns status2 and TS2322 while its private result retains the loaded source graph and actual JSON config fingerprint. Direct reader calls preserve BOM bytes, compiler decoding remains distinct, WalkDir sorts and skips, nil generations publish false, unsupported input contributors withdraw authority, and an updated Program cannot inherit the prior graph.
 // @evidence contracts/testing.md#independent-expectations The authored number/string assignment must report TS2322, fixed source adjacency must include index.ts, raw BOM bytes and SHA256 are independently authored, nil authority must be false, and literal WalkDir visit names prescribe traversal. The JSON file fingerprint must retain version1, file kind, watch scope and stable identity.
-// @evidence contracts/testing.md#distinguishing-cases Failed check with valid Program differs from nil Program and unsupported contributor; raw and decoded BOM hashes differ; relative native reads retain absolute wire coordinates; skipped children are absent; the file fingerprint retains its raw-byte encoding; update invalidates the old generation.
+// @evidence contracts/testing.md#distinguishing-cases Failed check with valid Program differs from nil Program; supported actual-read contributor retains raw bytes/authority while topology-only unsupported contributor withdraws it; raw and decoded BOM hashes differ; relative native reads retain absolute wire coordinates; skipped children are absent; the file fingerprint retains its raw-byte encoding; update invalidates the old generation.
 // @evidence contracts/testing.md#execution-ownership This Go unit invokes the owning standalone host APIs in-process with temporary files, buffers and one loaded Program. It restores the prior contributor registration and closes the Program, with no CLI process, extra compiler generation for proof or E2E fixture loop.
 func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
   root := t.TempDir()
@@ -94,6 +124,17 @@ func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
     return nil
   }); err != nil { t.Fatal(err) }
   if !reflect.DeepEqual(visited, []string{".", "a", "skip"}) { t.Fatalf("WalkDir selection/ordering: %v", visited) }
+
+  supportedAdapter, err := inspectProjectContributor(observedProjectInputRule{location: document})
+  if err != nil { t.Fatal(err) }
+  previousSupported, hadSupported := registeredProjectRules[supportedAdapter.name]
+  registeredProjectRules[supportedAdapter.name] = supportedAdapter
+  t.Cleanup(func() { if hadSupported { registeredProjectRules[supportedAdapter.name] = previousSupported } else { delete(registeredProjectRules, supportedAdapter.name) } })
+  supportedEngine := NewEngineWithResolver(InlineRuleResolver{Rules: RuleConfig{supportedAdapter.name: SeverityError}})
+  supportedCycle := supportedEngine.evaluateProject(prog.identity, prog.userSourceFiles(), prog.checker, prog.inputReader)
+  supportedCycle.finalize()
+  state, ok := supportedCycle.results.ProjectResult(supportedAdapter.name).State.(struct { Body []byte; Err error })
+  if !ok || state.Err != nil || !bytes.Equal(state.Body, raw) || prog.inputReader.incomplete { t.Fatalf("actual supported reader lost authority or consumed bytes: %#v", state) }
 
   // The existing topology-only contributor performs no observed reads.
   adapter, err := inspectProjectContributor(commandProjectInputRule{})

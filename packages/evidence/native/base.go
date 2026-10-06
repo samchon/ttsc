@@ -3,7 +3,6 @@ package evidence
 import (
   "errors"
   "io/fs"
-  "os"
   "path"
   "path/filepath"
   "sort"
