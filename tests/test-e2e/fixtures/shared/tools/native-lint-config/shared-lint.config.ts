@@ -3,6 +3,7 @@ import demoPlugin from "lint-contributor-demo";
 
 export default {
   extends: "./base.config.json",
+  format: { semi: false },
   plugins: { demo: demoPlugin },
   rules: {
     "no-debugger": "error",

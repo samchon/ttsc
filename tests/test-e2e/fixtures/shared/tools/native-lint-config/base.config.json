@@ -1,1 +1,1 @@
-{"rules":{"no-var":"error","prefer-const":"error","no-console":"error","typescript/triple-slash-reference":"error"}}
+{"extends":"./format-only.cjs","rules":{"no-var":"error","prefer-const":"error","no-console":"error","typescript/triple-slash-reference":"error"}}

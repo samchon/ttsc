@@ -22,14 +22,15 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * normalization. Dependency tracking may remain unavailable without denying a
  * correctly loaded rule value; this transfer does not certify cache reuse. The
  * CJS warning module also extends a pure format-only child. Its exact raw width
- * survives the same actual command without introducing another launcher. A The
+ * survives the same actual command without introducing another launcher. The
  * same CJS invocation resolves two missing absolute manifest mains through
  * their literal fallbacks and one owned main. Exact entry/watch observations,
  * owned directory/watch and filesystem-root exclusion preserve the original
  * resolution graph boundary without a separate evaluator. A configured
  * observation sink is borrowed; otherwise the existing opt-in writer is enabled
  * only in these children with an owned trace-only allocation. No additional
- * evaluator or compiler is invoked.
+ * launcher is introduced; the warning DAG now includes a second real typed
+ * evaluation after a helper-only edit, including its required preparation.
  *
  * 1. Run one typed-config graph containing all original contributor and mixed
  *    stream inputs.
@@ -41,12 +42,12 @@ import { BatchWorkspace } from "./BatchWorkspace";
  *
  * @evidence contracts/testing.md#behavioral-verification The real launcher reports every independently authored contributor TODO/FIXME/XXX tuple, rejects leaked default marker options, renders the original no-var/prefer-const/TypeScript order and omits ignored generated inputs. The same typed check must return exactly2 with empty stdout and the authored structured Legacy restriction's exact custom message. A CJS warning-only command must return zero and empty stdout with exactly one no-console warn, while its actual normalized loader envelope retains both no-console:warning and no-debugger:error. The typed graph adds a real no-explicit-any diagnostic at authored mixed.ts line11 and verifies that same rule value in the typed evaluator envelope. The warning command additionally evaluates the pure CJS format-only child and its successful raw export must equal the single format/printWidth120 object. A namespace-spread helper supplies no-debugger:error, while the same root evaluator retains local ignores: main.ts line3 must report that rule and the included functional source must report nothing. Actual compiler API wrapper calls require cwd fallback with two discovery errors and wrapper precedence with only no-var.
  * @evidence contracts/testing.md#independent-expectations Original authored comment messages, option marker XXX versus TODO, source line numbers and literal rule/category tuples define expectations. The Legacy source and literal Use Safe instead. option independently require the exact no-restricted-types message, empty stdout and check status2; fixWith/suggest remain input fields, not claimed edit assertions. The authored main debugger and included functional debugger independently contrast active and locally ignored paths. The paired typed loader payload must retain the inherited no-debugger severity and the three literal ignore globs. The literal pure CJS printWidth120 object independently specifies the evaluator payload; TestFormatBlockPropagatesPrettierOptionsToRule owns the nonempty decoded width120 option. CLI stderr/parser and actual compile envelopes supply observations; discovery output never generates the expected rules.
- * @evidence contracts/testing.md#distinguishing-cases Typed package contributor/options, structured builtin rule options reaching the actual renderer, builtin-plus-TypeScript stream, globally ignored included dot/declaration files, explicit CJS warning normalization and its pure format-only extended export, synchronous namespace-default composition with inherited rules versus local ignores, config-less wrapper fallback and wrapper config precedence remain distinct.
+ * @evidence contracts/testing.md#distinguishing-cases Typed package contributor/options, structured builtin rule options reaching the actual renderer, builtin-plus-TypeScript stream, globally ignored included dot/declaration files, explicit CJS warning normalization and its pure format-only extended export, namespace-default composition across an awaited factory return with inherited rules versus local ignores, config-less wrapper fallback and wrapper config precedence remain distinct.
  * @evidence contracts/testing.md#execution-ownership Selected esbuild calls this helper on one upfront lint island with workspace-linked owning lint/demo producers. Two real launcher commands and two actual synchronous compiler API preparations own all distinctions; source units are not treated as native registration/renderer evidence.
  * @evidence contracts/e2e.md#necessary-boundary Executable typed/CJS config evaluation, demo source discovery, serialized options, native rule diagnostic transport and CLI status must agree. Wrapper context must select its own config or actual cwd fallback; Go config/decoder units alone cannot establish that assembly.
- * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates.
- * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now evaluates its pure CJS export as the warning module extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. TestConfigDependencyGraphNeverPublishesTheFilesystemRoot now shares this warning evaluator: literal error/warning/warning module results and exact missing entry/watch versus owned directory/watch are checked on the same completed loader result, with no filesystem-root dependency and all watch directories physically within this config root. Authored transfer acceptance remains subject to execution.
+ * @evidence contracts/e2e.md#shared-execution One source/config graph and the same owning source producer/cache serve both CLI modes and two wrapper contexts. Both wrappers reuse the independently prepared uninstalled namespace, outside the main graph's eligible ancestor config; its own include:[src] and root package remain unchanged. Different warning exit and wrapper origins require separate actual calls, not per-source fixtures or installations. Real native preparation/descriptor/Program totals remain unmeasured. Existing CLI count stays two. Relative to the old typed evaluation plus the donor's two evaluations, the candidate uses two typed evaluations; the warning command now pays a real typed evaluator and its required native preparation. Format defaults remain off in checks through expandFormatBlock, as independently owned by TestFormatBlockDefaultSeverityOffKeepsFormatRulesOutOfCheck. Internal Program/process totals and independent execution reduction remain unverified.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity CLI ordinary status and actual PID departure precede config mutation. The synchronous compile pipeline owns captures; an exception envelope retains the graph and blocks the next origin. Controlled original config bytes restore only while ownership remains resolved. Normal returns are not arbitrary descendant-release certificates. The helper mutation changes exactly one literal after the first CLI has closed. The typed entry bytes stay fixed, while the final owned restoration restores the helper before the pre-existing immutable-input comparison; unresolved child ownership still prevents restoration.
+ * @evidence contracts/e2e.md#preserved-coverage Connects original three typed demo consumers, mixed rendered/parsed stream ordering, warning-only CJS severity/zero exit, config-less external-wrapper ignores and configured-wrapper precedence. TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig's actual typed evaluation, structured options, exact rule/custom message, empty stdout and status2 now execute on this existing typed-error result. The former basic CJS/TS loader donors now consume these same two real CLI/evaluator results; the untagged JSON normalization unit additionally owns no-console Warn/no-debugger Error vocabulary independently of module evaluation. Direct owning Go units retain pure severity/ignore/option normalization; no fixWith/suggest edit assertion or new CLI flag behavior is inferred. TestLoadRuleConfigTypeScriptConfigMergesSpreadDefaultWrapper now uses this same typed evaluator and Program; exact main debugger diagnostics and functional-path absence accompany raw inherited rule/local-ignore assertions. The owning ConfigStore unit preserves error/off resolution. TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock now evaluates its pure CJS export as the warning module extends input, while TestFormatBlockPropagatesPrettierOptionsToRule retains the independently decoded width120 option. TestConfigDependencyGraphNeverPublishesTheFilesystemRoot now shares this warning evaluator: literal error/warning/warning module results and exact missing entry/watch versus owned directory/watch are checked on the same completed loader result, with no filesystem-root dependency and all watch directories physically within this config root. Authored transfer acceptance remains subject to execution. The async returned-default factory donor's real transport now accompanies these same two CLIs: logging dynamic import returns the namespace-spread helper with local ignores, then only that helper's debugger severity changes before the warning CLI evaluates the unchanged typed entry again. Both raw values retain semi:false and exact file/watch provenance. TestConfigStoreResolvesOptionsWithEntryScope and TestFormatBlockPropagatesPrettierOptionsToRule own pure error/off resolution and prefer-never decoding; the accepted loader provenance feeds appendConfigPaths, without certifying a public project-inputs reply. The tagged donor remains selected until this authored carrier receives actual validation.
  */
 export function nativeLintConfigCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -61,6 +62,8 @@ export function nativeLintConfigCorpus(
   const typed = path.join(root, "lint.config.ts");
   const originalConfig = fs.readFileSync(config);
   const originalTyped = fs.readFileSync(typed);
+  const helper = path.join(root, "shared-lint.config.ts");
+  const originalHelper = fs.readFileSync(helper);
   const immutableInputs = [
     "src/main.ts",
     "src/functional/api.ts",
@@ -165,6 +168,8 @@ export function nativeLintConfigCorpus(
         "next-env.d.ts",
         "src/functional/**/*.ts",
       ]);
+      assert.deepEqual(evaluated.format, { semi: false });
+      assertAsyncConfigWatchPaths(result.traces, typed, helper);
       assert.equal(
         result.diagnostics.some((row) =>
           row.file.replace(/\\/g, "/").includes("/src/functional/"),
@@ -294,6 +299,14 @@ export function nativeLintConfigCorpus(
       );
     });
     capture("CJS warning-only CLI", () => {
+      assert.deepEqual(fs.readFileSync(typed), originalTyped);
+      const helperText = originalHelper.toString("utf8");
+      const errorRule = '"no-debugger": "error"';
+      assert.equal(helperText.split(errorRule).length, 2);
+      fs.writeFileSync(
+        helper,
+        helperText.replace(errorRule, '"no-debugger": "warning"'),
+      );
       const project = JSON.parse(originalConfig.toString("utf8"));
       fs.writeFileSync(
         config,
@@ -320,6 +333,20 @@ export function nativeLintConfigCorpus(
           eqeqeq: "warning",
         },
       );
+      const refreshed = assertExecutableConfigRules(
+        result.traces,
+        traceRoot,
+        typed,
+        { "no-debugger": "warning", "typescript/no-explicit-any": "error" },
+      );
+      assert.deepEqual(refreshed.format, { semi: false });
+      assert.deepEqual(refreshed.ignores, [
+        ".next/**/*.ts",
+        "next-env.d.ts",
+        "src/functional/**/*.ts",
+      ]);
+      assertAsyncConfigWatchPaths(result.traces, typed, helper);
+      assert.deepEqual(fs.readFileSync(typed), originalTyped);
       assertRootBoundaryDependencies(result.traces, root);
       const formatOnly = assertExecutableConfigRules(
         result.traces,
@@ -399,6 +426,7 @@ export function nativeLintConfigCorpus(
       for (const restore of [
         () => fs.writeFileSync(config, originalConfig),
         () => fs.writeFileSync(typed, originalTyped),
+        () => fs.writeFileSync(helper, originalHelper),
         () => {
           const discovered = path.join(root, "lint.config.json");
           if (fs.existsSync(discovered)) fs.unlinkSync(discovered);
@@ -594,4 +622,61 @@ function assertRootBoundaryDependencies(
     [...matched].sort(),
     expected.map(([location]) => location).sort(),
   );
+}
+
+/**
+ * Bind the two typed evaluations to their actual accepted entry/helper watch
+ * inputs. These are the loader's normalized provenance consumed by
+ * appendConfigPaths; no public project-inputs reply is inferred from it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Each completed typed loader result must track both the unchanged entry and imported helper as stable file/watch inputs with physical targets and SHA256 digests. This accompanies the same invocation's raw error or refreshed warning value, not an authored replacement payload.
+ * @evidence contracts/testing.md#independent-expectations The named entry and helper are authored config inputs; file/watch scope, stable physical identity and nonempty digest follow their actual executable import relationship.
+ * @evidence contracts/testing.md#distinguishing-cases Both first and helper-only-refreshed evaluations retain their two inputs. Missing tracking, a dropped helper, cache-only scope or unstable file identity fails independently of a correct rule value.
+ * @evidence contracts/testing.md#execution-ownership nativeLintConfigCorpus calls this assertion on the existing typed CLI and warning CLI trace windows. The prior raw-payload assertion already joins these events to the actual loader process and terminal; this helper adds no evaluation or child.
+ * @evidence contracts/e2e.md#necessary-boundary Actual Node/typed evaluator imports must publish accepted provenance to the Go config loader; a manually parsed object or callback cannot prove that the helper remains a watch dependency after the async return.
+ * @evidence contracts/e2e.md#shared-execution The two existing CLI result windows supply both evaluations; this assertion reads their captured metadata and checks the already authored paths rather than starting a loader or separate project.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each caller supplies only its completed invocation window. Physical targets are checked against the same owned fixture, and restoration remains with nativeLintConfigCorpus after both commands.
+ * @evidence contracts/e2e.md#preserved-coverage Preserves entry/helper transport from the async donor; internal ConfigStore path copying and rule-option resolution remain unit responsibilities. This accepted dependency envelope is not certified as a public LSP project-inputs result.
+ */
+function assertAsyncConfigWatchPaths(
+  traces: TraceMeasurements,
+  entry: string,
+  helper: string,
+): void {
+  const results = traces.writerObservations
+    .map((row) => row.observation)
+    .filter(
+      (row) =>
+        row.event === "config-loader-result" && row.data?.location === entry,
+    );
+  assert.equal(results.length, 1);
+  const [result] = results;
+  assert.ok(result !== undefined);
+  assert.equal(result.data?.dependenciesTracked, true);
+  const dependencies: unknown = result.data?.dependencies;
+  assert.ok(Array.isArray(dependencies));
+  for (const expected of [entry, helper]) {
+    const matches = dependencies.filter(
+      (dependency: unknown) =>
+        dependency !== null &&
+        typeof dependency === "object" &&
+        "path" in dependency &&
+        typeof dependency.path === "string" &&
+        path.resolve(dependency.path) === path.resolve(expected),
+    );
+    assert.equal(matches.length, 1, expected);
+    const [dependency]: unknown[] = matches;
+    assert.ok(dependency !== null && typeof dependency === "object");
+    assert.ok("kind" in dependency && dependency.kind === "file");
+    assert.ok("scope" in dependency && dependency.scope === "watch");
+    assert.ok(
+      "identityStable" in dependency && dependency.identityStable === true,
+    );
+    assert.ok(
+      "realpath" in dependency && typeof dependency.realpath === "string",
+    );
+    assert.equal(dependency.realpath, fs.realpathSync.native(expected));
+    assert.ok("digest" in dependency && typeof dependency.digest === "string");
+    assert.match(dependency.digest, /^[a-f0-9]{64}$/);
+  }
 }
