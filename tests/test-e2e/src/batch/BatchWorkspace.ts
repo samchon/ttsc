@@ -496,6 +496,14 @@ export namespace BatchWorkspace {
     );
     fs.mkdirSync(path.join(root, "tools/vite-serve/node_modules/@types"));
     fs.symlinkSync(path.join(root, "tools/vite-serve/packages/linked-pkg"), path.join(root, "tools/vite-serve/node_modules/linked-pkg"), "junction");
+    const lintConfigRoot = path.join(root, "tools/native-lint-config");
+    fs.mkdirSync(path.join(lintConfigRoot, ".next/types"), { recursive: true });
+    fs.copyFileSync(path.join(lintConfigRoot, "templates/next-types.ts"), path.join(lintConfigRoot, ".next/types/generated.ts"));
+    for (const [name, target] of [["@ttsc/lint", path.join(TestProject.WORKSPACE_ROOT, "packages/lint")], ["lint-contributor-demo", path.join(TestProject.WORKSPACE_ROOT, "packages/lint/test/lint-contributor-demo")]]) {
+      const link = path.join(lintConfigRoot, "node_modules", name!);
+      fs.mkdirSync(path.dirname(link), { recursive: true });
+      fs.symlinkSync(target!, link, "junction");
+    }
     const orphanPackage = path.join(
       root,
       "tools/runtime-frontdoors/node_modules/runtime-cache-control",

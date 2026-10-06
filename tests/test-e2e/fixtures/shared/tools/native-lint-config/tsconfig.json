@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"noEmit":true,"rootDir":".","types":[],"plugins":[{"transform":"@ttsc/lint"}]},"include":["src","next-env.d.ts",".next/types/**/*.ts"]}

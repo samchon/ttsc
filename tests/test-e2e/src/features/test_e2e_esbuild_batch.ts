@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { nativeLintConfigCorpus } from "../batch/nativeLintConfigCorpus";
 import { nativeWatchCorpus } from "../batch/nativeWatchCorpus";
 import { serviceCorpus } from "../batch/serviceCorpus";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
@@ -38,6 +39,9 @@ import { test_watch_topology_classifies_config_and_plugin_reload_inputs } from "
 export async function test_e2e_esbuild_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const combinedFailures: unknown[] = [];
+  try { nativeLintConfigCorpus(workspace); }
+  catch (error) { combinedFailures.push(error); }
+  await BatchWorkspace.open();
   try {
     const topologyRoot = path.join(workspace.root, "tools/native-compiler-topology");
     const result = E2eProcessTrace.spawnSync(process.execPath, [
