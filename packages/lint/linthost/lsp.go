@@ -981,16 +981,29 @@ func lspWorkspaceEditForSeededCommand(
   original string,
   sourceOverlay *string,
 ) (*lspWorkspaceEdit, int) {
+  // These private transitions observe the existing operations, including
+  // cleanup. They do not add a deadline or replace the command's response.
+  observation := newLintTraceInvocation()
+  observation.record("lsp-command-workspace-started", map[string]any{
+    "command": opts.command, "cwd": opts.cwd, "tsconfig": opts.tsconfig, "target": target,
+  })
   // Pass the LOGICAL cwd/target so the temp workspace is indexed by the
   // project's logical layout (a project-internal symlink or junction keeps its
   // logical name). Physical resolution stays inside prepareLSPCommandWorkspace
   // for the copy source and inside tempPathFor's boundary-alias fallback.
   tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(opts.cwd, opts.tsconfig, target)
+  observation.record("lsp-command-workspace-returned", map[string]any{
+    "tempRoot": tempRoot, "target": tempTarget, "tsconfig": tempTsconfig, "error": fmt.Sprint(err),
+  })
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
-  defer cleanup()
+  defer func() {
+    observation.record("lsp-command-cleanup-started", map[string]any{"tempRoot": tempRoot})
+    cleanup()
+    observation.record("lsp-command-cleanup-returned", map[string]any{"tempRoot": tempRoot})
+  }()
 
   if sourceOverlay != nil {
     if err := os.MkdirAll(filepath.Dir(tempTarget), 0o755); err != nil {
@@ -1004,6 +1017,7 @@ func lspWorkspaceEditForSeededCommand(
   }
 
   pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, opts.cwd, tempRoot)
+  observation.record("lsp-command-rules-started", map[string]any{"tempRoot": tempRoot})
   rules, err := loadLSPCommandRules(
     pluginsJSON,
     tempRoot,
@@ -1011,6 +1025,7 @@ func lspWorkspaceEditForSeededCommand(
     target,
     opts.command == commandFormatDocument,
   )
+  observation.record("lsp-command-rules-returned", map[string]any{"error": fmt.Sprint(err)})
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
@@ -1029,11 +1044,13 @@ func lspWorkspaceEditForSeededCommand(
   }
   converged := false
   for pass := 0; pass < maxPasses; pass++ {
+    observation.record("lsp-command-program-started", map[string]any{"pass": pass, "needsRuleChecker": needsRuleChecker})
     prog, parseDiags, err := loadProgram(tempRoot, tempTsconfig, loadProgramOptions{
       forceNoEmit:      true,
       needsRuleChecker: needsRuleChecker,
       projectIdentity:  opts.projectIdentity,
     })
+    observation.record("lsp-command-program-returned", map[string]any{"pass": pass, "parseDiagnostics": len(parseDiags), "error": fmt.Sprint(err)})
     if err != nil {
       fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
       return nil, 2
@@ -1066,14 +1083,19 @@ func lspWorkspaceEditForSeededCommand(
     // way `format` does. Reading the imported TypeScript the lint cycle covers
     // would widen nothing here: the edit is bounded to one target below, and a
     // read-scope widening must not open a write the project never had.
+    observation.record("lsp-command-cycle-started", map[string]any{"pass": pass})
     findings := filterFindingsForPath(prog.runWriteScopedCycle(engine), tempTarget)
+    observation.record("lsp-command-cycle-returned", map[string]any{"pass": pass, "findings": len(findings)})
+    observation.record("lsp-command-program-close-started", map[string]any{"pass": pass})
     prog.close()
+    observation.record("lsp-command-program-close-returned", map[string]any{"pass": pass})
     if opts.command == commandFormatDocument {
       findings = filterFormatFindings(findings)
     } else {
       findings = filterLintFindings(findings)
     }
     fixed, err := applyFindingFixes(tempRoot, findings)
+    observation.record("lsp-command-fixes-returned", map[string]any{"pass": pass, "fixed": fixed, "error": fmt.Sprint(err)})
     if err != nil {
       fmt.Fprintln(os.Stderr, err)
       return nil, 3
