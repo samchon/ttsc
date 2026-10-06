@@ -1005,7 +1005,9 @@ func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, ar
 // runWithStdin runs a sidecar subcommand like run, additionally wiring stdin to
 // the supplied reader when it is non-nil. Callers that do not pass buffer text
 // (Diagnostics, CodeActions, discovery) reach this through run with a nil
-// reader, leaving the sidecar's stdin unset exactly as before.
+// reader, leaving the sidecar's stdin unset exactly as before. The opt-in
+// observer retains these already captured limited buffers and truncation flags
+// under the same invocation; original parsing and result ownership are unchanged.
 func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command string, stdin io.Reader, args ...string) ([]byte, error) {
   if strings.TrimSpace(plugin.Binary) == "" {
     return nil, fmt.Errorf("ttscserver: %s has no binary", pluginLabel(plugin))
@@ -1029,6 +1031,7 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   observation := e2etrace.BeginCommand(cmd, "Run")
   err := cmd.Run()
   observation.Result(err)
+  observation.Output(stdout.Bytes(), stderr.Bytes(), stdout.truncated, stderr.truncated)
   return nativePluginCommandResult(plugin, command, err, &stdout, &stderr)
 }
 

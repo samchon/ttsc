@@ -27,7 +27,7 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign method is replaced and no guessed PID or exact OS start time is represented.
 // @evidence contracts/common.md#meaningful-documentation The comment states observation-only ownership and the absence of process lifecycle actions.
 // @evidence contracts/portability.md#os-neutral-implementation Cmd supplies native argv, explicit directory and actual Process/ProcessState without platform-derived capability assumptions.
-// @evidenceExclude contracts/performance.md#efficient-algorithms This value carries observations; BeginCommand and Result perform their encoding.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This value carries observations; BeginCommand, Result and Output own their respective metadata and captured-byte encoding.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This value does not establish computation equivalence.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The original caller owns the Cmd and discards this observation with that lifecycle; no independent task is acquired.
 type Command struct {

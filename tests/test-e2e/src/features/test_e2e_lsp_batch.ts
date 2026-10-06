@@ -1,4 +1,5 @@
 import { TestProject, retainNativeLintProducer } from "@ttsc/testing";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -93,6 +94,8 @@ const CASCADE_FIXED =
   'const icon = "\uD83D\uDE00"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); }';
 const FORMAT_SOURCE = "var legacy = 1\nJSON.stringify(legacy)\n";
 const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
+/** Independent disk bytes must not replace either live formatting buffer. */
+const FORMAT_DISK = "const onDisk = 999;\n";
 
 /**
  * Verifies one ttscserver LSP session carries diagnostics through to a fix.
@@ -140,7 +143,10 @@ async function runEditorCorpus() {
     (entry: { transform?: string }) => entry.transform === "@ttsc/lint",
   );
   assert.ok(lintEntry, "the actual lint contributor must remain selected");
-  const languageRoot = path.join(workspace.lspEditorRoot, "tools/lint-language");
+  const languageRoot = path.join(
+    workspace.lspEditorRoot,
+    "tools/lint-language",
+  );
   fs.cpSync(
     path.resolve(
       import.meta.dirname,
@@ -248,8 +254,13 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
     path.join(workspace.lspEditorRoot, "review.md"),
     "## Review\n<!-- @link external/example.ts#value Reviews the value. -->\n",
   );
-  fs.mkdirSync(path.join(workspace.lspEditorRoot, "external"), { recursive: true });
-  const evidenceTarget = path.join(workspace.lspEditorRoot, "external/example.ts");
+  fs.mkdirSync(path.join(workspace.lspEditorRoot, "external"), {
+    recursive: true,
+  });
+  const evidenceTarget = path.join(
+    workspace.lspEditorRoot,
+    "external/example.ts",
+  );
   fs.writeFileSync(evidenceTarget, "export const other = 1;\n");
   fs.writeFileSync(configPath, JSON.stringify(config));
   fs.writeFileSync(path.join(project.tmpdir, "src/editor.ts"), OPENED);
@@ -259,7 +270,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
   );
   fs.writeFileSync(
     path.join(project.tmpdir, "src/editor-format.ts"),
-    FORMAT_SOURCE,
+    FORMAT_DISK,
   );
   const file = path.join(project.tmpdir, "src", "editor.ts");
   const uri = pathToFileURL(file).href;
@@ -1194,9 +1205,158 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             );
             assert.equal(
               fs.readFileSync(controlFile, "utf8"),
-              control.source,
+              control.command === "ttsc.format.document"
+                ? FORMAT_DISK
+                : control.source,
               "native editor commands return edits without changing disk",
             );
+            if (control.command === "ttsc.format.document") {
+              assert.deepEqual(Object.keys(edit.changes ?? {}), [controlUri]);
+              assert.equal(edits.length, 1);
+              assert.equal(edits[0]?.newText, FORMAT_FIXED);
+              assert.notEqual(edits[0]?.newText, FORMAT_DISK);
+              client.notify("textDocument/didChange", {
+                textDocument: { uri: controlUri, version: 2 },
+                contentChanges: [{ text: FORMAT_FIXED }],
+              });
+              const cleanEdit = await step(
+                "editor-format clean command",
+                client.request<WorkspaceEdit | null>(
+                  "workspace/executeCommand",
+                  { command: control.command, arguments: [controlUri] },
+                  REQUEST_TIMEOUT,
+                ),
+              );
+              assert.equal(cleanEdit, null);
+              assert.equal(fs.readFileSync(controlFile, "utf8"), FORMAT_DISK);
+              // These are this session's completed native invocation buffers,
+              // not JSON-RPC replies interpreted as raw sidecar stdout.
+              const isRecord = (
+                value: unknown,
+              ): value is Record<string, unknown> =>
+                typeof value === "object" &&
+                value !== null &&
+                !Array.isArray(value);
+              const rows: Record<string, unknown>[] = [];
+              for (const name of fs
+                .readdirSync(runtimeTraceRoot)
+                .filter((name) => name.endsWith(".jsonl"))) {
+                for (const line of fs
+                  .readFileSync(path.join(runtimeTraceRoot, name), "utf8")
+                  .split(/\r?\n/)
+                  .filter(Boolean)) {
+                  const row: unknown = JSON.parse(line);
+                  assert.ok(isRecord(row));
+                  rows.push(row);
+                }
+              }
+              const selectedOutputs = rows.filter(
+                (row) =>
+                  row.event === "process-output" &&
+                  Array.isArray(row.argv) &&
+                  row.argv.includes("--command=ttsc.format.document") &&
+                  row.argv.includes(
+                    "--arguments-json=" + JSON.stringify([controlUri]),
+                  ),
+              );
+              assert.equal(
+                selectedOutputs.length,
+                2,
+                "the shared dirty and clean commands each have one actual native invocation",
+              );
+              const outputs: string[] = [];
+              for (const output of selectedOutputs) {
+                assert.ok(
+                  typeof output.invocation === "string" &&
+                    typeof output.pid === "number" &&
+                    output.pid > 0,
+                );
+                assert.ok(Array.isArray(output.argv));
+                const argv = output.argv;
+                assert.ok(
+                  argv.every((argument) => typeof argument === "string"),
+                );
+                assert.equal(argv[1], "lsp-execute-command");
+                assert.ok(argv.includes("--content-stdin"));
+                const nativeRoot = fs.realpathSync.native(project.tmpdir);
+                assert.ok(argv.includes("--cwd=" + nativeRoot));
+                assert.ok(
+                  argv.includes(
+                    "--tsconfig=" + path.join(nativeRoot, "tsconfig.json"),
+                  ),
+                );
+                const manifest = argv.find((argument: string) =>
+                  argument.startsWith("--plugins-json="),
+                );
+                assert.ok(typeof manifest === "string");
+                const parsedManifest: unknown = JSON.parse(
+                  manifest.slice("--plugins-json=".length),
+                );
+                assert.ok(
+                  Array.isArray(parsedManifest) && parsedManifest.length > 0,
+                  "the actual opaque plugin manifest remains on argv",
+                );
+                const results = rows.filter(
+                  (row) =>
+                    row.event === "process-result" &&
+                    row.invocation === output.invocation &&
+                    row.pid === output.pid,
+                );
+                assert.equal(results.length, 1);
+                const result = results[0];
+                assert.ok(result && isRecord(result.data));
+                assert.deepEqual(result.argv, argv);
+                assert.equal(result.data.status, 0);
+                assert.equal(result.data.exitObserved, true);
+                assert.ok(isRecord(output.data));
+                const data = output.data;
+                assert.equal(data.outcome, "complete");
+                assert.equal(data.stdoutTruncated, false);
+                assert.equal(data.stderrTruncated, false);
+                const readStream = (key: "stdout" | "stderr"): Buffer => {
+                  const stream = data[key];
+                  assert.ok(isRecord(stream) && isRecord(stream.raw));
+                  assert.ok(
+                    typeof stream.raw.path === "string" &&
+                      typeof stream.raw.bytes === "number",
+                  );
+                  const payload = path.resolve(
+                    runtimeTraceRoot,
+                    stream.raw.path,
+                  );
+                  assert.equal(path.dirname(payload), runtimeTraceRoot);
+                  const body = fs.readFileSync(payload);
+                  assert.equal(body.length, stream.raw.bytes);
+                  assert.equal(
+                    createHash("sha256").update(body).digest("hex"),
+                    stream.sha256,
+                  );
+                  return body;
+                };
+                assert.equal(readStream("stderr").length, 0);
+                outputs.push(readStream("stdout").toString("utf8"));
+              }
+              const cleanOutputs = outputs.filter(
+                (body) => body.trim() === "null",
+              );
+              assert.equal(
+                cleanOutputs.length,
+                1,
+                "the clean native sidecar emits literal null",
+              );
+              const dirtyOutputs = outputs.filter(
+                (body) => body.trim() !== "null",
+              );
+              assert.equal(dirtyOutputs.length, 1);
+              const dirtyBody = dirtyOutputs[0];
+              assert.ok(typeof dirtyBody === "string");
+              const rawDirty: unknown = JSON.parse(dirtyBody);
+              assert.deepEqual(
+                rawDirty,
+                edit,
+                "the dirty WorkspaceEdit is the actual same-invocation raw output",
+              );
+            }
           } catch (error) {
             populationFailures.push(
               new Error("shared native editor action " + control.filename, {
@@ -1272,6 +1432,74 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
       failures.push(traceError);
     }
     try {
+      // Preserve only this session's bounded format output records and payloads
+      // before shared-cache cleanup; never copy plugin source or Go caches.
+      const isRecord = (value: unknown): value is Record<string, unknown> =>
+        typeof value === "object" && value !== null && !Array.isArray(value);
+      const rows: Record<string, unknown>[] = [];
+      for (const name of fs
+        .readdirSync(runtimeTraceRoot)
+        .filter((name) => name.endsWith(".jsonl"))) {
+        for (const line of fs
+          .readFileSync(path.join(runtimeTraceRoot, name), "utf8")
+          .split(/\r?\n/)
+          .filter(Boolean)) {
+          const row: unknown = JSON.parse(line);
+          if (
+            isRecord(row) &&
+            Array.isArray(row.argv) &&
+            row.argv.includes("--command=ttsc.format.document")
+          )
+            rows.push(row);
+        }
+      }
+      if (rows.length) {
+        const retained = path.join(
+          workspace.allocatedRoot,
+          "lsp-format-observations",
+        );
+        fs.mkdirSync(retained, { recursive: true });
+        fs.writeFileSync(
+          path.join(retained, "invocations.jsonl"),
+          rows.map((row) => JSON.stringify(row)).join("\n") + "\n",
+        );
+        for (const row of rows.filter(
+          (row) => row.event === "process-output",
+        )) {
+          assert.ok(isRecord(row.data));
+          for (const key of ["stdout", "stderr"] as const) {
+            const stream = row.data[key];
+            assert.ok(isRecord(stream) && isRecord(stream.raw));
+            assert.ok(
+              typeof stream.raw.path === "string" &&
+                typeof stream.raw.bytes === "number",
+            );
+            const selected = path.resolve(runtimeTraceRoot, stream.raw.path);
+            assert.equal(path.dirname(selected), runtimeTraceRoot);
+            const stat = fs.lstatSync(selected);
+            assert.ok(stat.isFile() && !stat.isSymbolicLink());
+            assert.ok(
+              stat.size <= (key === "stdout" ? 4 * 1024 * 1024 : 1024 * 1024),
+            );
+            const body = fs.readFileSync(selected);
+            assert.equal(body.length, stream.raw.bytes);
+            assert.equal(
+              createHash("sha256").update(body).digest("hex"),
+              stream.sha256,
+            );
+            fs.writeFileSync(
+              path.join(retained, path.basename(selected)),
+              body,
+              { flag: "wx" },
+            );
+          }
+        }
+        console.error("LSP format observations retained: " + retained);
+      }
+    } catch (retentionError) {
+      failures.push(retentionError);
+    }
+    try {
       TestProject.retainTemporaryDirectory(workspace.allocatedRoot, reason);
     } catch (retentionError) {
       failures.push(retentionError);
@@ -1288,10 +1516,10 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
 /**
  * Join ordinary editor behavior and independent terminal selections.
  *
- * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted let fix without writing disk. Disjoint configured documents additionally require actual cascade const/equality fixed-point edits with UTF-16 end coordinates and format-only semicolon edits that retain var and disk bytes. The original editor body retains all diagnostic/edit/capability assertions; the selection body retains actual native restart notifications and terminal outcomes. Both results are collected even if one body fails.
- * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition. Each owning body supplies authored diagnostics, source coordinates and literal native outcomes; this collector does not reinterpret failure as acceptance.
- * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save. Ordinary supported shutdown and five intentionally terminal selection changes are different lifetimes, all required to settle.
- * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself. This is the single selected LSP entry. It acquires no host itself beyond the explicit bodies and aggregates every rejection.
+ * @evidence contracts/testing.md#behavioral-verification One real editor session preserves merged initialize capabilities, publishes Evidence missing-export and missing-file failures, clears them after native watched repairs, publishes the exact var range/severity/message, suppresses dirty findings, republishes on save and reports a real native command stderr failure before returning a targeted let fix without writing disk. Disjoint configured documents additionally require actual cascade const/equality fixed-point edits with UTF-16 end coordinates and format-only semicolon edits that retain var while independently authored disk999 bytes stay unchanged. The same opened formatting document then receives its formatted clean buffer and returns null; same-invocation raw output, empty stderr, nontruncation, actual argv and successful native status distinguish sidecar transport from JSON-RPC interpretation. The original editor body retains all diagnostic/edit/capability assertions; the selection body retains actual native restart notifications and terminal outcomes. Both results are collected even if one body fails.
+ * @evidence contracts/testing.md#independent-expectations Literal capability ids/kinds, authored source/append range, var underline/severity and expected let rewrite independently prescribe every original editor transition. Literal disk999, FORMAT_SOURCE/FORMAT_FIXED, one URI/one edit and trimmed raw null independently prescribe both formatting calls; saved buffer SHA and byte counts bind raw output to its actual result invocation. Each owning body supplies authored diagnostics, source coordinates and literal native outcomes; this collector does not reinterpret failure as acceptance.
+ * @evidence contracts/testing.md#distinguishing-cases Separates upstream capability preservation from native actions, dirty suppression from absence by retaining var, and returned WorkspaceEdit from sidecar disk mutation after save. Dirty stdin differs from already formatted disk, then clean stdin differs from dirty output; raw null, empty stderr and actual status0 remain required. Ordinary supported shutdown and five intentionally terminal selection changes are different lifetimes, all required to settle.
+ * @evidence contracts/testing.md#execution-ownership The shared DAG runner selects this one actual initialized editor session; an actual Evidence missing-export/repair/deletion/restoration chain joins the existing no-var lifecycle without another server. It sends actual initialize/didOpen/incremental didChange/didSave/codeAction/executeCommand across the native proxy and lint producer; it does not launch VS Code itself. This is the single selected LSP entry. On failure, only its bounded formatting invocation records and verified raw payloads are copied into the retained allocation before shared-cache cleanup; retention failures remain alongside the original failure. It acquires no host itself beyond the explicit bodies and aggregates every rejection.
  * @evidence contracts/e2e.md#necessary-boundary Direct rule or synthetic publication units cannot establish ordered editor notifications, dirty-buffer suppression, saved revalidation and actual command manifest routing, bounded stdout decoding and native stderr failure adaptation across the native bridge. Editor notifications and native termination are actual process boundaries owned by the invoked bodies, not mocked policy calls.
  * @evidence contracts/e2e.md#shared-execution One workspace snapshot producer prepares a dedicated editor island with the complete original src/native-errors/docs population, actual module links and lint/Evidence configuration. Transform-only producers and other actors' tools/outputs are outside this command-copy root; their emission assertions remain in their owning batches. This same launcher inherits the island as process cwd and omits --cwd, exercising native Getwd admission through actual initialize, project diagnostics and joined shutdown. The malformed command, ordinary fix, cascade fix and formatter retain their real native requests and complete checker Programs; no deadline or rule is weakened. The independent terminal-selection island and five launcher lifetimes remain unchanged. Both bodies borrow the same preparation and source producer/cache; shared availability does not certify packed installation, cache hits, child/build totals or Program reuse.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the temporary source is intentionally saved by the harness; dirty edits remain buffer-only until save and command nonmutation is checked against saved bytes. Successful supported shutdown/direct close precedes cleanup, with a separate REQUEST_TIMEOUT shutdown bound. Startup/body/shutdown failure retains the tracked consumer and already-owned snapshot/cache, preserving retention errors. An independently unmatched notification waiter must reject when that same child actually closes, releasing its owned timer/listener on both body failure and normal close. Timeout does not force termination or certify arbitrary descendant closure. Promise.allSettled joins both owners before error propagation. Each body alone owns its shutdown and restoration; failed or unknown closure retains shared inputs.
