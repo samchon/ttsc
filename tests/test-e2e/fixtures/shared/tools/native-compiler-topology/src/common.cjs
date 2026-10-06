@@ -1,0 +1,1 @@
+exports.commonValue = 1;

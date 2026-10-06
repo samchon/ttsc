@@ -1,0 +1,1 @@
+exports.commonInput = 1;

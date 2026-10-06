@@ -1,9 +1,12 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import { build } from "esbuild";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
+import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
+import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { nativeWatchCorpus } from "../batch/nativeWatchCorpus";
 import { serviceCorpus } from "../batch/serviceCorpus";
@@ -26,7 +29,7 @@ import { test_watch_topology_classifies_config_and_plugin_reload_inputs } from "
  * @evidence contracts/testing.md#behavioral-verification One real esbuild output must yield all661 exact native string values and authored contract/JSON neighbors with parsed-source controls retained; its public disposal must occur exactly once.
  * @evidence contracts/testing.md#independent-expectations Pre-print UTF-16 literals and authored42/retained values fix expected meaning. onDispose is the public host event rather than a predicted native process count.
  * @evidence contracts/testing.md#distinguishing-cases All quote/context/control string contrasts and parsed-source controls coexist in the same graph. Disposal is distinguished from a build that leaves its registered owner alive.
- * @evidence contracts/testing.md#execution-ownership This selected batch invokes esbuild.build exactly once. The rows are assertions on returned bytes, never separate context/rebuild calls. A separate upfront service subtree also owns one actual public one-shot transform and one native resident for the combined FIFO/update/link/runtime-selection corpus; those native connections and update generations are explicit additional costs. Independent esbuild and service failures are collected.
+ * @evidence contracts/testing.md#execution-ownership This selected batch invokes esbuild.build exactly once. The rows are assertions on returned bytes, never separate context/rebuild calls. A separate upfront service subtree also owns one actual public one-shot transform and one native resident for the combined FIFO/update/link/runtime-selection corpus; those native connections and update generations are explicit additional costs. One additional Node owner runs up to three actual compiler-list topology lifetimes and native refreshes; Windows capability admission may use two owned-directory fsutil calls. Independent corpus failures are collected.
  * @evidence contracts/e2e.md#necessary-boundary Public esbuild plugin setup, native output delivery and onDispose must agree under the real host; captured hooks alone cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing input graph, plugin artifact and one build serve every value. Compatible inputs share preparation; this test starts no per-row compiler or project.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity write:false preserves inputs and public onDispose is awaited after the actual build. Cache environment restores in finally; a failed build remains an error and does not certify successful teardown.
@@ -35,6 +38,24 @@ import { test_watch_topology_classifies_config_and_plugin_reload_inputs } from "
 export async function test_e2e_esbuild_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
   const combinedFailures: unknown[] = [];
+  try {
+    const topologyRoot = path.join(workspace.root, "tools/native-compiler-topology");
+    const result = E2eProcessTrace.spawnSync(process.execPath, [
+      "--import", pathToFileURL(path.join(TestProject.WORKSPACE_ROOT, "config/register-typescript-loader.mjs")).href,
+      path.join(topologyRoot, "worker.mjs"),
+      pathToFileURL(path.join(TestProject.WORKSPACE_ROOT, "tests/test-e2e/src/batch/nativeCompilerTopologyCorpus.ts")).href,
+      topologyRoot,
+    ], { cwd: topologyRoot, env: { ...process.env, TTSC_CACHE_DIR: workspace.cache }, encoding: "utf8", windowsHide: true, timeout: 180000 });
+    if (!isOrdinarilyClosedReadonlyLauncher(result)) {
+      BatchWorkspace.retain("native compiler topology owner closure remained unresolved");
+      throw new Error("native compiler topology owner closure remained unresolved", { cause: result.error });
+    }
+    try { process.kill(result.pid, 0); BatchWorkspace.retain("native compiler topology owner PID remained live"); throw new Error("native compiler topology owner PID remained live"); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") { BatchWorkspace.retain("native compiler topology owner PID departure could not be observed"); throw error; } }
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout.trim()), { ok: true });
+  } catch (error) { combinedFailures.push(error); }
+  await BatchWorkspace.open();
   try {
     await test_lint_write_commands_share_one_consumer({
       root: path.join(workspace.root, "tools/public-lint"),
