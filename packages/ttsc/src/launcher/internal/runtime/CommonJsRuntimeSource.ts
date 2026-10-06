@@ -219,7 +219,7 @@ const MODULE_URL = `ttsc:owned-module:${encodeURIComponent(__filename)}`;
 const moduleFacade = function (this: unknown, ...args: unknown[]): unknown {
   return new.target === undefined
     ? Reflect.apply(NativeModule, this, args)
-    : Reflect.construct(NativeModule, args, new.target === moduleFacade ? NativeModule : new.target);
+    : Reflect.construct(NativeModule, args, Object.is(new.target, moduleFacade) ? NativeModule : new.target);
 } as unknown as typeof NativeModule;
 Object.setPrototypeOf(moduleFacade, Object.getPrototypeOf(NativeModule));
 for (const key of Reflect.ownKeys(NativeModule)) {

@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "encoding/json"
   "os"
   "path/filepath"
   "testing"
@@ -23,7 +24,22 @@ func TestLSPDocumentWriteScopePreservesProjectAndSiblingBoundaries(t *testing.T)
   if err := os.WriteFile(siblingPath, []byte(sibling), 0o600); err != nil {
     t.Fatal(err)
   }
-  prog, diagnostics, err := loadProgram(root, filepath.Join(root, "tsconfig.json"), loadProgramOptions{forceNoEmit: true})
+  configPath := filepath.Join(root, "tsconfig.json")
+  configBytes, err := os.ReadFile(configPath)
+  if err != nil {
+    t.Fatal(err)
+  }
+  var config map[string]any
+  if err := json.Unmarshal(configBytes, &config); err != nil {
+    t.Fatal(err)
+  }
+  config["files"] = []string{"src/main.ts", "src/sibling.ts"}
+  configBytes, err = json.MarshalIndent(config, "", "  ")
+  if err != nil {
+    t.Fatal(err)
+  }
+  writeFile(t, configPath, string(configBytes)+"\n")
+  prog, diagnostics, err := loadProgram(root, configPath, loadProgramOptions{forceNoEmit: true})
   if err != nil || len(diagnostics) != 0 || prog == nil {
     t.Fatalf("load project: %v, diagnostics=%v", err, diagnostics)
   }
