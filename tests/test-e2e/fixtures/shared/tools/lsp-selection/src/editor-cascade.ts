@@ -1,1 +1,1 @@
-const icon = "😀"; var legacy = 1; let stable = legacy; if (typeof stable == "number") { console.log(icon, stable); }
+const icon = "😀"; var legacy = 1; let stable = legacy; if (typeof stable == "number") { console.log(icon, stable); } export {};

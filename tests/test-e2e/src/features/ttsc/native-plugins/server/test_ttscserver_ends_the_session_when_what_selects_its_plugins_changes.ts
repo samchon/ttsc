@@ -18,9 +18,9 @@ type PublishDiagnosticsParams = { diagnostics?: Diagnostic[]; uri: string };
 const SOURCE = "var legacy = 1;\nexport const kept = legacy;\n";
 
 const CASCADE_SOURCE =
-  'const icon = "\uD83D\uDE00"; var legacy = 1; let stable = legacy; if (typeof stable == "number") { console.log(icon, stable); }';
+  'const icon = "\uD83D\uDE00"; var legacy = 1; let stable = legacy; if (typeof stable == "number") { console.log(icon, stable); } export {};';
 const CASCADE_FIXED =
-  'const icon = "\uD83D\uDE00"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); }';
+  'const icon = "\uD83D\uDE00"; const legacy = 1; const stable = legacy; if (typeof stable === "number") { console.log(icon, stable); } export {};';
 type CascadeAction = { kind?: string; command?: { command?: string } };
 type CascadeEdit = {
   changes?: Record<
@@ -54,19 +54,22 @@ const SELECTION_TIMEOUT = 120_000;
  *    Restore `@ttsc/lint` in its `plugins`, report the change, and wait for
  *    `ttsc/pluginSelectionChanged`.
  * 2. Start the next session: it reports `no-var`. Remove the plugin again, report
- *    the change, and wait for `ttsc/pluginSelectionChanged`.
+ *    the change, and wait for `ttsc/pluginSelectionChanged`. The cascade source
+ *    explicitly exports an empty module, matching its original owning unit;
+ *    script-global var properties remain protected by the unchanged no-var
+ *    automatic-fix guard.
  * 3. Start a session with no plugin, write a `package.json` whose dependencies
  *    include `@ttsc/lint`, which publishes itself as a plugin, report it, and
  *    wait for `ttsc/pluginSelectionChanged`.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual sessions must announce pluginSelectionChanged when tsconfig adds or removes the plugin and when a previously plugin-free manifest adds its dependency; the intervening session must publish no-var.
- * @evidence contracts/testing.md#independent-expectations Original configured and unconfigured tsconfig bytes, package dependency insertion, literal notification method and no-var publication independently prescribe the selection transitions.
+ * @evidence contracts/testing.md#independent-expectations The cascade source and exact expected output both retain export {}; so module-scoped no-var conversion is required, while the maintained no-var global-property unit owns script rejection. Original configured and unconfigured tsconfig bytes, package dependency insertion, literal notification method and no-var publication independently prescribe the selection transitions.
  * @evidence contracts/testing.md#distinguishing-cases Exercises plugin addition and removal through compilerOptions and addition through package discovery, including a plugin-free initial state and a positive next-session diagnostic.
  * @evidence contracts/testing.md#execution-ownership Selected LSP calls this body through lspSelectionCorpus on one upfront island; three actual startup selections and authored editor-style watched-file protocol messages belong to this body. These are not kernel-watch events, packed installation or a count of every child/Program; source fingerprint units do not establish the real notification/close connection.
  * @evidence contracts/e2e.md#necessary-boundary The launcher selection snapshot and live native watched-file handling must agree on restart inputs, including inputs absent from a plugin-free initial selection.
  * @evidence contracts/e2e.md#shared-execution One consumer, unchanged workspace lint producer and explicit suite cache carry the three original sessions. Restart selections cannot collapse to an unchanged host. The cascade transfers two existing requests, one sidecar and three fix cycles from the ordinary editor; one additional upfront source enlarges this selection population without another server, root or prepare. Shared preparation is available, without cache-hit/build-Program-process total/binary-byte/minimum-cost certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the tracked private config/manifest change. Every client is owned before initialize; selection waiters precede writes and positive no-var readiness is armed before didOpen. Each intentional native selection-error close/status1 is joined before the next session or mutation. Failure retains consumer/already-owned cache before bounded shutdown, preserving original and cleanup errors; no unresolved reset/removal, forced success, arbitrary descendant or loaded-image proof is claimed.
- * @evidence contracts/e2e.md#preserved-coverage The configured-removal lifetime owns the transferred cascade action/command, exact const/equality edit, astral UTF-16 range and unchanged disk under the original three-rule authority before plugin removal. Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
+ * @evidence contracts/e2e.md#preserved-coverage The configured-removal lifetime owns the transferred cascade action/command, exact const/equality edit for the authored external module, astral UTF-16 range and unchanged disk under the original three-rule authority before plugin removal. Preserves all three original selection notifications plus the intervening no-var publication and actual lifecycle handling; does not replace the restart assertion with a pure membership predicate.
  */
 export async function test_ttscserver_ends_the_session_when_what_selects_its_plugins_changes(prepared?: {
   root: string;
