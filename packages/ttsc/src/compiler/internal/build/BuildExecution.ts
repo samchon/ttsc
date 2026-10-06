@@ -261,7 +261,7 @@ export namespace BuildExecution {
    * output layout. Unknown ownership remains explicit for consumers rather than
    * guessed.
    *
-   * @evidence contracts/common.md#principled-implementation Ordered checks block emit on failure and retain negotiated same-generation input observations; transforms use one compatible host. Normally completed native partial emission and supported stable external emission can retain actual-write provenance alongside unchanged nonzero status, while interrupted or unknown generations establish no proof.
+   * @evidence contracts/common.md#principled-implementation Ordered checks block emit on failure and retain negotiated same-generation input observations for the actual check verb; effectful fix/format results keep their distinct command contract without fabricated reusable check metadata; transforms use one compatible host. Normally completed native partial emission and supported stable external emission can retain actual-write provenance alongside unchanged nonzero status, while interrupted or unknown generations establish no proof.
    * @evidence contracts/common.md#clear-and-simple-design This dispatcher owns phase policy while argv, spawning, normalization and fallback comparison remain shared helpers used by one-shot and watch lanes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Format bypass follows its write-only contract; capability-based diagnostics/provenance and failure fallback preserve supported producer semantics without plugin-name shortcuts, foreign mutation or filename-based ownership guesses.
    * @evidence contracts/common.md#meaningful-documentation Native prose states ordering, format effects and thrown boundary failures; branch comments explain nonobvious emission and display policies.
@@ -956,8 +956,11 @@ export namespace BuildExecution {
   /**
    * Run every check-stage plugin in order, short-circuiting on the first
    * non-zero exit. Aggregates diagnostics and output across all check plugins.
-   * Opted-in observations come from that same check generation; undeclared
-   * transport leaves the host's original argv and input contract intact.
+   * Only the actual check verb negotiates its same-generation sidecar. Fix and
+   * format are effectful native verbs even though their descriptor has check
+   * stage; they keep their original streams/status without a check graph.
+   * Undeclared transport leaves the host's original argv and input contract
+   * intact.
    */
   function runNativeCheckPlugins(
     options: TtscBuildOptions,
@@ -978,17 +981,20 @@ export namespace BuildExecution {
         options,
         plugin,
       );
-      const result = runNativeCheckWithObservations(plugin, (extraArgs) =>
-        runNativePluginCommand(
-          plugin,
-          [...args, ...extraArgs],
-          options,
-          execution,
-          "ttsc.check",
-          timing,
-          `ttsc check plugin ${plugin.name} time`,
-          TsgoArguments.createNativeTsgoArgs(options),
-        ),
+      const result = runNativeCheckWithObservations(
+        plugin,
+        (extraArgs) =>
+          runNativePluginCommand(
+            plugin,
+            [...args, ...extraArgs],
+            options,
+            execution,
+            "ttsc.check",
+            timing,
+            `ttsc check plugin ${plugin.name} time`,
+            TsgoArguments.createNativeTsgoArgs(options),
+          ),
+        args[0],
       );
       out = appendBuildOutput(out, result);
       if (result.status !== 0) {

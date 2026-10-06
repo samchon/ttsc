@@ -26,7 +26,8 @@ export interface ITtscPluginCapabilities {
   /**
    * Whether a check-stage host accepts `--check-observations-json=<absolute
    * private path>` and writes the host input observations from that same check
-   * Program to the private channel.
+   * Program to the private channel. This opt-in applies to the actual check
+   * verb, not effectful fix/format verbs exposed by a check-stage descriptor.
    *
    * The channel preserves input paths, content and physical-identity witnesses,
    * and explicit observation incompleteness independently of text diagnostics

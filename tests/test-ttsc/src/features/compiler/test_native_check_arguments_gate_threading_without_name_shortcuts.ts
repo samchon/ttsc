@@ -7,6 +7,7 @@ import type createLint from "../../../../../packages/lint/src/createTtscPlugin";
 import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
 import { NativePluginArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/NativePluginArguments";
 import type { RunBuildOptions } from "../../../../../packages/ttsc/src/compiler/internal/build/RunBuildOptions";
+import { runNativeCheckWithObservations } from "../../../../../packages/ttsc/src/compiler/internal/runNativeCheckWithObservations";
 import type { ITtscLoadedNativePlugin } from "../../../../../packages/ttsc/src/structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildOptions } from "../../../../../packages/ttsc/src/structures/internal/TtscBuildOptions";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -25,10 +26,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 4. Compose transform-host build/check commands, including build-only verbosity,
  *    output coordinates, selected-host context and provenance admission.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual createNativeCheckArgs and createNativeBuildArgs with the owned execution context. Exact argv assertions distinguish check-stage threading from transform-host command/modifier policies and selected-host context/provenance gates, while preserving full projected configs and input records.
- * @evidence contracts/testing.md#independent-expectations The native protocol gates check-stage threading, gives format precedence over fix, and omits transform check-lane emit/verbosity modifiers. Authored complete plugin JSON, output/context coordinates, build/check arrays and provenance error literals specify the contract independently of the composers.
- * @evidence contracts/testing.md#distinguishing-cases Existing check-stage capability/name/threading/command controls remain. Transform rows distinguish absent/true/false emit, quiet/verbose/omission, relative output, selected executable versus earlier linked capability, absent/false context support, and provenance absolute versus relative/URL/unsupported refusal. Input and option nonmutation remain asserted; native strict-host acceptance is not exercised.
- * @evidence contracts/testing.md#execution-ownership One source-unit entry obtains its execution context without plugins or compiler invocation, reads the actual lint factory capabilities and directly calls both composers with full ordinary DTOs. No host, child, Program or evaluator is introduced; actual argv transport/native acceptance is separate.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual createNativeCheckArgs and createNativeBuildArgs with the owned execution context. Exact argv assertions distinguish check-stage threading from transform-host command/modifier policies and selected-host context/provenance gates, while preserving full projected configs and input records. Actual composed verbs also drive the observation adapter: fix/format and undeclared check transport preserve the original callback result without flags, while opted-in checks retain same-invocation metadata and reject absent or malformed successful publications.
+ * @evidence contracts/testing.md#independent-expectations The native protocol gates check-stage threading, gives format precedence over fix, and omits transform check-lane emit/verbosity modifiers. Authored complete plugin JSON, output/context coordinates, build/check arrays and provenance error literals specify the contract independently of the composers. Literal original write-result identity, check streams/status and independently authored complete/incomplete/malformed metadata prescribe adapter negotiation and rejection without an actual native producer.
+ * @evidence contracts/testing.md#distinguishing-cases Existing check-stage capability/name/threading/command controls remain. Transform rows distinguish absent/true/false emit, quiet/verbose/omission, relative output, selected executable versus earlier linked capability, absent/false context support, and provenance absolute versus relative/URL/unsupported refusal. Input and option nonmutation remain asserted; Native strict-host acceptance is not exercised. Sidecar transport rows preserve failed and interrupted check outcomes, reject missing/malformed successful records, and distinguish a check-stage write verb from a real check.
+ * @evidence contracts/testing.md#execution-ownership One source-unit entry obtains its execution context without plugins or compiler invocation, reads the actual lint factory capabilities and directly calls both composers with full ordinary DTOs and the observation adapter with authored callback results/private metadata bytes. No host, child, Program or evaluator is introduced; actual argv transport/native acceptance is separate.
  */
 export function test_native_check_arguments_gate_threading_without_name_shortcuts(): void {
   const root = TestProject.physicalPath(
@@ -171,6 +172,136 @@ export function test_native_check_arguments_gate_threading_without_name_shortcut
       ["--checkers=2"],
     ],
   ];
+  const originalResult = {
+    diagnostics: [],
+    status: 0,
+    stdout: "write-result",
+    stderr: "",
+    processCompletedNormally: true,
+  };
+  for (const command of ["fix", "format"] as const) {
+    const args = NativePluginArguments.createNativeCheckArgs(
+      execution,
+      command === "fix" ? { fix: true } : { format: true },
+      plugin,
+    );
+    let calls = 0;
+    const returned = runNativeCheckWithObservations(
+      plugin,
+      (extra) => {
+        calls++;
+        assert.deepEqual(
+          extra,
+          [],
+          "a write verb must not negotiate check metadata",
+        );
+        return originalResult;
+      },
+      args[0],
+    );
+    assert.equal(calls, 1);
+    assert.equal(
+      returned,
+      originalResult,
+      "write streams/status retain the owning result",
+    );
+    assert.equal(
+      "graph" in returned,
+      false,
+      "a write result does not gain a reusable check graph",
+    );
+  }
+  const checkArgs = NativePluginArguments.createNativeCheckArgs(
+    execution,
+    {},
+    plugin,
+  );
+  const disabled = runNativeCheckWithObservations(
+    { capabilities: {} },
+    (extra) => {
+      assert.deepEqual(extra, []);
+      return originalResult;
+    },
+    checkArgs[0],
+  );
+  assert.equal(disabled, originalResult);
+  const checkResult = (status: number, malformed = false, complete = false) =>
+    runNativeCheckWithObservations(
+      plugin,
+      (extra) => {
+        assert.equal(extra.length, 1);
+        const flag = extra[0];
+        assert.ok(flag?.startsWith("--check-observations-json="));
+        const file = flag.slice("--check-observations-json=".length);
+        assert.ok(path.isAbsolute(file));
+        fs.writeFileSync(
+          file,
+          malformed
+            ? "{"
+            : JSON.stringify({
+                hostInputs: [],
+                hostInputHashes: {},
+                hostInputRealpaths: {},
+                ...(complete
+                  ? {
+                      graph: {
+                        edges: { "src/main.ts": [] },
+                        inputObservations: {
+                          "src/main.ts": { fileExists: true },
+                        },
+                      },
+                    }
+                  : { observationsComplete: false }),
+              }),
+        );
+        return {
+          ...originalResult,
+          status,
+          stdout: "check-result",
+          stderr: status === 2 ? "authored failed check" : "",
+        };
+      },
+      checkArgs[0],
+    );
+  for (const status of [0, 2]) {
+    const result = checkResult(status);
+    assert.equal(result.status, status);
+    assert.equal(result.stdout, "check-result");
+    assert.equal(result.stderr, status === 2 ? "authored failed check" : "");
+    assert.equal(
+      result.observationsComplete,
+      false,
+      "incomplete metadata is never promoted",
+    );
+  }
+  const completeCheck = checkResult(0, false, true);
+  assert.ok(
+    completeCheck.graph,
+    "the selected check retains its authored same-invocation graph",
+  );
+  assert.deepEqual(completeCheck.graph.edges["src/main.ts"], []);
+  assert.equal(completeCheck.observationsComplete, undefined);
+  assert.throws(
+    () => checkResult(0, true),
+    /invalid check observation metadata/,
+  );
+  assert.throws(
+    () =>
+      runNativeCheckWithObservations(
+        plugin,
+        () => originalResult,
+        checkArgs[0],
+      ),
+    /check observation metadata is unavailable/,
+  );
+  const interrupted = runNativeCheckWithObservations(
+    plugin,
+    () => ({ ...originalResult, status: 2, processCompletedNormally: false }),
+    checkArgs[0],
+  );
+  assert.equal(interrupted.status, 2);
+  assert.equal(interrupted.observationsComplete, false);
+
   const actual = rows.map(([id, input, host]) => {
     const args = NativePluginArguments.createNativeCheckArgs(
       { ...selected, nativePlugins: [host] },

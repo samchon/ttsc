@@ -10,6 +10,9 @@ import { parseReferenceGraph } from "./parseNativeTransformOutput";
  * Execute a check with its same-generation input observations, preserving the
  * selected host, original diagnostics, streams and status.
  *
+ * The selected native verb must be check before negotiating this check-only
+ * channel. A check-stage descriptor can also serve effectful fix/format verbs;
+ * those retain their original result and never acquire an invented check graph.
  * An opted-in host writes a private sidecar even when its check fails. Hosts
  * without that transport run their original command under their existing
  * descriptor and declared-input contract; omission does not assert complete
@@ -28,8 +31,8 @@ import { parseReferenceGraph } from "./parseNativeTransformOutput";
  * is left untouched and reported as failure. These observations do not provide
  * an atomic descriptor or ABA guarantee.
  *
- * @evidence contracts/common.md#principled-implementation Only the selected check generation's explicitly negotiated sidecar carries driver-observed input states; hosts with a different observation contract keep their original command and declared-input authority without fabricating driver completeness or incompleteness.
- * @evidence contracts/common.md#clear-and-simple-design One adapter owns negotiation, strict wire decoding and private artifact lifetime; its callback retains command and diagnostic normalization ownership.
+ * @evidence contracts/common.md#principled-implementation Only an actual check verb with the declared capability negotiates same-generation observations; effectful write verbs retain their own result without being projected as reusable check generations. The selected check generation's sidecar carries driver-observed input states; hosts with a different observation contract keep their original command and declared-input authority without fabricating driver completeness or incompleteness.
+ * @evidence contracts/common.md#clear-and-simple-design The actual verb and descriptor opt-in jointly select one adapter for strict wire decoding and private artifact lifetime; its callback retains command and diagnostic normalization ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither a later project-input query nor a separate transform can reconstruct check observations; unknown hosts receive no guessed flag and malformed metadata cannot become a complete empty observation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish failed-check metadata, unavailable transport, protocol errors and cleanup ownership, with body and tags separated according to the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node native absolute paths locate the canonical private artifact, and an additional argv element conveys it without shell quoting or platform-specific filename guesses.
@@ -42,8 +45,11 @@ import { parseReferenceGraph } from "./parseNativeTransformOutput";
 export function runNativeCheckWithObservations(
   plugin: Pick<ITtscLoadedNativePlugin, "capabilities">,
   run: (extraArgs: readonly string[]) => TtscBuildResult,
+  /** Actual argv verb; legacy direct callers already represent a check. */
+  command: string = "check",
 ): TtscBuildResult {
-  if (plugin.capabilities?.checkObservations !== true) return run([]);
+  if (command !== "check" || plugin.capabilities?.checkObservations !== true)
+    return run([]);
 
   const directory = createCanonicalTempDirectory("ttsc-check-observations-");
   const ownership = fs.lstatSync(directory);
@@ -149,9 +155,12 @@ function parseObservations(
     inputs.add(path.resolve(input));
   }
   const graph = parseReferenceGraph(value.graph);
-  const graphUnavailable = graph === undefined ||
-    (graph.inputHashes === undefined && graph.inputObservations === undefined &&
-      graph.inputRealpaths === undefined && graph.inputProofFailures === undefined);
+  const graphUnavailable =
+    graph === undefined ||
+    (graph.inputHashes === undefined &&
+      graph.inputObservations === undefined &&
+      graph.inputRealpaths === undefined &&
+      graph.inputProofFailures === undefined);
   return {
     ...(graph === undefined ? {} : { graph }),
     ...(graphUnavailable ? { observationsComplete: false as const } : {}),
