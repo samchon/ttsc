@@ -2,7 +2,7 @@ package driver_test
 
 import (
   "encoding/json"
-  "io/fs"
+  "fmt"
   "os"
   "os/exec"
   "path/filepath"
@@ -10,6 +10,7 @@ import (
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
@@ -40,33 +41,51 @@ func TestRuntimeEmittedExportPopulation(t *testing.T) {
     }
   }
   copyTree := func(source, destination string) {
-    resolved, err := filepath.EvalSymlinks(source)
+    absolute, err := filepath.Abs(source)
     if err != nil {
       t.Fatal(err)
     }
-    source = resolved
-    err = filepath.WalkDir(source, func(name string, entry fs.DirEntry, walkErr error) error {
-      if walkErr != nil {
-        return walkErr
-      }
-      if entry.IsDir() {
-        return nil
-      }
-      relative, err := filepath.Rel(source, name)
+    source = osvfs.FS().Realpath(absolute)
+    var visit func(string, string, []os.FileInfo) error
+    visit = func(name, output string, ancestors []os.FileInfo) error {
+      entry, err := os.Stat(name)
       if err != nil {
         return err
+      }
+      if entry.IsDir() {
+        for _, ancestor := range ancestors {
+          if os.SameFile(ancestor, entry) {
+            return fmt.Errorf("dependency directory cycle at %s", name)
+          }
+        }
+        children, err := os.ReadDir(name)
+        if err != nil {
+          return err
+        }
+        if err := os.MkdirAll(output, 0o755); err != nil {
+          return err
+        }
+        for _, child := range children {
+          if err := visit(filepath.Join(name, child.Name()), filepath.Join(output, child.Name()), append(ancestors, entry)); err != nil {
+            return err
+          }
+        }
+        return nil
+      }
+      if !entry.Mode().IsRegular() {
+        return fmt.Errorf("unsupported dependency input at %s: %s", name, entry.Mode())
       }
       data, err := os.ReadFile(name)
       if err != nil {
         return err
       }
-      write(filepath.Join(destination, relative), data)
+      write(output, data)
       if destination == root {
-        sourceBytes[filepath.Join(destination, relative)] = string(data)
+        sourceBytes[output] = string(data)
       }
       return nil
-    })
-    if err != nil {
+    }
+    if err := visit(source, destination, nil); err != nil {
       t.Fatal(err)
     }
   }

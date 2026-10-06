@@ -20,12 +20,12 @@ import (
 // observes the reporting callback, not adapter recompilation.
 //
 // 1. Prepare a physical directory and its symlink alias.
-// 2. Resolve the physical candidate independently through filepath.EvalSymlinks.
+// 2. Observe the authored physical candidate's kernel identity independently.
 // 3. Capture ReportRejectedConfigCandidates and require the physical identity.
 //
-// @evidence contracts/testing.md#behavioral-verification ReportRejectedConfigCandidates publishes a non-nil physical path equal to filepath.EvalSymlinks for the aliased directory candidate.
-// @evidence contracts/testing.md#independent-expectations The independent filesystem symlink resolver supplies the physical identity oracle; the lexical alias must not stand in for that identity.
-// @evidence contracts/testing.md#distinguishing-cases One directory candidate behind a native directory alias owns the distinction; preparation failures fail the case rather than certifying coverage through a skip.
+// @evidence contracts/testing.md#behavioral-verification ReportRejectedConfigCandidates publishes a non-nil physical path naming the independently statted authored directory, without the alias component. Nested aliases and retargeted aliases name their actual physical directory; missing and stale non-directory candidates cannot publish a directory realpath.
+// @evidence contracts/testing.md#independent-expectations Authored target names and os.Stat/os.SameFile supply an independent kernel identity oracle; the product resolver does not produce the expected path. Native short/long spelling may differ while the reported path must omit the authored alias component.
+// @evidence contracts/testing.md#distinguishing-cases Real Windows junctions or POSIX directory symlinks cover nested traversal and retargeting; regular directories, deleted candidates and stale directory classification have distinct reporting outcomes. Preparation failures fail rather than skip.
 // @evidence contracts/testing.md#execution-ownership Go test/driver calls the reporting operation with a captured callback and real directory fixture, without building a plugin or adapter.
 func TestReportRejectedConfigCandidatesResolvesDirectoryAlias(t *testing.T) {
   root := t.TempDir()
@@ -45,22 +45,84 @@ func TestReportRejectedConfigCandidatesResolvesDirectoryAlias(t *testing.T) {
     t.Fatalf("prepare directory alias: %v", aliasErr)
   }
   alias := filepath.Join(aliasRoot, "demo.config.json")
-  physical, err := filepath.EvalSymlinks(alias)
-  if err != nil {
+  assertTarget := func(candidate, expected string) {
+    t.Helper()
+    var reported *string
+    driver.ReportRejectedConfigCandidates([]driver.ConfigCandidate{{Directory: true, Path: candidate}}, nil,
+      func(_ string, realpath *string) { reported = realpath })
+    if reported == nil {
+      t.Fatalf("expected physical target %q, got no proof", expected)
+    }
+    want, err := os.Stat(expected)
+    if err != nil {
+      t.Fatal(err)
+    }
+    got, err := os.Stat(*reported)
+    if err != nil {
+      t.Fatal(err)
+    }
+    if !got.IsDir() || !os.SameFile(want, got) || filepath.Base(*reported) != filepath.Base(expected) ||
+      filepath.Base(filepath.Dir(*reported)) != filepath.Base(filepath.Dir(expected)) {
+      t.Fatalf("expected authored physical target %q, got %q", expected, *reported)
+    }
+  }
+  assertTarget(alias, target)
+  assertTarget(target, target)
+  nestedRoot := filepath.Join(root, "nested")
+  if runtime.GOOS == "windows" {
+    aliasErr = windowsjunction.Create(nestedRoot, aliasRoot)
+  } else {
+    aliasErr = os.Symlink(aliasRoot, nestedRoot)
+  }
+  if aliasErr != nil {
+    t.Fatal(aliasErr)
+  }
+  assertTarget(filepath.Join(nestedRoot, "demo.config.json"), target)
+  replacementRoot := filepath.Join(root, "replacement")
+  replacement := filepath.Join(replacementRoot, "demo.config.json")
+  if err := os.MkdirAll(replacement, 0o755); err != nil {
     t.Fatal(err)
   }
-
-  var reported *string
-  driver.ReportRejectedConfigCandidates(
-    []driver.ConfigCandidate{{Directory: true, Path: alias}},
-    nil,
-    func(_ string, realpath *string) { reported = realpath },
-  )
-
-  if reported == nil {
-    t.Fatalf("expected physical target %q, got no proof", physical)
+  if err := os.Remove(aliasRoot); err != nil {
+    t.Fatal(err)
   }
-  if *reported != filepath.Clean(physical) {
-    t.Fatalf("expected physical target %q, got %q", physical, *reported)
+  if runtime.GOOS == "windows" {
+    aliasErr = windowsjunction.Create(aliasRoot, replacementRoot)
+  } else {
+    aliasErr = os.Symlink(replacementRoot, aliasRoot)
+  }
+  if aliasErr != nil {
+    t.Fatal(aliasErr)
+  }
+  assertTarget(alias, replacement)
+  assertTarget(filepath.Join(nestedRoot, "demo.config.json"), replacement)
+  for _, directory := range []bool{false, true} {
+    calls := 0
+    driver.ReportRejectedConfigCandidates([]driver.ConfigCandidate{{Directory: directory, Path: filepath.Join(root, "absent")}}, nil,
+      func(_ string, realpath *string) {
+        calls++
+        if realpath != nil {
+          t.Fatalf("absent candidate published %q", *realpath)
+        }
+      })
+    expectedCalls := 1
+    if directory {
+      expectedCalls = 0
+    }
+    if calls != expectedCalls {
+      t.Fatalf("directory=%v: realpath calls=%d, want %d", directory, calls, expectedCalls)
+    }
+  }
+  if err := os.Remove(replacement); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(replacement, []byte("regular file"), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  calls := 0
+  driver.ReportRejectedConfigCandidates([]driver.ConfigCandidate{{Directory: true, Path: alias}}, nil,
+    func(_ string, _ *string) { calls++ })
+  if calls != 0 {
+    t.Fatal("stale directory classification published a regular file as directory identity")
   }
 }

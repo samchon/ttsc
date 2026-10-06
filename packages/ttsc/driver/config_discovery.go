@@ -3,6 +3,8 @@ package driver
 import (
   "os"
   "path/filepath"
+
+  "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
 
 // ConfigDiscovery is the result of one upward config-file search: what it
@@ -139,7 +141,7 @@ func DiscoverConfigFile(base string, names []string) ConfigDiscovery {
 // @evidence contracts/common.md#clear-and-simple-design Two callbacks receive the search's already observed states without requiring a whole plugin context.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts An unresolved directory target is omitted rather than falsely reported as observed missing.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain nil-versus-unknown state, invalidation and callback ownership under documentation-skill guidance.
-// @evidence contracts/portability.md#os-neutral-implementation filepath.Abs, EvalSymlinks and Clean obtain physical directory identity; failed native resolution leaves that observation unavailable.
+// @evidence contracts/portability.md#os-neutral-implementation The compiler's OS filesystem resolves native physical names, including Windows junctions and short names. Directory Stat identities bracket that resolution; missing, replaced or non-directory targets leave the realpath observation unavailable.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Digest and resolved-path pointers are passed to caller-owned reporters, which may copy or retain them. This function retains no historical state or native handle; native resolution owns its temporary resources and reporter-owned retained bytes have no bound enforced here.
 // @evidence contracts/performance.md#efficient-algorithms One pass processes all candidates; directory candidates add native absolute-path and symlink-resolution work driven by path length and link components. Each supplied reporter is called at most once per applicable candidate, with its own processing and retention costs.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This function coordinates no repeated requests or cache; it transfers each applicable observation to the supplied reporters, whose validation and sharing policies remain separate.
@@ -155,9 +157,32 @@ func ReportRejectedConfigCandidates(candidates []ConfigCandidate, hashReporter, 
         // junctions). The descriptor-side observer reports a physical path, so
         // publishing the lexical spelling here would make the two proofs
         // conflict and leave every persistent consumer unable to reuse.
-        if physical, err := filepath.EvalSymlinks(resolved); err == nil {
-          cleaned := filepath.Clean(physical)
-          realpath = &cleaned
+        before, beforeErr := os.Stat(resolved)
+        if beforeErr == nil && before.IsDir() {
+          physical := osvfs.FS().Realpath(resolved)
+          // Realpath returns its argument if the native resolver fails. An
+          // unchanged spelling is proof only when no component is an alias or
+          // unknown reparse entry; SameFile alone cannot prove its spelling.
+          spellingKnown := true
+          if physical == resolved {
+            for component := resolved; ; component = filepath.Dir(component) {
+              entry, err := os.Lstat(component)
+              if err != nil || !entry.IsDir() || entry.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
+                spellingKnown = false
+                break
+              }
+              if filepath.Dir(component) == component {
+                break
+              }
+            }
+          }
+          target, targetErr := os.Stat(physical)
+          after, afterErr := os.Stat(resolved)
+          if spellingKnown && filepath.IsAbs(physical) && targetErr == nil && afterErr == nil &&
+            target.IsDir() && after.IsDir() && os.SameFile(before, target) && os.SameFile(before, after) {
+            cleaned := filepath.Clean(physical)
+            realpath = &cleaned
+          }
         }
       }
     }
