@@ -11,6 +11,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
+import { SidecarEnvironment } from "../../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment";
 import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
 import { RuntimeLoaderCapabilities } from "../../../../packages/ttsc/lib/launcher/internal/runtime/RuntimeLoaderCapabilities";
 import { CapabilityResolutionFormat } from "../../../../packages/ttsc/lib/plugin/internal/CapabilityResolutionFormat";
@@ -248,15 +249,36 @@ async function runResidentLoaderPool(): Promise<void> {
           "public preparation owns a fresh instance cache",
         );
       const ambientCache = process.env.TTSC_CACHE_DIR;
+      // Preserve inherited object-cache authority; only the default case
+      // shares B's existing objects while binary namespaces remain independent.
+      const sharedObjectCacheEnv: NodeJS.ProcessEnv =
+        SidecarEnvironment.read(process.env, "TTSC_GO_CACHE_DIR") ||
+        SidecarEnvironment.read(process.env, "GOCACHE")
+          ? {}
+          : {
+              TTSC_GO_CACHE_DIR: path.join(
+                workspace.root,
+                apiRoots[1],
+                "go-build",
+              ),
+            };
       const compilerA = new TtscCompiler({
         cwd: workspace.root,
         plugins: [publicNativeProbe],
-        env: { TTSC_CACHE_DIR: apiRoots[0], GOFLAGS: baselineBuildEnv.GOFLAGS },
+        env: {
+          TTSC_CACHE_DIR: apiRoots[0],
+          ...sharedObjectCacheEnv,
+          GOFLAGS: baselineBuildEnv.GOFLAGS,
+        },
       });
       const compilerB = new TtscCompiler({
         cwd: workspace.root,
         plugins: [publicNativeProbe],
-        env: { TTSC_CACHE_DIR: apiRoots[1], GOFLAGS: baselineBuildEnv.GOFLAGS },
+        env: {
+          TTSC_CACHE_DIR: apiRoots[1],
+          ...sharedObjectCacheEnv,
+          GOFLAGS: baselineBuildEnv.GOFLAGS,
+        },
       });
       const preparedA = compilerA.prepare();
       const preparedB = compilerB.prepare();
