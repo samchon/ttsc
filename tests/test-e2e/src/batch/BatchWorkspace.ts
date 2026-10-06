@@ -360,6 +360,21 @@ export namespace BatchWorkspace {
     });
   }
 
+  /**
+   * Author the shared installation, native-source inputs and observation-output
+   * population before consumers acquire compiler input snapshots. Empty Program
+   * receipts describe the initial output state; only native appends establish
+   * executions and context. They remain at the existing consumer coordinates.
+   *
+   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts.
+   * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence, and no input predicate, compiler guard or native Program count is bypassed.
+   * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it.
+   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics rather than shell commands or platform-specific default paths.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation's existing copies, package installation and authored graphs retain their actual IO costs. This addition performs five constant-size empty writes and does not introduce a process, compilation or recursive discovery.
+   * @evidence contracts/performance.md#reuse-equivalent-work The process-owned preparation Promise shares this fixture population; empty outputs establish an initial state only. Native appends and consumer generation guards still determine whether later observations can be reused.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The five files belong to the existing allocated root and its tracked cleanup/retention lifecycle. Partial initialization on failure is not success evidence, and retained failures keep the actual subsequent appends rather than inventing or dropping them.
+   */
   async function prepare(): Promise<Workspace> {
     // Choose one native spelling before authoring absolute config/cwd inputs.
     // Intentional project aliases below remain separately authored inputs.
@@ -874,6 +889,17 @@ export namespace BatchWorkspace {
     const configPathReceipt = path.join(root, "native-config-paths.jsonl");
     const pathsReceipt = path.join(root, "native-program-paths.jsonl");
     const casePolicyReceipt = path.join(root, "native-case-policy.jsonl");
+    // These owned observation outputs start empty before any native consumer
+    // can record root membership. Actual Program calls still append every tick
+    // and receipt; setup does not fabricate an execution or observed context.
+    for (const output of [
+      programRunLog,
+      contextReceipt,
+      configPathReceipt,
+      pathsReceipt,
+      casePolicyReceipt,
+    ])
+      fs.writeFileSync(output, "", { flag: "wx" });
     let projectAlias = root;
     if (!installationOnly) {
       const aliasParent = TestProject.tmpdir(
