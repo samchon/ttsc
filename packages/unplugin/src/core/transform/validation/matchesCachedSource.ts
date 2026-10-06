@@ -1,4 +1,3 @@
-import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import { matchesProjectRootFile } from "../../tsconfig/matchesProjectRootFile";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
@@ -13,6 +12,7 @@ import { toProjectKey } from "../project/toProjectKey";
 import { hashText } from "../utils/hashText";
 import { matchesCompleteInputSnapshot } from "./matchesCompleteInputSnapshot";
 import { matchesNarrowPersistentInputs } from "./matchesNarrowPersistentInputs";
+import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import { notificationsProveProgramUnchanged } from "./notificationsProveProgramUnchanged";
 
 /**
@@ -51,7 +51,7 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  *   native identity indexes follow the generation's output/path population,
  *   while validators replace current signature/directory witnesses. No new
  *   independent handle or historical epoch collection is acquired here.
- * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification. 
+ * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification.
  *   Fresh-only rejection precedes native identity work. Baseline-bearing paths
  *   hash delivered text and divergent paths read/hash host bytes; unrelated
  *   absent outputs can return before that hash after an initial K-output index.

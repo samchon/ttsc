@@ -7,10 +7,13 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { sameHostInputRealpath } from "./sameHostInputRealpath";
 
 /**
- * One versioned native input predicate borrowed from the compiler result schema.
- * The indexed alias keeps the decoder and replay tied to that producer schema.
+ * One versioned native input predicate borrowed from the compiler result
+ * schema. The indexed alias keeps the decoder and replay tied to that producer
+ * schema.
  */
-type Predicate = NonNullable<ITtscCompilerTransformation.IInputObservation["nativePredicates"]>[number];
+type Predicate = NonNullable<
+  ITtscCompilerTransformation.IInputObservation["nativePredicates"]
+>[number];
 
 /**
  * Replay the native contributor/config predicate's versioned byte encoding.
@@ -34,36 +37,62 @@ export function nativeInputPredicateMatches(
   identities: FilesystemPathIdentityContext,
 ): boolean {
   if (predicate.version !== 1 || !predicate.identityStable) return false;
-  const hash = (bytes: string | Buffer): string => createHash("sha256").update(bytes).digest("hex");
-  const missing = (error: unknown): boolean => typeof error === "object" && error !== null &&
-    ("code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR"));
+  const hash = (bytes: string | Buffer): string =>
+    createHash("sha256").update(bytes).digest("hex");
+  const missing = (error: unknown): boolean =>
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "ENOENT" || error.code === "ENOTDIR");
   const platform = filesystem.platform ?? process.platform;
   const pathApi = platform === "win32" ? path.win32 : path.posix;
   try {
     let currentPhysical: string | null;
-    try { currentPhysical = filesystem.realpath(file); }
-    catch (error) { if (!missing(error)) return false; currentPhysical = null; }
-    if (!sameHostInputRealpath(predicate.realpath, currentPhysical, identities)) return false;
+    try {
+      currentPhysical = filesystem.realpath(file);
+    } catch (error) {
+      if (!missing(error)) return false;
+      currentPhysical = null;
+    }
+    if (!sameHostInputRealpath(predicate.realpath, currentPhysical, identities))
+      return false;
     let digest: string;
     if (predicate.kind === "file") {
       digest = hash(filesystem.readFile(file));
     } else if (predicate.kind === "optional-file") {
       try {
         digest = filesystem.stat(file).isFile()
-          ? hash(Buffer.concat([Buffer.from("file\0"), filesystem.readFile(file)]))
+          ? hash(
+              Buffer.concat([Buffer.from("file\0"), filesystem.readFile(file)]),
+            )
           : hash("missing\0");
-      } catch (error) { if (!missing(error)) return false; digest = hash("missing\0"); }
+      } catch (error) {
+        if (!missing(error)) return false;
+        digest = hash("missing\0");
+      }
     } else if (predicate.kind === "entry") {
       try {
         const entry = filesystem.lstat(file);
         if (entry.isSymbolicLink()) {
           if (filesystem.readlink === undefined) return false;
-          digest = hash(Buffer.concat([Buffer.from("symlink\0"), filesystem.readlink(file)]));
+          digest = hash(
+            Buffer.concat([
+              Buffer.from("symlink\0"),
+              filesystem.readlink(file),
+            ]),
+          );
         } else {
-          const kind = entry.isDirectory() ? "directory" : entry.isFile() ? "file" : "other";
+          const kind = entry.isDirectory()
+            ? "directory"
+            : entry.isFile()
+              ? "file"
+              : "other";
           digest = hash(kind + "\0");
         }
-      } catch (error) { if (!missing(error)) return false; digest = hash("missing\0"); }
+      } catch (error) {
+        if (!missing(error)) return false;
+        digest = hash("missing\0");
+      }
     } else if (predicate.kind === "directory") {
       const records: Buffer[] = [];
       if (platform === "win32") {
@@ -71,10 +100,27 @@ export function nativeInputPredicateMatches(
           let target: Buffer = Buffer.alloc(0);
           if (entry.isSymbolicLink()) {
             if (filesystem.readlink === undefined) return false;
-            target = Buffer.from(filesystem.readlink(pathApi.join(file, entry.name)).toString("utf8"), "utf8");
+            target = Buffer.from(
+              filesystem
+                .readlink(pathApi.join(file, entry.name))
+                .toString("utf8"),
+              "utf8",
+            );
           }
-          const kind = entry.isDirectory() ? "directory" : entry.isFile() ? "file" : entry.isSymbolicLink() ? "symlink" : "other";
-          records.push(Buffer.concat([Buffer.from(entry.name), Buffer.from("\0" + kind + "\0"), target]));
+          const kind = entry.isDirectory()
+            ? "directory"
+            : entry.isFile()
+              ? "file"
+              : entry.isSymbolicLink()
+                ? "symlink"
+                : "other";
+          records.push(
+            Buffer.concat([
+              Buffer.from(entry.name),
+              Buffer.from("\0" + kind + "\0"),
+              target,
+            ]),
+          );
         }
       } else {
         if (filesystem.readdirRaw === undefined) return false;
@@ -82,15 +128,41 @@ export function nativeInputPredicateMatches(
           let target: Buffer = Buffer.alloc(0);
           if (entry.isSymbolicLink()) {
             if (filesystem.readlink === undefined) return false;
-            target = filesystem.readlink(Buffer.concat([Buffer.from(file), Buffer.from(pathApi.sep), entry.name]));
+            target = filesystem.readlink(
+              Buffer.concat([
+                Buffer.from(file),
+                Buffer.from(pathApi.sep),
+                entry.name,
+              ]),
+            );
           }
-          const kind = entry.isDirectory() ? "directory" : entry.isFile() ? "file" : entry.isSymbolicLink() ? "symlink" : "other";
-          records.push(Buffer.concat([entry.name, Buffer.from("\0" + kind + "\0"), target]));
+          const kind = entry.isDirectory()
+            ? "directory"
+            : entry.isFile()
+              ? "file"
+              : entry.isSymbolicLink()
+                ? "symlink"
+                : "other";
+          records.push(
+            Buffer.concat([
+              entry.name,
+              Buffer.from("\0" + kind + "\0"),
+              target,
+            ]),
+          );
         }
       }
       records.sort(Buffer.compare);
-      digest = hash(Buffer.concat(records.flatMap((record, index) => index === 0 ? [record] : [Buffer.from([0]), record])));
+      digest = hash(
+        Buffer.concat(
+          records.flatMap((record, index) =>
+            index === 0 ? [record] : [Buffer.from([0]), record],
+          ),
+        ),
+      );
     } else return false;
     return digest === predicate.digest;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }

@@ -14,12 +14,12 @@ import { mergeGraphInputObservations } from "../../../../../packages/unplugin/sr
 import { normalizeGraphInputObservation } from "../../../../../packages/unplugin/src/core/transform/envelope/normalizeGraphInputObservation";
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { removeCaptureScratch } from "../../../../../packages/unplugin/src/core/transform/generation/removeCaptureScratch";
-import { nativeInputPredicateMatches } from "../../../../../packages/unplugin/src/core/transform/inputs/nativeInputPredicateMatches";
-import { nativeInputPredicatesHold } from "../../../../../packages/unplugin/src/core/transform/validation/nativeInputPredicatesHold";
 import { compilerInputRealpathObservation } from "../../../../../packages/unplugin/src/core/transform/inputs/compilerInputRealpathObservation";
+import { nativeInputPredicateMatches } from "../../../../../packages/unplugin/src/core/transform/inputs/nativeInputPredicateMatches";
 import { createHostInputMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createHostInputMutationTracker";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { compilerGraphInputProofFailures } from "../../../../../packages/unplugin/src/core/transform/validation/compilerGraphInputProofFailures";
+import { nativeInputPredicatesHold } from "../../../../../packages/unplugin/src/core/transform/validation/nativeInputPredicatesHold";
 import { evidencedWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/evidencedWatchInput";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -43,8 +43,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 5. Release an owned scratch wrapper without invalidating persistent graph
  *    inputs, including malformed/conflicting scratch facts. The original config
  *    and a same-prefix sibling remain independently validated.
- * 7. Replay versioned raw file, directory, entry and optional-file witnesses; mutation refuses both direct replay and generation admission while repaired bytes restore validity. Malformed versions and unstable producer identity remain refused.
- * 6. Preserve a proof failure on one lexical alias even when another spelling of
+ * 6. Replay versioned raw file, directory, entry and optional-file witnesses;
+ *    mutation refuses both direct replay and generation admission while
+ *    repaired bytes restore validity. Malformed versions and unstable producer
+ *    identity remain refused.
+ * 7. Preserve a proof failure on one lexical alias even when another spelling of
  *    the same native file has an independently recorded successful proof.
  *
  * @evidence contracts/testing.md#behavioral-verification Versioned native predicates preserve independent byte/kind/scope semantics, reject mutation and untrusted identity, and gate cached generation admission even without legacy hashes. Directly calls normalization, mergeGraphInputObservations, graphInputObservationCompatible and legacyProjectionOfGraphInputObservation. Asserts all six repeated predicates agree or reject, complementary predicates merge, incompatible cross-fields reject and legacy encoding preserves exact supported outputs/failure kinds. Actual envelope indexing, compilerGraphInputProofFailures, captureExternalInputSnapshot and evidencedWatchInput preserve rich speculative predicates/public not-file evidence, reject legacy contradictions and avoid candidate content reads for existence-only observations.
@@ -697,16 +700,23 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
   } finally {
     fs.unlinkSync(candidateAliasDirectory);
   }
-  const nativeRoot = fs.realpathSync.native(TestProject.createProject({
-    "config.json": Buffer.from([0xef, 0xbb, 0xbf]).toString("utf8") + "{}",
-    "members/a": "a",
-    "members/z/.keep": "",
-  }));
+  const nativeRoot = fs.realpathSync.native(
+    TestProject.createProject({
+      "config.json": Buffer.from([0xef, 0xbb, 0xbf]).toString("utf8") + "{}",
+      "members/a": "a",
+      "members/z/.keep": "",
+    }),
+  );
   const nativeFile = path.join(nativeRoot, "config.json");
   const nativeDirectory = path.join(nativeRoot, "members");
   const optional = path.join(nativeRoot, "optional.json");
-  const sha = (body: string | Buffer): string => createHash("sha256").update(body).digest("hex");
-  const nativeResult: ITtscCompilerTransformation.ISuccess = {type: "success", typescript: {}, graph: {edges: {}}};
+  const sha = (body: string | Buffer): string =>
+    createHash("sha256").update(body).digest("hex");
+  const nativeResult: ITtscCompilerTransformation.ISuccess = {
+    type: "success",
+    typescript: {},
+    graph: { edges: {} },
+  };
   const nativeCached: TtscCachedProjectTransform = {
     projectRoot: nativeRoot,
     tsconfig: path.join(nativeRoot, "tsconfig.json"),
@@ -716,32 +726,149 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
   const identities = envelopeDerivation(nativeCached).identityContext;
   type Native = NonNullable<Observation["nativePredicates"]>[number];
   const authored: Array<[string, Native]> = [
-    [nativeFile, {version: 1, kind: "file", scope: "watch", digest: sha(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]), Buffer.from("{}")])), realpath: nativeFile, identityStable: true}],
-    [nativeFile, {version: 1, kind: "entry", scope: "cache", digest: sha("file\0"), realpath: nativeFile, identityStable: true}],
-    [nativeDirectory, {version: 1, kind: "directory", scope: "watch", digest: sha("a\0file\0\0z\0directory\0"), realpath: nativeDirectory, identityStable: true}],
-    [optional, {version: 1, kind: "optional-file", scope: "cache", digest: sha("missing\0"), realpath: null, identityStable: true}],
+    [
+      nativeFile,
+      {
+        version: 1,
+        kind: "file",
+        scope: "watch",
+        digest: sha(
+          Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("{}")]),
+        ),
+        realpath: nativeFile,
+        identityStable: true,
+      },
+    ],
+    [
+      nativeFile,
+      {
+        version: 1,
+        kind: "entry",
+        scope: "cache",
+        digest: sha("file\0"),
+        realpath: nativeFile,
+        identityStable: true,
+      },
+    ],
+    [
+      nativeDirectory,
+      {
+        version: 1,
+        kind: "directory",
+        scope: "watch",
+        digest: sha("a\0file\0\0z\0directory\0"),
+        realpath: nativeDirectory,
+        identityStable: true,
+      },
+    ],
+    [
+      optional,
+      {
+        version: 1,
+        kind: "optional-file",
+        scope: "cache",
+        digest: sha("missing\0"),
+        realpath: null,
+        identityStable: true,
+      },
+    ],
   ];
   for (const [file, predicate] of authored) {
-    assert.equal(nativeInputPredicateMatches(file, predicate, DEFAULT_FILESYSTEM_OPERATIONS, identities), true, predicate.kind);
-    assert.equal(nativeInputPredicateMatches(file, {...predicate, identityStable: false}, DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
-    assert.equal(normalizeGraphInputObservation({nativePredicates: [{...predicate, version: 2}]}, process.platform), undefined);
+    assert.equal(
+      nativeInputPredicateMatches(
+        file,
+        predicate,
+        DEFAULT_FILESYSTEM_OPERATIONS,
+        identities,
+      ),
+      true,
+      predicate.kind,
+    );
+    assert.equal(
+      nativeInputPredicateMatches(
+        file,
+        { ...predicate, identityStable: false },
+        DEFAULT_FILESYSTEM_OPERATIONS,
+        identities,
+      ),
+      false,
+    );
+    assert.equal(
+      normalizeGraphInputObservation(
+        { nativePredicates: [{ ...predicate, version: 2 }] },
+        process.platform,
+      ),
+      undefined,
+    );
   }
   const filePredicate = authored[0]![1];
-  const observed = normalizeGraphInputObservation({nativePredicates: [filePredicate]}, process.platform)!;
-  const cacheScope = normalizeGraphInputObservation({nativePredicates: [{...filePredicate, scope: "cache"}]}, process.platform)!;
-  assert.equal(mergeGraphInputObservations(observed, cacheScope)!.nativePredicates!.length, 2);
-  assert.equal(mergeGraphInputObservations(observed, {...cacheScope, nativePredicates: [{...filePredicate, scope: "cache", digest: otherHash}]}), undefined);
-  nativeResult.graph!.inputObservations = {"config.json": observed};
+  const observed = normalizeGraphInputObservation(
+    { nativePredicates: [filePredicate] },
+    process.platform,
+  )!;
+  const cacheScope = normalizeGraphInputObservation(
+    { nativePredicates: [{ ...filePredicate, scope: "cache" }] },
+    process.platform,
+  )!;
+  assert.equal(
+    mergeGraphInputObservations(observed, cacheScope)!.nativePredicates!.length,
+    2,
+  );
+  assert.equal(
+    mergeGraphInputObservations(observed, {
+      ...cacheScope,
+      nativePredicates: [
+        { ...filePredicate, scope: "cache", digest: otherHash },
+      ],
+    }),
+    undefined,
+  );
+  nativeResult.graph!.inputObservations = { "config.json": observed };
   assert.equal(nativeInputPredicatesHold(nativeCached), true);
   fs.writeFileSync(nativeFile, "changed");
-  assert.equal(nativeInputPredicateMatches(nativeFile, filePredicate, DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
+  assert.equal(
+    nativeInputPredicateMatches(
+      nativeFile,
+      filePredicate,
+      DEFAULT_FILESYSTEM_OPERATIONS,
+      identities,
+    ),
+    false,
+  );
   assert.equal(nativeInputPredicatesHold(nativeCached), false);
-  assert.equal(nativeInputPredicateMatches(nativeFile, authored[1]![1], DEFAULT_FILESYSTEM_OPERATIONS, identities), true, "entry kind is independent of content");
-  fs.writeFileSync(nativeFile, Buffer.concat([Buffer.from([0xef,0xbb,0xbf]), Buffer.from("{}")]));
+  assert.equal(
+    nativeInputPredicateMatches(
+      nativeFile,
+      authored[1]![1],
+      DEFAULT_FILESYSTEM_OPERATIONS,
+      identities,
+    ),
+    true,
+    "entry kind is independent of content",
+  );
+  fs.writeFileSync(
+    nativeFile,
+    Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("{}")]),
+  );
   assert.equal(nativeInputPredicatesHold(nativeCached), true);
   fs.writeFileSync(path.join(nativeDirectory, "new"), "new");
-  assert.equal(nativeInputPredicateMatches(nativeDirectory, authored[2]![1], DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
+  assert.equal(
+    nativeInputPredicateMatches(
+      nativeDirectory,
+      authored[2]![1],
+      DEFAULT_FILESYSTEM_OPERATIONS,
+      identities,
+    ),
+    false,
+  );
   fs.writeFileSync(optional, "present");
-  assert.equal(nativeInputPredicateMatches(optional, authored[3]![1], DEFAULT_FILESYSTEM_OPERATIONS, identities), false);
-
+  assert.equal(
+    nativeInputPredicateMatches(
+      optional,
+      authored[3]![1],
+      DEFAULT_FILESYSTEM_OPERATIONS,
+      identities,
+    ),
+    false,
+  );
 }

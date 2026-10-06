@@ -438,24 +438,48 @@ function parseGraphInputObservation(
   const entry = value as Record<string, unknown>;
   const observation: ITtscCompilerTransformation.IInputObservation = {};
   if (Object.prototype.hasOwnProperty.call(entry, "nativePredicates")) {
-    if (!Array.isArray(entry.nativePredicates) || entry.nativePredicates.length === 0) return "malformed";
-    const native: NonNullable<ITtscCompilerTransformation.IInputObservation["nativePredicates"]> = [];
+    if (
+      !Array.isArray(entry.nativePredicates) ||
+      entry.nativePredicates.length === 0
+    )
+      return "malformed";
+    const native: NonNullable<
+      ITtscCompilerTransformation.IInputObservation["nativePredicates"]
+    > = [];
     const kinds = new Set<string>();
     for (let index = 0; index < entry.nativePredicates.length; index++) {
       const value = entry.nativePredicates[index];
-      if (typeof value !== "object" || value === null || Array.isArray(value)) return "malformed";
+      if (typeof value !== "object" || value === null || Array.isArray(value))
+        return "malformed";
       const predicate = value as Record<string, unknown>;
-      if (predicate.version !== 1 ||
-        !["file", "directory", "entry", "optional-file"].includes(predicate.kind as string) ||
-        typeof predicate.digest !== "string" || !/^[0-9a-f]{64}$/.test(predicate.digest) ||
+      if (
+        predicate.version !== 1 ||
+        !["file", "directory", "entry", "optional-file"].includes(
+          predicate.kind as string,
+        ) ||
+        typeof predicate.digest !== "string" ||
+        !/^[0-9a-f]{64}$/.test(predicate.digest) ||
         typeof predicate.identityStable !== "boolean" ||
         !["cache", "watch"].includes(predicate.scope as string) ||
-        (predicate.realpath !== null && (typeof predicate.realpath !== "string" || !path.isAbsolute(predicate.realpath))) ||
-        kinds.has(`${predicate.kind}:${predicate.scope}`)) return "malformed";
+        (predicate.realpath !== null &&
+          (typeof predicate.realpath !== "string" ||
+            !path.isAbsolute(predicate.realpath))) ||
+        kinds.has(`${predicate.kind}:${predicate.scope}`)
+      )
+        return "malformed";
       kinds.add(`${predicate.kind}:${predicate.scope}`);
-      native.push({version: 1, kind: predicate.kind as "file" | "directory" | "entry" | "optional-file", digest: predicate.digest,
-        identityStable: predicate.identityStable, realpath: predicate.realpath as string | null,
-        scope: predicate.scope as "cache" | "watch"});
+      native.push({
+        version: 1,
+        kind: predicate.kind as
+          | "file"
+          | "directory"
+          | "entry"
+          | "optional-file",
+        digest: predicate.digest,
+        identityStable: predicate.identityStable,
+        realpath: predicate.realpath as string | null,
+        scope: predicate.scope as "cache" | "watch",
+      });
     }
     observation.nativePredicates = native;
   }

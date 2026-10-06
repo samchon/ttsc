@@ -39,17 +39,38 @@ export function mergeGraphInputObservations(
       return undefined;
     }
   }
-  const native = new Map<string, NonNullable<ITtscCompilerTransformation.IInputObservation["nativePredicates"]>[number]>();
-  for (const predicate of [...(left.nativePredicates ?? []), ...(right.nativePredicates ?? [])]) {
+  const native = new Map<
+    string,
+    NonNullable<
+      ITtscCompilerTransformation.IInputObservation["nativePredicates"]
+    >[number]
+  >();
+  for (const predicate of [
+    ...(left.nativePredicates ?? []),
+    ...(right.nativePredicates ?? []),
+  ]) {
     for (const prior of native.values()) {
-      if (prior.kind === predicate.kind &&
-          (prior.version !== predicate.version || prior.digest !== predicate.digest ||
-           prior.identityStable !== predicate.identityStable || prior.realpath !== predicate.realpath)) return undefined;
+      if (
+        prior.kind === predicate.kind &&
+        (prior.version !== predicate.version ||
+          prior.digest !== predicate.digest ||
+          prior.identityStable !== predicate.identityStable ||
+          prior.realpath !== predicate.realpath)
+      )
+        return undefined;
     }
     native.set(predicate.kind + ":" + predicate.scope, predicate);
   }
-  const merged = { ...left, ...right,
-    ...(native.size === 0 ? {} : { nativePredicates: [...native.values()].sort((a, b) => (a.kind + ":" + a.scope).localeCompare(b.kind + ":" + b.scope)) }),
+  const merged = {
+    ...left,
+    ...right,
+    ...(native.size === 0
+      ? {}
+      : {
+          nativePredicates: [...native.values()].sort((a, b) =>
+            (a.kind + ":" + a.scope).localeCompare(b.kind + ":" + b.scope),
+          ),
+        }),
   };
   return graphInputObservationCompatible(merged) ? merged : undefined;
 }

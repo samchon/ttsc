@@ -148,8 +148,8 @@ export namespace ITtscCompilerTransformation {
     /**
      * Actual native contributor/config predicates with their original raw-byte,
      * directory-member, link-entry or optional-file fingerprint semantics.
-     * Version 1 never uses these digests as decoded compiler text hashes.
-     * Scope preserves cache-only dependencies independently of watch topology.
+     * Version 1 never uses these digests as decoded compiler text hashes. Scope
+     * preserves cache-only dependencies independently of watch topology.
      */
     nativePredicates?: {
       version: 1;

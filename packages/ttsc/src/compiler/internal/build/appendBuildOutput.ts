@@ -88,24 +88,45 @@ export function mergeCheckGraphs(
   if (left === undefined) return right;
   if (right === undefined) return left;
   const failures = { ...left.inputProofFailures, ...right.inputProofFailures };
-  if (left.useCaseSensitiveFileNames !== undefined &&
+  if (
+    left.useCaseSensitiveFileNames !== undefined &&
     right.useCaseSensitiveFileNames !== undefined &&
-    left.useCaseSensitiveFileNames !== right.useCaseSensitiveFileNames)
-    for (const key of new Set([...Object.keys(left.edges), ...Object.keys(right.edges)]))
+    left.useCaseSensitiveFileNames !== right.useCaseSensitiveFileNames
+  )
+    for (const key of new Set([
+      ...Object.keys(left.edges),
+      ...Object.keys(right.edges),
+    ]))
       failures[key] = "conflicting-check-case-policy";
-  const mergeLists = (a: Record<string, string[]> = {}, b: Record<string, string[]> = {}) =>
-    Object.fromEntries([...new Set([...Object.keys(a), ...Object.keys(b)])]
-      .map((key) => [key, [...new Set([...(a[key] ?? []), ...(b[key] ?? [])])]]));
-  const mergeProofs = <T>(a: Record<string, T> = {}, b: Record<string, T> = {}): Record<string, T> => {
+  const mergeLists = (
+    a: Record<string, string[]> = {},
+    b: Record<string, string[]> = {},
+  ) =>
+    Object.fromEntries(
+      [...new Set([...Object.keys(a), ...Object.keys(b)])].map((key) => [
+        key,
+        [...new Set([...(a[key] ?? []), ...(b[key] ?? [])])],
+      ]),
+    );
+  const mergeProofs = <T>(
+    a: Record<string, T> = {},
+    b: Record<string, T> = {},
+  ): Record<string, T> => {
     const merged = { ...a, ...b };
     for (const key of Object.keys(a))
-      if (Object.hasOwn(b, key) && JSON.stringify(a[key]) !== JSON.stringify(b[key])) {
+      if (
+        Object.hasOwn(b, key) &&
+        JSON.stringify(a[key]) !== JSON.stringify(b[key])
+      ) {
         delete merged[key];
         failures[key] = "conflicting-check-generations";
       }
     return merged;
   };
-  const observations = { ...left.inputObservations, ...right.inputObservations };
+  const observations = {
+    ...left.inputObservations,
+    ...right.inputObservations,
+  };
   for (const key of Object.keys(left.inputObservations ?? {})) {
     const a = left.inputObservations![key]!;
     const b = right.inputObservations?.[key];
@@ -113,21 +134,33 @@ export function mergeCheckGraphs(
     const merged = { ...a, ...b };
     for (const field of Object.keys(a) as (keyof typeof a)[]) {
       if (field === "nativePredicates") continue;
-      if (Object.hasOwn(b, field) && JSON.stringify(a[field]) !== JSON.stringify(b[field]))
+      if (
+        Object.hasOwn(b, field) &&
+        JSON.stringify(a[field]) !== JSON.stringify(b[field])
+      )
         failures[key] = "conflicting-check-generations";
     }
     if (a.nativePredicates !== undefined || b.nativePredicates !== undefined) {
-      const predicates = new Map<string, NonNullable<typeof a.nativePredicates>[number]>();
+      const predicates = new Map<
+        string,
+        NonNullable<typeof a.nativePredicates>[number]
+      >();
       const witnesses = new Map<string, string>();
-      for (const predicate of [...(a.nativePredicates ?? []), ...(b.nativePredicates ?? [])]) {
+      for (const predicate of [
+        ...(a.nativePredicates ?? []),
+        ...(b.nativePredicates ?? []),
+      ]) {
         const { scope, ...witness } = predicate;
         const serialized = JSON.stringify(witness);
         const prior = witnesses.get(predicate.kind);
-        if (prior !== undefined && prior !== serialized) failures[key] = "conflicting-check-generations";
+        if (prior !== undefined && prior !== serialized)
+          failures[key] = "conflicting-check-generations";
         witnesses.set(predicate.kind, serialized);
         predicates.set(`${predicate.kind}:${scope}`, predicate);
       }
-      merged.nativePredicates = [...predicates.values()].sort((a, b) => `${a.kind}:${a.scope}`.localeCompare(`${b.kind}:${b.scope}`));
+      merged.nativePredicates = [...predicates.values()].sort((a, b) =>
+        `${a.kind}:${a.scope}`.localeCompare(`${b.kind}:${b.scope}`),
+      );
     }
     observations[key] = merged;
   }
@@ -136,7 +169,12 @@ export function mergeCheckGraphs(
     globals: [...new Set([...left.globals, ...right.globals])],
     configs: [...new Set([...left.configs, ...right.configs])],
     candidates: mergeLists(left.candidates, right.candidates),
-    resolutionInputs: [...new Set([...(left.resolutionInputs ?? []), ...(right.resolutionInputs ?? [])])],
+    resolutionInputs: [
+      ...new Set([
+        ...(left.resolutionInputs ?? []),
+        ...(right.resolutionInputs ?? []),
+      ]),
+    ],
     inputHashes: mergeProofs(left.inputHashes, right.inputHashes),
     inputRealpaths: mergeProofs(left.inputRealpaths, right.inputRealpaths),
     inputObservations: observations,

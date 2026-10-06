@@ -16,8 +16,10 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
 export const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
   Object.freeze({
     exists: fs.existsSync,
-    readlink: (location: string | Buffer) => fs.readlinkSync(location, { encoding: "buffer" }),
-    readdirRaw: (location: string) => fs.readdirSync(location, { withFileTypes: true, encoding: "buffer" }),
+    readlink: (location: string | Buffer) =>
+      fs.readlinkSync(location, { encoding: "buffer" }),
+    readdirRaw: (location: string) =>
+      fs.readdirSync(location, { withFileTypes: true, encoding: "buffer" }),
     lstat: (location: string) => fs.lstatSync(location, { bigint: true }),
     readFile: (location: string) => fs.readFileSync(location),
     readdir: (location: string) =>

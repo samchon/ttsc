@@ -1,4 +1,3 @@
-import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { declaredProjectInputKeys } from "../envelope/declaredProjectInputKeys";
@@ -9,6 +8,7 @@ import { matchesExternalInputRealpaths } from "./matchesExternalInputRealpaths";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
 import { matchesUniversalHostInputProbes } from "./matchesUniversalHostInputProbes";
 import { matchesUniversalHostInputTrees } from "./matchesUniversalHostInputTrees";
+import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import { sameHashes } from "./sameHashes";
 import { sameProjectDirectories } from "./sameProjectDirectories";
 import { walkSnapshotComplete } from "./walkSnapshotComplete";
@@ -36,7 +36,7 @@ import { walkSnapshotComplete } from "./walkSnapshotComplete";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lost-notification fallback, membership authority, disk-source comparison and the reason signatures are re-earned.
  * @evidence contracts/portability.md#os-neutral-implementation The recorded compiler membership policy and identity context qualify the native walk and lexical alias targets rather than assumed OS case rules.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Current directory observations are replaced; earned signatures merge into generation records, which may retain older entries rather than deleting every unearned witness. Storage follows that generation's directory/input spelling population and lazy identity/selection indexes, without an independent historical snapshot collection or new watcher handle here.
- * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification. 
+ * @evidence contracts/performance.md#efficient-algorithms Every admission first replays all generation-owned typed config predicates; this mandatory cost includes native queries, file bytes or directory membership independently of watcher/epoch qualification.
  *   Universal entries/probes/tree environments precede a native membership
  *   walk. Declared keys avoid irrelevant byte hashes but do not skip directory
  *   enumeration. Directory/hash comparisons, external spelling and physical

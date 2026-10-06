@@ -20,19 +20,29 @@ import { nativeInputPredicateMatches } from "../inputs/nativeInputPredicateMatch
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This admission gate stores no separate cache and checks the recorded generation supplied by its caller.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Per-call enumeration owns no handle or watcher; the cached envelope owns retained predicates.
  */
-export function nativeInputPredicatesHold(cached: TtscCachedProjectTransform): boolean {
+export function nativeInputPredicatesHold(
+  cached: TtscCachedProjectTransform,
+): boolean {
   if (cached.result.type === "exception") return false;
   const observations = cached.result.graph?.inputObservations ?? {};
-  if (!Object.values(observations).some(
-    (observation) => (observation.nativePredicates?.length ?? 0) !== 0,
-  )) return true;
+  if (
+    !Object.values(observations).some(
+      (observation) => (observation.nativePredicates?.length ?? 0) !== 0,
+    )
+  )
+    return true;
   const filesystem = resultFilesystem(cached.result);
   const identities = envelopeDerivation(cached).identityContext;
   for (const [name, observation] of Object.entries(observations)) {
     if ((observation.nativePredicates?.length ?? 0) === 0) continue;
-    const file = ((filesystem.platform ?? process.platform) === "win32" ? path.win32 : path.posix).resolve(cached.projectRoot, name);
+    const file = (
+      (filesystem.platform ?? process.platform) === "win32"
+        ? path.win32
+        : path.posix
+    ).resolve(cached.projectRoot, name);
     for (const predicate of observation.nativePredicates ?? [])
-      if (!nativeInputPredicateMatches(file, predicate, filesystem, identities)) return false;
+      if (!nativeInputPredicateMatches(file, predicate, filesystem, identities))
+        return false;
   }
   return true;
 }

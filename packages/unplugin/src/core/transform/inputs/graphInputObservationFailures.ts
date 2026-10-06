@@ -5,8 +5,8 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import { compilerAccessibleEntries } from "./compilerAccessibleEntries";
 import { compilerInputRealpathObservation } from "./compilerInputRealpathObservation";
 import { compilerStatKind } from "./compilerStatKind";
-import { nativeInputPredicateMatches } from "./nativeInputPredicateMatches";
 import { graphInputReadHash } from "./graphInputReadHash";
+import { nativeInputPredicateMatches } from "./nativeInputPredicateMatches";
 import { sameHostInputRealpath } from "./sameHostInputRealpath";
 
 /**

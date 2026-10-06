@@ -389,21 +389,58 @@ export function test_append_build_output_preserves_phase_results_and_sticky_witn
     assert.deepEqual(result.emittedSources, { "recovered.js": [] });
     assert.deepEqual({ failure, batch }, before);
   });
-  check("typed config witnesses retain scopes and sticky phase conflicts", () => {
-    const predicate = {version: 1 as const, kind: "file" as const, digest: "a".repeat(64), identityStable: true, realpath: "/physical/config.json", scope: "watch" as const};
-    const graph = (value: typeof predicate | (Omit<typeof predicate, "scope"> & {scope: "cache"})) => ({edges: {}, globals: [], configs: [], inputObservations: {"config.json": {nativePredicates: [value]}}});
-    const first = phase({graph: graph(predicate), status: 2});
-    const otherScope = phase({graph: graph({...predicate, scope: "cache"})});
-    const combined = appendBuildOutput(first, otherScope);
-    assert.equal(combined.graph!.inputObservations!["config.json"]!.nativePredicates!.length, 2);
-    assert.deepEqual(combined.graph!.inputProofFailures, {});
-    const conflict = appendBuildOutput(first, phase({graph: graph({...predicate, digest: "b".repeat(64)})}));
-    assert.equal(conflict.graph!.inputProofFailures!["config.json"], "conflicting-check-generations");
-    const later = appendBuildOutput(conflict, first);
-    assert.equal(later.graph!.inputProofFailures!["config.json"], "conflicting-check-generations");
-    assert.equal(later.status, 2);
-    assert.deepEqual(first.graph!.inputObservations!["config.json"]!.nativePredicates, [predicate]);
-  });
+  check(
+    "typed config witnesses retain scopes and sticky phase conflicts",
+    () => {
+      const predicate = {
+        version: 1 as const,
+        kind: "file" as const,
+        digest: "a".repeat(64),
+        identityStable: true,
+        realpath: "/physical/config.json",
+        scope: "watch" as const,
+      };
+      const graph = (
+        value:
+          | typeof predicate
+          | (Omit<typeof predicate, "scope"> & { scope: "cache" }),
+      ) => ({
+        edges: {},
+        globals: [],
+        configs: [],
+        inputObservations: { "config.json": { nativePredicates: [value] } },
+      });
+      const first = phase({ graph: graph(predicate), status: 2 });
+      const otherScope = phase({
+        graph: graph({ ...predicate, scope: "cache" }),
+      });
+      const combined = appendBuildOutput(first, otherScope);
+      assert.equal(
+        combined.graph!.inputObservations!["config.json"]!.nativePredicates!
+          .length,
+        2,
+      );
+      assert.deepEqual(combined.graph!.inputProofFailures, {});
+      const conflict = appendBuildOutput(
+        first,
+        phase({ graph: graph({ ...predicate, digest: "b".repeat(64) }) }),
+      );
+      assert.equal(
+        conflict.graph!.inputProofFailures!["config.json"],
+        "conflicting-check-generations",
+      );
+      const later = appendBuildOutput(conflict, first);
+      assert.equal(
+        later.graph!.inputProofFailures!["config.json"],
+        "conflicting-check-generations",
+      );
+      assert.equal(later.status, 2);
+      assert.deepEqual(
+        first.graph!.inputObservations!["config.json"]!.nativePredicates,
+        [predicate],
+      );
+    },
+  );
   if (failures.length)
     throw new AggregateError(failures, "Build phase merge distinctions failed");
 }

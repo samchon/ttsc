@@ -1,16 +1,18 @@
-import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesUniversalHostInputEntries } from "./matchesUniversalHostInputEntries";
 import { matchesUniversalHostInputProbes } from "./matchesUniversalHostInputProbes";
 import { matchesUniversalHostInputTrees } from "./matchesUniversalHostInputTrees";
+import { nativeInputPredicatesHold } from "./nativeInputPredicatesHold";
 import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
 
 /**
- * Validate universal descriptor/config inputs. Versioned native config predicates
- * are replayed before notification shortcuts; other proven inputs retain reuse. Existing paths use the generation's native metadata manifest; missing
- * probes are grouped by the nearest existing directory and checked through
- * native candidate stats so alternate spellings cannot hide an existing input.
+ * Validate universal descriptor/config inputs. Versioned native config
+ * predicates are replayed before notification shortcuts; other proven inputs
+ * retain reuse. Existing paths use the generation's native metadata manifest;
+ * missing probes are grouped by the nearest existing directory and checked
+ * through native candidate stats so alternate spellings cannot hide an existing
+ * input.
  *
  * While the tracker proves every input the manifest covers unchanged, source
  * content is not read; plugin build environments still require their own
