@@ -1,5 +1,7 @@
 import fs from "node:fs";
 
+import { E2ETrace } from "../../../internal/E2ETrace";
+
 /**
  * Native path metadata and ambient lookup variables actually observed while
  * reading a plugin build environment.
@@ -139,28 +141,36 @@ export namespace PluginBuildEnvironmentWitness {
 
   /**
    * Whether every native path and ambient variable still matches its
-   * observation.
+   * observation. The existing private opt-in trace retains the first actual
+   * mismatch without repeating its lookup or changing the refusal.
    *
    * @evidence contracts/common.md#principled-implementation Universal comparison requires every dependency to match its pre-read signature and immediately rejects a refused or changed path.
    * @evidence contracts/common.md#clear-and-simple-design Validation uses the same signature helper as capture, keeping identity and timestamp policy in one place.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts All dependencies are inspected; a quiet parent or unchanged VERSION cannot stand in for nested SDK inputs.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the universal unchanged-metadata condition and tags remain separated from it.
    * @evidence contracts/portability.md#os-neutral-implementation Validation reads actual Node metadata using the same link-following semantics as capture.
-   * @evidence contracts/performance.md#efficient-algorithms Validation iterates dependencies until mismatch and performs native stat/link queries or ambient-variable serialization. Windows environment matching enumerates names and lowercases text per witnessed variable, so P alone does not bound that work. Native path/link/name/value/numeric bytes contribute cost; file content is not read and unavailable native observations share the helper's missing marker.
+   * @evidence contracts/performance.md#efficient-algorithms Validation iterates dependencies until mismatch and performs native stat/link queries or ambient-variable serialization. Windows environment matching enumerates names and lowercases text per witnessed variable, so P alone does not bound that work. Native path/link/name/value/numeric bytes contribute cost; file content is not read and unavailable native observations share the helper's missing marker. An enabled private trace serializes the first mismatch's already-computed text through its existing bounded sink.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call must establish current validity; caching that answer would conceal external changes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Validation retains no handles or additional historical state.
    */
   export function holds(witness: Record): boolean {
-    for (const [file, recorded] of witness)
-      if (
-        (file.startsWith(ENVIRONMENT_PREFIX)
+    for (const [file, recorded] of witness) {
+      const current = file.startsWith(ENVIRONMENT_PREFIX)
           ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
           : file.startsWith(LINK_PREFIX)
             ? linkSignature(file.slice(LINK_PREFIX.length))
-            : signature(file)) !== recorded
-      )
+            : signature(file);
+      if (current !== recorded) {
+        E2ETrace.capabilityResolution("plugin-build-environment-witness-mismatch", {
+          key: file,
+          recorded,
+          current,
+          refused: recorded === UNWITNESSABLE,
+        });
         return false;
+      }
+    }
     return true;
   }
 
