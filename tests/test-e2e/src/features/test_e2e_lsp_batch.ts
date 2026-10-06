@@ -1314,7 +1314,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
                 assert.equal(data.stdoutTruncated, false);
                 assert.equal(data.stderrTruncated, false);
                 const readStream = (key: "stdout" | "stderr"): Buffer => {
-                  const stream = data[key];
+                  const stream: unknown = data[key];
                   assert.ok(isRecord(stream) && isRecord(stream.raw));
                   assert.ok(
                     typeof stream.raw.path === "string" &&
@@ -1468,7 +1468,7 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
         )) {
           assert.ok(isRecord(row.data));
           for (const key of ["stdout", "stderr"] as const) {
-            const stream = row.data[key];
+            const stream: unknown = row.data[key];
             assert.ok(isRecord(stream) && isRecord(stream.raw));
             assert.ok(
               typeof stream.raw.path === "string" &&
