@@ -116,6 +116,9 @@ const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
  *    the first eight consumed source lines. It creates no replacement server or
  *    compiler request and does not infer the nested cause from a package
  *    marker.
+ * 5. Open the nine language-scope documents in that same server before
+ *    requiring their URI-specific diagnostics. These nine protocol messages
+ *    add real document-check work; Program inclusion alone is not publication.
  */
 async function runEditorCorpus() {
   const workspace = await BatchWorkspace.open();
@@ -839,6 +842,18 @@ module.exports = { ...base, rules: { ...base.rules, "jsdoc/check-tag-names": "er
             },
           });
           const openedPublication = await opened;
+          // Program membership does not broadcast document diagnostics. Send
+          // each source through this session's actual document-open boundary.
+          for (const languageFile of languageFiles) {
+            client.notify("textDocument/didOpen", {
+              textDocument: {
+                languageId: "typescript",
+                text: fs.readFileSync(languageFile, "utf8"),
+                uri: pathToFileURL(languageFile).href,
+                version: 1,
+              },
+            });
+          }
           await step(
             "native config-language graph publishes nine independently scoped documents",
             languageReady,
