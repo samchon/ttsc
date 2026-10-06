@@ -49,7 +49,7 @@ func (r observedProjectInputRule) Check(ctx *publicrule.ProjectContext) { body, 
 // and missing/unsupported input authority remain independent of diagnostics.
 //
 // @evidence contracts/testing.md#behavioral-verification RunCheckWithIO returns status2 and TS2322 while its private result retains the loaded source graph and actual JSON config fingerprint. Direct reader calls preserve BOM bytes, compiler decoding remains distinct, WalkDir sorts and skips, nil generations publish false, unsupported input contributors withdraw authority, and an updated Program cannot inherit the prior graph.
-// @evidence contracts/testing.md#independent-expectations The authored number/string assignment must report TS2322, fixed source adjacency must include index.ts, raw BOM bytes and SHA256 are independently authored, nil authority must be false, and literal WalkDir visit names prescribe traversal. The JSON file fingerprint must retain version1, file kind, watch scope and stable identity.
+// @evidence contracts/testing.md#independent-expectations The authored number/string assignment must report TS2322, the authored import must map index.ts to the actual dependency.ts source, raw BOM bytes and SHA256 are independently authored, nil authority must be false, and literal WalkDir visit names prescribe traversal. The JSON file fingerprint must retain version1, file kind, watch scope and stable identity.
 // @evidence contracts/testing.md#distinguishing-cases Failed check with valid Program differs from nil Program; supported actual-read contributor retains raw bytes/authority while topology-only unsupported contributor withdraws it; raw and decoded BOM hashes differ; relative native reads retain absolute wire coordinates; skipped children are absent; the file fingerprint retains its raw-byte encoding; update invalidates the old generation.
 // @evidence contracts/testing.md#execution-ownership This Go unit invokes the owning standalone host APIs in-process with temporary files, buffers and one loaded Program. It restores the prior contributor registration and closes the Program, with no CLI process, extra compiler generation for proof or E2E fixture loop.
 func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
@@ -58,8 +58,9 @@ func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
     t.Helper()
     if err := os.WriteFile(filepath.Join(root, name), body, 0o644); err != nil { t.Fatal(err) }
   }
-  source := []byte(`const value: number = "wrong"; export { value };`)
+  source := []byte(`import { dependency } from "./dependency"; const value: number = "wrong"; export { value, dependency };`)
   write("index.ts", source)
+  write("dependency.ts", []byte(`export const dependency = 1;`))
   write("tsconfig.json", []byte(`{"compilerOptions":{"strict":true,"noEmit":true},"files":["index.ts"]}`))
   config := append([]byte{0xef, 0xbb, 0xbf}, []byte(`{"rules":{}}`)...)
   write("lint.config.json", config)
@@ -82,6 +83,7 @@ func TestCheckObservationsRetainsFailedProgramAndRawInputs(t *testing.T) {
   read(output)
   if envelope.Graph == nil || envelope.ObservationsComplete != nil { t.Fatalf("failed check lost its complete Program proof: %#v", envelope) }
   if _, ok := envelope.Graph.Edges["index.ts"]; !ok { t.Fatal("the failed source is missing from its own graph") }
+  if !reflect.DeepEqual(envelope.Graph.Edges["index.ts"], []string{"dependency.ts"}) { t.Fatalf("same-Program realized reference edge: %v", envelope.Graph.Edges["index.ts"]) }
   cfg := envelope.Graph.InputObservations["lint.config.json"].NativePredicates
   sum := sha256.Sum256(config)
   if len(cfg) != 1 || cfg[0].Kind != "file" || cfg[0].Version != 1 || cfg[0].Digest != hex.EncodeToString(sum[:]) || cfg[0].Scope != "watch" || !cfg[0].IdentityStable { t.Fatalf("consumed JSON config proof: %#v", cfg) }

@@ -10,6 +10,7 @@ import (
   "strings"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // nativeInputPredicate retains the actual config loader's fingerprint semantics.
@@ -85,8 +86,11 @@ func (p *program) checkGraph() *lintCheckGraph {
     key := lintInputKey(p.cwd, file.FileName())
     realized[file.FileName()] = true
     targets := []string{}
+    // The shim returns canonical tspath.Path values encoded as strings, not
+    // filenames. Preserve that exact identity and recover this Program's
+    // resident source spelling; unresolved candidates are not realized edges.
     for _, referenced := range shimcompiler.GetReferencedFilePaths(p.tsProgram, file) {
-      source := p.tsProgram.GetSourceFileByPath(referenced)
+      source := p.tsProgram.GetSourceFileByPath(shimtspath.Path(referenced))
       if source == nil || source == file || strings.HasPrefix(source.FileName(), "bundled:///") { continue }
       realized[source.FileName()] = true
       targets = append(targets, lintInputKey(p.cwd, source.FileName()))
