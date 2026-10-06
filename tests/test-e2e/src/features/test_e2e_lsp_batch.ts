@@ -116,9 +116,9 @@ const FORMAT_FIXED = "var legacy = 1;\nJSON.stringify(legacy);\n";
  *    the first eight consumed source lines. It creates no replacement server or
  *    compiler request and does not infer the nested cause from a package
  *    marker.
- * 5. Open the nine language-scope documents in that same server before
- *    requiring their URI-specific diagnostics. These nine protocol messages
- *    add real document-check work; Program inclusion alone is not publication.
+ * 5. Open the nine language-scope documents in that same server before requiring
+ *    their URI-specific diagnostics. These nine protocol messages add real
+ *    document-check work; Program inclusion alone is not publication.
  */
 async function runEditorCorpus() {
   const workspace = await BatchWorkspace.open();

@@ -200,11 +200,18 @@ export async function test_e2e_vite_batch(): Promise<void> {
             );
           const generation = generations
             .slice(offset)
-            .find((candidate) => candidate.watchFiles.some((file) => path.resolve(file) === path.resolve(expectedRecord)));
+            .find((candidate) =>
+              candidate.watchFiles.some(
+                (file) => path.resolve(file) === path.resolve(expectedRecord),
+              ),
+            );
           if (generation) return generation;
           assert.ok(
             Date.now() < deadline,
-            "the retained host did not deliver record state " + expectedRecord + " actual generations: " + JSON.stringify(generations.map(({ watchFiles }) => watchFiles)),
+            "the retained host did not deliver record state " +
+              expectedRecord +
+              " actual generations: " +
+              JSON.stringify(generations.map(({ watchFiles }) => watchFiles)),
           );
           await new Promise((resolve) => setTimeout(resolve, 25));
         }
@@ -294,12 +301,16 @@ export async function test_e2e_vite_batch(): Promise<void> {
         );
       assert.ok(chunks[0]!.map, "the actual host must return a source map");
       assert.equal(
-        initial.watchFiles.filter((file) => path.resolve(file) === path.resolve(primary)).length,
+        initial.watchFiles.filter(
+          (file) => path.resolve(file) === path.resolve(primary),
+        ).length,
         1,
         "one project record reaches the actual Rollup host",
       );
       assert.equal(
-        initial.watchFiles.some((file) => path.resolve(file) === path.resolve(declaration)),
+        initial.watchFiles.some(
+          (file) => path.resolve(file) === path.resolve(declaration),
+        ),
         false,
         "raw compiler declarations must remain behind the record channel",
       );

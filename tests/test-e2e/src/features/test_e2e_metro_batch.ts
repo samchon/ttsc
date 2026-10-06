@@ -671,7 +671,8 @@ async function runResidentLoaderPool(): Promise<void> {
   };
   // This existing recorder probes the actual public hook consulted by the
   // evaluator's selected executable, not a Node-version or OS assumption.
-  const runtimeRequireResolveAvailable = RuntimeLoaderCapabilities.requireResolveConsultsHooks();
+  const runtimeRequireResolveAvailable =
+    RuntimeLoaderCapabilities.requireResolveConsultsHooks();
   const recorderRequireResolveAvailable = (
     createRequire(import.meta.url)(
       path.join(
@@ -731,8 +732,13 @@ async function runResidentLoaderPool(): Promise<void> {
         );
       if (!descriptorReuseAvailable && observation !== "collection") {
         const directory = path.join(descriptorCache, "descriptors");
-        assert.deepEqual(fs.existsSync(directory) ? fs.readdirSync(directory).filter((file) => file.endsWith(".json")) : [], [],
-          "an independently unavailable observer must not persist any descriptor answer in this fresh namespace");
+        assert.deepEqual(
+          fs.existsSync(directory)
+            ? fs.readdirSync(directory).filter((file) => file.endsWith(".json"))
+            : [],
+          [],
+          "an independently unavailable observer must not persist any descriptor answer in this fresh namespace",
+        );
       }
       return loaded.nativePlugins[0]?.name;
     };
@@ -3078,10 +3084,16 @@ async function runResidentLoaderPool(): Promise<void> {
     const file = capabilityRecord();
     if (!descriptorReuseAvailable) {
       assert.equal(resolution.status, "resolved");
-      assert.equal(resolution.isCurrent(), false,
-        "a runtime without independent resolve observation cannot certify a reusable capability answer");
-      assert.equal(fs.existsSync(file), false,
-        "the actual capability may be returned without publishing unproved reusable authority");
+      assert.equal(
+        resolution.isCurrent(),
+        false,
+        "a runtime without independent resolve observation cannot certify a reusable capability answer",
+      );
+      assert.equal(
+        fs.existsSync(file),
+        false,
+        "the actual capability may be returned without publishing unproved reusable authority",
+      );
       return { binary: answer[0]!.binary, inode: null };
     }
     assert.equal(
@@ -3132,7 +3144,10 @@ async function runResidentLoaderPool(): Promise<void> {
       first,
       "unchanged proof must retain the actual binary and answer record",
     );
-    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), descriptorReuseAvailable ? "x" : "xx");
+    assert.equal(
+      fs.readFileSync(capabilityCounter, "utf8"),
+      descriptorReuseAvailable ? "x" : "xx",
+    );
     fs.appendFileSync(capabilityProducer, "\n// capability source epoch\n");
     const edited = capabilityIdentity();
     assert.notEqual(edited.binary, first.binary);
@@ -3146,7 +3161,10 @@ async function runResidentLoaderPool(): Promise<void> {
     const flagged = capabilityIdentity();
     assert.notEqual(flagged.binary, edited.binary);
     if (descriptorReuseAvailable) assert.notEqual(flagged.inode, edited.inode);
-    assert.equal(fs.readFileSync(capabilityCounter, "utf8"), descriptorReuseAvailable ? "xx" : "xxxx");
+    assert.equal(
+      fs.readFileSync(capabilityCounter, "utf8"),
+      descriptorReuseAvailable ? "xx" : "xxxx",
+    );
     const ignored = path.join(
       path.dirname(nativeProbe.fixtureSource),
       "node_modules/capability-ignored/index.js",

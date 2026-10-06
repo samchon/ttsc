@@ -27,13 +27,22 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
     // The actual Program contains and emits the lazy source. No invented
     // extraOutputs envelope substitutes for that compiler-owned output.
     selected, _ := context.Entry.Config["path"].(string)
-    if selected == "" { return fmt.Errorf("echo-file requires path") }
-    if !filepath.IsAbs(selected) { selected = filepath.Join(context.Cwd, selected) }
+    if selected == "" {
+      return fmt.Errorf("echo-file requires path")
+    }
+    if !filepath.IsAbs(selected) {
+      selected = filepath.Join(context.Cwd, selected)
+    }
     found := false
     for _, source := range program.TSProgram.GetSourceFiles() {
-      if filepath.Clean(source.FileName()) == filepath.Clean(selected) { found = true; break }
+      if filepath.Clean(source.FileName()) == filepath.Clean(selected) {
+        found = true
+        break
+      }
     }
-    if !found { return fmt.Errorf("lazy source is not in the loaded Program: %s", selected) }
+    if !found {
+      return fmt.Errorf("lazy source is not in the loaded Program: %s", selected)
+    }
   case "read-configured-helper":
     helper, _ := context.Entry.Config["path"].(string)
     if helper == "" {
@@ -58,8 +67,12 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
   var helperContents []byte
   for index, dependency := range dependencies {
     contents, err := readInput(context, dependency)
-    if err != nil { return err }
-    if operation == "read-configured-helper" { helperContents = contents }
+    if err != nil {
+      return err
+    }
+    if operation == "read-configured-helper" {
+      helperContents = contents
+    }
     if !filepath.IsAbs(dependency) {
       dependency = filepath.Join(context.Cwd, dependency)
     }
@@ -80,7 +93,7 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
           call.Arguments != nil && len(call.Arguments.Nodes) == 1 {
           argument := call.Arguments.Nodes[0]
           if argument.Kind == shimast.KindStringLiteral {
-            replacement := factory.NewStringLiteral(strings.ToUpper(argument.Text()) + suffix, 0)
+            replacement := factory.NewStringLiteral(strings.ToUpper(argument.Text())+suffix, 0)
             replacement.Loc = node.Loc
             return replacement
           }
@@ -89,7 +102,9 @@ func (plugin) ApplyProgram(program *driver.Program, context driver.PluginContext
       return visitor.VisitEachChild(node)
     }, factory, shimast.NodeVisitorHooks{})
     for _, source := range program.TSProgram.GetSourceFiles() {
-      if source.IsDeclarationFile { continue }
+      if source.IsDeclarationFile {
+        continue
+      }
       // ApplyProgram owns the source-to-source lane used by unplugin. The
       // utility host prints this actual SourceFile; emit-only callbacks are
       // deliberately not invoked by its transform operation.

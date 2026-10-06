@@ -22,26 +22,36 @@ func TestLSPCommandWorkspacePreservesNestedDependencyScopes(t *testing.T) {
   scopes := []string{"", "packages/one", "packages/two"}
   for _, scope := range scopes {
     label := scope
-    if label == "" { label = "root" }
+    if label == "" {
+      label = "root"
+    }
     writeFile(t, filepath.Join(root, scope, "node_modules/same/index.js"), label)
-    writeFile(t, filepath.Join(root, scope, "node_modules/@types/node/index.d.ts"), "// " + label + "\ndeclare const __dirname: string;\n")
+    writeFile(t, filepath.Join(root, scope, "node_modules/@types/node/index.d.ts"), "// "+label+"\ndeclare const __dirname: string;\n")
   }
   alias := filepath.Join(root, "alias-one")
   aliasAvailable := os.Symlink(filepath.Join(root, "packages/one"), alias) == nil
   staged, _, _, cleanup, err := prepareLSPCommandWorkspace(root, filepath.Join(root, "tsconfig.json"), target)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   t.Cleanup(cleanup)
   for _, scope := range scopes {
     label := scope
-    if label == "" { label = "root" }
+    if label == "" {
+      label = "root"
+    }
     assertFileText(t, filepath.Join(staged, scope, "node_modules/same/index.js"), label)
-    assertFileText(t, filepath.Join(staged, scope, "node_modules/@types/node/index.d.ts"), "// " + label + "\ndeclare const __dirname: string;\n")
+    assertFileText(t, filepath.Join(staged, scope, "node_modules/@types/node/index.d.ts"), "// "+label+"\ndeclare const __dirname: string;\n")
     stagedModules := filepath.Join(staged, scope, "node_modules")
     originalModules := filepath.Join(root, scope, "node_modules")
     stagedInfo, err := os.Stat(stagedModules)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     originalInfo, err := os.Stat(originalModules)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     // Readlink preserves spelling; the staged root may have followed an OS
     // short-name alias. Native file identity must still be the same original
     // directory, so copied module bytes cannot satisfy this assertion.
@@ -53,11 +63,15 @@ func TestLSPCommandWorkspacePreservesNestedDependencyScopes(t *testing.T) {
     assertFileText(t, filepath.Join(staged, "alias-one/node_modules/same/index.js"), "packages/one")
   }
   cleanup()
-  if _, err := os.Stat(staged); !os.IsNotExist(err) { t.Fatalf("staged workspace remains after cleanup: %v", err) }
+  if _, err := os.Stat(staged); !os.IsNotExist(err) {
+    t.Fatalf("staged workspace remains after cleanup: %v", err)
+  }
   for _, scope := range scopes {
     label := scope
-    if label == "" { label = "root" }
+    if label == "" {
+      label = "root"
+    }
     assertFileText(t, filepath.Join(root, scope, "node_modules/same/index.js"), label)
-    assertFileText(t, filepath.Join(root, scope, "node_modules/@types/node/index.d.ts"), "// " + label + "\ndeclare const __dirname: string;\n")
+    assertFileText(t, filepath.Join(root, scope, "node_modules/@types/node/index.d.ts"), "// "+label+"\ndeclare const __dirname: string;\n")
   }
 }

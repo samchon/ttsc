@@ -1299,9 +1299,13 @@ func copyLSPCommandWorkspace(src string, dst string) error {
         // command's root. Preserve its actual imports and ambient types by
         // linking the original scope, without copying or modifying modules.
         info, err := os.Stat(current)
-        if err != nil { return err }
+        if err != nil {
+          return err
+        }
         if info.IsDir() {
-          if err := linkNearestNodeModules(filepath.Dir(filepath.Join(dst, rel)), filepath.Dir(current)); err != nil { return err }
+          if err := linkNearestNodeModules(filepath.Dir(filepath.Join(dst, rel)), filepath.Dir(current)); err != nil {
+            return err
+          }
         }
       }
       if entry.IsDir() {
@@ -1367,7 +1371,9 @@ func copyLSPCommandWorkspaceEntry(src string, dst string, seenDirs map[string]st
     for _, entry := range entries {
       if shouldSkipLSPCommandWorkspaceDir(entry.Name()) {
         if entry.Name() == "node_modules" {
-          if err := linkNearestNodeModules(dst, src); err != nil { return err }
+          if err := linkNearestNodeModules(dst, src); err != nil {
+            return err
+          }
         }
         continue
       }

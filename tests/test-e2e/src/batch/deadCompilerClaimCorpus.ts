@@ -17,8 +17,8 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * 1. Observe a real holder's lock token and first native invocation receipt.
  * 2. Kill only that owned Node holder and observe its actual close and native
  *    departure.
- * 3. Require two survivor native results, second/third receipts and complete
- *    lock removal, sampling the entire native hold in each completed epoch.
+ * 3. Require two survivor native results, second/third receipts and complete lock
+ *    removal, sampling the entire native hold in each completed epoch.
  *
  * @evidence contracts/testing.md#behavioral-verification Two actual public unplugin API workers share one claim identity/state. The holder dies after its PID-owned lock and native invocation; the survivor must return PROBED, acquire another native invocation and remove the residual lock.
  * @evidence contracts/testing.md#independent-expectations Literal PROBE/PROBED source, the actual lock owner PID and the producer's existing native receipt distinguish takeover and real output from deleting a lock or returning stale text. Native PIDs are actual invocation owners, not a Program count.
@@ -236,7 +236,8 @@ export async function deadCompilerClaimCorpus(
       assert.ok(observation.elapsedMs >= 5000, JSON.stringify(observation));
       assert.ok(
         observation.maximumGapMs < 750,
-        "initial, intertick and terminal gaps through each native hold must remain below 750ms: " + JSON.stringify(observation),
+        "initial, intertick and terminal gaps through each native hold must remain below 750ms: " +
+          JSON.stringify(observation),
       );
     }
     assert.deepEqual(

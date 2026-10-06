@@ -462,23 +462,36 @@ export namespace BatchWorkspace {
     for (const mode of ["fallback", "selected"]) {
       const original = path.join(root, "tools/native-lint-wrappers", mode);
       const target = path.join(lintWrapperRoot, mode);
-      await FileSystemIterator.write(target, await FileSystemIterator.read(original));
-      const wrapper = JSON.parse(fs.readFileSync(path.join(original, "tsconfig.json"), "utf8")) as {
+      await FileSystemIterator.write(
+        target,
+        await FileSystemIterator.read(original),
+      );
+      const wrapper = JSON.parse(
+        fs.readFileSync(path.join(original, "tsconfig.json"), "utf8"),
+      ) as {
         extends: string;
         include: string[];
         files: string[];
       };
-      fs.writeFileSync(path.join(target, "tsconfig.json"), JSON.stringify({
-        ...wrapper,
-        extends: path.resolve(original, wrapper.extends),
-        files: wrapper.files.map((file) => path.resolve(original, file)),
-      }));
+      fs.writeFileSync(
+        path.join(target, "tsconfig.json"),
+        JSON.stringify({
+          ...wrapper,
+          extends: path.resolve(original, wrapper.extends),
+          files: wrapper.files.map((file) => path.resolve(original, file)),
+        }),
+      );
     }
     const descriptorCollectionRoot = path.join(
-      fs.realpathSync.native(graphNegativeRoot), "descriptor-collection",
+      fs.realpathSync.native(graphNegativeRoot),
+      "descriptor-collection",
     );
-    await FileSystemIterator.write(descriptorCollectionRoot,
-      await FileSystemIterator.read(path.join(root, "tools/descriptor-collection")));
+    await FileSystemIterator.write(
+      descriptorCollectionRoot,
+      await FileSystemIterator.read(
+        path.join(root, "tools/descriptor-collection"),
+      ),
+    );
     // The native default-cache resolver recognizes this real installation
     // boundary. No package is installed in the graph-negative root itself.
     fs.mkdirSync(path.join(descriptorCollectionRoot, "node_modules"));
@@ -780,10 +793,16 @@ export namespace BatchWorkspace {
         ),
       );
       const fixtureSource = path.join(producerModule, "compile-probe");
-      const bunSingleConfig = path.join(root, "tools/bun-native-sessions/tsconfig.json");
+      const bunSingleConfig = path.join(
+        root,
+        "tools/bun-native-sessions/tsconfig.json",
+      );
       const bunSingle = JSON.parse(fs.readFileSync(bunSingleConfig, "utf8"));
       bunSingle.compilerOptions.plugins[0].fixtureSource = fixtureSource;
-      bunSingle.compilerOptions.plugins[0].runLog = path.join(root, "tools/bun-native-sessions/program-runs.bin");
+      bunSingle.compilerOptions.plugins[0].runLog = path.join(
+        root,
+        "tools/bun-native-sessions/program-runs.bin",
+      );
       fs.writeFileSync(bunSingleConfig, JSON.stringify(bunSingle));
       config.compilerOptions.plugins.push({
         name: "shared-real-program-probe",
