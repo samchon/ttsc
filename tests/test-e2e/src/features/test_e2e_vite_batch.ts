@@ -6,6 +6,7 @@ import path from "node:path";
 import { inspect } from "node:util";
 import type { RollupOutput, RollupWatcher } from "rollup";
 import { build } from "vite";
+import { TtscCompiler, type ITtscProjectPluginConfig } from "ttsc";
 
 import { fallbackToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/fallbackToolDirectory.mjs";
 import { hostToolDirectory } from "../../../../packages/unplugin/lib/core/bridge/hostToolDirectory.mjs";
@@ -109,6 +110,43 @@ export async function test_e2e_vite_batch(): Promise<void> {
     const captures = new Set<Promise<void>>();
     try {
       const adapter = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
+      const plugins: ITtscProjectPluginConfig[] = JSON.parse(
+        fs.readFileSync(path.join(workspace.root, "tsconfig.json"), "utf8"),
+      ).compilerOptions.plugins.map((entry: ITtscProjectPluginConfig) =>
+        entry.name === "native-order-prefix" ? { ...entry, prefix: "d:" } : entry,
+      );
+      // The public preparation pays actual native build cost before the watch
+      // deadline; it creates no Program and does not certify later reuse.
+      const preparationStarted = performance.now();
+      phase("native-preparation-started", {
+        projectRoot: workspace.root,
+        pluginConfigDir: workspace.root,
+        plugins,
+        cacheDir: workspace.cache,
+        environment: {
+          TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY,
+          TTSC_GO_BINARY: process.env.TTSC_GO_BINARY,
+          TTSC_GO_CACHE_DIR: process.env.TTSC_GO_CACHE_DIR,
+          GOTOOLCHAIN: process.env.GOTOOLCHAIN,
+          GOOS: process.env.GOOS,
+          GOARCH: process.env.GOARCH,
+          GOFLAGS: process.env.GOFLAGS,
+          CGO_ENABLED: process.env.CGO_ENABLED,
+        },
+      });
+      const preparedBinaries = new TtscCompiler({
+        cwd: workspace.root,
+        projectRoot: workspace.root,
+        pluginConfigDir: workspace.root,
+        tsconfig: path.join(workspace.root, "tsconfig.json"),
+        cacheDir: workspace.cache,
+        env: { ...process.env },
+        plugins,
+      }).prepare();
+      phase("native-preparation-returned", {
+        elapsedMs: performance.now() - preparationStarted,
+        binaries: preparedBinaries,
+      });
       phase("build-started");
       const result = await build({
         root: workspace.root,
@@ -122,18 +160,7 @@ export async function test_e2e_vite_batch(): Promise<void> {
           },
         },
         plugins: [
-          adapter({
-            plugins: JSON.parse(
-              fs.readFileSync(
-                path.join(workspace.root, "tsconfig.json"),
-                "utf8",
-              ),
-            ).compilerOptions.plugins.map((entry: Record<string, unknown>) =>
-              entry.name === "native-order-prefix"
-                ? { ...entry, prefix: "d:" }
-                : entry,
-            ),
-          }),
+          adapter({ plugins }),
           {
             name: "shared-record-output-observation",
             enforce: "post",
