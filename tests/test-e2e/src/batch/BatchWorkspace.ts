@@ -661,7 +661,10 @@ export namespace BatchWorkspace {
       },
       "installation dependencies must preserve the authored descriptor import map",
     );
-    pnpm(["install", "--ignore-scripts", "--no-frozen-lockfile"], root);
+    pnpm(
+      ["install", "--ignore-workspace", "--ignore-scripts", "--no-frozen-lockfile"],
+      root,
+    );
     const installed = createRequire(path.join(root, "package.json"));
     const sdk = path.dirname(installed.resolve("ttsc/package.json"));
     assert.equal(
