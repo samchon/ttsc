@@ -31,6 +31,8 @@ export async function bundlerCacheCorpus(
 ): Promise<void> {
   const root = path.join(workspace.root, "tools/bundler-cache");
   TestUnpluginProject.writePluginEntry(root);
+  const mainFile = path.join(root, "src/main.ts");
+  const originalMain = fs.readFileSync(mainFile);
   const typeFile = path.join(root, "src/mytype.ts");
   const configFile = path.join(root, "tsconfig.json");
   const originalType = fs.readFileSync(typeFile);
@@ -195,7 +197,10 @@ export async function bundlerCacheCorpus(
                     "one actual compiler API request owns the cold adapter delivery",
                   );
                   phase = 1;
-                  fs.writeFileSync(typeFile, originalType);
+                  // The host directly watches main. Unchanged compiler-only
+                  // helper bytes do not move its project record or require
+                  // loader delivery through an erased type-only import.
+                  fs.writeFileSync(mainFile, originalMain);
                 } else if (phase === 1) {
                   const rebuilt = [...stats.compilation.modules].some(
                     (module) => {
@@ -204,9 +209,7 @@ export async function bundlerCacheCorpus(
                       return (
                         resource !== undefined &&
                         fs.realpathSync.native(resource) ===
-                          fs.realpathSync.native(
-                            path.join(root, "src/main.ts"),
-                          ) &&
+                          fs.realpathSync.native(mainFile) &&
                         stats.compilation.builtModules.has(module)
                       );
                     },
