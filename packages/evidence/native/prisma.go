@@ -906,8 +906,11 @@ func prismaHostSymbols(host *evidenceUnit) symbolSet {
 // prismaCommentCarriesTag reports whether a comment body opens a citation on
 // any of its lines.
 func prismaCommentCarriesTag(body string) bool {
-  for _, line := range strings.Split(body, "\n") {
-    trimmed := strings.TrimSpace(line)
+  for _, region := range documentationRegions(body, false) {
+    if region.fence {
+      continue
+    }
+    trimmed := region.text
     if _, _, found := declarationLine(trimmed); found {
       return true
     }
@@ -929,8 +932,11 @@ func prismaCommentCarriesTag(body string) bool {
 // an author reading the file sees a citation that does nothing.
 func prismaBuriedTagLines(body string) []int {
   offsets := []int{}
-  for offset, line := range strings.Split(body, "\n") {
-    trimmed := strings.TrimSpace(line)
+  for offset, region := range documentationRegions(body, false) {
+    if region.fence {
+      continue
+    }
+    trimmed := region.text
     if _, _, found := declarationLine(trimmed); found {
       continue
     }

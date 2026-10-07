@@ -380,7 +380,9 @@ func prismaPartsOf(
       } else if form == "" {
         form = prismaLineComment
       }
-      comment.WriteString(strings.TrimSpace(string(runes[rest:])))
+      // One ordinary padding space follows the documentation prefix; further
+      // indentation belongs to the body and decides whether a fence is literal.
+      comment.WriteString(strings.TrimPrefix(string(runes[rest:]), " "))
       break
     }
     if char == '/' && index+1 < len(runes) && runes[index+1] == '*' {
@@ -393,7 +395,7 @@ func prismaPartsOf(
     }
     code.WriteRune(char)
   }
-  return code.String(), strings.TrimSpace(comment.String()), form, commented
+  return code.String(), strings.TrimRight(comment.String(), " \t\r"), form, commented
 }
 
 // prismaBlockHead reads `model <Name>` from a block opener.
