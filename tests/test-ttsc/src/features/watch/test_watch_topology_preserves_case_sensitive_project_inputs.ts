@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -12,11 +11,14 @@ import {
   recordWatchers,
 } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
-
-const subscriptions = new WeakMap<WatchTopology, readonly IRecordedWatcher[]>();
+import { prepareCaseSensitiveFixture } from "../../../../utils/src/prepareCaseSensitiveFixture";
 
 /**
  * Verifies authored case-sensitive project declarations with actual identities.
+ *
+ * Native capability preparation preserves case-only twins when representable.
+ * A refused collision proves identity and bytes remain unchanged; distinct-name
+ * recovery still exercises the complete input and output role sequence.
  *
  * 1. Establish the required native case-distinct physical paths.
  * 2. Preserve exact and glob input roles and assert their live observer roots.
@@ -24,7 +26,7 @@ const subscriptions = new WeakMap<WatchTopology, readonly IRecordedWatcher[]>();
  *
  * @evidence contracts/testing.md#behavioral-verification Actual source topology retains the original exact/glob registration and project callback assertions using supplied notifications.
  * @evidence contracts/testing.md#independent-expectations Authored case-distinct paths, independently checked filesystem identities and literal compiler membership establish the exact and glob input expectations independently.
- * @evidence contracts/testing.md#distinguishing-cases Case-distinct roots and nested glob roots must not collapse. Both exact inputs and both glob members report, then removing only the lower glob makes its next edit quiet. Native preparation must establish distinct identities; unavailable preparation fails explicitly and is not a product observation or successful coverage.
+ * @evidence contracts/testing.md#distinguishing-cases Case-distinct roots and nested glob roots must not collapse. Both exact inputs and both glob members report, then removing only the lower glob makes its next edit quiet. Native preparation independently probes case-only entries. An observed EEXIST must preserve identity and bytes; distinct-name recovery still exercises both exact/glob roles and removal. Unavailable case-only coverage is reported, not certified.
  * @evidence contracts/testing.md#execution-ownership This source unit owns manually supplied project declarations and actual path/content decisions through recorded observers. No compiler process or native observer runs; the original platform capability operation remains actual.
  */
 export const test_watch_topology_preserves_case_sensitive_project_inputs =
@@ -47,19 +49,19 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       "utf8",
     );
 
-    const external = TestProject.physicalPath(
+    const externalParent = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-project-input-case-external-"),
     );
-    enableWindowsCaseSensitivity(external);
+    const { directory: external, caseDistinct } = prepareCaseSensitiveFixture(externalParent);
     const upperRoot = path.join(external, "Project");
-    const lowerRoot = path.join(external, "project");
+    const lowerRoot = path.join(external, caseDistinct ? "project" : "declared-project");
     fs.mkdirSync(upperRoot);
-    createCaseDistinctDirectory(lowerRoot);
+    fs.mkdirSync(lowerRoot);
     assert.notEqual(realpath(upperRoot), realpath(lowerRoot));
     const upperApi = path.join(upperRoot, "Api");
-    const lowerApi = path.join(upperRoot, "api");
+    const lowerApi = path.join(upperRoot, caseDistinct ? "api" : "declared-api");
     fs.mkdirSync(upperApi);
-    createCaseDistinctDirectory(lowerApi);
+    fs.mkdirSync(lowerApi);
     assert.notEqual(realpath(upperApi), realpath(lowerApi));
 
     const upperExact = path.join(upperRoot, "nested", "evidence.md");
@@ -133,6 +135,8 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     }
   };
 
+const subscriptions = new WeakMap<WatchTopology, readonly IRecordedWatcher[]>();
+
 async function writeAndWait(
   topology: WatchTopology,
   changes: readonly WatchInputChange[],
@@ -173,37 +177,6 @@ function pathMatchesOrContains(changed: string, target: string): boolean {
     candidate === root ||
     candidate.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
   );
-}
-
-function enableWindowsCaseSensitivity(directory: string): void {
-  if (process.platform !== "win32") return;
-  const result = childProcess.spawnSync(
-    "fsutil.exe",
-    ["file", "setCaseSensitiveInfo", directory, "enable"],
-    {
-      encoding: "utf8",
-      windowsHide: true,
-    },
-  );
-  assert.equal(
-    result.status,
-    0,
-    `native case-sensitive fixture preparation failed: ${result.error?.message ?? result.stderr}`,
-  );
-}
-
-function createCaseDistinctDirectory(directory: string): void {
-  try {
-    fs.mkdirSync(directory);
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
-      throw new Error(
-        `native case-distinct fixture preparation failed: ${directory}`,
-        { cause: error },
-      );
-    }
-    throw error;
-  }
 }
 
 function realpath(location: string): string {
