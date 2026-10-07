@@ -14,6 +14,7 @@ import (
   "runtime"
   "strings"
 
+  "github.com/samchon/ttsc/packages/ttsc/internal/sourceprocess"
   "github.com/samchon/ttsc/packages/ttsc/internal/watchhelper"
 )
 
@@ -55,6 +56,8 @@ func run(args []string) int {
   case "__watch":
     // Hidden: it speaks a JSON protocol over stdio, not a CLI.
     return watchhelper.Run(os.Stdin, stdout, stderr)
+  case "__source-process":
+    return sourceprocess.Run(args[1:], os.Stdin, stdout, stderr)
   case "build", "check":
     fmt.Fprintf(
       stderr,
