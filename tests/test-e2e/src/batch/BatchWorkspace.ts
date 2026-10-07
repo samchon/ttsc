@@ -1366,6 +1366,27 @@ export namespace BatchWorkspace {
         TTSC_TEST_GO_BUILD_TRACE: buildTrace,
         GOFLAGS: "-trimpath=false",
       };
+      // No changing attempt may populate the compiler memo or replace an
+      // earlier witness. The existing real Go launcher changes its own bytes
+      // during each version query, then returns to ordinary stable operation.
+      for (let reading = 0; reading < 2; reading += 1) {
+        const moving = new Map<string, string>();
+        pluginBuildEnvironment(source, {
+          ...env,
+          TTSC_TEST_GO_REWRITE_LAUNCHER: go,
+        }, moving);
+        assert.equal(
+          PluginBuildEnvironmentWitness.holds(moving),
+          false,
+          "a compiler that changes during every version query must remain refused",
+        );
+      }
+      const recovered = new Map<string, string>();
+      pluginBuildEnvironment(source, env, recovered);
+      assert.ok(
+        PluginBuildEnvironmentWitness.holds(recovered),
+        "a fresh stable reading must recover without discarding earlier refusal",
+      );
       const expected = path.join(source, "node_modules", ".cache", "ttsc");
       assert.equal(
         resolveSourceBuildCachePaths(source, undefined, env).root,

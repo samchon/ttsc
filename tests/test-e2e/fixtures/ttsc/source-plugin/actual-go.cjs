@@ -4,6 +4,12 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const args = process.argv.slice(2);
+if (args[0] === "version" && process.env.TTSC_TEST_GO_REWRITE_LAUNCHER) {
+  fs.appendFileSync(
+    process.env.TTSC_TEST_GO_REWRITE_LAUNCHER,
+    process.platform === "win32" ? "\r\nrem changed during version\r\n" : "\n# changed during version\n",
+  );
+}
 if (args[0] === "build") {
   for (const relative of [
     "internal/rules/rule.go",
