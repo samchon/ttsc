@@ -93,6 +93,7 @@ export function test_ttsc_banner_and_strip_descriptors_ignore_directories_during
       ...context,
       plugin: { transform: `@ttsc/${plugin}` },
     });
+    assert.ok(nearer.hostInputs);
     assert.equal(nearer.hostInputs.includes(localJson), true);
     assert.equal(nearer.hostInputs.includes(selected), false);
     const customName = `custom-${plugin}.json`;
