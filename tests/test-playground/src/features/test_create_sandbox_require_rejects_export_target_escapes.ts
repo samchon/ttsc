@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
+import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
  * Verifies exports targets cannot escape or reinterpret their package mount.
@@ -12,6 +12,11 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * 1. Mount direct, encoded, `node_modules`, separator, and wildcard escapes.
  * 2. Resolve a safe exact request key containing `..` as the negative twin.
  * 3. Assert only the safe target remains inside the package mount.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createSandboxRequire rejects direct/encoded parent and node_modules segments, wildcard-substituted traversal and encoded slash while safely resolving an exact request key containing .. to literal 42.
+ * @evidence contracts/testing.md#independent-expectations Package target confinement applies to the substituted/decoded target, independently of request spelling; the safe-key manifest maps its unusual request to authored safe.cjs rather than computing an expected path through the resolver.
+ * @evidence contracts/testing.md#distinguishing-cases Five named invalid-target rows plus encoded-separator loading failure contrast with the successful safe exact key; each rejected specifier retains its assertion failure identity.
+ * @evidence contracts/testing.md#execution-ownership This unit entry owns the named invalid-specifier loop and positive resolver call over immutable local pack text; URL parsing is local and no network or product host runs.
  */
 export const test_create_sandbox_require_rejects_export_target_escapes = () => {
   const require = createSandboxRequire(

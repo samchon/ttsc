@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * { a, b }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param elements The elements.
+ * @returns The created {@link NamedExports}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered ExportSpecifier elements preserve each binding and alias inside
  *   the export brace group, without adding a module target.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes standalone brace output from the enclosing declaration
  *   and explains broken-list commas before separate example and tag paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param elements The elements.
- * @returns The created {@link NamedExports}.
  */
 export const createNamedExports = (
   elements: readonly ExportSpecifier[],

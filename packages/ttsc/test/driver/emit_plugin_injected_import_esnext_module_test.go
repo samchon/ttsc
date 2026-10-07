@@ -20,6 +20,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
+// TestEmitWithPluginTransformerInjectedImportEsnextModule Verifies an injected ES module
+// import retains the matching exported reference without a CommonJS require.
+//
+// The esnext module target retains the injected import declaration rather than lowering it
+// to require. The generated foo use must retain that import's identity, so matching only
+// the exported expression would miss a detached or missing binding.
+//
+// 1. Inject a namespace import and its generated member reference under esnext.
+// 2. Require a retained ESM import with matching foo access and reject CommonJS require lowering.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls the actual injection transformer and requires a namespace ESM import and exported foo reference to its matching generated alias while rejecting any require lowering.
+// @evidence contracts/testing.md#independent-expectations Literal ./dep and foo plus esnext module configuration independently define retained ESM syntax and binding-use relationships.
+// @evidence contracts/testing.md#distinguishing-cases Generated import and generated use coexist; forbidden require contrasts this ESM case with the CommonJS injection sibling.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit captures actual in-process compiler/visitor writes and closes its private Program; emitted ESM is inspected without a runtime consumer.
 func TestEmitWithPluginTransformerInjectedImportEsnextModule(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

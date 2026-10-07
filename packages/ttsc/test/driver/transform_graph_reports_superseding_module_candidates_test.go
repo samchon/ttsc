@@ -10,18 +10,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestTransformGraphReportsSupersedingModuleCandidates verifies the transform
-// envelope carries only the candidate paths that precede a resolved module
-// target.
+// TestTransformGraphReportsSupersedingModuleCandidates Verifies resolution candidates and their input proofs.
 //
-// Bundler caches must hash a missing .ts sibling of a selected .js module, but
-// a lower-priority .jsx sibling must not invalidate them. The envelope is the
-// native-to-JavaScript boundary where that distinction has to survive.
+// The direct graph operation must retain probes that can supersede a selected
+// JavaScript source and reject lower-priority probes. Missing inputs carry
+// null proofs, while the selected source carries its authored-byte digest.
 //
-//  1. Load an extensionless import whose selected target is value.js.
-//  2. Build the host-owned transform graph from that loaded program.
-//  3. Assert candidates include value.ts and exclude the lower-priority
-//     value.jsx sibling.
+// 1. Load an extensionless import selecting the authored value.js file.
+// 2. Construct the transform graph directly from that Program.
+// 3. Check ts inclusion, jsx exclusion, missing proofs and the selected hash/path.
+//
+// @evidence contracts/testing.md#behavioral-verification NewTransformGraph includes the higher-priority ts candidate, excludes jsx, records null missing proofs and the selected JavaScript SHA256 plus absolute physical path.
+// @evidence contracts/testing.md#independent-expectations The authored JavaScript bytes independently determine the SHA256, and resolution precedence establishes which sibling can supersede the winner.
+// @evidence contracts/testing.md#distinguishing-cases A missing ts sibling, selected js file and lower-priority jsx probe distinguish candidate inclusion, missing proof and actual-content proof.
+// @evidence contracts/testing.md#execution-ownership Go test/driver loads and graphs a fixture Program directly; it inspects the envelope representation without crossing the native-to-JavaScript transport.
 func TestTransformGraphReportsSupersedingModuleCandidates(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -68,5 +70,12 @@ func TestTransformGraphReportsSupersedingModuleCandidates(t *testing.T) {
   }
   if realpath := graph.InputRealpaths[selected]; realpath == nil || !filepath.IsAbs(*realpath) {
     t.Fatalf("selected source realpath = %#v, want absolute", realpath)
+  }
+  physical, err := filepath.EvalSymlinks(filepath.Join(root, "src", "value.js"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  if *graph.InputRealpaths[selected] != filepath.Clean(physical) {
+    t.Fatalf("selected source realpath = %q, want %q", *graph.InputRealpaths[selected], filepath.Clean(physical))
   }
 }

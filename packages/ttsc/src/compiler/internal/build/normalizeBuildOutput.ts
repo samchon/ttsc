@@ -15,7 +15,7 @@ import { CompilerDiagnostics } from "./CompilerDiagnostics";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Parsed compiler formats and actual process status determine results; unmatched text is not fabricated into a successful diagnostic record.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains absent diagnostics and the failure-output relocation; the private parser explains continuation and summary handling.
  * @evidence contracts/portability.md#os-neutral-implementation Diagnostic filenames use the native path normalizer with optional compiler cwd; CRLF and LF output are both recognized without case-policy guesses.
- * @evidence contracts/performance.md#efficient-algorithms Text is scanned once when diagnostics are absent; supplied arrays bypass parsing and continuation storage grows with captured message text.
+ * @evidence contracts/performance.md#efficient-algorithms Absent diagnostics require ANSI stripping and line splitting followed by format matches on each line. Continuation chunks are joined once per diagnostic instead of repeatedly concatenating a growing message; temporary lines, chunks and records scale with captured output. Supplied arrays bypass this work.
  * @evidence contracts/performance.md#reuse-equivalent-work Preparsed diagnostics are reused directly instead of reconstructing the same records from stdout and stderr.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This adapter returns data without owning a process, persistent cache or retained history.
@@ -62,6 +62,7 @@ function parseCompilerDiagnostics(
   ).split(/\r?\n/);
   const out: ITtscCompilerDiagnostic[] = [];
   let current: ITtscCompilerDiagnostic | undefined;
+  let messageChunks: string[] = [];
   for (const line of lines) {
     if (line.length === 0 || /^TSFILE:\s*/.test(line)) {
       continue;
@@ -72,14 +73,17 @@ function parseCompilerDiagnostics(
 
     const diagnostic = CompilerDiagnostics.parseDiagnosticLine(line, cwd);
     if (diagnostic !== null) {
+      if (current !== undefined) current.messageText = messageChunks.join("\n");
       current = diagnostic;
+      messageChunks = [diagnostic.messageText];
       out.push(current);
       continue;
     }
 
     if (current !== undefined && /^\s+/.test(line)) {
-      current.messageText += `\n${line.trimEnd()}`;
+      messageChunks.push(line.trimEnd());
     }
   }
+  if (current !== undefined) current.messageText = messageChunks.join("\n");
   return out;
 }

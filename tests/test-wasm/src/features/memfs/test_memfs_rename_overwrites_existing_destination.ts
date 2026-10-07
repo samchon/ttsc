@@ -10,13 +10,18 @@ import { callMutation } from "../../internal/callbackFs";
  * POSIX `rename(2)` replaces an existing destination when the types are
  * compatible: file-onto-file overwrites the bytes, and directory-onto-empty-
  * directory replaces the empty node with the moved subtree. This pins that the
- * destination-reconciliation branch mutates atomically — the old destination
+ * destination-reconciliation branch mutates atomically: the old destination
  * node is gone and the source has fully moved, with no leftover nodes.
  *
  * 1. Seed a file `/from.txt`="NEW" over an existing `/to.txt`="OLD", and a subtree
  *    `/srcdir/x.txt` over an empty `/destdir`.
  * 2. Rename file-onto-file and directory-onto-empty-directory.
  * 3. Assert both sources are gone and both destinations hold the moved content.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.rename replaces compatible file and empty-directory destinations, removes both source namespaces and keeps moved data. Literal NEW and XX detect retention of the overwritten target or loss of the subtree.
+ * @evidence contracts/testing.md#independent-expectations POSIX replacement accepts file-over-file and directory-over-empty-directory. Independently seeded NEW/OLD and srcdir/x.txt=XX determine replacement direction without computing expectations from the resulting tree.
+ * @evidence contracts/testing.md#distinguishing-cases Existing file destination and empty directory destination are the two successful replacement branches. Nonempty-directory and mismatched-type rejection are owned by the invalid-target test.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_rename_overwrites_existing_destination directly calls fs.rename twice through callMutation on one createMemFS host. This entry owns both source-removal and exact destination-byte checks in Node.
  */
 export const test_memfs_rename_overwrites_existing_destination =
   async (): Promise<void> => {

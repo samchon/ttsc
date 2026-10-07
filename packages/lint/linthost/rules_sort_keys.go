@@ -2,11 +2,12 @@
 // alphabetical order. One finding is emitted per offending key; the
 // previous key in the same sort group is the comparison baseline.
 //
-// A spread element (`...other`) and a computed dynamic property name
-// (`[expr]: value`) both reset the sort baseline because the rule cannot
-// reason about their position relative to surrounding static keys
-// without runtime knowledge. After such a divider, sorting restarts
-// from the next static property. This mirrors ESLint's behavior.
+// A spread element (`...other`) resets the sort baseline because the rule
+// cannot reason about its position relative to surrounding static keys
+// without runtime knowledge; sorting restarts from the next static
+// property. A computed dynamic property name (`[expr]: value`) is skipped
+// without resetting the baseline, so the next static key is compared with
+// the static key before it. This mirrors ESLint's behavior.
 //
 // Property kinds considered: PropertyAssignment, ShorthandPropertyAssignment,
 // MethodDeclaration, GetAccessor, SetAccessor. Numeric and string-literal
@@ -44,10 +45,9 @@ func (sortKeys) Check(ctx *Context, node *shimast.Node) {
     }
     key := sortKeysName(prop)
     if key == "" {
-      // Dynamic computed key (`[expr]`) — cannot compare; reset
-      // the baseline so the next static key starts a fresh group.
-      previous = ""
-      hasPrevious = false
+      // Dynamic computed key (`[expr]`) cannot be compared, and ESLint keeps
+      // the last static key as the baseline across it, so the next static
+      // key is still checked against the key before the dynamic one.
       continue
     }
     if hasPrevious && key < previous {
@@ -61,8 +61,7 @@ func (sortKeys) Check(ctx *Context, node *shimast.Node) {
 // sortKeysName returns the comparable name for a property in an object
 // literal. Identifier, numeric/string literal, and a literal payload
 // inside a ComputedPropertyName all yield a usable key. Other shapes
-// (dynamic computed names) return "" so the caller resets the sort
-// baseline.
+// (dynamic computed names) return "" so the caller skips them.
 func sortKeysName(prop *shimast.Node) string {
   if prop == nil {
     return ""
@@ -98,8 +97,7 @@ func sortKeysName(prop *shimast.Node) string {
 // propertyNameText extracts a comparable string from a property-name
 // node. Identifier and literal forms yield their text; a computed name
 // that wraps a literal payload (e.g. `["a"]`) is unwrapped one level.
-// Dynamic computed expressions return "" so the caller treats the
-// property as a sort-baseline reset.
+// Dynamic computed expressions return "" so the caller skips the property.
 func propertyNameText(name *shimast.Node) string {
   if name == nil {
     return ""
@@ -113,7 +111,7 @@ func propertyNameText(name *shimast.Node) string {
     return numericLiteralText(name)
   case shimast.KindComputedPropertyName:
     // Only static literal payloads are comparable; dynamic
-    // expressions yield "" so the caller resets the sort baseline.
+    // expressions yield "" so the caller skips the property.
     computed := name.AsComputedPropertyName()
     if computed == nil || computed.Expression == nil {
       return ""

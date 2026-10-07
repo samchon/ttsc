@@ -30,6 +30,7 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
  * @evidence contracts/performance.md#efficient-algorithms One shared lookup supplies ranked candidates; exact mentions use indexed resolution and at most three seeds contribute bounded direct neighbors.
  * @evidence contracts/performance.md#reuse-equivalent-work This composer borrows lookup and generation indexes; identical entrypoint DTOs are not memoized and remain caller-owned mutable results.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Seed sets and projected arrays are request-local, with fixed seed and neighbor caps; no query history or native handle survives the call.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ranks and projects in-memory facts through runLookup and the resolver; no file, path or process.
  */
 export function runEntrypoints(
   graph: TtscGraphMemory,

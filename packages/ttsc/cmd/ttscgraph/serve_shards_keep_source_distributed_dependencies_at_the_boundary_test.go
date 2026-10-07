@@ -6,14 +6,19 @@ import (
   "testing"
 )
 
-// TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary proves the
-// incremental store owns only workspace declarations while provenance still
-// attests to every source the resident checker loaded.
+// TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary verifies the
+// authored raw dependency has provenance without owning extracted graph facts,
+// while its referenced callable is represented by an external boundary node.
 //
 // 1. Snapshot one workspace source that imports a raw TypeScript package.
 // 2. Assert the dependency owns provenance but no authored graph facts.
 // 3. Edit the dependency and assert the store publishes a complete replacement.
 // 4. Compare the replacement store with the full-dump oracle.
+//
+// @evidence contracts/testing.md#behavioral-verification The authored dep-src dependency has provenance, is absent from extracted files, and owns no shard nodes or edges; its cached boundary nodes are external and named dependencyValue. Its edit reports rebuild, publishes each manifest key with its matching digest, and changes its checker digest. Other loaded sources and dependency packages are not certified.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over a fixture where src/main.ts imports the raw-TypeScript package dep-src: the dependency must appear in provenance sources, must not be in the store's extracted files, its shard must hold no nodes or edges, and all dependency nodes found in the store must be external and named dependencyValue, with at least one found; after editing the dependency the snapshot must be mode rebuild, changed, with one upsert per manifest entry and a changed checker digest for the dependency. The full-projection comparison runs another lane over the same compiler and extraction helpers, so it cannot independently detect a shared checker or extraction defect.
+// @evidence contracts/testing.md#distinguishing-cases Snapshot one workspace source that imports a raw TypeScript package; Assert the dependency owns provenance but no authored graph facts; Edit the dependency and assert the store publishes a complete replacement. 4. Compare the replacement store with the full-dump oracle.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T) {
   root := t.TempDir()
   dependencyPath := filepath.Join(root, "node_modules", "dep-src", "src", "index.ts")
@@ -34,7 +39,7 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
     t.Fatal(err)
   }
   defer session.Close()
-  if snapshot, _, _, err := session.SnapshotShards(); err != nil || snapshot == nil {
+  if snapshot, _, _, err := snapshotGraphShardState(session); err != nil || snapshot == nil {
     t.Fatalf("initial shard snapshot = snapshot:%v error:%v", snapshot != nil, err)
   }
 
@@ -78,7 +83,7 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
   }
 
   writeGraphFile(t, dependencyPath, "export function dependencyValue(): number { return 2; }\nexport function dependencyInternal(): number { return dependencyValue(); }\n")
-  replacement, mode, changed, err := session.SnapshotShards()
+  replacement, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -95,6 +100,32 @@ func TestServeShardsKeepSourceDistributedDependenciesAtTheBoundary(t *testing.T)
     )
   }
   dependencyDigestChanged := false
+  manifestDigests := make(map[string]string, len(replacement.Manifest))
+  if len(replacement.Manifest) == 0 {
+    t.Fatal("replacement manifest is empty")
+  }
+  for _, reference := range replacement.Manifest {
+    if reference.Key == "" || reference.Digest == "" {
+      t.Fatalf("replacement manifest has an empty identity: %#v", reference)
+    }
+    if _, exists := manifestDigests[reference.Key]; exists {
+      t.Fatalf("replacement manifest repeats key %q", reference.Key)
+    }
+    manifestDigests[reference.Key] = reference.Digest
+  }
+  seenUpserts := make(map[string]bool, len(replacement.Upserts))
+  for _, upsert := range replacement.Upserts {
+    digest, exists := manifestDigests[upsert.Shard.Key]
+    if !exists || digest != upsert.Digest || seenUpserts[upsert.Shard.Key] {
+      t.Fatalf("replacement upsert does not match a unique manifest entry: %#v", upsert)
+    }
+    seenUpserts[upsert.Shard.Key] = true
+  }
+  for key := range manifestDigests {
+    if !seenUpserts[key] {
+      t.Fatalf("replacement omitted manifest key %q", key)
+    }
+  }
   for _, source := range session.graphStore.provenance.Sources {
     if source.File == dependencyFile && source.Checker != dependencyDigest {
       dependencyDigestChanged = true

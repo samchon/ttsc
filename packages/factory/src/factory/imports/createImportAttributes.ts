@@ -20,6 +20,11 @@ import { make } from "../internal/make";
  * with { "type": "json" }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param elements The attribute entries.
+ * @param multiLine When `true`, print one entry per line.
+ * @param token The introducing keyword; defaults to `"with"`.
+ * @returns The created {@link ImportAttributes}.
  * @evidence contracts/common.md#principled-implementation
  *   The with/assert discriminant records the two supported introducing keywords
  *   and preserves ordered entries, including an empty brace clause. Statement
@@ -36,12 +41,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains keyword selection, empty lists and the attachment limitation
  *   in separated paragraphs with an example and blank lines before tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param elements The attribute entries.
- * @param multiLine When `true`, print one entry per line.
- * @param token The introducing keyword; defaults to `"with"`.
- * @returns The created {@link ImportAttributes}.
  */
 export const createImportAttributes = (
   elements: readonly ImportAttribute[],

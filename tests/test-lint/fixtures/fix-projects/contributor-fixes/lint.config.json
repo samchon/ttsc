@@ -1,8 +1,0 @@
-{
-  "plugins": {
-    "demo": "lint-contributor-demo"
-  },
-  "rules": {
-    "demo/capitalize-exports": "error"
-  }
-}

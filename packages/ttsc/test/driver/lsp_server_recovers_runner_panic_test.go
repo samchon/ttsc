@@ -8,14 +8,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerRecoversRunnerPanic pins the panic-recovery seam used by
-// defaultUpstreamRunner. Calling RecoverPanicAs directly exercises the
-// same code path the production runner installs, so a future refactor
-// that deletes the defer-recover block would turn this test red.
+// TestLSPServerRecoversRunnerPanic Verifies panic conversion by the direct helper.
 //
-// 1. Call RecoverPanicAs with a function that panics with a known message.
-// 2. Assert the returned error wraps ErrLSPUpstreamPanic.
-// 3. Assert the panic value flows into the error string for diagnostics.
+// RecoverPanicAs returns the upstream panic sentinel and message. This case
+// does not execute the production runner and cannot detect removal of its
+// recovery call.
+//
+// 1. Invoke the helper with a callback that panics with synthetic panic.
+// 2. Require ErrLSPUpstreamPanic wrapping and the original panic message.
+//
+// @evidence contracts/testing.md#behavioral-verification RecoverPanicAs returns an error wrapping ErrLSPUpstreamPanic and carrying the literal synthetic panic message.
+// @evidence contracts/testing.md#independent-expectations A panic must become the documented typed failure with its diagnostic value, not success or an unrelated error.
+// @evidence contracts/testing.md#distinguishing-cases One callback panic owns conversion; this direct helper test cannot detect deletion of the production runner call to RecoverPanicAs.
+// @evidence contracts/testing.md#execution-ownership Go test/driver directly invokes the panic conversion helper in process; it does not start RunLSPServer or a native upstream.
 func TestLSPServerRecoversRunnerPanic(t *testing.T) {
   err := driver.RecoverPanicAs(func() error {
     panic("synthetic panic")

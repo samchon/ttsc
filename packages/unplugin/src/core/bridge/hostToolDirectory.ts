@@ -31,7 +31,6 @@ import path from "node:path";
  *   adapters and the Next wrapper, Farm's configured root for Farm,
  *   `absWorkingDir` for esbuild, and the root Turbopack resolved
  *   (`rootContext`) for its loader.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Native join locates the package-owned .ttsc directory under the actual host
  *   root, satisfying dependency-root restrictions without relocating watched paths.
@@ -44,6 +43,11 @@ import path from "node:path";
  *   Native paragraphs explain native watched-directory constraints and root
  *   meaning for each adapter, with tag separation per documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Node's native join preserves the actual host root's volume and spelling; records stay under that root to satisfy filesystem-root, same-drive and Windows watched-directory constraints.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Naming the directory acquires and retains no handle, task or state.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Native join scans and normalizes the supplied root's text and creates the
+ *   returned spelling. It performs no filesystem access or directory walk.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The directory is joined from its argument on every call; no computation is shared.
  */
 export function hostToolDirectory(root: string): string {
   return path.join(root, ".ttsc");

@@ -36,37 +36,44 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * Ask the session store for the compile named `identity` and `state`: another
  * worker's publication, or the lock to compile it here (samchon/ttsc#1390).
  *
- * `identity` names what the compile is (project, options, plugins) and `state`
- * the project state it would read. The first worker to need a pair takes its
- * lock by creating a directory, which the filesystem makes atomic. The others
- * wait without blocking the event loop, and adopt the publication the holder
- * leaves behind. When the holder releases the lock without publishing, the next
- * waiter takes the lock instead. A holder whose process has died, or whose
- * heartbeat stopped, loses the lock to the next waiter, so a crash mid-compile
- * never blocks the session.
+ * `identity` encodes reported compile configuration and `state` a supplied
+ * project-input projection. Neither key alone certifies a publication. The
+ * first worker to need a pair takes its lock by creating a directory, which the
+ * filesystem makes atomic. The others wait without blocking the event loop, and
+ * adopt the publication the holder leaves behind. When the holder releases the
+ * lock without publishing, the next waiter takes the lock instead. A holder
+ * whose process has died, or whose heartbeat stopped, can lose the lock to a
+ * waiter. Waiting has no total deadline or cancellation; progress still depends
+ * on native operations and successful reclamation.
  *
  * The store outlives the processes that use it (samchon/ttsc#1483), so it
- * bounds itself: an adoption marks its publication used, and each publication
- * keeps the most recently used ones of its identity within the store's count
- * and byte budgets, and removes locks and partial writes whose writer is gone.
- * A publication larger than the byte budget stays in the compiling worker; it
- * cannot be shared without making persistent storage unbounded.
+ * best-effort prunes itself: an adoption marks its publication used, and each
+ * publication keeps the most recently used ones of its identity within the
+ * store's count and byte budgets, and removes locks and partial writes whose
+ * writer is gone. A publication larger than the byte budget stays in the
+ * compiling worker; it cannot be shared without making persistent storage
+ * unbounded.
  *
- * Sharing is only an optimization. Any failure to read, lock, or write the
- * store answers `undefined`, and the caller compiles for itself. With `adopt:
+ * Sharing is only an optimization. An unreadable or unusable publication is
+ * ignored and a worker may claim its own compile. An escaping claim error
+ * answers `undefined`; publishing and cleanup failures are suppressed without
+ * certifying persistence. The caller retains local compilation. With `adopt:
  * false` the caller has already found a publication wanting and compiles
  * regardless, but still under the lock, so its compile replaces the publication
- * for the waiters.
+ * for the waiters. A rejectedPublication excludes only that serialized payload:
+ * another worker's replacement under the same projected state remains eligible
+ * for independent adoption proof. The digest is computed from the already read
+ * UTF-8 publication, without another filesystem query.
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  *
  * @param store The session's shared compile store.
- * @param identity Hex digest of what the compile is.
- * @param state Hex digest of the project state it reads.
+ * @param identity Caller-provided hex configuration digest used in store names.
+ * @param state Caller-provided hex project-state digest used in store names.
  * @param options.adopt Whether an existing publication may be adopted.
- *
+ * @param options.rejectedPublication Digest of the exact previously refuted payload; a replacement still requires the caller's full proof.
  * @evidence contracts/common.md#principled-implementation
  *   Filesystem directory creation coordinates independent workers, and owned
  *   tokens distinguish a claim from another holder at the same pathname.
@@ -96,28 +103,44 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  *   investigation rather than asserted OS-safe.
  *
  * @evidence contracts/performance.md#efficient-algorithms
- *   Waiters yield with capped backoff. Pruning scans the persisted store and
- *   sorts last-use entries, then totals their sizes once, because independent
- *   processes share its inventory; a process-local index would not describe it.
+ *   Each waiting iteration may reread and parse all publication bytes, inspect
+ *   envelope fields, probe lock metadata/token/process state and reclaim a
+ *   subtree. Backoff intervals are capped, not iteration count or total time.
+ *   Each valid read additionally hashes its serialized UTF-8 payload in O(bytes)
+ *   time for attempt-local refutation identity. This is not an input proof.
+ *   Publishing serializes the full payload before its UTF8 byte-budget check.
+ *   Pruning materializes all N store names, launches concurrent stats for J
+ *   JSON entries, sorts J last-use observations and scans names again for
+ *   abandoned state. Text comparisons, encoded bytes, native IO and removed
+ *   descendants contribute beyond entry counts; transient state includes full
+ *   publication text/value and O(N+J) lists/promises. Independent processes
+ *   share the inventory, so a process-local index cannot establish its contents.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The identity/state pair shares one generation across workers. The producer
- *   supplies those digests and the caller validates adoption; a pathname alone
- *   does not establish input equivalence. Store failure or an oversized
- *   publication leaves later workers on the actual compile path.
+ *   The supplied identity/state pair coordinates in-flight ownership and
+ *   retained publication lookup. Shape checks reject unusable envelopes but
+ *   do not prove inputs; the producer and adopter supply separate stability,
+ *   completeness and current-state proofs. Caller adopt=false bypasses lookup
+ *   while retaining locking. Repeated claims still reread publication/lock
+ *   state; failed or oversized persistence leaves later workers compiling.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   A publication over 256 MiB is not persisted. Each successful publication
  *   best-effort prunes to four files per identity, 32 store-wide and 256 MiB of
- *   publication bytes. Concurrent writes or failed removals can temporarily
- *   exceed these limits. A holder releases its heartbeat and owned lock; later
- *   prunes remove abandoned locks and partial writes of departed workers.
+ *   publication bytes. Concurrent writes, failed removals or failed pruning
+ *   can leave limits exceeded until a later successful prune. Limits do not
+ *   bound live locks, partial-write bytes, waiting claims or concurrent IO.
+ *   A compile claim transfers its unref'd heartbeat and lock to the caller,
+ *   whose release clears the timer and best-effort removes an owned lock;
+ *   publishing alone does not release it. Later prunes reclaim abandoned locks
+ *   and departed-writer partial files. Owner checks followed by pathname IO
+ *   remain non-atomic, including asynchronous heartbeat touches.
  */
 export async function claimSharedCompile(
   store: string,
   identity: string,
   state: string,
-  options: { adopt: boolean },
+  options: { adopt: boolean; rejectedPublication?: string },
 ): Promise<TtscSharedCompileClaim | undefined> {
   const name = `${identity}-${state}`;
   const publication = path.join(store, `${name}.json`);
@@ -127,9 +150,9 @@ export async function claimSharedCompile(
     for (;;) {
       if (options.adopt) {
         const published = await readPublication(publication);
-        if (published !== undefined) {
+        if (published !== undefined && published.fingerprint !== options.rejectedPublication) {
           await markUsed(publication);
-          return { kind: "adopt", publication: published };
+          return { kind: "adopt", publication: published.value, fingerprint: published.fingerprint };
         }
       }
       const token = await acquire(lock);
@@ -139,10 +162,10 @@ export async function claimSharedCompile(
           // A holder may have published and released between the read above
           // and the lock.
           const published = await readPublication(publication);
-          if (published !== undefined) {
+          if (published !== undefined && published.fingerprint !== options.rejectedPublication) {
             claim.release();
             await markUsed(publication);
-            return { kind: "adopt", publication: published };
+            return { kind: "adopt", publication: published.value, fingerprint: published.fingerprint };
           }
         }
         return claim;
@@ -412,32 +435,35 @@ async function markUsed(file: string): Promise<void> {
 /** Read a publication, or `undefined` when it is absent or unusable. */
 async function readPublication(
   file: string,
-): Promise<TtscSharedCompilePublication | undefined> {
-  let text: string;
+): Promise<{ value: TtscSharedCompilePublication; fingerprint: string } | undefined> {
+  let bytes: Buffer;
   try {
-    text = await fs.promises.readFile(file, "utf8");
+    bytes = await fs.promises.readFile(file);
   } catch {
     return undefined;
   }
   try {
-    const value: unknown = JSON.parse(text);
+    const value: unknown = JSON.parse(bytes.toString("utf8"));
     // A compile that ended in diagnostics is published like one that
     // succeeded (samchon/ttsc#1458); an exception never is.
     if (
       !isPublicationRecord(value) ||
       !isPublicationResult(value.result) ||
       !isPublicationRecord(value.externalInputHashes) ||
-      !Object.values(value.externalInputHashes).every((hash) => typeof hash === "string") ||
+      !Object.values(value.externalInputHashes).every(
+        (hash) => typeof hash === "string",
+      ) ||
       !isPublicationRecord(value.externalInputRealpaths) ||
-      !Object.values(value.externalInputRealpaths).every((realpath) =>
-        realpath === null || typeof realpath === "string") ||
+      !Object.values(value.externalInputRealpaths).every(
+        (realpath) => realpath === null || typeof realpath === "string",
+      ) ||
       typeof value.scratchDirectory !== "string" ||
       (value.temporaryTsconfig !== undefined &&
         typeof value.temporaryTsconfig !== "string")
     ) {
       return undefined;
     }
-    return value as unknown as TtscSharedCompilePublication;
+    return { value: value as unknown as TtscSharedCompilePublication, fingerprint: crypto.createHash("sha256").update(bytes).digest("hex") };
   } catch {
     return undefined;
   }
@@ -450,44 +476,70 @@ function isPublicationRecord(value: unknown): value is Record<string, unknown> {
 
 /** Check the envelope fields read directly before advisory index validation. */
 function isPublicationResult(value: unknown): boolean {
-  if (!isPublicationRecord(value) ||
+  if (
+    !isPublicationRecord(value) ||
     (value.type !== "success" && value.type !== "failure") ||
     !isPublicationRecord(value.typescript) ||
-    !Object.values(value.typescript).every((source) => typeof source === "string"))
+    !Object.values(value.typescript).every(
+      (source) => typeof source === "string",
+    )
+  )
     return false;
   // Neither an explicit incomplete observer nor failed per-input authority can
   // certify cross-worker reuse. Unsupported marker shapes are not ignored.
-  if (value.observationsComplete !== undefined ||
+  if (
+    value.observationsComplete !== undefined ||
     (value.hostInputProofFailures !== undefined &&
       (!isPublicationRecord(value.hostInputProofFailures) ||
-        Object.keys(value.hostInputProofFailures).length !== 0))) return false;
+        Object.keys(value.hostInputProofFailures).length !== 0))
+  )
+    return false;
   if (value.diagnostics !== undefined) {
-    if (!Array.isArray(value.diagnostics) ||
-      !value.diagnostics.every((diagnostic) =>
-        isPublicationRecord(diagnostic) && typeof diagnostic.messageText === "string" &&
-        (diagnostic.file === undefined || typeof diagnostic.file === "string") &&
-        (diagnostic.line === undefined || typeof diagnostic.line === "number") &&
-        (diagnostic.character === undefined || typeof diagnostic.character === "number")))
+    if (
+      !Array.isArray(value.diagnostics) ||
+      !value.diagnostics.every(
+        (diagnostic) =>
+          isPublicationRecord(diagnostic) &&
+          typeof diagnostic.messageText === "string" &&
+          (diagnostic.file === undefined ||
+            typeof diagnostic.file === "string") &&
+          (diagnostic.line === undefined ||
+            typeof diagnostic.line === "number") &&
+          (diagnostic.character === undefined ||
+            typeof diagnostic.character === "number"),
+      )
+    )
       return false;
   } else if (value.type === "failure") return false;
-  if (value.graph !== undefined && !isPublicationRecord(value.graph)) return false;
-  if (value.sourceMaps !== undefined &&
+  if (value.graph !== undefined && !isPublicationRecord(value.graph))
+    return false;
+  if (
+    value.sourceMaps !== undefined &&
     (!isPublicationRecord(value.sourceMaps) ||
-      !Object.values(value.sourceMaps).every(isPublicationSourceMap))) return false;
+      !Object.values(value.sourceMaps).every(isPublicationSourceMap))
+  )
+    return false;
   return true;
 }
 
 /** Source maps must support the native source/provenance projection safely. */
 function isPublicationSourceMap(value: unknown): boolean {
-  if (!isPublicationRecord(value) || value.version !== 3 ||
+  if (
+    !isPublicationRecord(value) ||
+    value.version !== 3 ||
     typeof value.mappings !== "string" ||
     !Array.isArray(value.sources) ||
     !value.sources.every((source) => typeof source === "string") ||
     !Array.isArray(value.names) ||
     !value.names.every((name) => typeof name === "string") ||
-    (value.sourceRoot !== undefined && typeof value.sourceRoot !== "string"))
+    (value.sourceRoot !== undefined && typeof value.sourceRoot !== "string")
+  )
     return false;
-  return value.sourcesContent === undefined ||
+  return (
+    value.sourcesContent === undefined ||
     (Array.isArray(value.sourcesContent) &&
-      value.sourcesContent.every((source) => source === null || typeof source === "string"));
+      value.sourcesContent.every(
+        (source) => source === null || typeof source === "string",
+      ))
+  );
 }

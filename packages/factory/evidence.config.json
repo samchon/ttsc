@@ -2,38 +2,16 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations",
+      "name": "TypeScript types and functions",
       "type": "typescript",
-      "files": [
-        "src/**/*.ts",
-        "!src/index.ts",
-        "!src/ast/index.ts",
-        "!src/factory/index.ts",
-        "!src/TsPrinter.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "files": ["contracts/common.md"],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "printer computation and call-owned documents",
-      "type": "typescript",
-      "files": ["src/TsPrinter.ts"],
+      "files": ["src/**/*.ts"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "root": "../../.agents/skills",
+        "files": ["contracts/common.md"],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     }
   ]

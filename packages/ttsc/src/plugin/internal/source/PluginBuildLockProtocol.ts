@@ -8,11 +8,13 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  * The on-disk layout of the source-plugin build lock and the primitives every
  * lock operation shares.
  *
- * A cold source-plugin build is a multi-second-to-minutes `go build`. When a
- * program fans out into many processes (a `pnpm -r` running suites in parallel,
- * a benchmark, a worker pool), each inherits the same cold cache and would
- * otherwise build the same cache key at the same instant. The lock lets one
- * process build while the rest wait for its published binary.
+ * A cold source-plugin build delegates work to `go build`; its duration depends
+ * on the selected inputs and toolchain cache. When a program fans out into many
+ * processes (a `pnpm -r` running suites in parallel, a benchmark, a worker
+ * pool), each inherits the same cold cache and would otherwise build the same
+ * cache key at the same instant. Cooperating v3 consumers serialize build
+ * ownership while waiters observe publication or fail their admission budget;
+ * this does not serialize old-protocol clients.
  *
  * V3 lives in `<lockDir>.v3`. A complete generation is published at `current/`
  * and retired by renaming it to `retired/<generation>`. Holder and observer
@@ -101,14 +103,16 @@ export namespace PluginBuildLockProtocol {
 
   /**
    * Whether `lockDir` is a real directory (not a link) whose protocol marker
-   * has exactly the v3 content. Read failures remain an unconfirmed layout.
+   * has exactly the v3 content at its sequential metadata/read observations.
+   * The pathname is not pinned against replacement between them. Read failures
+   * remain an unconfirmed layout.
    *
    * @evidence contracts/common.md#principled-implementation lstat rejects a linked root and exact marker content distinguishes this version's filesystem protocol from unrelated directories.
    * @evidence contracts/common.md#clear-and-simple-design One layout predicate centralizes version recognition without acquiring or retiring ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Recognition reads actual metadata instead of inferring protocol from an OS name or directory suffix alone.
-   * @evidence contracts/common.md#meaningful-documentation Native prose documents physical-root and marker requirements plus inconclusive read failure before the tags.
+   * @evidence contracts/common.md#meaningful-documentation Native prose documents observed root kind and marker requirements, sequential replacement limits and inconclusive read failure before the tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node lstat exposes actual link and directory capabilities; exact marker bytes are protocol identity independent of native path case behavior.
-   * @evidence contracts/performance.md#efficient-algorithms One stat and one marker read avoid directory enumeration; read cost grows with the marker file's bytes.
+   * @evidence contracts/performance.md#efficient-algorithms One lstat and one marker read avoid directory enumeration; processing and temporary space include path construction and the marker file's bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Protocol recognition must observe the current pathname because a previously recognized layout can disappear or be replaced.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous predicate retains no open descriptor or background state.
@@ -141,12 +145,12 @@ export namespace PluginBuildLockProtocol {
    * @evidence contracts/common.md#clear-and-simple-design The operation validates the token and derives one retirement destination, leaving owner proofs to observation and collection.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Retirement preserves generation history and uses the shared native rename primitive rather than replacing fencing with a racy read followed by recursive removal.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the return/error contract, required tombstone lifetime and the reason a generation read is insufficient before the tags.
-   * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem operations feed the shared retirement helper, whose actual capability probe handles Windows open-file refusal without platform-specific deletion fallbacks.
-   * @evidence contracts/performance.md#efficient-algorithms Direct generation addressing uses a fixed number of metadata operations per attempt and avoids scanning historical tombstones; peer-held reads may require retries.
+   * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem operations feed the shared retirement helper. Selected Windows refusals retry after a successful sibling-rename probe; this is a sampled capability, not proof that a peer read caused the original refusal.
+   * @evidence contracts/performance.md#efficient-algorithms Direct generation addressing avoids historical scans. Each attempt performs path construction and native metadata/rename observations; eligible Windows retries add sibling probes and synchronous poll waits, with no attempt-count or elapsed-time bound in this retirement operation.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Retirement changes ownership; its result cannot be memoized across independently racing callers.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Renaming transfers the held directory into history rather than freeing the token's reservation; the cache collector releases it only after holder and observer absence is established.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Renaming transfers the directory into history; the cooperating collector requires holder/observer absence before removal. Retry-probe deletion is best-effort and may leave empty siblings. A continuing eligible refusal can retain this synchronous operation indefinitely; it installs no asynchronous handle.
    */
   export function retireV3PluginBuildLock(
     lockDir: string,
@@ -189,16 +193,17 @@ export namespace PluginBuildLockProtocol {
   }
 
   /**
-   * Whether a failed rename means the destination already exists. Windows
-   * reports an occupied directory destination as `EACCES` or `EPERM`, so those
-   * count only when the destination is actually present.
+   * Whether a native rename failure is treated as destination contention.
+   * EACCES/EPERM require an observed destination, but its existence does not
+   * prove it caused the failure; unrelated permissions can produce those
+   * codes.
    *
-   * @evidence contracts/common.md#principled-implementation Explicit occupied-destination codes establish contention; ambiguous Windows permission codes additionally require an observed destination.
+   * @evidence contracts/common.md#principled-implementation Explicit occupied-destination codes select contention; ambiguous permission codes select the same policy only with observed destination existence. That extra observation is a contention policy rather than a causal permission diagnosis.
    * @evidence contracts/common.md#clear-and-simple-design One adapter distinguishes destination occupation from other rename failures for protocol initialization and observer publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Permission errors alone are not relabeled as a successful peer race, so unexpected failures remain visible.
-   * @evidence contracts/common.md#meaningful-documentation Native prose explains the extra destination observation for Windows codes before the tags.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the native-error classification and the existence observation's causal limit before the tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node error codes plus an actual destination lookup represent Windows and POSIX rename outcomes through one boundary.
-   * @evidence contracts/performance.md#efficient-algorithms Constant code classification performs at most one destination existence lookup and no parent scan.
+   * @evidence contracts/performance.md#efficient-algorithms Fixed code comparisons perform at most one native destination existence lookup and no explicit parent scan; lookup costs include the destination path and native filesystem resolution.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Destination occupancy is observed at the failed operation and cannot be cached as a later ownership decision.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The adapter owns no retained handle or task.
@@ -306,13 +311,14 @@ export namespace PluginBuildLockProtocol {
 
   /**
    * Block the synchronous thread for ms without polling the clock in a loop.
-   * Callers supply a finite protocol interval and own their overall wait
-   * budget.
+   * Protocol callers supply a finite interval. This primitive imposes no
+   * overall retry budget; admission waiters manage one, while retirement's
+   * eligible native retries can continue without a deadline.
    *
    * @evidence contracts/common.md#principled-implementation Atomics.wait suspends the thread on an unchanged shared cell until its supplied timeout, providing the synchronous protocol yield.
-   * @evidence contracts/common.md#clear-and-simple-design The primitive waits once; polling and overall deadlines remain with the caller.
+   * @evidence contracts/common.md#clear-and-simple-design The primitive waits once; callers own polling and whether an overall deadline exists.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A standard waiting primitive replaces busy-spinning without a host-specific command or invented completion signal.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states blocking behavior, finite-interval input and caller-owned overall budget before the tags.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states blocking behavior, protocol interval inputs and the distinction between budgeted admission and unbounded eligible retirement retries before the tags.
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation The JavaScript shared-memory wait performs no filesystem or process-launch boundary operation.
    *

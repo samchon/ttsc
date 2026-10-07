@@ -10,23 +10,30 @@ import (
   "slices"
   "strings"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // TestProjectInputPathKeyRespectsDirectoryCaseSemantics verifies the Go host
 // keeps case-distinct Windows dependencies without splitting ordinary aliases.
 //
-// The original global case fold merged distinct files below an opted-in
-// case-sensitive directory, while preserving every spelling instead split
+// A global case fold would merge distinct files below an opted-in
+// case-sensitive directory, while preserving every spelling would split
 // ordinary NTFS, UNC, and recreated-directory aliases. Identity must instead
 // follow the case semantics of the directory that owns each path segment.
 //
 //  1. Enable case sensitivity on a disposable directory and create two real
 //     dependencies whose paths differ only by case.
-//  2. Prove merged publication and owner matching retain both identities.
-//  3. Prove glob matching and reload containment obey each owning directory.
-//  4. Prove missing suffixes also retain case under an opted-in directory.
-//  5. On an ordinary directory, prove existing and missing aliases converge.
+//  2. Compare stored-input aggregation and owner matching for both identities.
+//  3. Compare glob matching and reload containment at the owning directories.
+//  4. Compare missing suffixes under an opted-in directory.
+//  5. On an ordinary directory, compare existing and missing aliases.
 //  6. Change a live directory's flag and normalize UNC volume aliases.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct stored input aggregation, owner selection, glob and reload predicates distinguish case-sensitive siblings and insensitive aliases. Missing-suffix keys react to a directory flag change and recreation. Literal UNC volume assembly and conditional native extended-UNC/junction cases exercise separate path identities; no client publication or actual plugin reload is observed.
+// @evidence contracts/testing.md#independent-expectations Owned native files and observed directory semantics establish equality/inequality premises. Literal transport owner keys and the literal UNC key do not reuse the key helpers as expected values; shared normalization/digest helpers establish inputs and do not independently certify fingerprint correctness.
+// @evidence contracts/testing.md#distinguishing-cases Existing and missing paths, sensitive siblings, an insensitive child, ordinary aliases, live flag changes, recreation, literal UNC volumes, conditional extended UNC, physical junction ownership, junction creation, deletion and retarget are distinct lanes. Setup-error and unavailable-share skips leave those native lanes unverified on that run.
+// @evidence contracts/testing.md#execution-ownership This Windows-only discoverable Go unit directly calls owning native filesystem identity and stored-input policy operations. Owned fsutil and cmd mklink setup children use CombinedOutput once per invocation and private opt-in observation; setup failures retain existing skips without certifying their cause. No Go build, native plugin sidecar, installed consumer, editor or product host executes.
 func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
   sensitiveRoot := t.TempDir()
   enableProjectInputCaseSensitivity(t, sensitiveRoot)
@@ -80,8 +87,8 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
   ) {
     t.Fatalf("case-sensitive merged files = %#v", merged.Files)
   }
-  assertProjectInputOwners(t, source, firstInput, []string{pluginKey(first)})
-  assertProjectInputOwners(t, source, secondInput, []string{pluginKey(second)})
+  assertProjectInputOwners(t, source, firstInput, []string{"ttsc-case-sensitive-first\x000"})
+  assertProjectInputOwners(t, source, secondInput, []string{"ttsc-case-sensitive-second\x000"})
   if projectInputPathContains(firstDirectory, secondInput) {
     t.Fatal("case-sensitive sibling was classified as a descendant")
   }
@@ -115,7 +122,7 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
     t,
     sensitiveGlobSource,
     lowerJSON,
-    []string{pluginKey(first)},
+    []string{"ttsc-case-sensitive-first\x000"},
   )
   assertProjectInputOwners(t, sensitiveGlobSource, upperJSON, nil)
 
@@ -141,7 +148,7 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
     t,
     mixedGlobSource,
     mixedJSON,
-    []string{pluginKey(first)},
+    []string{"ttsc-case-sensitive-first\x000"},
   )
 
   firstMissing := filepath.Join(firstDirectory, "Missing.json")
@@ -184,7 +191,7 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
     t,
     ordinaryGlobSource,
     upperJSON,
-    []string{pluginKey(first)},
+    []string{"ttsc-case-sensitive-first\x000"},
   )
 
   ordinarySource := &NativePluginSource{
@@ -301,13 +308,13 @@ func TestProjectInputPathKeyRespectsDirectoryCaseSemantics(t *testing.T) {
       t,
       junctionSource,
       exact,
-      []string{pluginKey(first)},
+      []string{"ttsc-case-sensitive-first\x000"},
     )
     assertProjectInputOwners(
       t,
       junctionSource,
       globbed,
-      []string{pluginKey(first)},
+      []string{"ttsc-case-sensitive-first\x000"},
     )
   })
 
@@ -401,9 +408,12 @@ func enableProjectInputCaseSensitivity(t *testing.T, directory string) {
     directory,
     "enable",
   )
-  if output, err := command.CombinedOutput(); err != nil {
+  observation := e2etrace.BeginCommand(command, "CombinedOutput")
+  output, err := command.CombinedOutput()
+  observation.Result(err)
+  if err != nil {
     t.Skipf(
-      "per-directory case sensitivity is unavailable: %v\n%s",
+      "per-directory case-sensitivity fixture setup failed: %v\n%s",
       err,
       output,
     )
@@ -419,7 +429,10 @@ func disableProjectInputCaseSensitivity(t *testing.T, directory string) {
     directory,
     "disable",
   )
-  if output, err := command.CombinedOutput(); err != nil {
+  observation := e2etrace.BeginCommand(command, "CombinedOutput")
+  output, err := command.CombinedOutput()
+  observation.Result(err)
+  if err != nil {
     t.Fatalf("failed to disable per-directory case sensitivity: %v\n%s", err, output)
   }
 }
@@ -439,8 +452,11 @@ func createProjectInputJunction(
     junction,
     target,
   )
-  if output, err := command.CombinedOutput(); err != nil {
-    t.Skipf("directory junction is unavailable: %v\n%s", err, output)
+  observation := e2etrace.BeginCommand(command, "CombinedOutput")
+  output, err := command.CombinedOutput()
+  observation.Result(err)
+  if err != nil {
+    t.Skipf("directory-junction fixture setup failed: %v\n%s", err, output)
   }
 }
 

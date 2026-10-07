@@ -2,9 +2,9 @@
 // nothing beyond what the engine would synthesize on its own. Two
 // shapes fire:
 //
-//   - Empty body, no parameters, no accessibility/decorator modifiers.
-//     The engine generates an identical implicit constructor when the
-//     class declares none, so the explicit declaration is pure noise.
+//   - Empty base constructor, no parameters, no restricted visibility or
+//     decorator effects. A derived empty body is not this shape: its implicit
+//     constructor would invoke super with every caller argument.
 //
 //   - Derived constructor that does nothing but forward to `super(...args)`
 //     unchanged. The default constructor of a subclass already forwards
@@ -15,7 +15,7 @@
 //     means the constructor still has a purpose and is left alone.
 //
 // Constructors that carry parameter properties (`constructor(private x:
-// number)`) or accessibility / decorator modifiers are skipped: removing
+// number)`), restricted visibility or decorator effects are skipped: removing
 // them would change the class shape or its observable metadata, so they
 // are never "useless" by this rule's standard.
 // https://typescript-eslint.io/rules/no-useless-constructor/
@@ -23,6 +23,9 @@ package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
+// noUselessConstructor detects empty base construction and unchanged derived
+// rest forwarding. Fixed argument lists have meaning even when each declared
+// parameter is passed through, because they filter additional caller arguments.
 type noUselessConstructor struct{}
 
 func (noUselessConstructor) Name() string           { return "no-useless-constructor" }
@@ -35,7 +38,7 @@ func (noUselessConstructor) Check(ctx *Context, node *shimast.Node) {
   // Accessibility modifiers (`private`/`protected`) on the constructor
   // itself are load-bearing: they restrict who can `new` the class.
   // Removing the constructor would silently widen visibility.
-  if node.ModifierFlags()&(shimast.ModifierFlagsPrivate|shimast.ModifierFlagsProtected) != 0 {
+  if node.ModifierFlags()&(shimast.ModifierFlagsPrivate|shimast.ModifierFlagsProtected) != 0 || len(node.Decorators()) != 0 {
     return
   }
   if hasParameterProperty(node) {
@@ -47,18 +50,17 @@ func (noUselessConstructor) Check(ctx *Context, node *shimast.Node) {
   }
   params := node.Parameters()
 
-  // Shape 1: empty body, no parameters. The implicit constructor that
-  // the engine generates when no constructor is written is identical,
-  // so the explicit declaration is noise.
-  if len(params) == 0 && len(body.Statements.Nodes) == 0 {
+  // Shape 1 is an empty base constructor. Derived classes require the separate
+  // all-argument forwarding check below.
+  if len(params) == 0 && len(body.Statements.Nodes) == 0 && !classExtendsAnother(node.Parent) {
     ctx.Report(node, "Useless empty constructor.")
     return
   }
 
   // Shape 2: derived class constructor that only forwards arguments to
-  // `super(...args)` without modification. The synthetic default
-  // constructor of a subclass behaves identically, so the explicit
-  // declaration is noise. Only fires when the class extends another.
+  // `super(...args)` without modification. This is a forwarding syntax policy:
+  // the synthetic derived constructor forwards all arguments directly, while
+  // explicit rest spread also observes the array iterator.
   parent := node.Parent
   if parent == nil || !classExtendsAnother(parent) {
     return
@@ -115,21 +117,13 @@ func isPlainSuperForwarder(params []*shimast.Node, stmt *shimast.Node) bool {
     return false
   }
   args := call.Arguments.Nodes
-  // `super()` — zero arguments — only matches when the constructor
-  // also declares zero parameters. ESLint flags this shape too: the
-  // synthetic default constructor of a derived class would call
-  // `super(...args)`, which for a zero-arg case is the same thing.
-  if len(args) == 0 {
-    return len(params) == 0
-  }
-  if len(args) != len(params) {
+  // Only a single rest parameter preserves every caller argument. Zero or
+  // fixed positional parameters filter additional arguments; even a fixed
+  // prefix plus a rest changes missing arguments into explicit undefined.
+  if len(args) != 1 || len(params) != 1 {
     return false
   }
-  // All arguments must be `...name` spreading the identically named
-  // rest parameter. ESLint also accepts the positional `super(a, b)`
-  // over `(a, b)` shape — match that too: every parameter must be a
-  // plain identifier (or rest), and the argument must spread/use the
-  // same identifier in the same position.
+  // The one spread must refer to the one rest parameter.
   for i, arg := range args {
     paramName, paramRest, ok := plainParamIdentifier(params[i])
     if !ok {
@@ -142,7 +136,7 @@ func isPlainSuperForwarder(params []*shimast.Node, stmt *shimast.Node) bool {
     if paramName != argName {
       return false
     }
-    if paramRest != argSpread {
+    if !paramRest || !argSpread {
       return false
     }
   }
@@ -169,7 +163,7 @@ func plainParamIdentifier(param *shimast.Node) (string, bool, bool) {
   }
   // A parameter-property modifier would already have been caught by
   // hasParameterProperty above, but guard locally too.
-  if param.ModifierFlags()&shimast.ModifierFlagsParameterPropertyModifier != 0 {
+  if param.ModifierFlags()&shimast.ModifierFlagsParameterPropertyModifier != 0 || len(param.Decorators()) != 0 {
     return "", false, false
   }
   name := identifierText(decl.Name())

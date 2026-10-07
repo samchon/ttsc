@@ -12,6 +12,8 @@ import (
   "sync"
   "sync/atomic"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 const nativePluginCommandStdoutLimit = 4 * 1024 * 1024
@@ -21,23 +23,31 @@ const nativePluginCommandStderrLimit = 1024 * 1024
 // writes to its private manifest file after running normal project plugin
 // discovery and source-plugin builds.
 //
-// @evidence contracts/common.md#principled-implementation Descriptor entries, executable entries and initial input snapshots remain distinct; raw project context preserves the launcher-selected identity.
-// @evidence contracts/common.md#clear-and-simple-design One manifest captures immutable startup inputs without mixing later refresh state into its wire shape.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Initial snapshot keys refer to actual launcher data rather than embedded expected project selections.
+// @evidence contracts/common.md#principled-implementation Descriptor entries, executable entries and initial declarations remain distinct. Raw project context carries the declared launcher identity without authenticating it; the source separately normalizes accepted startup inputs.
+// @evidence contracts/common.md#clear-and-simple-design One manifest separates supplied startup fields from later host refresh state. Its maps, slices and raw JSON are mutable values, not an immutable capture.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Shared snapshot keys select supplied manifest entries rather than embedded expected selections; required-key lookup and host normalization own admission, not this wire shape.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the launcher producer and selection-change effect, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Binary locations and project context carry native paths separately from diagnostic URIs; the source performs native interpretation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms The manifest carries startup values; construction selects discovery and validation algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The value does not coordinate producer reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resource acquisition belongs to the constructed source rather than this transport value.
 type NativePluginManifest struct {
+  // InitialProjectInputs holds shared startup declarations selected by entry key.
   InitialProjectInputs map[string]LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
-  Plugins              []NativePluginConfigEntry          `json:"plugins"`
-  LSPPlugins           []NativeLSPPluginEntry             `json:"lspPlugins"`
-  ProjectContext       json.RawMessage                    `json:"projectContext,omitempty"`
+
+  // Plugins contains the compact descriptor configuration passed to sidecars.
+  Plugins []NativePluginConfigEntry `json:"plugins"`
+
+  // LSPPlugins contains executable entries whose declared flags admit queries.
+  LSPPlugins []NativeLSPPluginEntry `json:"lspPlugins"`
+
+  // ProjectContext carries opaque launcher JSON; the source reads supplied
+  // physical project/config locations and separately gates forwarding it.
+  ProjectContext json.RawMessage `json:"projectContext,omitempty"`
 
   // SelectionInputs are what the plugin selection itself was loaded from. A
-  // change to one ends the session like a plugin's own reload input
-  // (samchon/ttsc#1507).
+  // reported change is compared by the host's restart-selection policy. The
+  // value itself does not register a watcher or certify that a change arrived.
   SelectionInputs *NativePluginSelectionInputs `json:"selectionInputs,omitempty"`
 }
 
@@ -53,15 +63,21 @@ type NativePluginManifest struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work It does not coordinate configuration reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It carries data without a native resource lifecycle.
 type NativePluginConfigEntry struct {
+  // Config is decoded JSON configuration, separate from executable metadata.
+  // Numeric values follow encoding/json's ordinary interface-value decoding.
   Config map[string]any `json:"config"`
-  Name   string         `json:"name"`
-  Stage  string         `json:"stage"`
+
+  // Name identifies the descriptor passed through the compact plugin protocol.
+  Name string `json:"name"`
+
+  // Stage selects the descriptor's configured plugin lane.
+  Stage string `json:"stage"`
 }
 
 // NativeLSPPluginEntry names one built sidecar that opted into the LSP
 // protocol through its JavaScript descriptor capabilities.
 //
-// @evidence contracts/common.md#principled-implementation Binary identity, initial snapshots and capability flags distinguish supported native operations without assuming every descriptor supports every verb.
+// @evidence contracts/common.md#principled-implementation Executable path, initial snapshots and declared capability flags distinguish query admission without assuming every descriptor advertises every verb. The path/flags are supplied metadata, not artifact identity or runtime capability authentication.
 // @evidence contracts/common.md#clear-and-simple-design Executable capabilities remain separate from generic plugin configuration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Capability flags come from the descriptor contract rather than probing known package names.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the opt-in boundary, following the documentation skill.
@@ -70,23 +86,41 @@ type NativePluginConfigEntry struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The entry describes identity inputs without coordinating execution reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The source owns processes started from this descriptor.
 type NativeLSPPluginEntry struct {
-  Binary                 string                   `json:"binary"`
-  InitialProjectInputKey string                   `json:"initialProjectInputKey,omitempty"`
-  InitialProjectInputs   *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
-  Name                   string                   `json:"name,omitempty"`
-  ProjectDiagnostics     bool                     `json:"projectDiagnostics,omitempty"`
-  ProjectInputs          bool                     `json:"projectInputs,omitempty"`
-  ProjectContextArgs     bool                     `json:"projectContextArgs,omitempty"`
-  Stage                  string                   `json:"stage,omitempty"`
+  // Binary selects exec's native executable; it is not an artifact fingerprint.
+  Binary string `json:"binary"`
+
+  // InitialProjectInputKey refers to the manifest's shared startup snapshot.
+  // A nonempty key takes precedence over InitialProjectInputs.
+  InitialProjectInputKey string `json:"initialProjectInputKey,omitempty"`
+
+  // InitialProjectInputs optionally supplies an inline startup declaration.
+  InitialProjectInputs *LSPProjectInputSnapshot `json:"initialProjectInputs,omitempty"`
+
+  // Name is optional descriptor labeling used in source diagnostics.
+  Name string `json:"name,omitempty"`
+
+  // ProjectDiagnostics admits dedicated project-diagnostic queries.
+  ProjectDiagnostics bool `json:"projectDiagnostics,omitempty"`
+
+  // ProjectInputs admits input declaration discovery and startup snapshots.
+  ProjectInputs bool `json:"projectInputs,omitempty"`
+
+  // ProjectContextArgs permits the separate project-context JSON argument when
+  // one is available; it also distinguishes the selected transport key.
+  ProjectContextArgs bool `json:"projectContextArgs,omitempty"`
+
+  // Stage carries descriptor stage metadata independently of these query flags.
+  Stage string `json:"stage,omitempty"`
 }
 
 // NativePluginSourceOptions configures a sidecar-backed PluginSource.
 //
 // ManifestJSON is the launcher manifest, Cwd and Tsconfig name the client's
-// selected project, and Err receives source diagnostics without owning closure.
+// selected project, and Err receives discovery and transport logs without
+// transferring ownership of the writer's closure.
 //
 // @evidence contracts/common.md#principled-implementation Client identity and manifest data permit the source to distinguish logical publication from physical sidecar execution context.
-// @evidence contracts/common.md#clear-and-simple-design Construction captures all dependencies in one invocation value.
+// @evidence contracts/common.md#clear-and-simple-design The value groups explicit construction inputs; command execution still obtains the process environment from its owning transport.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A caller-supplied log sink avoids global stderr mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies project inputs and log closure ownership, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Cwd and Tsconfig are native project locations; manifest parsing handles separate physical context rather than inferring identity from OS names.
@@ -94,16 +128,25 @@ type NativeLSPPluginEntry struct {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction owns producer coordination.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The constructed source acquires resources; these options do not.
 type NativePluginSourceOptions struct {
-  Cwd          string
-  Err          io.Writer
+  // Cwd is the client's selected working directory before manifest context
+  // supplies a separate physical execution root.
+  Cwd string
+
+  // Err is an optional log destination; the source does not close it.
+  Err io.Writer
+
+  // ManifestJSON is supplied startup metadata decoded by the constructor.
   ManifestJSON string
-  Tsconfig     string
+
+  // Tsconfig preserves the client's selected config spelling independently of
+  // any physical config path supplied by the manifest context.
+  Tsconfig string
 }
 
 // NativePluginSource implements PluginSource by delegating to native sidecars
 // that explicitly support ttsc's LSP subcommands.
 //
-// Close terminates native children and rejects later process starts. Refresh
+// Close requests child termination and rejects later process starts. Refresh
 // failures preserve last-good producer publications until a successful update.
 //
 // @evidence contracts/common.md#principled-implementation Per-producer records distinguish last-good state from current generations; transport identity includes the executable and negotiated project-context arguments.
@@ -124,9 +167,9 @@ type NativePluginSource struct {
   clientTsconfig     string
   clientCwd          string
 
-  // The client's project resolves once. Both halves are fixed for the
-  // session, while the answer costs a symlink walk per ancestor, and the
-  // question is asked again for every producer on every publication.
+  // The client's physical project path and key resolve once for this source.
+  // Later publication URI comparisons resolve each candidate against that
+  // cached key; they do not revalidate the client's physical target.
   clientProjectOnce sync.Once
 
   clientProject    string
@@ -156,9 +199,9 @@ type NativePluginSource struct {
   // register one.
   hintsObserver func()
 
-  // hintsRefresh serializes and coalesces corpus refreshes. A refresh loads a
-  // Program per plugin, so scheduling one per editor event without coalescing
-  // would stack process spawns behind each other.
+  // hintsRefresh serializes and coalesces corpus refreshes. Producers may use
+  // resident transports or direct commands; this state does not certify how
+  // many Programs they construct or when an editor event reaches them.
   hintsRefresh coalescingRefresh
 
   owners map[string]NativeLSPPluginEntry
@@ -180,10 +223,10 @@ type NativePluginSource struct {
   pluginProjectDiagnostics   map[string]projectDiagnosticRecord
   projectDiagnosticsSequence atomic.Uint64
 
-  // residentMu guards the resident-daemon table below. A resident sidecar keeps
-  // a warm Program across verbs, so lsp-diagnostics / lsp-code-actions reuse it
-  // instead of respawning per verb; serveUnsupported remembers a sidecar that
-  // predates lsp-serve so the source stops retrying it and stays on exec.
+  // residentMu guards the resident-daemon table below. Supported serve calls
+  // reuse a transport across verbs; the sidecar owns its Program lifecycle.
+  // serveUnsupported records failed initial serve admission so later calls
+  // use direct commands rather than retrying that transport.
   residentMu sync.Mutex
 
   residents        map[string]*residentSidecar
@@ -214,18 +257,20 @@ func (s *NativePluginSource) commandContext() context.Context {
   return s.processContext
 }
 
-// Close ends this source's session and terminates its native children. Calls
-// after Close cannot start another child. A running rule has no computation
-// deadline while the source remains open.
+// Close marks the session closed, cancels its command context and attempts
+// resident pipe closure, kill and Wait. It always returns nil rather than
+// reporting cleanup errors and does not join one-shot calls or refresh tasks.
+// Calls after Close cannot start another child through that cancelled context.
+// A running rule has no computation deadline while the source remains open.
 //
-// @evidence contracts/common.md#principled-implementation Marking the source closed and cancelling its shared context precede waiting for resident locks, so blocked reply reads can finish before teardown joins their processes.
-// @evidence contracts/common.md#clear-and-simple-design One idempotent source boundary terminates both one-shot and resident children and closes refresh scheduling.
+// @evidence contracts/common.md#principled-implementation Closed state and shared cancellation precede resident-lock acquisition, allowing the cancellation callback to close owned reply pipes. Resident cleanup attempts Wait, but ignored pipe/kill/wait errors and the nil return do not certify successful termination of every running task.
+// @evidence contracts/common.md#clear-and-simple-design One idempotent boundary revokes future starts, cancels one-shot/resident command contexts, closes refresh scheduling and serially cleans detached residents. One-shot calls and refresh computations own their own completion.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation corrects process ownership rather than adding a timeout to conceal a blocked shutdown.
 // @evidence contracts/common.md#meaningful-documentation Native prose states post-close behavior and the absence of a computation deadline, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation CommandContext cancellation and pipe closure use Go abstractions across native platforms; inherited descendant processes are not themselves owned or recursively terminated.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Teardown owns lifecycle rather than a computation processing strategy.
+// @evidence contracts/performance.md#efficient-algorithms Teardown detaches the resident map and traverses its entries once, acquiring each resident lock and attempting serial cleanup. Lock and process/pipe waits can dominate elapsed time; Command.WaitDelay is not an overall Close deadline, and opt-in observation adds trace serialization and writes.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Closing source ownership is not reusable computation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Shared cancellation stops native children before resident Wait; closed schedulers reject new work and discard queued reruns. Already running callbacks and caller-owned writers have no independent join or timeout here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Shared cancellation requests child termination before resident Wait; pipe/kill/wait errors are ignored while resident handles are cleared. Closed schedulers discard queued reruns, but Close does not join one-shot calls, refresh tasks, cancellation callbacks or caller-owned writers, recursively terminate descendants, or impose an overall timeout. Corpus and other cache fields are not cleared by this transition and remain retained while the source is reachable.
 func (s *NativePluginSource) Close() error {
   s.shutdownResidents()
   return nil
@@ -258,17 +303,19 @@ func (b *limitedBuffer) Bytes() []byte {
   return b.buf.Bytes()
 }
 
-// NewNativePluginSource parses a launcher-produced manifest and discovers the
-// command ids owned by every LSP-capable sidecar.
+// NewNativePluginSource parses a launcher-produced manifest, discovers command
+// ownership, and initializes retained project inputs. Discovery failures are
+// logged and skipped; successful construction does not certify that every
+// sidecar answered or that sequential input observations share one capture.
 //
-// @evidence contracts/common.md#principled-implementation Parsed manifest snapshots are normalized and fingerprint-checked before acceptance; the source retains logical client identity while honoring physical sidecar context.
+// @evidence contracts/common.md#principled-implementation Parsed startup snapshots are normalized and their selected reload fingerprints compared before storage. Supplied digest syntax and sequential equality are not producer-capture authentication; native failure markers can compare equal. Logical client spelling remains separate from the supplied sidecar context.
 // @evidence contracts/common.md#clear-and-simple-design Static command discovery precedes snapshot initialization; optional corpus work starts through the ordinary refresh scheduler.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing initial snapshots trigger supported discovery rather than guessed selection; malformed startup identity is rejected.
-// @evidence contracts/common.md#meaningful-documentation Native prose states manifest parsing and command discovery; lifecycle comments explain asynchronous corpus startup under the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Native process arguments and snapshot paths use host path APIs; protocol URIs retain the client-selected spelling separately.
-// @evidence contracts/performance.md#efficient-algorithms Startup traverses descriptor entries and their input snapshots; transport selection deduplicates equivalent binaries before expensive command discovery.
-// @evidence contracts/performance.md#reuse-equivalent-work Command owners and capabilities are discovered once for immutable session descriptors; initial shared snapshot keys avoid rediscovering a launcher-proven graph.
-// @evidence contracts/performance.md#bound-retention-and-release-resources A construction failure closes the partially initialized source; success transfers lifetime to the caller's Close or Proxy.Run teardown. Corpus and diagnostic bytes grow with producer output under per-command caps, without a separate aggregate byte budget.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Missing snapshots use supported discovery; its failed producers are skipped rather than guessed. JSON decoding and snapshot/selection validation reject their stated malformed inputs, without authenticating the manifest's claimed physical context or producer completeness.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes accepted startup state from complete discovery; lifecycle prose explains scheduled corpus acquisition under the documentation skill.
+// @evidence contracts/portability.md#os-neutral-implementation Direct command arguments preserve executable/argument separation and sidecar cwd. Snapshot normalization uses native identity attempts with lexical or unknown-case fallbacks; client protocol spelling remains separate, and supplied physical context is not independently authenticated here.
+// @evidence contracts/performance.md#efficient-algorithms Manifest JSON bytes and descriptor/key text are processed before deduplicated command queries. Startup normalization, file-byte hashing, directory listings and native case/path probes delegate real I/O; each accepted producer store can rebuild and sort the aggregate. Selection validation and scheduled corpus work add their own input-dependent costs; no startup deadline is imposed.
+// @evidence contracts/performance.md#reuse-equivalent-work Command ownership is retained for session descriptors after one discovery attempt per deduplicated transport, including skipped failures. Shared snapshot keys reuse supplied data after normalization and selected current comparisons, not an authenticated launcher graph; missing inputs invoke discovery and can coexist with retained successful startup records.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Failure requests shutdown of the partially initialized source; success transfers that responsibility to Close or Proxy.Run. Shutdown cancels context and attempts resident cleanup but does not join all direct calls or refresh callbacks or clear retained records. Manifest, command-owner and aggregate bytes have no independent session budget; per-command output caps do not bound total retained bytes or native execution time.
 func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource, error) {
   var manifest NativePluginManifest
   if strings.TrimSpace(opts.ManifestJSON) != "" {
@@ -282,22 +329,9 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   if err != nil {
     return nil, fmt.Errorf("ttscserver: encode plugin manifest: %w", err)
   }
-  sidecarCwd := opts.Cwd
-  sidecarTsconfig := opts.Tsconfig
-  if len(manifest.ProjectContext) > 0 {
-    var identity struct {
-      PhysicalConfigPath  string `json:"physicalConfigPath"`
-      PhysicalProjectRoot string `json:"physicalProjectRoot"`
-    }
-    if err := json.Unmarshal(manifest.ProjectContext, &identity); err != nil {
-      return nil, fmt.Errorf("ttscserver: decode project context: %w", err)
-    }
-    if strings.TrimSpace(identity.PhysicalProjectRoot) != "" {
-      sidecarCwd = identity.PhysicalProjectRoot
-    }
-    if strings.TrimSpace(identity.PhysicalConfigPath) != "" {
-      sidecarTsconfig = identity.PhysicalConfigPath
-    }
+  sidecarCwd, sidecarTsconfig, err := nativeSidecarContext(opts.Cwd, opts.Tsconfig, manifest.ProjectContext)
+  if err != nil {
+    return nil, err
   }
   source := &NativePluginSource{
     cwd:                sidecarCwd,
@@ -381,10 +415,9 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     source.projectInputs = source.flattenProjectInputsLocked()
     source.projectInputsMu.Unlock()
   }
-  // The corpus fetch loads a Program, so it runs off the construction path.
-  // Blocking here would delay initialize — and therefore the editor's first
-  // response — for a feature most projects do not use. Until it lands,
-  // CompletionHints answers nil and the editor sees exactly what it sees today.
+  // Optional corpus queries run off the construction path so their native
+  // execution does not block initialize. CompletionHints may remain nil until
+  // an accepted corpus lands; nil does not certify successful absence.
   //
   // The first fetch goes through the same scheduler every later refresh uses,
   // so startup and mid-session rediscovery share one generation counter and one
@@ -394,17 +427,19 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   return source, nil
 }
 
-// Diagnostics asks every LSP-capable sidecar for document diagnostics and its
-// separate project publication.
+// Diagnostics queries each selected native transport for document diagnostics
+// and any embedded project publication. Failed queries/decodes are logged and
+// skipped; an empty document result does not certify that all producers succeeded.
+// Project output can aggregate last-good records from different request generations.
 //
-// @evidence contracts/common.md#principled-implementation Legacy document arrays and structured document/project results are decoded separately; successful producer generations update only their own project publication.
+// @evidence contracts/common.md#principled-implementation Legacy arrays and structured results use separate decoding paths. A nonempty project URI enters that producer's generation-guarded store, while the response marker records receipt even if an older store is rejected. Aggregation can therefore report current retained records rather than one common request capture; skipped failures do not certify successful absence.
 // @evidence contracts/common.md#clear-and-simple-design Transport deduplication and result decoding are shared helpers; document and project outputs remain distinct.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy wire decoding is a supported protocol difference, while failed producers retain explicitly last-good project state rather than claiming fresh output.
 // @evidence contracts/common.md#meaningful-documentation Native prose states document and project contribution scope, following the documentation skill.
-// @evidence contracts/portability.md#os-neutral-implementation Sidecars receive native executable/argv vectors and logical document URIs separately; project publication maps physical producer identity back to the client's logical config URI.
-// @evidence contracts/performance.md#efficient-algorithms Each distinct transport runs once; decoding and result appending scale with returned bytes and diagnostics. Project aggregation follows descriptor order.
-// @evidence contracts/performance.md#reuse-equivalent-work Resident daemons reuse compiler state across supported read verbs; save and watched-input invalidation distinguish incremental changes from topology reloads. Document results are not cached solely by URI.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Command output is capped, residents live until source Close, and one last-good project record is retained per producer. Concurrent document callers are not subject to an outstanding-request count cap.
+// @evidence contracts/portability.md#os-neutral-implementation Native executable/argv and logical document URI values are separated. Project URI restatement uses native realpath/ancestor fallback and, on Windows, owning-directory case queries; failed observation preserves distinctions or lexical spelling rather than certifying physical producer/artifact identity.
+// @evidence contracts/performance.md#efficient-algorithms One query iteration per selected transport can involve a resident attempt and one-shot fallback. Work includes transport/key-byte hashing, native IO, structured/legacy decoding, diagnostic appends and per-publication copies. Manifest-ordered aggregation additionally resolves each project URI through native path/case queries while holding its read lock; logging can also block and observation adds trace IO.
+// @evidence contracts/performance.md#reuse-equivalent-work Resident requests share sidecar state and carry queued invalidations; actual freshness still depends on caller notifications and producer behavior. Last-good project records have per-producer generation guards, not a common filesystem capture, and document replies are not cached solely by URI.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Per-command output caps do not bound aggregate document/project values or concurrent callers. Last-good project records and their nested payloads have no aggregate age/byte budget and survive Close while the source is reachable; shallow diagnostic copies can share nested data with returned values. Native commands have source cancellation and post-exit/cancellation WaitDelay but no open-session computation deadline; Close does not certify all task or descendant termination.
 func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsResult {
   if s == nil || doc.URI == "" {
     return LSPDiagnosticsResult{}
@@ -452,16 +487,19 @@ func decodeNativeDiagnostics(body []byte) (LSPDiagnosticsResult, error) {
   return LSPDiagnosticsResult{Document: legacy}, nil
 }
 
-// CodeActions asks every LSP-capable sidecar for actions matching the request.
+// CodeActions asks each selected native transport for command-backed actions.
+// Failed queries or invalid replies are logged and skipped; the returned slice
+// does not report whether all producers succeeded. Range/context marshal errors
+// are ignored, so malformed raw context data can leave an empty argument.
 //
-// @evidence contracts/common.md#principled-implementation Range/context are serialized unchanged; direct edits and unowned commands are rejected because native actions execute through advertised ownership.
+// @evidence contracts/common.md#principled-implementation Range/context values are JSON-encoded for the selected transport, with marshal errors currently ignored rather than certified as unchanged payloads. Direct edits, commandless actions and commands owned by another advertised transport are rejected; skipped producer failures do not certify a complete or successfully empty result.
 // @evidence contracts/common.md#clear-and-simple-design Producer queries and ownership validation share the existing transport and command map.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Edit rejection is a native ownership boundary, not a success-shaped substitute for implementing an advertised command.
 // @evidence contracts/common.md#meaningful-documentation Native prose states matching inputs; nearby validation comments explain command-only ownership under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation URI remains protocol data while native exec receives separate argv entries; no shell quoting or OS-name-based path folding occurs.
-// @evidence contracts/performance.md#efficient-algorithms Transport deduplication precedes queries; action validation is linear in returned action count with constant-time command owner lookup.
-// @evidence contracts/performance.md#reuse-equivalent-work Resident read verbs share valid compiler state; actions remain specific to URI, range and context instead of sharing by returned shape.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Returned actions transfer to the caller; resident processes terminate on Close and response bytes are capped. There is no independent cap on concurrently waiting callers.
+// @evidence contracts/performance.md#efficient-algorithms Transport selection hashes binary/context-mode key bytes before serial producer queries. Costs include range/context encoding, native work and blocking, reply decoding, raw-edit trimming, command/key hashing and log formatting, not just action counts or constant-time ownership lookup. Fallback can add a one-shot spawn after a resident transport failure; opt-in observation adds serialization and IO.
+// @evidence contracts/performance.md#reuse-equivalent-work Resident requests serialize their pipe and carry queued invalidations, while actual freshness requires caller change notifications and sidecar behavior. Actions remain URI/range/context-specific; this method has no response-shape cache and failed transports can fall back to a fresh command.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each native reply has a byte cap, but aggregate decoded actions across producers, request encoding and concurrently waiting callers are uncapped here. Returned values can retain decoded strings/raw data. Close requests cancellation and attempts resident cleanup without certifying every task's termination; rule computation has no open-session deadline, and caller-owned logging can block.
 func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeActionContext) []LSPCodeAction {
   if s == nil || uri == "" {
     return nil
@@ -491,16 +529,8 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
       continue
     }
     for _, action := range actions {
-      if hasDirectCodeActionEdit(action.Edit) {
-        s.log("ttscserver: %s returned direct LSP edit for action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
-        continue
-      }
-      if action.Command == nil {
-        s.log("ttscserver: %s returned commandless LSP action %q; command-backed actions are required", pluginLabel(plugin), action.Title)
-        continue
-      }
-      if !s.pluginOwnsCommand(plugin, action.Command.Command) {
-        s.log("ttscserver: %s returned unowned LSP command %q", pluginLabel(plugin), action.Command.Command)
+      if rejection := nativeCodeActionRejection(plugin, action, func(command string) bool { return s.pluginOwnsCommand(plugin, command) }); rejection != "" {
+        s.log("%s", rejection)
         continue
       }
       out = append(out, action)
@@ -517,7 +547,7 @@ func (s *NativePluginSource) CodeActions(uri string, rng LSPRange, ctx LSPCodeAc
 // @evidence contracts/common.md#prohibited-implementation-shortcuts This forwarding entry does not maintain a separate command interpretation.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the advertised owner boundary, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation The delegated operation owns executable argv and native working-directory interpretation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ExecuteCommandWithContent owns command processing.
+// @evidence contracts/performance.md#efficient-algorithms Delegation performs the content-aware executor's command-key hashing, raw-argument encoding, native command work and reply decoding. This wrapper adds no duplicate interpretation but does not remove those payload-dependent and blocking costs.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The delegated operation owns the effectful command policy.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native child ownership belongs to the delegated executor and source lifetime.
 func (s *NativePluginSource) ExecuteCommand(command string, args []json.RawMessage) (*LSPWorkspaceEdit, error) {
@@ -530,18 +560,18 @@ func (s *NativePluginSource) ExecuteCommand(command string, args []json.RawMessa
 // adding the --content-stdin flag and piping content to the sidecar's stdin, so
 // the proxy can format dirty editor buffers (formatOnSave) without first writing
 // them to disk. hasContent — not content != "" — gates the in-memory path: an
-// empty buffer the user cleared is a valid document state and must still format
-// in-memory (to a no-op) rather than falling through to stale disk content.
+// empty buffer the user cleared still travels through stdin rather than falling
+// through to stale disk content. The sidecar determines the returned edits.
 // Decoding of the returned WorkspaceEdit is identical to ExecuteCommand.
 //
 // @evidence contracts/common.md#principled-implementation Advertised ownership selects the producer; hasContent distinguishes an empty live buffer from absent buffer input. Invalid raw argument JSON is rejected before a process starts.
-// @evidence contracts/common.md#clear-and-simple-design One executor handles disk and stdin modes, then decodes the supported WorkspaceEdit shape.
+// @evidence contracts/common.md#clear-and-simple-design One executor handles disk and stdin modes, accepts null or decodes the changes-only WorkspaceEdit shape, and rejects non-null documentChanges. Decoding does not certify edit coordinates, URI ownership or semantic correctness.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty content does not trigger a stale-disk fallback; unknown commands return the ownership sentinel.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain empty-buffer semantics and shared decoding, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation exec receives binary and separate flags; live buffer text travels through stdin without shell interpolation or newline rewriting.
-// @evidence contracts/performance.md#efficient-algorithms Argument encoding and edit decoding scale with payload bytes; strings.Reader supplies existing content without creating a concatenated command string.
+// @evidence contracts/performance.md#efficient-algorithms Costs include command-string hashing, raw argument validation/encoding and copies, native execution and IO, then two JSON passes for non-null edit replies. strings.Reader shares existing content rather than concatenating it into argv, but transport still consumes its bytes; opt-in observation adds serialization and trace writes.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Executing a workspace command may cause external effects, so matching inputs do not authorize shared execution.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Each child is waited and tied to source cancellation; stdout/stderr caps bound retained output and WaitDelay limits inherited-pipe draining after exit. Concurrent command count is not capped.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Cmd.Run waits a successfully started direct child and uses the source cancellation context; output buffers have per-child byte caps and WaitDelay applies after cancellation or process exit rather than imposing a computation deadline. Argument/content inputs, concurrent calls and aggregate decoded edit ownership are not independently capped here. Source.Close does not join these calls or certify descendant termination; returned edits remain caller-owned.
 func (s *NativePluginSource) ExecuteCommandWithContent(command string, args []json.RawMessage, content string, hasContent bool) (*LSPWorkspaceEdit, error) {
   if s == nil {
     return nil, ErrCommandNotHandled
@@ -550,18 +580,9 @@ func (s *NativePluginSource) ExecuteCommandWithContent(command string, args []js
   if !ok {
     return nil, ErrCommandNotHandled
   }
-  argsJSON, encodeErr := json.Marshal(args)
+  cmdArgs, stdin, encodeErr := nativeExecuteCommandInput(command, args, content, hasContent)
   if encodeErr != nil {
-    return nil, fmt.Errorf("ttscserver: encode command arguments: %w", encodeErr)
-  }
-  cmdArgs := []string{
-    "--command=" + command,
-    "--arguments-json=" + string(argsJSON),
-  }
-  var stdin io.Reader
-  if hasContent {
-    cmdArgs = append(cmdArgs, "--content-stdin")
-    stdin = strings.NewReader(content)
+    return nil, encodeErr
   }
   body, err := s.runWithStdin(plugin, "lsp-execute-command", stdin, cmdArgs...)
   if err != nil {
@@ -617,28 +638,27 @@ func (s *NativePluginSource) CommandIDs() []string {
 // CompletionHints returns the corpus plugins published, or nil until it has
 // been fetched.
 //
-// Nil while loading is deliberate and is the whole reason the fetch is
-// asynchronous. Unlike lsp-command-ids and lsp-code-action-kinds — which ignore
-// their arguments and never build a Program — lsp-hints must load one, because
-// a corpus is a projection of what a project rule's Check found. Paying that on
-// the initialize path would delay every editor session for a feature most
-// projects do not use, and paying it on the first completion would freeze the
-// popup. Answering "no hints yet" degrades honestly: the editor still gets
-// tsgo's completion, and ours appear once they exist.
+// Nil while loading permits asynchronous acquisition. A project-rule hint
+// producer can load a Program to project its Check results; the producer owns
+// that work, and this accessor does not certify its internals. Acquisition is
+// scheduled outside initialization and completion reads. Nil does not distinguish
+// a pending fetch, successful empty publication or failed acquisition, and the
+// accessor supplies no producer-success status.
 //
 // The same reasoning carries to refresh. It answers the last known-good corpus
 // while a rediscovery scheduled by RefreshCompletionHints is running, so
-// completion never blocks on a producer and never observes a half-cleared
-// corpus.
+// completion does not wait for the producer request itself or observe a
+// half-cleared corpus. It can still wait for publication-lock ownership and pay
+// the ready-view copy cost.
 //
 // @evidence contracts/common.md#principled-implementation Locked publication reads return independent hint and item slices, preventing consumers from mutating producer state; failed refreshes retain last-good state explicitly.
 // @evidence contracts/common.md#clear-and-simple-design Writers materialize the ordered corpus, leaving completion reads to copy a ready view.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A retained corpus is described as last-good rather than falsely current after a failed producer call.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain asynchronous availability and refresh behavior, following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor handles protocol data only; producer execution owns the native boundary.
-// @evidence contracts/performance.md#efficient-algorithms Copying H groups and I items is O(H+I) time and returned storage; the accessor does not rebuild producer ordering.
-// @evidence contracts/performance.md#reuse-equivalent-work All requests share the flattened last-good corpus until a successful producer refresh replaces its generation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned slices belong to the caller; corpus stores and source Close own retained state.
+// @evidence contracts/performance.md#efficient-algorithms Copying H group headers and I item records is O(H+I) processing and returned slice storage without rebuilding producer order or copying string bytes. The read lock can wait for a writer's corpus flattening; returning hints is not a zero-latency guarantee.
+// @evidence contracts/performance.md#reuse-equivalent-work Callers share a flattened view of per-producer last-good records. Successful stores publish individually, so a response can mix refresh generations; retained data does not certify current inputs after failures or missing notifications.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned slices transfer to the caller and share immutable string bytes with stored records. Corpus publication owns retained data; Close revokes scheduling but does not clear these fields while the source remains reachable.
 func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
   if s == nil {
     return nil
@@ -661,23 +681,24 @@ func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
 // The corpus is a projection of what a project rule's Check found, so it goes
 // stale the moment the rule's inputs change: a saved contributor-indexed
 // document, a rule enabled in `lint.config.*`, a watched file rewritten outside
-// the editor. Without this the corpus stayed a session snapshot and only a
+// the editor. Without this the corpus would stay a session snapshot and only a
 // language-server restart could replace it.
 //
 // Asynchronous for the same reason the first fetch is (see CompletionHints):
 // the editor event that schedules a refresh must not wait for a Program load.
-// Concurrent requests coalesce into at most one queued rerun, so a save storm
-// costs one extra refresh rather than one per notification, and the previous
-// corpus keeps answering completion until the new one lands.
+// Requests arriving during one active cycle coalesce into one queued rerun.
+// Continued notifications across later cycles can schedule further reruns; there
+// is no fixed total refresh count for an entire save storm. Previous producer
+// records remain visible until their successful replacements arrive.
 //
-// @evidence contracts/common.md#principled-implementation Serial refresh generations update producer records only after successful decoding; a queued rerun observes changes reported during the active cycle.
+// @evidence contracts/common.md#principled-implementation Serial refresh generations publish producer records individually after successful decoding. A queued rerun requests later discovery rather than certifying that all reported input changes were captured or that all producers succeeded.
 // @evidence contracts/common.md#clear-and-simple-design One coalescing scheduler serves startup and later notifications.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Last-good retention follows explicit failed-refresh policy rather than masking a failure as a successful empty result.
 // @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain invalidation, nonblocking scheduling and coalescing, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Shared native command execution owns executable/argv differences; scheduling does not derive filesystem capabilities from OS labels.
-// @evidence contracts/performance.md#efficient-algorithms A refresh queries distinct transports and flattens producer corpora; total work scales with producer responses and retained item population.
+// @evidence contracts/performance.md#efficient-algorithms A cycle hashes transport/context key bytes and serially queries distinct producers, including native work, reply decoding/grouping, possible fallback and logging/observer costs. Every successful store reselects manifest transports and flattens all currently retained groups under the publication lock, so this full view can be rebuilt once per successful producer rather than once per cycle.
 // @evidence contracts/performance.md#reuse-equivalent-work Concurrent notifications share one active cycle and at most one rerun, while successful stores expose the latest producer generation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One worker and one pending rerun per source bound scheduled refresh count; Close rejects new schedules and cancels native work. Corpus bytes have producer output caps but no separate aggregate budget.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One worker and one pending rerun bound simultaneous scheduler state, not total cycles or producer runtime. Close rejects schedules and requests native cancellation without joining the running task or observer. Replies have per-producer caps, but retained last-good corpora/string bytes have no aggregate age/byte budget and are not cleared by Close; callback completion also has no deadline here.
 func (s *NativePluginSource) RefreshCompletionHints() {
   if s == nil || len(s.plugins) == 0 {
     return
@@ -696,7 +717,7 @@ func (s *NativePluginSource) RefreshCompletionHints() {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Callback registration performs no native interpretation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Assigning an observer chooses no processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Refresh scheduling owns coalesced work rather than this callback setter.
-// @evidence contracts/performance.md#bound-retention-and-release-resources One function reference is retained, replaced or cleared under hintsMu; already running callback execution is not joined here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources One function reference is retained, replaced or cleared under hintsMu, but its captured reachable data has no byte budget imposed here. Previously copied callbacks can still begin or finish after replacement; the setter does not join their execution or cancel their effects.
 func (s *NativePluginSource) SetCompletionHintsObserver(fn func()) {
   if s == nil {
     return
@@ -707,9 +728,9 @@ func (s *NativePluginSource) SetCompletionHintsObserver(fn func()) {
 }
 
 // completionHintRecord is one producer's corpus and the refresh generation that
-// produced it. The generation is what keeps a slow refresh from overwriting a
-// newer one: plugin fetches run sequentially inside a cycle, but two cycles can
-// still be in flight when a scheduled refresh outlives its successor's start.
+// produced it. Normal scheduled cycles are serial; the generation comparison
+// additionally refuses an older producer record if supplied to the store. It
+// does not certify that different producers share one filesystem capture.
 type completionHintRecord struct {
   hints      []LSPCompletionHint
   generation uint64
@@ -949,56 +970,13 @@ func (s *NativePluginSource) CodeActionKinds() []string {
 }
 
 func (s *NativePluginSource) discoverCommandIDs() {
-  seen := map[string]struct{}{}
-  kindSeen := map[string]struct{}{}
-  for _, plugin := range selectPluginTransports(
+  discoverNativeCommandRegistry(selectPluginTransports(
     s.plugins,
     nil,
     s.projectContextJSON,
-  ) {
-    body, err := s.run(plugin, "lsp-command-ids")
-    if err != nil {
-      s.log("%v", err)
-      continue
-    }
-    var ids []string
-    if err := json.Unmarshal(body, &ids); err != nil {
-      s.log("ttscserver: %s lsp-command-ids returned invalid JSON: %v", pluginLabel(plugin), err)
-      continue
-    }
-    for _, id := range ids {
-      if id == "" {
-        continue
-      }
-      if _, ok := seen[id]; ok {
-        s.log("ttscserver: duplicate LSP command id %q from %s ignored", id, pluginLabel(plugin))
-        continue
-      }
-      seen[id] = struct{}{}
-      s.commandIDs = append(s.commandIDs, id)
-      s.owners[id] = plugin
-    }
-    kindBody, kindErr := s.run(plugin, "lsp-code-action-kinds")
-    if kindErr != nil {
-      s.log("%v", kindErr)
-      continue
-    }
-    var kinds []string
-    if err := json.Unmarshal(kindBody, &kinds); err != nil {
-      s.log("ttscserver: %s lsp-code-action-kinds returned invalid JSON: %v", pluginLabel(plugin), err)
-      continue
-    }
-    for _, kind := range kinds {
-      if kind == "" {
-        continue
-      }
-      if _, ok := kindSeen[kind]; ok {
-        continue
-      }
-      kindSeen[kind] = struct{}{}
-      s.codeActionKinds = append(s.codeActionKinds, kind)
-    }
-  }
+  ), func(plugin NativeLSPPluginEntry, command string) ([]byte, error) {
+    return s.run(plugin, command)
+  }, func(message string) { s.log("%s", message) }, &s.commandIDs, &s.codeActionKinds, s.owners)
 }
 
 func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, command string) bool {
@@ -1014,37 +992,22 @@ func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, comm
 }
 
 func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, args ...string) ([]byte, error) {
-  // Route the Program-loading read verbs through the plugin's resident daemon so
-  // a warm Program is reused across verbs. serveRun returns served=false for a
-  // sidecar that predates lsp-serve or a transport failure, falling back to the
-  // spawn-per-verb path below with no behavior change. The static discovery
-  // verbs (lsp-command-ids / lsp-code-action-kinds) and lsp-execute-command stay
-  // on exec by design.
-  if command == serveVerbDiagnostics ||
-    command == serveVerbCodeActions {
-    if body, served, err := s.serveRun(plugin, command, args); served {
-      return body, err
-    }
-  }
-  if command == serveVerbProjectDiagnostics ||
-    command == serveVerbHints {
-    // These newer optional verbs join the daemon on a weaker condition than the
-    // original document reads. A staged sidecar may implement the direct verb
-    // while its older resident loop rejects it. A nonzero resident reply is
-    // indistinguishable from the verb itself failing, so retry once through the
-    // advertised direct command. A genuine failure pays one extra spawn and is
-    // then handled exactly as it was before lsp-serve.
-    if body, served, err := s.serveRun(plugin, command, args); served && err == nil {
-      return body, nil
-    }
-  }
-  return s.runWithStdin(plugin, command, nil, args...)
+  return runNativePluginRead(command, args,
+    func(verb string, arguments []string) ([]byte, bool, error) {
+      return s.serveRun(plugin, verb, arguments)
+    },
+    func(verb string, arguments []string) ([]byte, error) {
+      return s.runWithStdin(plugin, verb, nil, arguments...)
+    },
+  )
 }
 
 // runWithStdin runs a sidecar subcommand like run, additionally wiring stdin to
 // the supplied reader when it is non-nil. Callers that do not pass buffer text
 // (Diagnostics, CodeActions, discovery) reach this through run with a nil
-// reader, leaving the sidecar's stdin unset exactly as before.
+// reader, leaving the sidecar's stdin unset exactly as before. The opt-in
+// observer retains these already captured limited buffers and truncation flags
+// under the same invocation; original parsing and result ownership are unchanged.
 func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command string, stdin io.Reader, args ...string) ([]byte, error) {
   if strings.TrimSpace(plugin.Binary) == "" {
     return nil, fmt.Errorf("ttscserver: %s has no binary", pluginLabel(plugin))
@@ -1053,16 +1016,7 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   // processes. WaitDelay bounds pipe draining after exit or cancellation when
   // a descendant inherited the child's output handles.
   ctx := s.commandContext()
-  allArgs := []string{
-    command,
-    "--cwd=" + s.cwd,
-    "--tsconfig=" + s.tsconfig,
-    "--plugins-json=" + s.pluginsJSON,
-  }
-  if plugin.ProjectContextArgs && strings.TrimSpace(s.projectContextJSON) != "" {
-    allArgs = append(allArgs, "--project-context-json="+s.projectContextJSON)
-  }
-  allArgs = append(allArgs, args...)
+  allArgs := nativePluginCommandArgs(plugin, command, s.cwd, s.tsconfig, s.pluginsJSON, s.projectContextJSON, args)
   cmd := exec.CommandContext(ctx, plugin.Binary, allArgs...)
   cmd.WaitDelay = time.Second
   cmd.Dir = s.cwd
@@ -1074,20 +1028,11 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   stderr := limitedBuffer{limit: nativePluginCommandStderrLimit}
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
+  observation := e2etrace.BeginCommand(cmd, "Run")
   err := cmd.Run()
-  if err != nil {
-    msg := strings.TrimSpace(stderr.String())
-    if msg == "" {
-      msg = err.Error()
-    } else if stderr.truncated || stderr.Len() >= nativePluginCommandStderrLimit {
-      msg += " (stderr truncated)"
-    }
-    return nil, fmt.Errorf("ttscserver: %s %s failed: %s", pluginLabel(plugin), command, msg)
-  }
-  if stdout.truncated {
-    return nil, fmt.Errorf("ttscserver: %s %s produced more than %d bytes on stdout", pluginLabel(plugin), command, nativePluginCommandStdoutLimit)
-  }
-  return bytes.TrimSpace(stdout.Bytes()), nil
+  observation.Result(err)
+  observation.Output(stdout.Bytes(), stderr.Bytes(), stdout.truncated, stderr.truncated)
+  return nativePluginCommandResult(plugin, command, err, &stdout, &stderr)
 }
 
 func hasDirectCodeActionEdit(edit json.RawMessage) bool {

@@ -691,18 +691,27 @@ func isDestructuringAssignmentTarget(node *shimast.Node) bool {
     case shimast.KindForInStatement, shimast.KindForOfStatement:
       statement := parent.AsForInOrOfStatement()
       return statement != nil && statement.Initializer == child
-    }
-    if parent.Kind == shimast.KindBinaryExpression {
+    case shimast.KindBinaryExpression:
       expression := parent.AsBinaryExpression()
-      if expression != nil && expression.OperatorToken != nil &&
-        expression.OperatorToken.Kind == shimast.KindEqualsToken {
-        if expression.Left == child {
-          return true
-        }
-        if expression.Right == child {
-          return false
-        }
+      if expression == nil || expression.OperatorToken == nil ||
+        expression.OperatorToken.Kind != shimast.KindEqualsToken {
+        return false
       }
+      return expression.Left == child
+    case shimast.KindParenthesizedExpression,
+      shimast.KindAsExpression,
+      shimast.KindSatisfiesExpression,
+      shimast.KindNonNullExpression,
+      shimast.KindTypeAssertionExpression,
+      shimast.KindArrayLiteralExpression,
+      shimast.KindObjectLiteralExpression,
+      shimast.KindSpreadElement,
+      shimast.KindSpreadAssignment:
+      // Transparent: the target position is decided further up.
+    default:
+      // Any other ancestor (a member access, call, argument list, declaration)
+      // evaluates `child` as an ordinary expression, so it is not a target.
+      return false
     }
     child = parent
   }

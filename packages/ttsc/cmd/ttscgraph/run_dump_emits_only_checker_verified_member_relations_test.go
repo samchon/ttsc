@@ -12,14 +12,20 @@ import (
 // TestRunDumpEmitsOnlyCheckerVerifiedMemberRelations verifies the shipped dump
 // command serializes native member facts and does not revive a rejected pair.
 //
-// The graph reader no longer synthesizes member edges from equal names, so the
-// command boundary must prove all three layers together: compiler diagnostics,
-// native pair validation, and the public implements/overrides wire vocabulary.
+// Equal method names alone cannot justify an edge. This fixture contrasts
+// matching number parameters with a string-versus-number mismatch, observes
+// diagnostic TS2416, and checks the public implements vocabulary. It does not
+// exercise the separate overrides branch or every checker pair rule.
 //
 //  1. Dump a program with one valid and one TS2416-invalid implementation.
 //  2. Locate the container and member nodes in the serialized document.
 //  3. Require the valid member edge and its evidence, reject the invalid edge,
 //     and ensure the internal native edge kind never reaches JSON.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the maintained dump command serializes native member facts and does not revive a rejected pair.
+// @evidence contracts/testing.md#independent-expectations Authored signatures independently define a matching number-parameter implementation and a string-versus-number mismatch. Literal edge counts (one Good container and member implementation, zero Bad member implementation), public implements vocabulary and source line 5 follow from that fixture rather than the edge builder. TS2416 in the actual dump is an additional fixture diagnostic control, not an independent reference implementation or a certificate of every checker pair rule.
+// @evidence contracts/testing.md#distinguishing-cases Dump a program with one valid and one TS2416-invalid implementation; Locate the container and member nodes in the serialized document; Require the valid member edge and its evidence, reject the invalid edge, and ensure the internal native edge kind never reaches JSON.
+// @evidence contracts/testing.md#execution-ownership TestRunDumpEmitsOnlyCheckerVerifiedMemberRelations is a Go source-unit entry. runSourceDumpCommand exercises the real prepareDumpCommand grammar and encode operation; it supplies the dispatch word and does not execute the top-level dispatcher. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestRunDumpEmitsOnlyCheckerVerifiedMemberRelations(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -49,7 +55,7 @@ export class Bad implements Contract {
   var out, errBuf bytes.Buffer
   stdout, stderr = &out, &errBuf
 
-  if code := run([]string{"dump", "--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
+  if code := runSourceDumpCommand([]string{"dump", "--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
     t.Fatalf("run dump exit = %d, want 0; stderr:\n%s", code, errBuf.String())
   }
   if bytes.Contains(out.Bytes(), []byte("member-relation")) {
@@ -110,7 +116,8 @@ export class Bad implements Contract {
   for _, edge := range dump.Edges {
     if edge.From == goodExecute.ID && edge.To == contractExecute.ID && edge.Kind == "implements" {
       if edge.Evidence == nil || goodExecute.Evidence == nil ||
-        edge.Evidence.StartLine != goodExecute.Evidence.StartLine {
+        edge.Evidence.StartLine != goodExecute.Evidence.StartLine ||
+        edge.Evidence.StartLine != 5 {
         t.Fatalf("member edge evidence does not identify Good.execute: edge=%v node=%v", edge.Evidence, goodExecute.Evidence)
       }
     }

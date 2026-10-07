@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import { pluginSourceCovers } from "ttsc/plugin-source";
+
+import { pluginSourceCovers } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceCovers";
 
 /**
  * Verifies `pluginSourceCovers` answers which paths below a plugin source bear
@@ -18,64 +19,68 @@ import { pluginSourceCovers } from "ttsc/plugin-source";
  *    that name is one the build reads.
  * 3. Assert a path outside the source is not covered, and a child whose name
  *    starts with two dots is.
+ *
+ * @evidence contracts/testing.md#behavioral-verification pluginSourceCovers distinguishes build-visible entries, pruned directories and paths outside the source.
+ * @evidence contracts/testing.md#independent-expectations the build reads files named node_modules, .git and .ttsc but prunes directories carrying those names.
+ * @evidence contracts/testing.md#distinguishing-cases source root, descendants, directory versus entry, pruned descendants, sibling and parent paths and ..tools remain distinguished.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pluginSourceCovers directly with path strings (no filesystem access); no process, build or watcher host.
  */
-export const test_plugin_source_covers_answers_by_the_build_prune_rule =
-  (): void => {
-    const root = path.resolve("plugin-module");
+export function test_plugin_source_covers_answers_by_the_build_prune_rule(): void {
+  const root = path.resolve("plugin-module");
 
-    // 1. The source and its packages.
-    for (const kind of ["directory", "entry"] as const) {
-      assert.equal(pluginSourceCovers(root, root, kind), true, kind);
-      assert.equal(
-        pluginSourceCovers(root, path.join(root, "internal", "mark"), kind),
-        true,
-        kind,
-      );
-    }
+  // 1. The source and its packages.
+  for (const kind of ["directory", "entry"] as const) {
+    assert.equal(pluginSourceCovers(root, root, kind), true, kind);
     assert.equal(
-      pluginSourceCovers(root, path.join(root, "internal", "mark.go"), "entry"),
+      pluginSourceCovers(root, path.join(root, "internal", "mark"), kind),
       true,
+      kind,
     );
+  }
+  assert.equal(
+    pluginSourceCovers(root, path.join(root, "internal", "mark.go"), "entry"),
+    true,
+  );
 
-    // 2. What the build passes over.
-    for (const pruned of ["node_modules", ".git", ".ttsc"]) {
-      assert.equal(
-        pluginSourceCovers(root, path.join(root, pruned), "directory"),
-        false,
-        pruned,
-      );
-      assert.equal(
-        pluginSourceCovers(root, path.join(root, pruned), "entry"),
-        true,
-        `a file named ${pruned} is read`,
-      );
-      assert.equal(
-        pluginSourceCovers(root, path.join(root, pruned, "x", "y.go"), "entry"),
-        false,
-        pruned,
-      );
-      assert.equal(
-        pluginSourceCovers(
-          root,
-          path.join(root, "pkg", pruned, "x"),
-          "directory",
-        ),
-        false,
-        pruned,
-      );
-    }
-
-    // 3. Outside, and a name that only starts with two dots.
+  // 2. What the build passes over.
+  for (const pruned of ["node_modules", ".git", ".ttsc"]) {
     assert.equal(
-      pluginSourceCovers(root, path.join(path.dirname(root), "other"), "entry"),
+      pluginSourceCovers(root, path.join(root, pruned), "directory"),
       false,
+      pruned,
     );
     assert.equal(
-      pluginSourceCovers(root, path.dirname(root), "directory"),
-      false,
-    );
-    assert.equal(
-      pluginSourceCovers(root, path.join(root, "..tools", "gen.go"), "entry"),
+      pluginSourceCovers(root, path.join(root, pruned), "entry"),
       true,
+      `a file named ${pruned} is read`,
     );
-  };
+    assert.equal(
+      pluginSourceCovers(root, path.join(root, pruned, "x", "y.go"), "entry"),
+      false,
+      pruned,
+    );
+    assert.equal(
+      pluginSourceCovers(
+        root,
+        path.join(root, "pkg", pruned, "x"),
+        "directory",
+      ),
+      false,
+      pruned,
+    );
+  }
+
+  // 3. Outside, and a name that only starts with two dots.
+  assert.equal(
+    pluginSourceCovers(root, path.join(path.dirname(root), "other"), "entry"),
+    false,
+  );
+  assert.equal(
+    pluginSourceCovers(root, path.dirname(root), "directory"),
+    false,
+  );
+  assert.equal(
+    pluginSourceCovers(root, path.join(root, "..tools", "gen.go"), "entry"),
+    true,
+  );
+}

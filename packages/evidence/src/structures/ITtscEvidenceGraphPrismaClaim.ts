@@ -1,5 +1,5 @@
-import type { TtscEvidenceGraphPrismaSymbol } from "../typings/TtscEvidenceGraphPrismaSymbol";
 import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase";
+import type { TtscEvidenceGraphPrismaSymbol } from "./TtscEvidenceGraphPrismaSymbol";
 
 /**
  * A Prisma schema claiming its referenced evidence.

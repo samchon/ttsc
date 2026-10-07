@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { restoreStrippedNodeBuiltinScheme } from "../../../../../packages/ttsc/lib/launcher/internal/runtime/restoreStrippedNodeBuiltinScheme.js";
+import { restoreStrippedNodeBuiltinScheme } from "../../../../../packages/ttsc/src/launcher/internal/runtime/restoreStrippedNodeBuiltinScheme";
 
 /**
  * Verifies builtin URL normalization owns only Node's exact resolver defect.
@@ -13,6 +13,11 @@ import { restoreStrippedNodeBuiltinScheme } from "../../../../../packages/ttsc/l
  * 1. Normalize every known prefix-only builtin with extra resolve metadata.
  * 2. Exercise ordinary, ESM-shaped, custom, near-boundary, and non-core cases.
  * 3. Assert exact copies preserve metadata and every passthrough stays identical.
+ *
+ * @evidence contracts/testing.md#behavioral-verification restoreStrippedNodeBuiltinScheme copies exact stripped core builtin URLs, preserves metadata and returns all already-correct or remapped results by identity.
+ * @evidence contracts/testing.md#independent-expectations Literal builtin URLs and strict input object identity specify accepted normalization and unchanged resolver ownership.
+ * @evidence contracts/testing.md#distinguishing-cases Four real prefix-only builtins are changed; correct URLs, custom remaps, query suffixes, non-core and non-node specifiers remain identical.
+ * @evidence contracts/testing.md#execution-ownership The actual source adapter and Node builtin classifier execute in-process; no resolver hook or runtime host is patched.
  */
 export const test_restore_stripped_node_builtin_scheme_normalizes_only_exact_core_builtins =
   () => {

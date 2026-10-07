@@ -10,11 +10,13 @@ import type { CompilerDirectoryWatchEventPlan } from "./CompilerDirectoryWatchEv
  * A named content change of a tracked file is a candidate on every platform. On
  * POSIX the file has a watcher of its own too, and either can miss what the
  * other hears: on macOS a directory watch has heard a config edit its file
- * watch never delivered (samchon/ttsc#1583). Both are decided from the bytes
+ * watch never delivered. Both are decided from the bytes
  * (`WatchTopology.compilerChangesToReport`), so the first to see the edit
- * reports it once. A named rename re-arms the replaced file; an unnamed event
- * conservatively re-arms and reports every surviving tracked input below the
- * watch root. Windows has no per-file watchers here.
+ * reports it once. A named rename selects the surviving file for rearming; an
+ * unnamed event conservatively selects every surviving tracked input below the
+ * watch root as a change candidate and for non-Windows rearming. The caller
+ * verifies actual content/owner movement before reporting; an event alone does
+ * not prove inode replacement. Windows has no per-file watchers here.
  *
  * Native case observations belong to `identities`, shared with the caller's
  * reconciliation or created fresh here. An exact indexed member is preferred; a
@@ -26,7 +28,7 @@ import type { CompilerDirectoryWatchEventPlan } from "./CompilerDirectoryWatchEv
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual tracked membership and existence qualify candidates instead of treating every notification as an edit or guessing missing filenames.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory-only events, replacement and unnamed notifications following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Platform selects backend handle rearming only; lexical key and conservative fallback matching use native parent-directory case observations, retaining sensitive and unknown names as distinct stored inputs.
- * @evidence contracts/performance.md#efficient-algorithms A named indexed hit avoids scanning F tracked files after D-component key construction; unnamed events or a missing key require one O(FD) routing pass, with native case queries memoized within the decision.
+ * @evidence contracts/performance.md#efficient-algorithms An indexed surviving hit avoids F-member traversal after delegated lexical key work. Other cases snapshot F borrowed values before filtering, so callbacks cannot change that traversal population; snapshot plus admitted arrays require O(F) references. Routing includes path/component/ancestor/case observations, key text and supplied existence callbacks; dimensions and native-query costs are uncapped. One transaction shares repeated case observations within the decision.
  * @evidence contracts/performance.md#reuse-equivalent-work The supplied reconciliation context shares equivalent parent-directory capability observations across key construction and candidate classification; standalone decisions start fresh observations rather than historical case assumptions.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The planner borrows tracked membership and returns invocation-local candidates, retaining no watcher, historical event population or independent resident cache.

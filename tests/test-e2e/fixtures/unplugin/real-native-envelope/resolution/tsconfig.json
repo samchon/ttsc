@@ -1,0 +1,49 @@
+{
+  "extends": "./presets/base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleSuffixes": [
+      ".native",
+      ""
+    ],
+    "noImplicitAny": false,
+    "plugins": [
+      {
+        "transform": "@ttsc/banner",
+        "configFile": "./banner.config.json"
+      },
+      {
+        "transform": "@ttsc/paths"
+      },
+      {
+        "transform": "@ttsc/strip",
+        "configFile": "./strip.config.json"
+      },
+      {
+        "name": "real-envelope-compile-probe",
+        "transform": "./plugin.cjs"
+      }
+    ],
+    "jsx": "preserve",
+    "paths": {
+      "@fixture/value": [
+        "./paths/value"
+      ]
+    },
+    "rootDirs": [
+      "src",
+      "generated"
+    ],
+    "strict": true,
+    "target": "ES2022",
+    "types": [
+      "*",
+      "envelope-client/client"
+    ]
+  },
+  "include": [
+    "src"
+  ]
+}

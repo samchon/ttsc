@@ -4,6 +4,7 @@ import (
   "bytes"
   "encoding/json"
   "errors"
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -11,7 +12,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesStaleExecuteCommandError verifies command failures do
+// TestLSPProxySuppressesStaleExecuteCommandError Verifies command failures do
 // not surface after the target document changed.
 //
 // A plugin command can fail after the user edits the document it was computing
@@ -22,9 +23,18 @@ import (
 // 2. Send didChange for the same URI while the callback is blocked.
 // 3. Release the callback with a plugin error.
 // 4. Assert the response is JSON null rather than a JSON-RPC error.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns literal JSON null with no error field for a failure released after didChange.
+// @evidence contracts/testing.md#independent-expectations The independent sentinel is released only after forwarding the edit, establishing stale generation.
+// @evidence contracts/testing.md#distinguishing-cases Stale failure contrasts with ordinary failure; raw result bytes distinguish explicit null from a missing result.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxySuppressesStaleExecuteCommandError in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxySuppressesStaleExecuteCommandError(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   var called atomic.Bool
   source := &stubSource{
     commands: []string{"ttsc.lint.fixAll"},
@@ -50,17 +60,17 @@ func TestLSPProxySuppressesStaleExecuteCommandError(t *testing.T) {
   if got := h.recvUpstream(); !bytes.Equal(got, change) {
     t.Fatalf("didChange did not reach upstream before command completed:\n%s", got)
   }
-  close(release)
+  releaseCallback()
 
   body := h.recvEditor()
   var decoded struct {
-    Error  any `json:"error"`
-    Result any `json:"result"`
+    Error  json.RawMessage `json:"error"`
+    Result json.RawMessage `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
     t.Fatalf("executeCommand response not JSON: %v\n%s", err, body)
   }
-  if decoded.Error != nil || decoded.Result != nil {
+  if decoded.Error != nil || string(decoded.Result) != "null" {
     t.Fatalf("stale command failure was not suppressed:\n%s", body)
   }
 }

@@ -7,27 +7,32 @@ import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOpt
  * only ttsc's own lanes set (ttsx's private runtime builds, single-file emit,
  * watch).
  *
- * @evidence contracts/common.md#principled-implementation Public build selection is intersected with internal lane controls, preserving optional defaults while distinguishing diagnostic gating, sandbox outputs and watch callbacks.
+ * @evidence contracts/common.md#principled-implementation Public build selection is intersected with internal lane controls, preserving optional defaults while distinguishing diagnostic gating, compiler-output isolation and watch callbacks.
  * @evidence contracts/common.md#clear-and-simple-design Lane-specific decisions are explicit options on the shared build boundary rather than hidden global switches or duplicated compiler APIs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Internal controls express supported runtime/watch requirements; source-map and inferred-root exceptions are documented lane policies, not test-specific escape flags.
  * @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain ownership, optional-state effects and the rootDir premise, with blank lines separating documented properties.
- * @evidence contracts/portability.md#os-neutral-implementation The type carries native sandbox/project selection and filesystem input callbacks without embedding slash, drive or case assumptions; process/path adapters interpret those values.
+ * @evidence contracts/portability.md#os-neutral-implementation The type carries native private-output/project selection and filesystem input callbacks without embedding slash, drive or case assumptions; process/path adapters interpret those values.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type RunBuildOptions = TtscBuildOptions & {
   /**
    * Skip the independent direct-compiler type-check gate and the added
    * `--noEmitOnError` guard. Configured plugin checks and native hosts still
-   * apply their own diagnostic policy. The caller judges success by what was
-   * written, not by the status. The ttsx dependency lane sets it, because the
-   * entry project's check is the type gate and a source-shipping dependency's
-   * own config must not fail the run.
+   * apply their own diagnostic policy. It does not erase returned status or
+   * make failed plugin checks successful. The ttsx dependency lane may judge
+   * usable emitted output under its own policy and sets it because the entry
+   * project's check is the type gate and a source-shipping dependency's own
+   * config must not fail the run.
    */
   skipDiagnosticsCheck?: boolean;
 
   /**
-   * Pass `--listEmittedFiles` so the result carries the emitted paths even when
-   * the user did not ask for them. Callers that must locate one emitted file
-   * (ttsx, single-file emit) set it.
+   * Request `--listEmittedFiles` when the user did not ask for paths. Later
+   * forwarded assignments can still override this internal default, and actual
+   * producer output determines what is returned. Callers locating one emitted
+   * file (ttsx, single-file emit) set it.
    */
   forceListEmittedFiles?: boolean;
 
@@ -43,7 +48,10 @@ export type RunBuildOptions = TtscBuildOptions & {
    */
   forceEmitProvenance?: boolean;
 
-  /** Keep every compiler-owned side product inside this private directory. */
+  /**
+   * Apply final compiler destination overrides for this private directory. This
+   * does not sandbox arbitrary plugin, cache or external process writes.
+   */
   isolateOutputsTo?: string;
 
   /**
@@ -54,26 +62,32 @@ export type RunBuildOptions = TtscBuildOptions & {
    * `outDir` is in play, so injecting one turns a project that declares no
    * output at all — the `noEmit` check-only shape `tsgo`, `ttsc`, and `ttsc
    * --emit` all accept — into one that must configure the layout of output the
-   * user never asked for and never sees (issue #1172).
+   * user never asked for and never sees.
    *
-   * The pinned value is the one tsgo itself infers: with a config file in play
-   * its common source directory is that file's directory, never the computed
-   * common directory of the input files (`outputpaths.GetCommonSourceDirectory`
-   * consults the file list only for a config-less program). Pinning it
-   * therefore silences the demand without moving a single output, and it is the
-   * same source root `prepareExecution.ts::resolveRuntimeSourceRoot`,
-   * `installRuntimeHooks.ts::resolveDependencySourceRoot`, and
-   * `WatchTopology.ts::inferPerSourceCompilerOutputs` already model on the
-   * JavaScript side.
+   * Without a declared rootDir, ordinary runtime output uses the native volume
+   * root instead of adding the compiler's config-directory containment to a
+   * check-only project. Composite projects retain their config root. This is
+   * private output layout, not inference of source membership or physical alias
+   * equivalence; emitted-source provenance remains authoritative.
    *
-   * Ignored when the project declares its own `rootDir`: that project already
-   * satisfies tsgo, and overriding it would relocate the emit out from under
-   * every consumer that mirrors the declared root.
+   * Without a runtime-selected privateEmitRootDir, ignored when the project
+   * declares rootDir. A supplied runtime root already represents effective
+   * declared/forwarded root policy and is replayed before user arguments.
    *
    * Never set for a user-supplied `--outDir`. That outDir is the user's own
    * request, and TS5011 is then tsgo's genuine answer to it.
    */
   pinInferredRootDir?: boolean;
+
+  /**
+   * Runtime-selected private output root, after the owning runtime has read
+   * effective compiler options. Passed only with pinInferredRootDir; argv
+   * replay still puts user assignments afterward. This internal layout value
+   * retains the compiler input spelling, before physical resolution for served
+   * output lookup. These roots share relative layout, not necessarily absolute
+   * spelling. It introduces no public flag or replacement producer.
+   */
+  privateEmitRootDir?: string;
 
   /**
    * Receives selected native-plugin source roots after the project resolves.
@@ -84,17 +98,19 @@ export type RunBuildOptions = TtscBuildOptions & {
 
   /**
    * Receives the reconciled project-rule filesystem dependency snapshot. Called
-   * only by watch launchers; ordinary builds do not probe the optional sidecar
+   * when this internal callback is supplied, normally by watch launchers;
+   * ordinary calls without the callback do not probe the optional sidecar
    * command.
    */
   onProjectInputs?: (inputs: ITtscProjectInputSnapshot) => void;
 
   /**
-   * Emit an external source map from the direct tsgo build lane even when the
-   * project configures none. Set by the ttsx runtime builds so a served emit
-   * carries a map to inline under the source URL (issue #353). Applied only to
-   * the plain tsgo emit — never forwarded to a native plugin host, whose own
-   * emit honours the project's `sourceMap` setting.
+   * Request an external source map in an emitting direct tsgo lane even when
+   * the project configures none. Later forwarded sourceMap assignments can
+   * override this default. Ttsx runtime builds use it to request a map for
+   * inlining under the source URL. Applied only to the plain tsgo emit — never
+   * forwarded to a native plugin host, whose own emit honours the project's
+   * `sourceMap` setting.
    */
   forceRuntimeSourceMap?: boolean;
 

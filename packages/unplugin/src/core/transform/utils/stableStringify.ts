@@ -1,10 +1,12 @@
 /**
- * JSON-serialise `value` with object keys sorted alphabetically.
+ * Canonical JSON serialization for plain JSON records and arrays.
  *
- * JSON preserves insertion order for ordinary object keys. Sorting those keys
- * makes equivalent JSON option values independent of construction order while
- * retaining JSON's omission and array-null rules. Non-serializable roots and
- * cyclic values fail instead of acquiring a misleading cache identity.
+ * Non-index object keys are sorted lexically; array elements and integer-index
+ * keys retain JSON's own order. This makes equivalent host-owned JSON records
+ * independent of construction order while preserving omission and array-null
+ * rules. Non-serializable roots and cyclic values fail instead of acquiring a
+ * misleading cache identity. Compiler and plugin payloads whose declaration
+ * order is observable are serialized by their owner before this function.
  *
  * @evidence contracts/common.md#principled-implementation
  *   JSON.stringify supplies the same value conversion used by configuration
@@ -14,11 +16,25 @@
  *   One serialization boundary owns ordering and delegates value semantics to
  *   JSON rather than maintaining a separate recursive encoding for cache keys.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The method removes the false assumption that joining array encodings
- *   preserves omitted elements; no fixture-specific marker or fallback is added.
+ *   Native JSON conversion preserves omitted-member and array-null semantics;
+ *   no fixture-specific marker or fallback encoding is added.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain insertion-order independence, omission and failure
  *   behavior. Prose and tags follow the documentation skill's spacing guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Each distinct record's K keys are sorted once in O(K log K) comparisons;
+ *   temporary copies scale with distinct record entries. Native serialization
+ *   also scales with emitted JSON bytes, including repeated shared subtrees.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One call reuses a record's ordered copy by original object identity.
+ *   Plain JSON input remains unchanged during synchronous serialization;
+ *   no copy crosses calls, and shared copies preserve native cycle detection.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The invocation owns the WeakMap and ordered copies, proportional to
+ *   distinct records visited. They become unreachable on return or throw;
+ *   no historical cache, task or native handle survives the invocation.
  */
 export function stableStringify(value: unknown): string {
   const sorted = new WeakMap<object, Record<string, unknown>>();

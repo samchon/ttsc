@@ -3,22 +3,26 @@ import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
 /**
  * Constructor context for {@link TtscCompiler}.
  *
- * Represents the project environment owned by a programmatic ttsc compiler
- * instance. The context is fixed when the class is constructed: compile,
- * prepare, and clean operations all use the same working directory, project
- * config, native toolchain, environment, cache root, and plugin list.
+ * Supplies the selection policy owned by a programmatic ttsc compiler instance.
+ * Construction copies the supplied options and environment overrides and
+ * captures plugin JSON conversion. Operations cannot replace those inputs.
  *
- * Keeping this context immutable prevents one `TtscCompiler` object from
- * silently compiling different projects across calls. Create another compiler
- * instance when any of these fields must change.
+ * Defaults remain invocation inputs: an omitted working directory uses the
+ * current process directory, inherited environment values come from the current
+ * process environment, and project/toolchain discovery reads current files.
+ * Relative path options are resolved when used. Supply explicit anchors and
+ * overrides when calls must keep those selections; construct another instance
+ * to change the supplied options.
  *
  * @author Jeongho Nam - https://github.com/samchon
- *
  * @evidence contracts/common.md#principled-implementation Optional construction inputs preserve explicit override versus discovery/default behavior; project root, config origin and invocation cwd remain distinct because wrappers and plugin resolution can use different anchors.
  * @evidence contracts/common.md#clear-and-simple-design The context groups one compiler instance's environment and selection policy; operations use this context instead of accepting competing per-call plugin overrides.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Binary, environment and plugin overrides are supported embedding inputs, not fabricated compiler results or foreign-method replacements.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc states override precedence, default cache ownership, plugin selection states and child-environment effects; documented members and prose/tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Path fields are native filesystem inputs with individually documented cwd/project/config bases; the representation does not require POSIX separators or collapse Windows paths, lexical selection and physical identity into one value. Process environment is supplied as Node's environment map, not shell assignment syntax.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscCompilerContext {
   /**
@@ -27,6 +31,9 @@ export interface ITtscCompilerContext {
    * Used to discover `tsconfig.json`, resolve relative `tsconfig` paths,
    * resolve project source files, resolve plugin packages, and resolve relative
    * cache paths.
+   *
+   * An omitted value uses `process.cwd()` when the operation resolves its
+   * context; construction does not capture that default.
    *
    * @default process.cwd()
    */
@@ -86,14 +93,15 @@ export interface ITtscCompilerContext {
    * processes, and for the worker thread of
    * {@link TtscCompiler.transformAsync}.
    *
-   * Values are merged over `process.env` before ttsc starts TypeScript-Go,
+   * The supplied overrides are copied at construction. Values are merged over
+   * the invocation's current `process.env` before ttsc starts TypeScript-Go,
    * native plugin binaries, isolated descriptor evaluators (including the
    * `ttsx` fallback), or the native compiler host used by
    * {@link TtscCompiler.compile}. `transformAsync` runs its whole transform on a
    * worker thread under the same merge, so its in-process work, such as the
-   * temporary directories it creates, follows it too (samchon/ttsc#1488).
-   * Descriptor output is diagnostic text and is forwarded to stderr so it
-   * cannot corrupt compiler/API protocol stdout.
+   * temporary directories it creates, follows it too. Descriptor output is
+   * diagnostic text and is forwarded to stderr so it cannot corrupt
+   * compiler/API protocol stdout.
    */
   env?: NodeJS.ProcessEnv;
 

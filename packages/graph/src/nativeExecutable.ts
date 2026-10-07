@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import type { CapturedProcessOutput } from "./CapturedProcessOutput";
+
 /**
  * Ensure a resolved native binary can be executed on POSIX installs.
  *
@@ -32,57 +34,6 @@ export function ensureExecutable(binary: string): void {
       /* keep the original spawn error path */
     }
   }
-}
-
-/**
- * Owned temporary storage for one synchronous child stdout/stderr capture.
- *
- * @evidence contracts/common.md#principled-implementation Numeric descriptors can be passed directly to spawnSync while the stream union selects the matching captured text.
- * @evidence contracts/common.md#clear-and-simple-design One handle groups two descriptors with read and disposal operations owned by the same capture.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts File capture avoids a guessed pipe ceiling without modifying spawnSync internals.
- * @evidence contracts/common.md#meaningful-documentation Native member comments state stream selection, caller ownership and the cleanup boundary.
- * @evidenceExclude contracts/performance.md#efficient-algorithms The handle shape chooses no capture or read algorithm; its factory and methods own processing.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The handle declares stream access, while its caller decides whether completed child output may be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Acquisition belongs to captureProcessOutput and release to dispose; the shape declares that transfer without independently controlling it.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation The handle descriptor carries native descriptors but performs no filesystem operation itself.
- */
-export interface CapturedProcessOutput {
-  /**
-   * Close the descriptors and remove the backing files once. Invoke after the
-   * child finishes, including failure paths; removal remains best effort.
-   *
-   * @evidence contracts/common.md#principled-implementation Disposal releases both capture descriptors before removing their containing directory.
-   * @evidence contracts/common.md#clear-and-simple-design Cleanup is one owned operation rather than independent caller-managed paths.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup preserves the child outcome instead of replacing it with a secondary removal error.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states invocation timing, failure coverage and best-effort removal.
-   * @evidence contracts/performance.md#efficient-algorithms Disposal closes two descriptors and removes one owned temporary directory without traversing project data.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal retires ownership rather than producing reusable work; repeated disposal has no additional effects.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The capture implementation guards repeated disposal before descriptor closure, preventing stale descriptor reuse from closing foreign resources.
-   * @evidence contracts/portability.md#os-neutral-implementation Node close/remove APIs own native descriptor and directory semantics; removal tolerates foreign open handles.
-   */
-  dispose(): void;
-
-  /**
-   * Read one stream's UTF-8 text after the child finishes. A failed spawn
-   * leaves its pre-created capture file empty; a filesystem read failure
-   * propagates.
-   *
-   * @evidence contracts/common.md#principled-implementation The stream discriminant selects its backing file and UTF-8 decoding returns the captured textual channel.
-   * @evidence contracts/common.md#clear-and-simple-design One reader shares the same storage paths as the capture owner.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts An unreadable capture is not replaced with empty text that could disguise lost output.
-   * @evidence contracts/common.md#meaningful-documentation Native prose explains encoding, timing and read-failure propagation.
-   * @evidence contracts/performance.md#efficient-algorithms Reading one captured stream costs its output bytes and materializes one UTF-8 string; file capture avoids an arbitrary pipe ceiling.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The reader observes an effectful capture file; the caller chooses when the completed child output may be shared.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous read closes its internal descriptor; dispose owns the two persistent capture descriptors and directory.
-   * @evidence contracts/portability.md#os-neutral-implementation Node filesystem reads native paths with explicit UTF-8 encoding and propagates actual I/O failures.
-   */
-  read(stream: "stdout" | "stderr"): string;
-
-  /** Owned writable descriptor passed as the child's stderr destination. */
-  stderrFd: number;
-
-  /** Owned writable descriptor passed as the child's stdout destination. */
-  stdoutFd: number;
 }
 
 /**

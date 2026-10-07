@@ -16,19 +16,22 @@ func (s *incrementalSaveSource) InvalidateResidentPrograms(uris ...string) {
   s.calls = append(s.calls, append([]string(nil), uris...))
 }
 
-// TestLSPDidSaveKeepsTheIncrementalChangedURIPath verifies the two boundaries the
-// new open and watched-file invalidations must not erode: a save of a known
-// source still travels as one changed URI, and a didChange on a dirty buffer
-// still sends the resident daemon nothing at all.
+// TestLSPDidSaveKeepsTheIncrementalChangedURIPath checks recorded invalidation
+// dispatch for a supplied save URI followed by a ranged change notification.
 //
-// The resident daemon exists to avoid a cold parse+bind+checker per verb. A save
-// that degraded into a full reload, or an invalidation per keystroke, would trade
-// exactly that away — so widening the set of signals that reach the daemon has to
-// leave these two untouched.
+// The owned recorder implements the supported resident invalidation capability;
+// it does not create a daemon or compiler Program. No initial document text is
+// cached, so this unit does not establish successful ranged text splicing,
+// incremental compiler reuse or avoided parse/bind/checker work.
 //
-//  1. Save a document and assert the daemon is told that one URI changed.
+//  1. Supply a save notification and assert the recorder receives one URI.
 //  2. Send a ranged didChange for the same document.
 //  3. Assert no further resident invalidation was recorded.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual handleEditorEnvelope dispatches exactly one supplied URI to the owned InvalidateResidentPrograms recorder for didSave. A subsequent ranged didChange returns without another recorded invalidation. No actual daemon update or cached-text splice result is asserted.
+// @evidence contracts/testing.md#independent-expectations The expected single URI and zero further invalidations are literal.
+// @evidence contracts/testing.md#distinguishing-cases Save and keystroke edits are the two signals; widening other signals must not change either.
+// @evidence contracts/testing.md#execution-ownership This Go unit constructs the actual Proxy with supported discard streams and an owned optional-capability recorder embedding NullPluginSource, then invokes its notification handler on authored JSON. It creates no directory or sidecar and starts no compiler, process or product host. Save schedules NullPluginSource diagnostics asynchronously without joining or asserting that result; the observed recorder calls are synchronous dispatch.
 func TestLSPDidSaveKeepsTheIncrementalChangedURIPath(t *testing.T) {
   const uri = "file:///project/src/main.ts"
   plugins := &incrementalSaveSource{}

@@ -1,0 +1,5 @@
+module github.com/microsoft/typescript-go/shim/stringutil
+
+go 1.26
+
+require github.com/microsoft/typescript-go v0.0.0-20260610182825-7fc57c005063

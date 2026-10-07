@@ -12,7 +12,6 @@ import { pluginSourceHolds } from "../transform/inputs/pluginSourceHolds";
 import { validateGraphInputObservation } from "../transform/inputs/validateGraphInputObservation";
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
-import { reportsProgramMembership } from "../transform/project/reportsProgramMembership";
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
 import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
@@ -35,9 +34,9 @@ import { realpath } from "./realpath";
 import { someSet } from "./someSet";
 
 /**
- * The adapter's own bounded observer of compiler inputs, keyed by owner: each
- * owner registers the inputs one delivery depended on, and hears which owners'
- * inputs changed.
+ * The adapter's observer of compiler inputs, keyed by owner: each owner
+ * registers the inputs one delivery depended on, and hears which owners' inputs
+ * changed.
  *
  * Two owners use it. The Vite dev server's owners are its importers
  * (`createViteServeInputWatch`), which it reloads or invalidates through Vite's
@@ -54,13 +53,16 @@ import { someSet } from "./someSet";
  * topology checks because retargeting a junction need not emit events on its
  * old descendants. Every event is re-checked against the input's recorded
  * condition before an owner hears it, so an event that changed nothing the
- * compile observed is silent.
+ * compile observed is silent. Native event names can have aliases missing from
+ * lexical indexes. Each settled event batch therefore rechecks all registered
+ * conditions of the reporting scope; directory admission still limits native
+ * watch coverage.
  *
  * A project's root-file membership is one entry for the project root
  * (samchon/ttsc#1419). Its scope admits every directory the project walk
- * enters, an event its policy counts as a membership change marks it, and its
- * check re-walks the project. Its owners are reported as invalidated rather
- * than reloaded, since most new files change no other module.
+ * enters, and an event in its scope schedules a current policy-aware walk. Its
+ * owners are reported as invalidated rather than reloaded, since most new files
+ * change no other module.
  *
  * A plugin's Go source directory is one entry too (samchon/ttsc#1487). Its
  * scope admits every directory below it but those the plugin build passes over
@@ -74,8 +76,8 @@ import { someSet } from "./someSet";
  * @param onChanged Told, once per settled batch of events, which owners' inputs
  *   changed: `reload` for a changed input, and `invalidate` for a membership
  *   change alone.
- * @param operations Native watch seams, replaceable for tests.
- *
+ * @param operations Watch/poll and identity-case capabilities. These do not
+ *   replace the native filesystem used to read input conditions or paths.
  * @evidence contracts/common.md#principled-implementation
  *   Owned registration maps and callbacks separate compiler-input conditions
  *   from Vite importer or build-record policy.
@@ -100,29 +102,45 @@ import { someSet } from "./someSet";
  *   Filesystem identity comes from ttsc/path-identity and directory
  *   capabilities rather than a universal lowercase path. Unknown case policy
  *   keeps exact identity, routes both case candidates and requires polling;
- *   only a measured insensitive directory folds identity. Windows and macOS
- *   native scopes use an isolated broker; other hosts use recursive watches.
+ *   an observed or supplied insensitive-directory answer folds event keys.
+ *   The actual host chooses the default broker on Windows/macOS and Linux
+ *   recursive backend otherwise; the injected platform selects identity grammar,
+ *   not a foreign filesystem implementation. Native path reads remain native.
  *   Native failures and uncovered link topology motivate the shared polling
  *   boundary, whose behavior remains owned by the observer.
  *
  * @evidence contracts/performance.md#efficient-algorithms
  *   Identity maps index entries and their owners; settled events deduplicate
- *   pending entries before rechecking conditions. Directory admission counts
- *   contributions from live entries, and one prune per changed scope releases
- *   unneeded backend subscriptions. Polling remains necessary
- *   for scopes where native notifications cannot establish unchanged inputs.
+ *   pending entries before rechecking all reporting-scope conditions. This
+ *   input-proportional validation is needed because lexical names cannot exclude
+ *   native aliases; unrelated scopes are not selected. Registration also builds
+ *   ancestor aliases/contributions and serializes nonmembership evidence. Native
+ *   identity queries, owner/condition fanout, membership walks, predicate lists
+ *   and plugin-tree proofs retain path/content/entry costs. Admission scans live
+ *   membership/tree conditions; one prune per changed scope avoids repeated
+ *   retirement scans. Poll slices bound selected probes, not dependent fanout,
+ *   native read bytes or proof duration.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Owners share subscriptions and input conditions through filesystem
- *   identity. One project scope and a capped external set observe multiple
- *   inputs rather than opening a native watcher for each consumer and input.
+ *   Owners with the same resolved lexical input and recorded condition key
+ *   share one entry/condition; event aliases help route native spellings but do
+ *   not merge every physical alias into one entry. Scopes and linked topology
+ *   probes are shared across contributors. Changed condition keys lose their
+ *   previous ownership, and rename/removal/reanchor boundaries retire stale
+ *   path memos. One clock reference is minted per selected plugin-tree batch.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Last-owner removal and dispose release watch scopes and polling. Conditions
+ *   Last-owner removal and dispose attempt watch/poll cleanup, suppressing close
+ *   failures; a thrown backend close is not certified as released. Conditions
  *   remove their directory contributions when they leave; root or polling
  *   policy changes rebuild scopes without retaining old admission history.
  *   Conditions and owners still require input-proportional memory, and a capped
- *   scope count does not bound the number of admitted descendant subscriptions.
+ *   scope count does not bound the number of admitted descendant subscriptions
+ *   or input/path/evidence bytes. Change history clears above 100,000 keys;
+ *   unknown-case ancestor memos live until their reset boundary. Dispose clears
+ *   registrations/timers but retains the opened root and permits later delivery
+ *   to reacquire scopes. Callback/proof/poll-construction exceptions can escape;
+ *   this operation provides no general rollback of effects already performed.
  */
 export function createInputObserver(
   onChanged: (change: InputObserverChange) => void,
@@ -331,10 +349,7 @@ export function createInputObserver(
     for (const scope of entry.scopes) scopesToPrune.add(scope);
   };
 
-  const recordChange = (
-    eventType: string,
-    file: string,
-  ): { direct: Set<string>; parent: Set<string> } => {
+  const recordChange = (eventType: string, file: string): void => {
     const absolute = path.resolve(file);
     const parent = path.dirname(absolute);
     const direct = new Set<string>();
@@ -362,7 +377,6 @@ export function createInputObserver(
       changes.clear();
       historyFloor = changeSequence;
     }
-    return { direct, parent: parents };
   };
 
   const remove = (entry: InputEntry): void => {
@@ -482,77 +496,20 @@ export function createInputObserver(
     }
   };
 
-  const enqueue = (eventType: string, file: string): void => {
-    const absolute = path.resolve(file);
-    const eventKeys = recordChange(eventType, absolute);
-    for (const key of eventKeys.direct) {
-      for (const entry of aliases.get(key) ?? []) {
-        entry.changedAt = changeSequence;
-        pending.add(entry);
-      }
-    }
-    for (const key of eventKeys.parent) {
-      for (const entry of aliases.get(key) ?? []) {
-        entry.changedAt = changeSequence;
-        pending.add(entry);
-      }
-    }
-    // Any file below a plugin's source can move its state, whatever kind of
-    // event names it (samchon/ttsc#1487).
-    for (const entry of trees) {
-      const named = namedBelow(entry, absolute);
-      if (
-        named === undefined ||
-        named === entry.file ||
-        !pluginSourceCovers(entry.file, named, "entry")
-      ) {
-        continue;
-      }
+  const enqueue = (
+    scope: WatchScope,
+    eventType: string,
+    file: string,
+  ): void => {
+    recordChange(eventType, path.resolve(file));
+    scope.lastEventAt = changeSequence;
+    // Native event names can be aliases absent from the lexical indexes, even
+    // after the named entry has been deleted. Recheck this watch's owned inputs;
+    // only changed conditions report an owner, and one settled batch deduplicates
+    // repeated events without widening the native subscription tree.
+    for (const entry of scope.entries) {
       entry.changedAt = changeSequence;
       pending.add(entry);
-    }
-    // A root file appearing or leaving anywhere a project's walk enters is a
-    // membership change, whatever path the event names (samchon/ttsc#1419).
-    // Only a rename can be one; an edit to an existing file is not.
-    if (eventType === "rename") {
-      for (const entry of memberships) {
-        const named = namedBelow(entry, absolute);
-        if (named === undefined || named === entry.file) continue;
-        if (
-          membershipPolicies(entry).some((policy) =>
-            reportsProgramMembership(
-              entry.file,
-              named,
-              path.basename(named),
-              policy,
-              DEFAULT_FILESYSTEM_OPERATIONS,
-            ),
-          )
-        ) {
-          entry.changedAt = changeSequence;
-          pending.add(entry);
-        }
-      }
-    }
-    if (eventType === "rename") {
-      const exact = new Set<InputEntry>();
-      for (const key of eventKeys.direct) {
-        for (const entry of renameAliases.get(key) ?? []) exact.add(entry);
-      }
-      // Linux may report only the destination spelling of a directory rename.
-      // That spelling cannot be indexed before the move. Fall back to the
-      // renamed entry's parent only when no exact old spelling matched; the
-      // baseline check below still invalidates solely inputs that really moved.
-      const selected = exact;
-      if (selected.size === 0) {
-        for (const key of eventKeys.parent) {
-          for (const entry of renameAliases.get(key) ?? []) selected.add(entry);
-        }
-      }
-      for (const entry of selected) {
-        entry.changedAt = changeSequence;
-        pending.add(entry);
-      }
     }
     scheduleFlush();
   };
@@ -624,6 +581,7 @@ export function createInputObserver(
           : {}),
         pinned,
         root,
+        lastEventAt: 0,
         startedAt: changeSequence,
       };
       scopes.set(key, scope);
@@ -636,6 +594,7 @@ export function createInputObserver(
             if (file === null) {
               resetPathIdentityMemos();
               changeSequence += 1;
+              owned.lastEventAt = changeSequence;
               historyFloor = changeSequence;
               changes.clear();
               for (const candidate of owned.entries) {
@@ -646,6 +605,7 @@ export function createInputObserver(
               return;
             }
             enqueue(
+              owned,
               eventType,
               path.isAbsolute(file) ? file : path.resolve(root, file),
             );
@@ -722,7 +682,10 @@ export function createInputObserver(
       const directoryKey = watchPathKey(directory);
       if (contributed.has(directoryKey)) break;
       contributed.add(directoryKey);
-      scope.directories.set(directoryKey, (scope.directories.get(directoryKey) ?? 0) + 1);
+      scope.directories.set(
+        directoryKey,
+        (scope.directories.get(directoryKey) ?? 0) + 1,
+      );
     }
     scope.watcher?.track?.(file);
     return !scope.failed;
@@ -821,8 +784,9 @@ export function createInputObserver(
       // Content edits remain event-driven; retargeting a junction does not
       // reliably emit an event on its previously watched descendants. Reconcile
       // a fixed-size slice as a safety net; ordinary retargets arrive at once
-      // through the project-root observer, while even an enormous dependency
-      // graph has constant idle CPU cost.
+      // through the project-root observer. Probe counts are bounded, but a
+      // retarget can fan out to all dependent entries, and native/query/content
+      // work for selected inputs is not a constant CPU or byte bound.
       for (
         let count = 0;
         count < MAX_LINK_PROBES_PER_TICK && links.size !== 0;
@@ -960,8 +924,8 @@ export function createInputObserver(
   return {
     open(root, declaredPolling) {
       const nextRoot = path.resolve(root);
-      const reanchor = opened &&
-        (projectRoot !== nextRoot || polling !== declaredPolling);
+      const reanchor =
+        opened && (projectRoot !== nextRoot || polling !== declaredPolling);
       const retained = reanchor ? [...entries.values()] : [];
       if (reanchor) {
         // Conditions and owner registrations survive a host restart, while
@@ -1188,6 +1152,7 @@ export function createInputObserver(
                 (scope) =>
                   scope.failed ||
                   scope.startedAt > startedAt ||
+                  scope.lastEventAt > startedAt ||
                   observedAfterCompile,
               )
             ) {

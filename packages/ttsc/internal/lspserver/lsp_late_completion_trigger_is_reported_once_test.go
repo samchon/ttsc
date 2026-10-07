@@ -7,9 +7,9 @@ import (
   "testing"
 )
 
-// mutableCompletionHintSource stands in for a plugin source whose corpus changes
-// mid-session. The lock is real: the proxy reads the corpus from the completion
-// path while a refresh rewrites it.
+// mutableCompletionHintSource owns the supplied corpus for direct proxy calls.
+// Its mutex protects publication and shallow slice copying; this test uses those
+// operations sequentially and does not mutate the nested item slices.
 type mutableCompletionHintSource struct {
   NullPluginSource
   mu    sync.RWMutex
@@ -28,21 +28,21 @@ func (s *mutableCompletionHintSource) publish(hints ...LSPCompletionHint) {
   s.hints = hints
 }
 
-// TestLSPLateCompletionTriggerIsReportedOnce pins the one thing a corpus refresh
-// still cannot deliver on its own.
+// TestLSPLateCompletionTriggerIsReportedOnce observes the proxy's late-trigger
+// notice policy using an owned mutable corpus and a buffered editor output.
+// Calling augmentInitializeResult records the supplied upstream trigger set;
+// its returned response is not sent to or consumed by an editor in this unit.
+// The test does not execute client capability registration, completion requests
+// or an editor's provider behavior.
 //
-// Trigger characters are merged into the initialize response, and the editor has
-// already consumed it by the time a refresh runs. LSP's only remedy is
-// client/registerCapability, which VS Code implements by adding a second
-// completion provider beside the static one — every item tsgo returns would then
-// be offered twice. Corrupting the compiler's list to advertise one character is
-// the worse trade, so the proxy states the gap instead of hiding it. Saying it
-// once per character is the whole design: a refresh runs on every save, and a
-// notice repeated per save would be noise the user learns to ignore.
-//
-//  1. Answer initialize with tsgo's trigger characters and no corpus.
+//  1. Keep a pre-initialize corpus quiet, then record supplied upstream triggers.
 //  2. Publish a corpus whose trigger is new and refresh; expect one notice.
 //  3. Refresh again, and publish a trigger tsgo already advertised; expect none.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct refresh notifications before recorded initialize state emit nothing; a later space trigger emits one buffered window/logMessage notice containing the quoted space and restart text, while its repeat and an advertised @ trigger emit no bytes. This does not observe client delivery or completion item behavior.
+// @evidence contracts/testing.md#independent-expectations Literal zero/one notice counts, quoted-space text and restart text distinguish the supplied policy stages. The notice helper selects stream chunks containing the method text; it does not independently validate frame lengths or every JSON field.
+// @evidence contracts/testing.md#distinguishing-cases The same space corpus is quiet before initialize and reported afterward, then remains quiet on repetition; an upstream-advertised @ corpus is also quiet. Only these supplied trigger distinctions are exercised.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls Proxy augmentation and refresh operations with an owned optional CompletionHints source and bytes.Buffer output. It creates no temporary project, native child, installed consumer or product host; the source's mutex is real but this body runs its writes and reads sequentially.
 func TestLSPLateCompletionTriggerIsReportedOnce(t *testing.T) {
   var editor bytes.Buffer
   source := &mutableCompletionHintSource{}
@@ -84,8 +84,7 @@ func TestLSPLateCompletionTriggerIsReportedOnce(t *testing.T) {
     t.Fatalf("the same late trigger was reported again on the next refresh:\n%s", editor.String())
   }
 
-  // A trigger tsgo already advertises is not late at all — the editor is already
-  // asking for completion on it, so the hint works with no restart.
+  // The supplied initialize result advertised @, so it is not a late trigger.
   source.publish(LSPCompletionHint{Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "param"}}})
   proxy.completionHintsRefreshed()
   if editor.Len() != 0 {

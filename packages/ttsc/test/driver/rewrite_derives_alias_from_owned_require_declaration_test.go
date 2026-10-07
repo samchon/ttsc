@@ -1,7 +1,6 @@
 package driver_test
 
 import (
-  "os/exec"
   "path/filepath"
   "strings"
   "testing"
@@ -9,17 +8,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteDerivesAliasFromOwnedRequireDeclaration verifies decoy
-// identifiers do not compete with the import declaration that owns a rewrite.
+// TestDriverRewriteDerivesAliasFromOwnedRequireDeclaration Verifies the owned import receives ordered rewrites while its require decoy stays intact.
 //
 // An unbounded identifier regex would remove the suffix ceiling but could
 // rewrite `plugin_99.make` merely because its name looks generated. Matching
 // the source module to the emitted require declaration rejects that decoy and
 // still supports multiple ordered rewrites for the real import.
 //
-// 1. Place a generated-looking decoy call before a colliding default import.
-// 2. Register two rewrites for the imported plugin's two calls.
-// 3. Execute the output and assert the decoy survives beside both replacements.
+// 1. Emit a colliding default import beside a generated-looking require decoy.
+// 2. Register both imported-call replacements in source order.
+// 3. Require the untouched decoy call and both literal exported replacements.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual public driver emission, preserving the source decoy and requiring first/second replacements in emitted exports.
+// @evidence contracts/testing.md#independent-expectations Literal first/second replacements and the authored plugin_99.default.make("kept") control independently identify changed and retained calls.
+// @evidence contracts/testing.md#distinguishing-cases Two ordered imported calls contrast the preceding same-module, generated-looking source declaration.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit exercises LoadProgram and EmitAll without a runtime process; the separate direct compiler/Node-oracle unit TestDriverRewriteRuntimeBatch retains all three runtime values. This case does not certify that unit's execution.
 func TestDriverRewriteDerivesAliasFromOwnedRequireDeclaration(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -87,16 +90,9 @@ export const second = plugin.make("second");
   if !strings.Contains(js, `plugin_99.default.make("kept")`) {
     t.Fatalf("decoy call was rewritten:\n%s", js)
   }
-  command := exec.Command("node", "-e", `const v = require("./index.js"); process.stdout.write(JSON.stringify(v))`)
-  command.Dir = filepath.Dir(jsPath)
-  output, err := command.CombinedOutput()
-  if err != nil {
-    t.Fatalf("rewritten JavaScript failed: %v\n%s", err, output)
-  }
-  got := string(output)
-  for _, want := range []string{`"decoy":"plugin:kept"`, `"first":"rewritten-first"`, `"second":"rewritten-second"`} {
-    if !strings.Contains(got, want) {
-      t.Fatalf("runtime output missing %s: %s\n%s", want, got, js)
+  for _, want := range []string{`exports.first = "rewritten-first";`, `exports.second = "rewritten-second";`} {
+    if !strings.Contains(js, want) {
+      t.Fatalf("rewritten export missing %s:\n%s", want, js)
     }
   }
 }

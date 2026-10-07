@@ -5,6 +5,20 @@
  * @evidence contracts/common.md#clear-and-simple-design The value contains only the failed observation's kind and address; retry and generation decisions remain with the consuming proof owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failure kinds are structured observation outcomes rather than inferred message fragments or synthetic missing-file success.
  * @evidence contracts/common.md#meaningful-documentation Field comments explain the observation categories and specify lexical absolute spelling, preserving the distinction from resolved identity.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The address preserves the walk's absolute native lexical spelling instead
+ *   of replacing it with a comparison key or protocol path. Producer outcomes
+ *   classify failed or changing native metadata, listings and file reads;
+ *   consumers retain those uncertainties without depending on OS error text.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectWalkFailure only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectWalkFailure only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectWalkFailure only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscProjectWalkFailure {
   /**

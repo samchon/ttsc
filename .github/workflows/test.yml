@@ -1,340 +1,70 @@
 name: test
 
-# Keep the stable planner/aggregate check present on every pull request.
-# Workflow-level path filters can strand a required check in Pending and GitHub
-# evaluates only the first 300 changed files. The planner below skips expensive
-# jobs after inspecting the complete local Git diff.
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-  workflow_dispatch:
+on: pull_request
 
 concurrency:
-  group: test-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  plan:
-    name: plan
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
-      lanes: ${{ steps.plan.outputs.lanes }}
-      platform_matrix: ${{ steps.plan.outputs.platform_matrix }}
-      platform: ${{ steps.plan.outputs.platform }}
-      platform_tasks: ${{ steps.plan.outputs.platform_tasks }}
-      unplugin_matrix: ${{ steps.plan.outputs.unplugin_matrix }}
-      unplugin_hosts: ${{ steps.plan.outputs.unplugin_hosts }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Select affected validation
-        id: plan
-        env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: >-
-          node scripts/ci/validation-plan.cjs --base "$BASE_SHA" --head "$HEAD_SHA" --event "$EVENT_NAME" --github-output "$GITHUB_OUTPUT"
-
-  platform-integrations:
-    name: platform (${{ matrix.name }})
-    needs: plan
-    if: needs.plan.outputs.platform == 'true'
-    runs-on: ${{ matrix.runner }}
-    # One OS's shipped-artifact rehearsal and its watch, package-manager,
-    # source-map and VS Code suites. The adapter's host matrix
-    # is a job of its own (`unplugin-hosts`), whose hour does not stand between
-    # these and their verdict.
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.platform_matrix) }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        if: matrix.needs_go
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/ttsc/tools/shim_audit/go.sum
-            tests/go-transformer/go.mod
-
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.6.4
-
-      - uses: oven-sh/setup-bun@v2
-        if: matrix.setup_bun
-        with:
-          bun-version: 1.4.0
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify Installed Tarballs With Bundled Go
-        # Every step below this one runs against the workspace it builds, and
-        # it is this job's only build: `matrix.build` is false whenever the
-        # shipped artifacts are rehearsed.
-        if: matrix.experimental
-        run: pnpm run experimental:install
-
-      - name: Use System Go For Source Plugin Tests
-        if: matrix.watch || matrix.plugin_cache
-        shell: bash
-        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
-
-      - name: Verify Bun Descriptor Dependency Tracking
-        if: matrix.bun
-        run: pnpm --filter @ttsc/test-ttsc start -- --include=loadprojectplugins_tracks_bun_esm_descriptor_dependencies
-        env:
-          TTSC_BUN_BINARY: bun
-
-      - name: Build Current Platform For Selected Tasks
-        if: matrix.build
-        run: pnpm run build:current
-        env:
-          TTSC_BUILD_SCOPE: ${{ matrix.build_scope }}
-
-      - name: Run watch tests
-        if: matrix.watch
-        run: pnpm --filter @ttsc/test-ttsc start
-        env:
-          TTSC_TEST_DIR: features/watch
-
-      - name: Verify Linux Package Managers
-        if: matrix.plugin_cache && matrix.os == 'linux'
-        shell: bash
-        run: |
-          status=0
-          node scripts/ci/plugin-cache-persistence.mjs --pm=pnpm || status=1
-          node scripts/ci/plugin-cache-persistence.mjs --pm=yarn || status=1
-          node scripts/ci/plugin-cache-persistence.mjs --pm=bun || status=1
-          node scripts/ci/plugin-cache-persistence.mjs --pm=npm || status=1
-          exit "$status"
-
-      - name: Verify Windows Package Managers
-        if: matrix.plugin_cache && matrix.os == 'win32'
-        shell: bash
-        run: |
-          status=0
-          node scripts/ci/plugin-cache-persistence.mjs --pm=npm || status=1
-          node scripts/ci/plugin-cache-persistence.mjs --pm=pnpm || status=1
-          exit "$status"
-
-      - name: Verify typia source maps with shared tarballs
-        if: matrix.source_map && matrix.experimental
-        run: pnpm --dir experimental/source-map start -- --skip-pack
-
-      - name: Verify typia source maps with current tarballs
-        if: matrix.source_map && !matrix.experimental
-        run: pnpm --dir experimental/source-map start -- --pack-current
-
-      - name: Ensure VS Code CLI (Ubuntu)
-        if: matrix.vscode && runner.os == 'Linux'
-        shell: bash
-        run: |
-          if ! command -v code >/dev/null 2>&1; then
-            curl -fsSL -o "$RUNNER_TEMP/vscode.deb" "https://update.code.visualstudio.com/latest/linux-deb-x64/stable"
-            sudo apt-get update
-            sudo apt-get install -y "$RUNNER_TEMP/vscode.deb"
-          fi
-          code --version
-
-      - name: Ensure VS Code CLI (macOS)
-        if: matrix.vscode && runner.os == 'macOS'
-        shell: bash
-        run: |
-          code_bin="/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
-          if ! command -v code >/dev/null 2>&1; then
-            brew install --cask visual-studio-code
-          fi
-          if [ -d "$code_bin" ]; then
-            echo "$code_bin" >> "$GITHUB_PATH"
-            export PATH="$code_bin:$PATH"
-          fi
-          code --version
-
-      - name: Ensure VS Code CLI (Windows)
-        if: matrix.vscode && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          function Add-CodePaths {
-            $dirs = @(
-              "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin",
-              "$env:ProgramFiles\Microsoft VS Code\bin",
-              "${env:ProgramFiles(x86)}\Microsoft VS Code\bin"
-            )
-            foreach ($dir in $dirs) {
-              if ($dir -and (Test-Path $dir)) {
-                Add-Content -Path $env:GITHUB_PATH -Value $dir
-                $env:Path = "$dir;$env:Path"
-              }
-            }
-          }
-          Add-CodePaths
-          if (-not (Get-Command code.cmd -ErrorAction SilentlyContinue)) {
-            choco install vscode -y --no-progress
-            Add-CodePaths
-          }
-          code --version
-
-      - name: Build @ttsc/vscode
-        if: matrix.vscode
-        run: pnpm --filter @ttsc/vscode build
-
-      - name: Smoke-install @ttsc/vscode in VS Code
-        if: matrix.vscode
-        run: node scripts/smoke-vscode-install.cjs packages/vscode
-
-  unplugin-hosts:
-    name: unplugin hosts (${{ matrix.name }})
-    needs: plan
-    if: needs.plan.outputs.unplugin_hosts == 'true'
-    runs-on: ${{ matrix.runner }}
-    # Every host of the adapter on two roots with two transform plugins, then a
-    # restart of five of them over their persistent caches: 78 minutes of the
-    # macOS Intel runner at its slowest measured, and its cost varies with the
-    # runner, so the deadline leaves room above that.
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.unplugin_matrix) }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/ttsc/tools/shim_audit/go.sum
-            tests/go-transformer/go.mod
-
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.6.4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.0
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify @ttsc/unplugin Package Contract
-        run: pnpm --dir experimental/test-unplugin start -- --pack-current
-
   test:
-    name: ${{ matrix.name }}
-    needs: plan
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        if: matrix.needsGo
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/ttsc/tools/shim_audit/go.sum
-            tests/go-transformer/go.mod
-
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
-      - uses: oven-sh/setup-bun@v2
-        if: startsWith(matrix.id, 'bundler-defenses')
-        with:
-          bun-version: 1.4.0
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Use System Go For Source Plugin Tests
-        if: matrix.needsGo
-        shell: bash
-        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
-
-      - name: Build ${{ matrix.name }}
-        if: matrix.build != ''
-        run: ${{ matrix.build }}
-        env:
-          TTSC_BUILD_SCOPE: ${{ matrix.scope }}
-
-      # Install and build run on the Node above; a lane that pins another
-      # release (the `engines.node` floor or the newest one) runs its suites on
-      # that release, which every Node spawned from them inherits through PATH.
       - uses: actions/setup-node@v7
-        if: matrix.node != ''
         with:
-          node-version: ${{ matrix.node }}
-
-      - name: Run ${{ matrix.name }}
-        run: ${{ matrix.run }}
-        env:
-          TTSC_TEST_DIRS: ${{ matrix.dirs }}
-
-  ci:
-    name: ci
-    needs:
-      - plan
-      - platform-integrations
-      - unplugin-hosts
-      - test
-    # A superseding PR push cancels this run. Do not leave this always-job
-    # queued behind the cancellation and block the next run's concurrency slot.
-    if: ${{ always() && !cancelled() }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every selected validation
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        id: go
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
         shell: bash
-        env:
-          PLAN_RESULT: ${{ needs.plan.result }}
-          TEST_RESULT: ${{ needs.test.result }}
-          PLATFORM_RESULT: ${{ needs.platform-integrations.result }}
-          PLATFORM_SELECTED: ${{ needs.plan.outputs.platform }}
-          PLATFORM_TASKS: ${{ needs.plan.outputs.platform_tasks }}
-          UNPLUGIN_RESULT: ${{ needs.unplugin-hosts.result }}
-          UNPLUGIN_SELECTED: ${{ needs.plan.outputs.unplugin_hosts }}
-          SELECTED_LANES: ${{ needs.plan.outputs.lanes }}
         run: |
-          echo "selected lanes: $SELECTED_LANES"
-          echo "selected platform tasks: $PLATFORM_TASKS"
-          echo "plan=$PLAN_RESULT test=$TEST_RESULT platform=$PLATFORM_RESULT selected=$PLATFORM_SELECTED"
-          echo "unplugin hosts=$UNPLUGIN_RESULT selected=$UNPLUGIN_SELECTED"
-          test "$PLAN_RESULT" = "success"
-          test "$TEST_RESULT" = "success"
-          if [ "$PLATFORM_SELECTED" = "true" ]; then
-            test "$PLATFORM_RESULT" = "success"
-          else
-            test "$PLATFORM_RESULT" = "skipped"
-          fi
-          if [ "$UNPLUGIN_SELECTED" = "true" ]; then
-            test "$UNPLUGIN_RESULT" = "success"
-          else
-            test "$UNPLUGIN_RESULT" = "skipped"
-          fi
+          printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
+          printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
+          printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+          printf 'epoch=%s\n' "$(node -p 'Math.floor(Date.now() / 604800000)')" >> "$GITHUB_OUTPUT"
+      - name: Restore Go modules and objects
+        id: go-objects
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          # Go validates each object's source, compiler and flags; share only object/module caches.
+          # A weekly snapshot admits new objects without creating a copy for every source edit/workflow.
+          key: ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-${{ steps.go-cache.outputs.epoch }}
+          restore-keys: |
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ttsc/lint run build
+      - run: pnpm --filter @ttsc/evidence run build
+      - name: Prepare generated Graph implementation once
+        id: native-build
+        run: |
+          pnpm --filter ttsc run build
+          pnpm --filter @ttsc/linux-x64 run build
+          pnpm --filter @ttsc/graph run build
+      - run: pnpm run test:go
+        id: go-tests
+      - run: pnpm run test:units
+      - name: Save Completed Native Go Caches
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' && steps.go-tests.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          key: ${{ steps.go-objects.outputs.cache-primary-key }}

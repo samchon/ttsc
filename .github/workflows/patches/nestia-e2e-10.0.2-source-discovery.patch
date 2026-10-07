@@ -1,0 +1,59 @@
+--- a/lib/DynamicExecutor.js
++++ b/lib/DynamicExecutor.js
+@@ -175,5 +175,6 @@
+                                 extension: (_a = props.extension) !== null && _a !== void 0 ? _a : "js",
+                                 location: props.location,
++                                fileFilter: props.fileFilter,
+                                 executor: executor,
+                             })];
+                     case 1:
+@@ -234,5 +235,9 @@
+                                                     if (file.substr(-3) !== ".".concat(props.extension))
+                                                         return [2 /*return*/, "continue"];
++                                                    if (/\.d\.[cm]?ts$/.test(file))
++                                                        return [2 /*return*/, "continue"];
++                                                    if (props.fileFilter && props.fileFilter(file) === false)
++                                                        return [2 /*return*/, "continue"];
+                                                     _c.label = 4;
+                                                 case 4: return [4 /*yield*/, Promise.resolve("".concat(location_1)).then(function (s) { return __importStar(require(s)); })];
+                                                 case 5:
+--- a/lib/DynamicExecutor.d.ts
++++ b/lib/DynamicExecutor.d.ts
+@@ -66,4 +66,6 @@
+         filter?: (name: string) => boolean;
++        /** Selects source basenames before import; export filtering is unchanged. */
++        fileFilter?: (file: string) => boolean;
+         /**
+          * Wrapper of test function.
+          *
+--- a/src/DynamicExecutor.ts
++++ b/src/DynamicExecutor.ts
+@@ -74,5 +74,8 @@
+     filter?: (name: string) => boolean;
+ 
++    /** Selects source basenames before import; export filtering is unchanged. */
++    fileFilter?: (file: string) => boolean;
++
+     /**
+      * Wrapper of test function.
+      *
+@@ -189,4 +192,5 @@
+         location: props.location,
++        fileFilter: props.fileFilter,
+         executor,
+       });
+       await Promise.all(
+@@ -204,5 +208,6 @@
+   const iterate = async <Arguments extends any[]>(props: {
+     location: string;
+     extension: string;
++    fileFilter?: (file: string) => boolean;
+     executor: (path: string, modulo: Module<Arguments>) => Promise<void>;
+   }): Promise<Array<() => Promise<void>>> => {
+@@ -219,4 +224,6 @@
+         } else if (file.substr(-3) !== `.${props.extension}`) continue;
++        else if (/\.d\.[cm]?ts$/.test(file)) continue;
++        else if (props.fileFilter && props.fileFilter(file) === false) continue;
+ 
+         const modulo: Module<Arguments> = await import(location);
+         container.push(() => props.executor(location, modulo));

@@ -24,6 +24,12 @@ import { make } from "../internal/make";
  * export type ID = string;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The name.
+ * @param typeParameters The generic type parameters, if any.
+ * @param type The type.
+ * @returns The created {@link TypeAliasDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   The normalized identifier and generic parameters name the alias, while the
  *   supplied TypeNode is retained as its definition rather than resolved to values.
@@ -38,13 +44,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains modifiers, generic parameters and the definition slot,
  *   with a concrete alias example and separate acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The name.
- * @param typeParameters The generic type parameters, if any.
- * @param type The type.
- * @returns The created {@link TypeAliasDeclaration}.
  */
 export const createTypeAliasDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

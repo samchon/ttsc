@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { PlaygroundCompilerLifecycle } from "../../../../packages/playground/lib/src/react/internal/PlaygroundCompilerLifecycle.js";
+import { PlaygroundCompilerLifecycle } from "../../../../packages/playground/src/react/internal/PlaygroundCompilerLifecycle";
 
 /**
  * Verifies Worker generation invalidation fences active and queued mutations.
@@ -13,6 +13,11 @@ import { PlaygroundCompilerLifecycle } from "../../../../packages/playground/lib
  * 2. A source edit during a Worker reset clears that Worker's metadata.
  * 3. A source edit during an install RPC resets every mutated cache, after which
  *    the current source can install into the clean Worker.
+ *
+ * @evidence contracts/testing.md#behavioral-verification PlaygroundCompilerLifecycle fences active/queued stale work, protects replacement-generation metadata, resets already-mutated Worker file state after source supersession and permits the current source to commit.
+ * @evidence contracts/testing.md#independent-expectations Independent callback traces and literal emptied file/package/root/editor/runtime maps establish publication rights; caller generation identity and authored sourceVersion changes supply the stale/current oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Terminal invalidation, redundant stale invalidation, active versus queued task, source edit during reset, generation replacement during reset and source edit after mutation precede a successful current install.
+ * @evidence contracts/testing.md#execution-ownership This entry owns controlled promise gates and local state doubles while directly invoking capture/enqueue/invalidate/resetWorkerIfCurrent/mutateWorkerIfCurrent; it starts no Worker, React host, dependency network or compiler artifact.
  */
 export const test_playground_compiler_lifecycle_fences_stale_dependency_tasks =
   async (): Promise<void> => {

@@ -9,21 +9,32 @@ import innerprinter "github.com/microsoft/typescript-go/internal/printer"
 
 // EmitHost is the per-emit host interface tsgo's transformers query (Options,
 // SourceFiles, GetEmitResolver, GetEmitModuleFormatOfFile, WriteFile, ...).
+// The embedding host supplies native path/case policy and file output;
+// upstream requires host operations to be thread-safe.
 //
 // @evidence contracts/common.md#principled-implementation The exact upstream interface alias preserves the option, resolver and output callbacks its transformer chain requires; driver hosts satisfy that same contract without conversion.
 // @evidence contracts/common.md#clear-and-simple-design One interface alias exposes the owning compiler boundary instead of a second host abstraction with independently maintained methods.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Implementing this interface is supported dependency injection; the alias neither patches a host instance nor changes upstream dispatch.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the per-emit role and representative queries, while the package introduction explains the driver-to-transformer use.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidence contracts/portability.md#os-neutral-implementation The upstream interface preserves current/common directories, filename case policy, project-reference paths and WriteFile errors as explicit host boundaries; its implementation supplies native semantics without alias-owned path folding or an assumed universal filesystem policy.
 type EmitHost = innerprinter.EmitHost
 
 // EmitResolver resolves emit-time facts about nodes (referenced imports,
-// declaration flags, ...) under the checker mutex.
-// The caller owns synchronization of the checker used by its resolver.
+// declaration flags, ...). Synchronization belongs to the supplied resolver
+// implementation and host contract; the pinned checker-backed resolver locks
+// its checker internally for semantic queries. The alias adds no lock.
 //
 // @evidence contracts/common.md#principled-implementation An exact resolver interface alias retains the compiler's emit-time semantic queries and lets the host supply facts from the same checked program.
 // @evidence contracts/common.md#clear-and-simple-design The alias exposes the existing semantic boundary without duplicating checker state or inventing another resolver protocol.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The host supplies a resolver through upstream's interface; no foreign method or checker global is replaced.
-// @evidence contracts/common.md#meaningful-documentation Native prose names emit-time facts and caller-owned synchronization rather than implying the alias itself acquires a mutex.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies emit-time facts, distinguishes resolver/host synchronization from the alias and notes the pinned checker resolver's internal locking instead of requiring a caller-held checker mutex.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type EmitResolver = innerprinter.EmitResolver
 
 // EmitTextWriter is the sink the printer emits into; String() yields the text.
@@ -32,16 +43,27 @@ type EmitResolver = innerprinter.EmitResolver
 // @evidence contracts/common.md#clear-and-simple-design The printer and host share the existing sink interface, avoiding a separate buffering adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The declaration introduces no replacement methods, fixture dispatch or compensating behavior.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the sink's output role and how callers obtain its accumulated text.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type EmitTextWriter = innerprinter.EmitTextWriter
 
 // NewTextWriter creates a fresh writer for one emit (newLine e.g. "\n").
 // indentSize controls spaces per indentation level; nonpositive values select
 // the pinned writer's default of four spaces.
+// The caller owns the returned mutable sink and its accumulated text;
+// Clear resets its buffer state, while previously returned strings remain
+// owned by their consumers.
 //
 // @evidence contracts/common.md#principled-implementation Delegating newline and indentation width preserves upstream position accounting and its four-space fallback for nonpositive widths.
 // @evidence contracts/common.md#clear-and-simple-design The constructor returns one fresh upstream sink without shared buffers or additional output policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Formatting parameters are explicit inputs; no consumer-specific formatting or foreign method replacement is introduced.
 // @evidence contracts/common.md#meaningful-documentation Native prose states writer lifetime, newline example, indentation units and nonpositive-width default with tags separated from descriptive text.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned sink retains its newline backing string and subsequently accumulated output; its caller controls Clear and reference release, and strings already returned can keep output bytes alive after Clear. Construction opens no handle and enforces no output-byte cap or concurrent-use guard.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The upstream constructor owns indentation fallback and fresh writer initialization; this adapter chooses no independent buffering or formatting strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This factory requests a fresh upstream writer; the caller decides when an existing sink can be cleared and reused, without an adapter-owned shared producer or request-validity cache.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NewTextWriter computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewTextWriter(newLine string, indentSize int) EmitTextWriter {
   return innerprinter.NewTextWriter(newLine, indentSize)
 }

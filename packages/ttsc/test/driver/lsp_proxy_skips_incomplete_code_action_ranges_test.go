@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySkipsIncompleteCodeActionRanges verifies missing LSP position
+// TestLSPProxySkipsIncompleteCodeActionRanges Verifies missing LSP position
 // fields are not normalized to zero before a native plugin sees the request.
 //
 // Incomplete ranges remain upstream's responsibility. The proxy must forward
@@ -17,6 +17,11 @@ import (
 //  2. Send requests with missing, null, or reversed range fields.
 //  3. Require each original request to reach upstream unchanged.
 //  4. Require each upstream response to reach the editor unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards each malformed range request and matching upstream response unchanged instead of adding the configured quick fix.
+// @evidence contracts/testing.md#independent-expectations Missing or null coordinates cannot be invented as zero, and reversed ranges cannot denote a valid edit interval.
+// @evidence contracts/testing.md#distinguishing-cases Missing range, missing start fields, missing start character, null end line and reversed bounds each retain their own subtest identity.
+// @evidence contracts/testing.md#execution-ownership Go test/driver executes the five authored frames on one in-process proxy harness with distinct ids and a stub action source.
 func TestLSPProxySkipsIncompleteCodeActionRanges(t *testing.T) {
   cases := []struct {
     name     string

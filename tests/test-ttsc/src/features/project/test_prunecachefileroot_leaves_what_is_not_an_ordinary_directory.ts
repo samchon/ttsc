@@ -1,11 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
-import {
-  assert,
-  fs,
-  path,
-  pruneCacheFileRoot,
-} from "../../internal/source-build";
+import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies collecting a single-file cache part never throws, never creates the
@@ -17,7 +15,13 @@ import {
  *
  * 1. Collect a part that does not exist, and one that is a file.
  * 2. Link a part to an outside directory holding an old entry, and collect it.
- * 3. Assert nothing threw, nothing was created, and the outside entry remains.
+ * 3. Assert the outside bytes and observed modification time remain unchanged, no
+ *    collection marker appears, and the input link still names a link.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Collection neither throws nor creates a missing root; file-root bytes and linked outside bytes/mtime stay unchanged, no outside collection marker is written, and the link remains a link.
+ * @evidence contracts/testing.md#independent-expectations Authored absent, regular-file and linked-directory roots distinguish safe collection scope. Literal outside bytes and no-marker expectations are independent; the native mtime observed before collection avoids assuming filesystem timestamp precision.
+ * @evidence contracts/testing.md#distinguishing-cases An absent part, a regular file where the part should be, and a link to an outside directory holding a 31-day-old entry are collected with force; nothing throws, the absent part is not created, the file is unchanged and the link target is not followed.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pruneCacheFileRoot directly on a missing path, a regular file and a junction/symlink in a temp directory; no product host, native build or install is involved.
  */
 export const test_prunecachefileroot_leaves_what_is_not_an_ordinary_directory =
   (): void => {
@@ -41,8 +45,13 @@ export const test_prunecachefileroot_leaves_what_is_not_an_ordinary_directory =
     fs.writeFileSync(entry, "keep", "utf8");
     const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
     fs.utimesSync(entry, old, old);
+    const outsideMtime = fs.statSync(entry).mtimeMs;
     const link = path.join(root, "ttsx-orphan");
     fs.symlinkSync(outside, link, "junction");
     pruneCacheFileRoot(link, { force: true });
     assert.equal(fs.existsSync(entry), true, "the collection followed a link");
+    assert.equal(fs.readFileSync(entry, "utf8"), "keep");
+    assert.equal(fs.statSync(entry).mtimeMs, outsideMtime);
+    assert.equal(fs.existsSync(path.join(outside, ".gc-last-run")), false);
+    assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
   };

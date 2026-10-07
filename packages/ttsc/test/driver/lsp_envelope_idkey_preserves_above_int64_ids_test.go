@@ -6,12 +6,11 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeIDKeyPreservesAboveInt64IDs pins the round-4 fix that
-// keeps distinct 19+ digit ids distinct. The previous Float64-fallback
-// normalization rounded any id past 2^53 down to `1e+19`, colliding
-// every "huge integer" id into the same pending-actions key — a real
-// proxy correctness bug for peers that mint ids from a counter past
-// MaxInt64.
+// TestLSPEnvelopeIDKeyPreservesAboveInt64IDs Verifies adjacent large integer identities
+// for the two authored 19-digit ids. These adjacent values distinguish
+// literal preservation from a rounded float representation. This is the
+// decoder's compatibility key policy, not proof that above-int64 IDs meet
+// LSP identifier constraints or that an actual proxy session correlates them.
 //
 //  1. Decode two envelopes whose integer ids differ only above the
 //     safe-float boundary (9999999999999999998 vs 9999999999999999999).
@@ -20,6 +19,11 @@ import (
 //     hex.EncodeToString or a per-call counter) would still fail.
 //  3. Decode a third envelope whose id is well below MaxInt64; assert it
 //     canonicalises through the Int64 arm to its decimal form.
+//
+// @evidence contracts/testing.md#behavioral-verification ParseEnvelope and IDKey preserve each of two adjacent 19-digit integer literals and a small integer key exactly.
+// @evidence contracts/testing.md#independent-expectations The compatibility policy preserves integer-shaped literals beyond int64; the two authored decimal strings and 42 independently specify exact keys, without certifying protocol validity.
+// @evidence contracts/testing.md#distinguishing-cases Adjacent integers above int64 detect float collapse, while 42 checks the small-integer branch; exponent normalization belongs to its peer case.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver envelope unit decodes authored JSON and checks keys in process without an LSP session.
 func TestLSPEnvelopeIDKeyPreservesAboveInt64IDs(t *testing.T) {
   a, err := driver.ParseEnvelope([]byte(`{"jsonrpc":"2.0","id":9999999999999999998,"method":"x"}`))
   if err != nil {

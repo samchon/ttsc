@@ -8,14 +8,11 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
 /**
  * Answer Rollup's cache for the modules the adapter delivers to it.
  *
- * Rollup serves a module from the cache it was handed, the `cache` input
- * option, whenever the module's source is unchanged and no plugin's
- * `shouldTransformCachedModule` asks for it. Rollup's own watcher runs again a
- * cached module whose watch file changed, the project's record among them, but
- * a build handed a cache has no watcher, so a module whose source never changed
- * kept the output of a type edited since (samchon/ttsc#1491). Every other build
- * host holds the record as the module's dependency and compares it before it
- * restores the module; this makes the same comparison for Rollup.
+ * When the host would otherwise restore a module from its supplied cache,
+ * shouldTransformCachedModule can request transformation again. This adapter
+ * uses that hook to compare its delivered options and project-record state,
+ * including a build that has no live watcher to hear earlier input edits
+ * (samchon/ttsc#1491).
  *
  * A delivery leaves the options it was compiled under, the record, and the
  * digest of the bytes its process wrote to the record in the module's `meta`
@@ -29,14 +26,15 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * exactly those of the projects whose modules it is about to restore. A
  * watching session proves none: its cache holds only what its own deliveries
  * registered with the bridge, which moves their records as their inputs change.
- * A module carrying no delivery, or one no cache may serve, runs again, since
- * nothing proves its output.
+ * An owned module carrying no delivery, or one no cache may serve, runs again,
+ * since nothing proves its output.
  *
- * Each record's bytes are read at most once per build, and a delivery in the
- * build puts the digest it wrote in their place, so a project whose modules
- * Rollup restores costs one read of its record, not one per module. A move made
- * in mid-build by another process is read at the next build, which runs the
- * module again then.
+ * A record read is cached, including unavailable results, until begin clears it
+ * or a first proof attempt invalidates it. Deliveries replace the saved digest
+ * with their own recorded bytes. A later judgment need not reread a record
+ * moved by another process in mid-build; the next pass observes it. A changed
+ * proves callback can invalidate an already read digest within this pass.
+ * Refresh errors propagate after the key enters the attempted-proof set.
  *
  * @param name The plugin's name, the key of its entry in a module's `meta`.
  * @param includes Whether the adapter transforms a module id.
@@ -44,15 +42,26 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  *   (`rollupDeliveryOptions`).
  * @param proves Whether the build proves the records its cached modules name,
  *   which a build without a watching session's bridge does.
- *
- * @evidence contracts/common.md#principled-implementation Only adapter-owned modules with matching options and current recorded project digest may replay; absent, invalid, volatile, or unreadable evidence requests retransformation.
+ * @evidence contracts/common.md#principled-implementation Adapter-owned modules compare options and pass-observed record digest; matching record-less metadata follows the no-project rule. Missing delivery, malformed record, null or unreadable record requests retransformation.
  * @evidence contracts/common.md#clear-and-simple-design Per-pass proven and digest tables back the existing begin/deliver/moved interface; shared record refresh owns filesystem-state proof.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter does not patch Rollup's source-only cache or fabricate a record when no proof exists; it uses the host's retransformation hook.
- * @evidence contracts/common.md#meaningful-documentation Paragraphs explain watching versus one-shot proof and why a record is read once per pass, with explicit callback responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter uses the host retransformation hook without patching its cache or inventing a record when no proof exists.
+ * @evidence contracts/common.md#meaningful-documentation Paragraphs explain optional record refresh, pass observation reuse and invalidation, including callback failure and record-less delivery semantics.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral record access uses producer-supplied native paths and the shared native record refresh operation, without universal path case normalization or fixed storage directories.
- * @evidence contracts/performance.md#efficient-algorithms Module judgment uses option comparison and map lookup; each distinct record incurs at most one proof and one retained byte digest per pass.
- * @evidence contracts/performance.md#reuse-equivalent-work Modules sharing a project record reuse its pass proof and digest; a live delivery updates that digest from the bytes it actually wrote.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Begin clears both tables at every pass, and this helper opens no persistent filesystem handles or watchers.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Judgment adds module filtering, current-option work and metadata/text
+ *   comparison. Each lexical record gets one refresh attempt per pass, including
+ *   native input/walk/record I/O work. Digest reads/hash follow record bytes
+ *   and can repeat after proof invalidation; delivery updates avoid a reread.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Modules with the same lexical record reuse a pass's refresh attempt and
+ *   observed digest. Begin ends the window; first refresh invalidates an older
+ *   read and delivery updates the digest. Quiet mid-pass observation is a
+ *   defined reuse window, not independently fresh native state for every module.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The returned proof owner retains attempted keys and optional digests for R
+ *   lexical records until begin clears them or the owner becomes unreachable.
+ *   There is no count/byte cap within a pass or dedicated close. Thrown refresh
+ *   leaves existing table state until that reset; no native handle/task is held.
  */
 export function createRollupCachedModuleProof(
   name: string,

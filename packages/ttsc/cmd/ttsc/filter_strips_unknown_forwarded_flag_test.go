@@ -5,24 +5,18 @@ import (
   "testing"
 )
 
-// TestFilterHostArgsStripsUnknownForwardedFlag verifies cmd/ttsc's
-// filterHostArgs drops forwarded tsgo options before fs.Parse so the
-// FlagSet does not exit 2.
+// TestFilterHostArgsStripsUnknownForwardedFlag verifies forwarded unknown options are removed while declared argv and double-dash tails survive.
 //
-// `cmd/ttsc/{build,api_compile,api_transform}.go` use
-// `flag.NewFlagSet(..., flag.ContinueOnError)` which exits non-zero on
-// the first unknown flag it sees. The schema-generated allow-list in
-// `flags_gen.go` (`HostFlagAllowList`) feeds this filter so a forwarded
-// `--strict` from the JS launcher reaches the tsgo lane via
-// `--tsgo-args=<JSON>` instead of crashing the build. This pins the
-// behavior RCA #4 flagged as "next likely bug — `cmd/ttsc/build.go:42`
-// uses bare `flag.FlagSet` with no filter and will exit".
+// The filter prevents unknown forwarded options from reaching a local ContinueOnError FlagSet through this argument lane. ContinueOnError returns a parsing error; this unit asserts exact filtering results and does not run the downstream parser or prove forwarded compiler-option delivery.
 //
-//  1. Known flags + values survive (long form and `=` form).
-//  2. Unknown flag with separate value (`--strict true`) is dropped
-//     together with its value.
-//  3. Unknown flag with inline value (`--target=ES2022`) is dropped.
-//  4. `--` separator and everything after survives verbatim.
+// 1. Preserve declared value, inline-value and boolean argv.
+// 2. Remove unknown options with separate and inline values.
+// 3. Preserve double-dash and the entire remaining token tail.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct filterHostArgs produces exact literal argv arrays for known options, unknown separate/inline options and the double-dash tail.
+// @evidence contracts/testing.md#independent-expectations Literal expected arrays follow independently from local host-option ownership and the double-dash boundary; they are not computed from actual output or generated allow-list contents.
+// @evidence contracts/testing.md#distinguishing-cases Positive known-option preservation contrasts unknown value removal, with inline and separate values and a terminal double-dash boundary; case normalization belongs to the companion filter unit.
+// @evidence contracts/testing.md#execution-ownership This portable Go unit calls the actual private filtering operation and keeps four named subcases. It performs no FlagSet parse, native Program load, fixture access or subprocess; downstream command status and tsgo forwarding remain other owners.
 func TestFilterHostArgsStripsUnknownForwardedFlag(t *testing.T) {
   cases := []struct {
     name string

@@ -21,6 +21,10 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @param caseBlock The caseBlock.
+ * @returns The created {@link SwitchStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   The subject Expression and CaseBlock remain distinct, preserving one switch
  *   evaluation with ordered case/default arms supplied by the caller.
@@ -35,11 +39,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies subject/body ownership with a multi-arm example;
  *   acknowledgment paragraphs remain separate from the descriptive block.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @param caseBlock The caseBlock.
- * @returns The created {@link SwitchStatement}.
  */
 export const createSwitchStatement = (
   expression: Expression,

@@ -8,22 +8,21 @@ import (
 )
 
 // TestArtifactsSurviveAPartialRebuild verifies that a citation of an artifact is
-// still a relation after the incremental path rebuilds the file that wrote it.
-//
-// A partial build re-resolves the outgoing facts of the files it selected, and a
-// citation is one of them. The full snapshot applied the published artifacts and
-// the incremental one did not, so editing a declaration that cites a document
-// section rebuilt it with that edge missing — the client's graph silently lost a
-// relation it had a moment earlier, and only a full reload brought it back.
-//
-// The nodes are re-added rather than assumed present because a partial starts
-// with only its selected files' nodes. They are the same nodes under the same
-// ids, which is why the store can replace like with like.
+// still a relation after a selected-file BuildFiles call followed by explicit
+// ApplyArtifacts. Both builds use the same unchanged compiler Program; this
+// tests the publication steps directly, not an edit, shard coordinator, or
+// client/store replacement.
 //
 //  1. Build the complete graph with artifacts applied, and confirm the edge.
-//  2. Rebuild only the citing file, as the shard path does.
+//  2. Rebuild only the selected citing file using the same unchanged Program.
 //  3. Assert the edge is there again, and that the artifact came with it.
+//
+// @evidence contracts/testing.md#behavioral-verification Full Build and selected-file BuildFiles, each followed by ApplyArtifacts, expose a doc-ref to the literal artifact address; the partial result contains that artifact node.
+// @evidence contracts/testing.md#independent-expectations The expectation is the same literal fixture built two ways: the doc-ref edge to docs/sale.md#pricing must exist after the complete build with artifacts applied, and again after BuildFiles over only the citing file followed by ApplyArtifacts, and the partial graph must hold the artifact node. The complete build is the baseline, so only the selected file path is taken from the code under test.
+// @evidence contracts/testing.md#distinguishing-cases Full versus selected-file construction contrasts while the authored Program and artifact remain unchanged. The literal edge is required in both, and node membership is separately required in the partial result; no source mutation or coordinator publication is exercised.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its temporary project, constructs and closes a driver compiler Program in-process, and directly calls Build, BuildFiles and ApplyArtifacts. A restored empty linked-plugin manifest excludes ambient hooks. It installs no consumer and builds or starts no native product command.
 func TestArtifactsSurviveAPartialRebuild(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": { "target": "ES2022", "module": "commonjs", "strict": true },

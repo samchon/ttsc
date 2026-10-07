@@ -4,19 +4,19 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
 /**
  * What a project record file holds (`projectRecordFile`): the state of the
  * project the generation that wrote it was compiled from, as the evidence of
- * every input the compile consulted and the digest of the root files the
- * adapter's walk admitted.
+ * the evidenced inputs handed to the adapter and the digest of the root files
+ * the adapter's walk admitted.
  *
  * The file is the project's state as one file. A generation is a compile of the
  * whole project, so every module's output is a function of that state and
  * nothing finer; a host therefore records this one file, beside the module
  * itself, and its own snapshot or watcher decides when the module runs again.
- * The bytes move exactly when the state does: a delivery writes the record of
- * its generation (`writeProjectRecordFile`), a watching session's bridge bumps
- * `signal` when an observer reports a change to a recorded input
+ * Byte changes communicate deliveries and signal attempts: a delivery writes
+ * the record of its generation (`writeProjectRecordFile`), a watching session's
+ * bridge bumps `signal` when an observer reports a change to a recorded input
  * (`signalProjectRecordFile`), and a build start proves each recorded input
- * against the disk and moves a record whose state has moved while nothing ran
- * or that it cannot read, and removes one whose tsconfig is gone
+ * against the disk and attempts to move a record whose state has moved while
+ * nothing ran or that it cannot read, and removes one whose tsconfig is gone
  * (`refreshProjectRecordFiles`).
  *
  * @evidence contracts/common.md#principled-implementation
@@ -32,13 +32,28 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and spaced members explain persistence, membership-null
  *   meaning and signal purpose under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Absolute native input keys, root and tsconfig spellings retain their
+ *   producer anchors; recorded evidence/policy supplies case and identity
+ *   distinctions for replay. The signal is protocol state, not a timestamp or
+ *   proof that a native watcher received the movement.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Serialization, membership hashing and native replay are algorithms of the
+ *   record writer/proof consumers; this representation selects none itself.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Carries recorded evidence and membership facts, but fresh replay and native
+ *   lifetime authority remain with consumers; shape equality alone permits no reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Record persistence and cached input/evidence populations are owned by
+ *   writer, refresh and bridge consumers. This data shape acquires no handle
+ *   and independently imposes no population or byte bound.
  */
 export interface TtscProjectRecord {
   /**
-   * Every input the generation consulted, keyed by absolute path, with the
-   * state the generation recorded for it. An input whose generation recorded no
-   * state, a failed compile's recovery input among them, carries the state the
-   * adapter read when it wrote the record.
+   * Evidenced delivery inputs, keyed by absolute path, with the state the
+   * generation recorded for them. An input whose generation recorded no state,
+   * a failed compile's recovery input among them, carries the state the adapter
+   * read when it wrote the record.
    */
   inputs: Record<string, TtscWatchInputEvidence>;
 
@@ -59,9 +74,10 @@ export interface TtscProjectRecord {
   root: string;
 
   /**
-   * How many times a watching session signalled a change since the record was
-   * last written from a generation. The number carries no meaning of its own;
-   * it moves the bytes for a host that compares them.
+   * The signal sequence since the record was last written from a generation.
+   * Repeated retry movements can increment it for the same unsettled change; it
+   * is not a count of distinct edits or proof of host receipt. It changes the
+   * bytes for a host that compares them.
    */
   signal: number;
 

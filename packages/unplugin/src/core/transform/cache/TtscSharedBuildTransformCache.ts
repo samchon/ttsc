@@ -8,6 +8,18 @@ import type { TtscTransformCacheLease } from "./TtscTransformCacheLease";
  * @evidence contracts/common.md#clear-and-simple-design The shape names the two existing owners without duplicating their entries or lifecycle state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The pair expresses retention ownership, not unconditional freshness or a host-specific bypass.
  * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish compiled-entry storage from cross-session lifetime ownership.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscSharedBuildTransformCache only declares a shape; it has no
+ *   filesystem, path or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscSharedBuildTransformCache only declares a shape; it has no
+ *   computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscSharedBuildTransformCache only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscSharedBuildTransformCache only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscSharedBuildTransformCache {
   /** The shared cache. */

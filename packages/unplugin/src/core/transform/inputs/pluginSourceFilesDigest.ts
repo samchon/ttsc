@@ -15,8 +15,8 @@ import { inputMetadataEvidence } from "./inputMetadataEvidence";
  * The shared file selector includes relative names, so addition, deletion and
  * rename invalidate the signature. A fresh digest is kept only when signatures
  * taken around its byte read agree and all stamps are separable. Reuse checks
- * separability again against the caller's refreshed device clock references;
- * a historical reference cannot establish safety after a clock rollback.
+ * separability again against the caller's refreshed device clock references; a
+ * historical reference cannot establish safety after a clock rollback.
  *
  * Source enumeration and byte reads use ttsc's native filesystem. Injected
  * metadata must describe that same source tree; this adapter does not make
@@ -28,7 +28,6 @@ import { inputMetadataEvidence } from "./inputMetadataEvidence";
  * @param filesystem The operations whose clock reference the caller refreshed
  *   (`refreshFilesystemClockReference`), which decides separability.
  * @throws When a listed file cannot be read, as `pluginSourceDigest` does.
- *
  * @evidence contracts/common.md#principled-implementation The build's exact file selector signs names and metadata around a fresh byte digest; matching separable signatures permit reuse only under the same native source-tree and refreshed-clock premises.
  * @evidence contracts/common.md#clear-and-simple-design This coordinator owns the directory digest entry while ttsc owns selection and byte hashing and inputMetadataEvidence owns stamp interpretation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A quiet tracker or equal timestamps alone cannot certify reuse; changed or unavailable evidence requires the real source digest rather than expected output or a compensating cache exception.

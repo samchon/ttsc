@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
 
-// TestLSPDiagnosticPreservesTags verifies the proxy carries a diagnostic's tags
+// TestLSPDiagnosticPreservesTags Verifies the proxy carries a diagnostic's tags
 // through its decode/re-encode step.
 //
 // The proxy decodes each sidecar diagnostic into LSPDiagnostic and re-encodes
@@ -19,6 +19,11 @@ import (
 //
 //  1. Decode a diagnostic carrying tags [1, 2].
 //  2. Assert both survive the round trip in order.
+//
+// @evidence contracts/testing.md#behavioral-verification LSPDiagnostic round trip preserves ordered tags [1,2].
+// @evidence contracts/testing.md#independent-expectations Literal LSP tag values and their authored order establish the list.
+// @evidence contracts/testing.md#distinguishing-cases Two present tags contrast with the separate absence case.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit decodes and encodes the maintained LSPDiagnostic wire type through encoding/json and checks its ordered authored tags; no sidecar, temporary project or editor connection runs.
 func TestLSPDiagnosticPreservesTags(t *testing.T) {
   input := []byte(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":4}},"code":"no-unused-vars","message":"'x' is never used","tags":[1,2]}`)
 
@@ -39,13 +44,20 @@ func TestLSPDiagnosticPreservesTags(t *testing.T) {
   }
 }
 
-// TestLSPDiagnosticOmitsAbsentTags is the negative twin: a diagnostic with no
+// TestLSPDiagnosticOmitsAbsentTags Verifies a diagnostic with no
 // tags must not sprout an empty array. Most findings are neither unnecessary nor
 // deprecated, so the common case is no tags at all, and `"tags":[]` on every one
 // would be noise the editor has to interpret.
 //
+// Optional absent tags must not sprout an empty array.
+//
 //  1. Decode a diagnostic with no tags field.
 //  2. Assert the re-encoded form has no tags key.
+//
+// @evidence contracts/testing.md#behavioral-verification Decoding and encoding the untagged diagnostic omit tags while retaining the literal code, message and end character.
+// @evidence contracts/testing.md#independent-expectations Optional absent tags must not sprout an empty array.
+// @evidence contracts/testing.md#distinguishing-cases Absence contrasts with the two-tag round trip.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit decodes and encodes the maintained LSPDiagnostic wire type through encoding/json; it opens no temporary project or editor connection.
 func TestLSPDiagnosticOmitsAbsentTags(t *testing.T) {
   input := []byte(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":4}},"code":"no-var","message":"unexpected var"}`)
 
@@ -63,5 +75,12 @@ func TestLSPDiagnosticOmitsAbsentTags(t *testing.T) {
   }
   if strings.Contains(string(reencoded), "tags") {
     t.Fatalf("absent tags must not appear on the wire:\n%s", reencoded)
+  }
+  var roundTripped lspserver.LSPDiagnostic
+  if err := json.Unmarshal(reencoded, &roundTripped); err != nil {
+    t.Fatalf("decode result: %v", err)
+  }
+  if roundTripped.Code != "no-var" || roundTripped.Message != "unexpected var" || roundTripped.Range.End.Character != 4 {
+    t.Fatalf("ordinary diagnostic fields were lost while omitting tags: %+v", roundTripped)
   }
 }

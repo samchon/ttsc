@@ -17,21 +17,20 @@ import { createParenthesizedExpression } from "./createParenthesizedExpression";
  * ```ts
  * (function () {
  *   return 1;
- * })()
+ * })();
  * ```
  *
  * This records an invocation rather than executing it. The ordinary function
  * introduces its own `this` and `arguments` context, unlike the arrow variant;
  * callers supply body statements valid for that non-async function.
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param statements The body statements.
+ * @returns The created {@link CallExpression}.
  * @evidence contracts/common.md#principled-implementation A grouped anonymous parameterless function with the supplied block is called with no arguments; its ordinary function context is retained rather than replaced with lexical arrow semantics.
  * @evidence contracts/common.md#clear-and-simple-design Four existing constructors compose block, function, grouping and invocation without a custom IIFE node or execution layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The documented empty signature and invocation do not inject consumer state or replace supplied body statements with expected results.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains structural composition and ordinary-function context, with multiline invocation example and acknowledgment tags in separate blocks.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param statements The body statements.
- * @returns The created {@link CallExpression}.
  */
 export const createImmediatelyInvokedFunctionExpression = (
   statements: readonly Statement[],

@@ -10,7 +10,12 @@ import "testing"
  *
  * 1. Select functions, a class, and namespace members from two modules.
  * 2. Cite them from both supported host kinds without imports.
- * 3. Remove one citation and verify only that file's unit remains owed.
+ * 3. Add another selected module with the same execute name and verify its unit remains owed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification For a Markdown host and a TypeScript host (two t.Run rows), links to `execute`, `Target` and `Namespace.property` of src/example.ts must be clean under a reference over that one file; adding src/other.ts with its own `execute` function under a `src/**` reference must produce diagnostics containing `src/other.ts` and `Missing acknowledgement`.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the addressing contract: file-qualified links replace import scope without changing containment, so they acknowledge the three units of one module, and a same-named export in another file remains an independent unit that stays owed.
+ * @evidence contracts/testing.md#distinguishing-cases The same citations under a one-file and a two-file population, from both host kinds; the second module's `execute` is the independently owed unit.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksResolvePublicDeclarations is a Go unit entry in the native test process that owns two t.Run rows (markdown, typescript); runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestFileLinksResolvePublicDeclarations(t *testing.T) {
   contracts := `export function execute(): void {}

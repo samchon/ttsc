@@ -1,0 +1,124 @@
+name: e2e
+
+on: pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.name }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: win32-x64, runner: windows-2025, node: 24.x }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm, node: floor }
+          - { name: darwin-arm64, runner: macos-15, node: current }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.6.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        id: go
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        shell: bash
+        run: |
+          printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\nTTSC_GO_CACHE_DIR=%s\n' "$(go env GOCACHE)" "$(go env GOCACHE)" >> "$GITHUB_ENV"
+          printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
+          printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+          printf 'epoch=%s\n' "$(node -p 'Math.floor(Date.now() / 604800000)')" >> "$GITHUB_OUTPUT"
+      - name: Restore Go modules and objects
+        id: go-objects
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          # Go validates each object's source, compiler and flags; share only object/module caches.
+          # A weekly snapshot admits new objects without creating a copy for every source edit/workflow.
+          key: ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-${{ steps.go-cache.outputs.epoch }}
+          restore-keys: |
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+      - run: pnpm install --frozen-lockfile
+      - uses: oven-sh/setup-bun@v2
+      - run: npm install --global yarn
+      - run: pnpm run build
+        id: build
+      - name: Save Built Go Modules and Objects
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          key: ${{ steps.go-objects.outputs.cache-primary-key }}
+      - name: Select the supported runtime Node release
+        id: runtime-node
+        shell: bash
+        env:
+          RUNTIME_NODE: ${{ matrix.node }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          let version = process.env.RUNTIME_NODE;
+          if (version === "floor") {
+            const manifest = JSON.parse(fs.readFileSync("packages/ttsc/package.json", "utf8"));
+            const range = manifest.engines?.node;
+            const match = typeof range === "string" ? /^>=\s*(\d+\.\d+\.\d+)$/.exec(range.trim()) : null;
+            if (match === null) throw new Error("engines.node must declare an exact >=major.minor.patch floor");
+            version = match[1];
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "version=" + version + "\n");
+          console.info("E2E runtime Node request: " + version);
+          NODE
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ steps.runtime-node.outputs.version }}
+          package-manager-cache: false
+      - name: Prepare E2E diagnostic observations
+        id: e2e-trace
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const root = path.join(process.env.RUNNER_TEMP, "e2e-runner-traces");
+          if (!path.isAbsolute(root)) throw new Error("E2E trace root must be absolute");
+          fs.mkdirSync(root, { recursive: true });
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "root=" + root + "\n");
+          NODE
+      - run: pnpm test:e2e
+        env:
+          TTSC_E2E_TRACE: ${{ steps.e2e-trace.outputs.root }}
+      - name: Preserve E2E diagnostic observations
+        if: ${{ always() && steps.e2e-trace.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-observations-${{ matrix.name }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.e2e-trace.outputs.root }}/**/*.jsonl
+            ${{ steps.e2e-trace.outputs.root }}/**/*.jsonl.integrity
+            ${{ steps.e2e-trace.outputs.root }}/**/*-stdout.bin
+            ${{ steps.e2e-trace.outputs.root }}/**/*-stderr.bin
+            ${{ steps.e2e-trace.outputs.root }}/**/preparation-environment.json
+            ${{ steps.e2e-trace.outputs.root }}/lsp-format-observations-*/*-stdout.bin
+            ${{ steps.e2e-trace.outputs.root }}/lsp-format-observations-*/*-stderr.bin
+          if-no-files-found: error
+          retention-days: 7

@@ -1,12 +1,11 @@
 package evidence
 
 import (
+  "golang.org/x/sys/windows"
   "os"
   "path/filepath"
   "strings"
   "testing"
-
-  "golang.org/x/sys/windows"
 )
 
 /**
@@ -19,6 +18,18 @@ import (
  * 2. Delete the saved target and its parent while retaining the snapshot.
  * 3. Resolve a new snapshot whose nested directories were never saved.
  * 4. Replace that snapshot and require the missing exported name diagnostic.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies Windows 8.3 project roots retain snapshots after path deletion.
+ *
+ * @evidence contracts/testing.md#independent-expectations The retained snapshot exports value through a real distinct DOS alias even after file and parent deletion; replacing it with renamed must yield the literal missing value export diagnostic.
+ *
+ * @evidence contracts/testing.md#distinguishing-cases Select a barrel and its snapshot through an actual DOS project-root alias. Delete the saved target and its parent while retaining the snapshot. Resolve a new snapshot whose nested directories were never saved. Replace that snapshot and require the missing exported name diagnostic.
+ *
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksKeepUnsavedShortPaths is a Windows-only Go unit entry of package evidence, run by go test on a Windows host. It creates real NTFS directory junctions through linkWindowsPopulationDirectory and drives the rule in-process; it starts no ttsc check, lint sidecar or installed consumer.
+ *
+ *
+ *
+ *
  */
 func TestFileLinksKeepUnsavedShortPaths(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{
@@ -32,7 +43,7 @@ func TestFileLinksKeepUnsavedShortPaths(t *testing.T) {
   }
   needed, err := windows.GetShortPathName(input, nil, 0)
   if err != nil || needed == 0 {
-    t.Skipf("Windows short paths are unavailable: %v", err)
+    t.Fatalf("Windows boundary fixture requires short paths: %v", err)
   }
   buffer := make([]uint16, needed)
   written, err := windows.GetShortPathName(input, &buffer[0], uint32(len(buffer)))
@@ -41,7 +52,7 @@ func TestFileLinksKeepUnsavedShortPaths(t *testing.T) {
   }
   short := windows.UTF16ToString(buffer[:written])
   if strings.EqualFold(filepath.Clean(short), filepath.Clean(fixture.root)) {
-    t.Skip("the test volume did not assign a distinct 8.3 alias")
+    t.Fatal("Windows boundary fixture requires a distinct 8.3 alias")
   }
   fixture.root = short
   fixture.sources = append(fixture.sources, fixture.source("api/nested/value.ts", "export const value = 1;"))

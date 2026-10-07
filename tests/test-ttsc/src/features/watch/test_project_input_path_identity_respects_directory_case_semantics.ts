@@ -1,111 +1,48 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
-import { createFilesystemPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createFilesystemPathIdentityContext.js";
-import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createProjectInputPathIdentityContext.js";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
 
 /**
- * Verifies missing suffixes inherit their existing ancestor's case semantics.
+ * Retains actual empty-directory case inheritance and Windows sensitive input.
  *
- * Physical aliases always converge. Missing names converge only when their
- * owning directory is case-insensitive; a case-sensitive directory preserves
- * both declarations.
+ * A real marker alias supplies the ordinary-volume expectation independently of
+ * the resolver. Windows then enables the native directory flag and creates a
+ * fresh context before resolving missing suffixes under that empty directory.
  *
- * 1. Prove both semantics through injected filesystem operations.
- * 2. Compare the real host directory semantics without mutating the volume.
- * 3. On capable Windows hosts, start a new identity transaction after enabling a
- *    per-directory sensitive override and prove it is observed.
+ * @evidence contracts/testing.md#behavioral-verification Imports the actual project-input identity entry and compares missing Spec.md/spec.md keys under the original empty ordinary directory to real Marker.txt/mARKER.TXT alias existence. Windows actual fsutil enable must succeed before a fresh context returns distinct sensitive suffix keys, followed by the original Marker.txt write.
+ * @evidence contracts/testing.md#independent-expectations Native fs.existsSync observes the marker alias independently; actual fsutil exit success establishes the sensitive fixture premise. No expected policy is read from the SUT's caseSensitive method, and unknown observation is not accepted as proof of native capability.
+ * @evidence contracts/testing.md#distinguishing-cases Preserves ordinary empty-directory inheritance on every original platform and the Windows-only sensitive empty-directory transition. The late sensitive marker does not supply the earlier authority. Injected explicit authority and the separate observed-mode consistency unit do not own these native observations.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls the owning operation against a private native root and the real Windows fsutil command, without a consumer install, compiler, Go artifact, foreign replacement or errno stub. Command preparation errors/signals and nonzero exits retain raw results separately; native body existence certifies neither execution nor classifier correctness. Finally attempts root cleanup and retains cleanup failure with observation failure.
  */
-export const test_project_input_path_identity_respects_directory_case_semantics =
-  (): void => {
-    const root = path.resolve("virtual-project-input-root");
-    const physical = path.join(root, "Physical");
-    const alias = path.join(root, "Alias");
-    const realpath = (location: string): string => {
-      if (location === physical || location === alias) return physical;
-      throw Object.assign(new Error("missing"), { code: "ENOENT" });
-    };
-    const insensitive = createProjectInputPathIdentityContext({
-      caseSensitive: () => false,
-      realpath,
-    });
-    const sensitive = createProjectInputPathIdentityContext({
-      caseSensitive: () => true,
-      realpath,
-    });
-
-    const insensitivePath = path.join(physical, "future", "spec.md");
-    const insensitiveVolume = path.parse(insensitivePath).root;
-    assert.deepEqual(
-      insensitive.resolve(path.join(alias, "Future", "Spec.md")),
-      {
-        key:
-          process.platform === "win32"
-            ? `${insensitiveVolume.toLowerCase()}${insensitivePath.slice(insensitiveVolume.length)}`
-            : insensitivePath,
-        path: insensitivePath,
-      },
+export function test_project_input_path_identity_respects_directory_case_semantics(): void {
+  const actualRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-project-input-empty-case-semantics-"),
+  );
+  const failures: Error[] = [];
+  try {
+    exercise();
+  } catch (cause) {
+    failures.push(
+      new Error("native directory case inputs and observations", { cause }),
     );
-    assert.equal(
-      insensitive.resolve(path.join(alias, "future", "spec.md")).key,
-      insensitive.resolve(path.join(alias, "Future", "Spec.md")).key,
-    );
-    assert.notEqual(
-      sensitive.resolve(path.join(alias, "future", "spec.md")).key,
-      sensitive.resolve(path.join(alias, "Future", "Spec.md")).key,
+  } finally {
+    try {
+      fs.rmSync(actualRoot, { recursive: true, force: true });
+    } catch (cause) {
+      failures.push(new Error("native directory case root cleanup", { cause }));
+    }
+  }
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "native directory case observations failed",
     );
 
-    const missing = (): never => {
-      throw Object.assign(new Error("missing"), { code: "ENOENT" });
-    };
-    const windows = createFilesystemPathIdentityContext({
-      platform: "win32",
-      caseSensitive: (directory) =>
-        path.win32.resolve(directory).toLowerCase().startsWith("c:\\sensitive"),
-      realpath: (location) => {
-        const resolved = path.win32.resolve(location);
-        const folded = resolved.toLowerCase();
-        if (folded === "c:\\ordinary") return "C:\\Ordinary";
-        if (folded === "c:\\ordinary\\repo") return "C:\\Ordinary\\Repo";
-        if (resolved === "C:\\Sensitive") return resolved;
-        if (resolved === "C:\\Sensitive\\Project") return resolved;
-        if (resolved === "C:\\Sensitive\\project") return resolved;
-        if (/^\\\\[^\\]+\\[^\\]+\\Work$/i.test(resolved)) return resolved;
-        return missing();
-      },
-    });
-    assert.equal(
-      windows.resolve("C:\\ORDINARY\\repo").key,
-      windows.resolve("c:\\ordinary\\REPO").key,
-      "ordinary Windows aliases converge through physical spelling",
-    );
-    assert.notEqual(
-      windows.resolve("C:\\Sensitive\\Project").key,
-      windows.resolve("C:\\Sensitive\\project").key,
-      "case-sensitive Windows siblings remain distinct",
-    );
-    assert.notEqual(
-      windows.resolve("C:\\Sensitive\\Project\\Future.ts").key,
-      windows.resolve("C:\\Sensitive\\Project\\future.ts").key,
-      "missing descendants inherit sensitive ownership",
-    );
-    assert.equal(
-      windows.resolve("C:\\Ordinary\\Repo\\Future.ts").key,
-      windows.resolve("c:\\ordinary\\repo\\future.ts").key,
-      "missing descendants inherit insensitive ownership",
-    );
-    assert.equal(
-      windows.resolve("\\\\SERVER\\Share\\Work").key,
-      windows.resolve("\\\\server\\share\\Work").key,
-      "UNC authority and share aliases identify one volume",
-    );
-
-    const actualRoot = TestProject.tmpdir(
-      "ttsc-project-input-empty-case-semantics-",
-    );
+  function exercise(): void {
     const insensitiveRoot = path.join(actualRoot, "insensitive");
     fs.mkdirSync(insensitiveRoot);
     fs.writeFileSync(path.join(actualRoot, "Marker.txt"), "", "utf8");
@@ -126,12 +63,23 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
     const enabled = childProcess.spawnSync(
       "fsutil.exe",
       ["file", "setCaseSensitiveInfo", sensitiveRoot, "enable"],
-      {
-        encoding: "utf8",
-        windowsHide: true,
-      },
+      { encoding: "utf8", windowsHide: true },
     );
-    assert.equal(enabled.status, 0, enabled.error?.message ?? enabled.stderr);
+    const result = JSON.stringify({
+      directory: sensitiveRoot,
+      error: enabled.error?.message,
+      signal: enabled.signal,
+      status: enabled.status,
+      stdout: enabled.stdout,
+      stderr: enabled.stderr,
+    });
+    assert.equal(
+      enabled.error,
+      undefined,
+      `fsutil preparation error: ${result}`,
+    );
+    assert.equal(enabled.signal, null, `fsutil signal termination: ${result}`);
+    assert.equal(enabled.status, 0, `fsutil exit: ${result}`);
     const sensitiveActual = createProjectInputPathIdentityContext();
     assert.notEqual(
       sensitiveActual.resolve(path.join(sensitiveRoot, "Spec.md")).key,
@@ -139,4 +87,5 @@ export const test_project_input_path_identity_respects_directory_case_semantics 
       "an empty sensitive directory must not depend on localized fsutil text",
     );
     fs.writeFileSync(path.join(sensitiveRoot, "Marker.txt"), "", "utf8");
-  };
+  }
+}

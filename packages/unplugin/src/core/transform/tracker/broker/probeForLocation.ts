@@ -7,27 +7,26 @@ import { pathIsWithin } from "../../filesystem/pathIsWithin";
  * The probe a brokered watch location carries, when the probe root contains it
  * (samchon/ttsc#1453, samchon/ttsc#1454).
  *
- * The location reaches here canonical, after every link, while the probe root
- * is the project root as the adapter names it, which on macOS is a link for
- * every temporary directory (`/var/…` to `/private/var/…`) and a link for any
- * linked workspace. Compared as spelled, the two shared no prefix, so no
- * location was ever probed there: every stream reported ready before its
- * opening probe, heard the writes made just before it as its own, and answered
- * no drain with proof. The root is therefore compared canonical as well. The
- * probe directory keeps the root's own spelling, and the child places it below
- * the root's canonical path by the same relative path.
+ * The caller resolves each location when possible, while the project root can
+ * retain a linked workspace or temporary-directory spelling. Resolving the root
+ * as well permits containment comparison in the same native name domain. A
+ * failed root realpath falls back to native absolute spelling and does not
+ * establish physical containment. The returned address retains the root's
+ * spelling for the child's relative translation; preparing a namespace does not
+ * prove that the backend delivered its probe.
  *
- * @param directory The location's canonical directory.
+ * @param directory The caller's resolved location, with its lexical fallback.
  * @param probeRoot The project root as the adapter names it, or `undefined`
  *   when the tracker has no root to probe below.
  * @param probeDirectory The probe directory below `probeRoot`.
  * @param filesystem The filesystem the canonical root is read through.
  * @evidence contracts/common.md#principled-implementation
- *   Canonical root containment determines whether the adapter owns a usable
- *   probe namespace; outside locations remain explicitly unproven.
+ *   Root/location containment determines probe-address eligibility, not usable
+ *   backend authority. Canonical observations use the supplied native view;
+ *   lexical fallback and subsequent probe delivery still require their owners.
  * @evidence contracts/common.md#clear-and-simple-design
- *   One containment boundary delegates directory creation to its supplied owner
- *   and preserves that owner's spelling for the child's relative translation.
+ *   One containment boundary delegates namespace naming/preparation to its
+ *   supplied owner and preserves spelling for the child's relative translation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Missing realpath does not invent a foreign project root; the fallback only
  *   compares resolved spelling and actual backend probing still must succeed.
@@ -37,6 +36,9 @@ import { pathIsWithin } from "../../filesystem/pathIsWithin";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral code compares the supplied filesystem's realpaths and uses
  *   node:path containment instead of assuming macOS aliases share a prefix.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the probe directory it names is owned by openBrokeredWatch.
+ * @evidence contracts/performance.md#efficient-algorithms Root realpath or fallback resolution and containment retain native access/component/text costs. An eligible location also invokes the supplied namespace provider: a warm root lookup differs from cold directory creation, abandoned-probe sweeping and retained-address registration. This eligibility predicate performs no recursive location scan or probe IO itself.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The probe directory is prepared once per project root by openBrokeredWatch; this only decides eligibility.
  */
 export function probeForLocation(
   directory: string,

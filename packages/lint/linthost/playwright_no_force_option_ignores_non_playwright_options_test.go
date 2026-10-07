@@ -1,0 +1,35 @@
+package linthost
+
+import (
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
+// TestRuleCorpusPlaywrightNoForceOptionIgnoresNonPlaywrightOptions verifies that a force option on a call that is not a Playwright action is not reported.
+//
+// The authored configure call has no action-method chain. This zero-result
+// protects it from option-name-only matching; it does not prove semantic
+// Playwright ownership for arbitrary same-named methods.
+//
+// 1. Load a non-Playwright configure call with a force option.
+// 2. Run only playwright/no-force-option.
+// 3. Assert no findings are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngine.Run verifies configure({ force: true }) remains free of Playwright findings; the zero-finding assertion prevents option-name-only false positives.
+// @evidence contracts/testing.md#independent-expectations The authored configure function is outside the playwright/no-force-option API contract even though its option spelling overlaps; zero findings independently distinguish this call from an action-method shape.
+// @evidence contracts/testing.md#distinguishing-cases The same option name on an unrelated function must stay accepted; the corpus fixture playwright-no-force-option.ts owns locator actions.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPlaywrightNoForceOptionIgnoresNonPlaywrightOptions parses a virtual TypeScript source and calls the actual engine in the shared Go unit process; no Playwright runtime or product child is launched.
+func TestRuleCorpusPlaywrightNoForceOptionIgnoresNonPlaywrightOptions(t *testing.T) {
+  source := `function configure(options: { force: boolean }) {
+  return options;
+}
+
+configure({ force: true });
+`
+  file := parseTSFile(t, "/virtual/playwright-no-force-option-non-playwright.ts", source)
+  findings := NewEngine(RuleConfig{"playwright/no-force-option": SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 0 {
+    t.Fatalf("expected no findings, got %+v", normalizeRuleFindings(file, findings))
+  }
+}

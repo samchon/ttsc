@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a dev server told to poll observes compiler inputs by polling
@@ -24,6 +24,15 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/
  *    invalidated.
  * 4. Override the option with `CHOKIDAR_USEPOLLING=false` and assert the project
  *    observer opens again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Calls the watcher with polling enabled and drives the captured poll; asserts no native scope and importer invalidation, then tests environment false overriding the option.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Vite-compatible CHOKIDAR_USEPOLLING=false overrides usePolling=true. Without that override, both local and external inputs belong to one poll and a changed external declaration invalidates its importer.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Contrasts configured polling with explicit environment override, and checks the poll-only edit actually reaches the importer rather than merely recording a scheduler.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_vite_compiler_watch_polls_when_polling_is_declared creates both watchers through its open helper, drives captured polling and inspects captured scopes after the environment override; it owns disposal and environment restoration, with no real observer.
  */
 export async function test_vite_compiler_watch_polls_when_polling_is_declared(): Promise<void> {
   const workspace = fs.realpathSync.native(

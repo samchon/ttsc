@@ -2,111 +2,20 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations",
+      "name": "TypeScript production declarations",
       "type": "typescript",
-      "files": [
-        "src/**/*.ts",
-        "!src/index.ts",
-        "!src/runGraph.ts",
-        "!src/launcherArgs.ts",
-        "!src/resolveGraphBinary.ts",
-        "!src/reduce.ts",
-        "!src/nativeExecutable.ts",
-        "!src/view.ts",
-        "!src/model/loadGraph.ts",
-        "!src/model/publishedArtifacts.ts",
-        "!src/model/TtscGraphMemory.ts",
-        "!src/model/TtscGraphReadonly.ts",
-        "!src/model/TtscGraphShardStore.ts",
-        "!src/model/TtscGraphSourceReader.ts",
-        "!src/model/TtscGraphSession.ts",
-        "!src/model/TtscLintDaemon.ts",
-        "!src/server/exportSurface.ts",
-        "!src/server/runTour.ts",
-        "!src/server/runEntrypoints.ts",
-        "!src/server/runLookup.ts",
-        "!src/server/runOverview.ts",
-        "!src/server/runDetails.ts",
-        "!src/server/resolveHandle.ts",
-        "!src/server/runTrace.ts",
-        "!src/server/startServer.ts"
-      ],
+      "files": ["src/**/*.ts"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md"],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "graph indexing and query algorithms",
-      "type": "typescript",
-      "files": [
-        "src/reduce.ts",
-        "src/model/TtscGraphMemory.ts",
-        "src/model/TtscGraphReadonly.ts",
-        "src/model/TtscGraphShardStore.ts",
-        "src/server/exportSurface.ts",
-        "src/server/runTour.ts",
-        "src/server/runEntrypoints.ts",
-        "src/server/runLookup.ts",
-        "src/server/runOverview.ts",
-        "src/server/runDetails.ts",
-        "src/server/resolveHandle.ts",
-        "src/server/runTrace.ts"
-      ],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "graph native computation and resource owners",
-      "type": "typescript",
-      "files": [
-        "src/nativeExecutable.ts",
-        "src/view.ts",
-        "src/model/loadGraph.ts",
-        "src/model/publishedArtifacts.ts",
-        "src/model/TtscGraphSourceReader.ts",
-        "src/model/TtscGraphSession.ts",
-        "src/model/TtscLintDaemon.ts",
-        "src/server/startServer.ts"
-      ],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
-          "contracts/performance.md",
-          "contracts/portability.md"
+          "contracts/portability.md",
+          "contracts/performance.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "graph native launch boundaries",
-      "type": "typescript",
-      "files": [
-        "src/runGraph.ts",
-        "src/launcherArgs.ts",
-        "src/resolveGraphBinary.ts"
-      ],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     }
   ]

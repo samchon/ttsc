@@ -20,19 +20,22 @@ func (s executableProjectInputSource) ProjectInputReloadMatchesChange(
   return uri == s.reloadURI
 }
 
-// TestLSPExecutableProjectInputChangeRequestsLauncherRestart verifies an input
-// that can alter the descriptor's contributor set cannot be handled as an
-// ordinary native resident-program refresh.
+// TestLSPExecutableProjectInputChangeRequestsLauncherRestart checks the proxy's
+// lifecycle frame and restart sentinel for an owned source's reload selection.
 //
-// The JavaScript launcher owns descriptor evaluation and native contributor
-// compilation, so the already-running Go process cannot safely mutate this
-// selection in place.
+// The source supplies a URI-equality policy, not actual descriptor evaluation.
+// The unit observes the proxy boundary; it does not start a JavaScript launcher,
+// compile contributors, forward upstream or assert a physical host restart.
 //
 //  1. Send a watched change for the source's executable reload URI.
 //  2. Assert the proxy announces the expected lifecycle transition, then
-//     returns its stable restart sentinel before forwarding.
-//  3. Send an unrelated change and assert it follows the ordinary forwarded
-//     invalidation path without another lifecycle notification.
+//     returns its stable restart sentinel with handled=false.
+//  3. Send an unrelated change and assert no error, handled=false and no frame.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual handleEditorEnvelope for the owned source's reload URI returns handled=false plus ErrLSPPluginSelectionChanged and emits the literal lifecycle method/reason frame. An unrelated URI returns no error, handled=false and no remaining editor bytes. No actual upstream forwarding, native invalidation call or launcher restart is observed.
+// @evidence contracts/testing.md#independent-expectations The lifecycle notification and the restart sentinel are literals from the proxy contract.
+// @evidence contracts/testing.md#distinguishing-cases The executable reload URI and an unrelated URI take different paths.
+// @evidence contracts/testing.md#execution-ownership This Go unit builds an actual Proxy with supported bytes.Buffer/io.Discard streams and an owned optional reload-matcher source embedding NullPluginSource. Actual notification handling and framed output execute, then actual frame/envelope readers decode the result. It creates no directory or sidecar and starts no compiler, process, installed consumer or product host.
 func TestLSPExecutableProjectInputChangeRequestsLauncherRestart(t *testing.T) {
   reloadURI := "file:///project/lint.config.ts"
   var editor bytes.Buffer

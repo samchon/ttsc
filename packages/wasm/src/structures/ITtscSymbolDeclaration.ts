@@ -13,12 +13,18 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc explains path provenance and interval units, following the
  *   documentation skill's guidance for absent state and coordinates.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscSymbolDeclaration is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscSymbolDeclaration is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscSymbolDeclaration is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscSymbolDeclaration {
   /** Project-relative or absolute path; null when no source file is associated. */
   file: string | null;
 
-  /** Inclusive start offset in the source's UTF-8 bytes. */
+  /**
+   * Inclusive start offset of the declaration's first token in the source's
+   * UTF-8 bytes, after leading whitespace, comments and JSDoc.
+   */
   pos: number;
 
   /** Exclusive end offset in the source's UTF-8 bytes. */

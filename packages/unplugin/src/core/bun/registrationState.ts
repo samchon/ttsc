@@ -34,11 +34,24 @@ const BUN_REGISTRATION_STATES = Symbol.for(
  *   transitions stay with their dedicated operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The namespaced symbol creates package-owned registration state without
- *   replacing a foreign global or Bun method. A conflicting non-WeakMap slot
- *   is not repaired; nonconfigurable collision propagates as a registration error.
+ *   replacing a foreign global or Bun method. A configurable non-WeakMap slot
+ *   can be replaced with the package's immutable slot; a nonconfigurable
+ *   conflicting slot propagates as a registration error.
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains concrete-runtime identity and dual-module sharing, with
  *   separate descriptive paragraphs and tags per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Fixed symbol/property/type checks and WeakMap lookup select no input-sized
+ *   traversal; a miss allocates one fixed-field state and inserts it.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Looks the state up in one process-wide WeakMap keyed by the Bun runtime,
+ *   so every call for that runtime shares a single state object.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The global slot retains one WeakMap for the realm lifetime, without strongly
+ *   retaining runtime keys. Loader providers and other callers can still keep
+ *   state/options alive independently; weak keys alone do not certify release.
  */
 export function registrationState(
   runtime: BunRuntimeGlobal,

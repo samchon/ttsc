@@ -9,23 +9,28 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyExecutesOwnedCommandWithEdit verifies the local dispatch
+// TestLSPProxyExecutesOwnedCommandWithEdit Verifies the local dispatch
 // path for ttsc-owned executeCommand requests when the source returns a
 // WorkspaceEdit. The proxy must respond directly to the editor with the
-// edit in the result field and never forward the request to tsgo
-// upstream — that is the whole reason VSCode plugin commands work
+// edit in the result field; the harness observes no forwarded request within
+// its 150ms window. This local dispatch lets plugin commands work
 // without an upstream code action provider.
 //
 // 1. Configure a source that owns "ttsc.lint.fix" and returns a WorkspaceEdit.
 // 2. Send an executeCommand request for that command.
 // 3. Assert the editor sees the WorkspaceEdit in result.
 // 4. Assert upstream sees no frame within a short window.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns the owned command edit with changes, newText X and id 5, and sends no upstream frame within 150ms.
+// @evidence contracts/testing.md#independent-expectations The stub owns ttsc.lint.fix and supplies the literal edit, so local dispatch must return that edit for the same request id.
+// @evidence contracts/testing.md#distinguishing-cases An owned request with a non-nil WorkspaceEdit owns the success branch; notifications, malformed params and unowned commands are separate cases.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver pipe harness invokes the real proxy against a stub source; no tsgo process is required for the local-dispatch semantics.
 func TestLSPProxyExecutesOwnedCommandWithEdit(t *testing.T) {
   source := &stubSource{
     commands: []string{"ttsc.lint.fix"},
     execute: func(command string, _ []json.RawMessage) (*driver.LSPWorkspaceEdit, error) {
       if command != "ttsc.lint.fix" {
-        t.Fatalf("unexpected command: %q", command)
+        t.Errorf("unexpected command: %q", command)
       }
       return &driver.LSPWorkspaceEdit{
         Changes: map[string][]driver.LSPTextEdit{
@@ -42,6 +47,23 @@ func TestLSPProxyExecutesOwnedCommandWithEdit(t *testing.T) {
   request := []byte(`{"jsonrpc":"2.0","id":5,"method":"workspace/executeCommand","params":{"command":"ttsc.lint.fix","arguments":[]}}`)
   h.sendEditor(request)
   body := h.recvEditor()
+
+  var response struct {
+    ID     int                      `json:"id"`
+    Result *driver.LSPWorkspaceEdit `json:"result"`
+  }
+  if err := json.Unmarshal(body, &response); err != nil {
+    t.Fatalf("decode command response: %v", err)
+  }
+  if response.ID != 5 || response.Result == nil {
+    t.Fatalf("expected owned request 5 edit result: %s", body)
+  }
+  edits := response.Result.Changes["file:///a.ts"]
+  if len(response.Result.Changes) != 1 || len(edits) != 1 || edits[0].NewText != "X" ||
+    edits[0].Range.Start.Line != 0 || edits[0].Range.Start.Character != 0 ||
+    edits[0].Range.End.Line != 0 || edits[0].Range.End.Character != 1 {
+    t.Fatalf("unexpected owned result edit: %s", body)
+  }
 
   if !strings.Contains(string(body), `"changes"`) {
     t.Fatalf("response missing WorkspaceEdit changes:\n%s", body)

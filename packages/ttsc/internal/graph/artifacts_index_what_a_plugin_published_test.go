@@ -8,13 +8,10 @@ import (
 )
 
 // TestArtifactsIndexWhatAPluginPublished verifies that a published artifact
-// becomes a node a citation resolves to, and that nothing else does.
-//
-// The reverse question already worked without this: a lookup on an address
-// answered with the declarations citing it, keyed on the token. What it could
-// not answer is what the address names — the heading's own text, what sits under
-// it — and that is what a node adds. The edge is the same `doc-ref` a resolved
-// `{@link}` already produced; the difference is that it now has an other end.
+// becomes a node a citation resolves to. Four accepted authored records add
+// nodes, while the unknown kind, unpublished cited address and unpublished
+// parent do not. It exercises the native graph builder and direct publication;
+// no plugin publisher or consumer query runs.
 //
 // Every negative here is a way the index could lie. A fabricated node for an
 // address nobody published would answer a question with an invention; a parent
@@ -25,8 +22,14 @@ import (
 //  2. Apply a published set covering three of them, one by an alias, one under
 //     a parent, plus an unpublishable entry.
 //  3. Assert the nodes, their containment, and the resolved edges — and that the
-//     uncited address, the unknown kind, and the dangling parent produced none.
+//     unpublished cited address, unknown kind, and dangling parent produced none.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct ApplyArtifacts adds the four accepted literal addresses and resolves authored citations to canonical artifact nodes; the unknown kind and unpublished cited or parent addresses add no nodes.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over a fixture citing four addresses: applying five published records must add exactly four nodes (the unknown kind adds none), no node for the unpublished cited address or the unpublished parent prisma:Sale, the Pricing section must carry the readable text Pricing, line 7 and parent docs/sale.md, a parent naming no published node must be cleared, doc-ref edges must land on the pricing section (twice: its address and its alias) and the prisma column, and the shadowing alias must claim nothing.
+// @evidence contracts/testing.md#distinguishing-cases The fixture contrasts canonical and alias citations, a published and missing parent, an unknown kind and accepted kinds, an unpublished cited address, and an alias that attempts to shadow an existing canonical address.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its temporary project, constructs and closes a driver compiler Program in-process, then calls Build and ApplyArtifacts directly. A restored empty linked-plugin manifest excludes ambient hooks. It installs no consumer and builds or starts no native product command.
 func TestArtifactsIndexWhatAPluginPublished(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": { "target": "ES2022", "module": "commonjs", "strict": true },
@@ -96,6 +99,14 @@ export function unpublished(): void {}
 
   if got := len(g.Nodes) - before; got != 4 {
     t.Fatalf("added %d nodes, want 4; an unknown kind must contribute none", got)
+  }
+  for _, address := range []string{"docs/sale.md", "docs/sale.md#pricing", "prisma:Sale.price", "docs/sale.md#shadow"} {
+    if g.Nodes[address] == nil {
+      t.Fatalf("accepted artifact %q has no node", address)
+    }
+  }
+  if _, fabricated := g.Nodes["docs/sale.md#unknown"]; fabricated {
+    t.Fatal("an unknown artifact kind became a node")
   }
   if _, fabricated := g.Nodes["docs/sale.md#nobody-published-this"]; fabricated {
     t.Fatal("an address nobody published became a node; the tag text carries it and the linter judges it")

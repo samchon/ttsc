@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDidOpenDirtyTextSuppressesPluginDiagnostics verifies restored
+// TestLSPProxyDidOpenDirtyTextSuppressesPluginDiagnostics Verifies restored
 // editor buffers are compared with disk before plugin diagnostics run.
 //
 // LSP `didOpen` can carry unsaved text restored by the editor. Native plugin
@@ -18,6 +18,11 @@ import (
 // 1. Write saved disk text for a file URI.
 // 2. Open the document with different LSP buffer text.
 // 3. Assert the open reaches upstream and no plugin diagnostic is published.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards the dirty didOpen bytes unchanged and emits no editor frame during the 150ms observation window.
+// @evidence contracts/testing.md#independent-expectations The buffer const dirty differs from authored const saved on disk, so saved-file plugin diagnostics must not be published for that buffer.
+// @evidence contracts/testing.md#distinguishing-cases A restored dirty buffer before didChange is the distinguishing input; absence is bounded by the no-frame window, not a proof for arbitrary delays.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the proxy over pipes with an actual disk fixture and stub diagnostics, without a native sidecar.
 func TestLSPProxyDidOpenDirtyTextSuppressesPluginDiagnostics(t *testing.T) {
   uri := writeLSPDiskFile(t, "const saved = 1;\n")
   source := &stubSource{

@@ -1,8 +1,8 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReloadEventShouldNotify.js";
+import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputReloadEventShouldNotify";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a declared glob's root is data even inside a resolution directory.
@@ -27,176 +27,180 @@ import { projectInputReloadEventShouldNotify } from "../../../../../packages/tts
  *
  * 1. Take a resolution directory holding both a glob root and a declared file.
  * 2. Assert the glob root stays warm and the declared file stays cold.
- * 3. Assert the directory itself and its other entries stay cold when named.
- * 4. Assert the directory's own digest delta alone does not select cold.
- * 5. Assert a data event cancels no other directory's digest evidence.
+ * 3. Assert the directory itself and its other entries stay cold when named, and
+ *    that its own digest delta alone does not select cold.
+ * 4. Assert a data event cancels no other directory's digest evidence.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual reload-event policy distinguishes warm data territory from cold selection surfaces, including named events versus directory fingerprint deltas.
+ * @evidence contracts/testing.md#independent-expectations Explicit path populations, literal true/false lane expectations and independent changedInputs tuples define the expected policy.
+ * @evidence contracts/testing.md#distinguishing-cases A glob root and a member below it stay warm while a declared file beside it, the resolution directory itself and an unrelated entry go cold; a directory digest delta with no event, with an event naming non-data, or with a deep data event goes cold while one explained by a data event on an immediate entry stays warm; globs rooted on or above the resolution directory exempt nothing; and one directory's data event never cancels another directory's (node_modules or ancestor) digest delta.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls only projectInputReloadEventShouldNotify with path strings under a TestProject.tmpdir (the directory exists, the entries are never created). The test does not construct a WatchTopology and opens no watcher.
  */
-export const test_watch_topology_separates_glob_territory_from_selection =
-  (): void => {
-    const root = TestProject.tmpdir("ttsc-project-input-territory-");
-    const globRoot = path.join(root, "api");
-    const declaredFile = path.join(root, "guard-state.txt");
-    const shared = {
-      globs: [path.join(root, "api", "**", "*.json")],
-      reloadDirectories: [root],
-      reloadFiles: [path.join(root, "lint.config.json")],
-    };
-
-    for (const [label, changed, expected] of [
-      ["a declared glob's root", globRoot, false],
-      ["a member below that root", path.join(globRoot, "v1"), false],
-      ["a declared file beside it", declaredFile, true],
-      ["the resolution directory itself", root, true],
-      ["an unrelated entry in it", path.join(root, "new-package"), true],
-    ] as const) {
-      assert.equal(
-        projectInputReloadEventShouldNotify({
-          changed,
-          changedInputs: [],
-          ...shared,
-        }),
-        expected,
-        `${label} must select the ${expected ? "cold" : "warm"} lane`,
-      );
-    }
-
-    // The digest delta on the directory is the only signal there is when what
-    // appeared is not a declared match, so it survives on its own — and yields
-    // only to an event that names data in the same pass.
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changedInputs: [root],
-        ...shared,
-      }),
-      true,
-      "an unexplained digest delta on a resolution directory selects the cold lane",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: globRoot,
-        changedInputs: [root],
-        ...shared,
-      }),
-      false,
-      "a digest delta explained by a data event stays warm",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: path.join(root, "new-package", "index.js"),
-        changedInputs: [root],
-        ...shared,
-      }),
-      true,
-      "a digest delta explained by a non-data event stays cold",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changedInputs: [path.join(root, "new-package", "package.json")],
-        ...shared,
-      }),
-      false,
-      "a delta below an immediate entry is not a selection change either",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changedInputs: [path.join(root, "new-package")],
-        ...shared,
-      }),
-      true,
-      "a delta on an immediate entry still selects the cold lane",
-    );
-
-    // Data carves out below a resolution directory, never at it. A glob rooted
-    // on the directory itself would otherwise exempt everything that directory
-    // exists to classify, and the selection lane would retire without a sound.
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: path.join(root, "new-package"),
-        changedInputs: [],
-        globs: [path.join(root, "**", "*.md")],
-        reloadDirectories: [root],
-        reloadFiles: shared.reloadFiles,
-      }),
-      true,
-      "a glob rooted on the resolution directory must not exempt it",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: path.join(root, "new-package"),
-        changedInputs: [],
-        globs: [path.join(path.parse(root).root, "**", "*.json")],
-        reloadDirectories: [root],
-        reloadFiles: shared.reloadFiles,
-      }),
-      true,
-      "a glob rooted above the resolution directory must not exempt it either",
-    );
-
-    // Nested resolution directories are the ordinary case, not the exotic one:
-    // a config graph records the directory it searched, each node_modules level
-    // above it, and every ancestor between. Each one's digest answers only for
-    // its own immediate entries, so one directory's exemption must not speak
-    // for another's evidence.
-    const modules = path.join(root, "node_modules");
-    const nested = {
-      globs: [path.join(root, "api", "**", "*.json")],
-      reloadDirectories: [root, modules],
-      reloadFiles: shared.reloadFiles,
-    };
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: globRoot,
-        changedInputs: [modules],
-        ...nested,
-      }),
-      true,
-      "a data event under one directory must not cancel another's delta",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: path.join(modules, "left-pad"),
-        changedInputs: [modules],
-        ...nested,
-      }),
-      true,
-      "an installed package stays cold with a glob declared elsewhere",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: globRoot,
-        changedInputs: [root],
-        ...nested,
-      }),
-      false,
-      "the directory the data actually moved still yields",
-    );
-
-    // The per-directory gate is what the nested shape above cannot prove: a
-    // directory that no sibling holds as an immediate entry has only its own
-    // digest delta for signal, and an event somewhere else cannot speak for
-    // it. A monorepo's unwatched ancestors are exactly such directories -- the
-    // watch-root ceiling declines them -- so a data event under the project
-    // must never cancel their evidence, and a deep event inside the glob root
-    // cannot account for a digest only an immediate entry can move.
-    const ancestor = path.dirname(root);
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: globRoot,
-        changedInputs: [ancestor],
-        globs: shared.globs,
-        reloadDirectories: [root, ancestor],
-        reloadFiles: shared.reloadFiles,
-      }),
-      true,
-      "a data event under the project must not cancel an ancestor's digest delta",
-    );
-    assert.equal(
-      projectInputReloadEventShouldNotify({
-        changed: path.join(globRoot, "v1", "x.json"),
-        changedInputs: [root],
-        ...shared,
-      }),
-      true,
-      "a deep data event cannot account for the directory's own digest delta",
-    );
+export function test_watch_topology_separates_glob_territory_from_selection() {
+  const root = TestProject.tmpdir("ttsc-project-input-territory-");
+  const globRoot = path.join(root, "api");
+  const declaredFile = path.join(root, "guard-state.txt");
+  const shared = {
+    globs: [path.join(root, "api", "**", "*.json")],
+    reloadDirectories: [root],
+    reloadFiles: [path.join(root, "lint.config.json")],
   };
+
+  for (const [label, changed, expected] of [
+    ["a declared glob's root", globRoot, false],
+    ["a member below that root", path.join(globRoot, "v1"), false],
+    ["a declared file beside it", declaredFile, true],
+    ["the resolution directory itself", root, true],
+    ["an unrelated entry in it", path.join(root, "new-package"), true],
+  ] as const) {
+    assert.equal(
+      projectInputReloadEventShouldNotify({
+        changed,
+        changedInputs: [],
+        ...shared,
+      }),
+      expected,
+      `${label} must select the ${expected ? "cold" : "warm"} lane`,
+    );
+  }
+
+  // The digest delta on the directory is the only signal there is when what
+  // appeared is not a declared match, so it survives on its own — and yields
+  // only to an event that names data in the same pass.
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changedInputs: [root],
+      ...shared,
+    }),
+    true,
+    "an unexplained digest delta on a resolution directory selects the cold lane",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: globRoot,
+      changedInputs: [root],
+      ...shared,
+    }),
+    false,
+    "a digest delta explained by a data event stays warm",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: path.join(root, "new-package", "index.js"),
+      changedInputs: [root],
+      ...shared,
+    }),
+    true,
+    "a digest delta explained by a non-data event stays cold",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changedInputs: [path.join(root, "new-package", "package.json")],
+      ...shared,
+    }),
+    false,
+    "a delta below an immediate entry is not a selection change either",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changedInputs: [path.join(root, "new-package")],
+      ...shared,
+    }),
+    true,
+    "a delta on an immediate entry still selects the cold lane",
+  );
+
+  // Data carves out below a resolution directory, never at it. A glob rooted
+  // on the directory itself would otherwise exempt everything that directory
+  // exists to classify, and the selection lane would retire without a sound.
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: path.join(root, "new-package"),
+      changedInputs: [],
+      globs: [path.join(root, "**", "*.md")],
+      reloadDirectories: [root],
+      reloadFiles: shared.reloadFiles,
+    }),
+    true,
+    "a glob rooted on the resolution directory must not exempt it",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: path.join(root, "new-package"),
+      changedInputs: [],
+      globs: [path.join(path.parse(root).root, "**", "*.json")],
+      reloadDirectories: [root],
+      reloadFiles: shared.reloadFiles,
+    }),
+    true,
+    "a glob rooted above the resolution directory must not exempt it either",
+  );
+
+  // Nested resolution directories are the ordinary case, not the exotic one:
+  // a config graph records the directory it searched, each node_modules level
+  // above it, and every ancestor between. Each one's digest answers only for
+  // its own immediate entries, so one directory's exemption must not speak
+  // for another's evidence.
+  const modules = path.join(root, "node_modules");
+  const nested = {
+    globs: [path.join(root, "api", "**", "*.json")],
+    reloadDirectories: [root, modules],
+    reloadFiles: shared.reloadFiles,
+  };
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: globRoot,
+      changedInputs: [modules],
+      ...nested,
+    }),
+    true,
+    "a data event under one directory must not cancel another's delta",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: path.join(modules, "left-pad"),
+      changedInputs: [modules],
+      ...nested,
+    }),
+    true,
+    "an installed package stays cold with a glob declared elsewhere",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: globRoot,
+      changedInputs: [root],
+      ...nested,
+    }),
+    false,
+    "the directory the data actually moved still yields",
+  );
+
+  // The per-directory gate is what the nested shape above cannot prove: a
+  // directory that no sibling holds as an immediate entry has only its own
+  // digest delta for signal, and an event somewhere else cannot speak for
+  // it. A monorepo's unwatched ancestors are exactly such directories -- the
+  // watch-root ceiling declines them -- so a data event under the project
+  // must never cancel their evidence, and a deep event inside the glob root
+  // cannot account for a digest only an immediate entry can move.
+  const ancestor = path.dirname(root);
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: globRoot,
+      changedInputs: [ancestor],
+      globs: shared.globs,
+      reloadDirectories: [root, ancestor],
+      reloadFiles: shared.reloadFiles,
+    }),
+    true,
+    "a data event under the project must not cancel an ancestor's digest delta",
+  );
+  assert.equal(
+    projectInputReloadEventShouldNotify({
+      changed: path.join(globRoot, "v1", "x.json"),
+      changedInputs: [root],
+      ...shared,
+    }),
+    true,
+    "a deep data event cannot account for the directory's own digest delta",
+  );
+}

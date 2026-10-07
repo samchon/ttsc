@@ -5,7 +5,7 @@ import {
   fetchNpmMetadata,
   unpackNpmTarball,
   verifyTarball,
-} from "../../../../packages/playground/lib/src/npm/internal/npmRegistry.js";
+} from "../../../../packages/playground/src/npm/internal/npmRegistry";
 import { createNpmFixtureTarball } from "../internal/npmFixture";
 
 function createStartSignal(): {
@@ -25,13 +25,18 @@ function createStartSignal(): {
  * Superseded per-keystroke installs have no reusable result, so waiting for
  * another network chunk or digest only consumes browser-tab resources.
  *
- * 1. Abort after stalled metadata fetch, JSON, and tarball fetch work starts.
- * 2. Abort active streamed and bodyless reads and dispose a late response.
- * 3. Abort at the response handoff and retain the exact reason while disposing
+ * 1. Abort after stalled metadata fetch, JSON and tarball fetch work starts, and
+ *    abort active streamed and bodyless reads while disposing late responses.
+ * 2. Abort at the response handoff and retain the exact reason while disposing
  *    metadata and tarball bodies.
- * 4. Prioritize synchronous aborts and remove listeners from stalled work.
- * 5. Abort an in-flight digest, then pass an already aborted signal through
- *    download, verification, and decompression and assert every stage stops.
+ * 3. Prioritize synchronous aborts and remove listeners from stalled work.
+ * 4. Abort an in-flight digest, then pass an already aborted signal through
+ *    download, verification and decompression and require every stage to stop.
+ *
+ * @evidence contracts/testing.md#behavioral-verification fetchNpmMetadata/downloadTarball/verifyTarball/unpackNpmTarball preserve the exact abort reason through stalled and late handoffs, cancel rejected bodies, suppress post-abort reads and remove listeners from synchronous-abort work.
+ * @evidence contracts/testing.md#independent-expectations The authored DOMException identity, fixture cancellation counters, zero post-abort fetch/read counts and empty listener set independently observe resource and error ownership; stalled promises cannot fabricate successful archive results.
+ * @evidence contracts/testing.md#distinguishing-cases Metadata fetch/JSON, tar fetch/stream/bodyless read, late response, 404/503 handoff, synchronous throw/rejection, in-flight digest and preaborted stages are distinct sequential controls owned by this case.
+ * @evidence contracts/testing.md#execution-ownership Unit-layer entry exported from src/features that owns every start gate and injected Response/stream double and calls the npmRegistry helpers directly; the digest case runs a real Web Crypto SHA-512 over a 16 MiB buffer, and the preaborted unpackNpmTarball case only shows that it rejects with AbortError (it does not observe whether decompression was skipped). No registry network, native build or host runs.
  */
 export const test_npm_archive_pipeline_honors_abort_boundaries = async () => {
   const tarball = createNpmFixtureTarball();

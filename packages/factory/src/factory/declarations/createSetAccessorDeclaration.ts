@@ -27,6 +27,12 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The name.
+ * @param parameters The parameters.
+ * @param body The body.
+ * @returns The created {@link SetAccessorDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Setter nodes keep their key, parameters and body without a return-type slot;
  *   the caller is responsible for the required one-value-parameter grammar.
@@ -41,13 +47,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states one-parameter usage and absence of return typing with a separate
  *   assignment-body example, following documentation paragraph guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The name.
- * @param parameters The parameters.
- * @param body The body.
- * @returns The created {@link SetAccessorDeclaration}.
  */
 export const createSetAccessorDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

@@ -26,42 +26,47 @@ import { refreshFilesystemClockReference } from "./refreshFilesystemClockReferen
  * temporary directory, whose metadata other observers read: the absence of a
  * `package.json` there, for one, is proven by that directory's own metadata
  * holding still while a plugin descriptor is evaluated. The probe therefore
- * lives in one directory per process below this user's state root
- * (`userStateDirectory`), created once and rewritten in place. It is named by
- * the process id, as every per-process entry there is, so a process that dies
- * without removing it has it removed by the next session that opens there
- * (`openTtscTransformSession`); the main thread removes it on exit. Worker
- * threads share the process id and so the directory: a probe another thread
- * rewrites between this one's write and its read is still a stamp minted before
- * this proof reads.
+ * lives at a process-named directory below this user's current state root
+ * (`userStateDirectory`), whose provider rechecks the native layout on each
+ * call; the probe is rewritten in place. A later session attempts to reclaim
+ * dead-process entries when it scans that state root. The main thread registers
+ * best-effort exit removal for its first successfully obtained directory.
+ * Worker threads share the process id and so the directory: a probe another
+ * thread rewrites between this one's write and its read is still a stamp minted
+ * before this proof reads.
  *
  * Minting is an optimization's precondition, never a requirement. When the
- * directory cannot be had, or lies inside `root`, every prior reference is
+ * directory cannot be had, either physical address cannot be resolved, or the
+ * probe directory lies inside the physical `root`, every prior reference is
  * cleared anyway, so no signature is separable and the proof reads content.
  *
  * @param root The project or source the probe must lie outside.
  * @param filesystem The operations whose references the proof judges against.
- *
  * @evidence contracts/common.md#principled-implementation Detached proofs mint a fresh reference in a process-owned directory outside the observed root; unavailable or inside-root storage clears reference authority instead.
  * @evidence contracts/common.md#clear-and-simple-design The operation selects process storage then delegates the actual mint to the same reference writer used by generations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No process timestamp substitutes for a filesystem stamp, and failure preserves real content comparison without writing into the user's source tree.
  * @evidence contracts/common.md#meaningful-documentation Paragraphs explain rollback ordering, directory-entry interference, worker sharing, and exit ownership before stating unavailable-storage behavior.
- * @evidence contracts/portability.md#os-neutral-implementation OS-neutral storage comes from the shared user-state provider and native containment; filesystem device/time metadata determines whether a reference applies across volumes.
- * @evidence contracts/performance.md#efficient-algorithms Each proof reuses one process directory and performs one delegated probe mint instead of creating and removing temporary trees per validation.
+ * @evidence contracts/portability.md#os-neutral-implementation The native user-state provider selects process storage; physical root and probe-directory resolution through the supplied coherent native view prevents lexical aliases from concealing containment. Unknown physical identity withdraws reference authority; observed device/time metadata qualifies cross-volume applicability.
+ * @evidence contracts/performance.md#efficient-algorithms Each call pays the state provider's native path/ownership checks and two physical path resolutions before an admitted delegated probe write/lstat. Work includes path text and native observations, not a cached directory lookup; the probe is rewritten rather than opening a temporary tree per proof.
  * @evidence contracts/performance.md#reuse-equivalent-work Generation-free proofs share the same process probe and per-operation reference table while still minting before every proof that depends on separability.
- * @evidence contracts/performance.md#bound-retention-and-release-resources One process directory is cleaned by the main-thread exit listener; crashed-process directories are reclaimed by subsequent session opening.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The provider's process-named directory and one probe persist between detached proofs. One main-thread listener attempts removal of the first acquired directory, and later session scans attempt dead-process reclamation. Native refusal or changed state-root backing can leave entries; neither exit nor a future scan guarantees successful or timely removal.
  */
 export function refreshProcessClockReference(
   root: string,
   filesystem: TtscTransformFilesystemOperations,
 ): void {
   const directory = processClockDirectory();
-  refreshFilesystemClockReference(
-    directory === undefined || pathIsWithin(directory, path.resolve(root))
-      ? undefined
-      : directory,
-    filesystem,
-  );
+  let admitted: string | undefined;
+  if (directory !== undefined) {
+    try {
+      const physicalRoot = filesystem.realpath(path.resolve(root));
+      const physicalDirectory = filesystem.realpath(directory);
+      if (!pathIsWithin(physicalDirectory, physicalRoot)) admitted = directory;
+    } catch {
+      // Unknown native identity cannot establish outside-root storage.
+    }
+  }
+  refreshFilesystemClockReference(admitted, filesystem);
 }
 
 /**

@@ -13,11 +13,16 @@ import (
  * Off and inheritance cannot share a zero value. Null is an invalid level;
  * JavaScript undefined is omitted when options are serialized.
  *
- * 1. Decode the omitted value and every named or numeric severity.
- * 2. Reject null, booleans, objects, and unknown levels.
- * 3. Assert decoding distinguishes omission from explicit off.
+ *  1. Decode the omitted value and every named or numeric severity.
+ *  2. Reject null, booleans, objects, and unknown levels.
+ *  3. Assert decoding distinguishes omission from explicit off.
+ *
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphSeverity returns each literal lint severity and exactly one diagnostic for invalid levels.
+ * @evidence contracts/testing.md#independent-expectations All expected values and diagnostic fragments are literal contract expectations; no product decoder computes the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Omission must remain distinct from explicit off; named and numeric aliases contrast null, fractional, negative and unknown levels.
+ * @evidence contracts/testing.md#execution-ownership This named decoder unit executes authored Go product functions in the semantic test process, without fixture installation, filesystem population, native plugin build or child process.
  */
-func TestConfigurationSeverityMatchesLintValues(t *testing.T) {
+func TestEvidenceSemanticConfigurationSeverityMatchesLintValues(t *testing.T) {
   absent, problems := decodeGraphSeverity(nil, "severity")
   if absent != nil || len(problems) != 0 {
     t.Fatalf("omission must inherit: %v %v", absent, problems)

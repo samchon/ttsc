@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { watchBrokerSource } from "../../../../../packages/unplugin/lib/core/transform/tracker/broker/watchBrokerSource.mjs";
+import { watchBrokerSource } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/watchBrokerSource";
 import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBrokerProgram";
 
 /**
@@ -25,6 +25,11 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
  * 3. Remove a registration and assert its stream stops.
  * 4. Assert a registration is failed at once when the binding is absent or cannot
  *    be loaded.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs watchBrokerSource against a scripted FSEvents binding; asserts realpath opening, event kind and recursive filtering, gap messages for dropped/root/unplaceable events, stream stop and failed registration without a loadable binding.
+ * @evidence contracts/testing.md#independent-expectations The FSEvents flag meanings and the no-binding fallback determine literal event/gap lists. This detects lost system flags without needing to induce an OS queue overflow; it does not verify binding transport.
+ * @evidence contracts/testing.md#distinguishing-cases Owns recursive/nonrecursive streams, modified/created/removed paths, root/drop/outside events and absent/unloadable bindings. Fake stop callbacks assert release. The fsevents flag values are those the test passes in by hand, so real flag transport through the native binding is not exercised.
+ * @evidence contracts/testing.md#execution-ownership Unit test: runs the real broker child program text (watchBrokerSource) in this process through runWatchBrokerProgram, which evaluates it with new Function and a fake process whose send method records messages and whose registered message handlers receive test input; the fsevents binding is a stub whose watch() records each stream and returns a stop callback, and node:fs.realpathSync.native maps a link to a real path. The test fires hand-written event flags; no child process, real FSEventStream or macOS is involved.
  */
 export async function test_watch_broker_reports_a_macos_drop_as_a_gap(): Promise<void> {
   const streams: {

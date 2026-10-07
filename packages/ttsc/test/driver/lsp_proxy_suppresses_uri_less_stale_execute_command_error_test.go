@@ -3,6 +3,7 @@ package driver_test
 import (
   "encoding/json"
   "errors"
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -10,20 +11,26 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesURILessStaleExecuteCommandError verifies workspace
-// command failures are dropped after document generations change.
+// TestLSPProxySuppressesURILessStaleExecuteCommandError Verifies that a URI-less command failure becomes null after the open document changes and saves.
 //
-// Some owned commands have no URI argument. The proxy snapshots all open
-// document generations for those commands so successful stale edits can be
-// suppressed; stale failures should also collapse to JSON null.
+// The callback starts after open and remains blocked across dirty/save transitions.
 //
 // 1. Start an owned executeCommand request with no URI arguments.
 // 2. Send didChange and didSave while the plugin callback is blocked.
 // 3. Release the callback with a plugin error.
 // 4. Assert the response is JSON null rather than a JSON-RPC error.
+//
+// @evidence contracts/testing.md#behavioral-verification A URI-less command failure becomes null after the open document changes and saves.
+// @evidence contracts/testing.md#independent-expectations The authored callback error belongs to an earlier generation and must not report a current workspace failure.
+// @evidence contracts/testing.md#distinguishing-cases The callback starts after open and remains blocked across dirty/save transitions.
+// @evidence contracts/testing.md#execution-ownership The Go pipe harness orders callbacks and notifications with channels and inspects error and result fields. Go discovers TestLSPProxySuppressesURILessStaleExecuteCommandError under ./test/driver.
 func TestLSPProxySuppressesURILessStaleExecuteCommandError(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   var called atomic.Bool
   source := &stubSource{
     commands: []string{"ttsc.lint.fixAll"},
@@ -49,17 +56,17 @@ func TestLSPProxySuppressesURILessStaleExecuteCommandError(t *testing.T) {
   _ = h.recvUpstream()
   h.sendEditor([]byte(`{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":"file:///a.ts","version":2}}}`))
   _ = h.recvUpstream()
-  close(release)
+  releaseCallback()
 
   body := h.recvEditor()
   var decoded struct {
-    Error  any `json:"error"`
-    Result any `json:"result"`
+    Error  json.RawMessage `json:"error"`
+    Result json.RawMessage `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
     t.Fatalf("executeCommand response not JSON: %v\n%s", err, body)
   }
-  if decoded.Error != nil || decoded.Result != nil {
+  if decoded.Error != nil || string(decoded.Result) != "null" {
     t.Fatalf("URI-less stale command failure was not suppressed:\n%s", body)
   }
 }

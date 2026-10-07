@@ -1,118 +1,133 @@
 name: nestia
 
-on:
-  pull_request:
-    paths:
-      - ".github/workflows/nestia.yml"
-      - "experimental/tarballs/**"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/build-current.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/ttsc/**"
-      - "packages/banner/**"
-      - "packages/lint/**"
-      - "packages/paths/**"
-      - "packages/strip/**"
-      - "packages/ttsc-*/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-  workflow_dispatch:
+on: pull_request
 
 concurrency:
-  group: nestia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # Build the current-platform tarballs and run nestia's complete upstream
-  # suite in one broad last-defense job. Keeping producer and consumer on the
-  # same runner avoids an artifact handoff and duplicated toolchain setup.
   nestia:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: write
     env:
-      # Only build + pack the current platform (ttsc-linux-x64) — nestia's
-      # overrides pull in ttsc.tgz + ttsc-linux-x64.tgz only. The full
-      # cross-platform matrix takes ~20 min for tarballs we never consume.
-      TTSC_TARBALLS_CURRENT: "1"
+      TTSC_GO_BINARY: go
+      TTSC_CACHE_DIR: ${{ github.workspace }}/node_modules/.cache/ttsc-native-artifacts
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            tests/go-transformer/go.mod
-
-      - name: Install ttsc dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build ttsc tarballs (current platform only)
-        run: pnpm package:tgz
-
-      # Keep this integration gate attributable to ttsc. nestia master became
-      # red in its own sdk lane after this revision (PR #1594, openapi_v2), so a
-      # moving clone made every ttsc change inherit an unrelated upstream
-      # failure. Advance the pin only to a revision with a reviewed green full
-      # suite; 3b27e69b is the merge of nestia #1593 and its complete test run
-      # 29959327169 passed.
-      - name: Check out verified nestia integration revision
-        uses: actions/checkout@v4
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        shell: bash
+        run: |
+          printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\nTTSC_GO_CACHE_DIR=%s\n' "$(go env GOCACHE)" "$(go env GOCACHE)" >> "$GITHUB_ENV"
+          printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
+          printf 'epoch=%s\n' "$(node -p 'Math.floor(Date.now() / 604800000)')" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules and objects
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          # Go owns content-addressed source/compiler/flag validation; these objects have one shared owner.
+          key: ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-${{ steps.go-cache.outputs.epoch }}
+          restore-keys: |
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
+      - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
+      - uses: actions/checkout@v7
         with:
           repository: samchon/nestia
-          ref: 3b27e69b69dea3f102315042dce87c18d81be74a
           path: experimental/nestia
-
-      - name: Use local ttsc tarballs
+      - run: node .github/workflows/scripts/nestia-source-admission.cjs bind experimental/nestia
+      - run: >-
+          node .github/workflows/scripts/consumer.cjs experimental/nestia
+          --patch=.github/workflows/patches/nestia-master-emit-provenance.patch
+          --patch=.github/workflows/patches/nestia-master-published-jsdoc-values.patch
+          --patch=.github/workflows/patches/nestia-master-published-http-jsdoc-values.patch
+          --patch=.github/workflows/patches/nestia-master-published-clone-type-tags.patch
+          --patch=.github/workflows/patches/nestia-master-public-consumer-file-paths.patch
+          --package-patch=typia@15.1.0=.github/workflows/patches/typia-15.1.0-emit-provenance.patch
+          --go=experimental/nestia/packages/core/native --go=experimental/nestia/packages/core/test
+          --go=experimental/nestia/packages/sdk/native --go=experimental/nestia/packages/sdk/test
+      - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/nestia
-        run: |
-          # nestia resolves ttsc through a catalog and may grow its own
-          # top-level `overrides:` block, in which case appending a second one
-          # makes pnpm fail with a duplicated-mapping-key YAML error (see the
-          # typia workflow). Merge the local-tarball overrides into the existing
-          # block instead, creating it only when absent, and no-op on re-run.
-          node -e '
-          const fs = require("fs");
-          const file = "pnpm-workspace.yaml";
-          const text = fs.readFileSync(file, "utf8");
-          if (text.includes("file:../tarballs/ttsc.tgz")) process.exit(0);
-          const entries = [
-            "  ttsc: file:../tarballs/ttsc.tgz",
-            "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
-          ].join("\n");
-          const merged = /^overrides:[ \t]*$/m.test(text)
-            ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
-            : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
-          fs.writeFileSync(file, merged);
-          '
-
-      - name: Install nestia dependencies
-        working-directory: experimental/nestia
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Use System Go For Source Plugin Build
-        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
-
-      - name: Test nestia
+      - name: Restore Compiler Artifacts
+        id: compiler-cache
+        uses: actions/cache/restore@v4
+        with:
+          # Preserve the complete native tree and exact candidate source admission; Go objects live elsewhere.
+          path: ${{ env.TTSC_CACHE_DIR }}
+          key: ttsc-native-artifacts-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-nestia-${{ hashFiles('pnpm-lock.yaml', 'packages/ttsc/go.*', 'packages/ttsc/src/**', 'packages/ttsc/cmd/**', 'packages/ttsc/driver/**', 'packages/ttsc/internal/**', 'packages/ttsc/shim/**', 'packages/ttsc/utility/**', '.github/workflows/patches/**', 'experimental/nestia/pnpm-lock.yaml', 'experimental/nestia/packages/core/native/**', 'experimental/nestia/packages/sdk/native/**', 'experimental/nestia/packages/*/test/go.*', 'experimental/nestia/packages/*/test/**/*.go') }}
+      - run: node .github/workflows/scripts/nestia-source-admission.cjs admit experimental/nestia
+      - run: pnpm build
         working-directory: experimental/nestia
         env:
-          # Mirror nestia's own test.yml: keep Node's native TS strip / module
-          # detection off so the e2e run matches nestia's CI environment.
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-        run: pnpm test
+      - run: pnpm evidence
+        working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
+      - run: pnpm test:go
+        working-directory: experimental/nestia
+        env:
+          GOWORK: ${{ github.workspace }}/experimental/nestia/go.work
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
+      - run: pnpm test:unit
+        working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
+      - name: Save Verified Compiler Artifacts
+        id: compiler-cache-save
+        if: github.event.pull_request.head.repo.full_name == github.repository && steps.compiler-cache.outputs.cache-primary-key != '' && steps.compiler-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.TTSC_CACHE_DIR }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Retire Superseded Native Snapshots
+        if: github.event.pull_request.head.repo.full_name == github.repository && (steps.compiler-cache.outputs.cache-hit == 'true' || steps.compiler-cache-save.outcome == 'success')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_CACHE_KEY: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+          CACHE_FAMILY: ttsc-native-artifacts-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-nestia-
+          LEGACY_CACHE_FAMILY: ttsc-artifacts-v2-${{ runner.os }}-${{ steps.go.outputs.go-version }}-nestia-
+        run: |
+          # Only this PR's obsolete native snapshots retire after the current exact source passed validation.
+          # Shared Go CAS entries, another ref, and the current complete native snapshot are never selected.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" --jq '.actions_caches[] | [.id, .key, .ref] | @tsv' > "$RUNNER_TEMP/nestia-native-cache-index.tsv"
+          while IFS=$'\t' read -r cache_id cache_key cache_ref; do
+            [[ "$cache_id" =~ ^[0-9]+$ ]] || exit 1
+            [[ "$cache_ref" == "$GITHUB_REF" && "$cache_key" != "$CURRENT_CACHE_KEY" ]] || continue
+            if [[ "$cache_key" == "$CACHE_FAMILY"* ]]; then
+              suffix="${cache_key#"$CACHE_FAMILY"}"
+            elif [[ "$cache_key" == "$LEGACY_CACHE_FAMILY"* ]]; then
+              suffix="${cache_key#"$LEGACY_CACHE_FAMILY"}"
+            else
+              continue
+            fi
+            [[ "$suffix" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$cache_id"
+          done < "$RUNNER_TEMP/nestia-native-cache-index.tsv"
+      - run: pnpm test:e2e
+        working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module

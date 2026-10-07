@@ -1,0 +1,1 @@
+{"name":"batch-auto-discovery","version":"1.0.0","main":"index.cjs","exports":{".":{"ttsc":"./index.cjs","default":"./runtime-barrel.cjs"},"./plugins/*.js":{"ttsc":"./descriptors/*.cjs","default":"./runtime/*.cjs"}},"ttsc":{"plugin":{"transform":"batch-auto-discovery","name":"native-auto-discovery","operation":"identity"}}}

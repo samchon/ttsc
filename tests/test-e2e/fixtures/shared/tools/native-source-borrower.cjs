@@ -1,0 +1,156 @@
+// Node capability workers inherit -r. These mutations belong to the main
+// Runtime consumer; workers still run the product's runtime hooks.
+if (!require("node:worker_threads").isMainThread) return;
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+// The existing runtime owner has installed its hooks before this preload.
+// Borrow the actual shared publication only for these two orphan loads, then
+// restore the installed compiler authority before the ordinary entry runs.
+const root = path.dirname(__dirname);
+const source = path.join(root, "node_modules/batch-native-source-race/index.ts");
+const done = path.join(root, "tools/source-publication/source-race-done");
+const report = path.join(root, "tools/source-publication/runtime-borrower.json");
+const original = fs.readFileSync(source);
+const names = ["TTSC_TSGO_BINARY", "ORPHAN_RACE_SOURCE", "ORPHAN_RACE_DONE", "ORPHAN_RACE_COMPILER"];
+const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+assert.equal(fs.existsSync(done), false);
+assert.equal(fs.existsSync(report), false);
+assert.equal(typeof process.env.TTSC_E2E_SOURCE_PUBLICATION, "string");
+assert.equal(typeof process.env.TTSC_E2E_ORPHAN_COMPILER, "string");
+// Both required race lowerings delegate to this same private executable.
+// The publication witness waits for its compiler child with command.Run();
+// returning from these actual loads establishes their process ownership,
+// not a claim that an unobserved OS metadata writer has stopped.
+const compilerRoot = path.join(root, "tools/source-publication/identity-compiler");
+assert.equal(fs.existsSync(compilerRoot), false);
+fs.cpSync(path.dirname(process.env.TTSC_E2E_ORPHAN_COMPILER), compilerRoot, { recursive: true });
+const compiler = path.join(compilerRoot, path.basename(process.env.TTSC_E2E_ORPHAN_COMPILER));
+fs.chmodSync(compiler, 0o755);
+const stamp = 1700000000;
+fs.utimesSync(compiler, stamp, stamp);
+const compilerBytes = fs.readFileSync(compiler);
+const preparationReport = path.join(root, "tools/source-publication/runtime-identity-preparation.json");
+const preparations = [];
+try {
+  process.env.TTSC_TSGO_BINARY = process.env.TTSC_E2E_SOURCE_PUBLICATION;
+  process.env.ORPHAN_RACE_COMPILER = compiler;
+  process.env.ORPHAN_RACE_SOURCE = source;
+  process.env.ORPHAN_RACE_DONE = done;
+  const firstStartedAt = new Date().toISOString();
+  const first = require(source).value;
+  preparations.push({ source, compiler, delegate: process.env.TTSC_TSGO_BINARY,
+    ownerPid: process.pid, startedAt: firstStartedAt, returnedAt: new Date().toISOString(), value: first });
+  fs.writeFileSync(preparationReport, JSON.stringify({ preparations }));
+  assert.equal(first, "two", "the real delegate changes the bytes that are actually lowered");
+  assert.equal(fs.existsSync(done), true, "the native mutation branch must execute");
+  assert.equal(fs.readFileSync(source, "utf8"), 'export const value: string = "two";\n');
+  fs.writeFileSync(source, original);
+  delete require.cache[require.resolve(source)];
+  const secondStartedAt = new Date().toISOString();
+  const second = require(source).value;
+  preparations.push({ source, compiler, delegate: process.env.TTSC_TSGO_BINARY,
+    ownerPid: process.pid, startedAt: secondStartedAt, returnedAt: new Date().toISOString(), value: second });
+  fs.writeFileSync(preparationReport, JSON.stringify({ preparations }));
+  assert.equal(second, "one", "the raced emit must not poison the original source key");
+  fs.writeFileSync(report, JSON.stringify({ first, second, nativeMutation: true }));
+} finally {
+  fs.writeFileSync(source, original);
+  for (const name of names) {
+    if (previous[name] === undefined) delete process.env[name];
+    else process.env[name] = previous[name];
+  }
+}
+
+// The same runtime now advances compiler identity while this excluded module
+// and its manifest remain fixed. Reading the registry does not install or
+// mutate a manifest, and the cache artifact comes from actual native lowering.
+const launcher = path.dirname(process.env.TTSC_E2E_INSTALLED_TTSX);
+const { RuntimeManifestRegistry } = require(path.join(launcher, "internal/runtime/RuntimeManifestRegistry.js"));
+const manifest = RuntimeManifestRegistry.runtimeManifests().find((owner) => typeof owner.orphanCacheDir === "string" && owner.orphanCacheDir.length > 0);
+assert.ok(manifest, "the actual runtime owner must name its orphan cache");
+const orphanCache = manifest.orphanCacheDir;
+const identitySource = path.join(path.dirname(source), "identity.ts");
+const priorCompiler = process.env.TTSC_TSGO_BINARY;
+try {
+  process.env.TTSC_TSGO_BINARY = compiler;
+  const beforeEntries = new Set(fs.existsSync(orphanCache) ? fs.readdirSync(orphanCache) : []);
+  const initial = require(identitySource);
+  assert.equal(initial.value, "lowered");
+  const published = fs.readdirSync(orphanCache).filter((name) => name.endsWith(".js") && !beforeEntries.has(name));
+  assert.equal(published.length, 1, "one actual orphan lowering must publish its cache artifact");
+  fs.appendFileSync(path.join(orphanCache, published[0]), '\nexports.cachedMarker = true;\n');
+  delete require.cache[require.resolve(identitySource)];
+  const warm = require(identitySource);
+  assert.equal(warm.value, "lowered");
+  assert.equal(warm.cachedMarker, true, "the unchanged executable must deliver the actual marked artifact");
+  const before = fs.statSync(compiler, { bigint: true });
+  // Observe this actual primitive once; trace failure never changes its result.
+  // The existing stat is reused, and no probe opens the executable on failure.
+  let rewriteTrace;
+  let rewriteInvocation;
+  if (process.env.TTSC_E2E_TRACE) {
+    try {
+      rewriteTrace = require(process.env.TTSC_E2E_PROCESS_TRACE_RUNTIME);
+      rewriteInvocation = rewriteTrace.begin();
+      rewriteTrace.record("runtime-compiler-rewrite-attempt", rewriteInvocation, {
+        data: { compiler, pid: process.pid,
+          isMainThread: require("node:worker_threads").isMainThread,
+          threadId: require("node:worker_threads").threadId,
+          before: { dev: String(before.dev), ino: String(before.ino),
+            size: String(before.size), mtimeNs: String(before.mtimeNs),
+            ctimeNs: String(before.ctimeNs) } },
+      });
+    } catch {}
+  }
+  try {
+    fs.writeFileSync(compiler, compilerBytes);
+  } catch (error) {
+    try {
+      rewriteTrace?.record("runtime-compiler-rewrite-threw", rewriteInvocation, {
+        data: { compiler, pid: process.pid, error: { name: error.name,
+          message: error.message, code: error.code, errno: error.errno,
+          syscall: error.syscall, path: error.path } },
+      });
+    } catch {}
+    throw error;
+  }
+  try {
+    rewriteTrace?.record("runtime-compiler-rewrite-returned", rewriteInvocation,
+      { data: { compiler, pid: process.pid } });
+  } catch {}
+  fs.utimesSync(compiler, stamp, stamp);
+  const after = fs.statSync(compiler, { bigint: true });
+  assert.equal(after.mtimeNs, before.mtimeNs);
+  assert.equal(after.size, before.size);
+  assert.deepEqual(fs.readFileSync(compiler), compilerBytes);
+  delete require.cache[require.resolve(identitySource)];
+  const rewritten = require(identitySource);
+  assert.equal(rewritten.value, "lowered");
+  assert.equal(rewritten.cachedMarker, undefined, "a real same-byte executable rewrite must not borrow the marked old artifact");
+  fs.writeFileSync(path.join(root, "tools/source-publication/runtime-identity.json"), JSON.stringify({ first: initial.value, warm: warm.value, warmMarker: warm.cachedMarker, rewritten: rewritten.value, rewrittenMarker: rewritten.cachedMarker === true }));
+} finally {
+  if (priorCompiler === undefined) delete process.env.TTSC_TSGO_BINARY;
+  else process.env.TTSC_TSGO_BINARY = priorCompiler;
+}
+
+// Direct excluded delivery and an owned consumer require share one upfront
+// package. The stale JavaScript stays present; only Node's delivery entry is
+// withdrawn between loads, so the second route must resolve the typed source.
+const staleSource = path.join(root, "node_modules/root-pkg/stale.ts");
+assert.equal(require("root-pkg").value, "root-ran", "the actual installed package entry must execute without publishing into its input tree");
+require("./observe-installed-banner.cjs")(root);
+assert.equal(require(staleSource).tool, "fresh tool.ts");
+delete require.cache[require.resolve(staleSource)];
+assert.equal(require(path.join(root, "src/runtime-corpus/stale-reader.cts")).observed, "fresh tool.ts");
+
+// The existing project alias carries an excluded typed source importing an
+// admitted source from the same graph. Its real lowering must not emit beside
+// either source or into the configured public output directory.
+const excludedSource = path.join(process.env.TTSC_E2E_PROJECT_ALIAS, "tools/runtime-excluded.ts");
+assert.equal(fs.realpathSync.native(process.env.TTSC_E2E_PROJECT_ALIAS), fs.realpathSync.native(root));
+assert.equal(require(excludedSource).observed, "cleared world");
+assert.equal(fs.existsSync(path.join(root, "tools/runtime-excluded.js")), false);
+assert.equal(fs.existsSync(path.join(root, "src/runtime-corpus/excluded-owner.js")), false);

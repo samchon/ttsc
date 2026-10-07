@@ -12,13 +12,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerTypeOnlySyntaxFullyErased pins the emit contract
-// that type-only syntax (template literal types, conditional types, mapped
-// types, plus the type aliases / interfaces holding them) is fully type-erased
-// and never leaks into the JS output, even after the plugin rebuilds the
-// SourceFile by rewriting a runtime sibling. A mis-wired tree could re-emit a
-// type node as a value expression; the assertions below catch any such leak by
-// scanning for tokens that only appear in the type-level syntax.
+// TestEmitWithPluginTransformerTypeOnlySyntaxFullyErased Verifies rewriting a runtime sibling
+// preserves erasure of the authored type-only names and syntax tokens.
+//
+// Changing the runtime initializer rebuilds the source file that also contains template
+// literal, conditional and mapped types. The positive value replacement rules out empty
+// output, while the independently listed type names and tokens detect accidental printing
+// of the erased syntax.
+//
+// 1. Transform the runtime sibling initializer to 99 in the type-only syntax fixture.
+// 2. Require the replacement and reject the independently listed type names and tokens.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual sibling numeric transformation and requires exports.runtime = 99 while rejecting the complete authored type-only name/token table.
+// @evidence contracts/testing.md#independent-expectations Literal replacement 99 and independently listed type aliases/interface/constraint tokens specify required value output and erased type syntax.
+// @evidence contracts/testing.md#distinguishing-cases Template literal, conditional/mapped types, interface and exported type alias coexist with a changed runtime value; positive control prevents empty-output negative success.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit executes actual compiler/visitor APIs with private Program and local writes and deferred close; generated text is inspected without a host executable.
 func TestEmitWithPluginTransformerTypeOnlySyntaxFullyErased(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"module":"commonjs","target":"es2020","outDir":"bin","strict":true},"files":["index.ts"]}`)
@@ -66,7 +74,7 @@ func TestEmitWithPluginTransformerTypeOnlySyntaxFullyErased(t *testing.T) {
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)
 
-  // The only runtime statement should be the rewritten const; nothing else.
+  // Require the rewritten exported value beside any generated module scaffolding.
   if !strings.Contains(js, "exports.runtime = 99;") {
     t.Fatalf("runtime sibling rewrite (0 -> 99) did not emit:\n%s", js)
   }

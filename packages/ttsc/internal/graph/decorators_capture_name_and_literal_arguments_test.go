@@ -8,10 +8,9 @@ import (
 )
 
 // TestDecoratorsCaptureNameAndLiteralArguments verifies that collectDecorators
-// records each decorator on a class and on its methods with the convention name
-// and the statically-resolved literal arguments, attributed to the decorated
-// node — the facts a consumer reads to interpret a decorator convention without
-// re-parsing source.
+// records the two authored class/method decorator names and string arguments
+// on their expected target nodes, while an undecorated method has no fact.
+// It does not execute decorators or a consumer's convention interpretation.
 //
 // A convention's value lives in the decorator's literal argument, so the test
 // pins both axes a consumer depends on: the decorator name (`Controller`,
@@ -26,7 +25,13 @@ import (
 //  3. Assert a Decorator targets the class with name "Controller" / literal
 //     "users", one targets the method with name "Get" / literal ":id", and the
 //     undecorated method has no fact.
+//
+// @evidence contracts/testing.md#behavioral-verification Build exposes matching Controller and Get facts on the expected class/method targets with one string argument each, and no decorator fact targets the plain method.
+// @evidence contracts/testing.md#independent-expectations The decorator names and string values users and :id are authored literals. The first matching fact is checked, not duplicate-fact absence; target IDs use nodeID and the Program-reported path, so their grammar is not independently certified.
+// @evidence contracts/testing.md#distinguishing-cases Compile a controller-shaped fixture with @Controller("users") on the class and @Get(":id") on one method, plus an undecorated method, using local decorator factories so the program type-checks with no dependency; Build the graph; Assert a Decorator targets the class with name "Controller" / literal "users", one targets the method with name "Get" / literal ":id", and the undecorated method has no fact.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native temporary project, constructs and closes a driver compiler Program in-process, and calls Build without emitting or executing the decorators. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command is used.
 func TestDecoratorsCaptureNameAndLiteralArguments(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `function Controller(prefix: string): any {

@@ -23,6 +23,12 @@ import { make } from "../internal/make";
  * name?: string
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The property name.
+ * @param questionToken The optional marker (`?`), if any.
+ * @param type The property type, if any.
+ * @returns The created {@link PropertySignature}.
  * @evidence contracts/common.md#principled-implementation
  *   The property-name helper normalizes strings while retaining structured
  *   names; modifiers, question token and optional type occupy distinct member fields.
@@ -38,13 +44,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc describes modifier, name, optional marker and annotation ordering;
  *   the native member example and argument descriptions match those fields.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The property name.
- * @param questionToken The optional marker (`?`), if any.
- * @param type The property type, if any.
- * @returns The created {@link PropertySignature}.
  */
 export const createPropertySignature = (
   modifiers: readonly ModifierLike[] | undefined,

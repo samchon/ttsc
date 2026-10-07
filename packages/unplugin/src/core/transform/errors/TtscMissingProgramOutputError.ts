@@ -3,16 +3,29 @@
  * because the program does not contain it.
  *
  * Not a terminal generation error, and deliberately not a build failure. It is
- * a fact about one file, and the answer to it is to leave that file to the host
- * (samchon/ttsc#1308). It is a distinct type rather than a message match so the
- * decision travels as a type: `@ttsc/metro` used to recognise this case by
- * searching the message text for "did not return output", which is how one
- * product came to hold two different answers to one condition.
+ * a fact about one file, and the answer is to leave its original contents to
+ * the host. It is a distinct type rather than a message match so the decision
+ * travels as a type: `@ttsc/metro` used to recognise this case by searching the
+ * message text for "did not return output", which is how one product came to
+ * hold two different answers to one condition.
  *
  * @evidence contracts/common.md#principled-implementation Typed error identity carries the missing-program condition with the requested file, selected config and searched references; consumers can continue without confusing it with compiler failure.
  * @evidence contracts/common.md#clear-and-simple-design One error value packages the context needed to report and route this condition, without adding a retry or compilation layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification uses the class rather than a diagnostic substring, and the message names actual configuration inputs rather than test-specific exceptions.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain the continuation policy and the reason for typed classification; field comments identify each diagnostic address.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Requested module, selected config and searched project paths retain their
+ *   supplied native spelling for diagnostics. This carrier performs no new
+ *   path normalization, alias lookup or filesystem case comparison.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Message construction includes every searched project once, with work
+ *   proportional to their total path text and the module/config text. Field
+ *   references retain the supplied search array without a second traversal.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Computes nothing that could be reused.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Retains only the message, cause and fields given to the constructor,
+ *   released with the error.
  */
 export class TtscMissingProgramOutputError extends Error {
   /** The module the bundler asked for. */
@@ -23,7 +36,7 @@ export class TtscMissingProgramOutputError extends Error {
 
   /**
    * The projects its `references` lead to, all searched without one admitting
-   * the file (samchon/ttsc#1397).
+   * the file.
    */
   public readonly searched: readonly string[];
 

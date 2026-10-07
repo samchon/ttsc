@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
@@ -15,7 +16,6 @@ import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../../structures/ITtscPluginContributor";
 import type { ITtscPluginFactoryContext } from "../../../structures/ITtscPluginFactoryContext";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
-import type { TtscPluginStage } from "../../../structures/TtscPluginStage";
 import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
@@ -25,18 +25,24 @@ import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
 import { pluginModuleReplaceDirectories } from "../source/pluginModuleReplaceDirectories";
 import { pluginSourceState } from "../source/pluginSourceState";
-import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
+import { PluginDescriptorAdmission } from "./PluginDescriptorAdmission";
 import { PluginDescriptorEvaluationCache } from "./PluginDescriptorEvaluationCache";
 import { PluginPackageResolution } from "./PluginPackageResolution";
 import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { collectProjectHostInputs } from "./collectProjectHostInputs";
+import { composePluginSources } from "./composePluginSources";
 import { declaresHostInputReads } from "./declaresHostInputReads";
 import { hashHostInputPaths } from "./hashHostInputPaths";
 import { moduleResolutionBaseSelects } from "./moduleResolutionBaseSelects";
+import { pluginLabel } from "./pluginLabel";
 import { realpathHostInput } from "./realpathHostInput";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
+import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
+import { resolveNativeSource } from "./resolveNativeSource";
+import { validatePluginContributors } from "./validatePluginContributors";
+import { validatePluginSource } from "./validatePluginSource";
 import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
 
 /**
@@ -45,15 +51,19 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * Reads the project config, discovers plugin entries (from tsconfig and package
  * auto-discovery), validates and composes their descriptors, then invokes
  * `buildSourcePlugin` to compile each Go source package into a cached binary.
- * Returns the ordered native plugins, parsed project config, exact
- * JavaScript-host files that universally influence the loaded selection, and
- * the state of every Go source directory the plugins supplied to the builds
- * (`pluginSources`, samchon/ttsc#1487): each plugin's module root and each
- * contributor's source, with its state (`pluginSourceState`), the sources as
- * the build read them together with the environment a build there is keyed on
- * (samchon/ttsc#1493). ttsc's own sources, its overlays and the host it builds
- * for linked plugins, are keyed too but not reported: they change only with
- * ttsc itself.
+ * Returns the ordered native plugins, parsed project config, recorded
+ * JavaScript-host inputs and unresolved selection candidates, and the keyed
+ * state of reported Go source directories supplied to the builds
+ * (`pluginSources`): each plugin's module root and each contributor's source,
+ * with its state (`pluginSourceState`), the sources as the build read them
+ * together with the environment a build there is keyed on. Directories within
+ * ttsc's installed package, including its overlays and the fallback
+ * linked-plugin host, are keyed but omitted from this report under the
+ * installed-package/version ownership policy. That policy does not prove the
+ * installation cannot be edited in place. Descriptor completeness relies on the
+ * runtime recorder's status and the descriptor's explicit external-read
+ * declaration. Sequential content, metadata and physical-path observations are
+ * not an atomic snapshot or detection of every omitted read.
  *
  * @param options.binary - Absolute path to the ttsc native helper binary.
  * @param options.cacheDir - Override the plugin binary cache directory.
@@ -74,9 +84,9 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor module caches are isolated rather than deleting application singletons. ttsx retry occurs only for explicit supported TypeScript loader incompatibility, with plugins disabled to avoid recursive self-hosting; arbitrary descriptor failures are not retried into false success.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains result provenance, environment and path options; helper comments explain input races, conservative proof omission, fallback authority and cleanup. Member/tag spacing and separated concepts follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL conversion, createRequire and hidden spawn with explicit argv/environment implement OS-neutral selection and process execution. Physical identities are preserved separately from lexical candidates; Bun-specific differences are capability decisions, not OS guesses.
- * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps, descriptor hits avoid process startup, and source/environment digests are shared per load. Composition currently scans aggregates against plugins and aliases; this finite configured-plugin policy can be quadratic and is not claimed linear.
- * @evidence contracts/performance.md#reuse-equivalent-work Proven descriptor evaluations share only complete context/environment/runtime/version identities whose actual inputs still hold; within a generation source/environment digests are shared by directory and one selected transform host serves linked contributors.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Evaluator directories and diagnostic descriptors are released in finally, child lifetimes end with synchronous evaluation, injected env locators are restored, and generation maps are local. Temp removal remains best effort; descriptor/capability disk answers have default cache pruning and caller-selected roots retain caller ownership.
+ * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Builds delegate source/environment hashing, copying and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
+ * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits. Per-load source/environment maps share directory-keyed digests and one selected transform host serves linked contributors; these identities do not certify every undeclared read or atomic filesystem stability.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Finally restores injected environment locators, attempts evaluator directory removal and closes direct-evaluator diagnostic descriptors. Close/removal can fail; synchronous completion concerns the selected evaluator and does not certify arbitrary descendants are gone. Generation maps/results scale with observed data, and disk diagnostics/result/observation files have no independent byte ceiling here. Default disk pruning has its own interval/protection/failure policy; explicit roots remain caller-owned.
  */
 export function loadProjectPlugins(options: {
   /** Absolute native ttsc helper used in descriptor factory contexts. */
@@ -119,11 +129,12 @@ export function loadProjectPlugins(options: {
   deferredHostInputs: string[];
 
   /**
-   * Whether every descriptor declared the files it read outside its module
-   * graph (`declaresHostInputReads`). When one did not, the host inputs cannot
-   * prove the load's answer to a later launch (samchon/ttsc#1561). The runtime
-   * must also explicitly complete its module observations; retained partial
-   * records do not establish that declaration's input graph.
+   * Whether every descriptor reported complete runtime observations and an
+   * explicit external-read declaration (`declaresHostInputReads`). This flag
+   * does not discover reads omitted by that producer. Without the declaration,
+   * the host inputs cannot prove the load's answer to a later launch. The
+   * runtime must also explicitly complete its module observations; retained
+   * partial records do not establish that declaration's input graph.
    */
   descriptorReadsDeclared: boolean;
 
@@ -133,7 +144,7 @@ export function loadProjectPlugins(options: {
   /** Physical observations captured alongside the host-input reads. */
   hostInputRealpaths: Record<string, string | null>;
 
-  /** All universal loader inputs, including unresolved discovery candidates. */
+  /** Reported loader inputs, including unresolved discovery candidates. */
   hostInputs: string[];
 
   /**
@@ -208,7 +219,7 @@ export function loadProjectPlugins(options: {
     tsconfig: project.path,
   };
   // Where isolated descriptor evaluations keep their answers across launches
-  // (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497).
+  // (`PluginDescriptorEvaluationCache`).
   const descriptorCache: DescriptorCacheOptions = {
     cacheDir: options.cacheDir,
     version: pluginBuildVersions(project.root).ttsc,
@@ -304,7 +315,7 @@ export function loadProjectPlugins(options: {
     context.projectRoot,
   );
   const records = plugins.map((plugin, index) => {
-    const stage = resolvePluginStage(plugin);
+    const stage = PluginDescriptorAdmission.stage(plugin);
     validatePluginSource(plugin);
     const contributors = validatePluginContributors(plugin);
     const source = resolvePluginSource(plugin.source, context.projectRoot);
@@ -382,7 +393,7 @@ export function loadProjectPlugins(options: {
   // reported as the state the binaries were keyed on.
   const sourceDigests = new Map<string, string>();
   // And one reading of the environment each build directory is keyed on, which
-  // a plugin module root's state reports as it is (samchon/ttsc#1493).
+  // a plugin module root's state reports as it is.
   const environmentDigests = new Map<string, string>();
   const builtTransformHosts = new Map<object, string>();
   for (const record of transformHosts) {
@@ -929,7 +940,7 @@ function collectModuleResolutionCandidates(
   // A `#` specifier is looked up in the importer's own package `imports`, whose
   // manifest is recorded with the importer. When that maps it to a bare
   // package, the package's candidates up to the root that selected it are
-  // inputs (samchon/ttsc#1498).
+  // inputs.
   if (specifier.startsWith("#")) {
     visitImportMappedCandidates(
       parentFile,
@@ -982,107 +993,6 @@ function selectedByExactFile(
   }
 }
 
-function composePluginSources(
-  entries: readonly ProjectPluginEntries.ProjectPluginEntry[],
-  plugins: readonly ITtscPlugin[],
-): ITtscPlugin[] {
-  const aggregates = plugins
-    .map((plugin, index) => ({ index, plugin }))
-    .filter(({ plugin }) => Array.isArray(plugin.composes));
-  if (aggregates.length === 0) {
-    return [...plugins];
-  }
-  for (const { plugin } of aggregates) {
-    for (const target of plugin.composes!) {
-      if (typeof target !== "string" || target.trim() === "") {
-        throw new Error(
-          `ttsc: plugin "${plugin.name}" has an invalid "composes" target; ` +
-            `targets must be non-empty plugin names or transform specifiers`,
-        );
-      }
-    }
-  }
-  // Composition is intentionally one hop only: A.composes=[B] sends B to A's
-  // binary, but if B.composes=[C] then C uses B's original source and does NOT
-  // cascade to A. Detect cycles (A.composes=[B] && B.composes=[A]) and throw,
-  // otherwise the silent reswap below would mis-route both plugins.
-  for (const { index: i, plugin: a } of aggregates) {
-    for (const { index: j, plugin: b } of aggregates) {
-      if (i === j) continue;
-      const aTransform = entries[i]?.config.transform;
-      const bTransform = entries[j]?.config.transform;
-      const aComposesB = a.composes!.some((alias) =>
-        matchesPluginAlias(alias, b, bTransform),
-      );
-      const bComposesA = b.composes!.some((alias) =>
-        matchesPluginAlias(alias, a, aTransform),
-      );
-      if (aComposesB && bComposesA) {
-        throw new Error(
-          `ttsc: plugin composes cycle detected between "${a.name}" and "${b.name}"; ` +
-            `each plugin lists the other in its "composes" array — composition is one hop only, not transitive`,
-        );
-      }
-    }
-  }
-  return plugins.map((plugin, index) => {
-    const transform = entries[index]?.config.transform;
-    const matchingAggregates = aggregates.filter(
-      ({ index: aggregateIndex, plugin: aggregatePlugin }) =>
-        aggregateIndex !== index &&
-        aggregatePlugin.composes!.some((alias) =>
-          matchesPluginAlias(alias, plugin, transform),
-        ),
-    );
-    if (matchingAggregates.length > 1) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" is composed by multiple aggregate plugins; ` +
-          `each plugin entry can be redirected to only one aggregate native host`,
-      );
-    }
-    const aggregate = matchingAggregates[0];
-    if (aggregate === undefined) {
-      return plugin;
-    }
-    // A composed plugin's source is rerouted to the aggregate's binary,
-    // so its own `contributors` would link into a different host than
-    // it was authored against. The "one binary" guarantee in the
-    // protocol doc holds only when the composed plugin defers entirely
-    // to the aggregate; reject early instead of silently producing two
-    // diverging binaries.
-    if (plugin.contributors && plugin.contributors.length > 0) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" is composed by "${aggregate.plugin.name}" but declares its own "contributors"; ` +
-          `move the contributors onto the aggregate plugin or drop the composes redirect`,
-      );
-    }
-    return {
-      ...plugin,
-      source: aggregate.plugin.source,
-      contributors: aggregate.plugin.contributors,
-      // The composed plugin's runtime BINARY is the aggregate's binary,
-      // so the CLI surface (which flags the sidecar parses) is the
-      // aggregate's. Inherit `capabilities` from the aggregate so a
-      // capability the aggregate declares — e.g. threadingArgs — does
-      // not get silently dropped just because the composed entry's own
-      // descriptor omitted it. If the aggregate did not set capabilities
-      // we keep the composed plugin's own as a fallback.
-      capabilities: aggregate.plugin.capabilities ?? plugin.capabilities,
-    };
-  });
-}
-
-function matchesPluginAlias(
-  alias: string,
-  plugin: ITtscPlugin,
-  transform: ITtscProjectPluginConfig["transform"],
-): boolean {
-  return (
-    alias === plugin.name ||
-    (typeof transform === "string" && alias === transform)
-  );
-}
-
 function orderNativePlugins(
   plugins: readonly ITtscLoadedNativePlugin[],
 ): ITtscLoadedNativePlugin[] {
@@ -1114,7 +1024,7 @@ function loadPluginEntry(
   // descriptor module, so they are derived here from the resolved `request`
   // rather than carried on the shared base context. They give factories a
   // load-mode-independent stand-in for `__dirname`/`__filename`, which are
-  // undefined when a descriptor loads through ttsx or as ESM.
+  // normally absent from an ESM descriptor's own module scope.
   const context: ITtscPluginFactoryContext = {
     ...base,
     dirname: path.dirname(request),
@@ -1126,19 +1036,18 @@ function loadPluginEntry(
     effectiveEnv,
     descriptorCache,
   );
-  if (isTtscPlugin(loaded.descriptor)) {
-    rejectJsTransformFunctions(specifier, loaded.descriptor);
-    return {
-      hostInputHashes: loaded.hostInputHashes,
-      hostInputRealpaths: loaded.hostInputRealpaths,
-      hostInputs: loaded.inputs,
-      observationsComplete: loaded.observationsComplete,
-      plugin: loaded.descriptor,
-    };
-  }
-  throw new Error(
-    `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
+  const plugin = PluginDescriptorAdmission.descriptor(
+    loaded.descriptor,
+    specifier,
   );
+  rejectJsTransformFunctions(specifier, plugin);
+  return {
+    hostInputHashes: loaded.hostInputHashes,
+    hostInputRealpaths: loaded.hostInputRealpaths,
+    hostInputs: loaded.inputs,
+    observationsComplete: loaded.observationsComplete,
+    plugin,
+  };
 }
 
 /**
@@ -1224,9 +1133,8 @@ class CommonJsDescriptorLoadError extends Error {
  *
  * The answer of a descriptor that declares the files it reads is kept across
  * launches while every input the evaluation proved still holds
- * (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497, samchon/ttsc#1561): an
- * unchanged project pays a proof of its descriptor inputs instead of a runtime
- * start and a graph load.
+ * (`PluginDescriptorEvaluationCache`): an unchanged project pays a proof of its
+ * descriptor inputs instead of a runtime start and a graph load.
  */
 function loadCommonJsDescriptor(
   request: string,
@@ -1289,6 +1197,8 @@ function loadCommonJsDescriptor(
   const inputsOut = path.join(dir, "descriptor-inputs.ndjson");
   const diagnostics = path.join(dir, "descriptor.stderr");
   const bunConfig = path.join(dir, "bunfig.toml");
+  // The runtime hooks recognize only this evaluator-owned output sibling.
+  const shim = `${out}.cjs`;
   const runtimeHookPreload = path.join(
     __dirname,
     "..",
@@ -1299,6 +1209,11 @@ function loadCommonJsDescriptor(
     "runtimeHookPreload.js",
   );
   try {
+    // Node's CommonJS -e evaluator installs __filename/__dirname and other
+    // CommonJS bindings on globalThis. Those globals leak into ESM descriptors
+    // even when their checked output and loader format are correctly ESM.
+    // A real CommonJS entry keeps the evaluator's bindings module-local.
+    fs.writeFileSync(shim, COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE);
     if (runtimeCapabilities.bun) {
       // A descriptor receives exactly the environment supplied by its ttsc
       // invocation. Bun otherwise auto-loads project `.env*`, local/global
@@ -1325,8 +1240,10 @@ function loadCommonJsDescriptor(
           ...(runtimeCapabilities.registerHooks
             ? ["--require", runtimeHookPreload]
             : []),
-          "-e",
-          COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE,
+          // NODE_OPTIONS may select a string-input type. This evaluator is a
+          // .cjs file, so clear only that input-mode setting in Node's argv.
+          ...(runtimeCapabilities.bun ? [] : ["--input-type", ""]),
+          shim,
         ],
         {
           cwd: context.projectRoot,
@@ -1339,6 +1256,9 @@ function loadCommonJsDescriptor(
             TTSC_PLUGIN_CONTEXT: JSON.stringify(context),
             TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
             TTSC_PLUGIN_DESCRIPTOR_OUT: out,
+            // User --import preloads run after the hooks install and before
+            // the entry. Record them too; only the exact generated bootstrap
+            // and its synchronous implementation imports are excluded.
             TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE: "1",
             TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT: inputsOut,
             TTSC_PLUGIN_ENTRY: request,
@@ -1450,8 +1370,8 @@ function loadCommonJsDescriptor(
         ]),
       ].sort(),
     };
-    // A hit replays nothing, so only an evaluation that printed nothing is
-    // kept.
+    // A hit replays no diagnostics, so only an evaluation with an empty
+    // captured diagnostics file is kept.
     if (
       cacheFile !== null &&
       fs.statSync(diagnostics).size === 0 &&
@@ -1744,6 +1664,12 @@ function loadDescriptorViaTtsx(
       }),
     );
     fs.writeFileSync(shim, PLUGIN_DESCRIPTOR_SHIM_SOURCE);
+    const trace = E2ETrace.begin(
+      node,
+      [ttsx, "--no-plugins", shim],
+      { cwd: context.projectRoot },
+      "plugin-descriptor",
+    );
     const result = childProcess.spawnSync(node, [ttsx, "--no-plugins", shim], {
       cwd: context.projectRoot,
       encoding: "utf8",
@@ -1766,16 +1692,20 @@ function loadDescriptorViaTtsx(
         }),
         TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
         TTSC_PLUGIN_DESCRIPTOR_OUT: out,
+        // The generated shim arms its own descriptor observation only after
+        // its bootstrap imports have completed, even under an armed caller.
+        TTSC_PLUGIN_DESCRIPTOR_INPUTS_ACTIVE: "0",
         TTSC_PLUGIN_DESCRIPTOR_INPUTS_OUT: inputsOut,
         TTSC_PLUGIN_ENTRY: request,
       },
       // Both child streams are human output, and they go straight to this
       // process's stderr as they are written. The descriptor itself travels
-      // through a file, so nothing here needs collecting — and collecting it
-      // only to replay it afterwards is what forced an invented output ceiling.
+      // through a file, so nothing here needs collecting, and streaming the
+      // human output needs no output ceiling.
       stdio: ["ignore", 2, 2],
       windowsHide: true,
     });
+    E2ETrace.result(trace, result);
     const processFailure = pluginDescriptorProcessFailure(result, request);
     if (processFailure) {
       // The descriptor's stack already reached the user's stderr as it ran.
@@ -2056,60 +1986,6 @@ function restoreEnv(
   }
 }
 
-function isTtscPlugin(value: unknown): value is ITtscPlugin {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function rejectJsTransformFunctions(
-  specifier: string,
-  candidate: object,
-): void {
-  if ("transformSource" in candidate || "transformOutput" in candidate) {
-    throw new Error(
-      `ttsc: plugin "${specifier}" declares unsupported JS transform functions; ` +
-        "declare a native backend instead",
-    );
-  }
-}
-
-function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
-  if (plugin.stage === undefined) {
-    return "transform";
-  }
-  if (!isPluginStage(plugin.stage)) {
-    if (plugin.stage === "output") {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" requested removed stage "output"; ` +
-          "upgrade the plugin to a transform-stage descriptor compatible with this ttsc version",
-      );
-    }
-    throw new Error(
-      `ttsc: plugin "${plugin.name}" requested unsupported stage ${JSON.stringify(plugin.stage)}`,
-    );
-  }
-  return plugin.stage;
-}
-
-function validatePluginSource(plugin: ITtscPlugin): void {
-  if (typeof plugin.source !== "string" || plugin.source.length === 0) {
-    throw new Error(`ttsc: plugin must declare source`);
-  }
-}
-
-function pluginLabel(
-  plugin: ITtscPlugin,
-  config: ITtscProjectPluginConfig,
-  index: number,
-): string {
-  if (typeof plugin.name === "string" && plugin.name.length !== 0) {
-    return plugin.name;
-  }
-  if (typeof config.transform === "string" && config.transform.length !== 0) {
-    return config.transform;
-  }
-  return `#${index}`;
-}
-
 function resolvePluginSource(source: string, projectRoot: string): string {
   return PluginPackageResolution.resolveRealPath(
     path.isAbsolute(source) ? source : path.resolve(projectRoot, source),
@@ -2117,41 +1993,16 @@ function resolvePluginSource(source: string, projectRoot: string): string {
 }
 
 /**
- * Whether a plugin's source builds an executable or is linked into a compiler
- * host, and the Go module it builds in (`resolvePluginGoModule`).
- */
-function resolveNativeSource(
-  source: string,
-  plugin: ITtscPlugin,
-  config: ITtscProjectPluginConfig,
-  index: number,
-): { kind: "executable" | "linked"; moduleRoot: string } {
-  const label = pluginLabel(plugin, config, index);
-  requirePluginSource(source, label);
-  const { moduleRoot, packageDir } = resolvePluginGoModule(source, label);
-  const packageName = readGoPackageName(packageDir);
-  if (packageName === null) {
-    throw new Error(
-      `ttsc: plugin "${label}" source must contain at least one non-test ".go" file with a package declaration: ${packageDir}`,
-    );
-  }
-  return {
-    kind: packageName === "main" ? "executable" : "linked",
-    moduleRoot,
-  };
-}
-
-/**
  * The directories the plugin builds of one load key their binaries on, which a
- * watch session observes (samchon/ttsc#1492): the module root of every plugin
- * built as an executable, since the build copies and keys the whole module
+ * watch session observes: the module root of every plugin built as an
+ * executable, since the build copies and keys the whole module
  * (`computeCacheKey`), the source of every plugin linked into a host, and every
  * contributor's source, which a host build keys as it is. They are the
  * directories the load then reports as `pluginSources`, resolved before any
  * build runs, and ttsc's own sources are left out of both. An executable
  * plugin's module also names, through its `go.mod`, every directory outside it
  * that it replaces a module with, which the build compiles in place
- * (`pluginModuleReplaceDirectories`, samchon/ttsc#1506).
+ * (`pluginModuleReplaceDirectories`).
  */
 function pluginBuildDirectories(
   records: readonly {
@@ -2197,143 +2048,12 @@ function reportsPluginSource(directory: string): boolean {
   return !isPathWithin(directory, ttscPackageRoot());
 }
 
-function requirePluginSource(source: string, label: string): void {
-  if (!fs.existsSync(source)) {
-    // A descriptor factory runs without CommonJS globals when ttsc loads it
-    // through ttsx or as ESM — `__dirname`/`__filename`/`require` are undefined,
-    // so a `source` derived from them mis-resolves (often against cwd) and lands
-    // here. Name that failure mode explicitly instead of leaving a bare
-    // not-found path: the breakage is otherwise silent. (See #248.)
-    throw new Error(
-      `ttsc: plugin "${label}" source does not exist: ${source}\n` +
-        `  Plugin descriptors run without CommonJS globals: __dirname, __filename, ` +
-        `and require are undefined when ttsc loads a descriptor through ttsx or as ESM. ` +
-        `If this path was derived from one of them, use context.dirname / ` +
-        `context.filename (the descriptor's own directory and file, populated in ` +
-        `every load mode), or resolve it from context.projectRoot, e.g. ` +
-        `createRequire(path.join(context.projectRoot, "package.json"))` +
-        `.resolve("<your-package>/package.json").`,
-    );
-  }
-}
-
-function readGoPackageName(dir: string): string | null {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (
-      !entry.isFile() ||
-      !entry.name.endsWith(".go") ||
-      entry.name.endsWith("_test.go")
-    ) {
-      continue;
-    }
-    const file = path.join(dir, entry.name);
-    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-      const match = /^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b/.exec(line);
-      if (match) {
-        return match[1]!;
-      }
-    }
-  }
-  return null;
-}
-
-const CONTRIBUTOR_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
-
-function validatePluginContributors(
-  plugin: ITtscPlugin,
-): readonly { name: string; source: string }[] | undefined {
-  const contributors = plugin.contributors;
-  if (contributors === undefined) return undefined;
-  if (!Array.isArray(contributors)) {
-    throw new Error(
-      `ttsc: plugin "${plugin.name}" "contributors" must be an array of { name, source } entries`,
-    );
-  }
-  if (contributors.length === 0) return undefined;
-  const seen = new Set<string>();
-  const out: { name: string; source: string }[] = [];
-  for (const [index, entry] of contributors.entries()) {
-    if (typeof entry !== "object" || entry === null) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}] must be an object`,
-      );
-    }
-    const { name, source } = entry as { name?: unknown; source?: unknown };
-    if (typeof name !== "string" || !CONTRIBUTOR_NAME_PATTERN.test(name)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].name must match /^[a-z][a-z0-9_]*$/; ` +
-          `got ${JSON.stringify(name)}`,
-      );
-    }
-    if (seen.has(name)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}] duplicate name ${JSON.stringify(name)}`,
-      );
-    }
-    seen.add(name);
-    if (typeof source !== "string" || source.length === 0) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must be a non-empty string`,
-      );
-    }
-    if (!path.isAbsolute(source)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must be an absolute path; ` +
-          `got ${JSON.stringify(source)}`,
-      );
-    }
-    if (!fs.existsSync(source) || !fs.statSync(source).isDirectory()) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must be an existing directory: ${source}`,
-      );
-    }
-    // Pre-flight check that the directory actually carries a buildable
-    // contributor package. Without this, an accidentally-empty directory
-    // (or a directory containing only `_test.go` files, which `go build`
-    // silently skips) reaches the synthesized blank-import step and Go's
-    // compile error surfaces with a scratch-tempdir path that doesn't
-    // name the contributor entry. Catching it here lets us name the
-    // entry the user actually authored.
-    if (!hasBuildableGoSource(source)) {
-      throw new Error(
-        `ttsc: plugin "${plugin.name}" contributors[${index}].source must contain at least one non-test ".go" file: ${source}`,
-      );
-    }
-    out.push({ name, source: PluginPackageResolution.resolveRealPath(source) });
-  }
-  return out;
-}
-
 function mergeContributors(
   first: readonly ITtscPluginContributor[] | undefined,
   second: readonly ITtscPluginContributor[] | undefined,
 ): readonly ITtscPluginContributor[] | undefined {
   const out = [...(first ?? []), ...(second ?? [])];
   return out.length === 0 ? undefined : out;
-}
-
-function isPluginStage(value: string): value is TtscPluginStage {
-  return value === "transform" || value === "check";
-}
-
-function hasBuildableGoSource(dir: string): boolean {
-  // `go build` consumes `.go` files but silently ignores `_test.go`. A
-  // contributor whose source dir holds only test files would compile to
-  // an empty package and surface as an opaque scratch-tempdir error;
-  // require at least one production `.go` file so the validator can
-  // name the contributor entry instead.
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return false;
-  }
-  return entries.some(
-    (entry) =>
-      entry.isFile() &&
-      entry.name.endsWith(".go") &&
-      !entry.name.endsWith("_test.go"),
-  );
 }
 
 function ttscPackageRoot(): string {

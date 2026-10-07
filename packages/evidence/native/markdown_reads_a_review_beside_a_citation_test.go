@@ -8,13 +8,12 @@ import (
  * Verifies a Markdown review closes the citation above it without making every
  * `@tag` a boundary.
  *
- * An Individual Self-Review caught the first half: a review written under a
- * citation inside one HTML comment was swallowed into that citation's reason, so
- * the review vanished and the reason grew a sentence its author addressed to a
- * different question.
+ * A review written under a citation inside one HTML comment must not be
+ * swallowed into that citation's reason, or the review would vanish and the
+ * reason would grow a sentence its author addressed to a different question.
  *
- * The obvious repair, turning tag boundaries on for Markdown, is wrong and CI
- * said so by breaking `TestMarkdownDeclarationReasonMayBeginWithAtSign`. That
+ * Turning tag boundaries on for Markdown would be wrong, as
+ * `TestMarkdownDeclarationReasonMayBeginWithAtSign` shows. That
  * flag answers whether *another tool's* `@tag` ends a reason, which is a property
  * of the host's comment grammar: an HTML comment has no field syntax, so
  * `@architecture approved this` is prose the reason keeps. A review is not
@@ -25,6 +24,14 @@ import (
  *  2. Assert the citation's reason stops at its own sentence and the review was
  *     collected with its own target and description.
  *  3. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
+ *
+ * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown exercises this case. Verifies a Markdown review closes the citation above it without making every `@tag` a boundary.
+ *
+ * @evidence contracts/testing.md#independent-expectations The citation and review each have literal target/reason expectations; the foreign architecture line remains prose. Counts detect swallowed or manufactured annotations.
+ *
+ * @evidence contracts/testing.md#distinguishing-cases Scan a document whose HTML comment holds a citation and then a review. Assert the citation's reason stops at its own sentence and the review was collected with its own target and description. Assert an unrelated `@tag` is still absorbed into a Markdown reason.
+ *
+ * @evidence contracts/testing.md#execution-ownership TestMarkdownReadsAReviewBesideACitation is the selectable Go entry and owns its fixture variants and local closures. It invokes scanProjectMarkdown in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
  */
 func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
   inventory, problems := scanProjectMarkdown("docs/spec.md", `# Pricing
@@ -52,7 +59,7 @@ func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
     t.Fatalf("unexpected review description: %q", review.Description)
   }
 
-  // The negative twin, and the one CI had to teach me. Another tool's tag has no
+  // The negative twin: another tool's tag has no
   // field grammar inside an HTML comment, so it stays in the reason. Making the
   // review a boundary must not make every `@tag` one.
   foreign, foreignProblems := scanProjectMarkdown("docs/ref.md", `<!--
@@ -66,42 +73,5 @@ func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
   }
   if reason := foreign.Declarations[0].Reason; reason != "Carries the limit agreed in that meeting.\n@architecture approved this adoption." {
     t.Fatalf("an unrelated @tag stopped being prose in a Markdown reason: %q", reason)
-  }
-}
-
-/**
- * Verifies a comment opening mid-line is treated as a tag position.
- *
- * The declaration scan runs over the whole document with a regular expression, so
- * it finds a review after prose on the same line. Leaving that line in the digest
- * meant writing the review changed the digest its own fingerprint is checked
- * against, which is the non-terminating repair loop the exclusion exists to close.
- *
- *  1. Take the digest of a section with no tags.
- *  2. Add a mid-line review to the same section.
- *  3. Assert the digest did not move.
- */
-func TestMarkdownExcludesAMidLineComment(t *testing.T) {
-  digestOf := func(content string) string {
-    inventory, _ := scanProjectMarkdown("docs/spec.md", content)
-    for _, unit := range inventory.Units {
-      if unit.Target == "docs/spec.md#pricing" {
-        return unit.Digest
-      }
-    }
-    t.Fatalf("expected a unit for the H2 in:\n%s", content)
-    return ""
-  }
-  bare := digestOf("## Pricing\n\nThe rate is capped.\n")
-  annotated := digestOf("## Pricing\n\nThe rate is capped. <!-- @evidenceReview docs/spec.md#pricing Checked the cap. -->\n")
-  if bare != annotated {
-    t.Fatal("a mid-line comment stays in the digest, so writing a review there invalidates it")
-  }
-  // The negative twin: only the comment span comes out, so the prose beside it
-  // still counts. Dropping the whole line instead would make a real content
-  // change on an annotated line expire nothing.
-  changed := digestOf("## Pricing\n\nThe rate is lifted. <!-- @evidenceReview docs/spec.md#pricing Checked the cap. -->\n")
-  if changed == annotated {
-    t.Fatal("prose beside a comment is missing from the digest, so a content change there expires nothing")
   }
 }

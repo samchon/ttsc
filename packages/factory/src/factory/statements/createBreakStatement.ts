@@ -20,6 +20,9 @@ import { make } from "../internal/make";
  * break outer;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param label The label.
+ * @returns The created {@link BreakStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Optional label stays absent for ordinary break and becomes Identifier for
  *   a supplied string. Valid enclosing break targets are caller context.
@@ -33,10 +36,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains enclosing-label use and shows labeled/unlabeled forms
  *   in separate examples before the acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param label The label.
- * @returns The created {@link BreakStatement}.
  */
 export const createBreakStatement = (
   label?: string | Identifier,

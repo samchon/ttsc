@@ -1,90 +1,54 @@
 name: build
 
-on:
-  push:
-    branches:
-      - master
-    paths:
-      - ".github/workflows/build.yml"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/assert-ttscgraph-release-candidate.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/build-platforms.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/go-wasm-exec.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/**"
-      - "!packages/unplugin/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-  pull_request:
-    paths:
-      - ".github/workflows/build.yml"
-      - "config/**"
-      - "scripts/assert-platform-package.cjs"
-      - "scripts/assert-ttscgraph-release-candidate.cjs"
-      - "scripts/build-platform-package.cjs"
-      - "scripts/build-platforms.cjs"
-      - "scripts/go-build-cache.cjs"
-      - "scripts/go-sdk-extraction.cjs"
-      - "scripts/go-sdk-integrity.cjs"
-      - "scripts/go-wasm-exec.cjs"
-      - "scripts/platform-target.cjs"
-      - "packages/**"
-      - "!packages/unplugin/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
+on: pull_request
 
 concurrency:
-  group: build-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  Ubuntu:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: |
-            packages/ttsc/go.sum
-            packages/wasm/go.sum
-            tests/go-transformer/go.mod
-
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build Packages
-        run: pnpm run build
-
-      - name: Smoke release-candidate ttscgraph snapshot
-        run: node scripts/assert-ttscgraph-release-candidate.cjs
-
-      - name: Assert dist artifacts exist
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        id: go
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        shell: bash
         run: |
-          test -f packages/wasm/dist/ttsc.wasm
-          test -f packages/wasm/dist/wasm_exec.js
-          test -f packages/wasm/dist/go.mod
-          test -d packages/wasm/shim-vendor/shim
-
-      - name: Tarball smoke (pack + inspect)
-        run: |
-          cd packages/wasm
-          pnpm pack --pack-destination /tmp
-          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q shim-vendor/shim/ast/shim.go
-          tar -tzf /tmp/ttsc-wasm-*.tgz | grep -q dist/ttsc.wasm
+          printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
+          printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
+          printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+          printf 'epoch=%s\n' "$(node -p 'Math.floor(Date.now() / 604800000)')" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules and objects
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          # Go validates each object's source, compiler and flags; share only object/module caches.
+          # A weekly snapshot admits new objects without creating a copy for every source edit/workflow.
+          key: ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-${{ steps.go-cache.outputs.epoch }}
+          restore-keys: |
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('packages/**/go.mod', 'packages/**/go.sum', 'go.work') }}-
+            ttsc-go-shared-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run evidence
+        env:
+          EVID_CACHE_DIR: ${{ runner.temp }}/evidence-cache
+      - run: pnpm run build

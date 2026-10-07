@@ -12,18 +12,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerClassDecoratorHelper proves the emit contract for
-// experimentalDecorators: when a plugin transform runs in the emit context, the
-// builtin tsgo decorator-transform still lowers a class decorator into a
-// `__decorate([...], Klass)` application and the printer still injects the
-// `__decorate` helper. The plugin rewrites an unrelated numeric literal (`7` ->
-// `8`) so the plugin transform demonstrably ran, while the decorator on a
-// sibling class must survive untouched.
+// TestEmitWithPluginTransformerClassDecoratorHelper Verifies rewriting a decorated class field
+// retains the decorator helper and class application.
 //
 // If the synthetic plugin transform clobbered the decorator (lost original
 // links, dropped the modifier, or skipped helper emission), the emitted JS would
 // be missing either the `__decorate` helper definition or its application call,
 // and this test would fail.
+//
+// 1. Transform the decorated class field initializer to 8.
+// 2. Require the rewritten field, __decorate definition and decorator application assigned to Widget.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls the actual plugin-transform emitter and requires rewritten this.size = 8, a __decorate helper definition and decorator application assigned to Widget.
+// @evidence contracts/testing.md#independent-expectations Authored size replacement 8, seal decorator and Widget class independently establish required generated structures.
+// @evidence contracts/testing.md#distinguishing-cases An unrelated numeric replacement and retained class decorator coexist, distinguishing plugin execution from loss of built-in decorator lowering.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit invokes an in-process compiler/transformer with a private Program and captured callbacks and deferred close, without a product host.
 func TestEmitWithPluginTransformerClassDecoratorHelper(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

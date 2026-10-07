@@ -16,9 +16,9 @@ import type {
  * visibility between configured source-path _elements_ (layers, features, apps
  * in a monorepo).
  *
- * Every rule operates on the _resolved source file_ of an import — relative
- * imports are followed to the real `.ts`/`.tsx`/`.d.ts` file before
- * classification.
+ * Local-element rules classify resolved relative source paths. The unified
+ * dependencies rule also uses checker resolution for aliases; external-package
+ * restrictions match package/specifier text without local-file classification.
  *
  * @reference https://github.com/javierbrea/eslint-plugin-boundaries
  *
@@ -32,8 +32,8 @@ export interface ITtscLintBoundariesRules {
    * Enforce allowed dependency directions between configured source-path
    * element types.
    *
-   * Each `element` entry declares a name, a matching glob, and the other
-   * element types it is allowed to import.
+   * Element entries declare type labels and matching paths. The separate rules
+   * list selects source types and allowed or rejected target types.
    *
    * Imports that fall outside the allow-list are reported.
    *

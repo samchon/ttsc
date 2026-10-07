@@ -4,7 +4,14 @@ import "testing"
 
 // TestLSPCompletionScopeClassifiesRegexStatementAndOperatorBoundaries keeps
 // JSDoc-shaped bytes inside regexes from escaping into completion scope while
-// preserving real comments after expressions and live-buffer recovery.
+// preserving the expected end-of-string scope for authored expression,
+// declaration, template and CR-recovery examples. It does not observe scope
+// at an interior regex cursor or execute completion requests.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual lexicalScopeAt at len(text) returns literal code or JSDoc scopes for eighteen authored statement-header, operator, declaration/member, template and CR-recovery strings. Closed-regex rows observe the final code scope, not the interior lexicalScopeRegex state; positive unfinished comments distinguish an always-code result.
+// @evidence contracts/testing.md#independent-expectations Each case's expected scope is a literal written next to its source text.
+// @evidence contracts/testing.md#distinguishing-cases Statement headers (if, while, for, with), division and unary operators decide whether a slash starts a regex, so each is its own row.
+// @evidence contracts/testing.md#execution-ownership This Go unit calls the actual package-local lexical scanner on supplied strings and compares the returned enum to each literal expectation. It substitutes no operation and creates no directory or sidecar; no compiler, native process, product host or LSP transport runs, and request matching/publication is outside this table.
 func TestLSPCompletionScopeClassifiesRegexStatementAndOperatorBoundaries(t *testing.T) {
   cases := []struct {
     name string

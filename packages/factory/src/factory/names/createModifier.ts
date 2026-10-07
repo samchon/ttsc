@@ -14,9 +14,12 @@ import { createToken } from "./createToken";
  * With `kind` of the `readonly` keyword, this prints:
  *
  * ```ts
- * readonly
+ * readonly;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param kind The token kind.
+ * @returns The created {@link Token}.
  * @evidence contracts/common.md#principled-implementation
  *   Delegation retains the chosen SyntaxKind as a token; modifier-position
  *   validity is the caller's responsibility under the broad kind signature.
@@ -30,10 +33,6 @@ import { createToken } from "./createToken";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native documentation explicitly states the absence of extra modifier
  *   behavior and supplies readonly as a separate example before tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param kind The token kind.
- * @returns The created {@link Token}.
  */
 export const createModifier = <TKind extends SyntaxKind>(
   kind: TKind,

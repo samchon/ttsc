@@ -12,17 +12,22 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerClassFieldAndAccessor proves the emit contract
-// for class fields and get/set accessors: when a plugin transform shares the
-// emit context, tsgo's builtin class transform still
-//   - moves each field initializer into the constructor body, and
-//   - preserves both the get and set accessor declarations on the class.
+// TestEmitWithPluginTransformerClassFieldAndAccessor Verifies class-field transformation
+// preserves ES5 constructor initialization and both accessors.
 //
 // The plugin rewrites the field initializer string `"plugin"` -> `"PLUGIN"` so we
 // can prove the plugin visitor ran over the same class, while the field-into-ctor
 // lowering and the accessors must remain intact. A regression that dropped
 // original links or the accessor/field declarations would change this emit and
 // fail here.
+//
+// 1. Transform the class label while retaining its numeric field and accessors.
+// 2. Require the changed label, field initialization and both getter and setter declarations.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls the actual transformer emitter and requires rewritten this.label, numeric field initialization and both getter/setter declarations.
+// @evidence contracts/testing.md#independent-expectations Literal PLUGIN, zero and authored value getter/setter spellings are specified independently of printed output.
+// @evidence contracts/testing.md#distinguishing-cases String replacement, unchanged numeric field and both accessor directions distinguish plugin execution, initializer lowering and member preservation.
+// @evidence contracts/testing.md#execution-ownership This direct driver Go unit uses a disposable Program, in-process visitor and local write map with deferred close; it inspects output without executing JavaScript.
 func TestEmitWithPluginTransformerClassFieldAndAccessor(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

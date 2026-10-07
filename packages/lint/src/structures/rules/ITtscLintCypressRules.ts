@@ -7,11 +7,9 @@ import type { ITtscLintCypressUnsafeToChainCommandRuleOptions } from "./ITtscLin
 /**
  * Cypress end-to-end test rules.
  *
- * Apply to TypeScript/TSX sources that use the Cypress runner (`cy.*` commands
- * and Mocha-style `describe`/`it` blocks). Mirror the rule set from
- * `eslint-plugin-cypress` and detect Cypress-specific anti-patterns such as
- * async test bodies, missing assertions before screenshots, or deprecated XPath
- * selectors.
+ * Static policies for syntactically named `cy.*` chains and Mocha-style test
+ * callbacks. These rules do not execute the Cypress runner or resolve those
+ * names to imported bindings.
  *
  * @reference https://github.com/cypress-io/eslint-plugin-cypress
  *
@@ -22,9 +20,9 @@ import type { ITtscLintCypressUnsafeToChainCommandRuleOptions } from "./ITtscLin
  */
 export interface ITtscLintCypressRules {
   /**
-   * Require at least one Cypress assertion (e.g. `cy.should(...)`) before each
-   * `cy.screenshot()` call, so the captured screenshot reflects a stable
-   * application state.
+   * Require `should` or `and` in the screenshot's preceding chain, or a Cypress
+   * assertion at the end of the immediately preceding sibling statement. The
+   * check does not establish application stability or evaluate assertions.
    *
    * @reference https://github.com/cypress-io/eslint-plugin-cypress/blob/master/docs/rules/assertion-before-screenshot.md
    */
@@ -32,7 +30,8 @@ export interface ITtscLintCypressRules {
 
   /**
    * Prefer `cy.should()` over `.and()` when starting a Cypress assertion chain
-   * — `.and()` only makes sense after a preceding `.should()`.
+   * — the native policy accepts an immediately preceding `should`, `and`, or
+   * `contains` method.
    *
    * @reference https://github.com/cypress-io/eslint-plugin-cypress/blob/master/docs/rules/no-and.md
    */
@@ -51,19 +50,17 @@ export interface ITtscLintCypressRules {
   /**
    * Reject `async` Cypress `before` / `beforeEach` hooks.
    *
-   * Cypress already serializes commands; an `async` hook breaks the runner's
-   * ordering.
+   * Recognition follows the syntactic hook name and last function argument;
+   * runner ordering is not executed or measured.
    *
    * @reference https://github.com/cypress-io/eslint-plugin-cypress/blob/master/docs/rules/no-async-before.md
    */
   "cypress/no-async-before"?: TtscLintRuleSetting;
 
   /**
-   * Reject `async` Cypress `it`/`specify` test callbacks.
-   *
-   * Cypress builds a synchronous command queue when the test body runs and
-   * replays it later; an `async` body resolves before the queue executes, so
-   * the test reports success before any command has run.
+   * Reject `async` callbacks in syntactically recognized `it`, `specify`, and
+   * `test` calls, including named modifiers. The check does not observe queue
+   * execution, promise completion, or the test's runtime result.
    *
    * @reference https://github.com/cypress-io/eslint-plugin-cypress/blob/master/docs/rules/no-async-tests.md
    */
@@ -82,9 +79,8 @@ export interface ITtscLintCypressRules {
   /**
    * Reject `cy.debug()` and chained `.debug()` commands.
    *
-   * The helpers drop into the browser debugger and pause the runner
-   * indefinitely — fine for local exploration but hangs CI when one slips into
-   * a committed test.
+   * This checks the chain method name; it does not observe an attached debugger
+   * or certify that a particular execution hangs.
    *
    * @reference https://github.com/cypress-io/eslint-plugin-cypress/blob/master/docs/rules/no-debug.md
    */
@@ -129,8 +125,10 @@ export interface ITtscLintCypressRules {
   "cypress/no-xpath"?: TtscLintRuleSetting;
 
   /**
-   * Require `cy.get()` selectors to target a `data-*` attribute when the
-   * selector is a string literal — separates testing concerns from styling.
+   * Require supported static `cy.get()` selector forms to begin with a `data-*`
+   * attribute selector or `@` alias. Literal strings, tracked const names,
+   * supported templates, and conditional alternatives are inspected; unknown
+   * expressions are skipped.
    *
    * @reference https://github.com/cypress-io/eslint-plugin-cypress/blob/master/docs/rules/require-data-selectors.md
    */

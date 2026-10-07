@@ -6,6 +6,7 @@ import (
   "encoding/json"
   "fmt"
   "maps"
+  "os"
   "path/filepath"
   "sort"
   "strings"
@@ -112,36 +113,61 @@ func (s *graphSession) SnapshotShards() (*serveGraphSnapshot, string, bool, erro
 }
 
 func (s *graphSession) snapshotShardsWithTiming() (*serveGraphSnapshot, string, bool, time.Duration, time.Duration, error) {
-  semanticStarted := time.Now()
-  change, err := s.nextChange(true)
-  semanticDuration := time.Since(semanticStarted)
+  prepared, mode, changed, semanticDuration, preparationDuration, err := s.prepareShardSnapshot()
+  if err != nil || prepared == nil {
+    return nil, mode, changed, semanticDuration, preparationDuration, err
+  }
+  started := time.Now()
+  snapshot, _, err := publishNativeShardProjection(prepared, s.cwd)
   if err != nil {
-    return nil, "", false, semanticDuration, 0, err
+    return nil, "", false, semanticDuration, preparationDuration + time.Since(started), err
+  }
+  return snapshot, prepared.change.mode, true, semanticDuration, preparationDuration + time.Since(started), nil
+}
+
+// prepareShardSnapshot prepares an actual transaction without acquiring host
+// ignore membership. Its completion owns validation, publication and retries.
+func (s *graphSession) prepareShardSnapshot() (*preparedShardProjection, string, bool, time.Duration, time.Duration, error) {
+  started := time.Now()
+  change, err := s.nextChange(true)
+  duration := time.Since(started)
+  if err != nil {
+    return nil, "", false, duration, 0, err
   }
   if change == nil {
-    return nil, serveModeUnchanged, false, semanticDuration, 0, nil
+    return nil, serveModeUnchanged, false, duration, 0, nil
   }
-
   exportStarted := time.Now()
-  snapshot, store, err := s.buildShardSnapshot(change)
-  exportDuration := time.Since(exportStarted)
+  var prepared *preparedShardProjection
+  if change.full || s.graphStore == nil {
+    prepared, err = s.prepareFullShardProjection()
+  } else {
+    prepared, err = s.prepareIncrementalShardProjection(change)
+  }
   if err != nil {
     s.pending = change
-    return nil, "", false, semanticDuration, exportDuration, err
+    return nil, "", false, duration, time.Since(exportStarted), err
   }
-  s.graphStore = store
-  s.pending = nil
-  return snapshot, change.mode, true, semanticDuration, exportDuration, nil
+  var own func(*preparedShardProjection) *preparedShardProjection
+  own = func(current *preparedShardProjection) *preparedShardProjection {
+    return &preparedShardProjection{built: current.built, change: change, publish: func(ignored map[string]bool) (*serveGraphSnapshot, *serveGraphStore, *preparedShardProjection, error) {
+      snapshot, store, fallback, err := current.publish(ignored)
+      if err != nil {
+        s.pending = change
+        return nil, nil, nil, err
+      }
+      if fallback != nil {
+        return nil, nil, own(fallback), nil
+      }
+      s.graphStore = store
+      s.pending = nil
+      return snapshot, store, nil, nil
+    }}
+  }
+  return own(prepared), change.mode, true, duration, time.Since(exportStarted), nil
 }
 
-func (s *graphSession) buildShardSnapshot(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
-  if change.full || s.graphStore == nil {
-    return s.buildFullShardSnapshot()
-  }
-  return s.buildIncrementalShardSnapshot(change)
-}
-
-func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) prepareFullShardProjection() (*preparedShardProjection, error) {
   program := s.compiler.Program()
   built := graph.Build(program)
   graph.ApplyArtifacts(built, s.artifacts)
@@ -149,95 +175,97 @@ func (s *graphSession) buildFullShardSnapshot() (*serveGraphSnapshot, *serveGrap
   provenance := s.provenance(texts)
   identity, wireProvenance, wireSources, err := newServeGraphIdentity(s.cwd, s.tsconfig, provenance, program.TSProgram.UseCaseSensitiveFileNames())
   if err != nil {
-    return nil, nil, err
+    return nil, err
   }
-  facts, err := graph.NewDumpFacts(
-    built,
-    s.cwd,
-    graph.GitIgnoredFiles(s.cwd, built),
-    texts,
-  )
-  if err != nil {
-    return nil, nil, err
-  }
-  resolutionDigests, err := serveGraphResolutionDigests(program, s.cwd)
-  if err != nil {
-    return nil, nil, err
-  }
-  shards, sourceKeys, dumpNodeFiles, externalNodes, sourceExternal, err := partitionServeGraphFacts(
-    identity,
-    provenance,
-    facts,
-    graph.NewDiagnostics(program),
-    nil,
-    nil,
-    resolutionDigests,
-  )
-  if err != nil {
-    return nil, nil, err
-  }
-  externalReferences := map[string]int{}
-  for _, targets := range sourceExternal {
-    for id := range targets {
-      externalReferences[id]++
+  return &preparedShardProjection{built: built, publish: func(ignored map[string]bool) (*serveGraphSnapshot, *serveGraphStore, *preparedShardProjection, error) {
+    facts, err := graph.NewDumpFacts(
+      built,
+      s.cwd,
+      ignored,
+      texts,
+    )
+    if err != nil {
+      return nil, nil, nil, err
     }
-  }
-  if err := installExternalShard(shards, identity, externalNodes, externalReferences); err != nil {
-    return nil, nil, err
-  }
-  externalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, built.Nodes, identity.caseSensitive)
-  if err != nil {
-    return nil, nil, err
-  }
-  store := &serveGraphStore{
-    shards:                map[string]committedServeGraphShard{},
-    nodes:                 maps.Clone(built.Nodes),
-    provenance:            provenance,
-    wireProvenance:        wireProvenance,
-    wireSources:           wireSources,
-    identity:              identity,
-    resolutionDigests:     resolutionDigests,
-    sourceKeys:            sourceKeys,
-    dumpNodeFiles:         dumpNodeFiles,
-    reverseDependencies:   reverseGraphDependencies(program),
-    sourceExternal:        sourceExternal,
-    externalNodes:         externalNodes,
-    externalReferences:    externalReferences,
-    externalNodeWireIDs:   externalNodeWireIDs,
-    implementationSources: cloneServeGraphStringSets(built.ImplementationSources),
-    extractedFiles:        sortedSelectedFiles(authoredGraphFiles(program)),
-  }
-  snapshot, committed, nodeOwners, incomingEdges, err := commitServeGraphSnapshot(
-    identity,
-    wireProvenance,
-    s.graphStore,
-    shards,
-    nil,
-    true,
-  )
-  if err != nil {
-    return nil, nil, err
-  }
-  store.sequence = snapshot.Sequence
-  store.generation = snapshot.Generation
-  store.shards = committed
-  store.nodeOwners = nodeOwners
-  store.incomingEdges = incomingEdges
-  return snapshot, store, nil
+    resolutionDigests, err := serveGraphResolutionDigests(program, s.cwd)
+    if err != nil {
+      return nil, nil, nil, err
+    }
+    shards, sourceKeys, dumpNodeFiles, externalNodes, sourceExternal, err := partitionServeGraphFacts(
+      identity,
+      provenance,
+      facts,
+      graph.NewDiagnostics(program),
+      nil,
+      nil,
+      resolutionDigests,
+    )
+    if err != nil {
+      return nil, nil, nil, err
+    }
+    externalReferences := map[string]int{}
+    for _, targets := range sourceExternal {
+      for id := range targets {
+        externalReferences[id]++
+      }
+    }
+    if err := installExternalShard(shards, identity, externalNodes, externalReferences); err != nil {
+      return nil, nil, nil, err
+    }
+    externalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, built.Nodes, identity.caseSensitive)
+    if err != nil {
+      return nil, nil, nil, err
+    }
+    store := &serveGraphStore{
+      shards:                map[string]committedServeGraphShard{},
+      nodes:                 maps.Clone(built.Nodes),
+      provenance:            provenance,
+      wireProvenance:        wireProvenance,
+      wireSources:           wireSources,
+      identity:              identity,
+      resolutionDigests:     resolutionDigests,
+      sourceKeys:            sourceKeys,
+      dumpNodeFiles:         dumpNodeFiles,
+      reverseDependencies:   reverseGraphDependencies(program),
+      sourceExternal:        sourceExternal,
+      externalNodes:         externalNodes,
+      externalReferences:    externalReferences,
+      externalNodeWireIDs:   externalNodeWireIDs,
+      implementationSources: cloneServeGraphStringSets(built.ImplementationSources),
+      extractedFiles:        sortedSelectedFiles(authoredGraphFiles(program)),
+    }
+    snapshot, committed, nodeOwners, incomingEdges, err := commitServeGraphSnapshot(
+      identity,
+      wireProvenance,
+      s.graphStore,
+      shards,
+      nil,
+      true,
+    )
+    if err != nil {
+      return nil, nil, nil, err
+    }
+    store.sequence = snapshot.Sequence
+    store.generation = snapshot.Generation
+    store.shards = committed
+    store.nodeOwners = nodeOwners
+    store.incomingEdges = incomingEdges
+    return snapshot, store, nil, nil
+  }}, nil
 }
 
-func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) prepareIncrementalShardProjection(change *graphChange) (*preparedShardProjection, error) {
   prior := s.graphStore
   program := s.compiler.Program()
   if prior.identity.caseSensitive != program.TSProgram.UseCaseSensitiveFileNames() {
-    return s.buildCompleteShardFallback(change)
+    return s.prepareCompleteShardFallback(change)
   }
   selected := invalidatedGraphFiles(program, prior.reverseDependencies, change.files, change.publicFiles)
   if len(selected) == 0 {
     // A changed declaration or virtual input outside the authored graph can
     // alter external endpoints and global types. Rebuild when no exact source
     // owner can be established instead of publishing an empty semantic delta.
-    return s.buildCompleteShardFallback(change)
+    return s.prepareCompleteShardFallback(change)
   }
 
   // Re-export edges can stamp a declaration owned by a forward dependency.
@@ -301,179 +329,182 @@ func (s *graphSession) buildIncrementalShardSnapshot(change *graphChange) (*serv
     s.diskDigests,
   )
   if !ok {
-    return s.buildCompleteShardFallback(change)
+    return s.prepareCompleteShardFallback(change)
   }
   identity := prior.identity
-  facts, err := graph.NewDumpFacts(
-    partial,
-    s.cwd,
-    graph.GitIgnoredFiles(s.cwd, partial),
-    texts,
-  )
-  if err != nil {
-    return nil, nil, err
-  }
-  selectedFiles := sortedSelectedFiles(selected)
-  selectedSources := make([]*shimast.SourceFile, 0, len(selectedFiles))
-  for _, file := range selectedFiles {
-    source := graphSourceFile(program, file)
-    if source == nil {
-      return s.buildCompleteShardFallback(change)
+  return &preparedShardProjection{built: partial, publish: func(ignored map[string]bool) (*serveGraphSnapshot, *serveGraphStore, *preparedShardProjection, error) {
+    facts, err := graph.NewDumpFacts(
+      partial,
+      s.cwd,
+      ignored,
+      texts,
+    )
+    if err != nil {
+      return nil, nil, nil, err
     }
-    selectedSources = append(selectedSources, source)
-  }
-  replacements, replacementSourceKeys, replacementDumpNodeFiles, discoveredExternal, replacementExternal, err := partitionServeGraphFacts(
-    identity,
-    provenance,
-    facts,
-    graph.NewDiagnosticsForFiles(program, selectedSources),
-    selected,
-    prior.externalNodes,
-    prior.resolutionDigests,
-  )
-  if err != nil {
-    return nil, nil, err
-  }
+    selectedFiles := sortedSelectedFiles(selected)
+    selectedSources := make([]*shimast.SourceFile, 0, len(selectedFiles))
+    for _, file := range selectedFiles {
+      source := graphSourceFile(program, file)
+      if source == nil {
+        fallback, err := s.prepareCompleteShardFallback(change)
+        return nil, nil, fallback, err
+      }
+      selectedSources = append(selectedSources, source)
+    }
+    replacements, replacementSourceKeys, replacementDumpNodeFiles, discoveredExternal, replacementExternal, err := partitionServeGraphFacts(
+      identity,
+      provenance,
+      facts,
+      graph.NewDiagnosticsForFiles(program, selectedSources),
+      selected,
+      prior.externalNodes,
+      prior.resolutionDigests,
+    )
+    if err != nil {
+      return nil, nil, nil, err
+    }
 
-  nextShards := maps.Clone(prior.shards)
-  nextSourceExternal := maps.Clone(prior.sourceExternal)
-  nextExternalNodes := maps.Clone(prior.externalNodes)
-  nextExternalReferences := maps.Clone(prior.externalReferences)
-  nextSourceKeys := maps.Clone(prior.sourceKeys)
-  nextDumpNodeFiles := maps.Clone(prior.dumpNodeFiles)
-  for file := range selected {
-    key := nextSourceKeys[file]
-    if old := nextSourceExternal[key]; old != nil {
-      for id := range old {
-        nextExternalReferences[id]--
+    nextShards := maps.Clone(prior.shards)
+    nextSourceExternal := maps.Clone(prior.sourceExternal)
+    nextExternalNodes := maps.Clone(prior.externalNodes)
+    nextExternalReferences := maps.Clone(prior.externalReferences)
+    nextSourceKeys := maps.Clone(prior.sourceKeys)
+    nextDumpNodeFiles := maps.Clone(prior.dumpNodeFiles)
+    for file := range selected {
+      key := nextSourceKeys[file]
+      if old := nextSourceExternal[key]; old != nil {
+        for id := range old {
+          nextExternalReferences[id]--
+        }
+      }
+      delete(nextSourceExternal, key)
+      delete(nextShards, key)
+      delete(nextSourceKeys, file)
+    }
+    for id, file := range nextDumpNodeFiles {
+      if selected[file] {
+        delete(nextDumpNodeFiles, id)
       }
     }
-    delete(nextSourceExternal, key)
-    delete(nextShards, key)
-    delete(nextSourceKeys, file)
-  }
-  for id, file := range nextDumpNodeFiles {
-    if selected[file] {
-      delete(nextDumpNodeFiles, id)
+    for file, key := range replacementSourceKeys {
+      nextSourceKeys[file] = key
     }
-  }
-  for file, key := range replacementSourceKeys {
-    nextSourceKeys[file] = key
-  }
-  for id, file := range replacementDumpNodeFiles {
-    nextDumpNodeFiles[id] = file
-  }
-  for key, targets := range replacementExternal {
-    nextSourceExternal[key] = targets
-    for id := range targets {
-      nextExternalReferences[id]++
-      if node, ok := discoveredExternal[id]; ok {
-        nextExternalNodes[id] = node
-      } else if node, ok := prior.externalNodes[id]; ok {
-        nextExternalNodes[id] = node
+    for id, file := range replacementDumpNodeFiles {
+      nextDumpNodeFiles[id] = file
+    }
+    for key, targets := range replacementExternal {
+      nextSourceExternal[key] = targets
+      for id := range targets {
+        nextExternalReferences[id]++
+        if node, ok := discoveredExternal[id]; ok {
+          nextExternalNodes[id] = node
+        } else if node, ok := prior.externalNodes[id]; ok {
+          nextExternalNodes[id] = node
+        }
       }
     }
-  }
-  for id, count := range nextExternalReferences {
-    if count <= 0 {
-      delete(nextExternalReferences, id)
-      delete(nextExternalNodes, id)
-    }
-  }
-
-  nextRaw := rawServeShards(nextShards)
-  for key, shard := range replacements {
-    nextRaw[key] = shard
-  }
-  if err := installExternalShard(nextRaw, identity, nextExternalNodes, nextExternalReferences); err != nil {
-    return nil, nil, err
-  }
-  dirty := make(map[string]bool, len(replacements)+1)
-  for key := range replacements {
-    dirty[key] = true
-  }
-  dirty[externalServeGraphShardKey(identity)] = true
-
-  nextNodes := maps.Clone(prior.nodes)
-  for id, node := range nextNodes {
-    if selected[node.File] {
-      delete(nextNodes, id)
-    }
-  }
-
-  nextImplementationSources := cloneServeGraphStringSets(prior.implementationSources)
-  for id := range nextImplementationSources {
-    if selected[graph.NodeFile(id)] {
-      delete(nextImplementationSources, id)
-    }
-  }
-  for id, sources := range partial.ImplementationSources {
-    nextImplementationSources[id] = maps.Clone(sources)
-  }
-  for id, node := range partial.Nodes {
-    nextNodes[id] = node
-  }
-  nextExternalNodeWireIDs := maps.Clone(prior.externalNodeWireIDs)
-  changedExternalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, partial.Nodes, identity.caseSensitive)
-  if err != nil {
-    return nil, nil, err
-  }
-  for id, wireID := range changedExternalNodeWireIDs {
-    nextExternalNodeWireIDs[id] = wireID
-  }
-  for id, node := range nextNodes {
-    if node.External {
-      wireID, exists := nextExternalNodeWireIDs[id]
-      if !exists {
-        return nil, nil, fmt.Errorf("ttscgraph: external node %s has no wire identity", id)
+    for id, count := range nextExternalReferences {
+      if count <= 0 {
+        delete(nextExternalReferences, id)
+        delete(nextExternalNodes, id)
       }
-      if nextExternalReferences[wireID] <= 0 {
+    }
+
+    nextRaw := rawServeShards(nextShards)
+    for key, shard := range replacements {
+      nextRaw[key] = shard
+    }
+    if err := installExternalShard(nextRaw, identity, nextExternalNodes, nextExternalReferences); err != nil {
+      return nil, nil, nil, err
+    }
+    dirty := make(map[string]bool, len(replacements)+1)
+    for key := range replacements {
+      dirty[key] = true
+    }
+    dirty[externalServeGraphShardKey(identity)] = true
+
+    nextNodes := maps.Clone(prior.nodes)
+    for id, node := range nextNodes {
+      if selected[node.File] {
         delete(nextNodes, id)
-        delete(nextExternalNodeWireIDs, id)
       }
     }
-  }
 
-  snapshot, committed, nodeOwners, incomingEdges, err := commitServeGraphSnapshot(
-    identity,
-    wireProvenance,
-    prior,
-    nextRaw,
-    dirty,
-    false,
-  )
-  if err != nil {
-    return nil, nil, err
-  }
-  store := &serveGraphStore{
-    sequence:              snapshot.Sequence,
-    generation:            snapshot.Generation,
-    shards:                committed,
-    nodes:                 nextNodes,
-    provenance:            provenance,
-    wireProvenance:        wireProvenance,
-    wireSources:           maps.Clone(prior.wireSources),
-    identity:              identity,
-    resolutionDigests:     prior.resolutionDigests,
-    sourceKeys:            nextSourceKeys,
-    dumpNodeFiles:         nextDumpNodeFiles,
-    reverseDependencies:   prior.reverseDependencies,
-    sourceExternal:        nextSourceExternal,
-    externalNodes:         nextExternalNodes,
-    externalReferences:    nextExternalReferences,
-    externalNodeWireIDs:   nextExternalNodeWireIDs,
-    implementationSources: nextImplementationSources,
-    nodeOwners:            nodeOwners,
-    incomingEdges:         incomingEdges,
-    extractedFiles:        append([]string{}, selectedFiles...),
-  }
-  return snapshot, store, nil
+    nextImplementationSources := cloneServeGraphStringSets(prior.implementationSources)
+    for id := range nextImplementationSources {
+      if selected[graph.NodeFile(id)] {
+        delete(nextImplementationSources, id)
+      }
+    }
+    for id, sources := range partial.ImplementationSources {
+      nextImplementationSources[id] = maps.Clone(sources)
+    }
+    for id, node := range partial.Nodes {
+      nextNodes[id] = node
+    }
+    nextExternalNodeWireIDs := maps.Clone(prior.externalNodeWireIDs)
+    changedExternalNodeWireIDs, err := serveGraphExternalNodeWireIDs(s.cwd, partial.Nodes, identity.caseSensitive)
+    if err != nil {
+      return nil, nil, nil, err
+    }
+    for id, wireID := range changedExternalNodeWireIDs {
+      nextExternalNodeWireIDs[id] = wireID
+    }
+    for id, node := range nextNodes {
+      if node.External {
+        wireID, exists := nextExternalNodeWireIDs[id]
+        if !exists {
+          return nil, nil, nil, fmt.Errorf("ttscgraph: external node %s has no wire identity", id)
+        }
+        if nextExternalReferences[wireID] <= 0 {
+          delete(nextNodes, id)
+          delete(nextExternalNodeWireIDs, id)
+        }
+      }
+    }
+
+    snapshot, committed, nodeOwners, incomingEdges, err := commitServeGraphSnapshot(
+      identity,
+      wireProvenance,
+      prior,
+      nextRaw,
+      dirty,
+      false,
+    )
+    if err != nil {
+      return nil, nil, nil, err
+    }
+    store := &serveGraphStore{
+      sequence:              snapshot.Sequence,
+      generation:            snapshot.Generation,
+      shards:                committed,
+      nodes:                 nextNodes,
+      provenance:            provenance,
+      wireProvenance:        wireProvenance,
+      wireSources:           maps.Clone(prior.wireSources),
+      identity:              identity,
+      resolutionDigests:     prior.resolutionDigests,
+      sourceKeys:            nextSourceKeys,
+      dumpNodeFiles:         nextDumpNodeFiles,
+      reverseDependencies:   prior.reverseDependencies,
+      sourceExternal:        nextSourceExternal,
+      externalNodes:         nextExternalNodes,
+      externalReferences:    nextExternalReferences,
+      externalNodeWireIDs:   nextExternalNodeWireIDs,
+      implementationSources: nextImplementationSources,
+      nodeOwners:            nodeOwners,
+      incomingEdges:         incomingEdges,
+      extractedFiles:        append([]string{}, selectedFiles...),
+    }
+    return snapshot, store, nil, nil
+  }}, nil
 }
 
-func (s *graphSession) buildCompleteShardFallback(change *graphChange) (*serveGraphSnapshot, *serveGraphStore, error) {
+func (s *graphSession) prepareCompleteShardFallback(change *graphChange) (*preparedShardProjection, error) {
   change.mode = serveModeRebuild
   change.full = true
-  return s.buildFullShardSnapshot()
+  return s.prepareFullShardProjection()
 }
 
 func commitServeGraphSnapshot(
@@ -844,6 +875,15 @@ func partitionServeGraphFacts(
     sourceCopy := source
     sourceCopy.File = relative
     key := sourceServeGraphShardKey(identity, relative, source, resolutionDigests[source.File])
+    if prior, exists := relativeToPhysical[relative]; exists {
+      // Provenance authenticated aliases before partitioning. Retain both raw
+      // input owners, but never combine distinct semantic resolution scopes.
+      if sourceKeys[prior] != key {
+        return nil, nil, nil, nil, nil, fmt.Errorf("ttscgraph: source aliases %q and %q have conflicting resolution or generation proof at %q", prior, source.File, relative)
+      }
+      sourceKeys[source.File] = key
+      continue
+    }
     shards[key] = emptyServeGraphShard(key, &sourceCopy)
     sourceKeys[source.File] = key
     relativeToPhysical[relative] = source.File
@@ -880,9 +920,9 @@ func partitionServeGraphFacts(
     // Markdown document, a Prisma schema, or nothing at all for an operation
     // named only by method and path. It belongs to the metadata shard, which
     // carries the facts no source owns — and which the client exempts from the
-    // ownership check for exactly that reason. Without this the projection
-    // rejected the node outright and the resident session failed to start for
-    // any project that publishes one.
+    // ownership check for exactly that reason. Treating the node as
+    // source-owned would fail the projection for any project that publishes
+    // one.
     if graph.IsArtifactKind(graph.NodeKind(node.Kind)) {
       metadata := shards[metadataKey]
       metadata.Nodes = append(metadata.Nodes, node)
@@ -1070,16 +1110,29 @@ func normalizeServeGraphProvenance(project string, provenance graph.Provenance, 
   normalized.Capabilities = append([]string{}, provenance.Capabilities...)
   normalized.Sources = make([]graph.SourceDigest, 0, len(provenance.Sources))
   wireSources := make(map[string]string, len(provenance.Sources))
-  sourceOwners := map[string]string{}
+  sourceOwners := map[string]graph.SourceDigest{}
   for _, source := range provenance.Sources {
     file, err := serveGraphFile(project, source.File, caseSensitive...)
     if err != nil {
       return graph.Provenance{}, nil, err
     }
     if previous, exists := sourceOwners[file]; exists {
-      return graph.Provenance{}, nil, fmt.Errorf("ttscgraph: source paths %q and %q collide at wire identity %q", previous, source.File, file)
+      // The same resident Program can retain a reference spelling alongside
+      // the resolver's physical spelling. A coordinate alone is not identity:
+      // require native same-file identity and matching complete generation
+      // digests before sharing one wire source. Unknown/different proof fails.
+      priorInfo, priorErr := os.Stat(previous.File)
+      nextInfo, nextErr := os.Stat(source.File)
+      if priorErr != nil || nextErr != nil || !priorInfo.Mode().IsRegular() ||
+        !nextInfo.Mode().IsRegular() || !os.SameFile(priorInfo, nextInfo) ||
+        previous.Checker == "" || previous.Disk == "" ||
+        source.Checker != previous.Checker || source.Disk != previous.Disk {
+        return graph.Provenance{}, nil, fmt.Errorf("ttscgraph: source paths %q and %q collide at wire identity %q", previous.File, source.File, file)
+      }
+      wireSources[source.File] = file
+      continue
     }
-    sourceOwners[file] = source.File
+    sourceOwners[file] = source
     wireSources[source.File] = file
     normalized.Sources = append(normalized.Sources, graph.SourceDigest{
       File:    file,

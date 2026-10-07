@@ -14,12 +14,13 @@ import type { ITtscProjectInputSnapshot } from "../../../structures/internal/ITt
  * `ttscserver` resolves its plugin selection before the Go LSP host starts and
  * hands both the selection and these fingerprints to the host, which recomputes
  * them to notice a change that landed in between. The two sides must therefore
- * hash identically, byte for byte and on every platform; the Windows parity
- * test in `internal/lspserver` pins that.
+ * use compatible byte framing. The Windows parity test in `internal/lspserver`
+ * checks one existing directory and one missing descendant; it does not
+ * establish agreement for every native entry or failure state.
  *
  * @evidence contracts/common.md#principled-implementation Domain-framed content, link and topology records encode the same selection distinctions as the Go validator; physical directory identity is distinct from leaf-link identity and ordinary child content.
- * @evidence contracts/common.md#clear-and-simple-design One namespace owns digest framing and physical spelling so capture and validation cannot maintain independent versions of the startup protocol.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, unreadable and non-file states are explicit protocol records rather than fabricated bytes; native readers remain supported APIs without foreign replacement.
+ * @evidence contracts/common.md#clear-and-simple-design JavaScript capture and validation share these digest helpers; the Go peer independently implements the startup framing and must remain compatible.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unavailable reads and non-file entries use declared protocol markers; a missing marker can also represent a read failure and is not proof of absence. Native readers remain supported APIs without foreign replacement.
  * @evidence contracts/common.md#meaningful-documentation Namespace and helper comments explain cross-host framing, raw-byte preservation and leaf identity, with separated public tags and member paragraphs following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Windows native paths use the shared identity resolver; POSIX reads preserve raw path and link-target bytes, and neither branch infers filesystem case from an OS label.
  *
@@ -54,15 +55,15 @@ export namespace LSPProjectInputDigest {
    * link target, resolved through the directory's physical identity. Content of
    * the children is not part of it.
    *
-   * @evidence contracts/common.md#principled-implementation The framed digest combines physical directory identity with sorted immediate name/kind/link-target records, so topology and directory retargeting invalidate selection without treating ordinary child content as topology.
+   * @evidence contracts/common.md#principled-implementation The frame combines the available directory identity and sorted immediate name/kind/link-target observations; ordinary child content is excluded. These sequential native reads are not an atomic topology snapshot.
    * @evidence contracts/common.md#clear-and-simple-design Physical identity and immediate topology have separate private readers and combine at one documented protocol boundary.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts The missing topology marker is shared protocol state, not an expected output; unreadable link targets remain explicit and no foreign filesystem function is replaced.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Any failed directory listing uses the missing topology marker, without certifying absence or distinguishing permission failure; unreadable link targets have a separate marker and supported filesystem APIs remain unchanged.
    * @evidence contracts/common.md#meaningful-documentation The native paragraph states exactly which entry facts count and excludes child contents, with separated tags following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Windows uses native resolved spelling; POSIX passes raw physical bytes through topology enumeration, preserving backslashes and non-UTF-8 names rather than converting them into protocol separators.
-   * @evidence contracts/performance.md#efficient-algorithms For E immediate entries and B serialized bytes, sorting costs O(E log E) comparisons and framing/hashing O(B); traversal remains immediate and does not recursively scan child trees.
+   * @evidence contracts/performance.md#efficient-algorithms Native identity setup includes path probes, ancestor spelling work and a possible Windows capability query. For E immediate entries, sorting makes O(E log E) byte comparisons whose cost depends on compared name/target lengths; record buffers, sorting references and concatenated framing coexist, with hashing proportional to framed bytes. Child trees are not recursively scanned.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each reading is a freshness observation; sharing prior topology would need an independent change witness which this digest boundary does not own.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native synchronous reads close their handles; identity context and entry buffers are local to one call with storage proportional to immediate topology.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Supported synchronous APIs own their native handles; this helper retains no cross-call state or running task. Its identity context and entry/framing buffers live through the call without an independent byte ceiling.
    */
   export function lspProjectInputReloadDirectoryDigest(
     location: string,
@@ -216,21 +217,22 @@ export namespace LSPProjectInputDigest {
   }
 
   /**
-   * Digest of one file as the host will see it. A symlink hashes both its link
-   * target and the bytes it currently reaches, so retargeting the link and
-   * editing its target are both changes; a regular file hashes its bytes; a
-   * missing path hashes a stable `missing` marker, so creating it later is a
-   * change; anything else hashes as `other`.
+   * Digest of the available observations of one entry. A symlink frame combines
+   * its raw target and reached content; failed target/content reads use
+   * markers. Regular files hash their bytes, while classification or
+   * regular-file read failure hashes the stable `missing` marker. Other entry
+   * kinds hash as `other`. The reads are sequential and do not pin the entry
+   * against change.
    *
-   * @evidence contracts/common.md#principled-implementation Distinct file, symlink, missing and other frames preserve entry meaning; a symlink includes both its raw target and reached bytes so either retargeting or content drift changes the fingerprint.
+   * @evidence contracts/common.md#principled-implementation File, symlink and other frames distinguish available entry observations; a symlink includes the observed target and reached bytes. Unavailable observations collapse into markers, so unchanged digests do not prove native state was unchanged.
    * @evidence contracts/common.md#clear-and-simple-design One lstat-driven dispatch owns entry-kind framing and keeps dangling or unreadable symlink content distinct from a missing link itself.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Fixed markers encode the native wire contract's unavailable states; the function reads actual entries rather than replacing content with expected diagnostics or test values.
    * @evidence contracts/common.md#meaningful-documentation Native prose documents each entry kind and the two symlink inputs, with tags separated according to the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat, readlink and readFile preserve host link semantics; Buffer target reads retain POSIX raw bytes while Windows supplies the native target representation consumed by the Go peer.
-   * @evidence contracts/performance.md#efficient-algorithms One entry classification and at most one target/content read produce the digest; time and temporary bytes scale with the target string and reached file contents rather than unrelated files.
+   * @evidence contracts/performance.md#efficient-algorithms One native classification and at most one target/content read produce the digest. Native path work, hashing and copied framing scale with path, target and reached content bytes; whole-file buffers and concatenated frames coexist without a separate input byte ceiling. No unrelated files are enumerated.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This produces a current observation, not a cached selection; a prior digest cannot be reused without separately proving the file and link remained unchanged.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous native calls retain no handle after return and content buffers are local; no historical file population accumulates.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Supported synchronous APIs own their handles; this helper retains only local content/framing buffers during the call and returns digest text. It owns no cross-call history, persistent handle or running task.
    */
   export function lspProjectInputFileDigest(location: string): string {
     try {
@@ -304,16 +306,17 @@ export namespace LSPProjectInputDigest {
   }
 
   /**
-   * The physical spelling of an entry's parent directory joined with the
-   * entry's own name, so a symlinked file keeps its link identity while an
-   * aliased directory above it is resolved.
+   * Best-effort resolved spelling of an entry's parent joined with its own
+   * basename, preserving the leaf link rather than resolving its target. Failed
+   * parent probes retain unresolved suffixes; if every probe fails, the
+   * normalized lexical spelling is returned. This does not pin identity.
    *
-   * @evidence contracts/common.md#principled-implementation Resolving only the parent and reattaching the basename preserves the leaf link as an entry while removing ancestor aliases, which is the identity exact reload-file fingerprints require.
+   * @evidence contracts/common.md#principled-implementation Resolving available parent ancestors and reattaching the basename preserves the leaf coordinate used by exact reload-file fingerprints. Failed resolution falls back to lexical spelling rather than certifying a physical identity.
    * @evidence contracts/common.md#clear-and-simple-design Parent canonicalization stays with one private resolver; this public adapter expresses the leaf-preserving operation in one native join.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing suffixes are retained beneath a resolved ancestor rather than replaced with an unrelated existing path or an assumed target.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts All failed realpath probes are treated as unresolved, including failures other than absence. Suffixes remain beneath a resolved ancestor, or the normalized original path is returned when no ancestor resolves.
    * @evidence contracts/common.md#meaningful-documentation The native paragraph explains why the leaf differs from its ancestors, and separated tags follow the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Shared native spelling normalization handles extended Windows paths while native dirname/basename/join preserve POSIX names; no unconditional case folding is used.
-   * @evidence contracts/performance.md#efficient-algorithms The ancestor walk makes at most one realpath probe per missing path component and rejoins retained components once, using space proportional to that suffix.
+   * @evidence contracts/performance.md#efficient-algorithms The ancestor walk makes one native realpath probe per visited parent until success or root. Repeated dirname/basename/path normalization and the final join depend on path text lengths; retained suffix strings and joined spelling are local, with no directory traversal.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Ancestor aliases may retarget between captures, so this current resolver owns no reusable validity proof or persistent canonicalization cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only local path components are retained through the synchronous walk; no handle or cross-call path history survives.

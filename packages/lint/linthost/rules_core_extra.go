@@ -100,10 +100,11 @@ func isAwaitUsingDeclarationList(node *shimast.Node) bool {
 // one at runtime; ESLint enforces this because the syntax does not.
 // https://eslint.org/docs/latest/rules/no-dupe-class-members
 //
-// Members are deduplicated by their (name, static, kind) tuple — an
+// Members are deduplicated by their (name, static) identity: an
 // instance property and a static property of the same name coexist, as
 // do a getter and a setter for the same property, but a getter and a
-// regular method on the same key do not.
+// regular method on the same key do not. Bodiless method declarations are
+// TypeScript overload signatures and are not counted.
 type noDupeClassMembers struct{}
 
 func (noDupeClassMembers) Name() string { return "no-dupe-class-members" }
@@ -118,24 +119,32 @@ func (noDupeClassMembers) Check(ctx *Context, node *shimast.Node) {
   type slot struct {
     name   string
     static bool
-    kind   string
   }
-  seen := map[slot]*shimast.Node{}
+  seen := map[slot]map[string]bool{}
   for _, member := range members {
     if member == nil {
+      continue
+    }
+    // A bodiless method is an overload signature (or an abstract or ambient
+    // declaration). Overload sets legitimately repeat one name before their
+    // single implementation, so only members with a body take part.
+    if member.Kind == shimast.KindMethodDeclaration && member.Body() == nil {
       continue
     }
     name, kind, ok := classMemberSlot(member)
     if !ok {
       continue
     }
-    key := slot{name: name, static: hasModifier(member, shimast.KindStaticKeyword), kind: kind}
-    if prior, exists := seen[key]; exists {
-      _ = prior
-      ctx.Report(member, "Duplicate class member `"+name+"`.")
-      continue
+    key := slot{name: name, static: hasModifier(member, shimast.KindStaticKeyword)}
+    kinds := seen[key]
+    if kinds == nil {
+      kinds = map[string]bool{}
+      seen[key] = kinds
     }
-    seen[key] = member
+    if kinds[kind] || kinds["data"] || kind == "data" && len(kinds) > 0 {
+      ctx.Report(member, "Duplicate class member `"+name+"`.")
+    }
+    kinds[kind] = true
   }
 }
 
@@ -403,54 +412,9 @@ func (getterReturn) Check(ctx *Context, node *shimast.Node) {
   if accessor == nil || accessor.Body == nil {
     return
   }
-  if !getterBodyAlwaysReturns(accessor.Body) {
+  if !statementCannotComplete(accessor.Body, true) {
     ctx.Report(node, "Getter must return a value.")
   }
-}
-
-// getterBodyAlwaysReturns walks a `get` accessor body and reports
-// whether every reachable exit point returns a value. This is a
-// shallow approximation — sufficient for the common case where the
-// getter's body is a sequence of statements ending in `return X`.
-func getterBodyAlwaysReturns(body *shimast.Node) bool {
-  if body == nil || body.Kind != shimast.KindBlock {
-    return false
-  }
-  statements := body.Statements()
-  if len(statements) == 0 {
-    return false
-  }
-  last := statements[len(statements)-1]
-  return statementReturnsValue(last)
-}
-
-// statementReturnsValue checks if a statement is a value-returning
-// `return X;`, a `throw`, a block that ends in one of those, or a
-// conditional whose every branch returns a value.
-func statementReturnsValue(stmt *shimast.Node) bool {
-  if stmt == nil {
-    return false
-  }
-  switch stmt.Kind {
-  case shimast.KindReturnStatement:
-    ret := stmt.AsReturnStatement()
-    return ret != nil && ret.Expression != nil
-  case shimast.KindThrowStatement:
-    return true
-  case shimast.KindBlock:
-    stmts := stmt.Statements()
-    if len(stmts) == 0 {
-      return false
-    }
-    return statementReturnsValue(stmts[len(stmts)-1])
-  case shimast.KindIfStatement:
-    ifStmt := stmt.AsIfStatement()
-    if ifStmt == nil || ifStmt.ThenStatement == nil || ifStmt.ElseStatement == nil {
-      return false
-    }
-    return statementReturnsValue(ifStmt.ThenStatement) && statementReturnsValue(ifStmt.ElseStatement)
-  }
-  return false
 }
 
 // noNewSymbol reports `new Symbol(...)`. `Symbol` is a function but not
@@ -503,12 +467,10 @@ func (noConstructorReturn) Check(ctx *Context, node *shimast.Node) {
   })
 }
 
-// noUnsafeOptionalChaining reports member access or call expressions
-// that chain off an optional chain WITHOUT continuing the optional
-// chain. `(obj?.foo).bar` throws a TypeError if obj is null/undefined,
-// because the outer `.bar` is no longer optional. Same for `obj?.foo()`
-// followed by `.bar` — once the chain terminates, downstream accesses
-// are unsafe again.
+// noUnsafeOptionalChaining reports access or calls after a parenthesized
+// optional chain. Contiguous chains such as obj?.foo().bar short-circuit
+// together; parentheses end that protection, as in (obj?.foo()).bar.
+// Erased TypeScript assertions do not protect an undefined receiver at runtime.
 // https://eslint.org/docs/latest/rules/no-unsafe-optional-chaining
 type noUnsafeOptionalChaining struct{}
 
@@ -521,6 +483,11 @@ func (noUnsafeOptionalChaining) Visits() []shimast.Kind {
   }
 }
 func (noUnsafeOptionalChaining) Check(ctx *Context, node *shimast.Node) {
+  // Parser propagation marks every contiguous optional-chain segment, even
+  // segments without their own question-dot token. Parentheses end it.
+  if node.Flags&shimast.NodeFlagsOptionalChain != 0 {
+    return
+  }
   var receiver *shimast.Node
   switch node.Kind {
   case shimast.KindPropertyAccessExpression:
@@ -557,33 +524,25 @@ func (noUnsafeOptionalChaining) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// receiverEndsWithOptionalChain reports whether the receiver expression
-// terminates in an optional `?.` operator. If so, the result of the
-// receiver may be undefined and subsequent member access is unsafe.
-// A non-null assertion (`!`) does NOT make the access safe — at lint
-// time the developer is suppressing the static-undefined warning, but
-// at runtime the chain still resolves to undefined when the optional
-// link short-circuits, so we look through `NonNullExpression` too.
+// receiverEndsWithOptionalChain recognizes any segment marked by the parser
+// as optional-chain continuation, including ordinary links after the first
+// question-dot. Parentheses and erased TypeScript assertions are transparent
+// to the receiver's undefined result after its chain terminates.
 func receiverEndsWithOptionalChain(node *shimast.Node) bool {
-  node = stripParens(node)
+  node = unwrapReferenceExpression(node)
   if node == nil {
     return false
-  }
-  if node.Kind == shimast.KindNonNullExpression {
-    if nn := node.AsNonNullExpression(); nn != nil {
-      return receiverEndsWithOptionalChain(nn.Expression)
-    }
   }
   switch node.Kind {
   case shimast.KindPropertyAccessExpression:
     access := node.AsPropertyAccessExpression()
-    return access != nil && access.QuestionDotToken != nil
+    return access != nil && node.Flags&shimast.NodeFlagsOptionalChain != 0
   case shimast.KindElementAccessExpression:
     access := node.AsElementAccessExpression()
-    return access != nil && access.QuestionDotToken != nil
+    return access != nil && node.Flags&shimast.NodeFlagsOptionalChain != 0
   case shimast.KindCallExpression:
     call := node.AsCallExpression()
-    return call != nil && call.QuestionDotToken != nil
+    return call != nil && node.Flags&shimast.NodeFlagsOptionalChain != 0
   }
   return false
 }
@@ -625,11 +584,11 @@ func (preferObjectHasOwn) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Prefer `Object.hasOwn(obj, key)` over `Object.prototype.hasOwnProperty.call(obj, key)`.")
 }
 
-// noImplicitCoercion reports the most common implicit coercion idioms:
-// `!!x` for boolean coercion, `+x` for number, `"" + x` for string. ES
-// has explicit coercion functions (`Boolean(x)`, `Number(x)`,
-// `String(x)`) that read more clearly and avoid surprise around the
-// edge cases (e.g. `+null === 0` vs `+undefined === NaN`).
+// noImplicitCoercion expresses a preference for named conversions over !!x,
+// +x and empty-string concatenation. It supplies no automatic edits and does
+// not prove equivalent coercion: Number accepts BigInt while unary + throws,
+// and String uses a string primitive hint instead of concatenation's default
+// hint. Authors must choose the conversion whose behavior they intend.
 // https://eslint.org/docs/latest/rules/no-implicit-coercion
 type noImplicitCoercion struct{}
 

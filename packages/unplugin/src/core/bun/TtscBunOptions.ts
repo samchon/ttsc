@@ -2,7 +2,7 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
 
 /**
  * Options accepted by `bun`, either resolved eagerly or supplied through a
- * provider evaluated lazily on the first `onLoad` call.
+ * provider evaluated lazily on the first included transformable `onLoad` call.
  *
  * The provider form exists for the runtime registration path (`bun-register`),
  * where a single Bun plugin is registered on import but its effective options
@@ -23,6 +23,18 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the provider's evaluation time and why runtime registration
  *   needs it; separate paragraphs and tags follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   The value/provider choice specifies option acquisition timing, not native
+ *   path interpretation or runtime capability. Option consumers own those boundaries.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   The union selects no traversal; resolveOptions and the loader own option
+ *   interpretation and transform work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The loader owns its resolved snapshot and first-load sharing. This provider
+ *   signature supplies no independent cache identity or invalidation mechanism.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The installed loader/state owners retain provider and snapshot values;
+ *   this union acquires no resource or historical state itself.
  */
 export type TtscBunOptions =
   | TtscUnpluginOptions

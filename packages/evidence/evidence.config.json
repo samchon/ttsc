@@ -5,47 +5,7 @@
       "name": "maintained TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts",
-        "!src/index.ts",
-        "!src/structures/index.ts",
-        "!src/typings/index.ts",
-        "!src/typings/ITtscLintContributorRules.ts",
-        "!src/typings/ITtscLintRuleOptionsMap.ts",
-        "!src/structures/ITtscEvidenceGraphClaimBase.ts",
-        "!src/structures/ITtscEvidenceGraphMarkdownClaim.ts",
-        "!src/structures/ITtscEvidenceGraphPrismaClaim.ts",
-        "!src/structures/ITtscEvidenceGraphTypeScriptClaim.ts",
-        "!src/structures/ITtscEvidenceGraphMarkdownReference.ts",
-        "!src/structures/ITtscEvidenceGraphPrismaReference.ts",
-        "!src/structures/ITtscEvidenceGraphSwaggerReference.ts",
-        "!src/structures/ITtscEvidenceGraphTypeScriptReference.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "native population boundary declarations",
-      "type": "typescript",
-      "files": [
-        "src/structures/ITtscEvidenceGraphClaimBase.ts",
-        "src/structures/ITtscEvidenceGraphMarkdownClaim.ts",
-        "src/structures/ITtscEvidenceGraphPrismaClaim.ts",
-        "src/structures/ITtscEvidenceGraphTypeScriptClaim.ts",
-        "src/structures/ITtscEvidenceGraphMarkdownReference.ts",
-        "src/structures/ITtscEvidenceGraphPrismaReference.ts",
-        "src/structures/ITtscEvidenceGraphSwaggerReference.ts",
-        "src/structures/ITtscEvidenceGraphTypeScriptReference.ts"
+        "src/**/*.ts"
       ],
       "symbol": [
         "type",
@@ -76,11 +36,30 @@
       "reference": {
         "type": "markdown",
         "files": [
-          "contracts/common.md"
+          "contracts/common.md",
+          "contracts/portability.md",
+          "contracts/performance.md"
         ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "Go Evidence semantic units",
+      "type": "go",
+      "files": [
+        "native/**/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
       }
     }
   ]

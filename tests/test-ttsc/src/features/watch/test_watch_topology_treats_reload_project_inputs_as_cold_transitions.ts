@@ -1,29 +1,40 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReloadEventShouldNotify.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputReloadEventShouldNotify";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const WATCH_EVENT_DEADLINE_MS = 30_000;
 
 /**
- * Verifies reload project inputs dominate the ordinary external-data lane.
+ * Verifies reload declarations retain the cold lane across input lifecycles.
  *
- * A lint config remains in `files` for old/LSP decoders, but CLI watch must
- * replace plugin selection whenever that same exact path changes. The retained
- * ancestor watcher must preserve the classification across every filesystem
- * lifecycle, including events that do not name the changed file.
+ * Recorded source-adapter notifications drive actual project fingerprints and
+ * reload decisions. A positional source requires no compiler-list operation.
  *
- * 1. Create, edit, delete, and atomically replace one initially missing file.
- * 2. Create and rename entries in one resolution-topology directory.
- * 3. Require cold config events for both executable reload declarations.
- * 4. Keep an ordinary project file warm and classify filename-less deltas.
+ * 1. Declare a missing reload file, a resolution directory and a warm document.
+ * 2. Create, edit, delete and restore reload inputs by rename through explicit
+ *    notifications.
+ * 3. Contrast the warm document and named/unnamed reload planning decisions.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology callback classification gives reload declarations the cold lane. 1. Create, edit, delete and restore one initially missing file by renaming to its absent destination. 2. Create and rename entries in a resolution directory. 3. Require cold config events for both reload declarations. 4. Keep an ordinary file warm and call the raw classifier for named and unnamed inputs; surrounding admission is not performed by that classifier.
+ * @evidence contracts/testing.md#independent-expectations Authored reload and warm declarations and the authored lifecycle steps establish which events must surface as cold config events and which stay warm project events; literal event-kind assertions enforce that split, with the ordinary document as the warm contrast. No quiet negative twin is claimed.
+ * @evidence contracts/testing.md#distinguishing-cases Create/edit/delete/rename restoration are distinct lifecycle inputs; resolution-directory creation and entry rename stay cold while a document edit stays warm. Direct classifier controls distinguish named reloads and immediate-directory deltas from warm deltas. They do not claim unchanged bytes bypass topology admission or that a producer reloads.
+ * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology and reload planning run with recorded subscriptions; the compiler-list provider throws if reached because positional membership needs no native reader. All original cold/warm lifecycle assertions, timeouts and cleanup remain; no compiler or native observer executes.
  */
 export const test_watch_topology_treats_reload_project_inputs_as_cold_transitions =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-project-input-reload-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-project-input-reload-"),
+    );
     const source = path.join(root, "src", "main.ts");
     const tsconfig = path.join(root, "tsconfig.json");
     const reloadFile = path.join(root, "config", "lint.config.json");
@@ -40,6 +51,16 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
     );
 
     const changes: WatchInputChange[] = [];
+    const observed = recordWatchers(watchDirectoryThroughFsWatch);
+    const expect = (
+      kind: WatchInputChange["kind"],
+      changed: string,
+      mutate: () => void,
+    ): Promise<void> =>
+      expectNextKind(changes, kind, () => {
+        mutate();
+        deliverWatchEvent(observed.watchers, changed, "rename");
+      });
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -54,6 +75,14 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
+      observed.openDirectoryWatch,
+      observed.openFileWatch,
+      fs.readdirSync,
+      () => {
+        throw new Error(
+          "positional reload units must not request compiler membership",
+        );
+      },
     );
     try {
       topology.refresh(false);
@@ -67,18 +96,18 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
       await delay();
 
       fs.mkdirSync(path.dirname(reloadFile), { recursive: true });
-      await expectNextKind(changes, "config", () =>
+      await expect("config", reloadFile, () =>
         fs.writeFileSync(reloadFile, '{"rules":{}}\n', "utf8"),
       );
-      await expectNextKind(changes, "config", () =>
+      await expect("config", reloadFile, () =>
         fs.writeFileSync(reloadFile, '{"rules":{"no-var":"error"}}\n', "utf8"),
       );
-      await expectNextKind(changes, "config", () => fs.rmSync(reloadFile));
+      await expect("config", reloadFile, () => fs.rmSync(reloadFile));
 
       const replacement = path.join(root, "config", "lint.config.next.json");
       fs.writeFileSync(replacement, '{"rules":{"eqeqeq":"error"}}\n', "utf8");
       await delay();
-      await expectNextKind(changes, "config", () =>
+      await expect("config", reloadFile, () =>
         fs.renameSync(replacement, reloadFile),
       );
 
@@ -86,22 +115,22 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
       // own right, so without waiting for it the wait below can be satisfied
       // by that late arrival and say nothing about how the manifest was
       // classified.
-      await expectNextKind(changes, "config", () =>
+      await expect("config", reloadDirectory, () =>
         fs.mkdirSync(reloadDirectory, { recursive: true }),
       );
       const packageManifest = path.join(reloadDirectory, "package.json");
-      await expectNextKind(changes, "config", () =>
+      await expect("config", packageManifest, () =>
         fs.writeFileSync(packageManifest, '{"main":"index.cjs"}\n', "utf8"),
       );
       const replacementManifest = path.join(
         reloadDirectory,
         "package.next.json",
       );
-      await expectNextKind(changes, "config", () =>
+      await expect("config", packageManifest, () =>
         fs.renameSync(packageManifest, replacementManifest),
       );
 
-      await expectNextKind(changes, "project", () =>
+      await expect("project", warmFile, () =>
         fs.writeFileSync(warmFile, "warm edit\n", "utf8"),
       );
       assert.equal(
@@ -141,7 +170,7 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
           reloadFiles: [reloadFile],
         }),
         true,
-        "a named reload event stays cold even when bytes are unchanged",
+        "an admitted named reload selects cold; unchanged-byte admission is owned by topology",
       );
       assert.equal(
         projectInputReloadEventShouldNotify({
@@ -155,6 +184,7 @@ export const test_watch_topology_treats_reload_project_inputs_as_cold_transition
       );
     } finally {
       topology.close();
+      assert.ok(observed.watchers.every((watcher) => watcher.active === false));
     }
   };
 

@@ -1,14 +1,13 @@
 // Argument filtering for cmd/ttsc subcommand parsers.
 //
-// `flag.NewFlagSet(..., flag.ContinueOnError).Parse` exits with non-zero on
-// the first unknown flag it sees, which is exactly the failure mode RCA
-// #4 in `.discussions/cli-parser-rca/report.md` flagged: a forwarded tsgo
-// option from the JS launcher would crash the build before tsgo's own
-// option table got a chance to consume it. Mirror the strategy that
-// `packages/ttsc/utility/host.go` already uses for the utility host —
-// strip flags that the local FlagSet does not declare, swallowing the
-// next token when the unknown flag clearly takes one. The allow-list is
-// the same generated `HostFlagAllowList` shared by both consumers
+// `flag.NewFlagSet(..., flag.ContinueOnError).Parse` returns an error on the
+// first unknown flag it sees, which the command reports as status two. A tsgo
+// option forwarded from the JS launcher would therefore reject the build before
+// tsgo's own option table could consume it. This mirrors the strategy
+// `packages/ttsc/utility/host.go` uses for the utility host: strip flags that
+// the local FlagSet does not declare, swallowing the next token when the
+// unknown flag clearly takes one. The allow-list is the same generated
+// `HostFlagAllowList` shared by both consumers
 // (`packages/ttsc/cmd/ttsc/flags_gen.go` and
 // `packages/ttsc/utility/flags_gen.go`).
 
@@ -21,8 +20,9 @@ import (
 
 // filterHostArgs strips flags that the cmd/ttsc FlagSet does not declare,
 // so a forwarded tsgo option from the JS launcher (e.g. `--strict`) does
-// not make `fs.Parse` exit 2 before the build can hand it to tsgo via
-// `--tsgo-args=&lt;JSON&gt;`. Flags absent from `HostFlagAllowList` are
+// not make `fs.Parse` return an error, reported by the command as status two,
+// before the build can hand it to tsgo via
+// `--tsgo-args=<JSON>`. Flags absent from `HostFlagAllowList` are
 // dropped together with their value token when they clearly take one
 // (no inline `=` and the next token does not start with `-`).
 //

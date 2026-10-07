@@ -1,6 +1,10 @@
-import { TestProject } from "@ttsc/testing";
-
-import { assert, fs, path, readProjectConfig } from "../../internal/project";
+import { TestProject } from "../../../../utils/src/TestProject";
+import {
+  assert,
+  fs,
+  path,
+  readProjectConfig,
+} from "../../internal/project-unit";
 
 /**
  * Verifies readProjectConfig fails visibly when a package.json#tsconfig target
@@ -16,7 +20,13 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * 1. Create `node_modules/broken-preset` whose `package.json#tsconfig` points at a
  *    non-existent `missing.json`.
  * 2. Write a project tsconfig that extends the bare `"broken-preset"`.
- * 3. Assert `readProjectConfig` throws about the unresolved extended tsconfig.
+ * 3. Assert `readProjectConfig` throws ttsc's not-found error for the
+ *    manifest-selected `missing.json`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Resolves a preset whose manifest names an absent config and requires a missing-extended-config error rather than a silently empty result.
+ * @evidence contracts/testing.md#independent-expectations The fixture authors missing.json as the manifest target without creating that file; the expected rejection follows the declared preset resolution contract.
+ * @evidence contracts/testing.md#distinguishing-cases Only the negative case is run: a preset whose package.json#tsconfig names a file that was never created. The required message is ttsc's own `ttsc: extended tsconfig not found:` prefix ending in the manifest-selected missing.json, so Node's `Cannot find module` fallback cannot satisfy it; the healthy manifest-selected case is not executed here.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project extending a bare preset whose package.json#tsconfig points at a missing file in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_rejects_missing_package_tsconfig_manifest_target =
   () => {
@@ -49,6 +59,10 @@ export const test_readprojectconfig_rejects_missing_package_tsconfig_manifest_ta
         readProjectConfig({
           tsconfig: path.join(project, "tsconfig.json"),
         }),
-      /extended tsconfig not found|missing\.json/,
+      (error: unknown) =>
+        error instanceof Error &&
+        /^ttsc: extended tsconfig not found: .*missing\.json$/.test(
+          error.message,
+        ),
     );
   };

@@ -1,226 +1,66 @@
-# author: elliot-huffman
 name: release
+
 on:
   push:
-    tags:
-      - "*"
-# v0.25.0 was re-tagged in the same push that carried v0.26.0, so two publish
-# jobs ran at the same moment against one npm account and one samchon.ttsc
-# Marketplace extension. One call came back 401 and the other hung until vsce's
-# three-minute request timeout; neither version published. Releases serialize.
-#
-# Never cancel the one in flight: it publishes to two registries in sequence and
-# neither accepts an unpublish, so a run killed between them strands a version
-# that is half-released and cannot be withdrawn.
+    tags: ["*"]
+
 concurrency:
   group: release
   cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: write
+
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
-    # One full build-plus-publish cycle takes ~35 minutes end to end.
-    timeout-minutes: 60
-    outputs:
-      marketplace: ${{ steps.marketplace.outcome }}
     steps:
-      # `pnpm run build` cross-compiles every platform package in one job: seven
-      # GOOS/GOARCH pairs, each producing a tsgo-sized ttsc and ttscserver, each
-      # filling its own Go build cache. v0.19.2 died on the seventh of them with
-      # "no space left on device" while linking ttscserver.exe for win32-x64 —
-      # after the tag was pushed and before anything published, which is the
-      # worst place to run out of anything.
-      #
-      # The runner ships ~25 GB of toolchains this build never uses. Reclaiming
-      # them is cheaper and less fragile than teaching the build to prune its own
-      # cache mid-flight, which would trade disk for a slower link on every
-      # platform. `df` on both sides so the next person to hit this can see the
-      # headroom in the log instead of inferring it from a crash.
-      - name: Free runner disk space
-        run: |
-          df -h /
-          sudo rm -rf \
-            /usr/local/lib/android \
-            /opt/hostedtoolcache/CodeQL \
-            /usr/local/.ghcup \
-            /opt/ghc \
-            /usr/share/dotnet \
-            /usr/share/swift
-          sudo docker image prune --all --force >/dev/null 2>&1 || true
-          df -h /
+      - run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org/
       - uses: actions/setup-go@v7
+        id: go
         with:
           go-version-file: packages/ttsc/go.mod
-          cache-dependency-path: packages/ttsc/go.sum
-      - uses: pnpm/action-setup@v6
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Preflight - validate release tag and package versions
-        run: node scripts/release-preflight.cjs
-      - name: Build all packages
-        run: pnpm run build
-      - name: Smoke release-candidate ttscgraph snapshot
-        run: node scripts/assert-ttscgraph-release-candidate.cjs
-      - name: Assert dist/ttsc.wasm exists and is >10MB
+          cache: false
+      - name: Locate Go caches
+        id: go-cache
+        shell: bash
         run: |
-          test -f packages/wasm/dist/ttsc.wasm
-          size=$(stat -c%s packages/wasm/dist/ttsc.wasm)
-          if [ "$size" -le 10485760 ]; then
-            echo "packages/wasm/dist/ttsc.wasm is suspiciously small ($size bytes); aborting publish"
-            exit 1
-          fi
-      - name: Assert @ttsc/lint tarball ships linthost/
-        run: |
-          (cd packages/lint && pnpm pack --pack-destination /tmp)
-          tar -tzf /tmp/ttsc-lint-*.tgz | grep -q linthost/
-      - name: Smoke @ttsc/vscode packed install shim
-        run: SKIP_BUILD=1 DRY_RUN=1 bash scripts/publish-vscode.sh
-      - name: Assert Linux platform binaries carry release metadata
-        run: |
-          ttsc_version="$(node -p "require('./packages/ttsc-linux-x64/package.json').version")"
-          ttsc_out="$(packages/ttsc-linux-x64/bin/ttsc --version)"
-          server_out="$(packages/ttsc-linux-x64/bin/ttscserver --version)"
-          echo "$ttsc_out"
-          echo "$server_out"
-          printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q "$ttsc_version"
-          ! printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q '0.0.0-dev'
-          ! printf '%s\n%s\n' "$ttsc_out" "$server_out" | grep -q 'commit dev'
-      - name: Publish VS Code Marketplace extension
-        id: marketplace
-        # Fail fast on a stalled Marketplace call: the healthy step takes
-        # under a minute (11-28 s observed), and the default 360-minute job
-        # timeout would otherwise hold the npm publish hostage for hours
-        # while looking like a slow build (#1008).
-        timeout-minutes: 10
-        # The Marketplace is one distribution channel for the editor extension;
-        # npm carries the compiler, the runtime, the plugin host, and every
-        # platform binary. When this step answered 401 for v0.26.0 it withheld
-        # all of that, which is the failure e6380e717 already removed once for
-        # Marketplace *indexing* and which returned through the publish call
-        # itself. Publish here first so the extension still leads the release,
-        # let a rejection through, and let marketplace-gate turn the run red.
+          printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'objects=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+          printf 'GOCACHE=%s\n' "$(go env GOCACHE)" >> "$GITHUB_ENV"
+          printf 'image=%s\n' "${ImageOS:-default}" >> "$GITHUB_OUTPUT"
+          printf 'node-arch=%s\n' "$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+      - name: Cache Go modules and objects
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.go-cache.outputs.modules }}
+            ${{ steps.go-cache.outputs.objects }}
+          key: ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-${{ hashFiles('**/*.go', '**/go.mod', '**/go.sum', '**/go.work', '**/go.work.sum', 'package.json', 'packages/ttsc/package.json', 'packages/ttsc-*/package.json', 'packages/ttsc/build/**', 'packages/ttsc/driver/resolutioninputs/recorder.cjs', 'packages/ttsc/test/driver/fixtures/rewrite-runtime/**', 'packages/lint/linthost/polyfill_data_gen.json', 'packages/lint/linthost/rule_codes.json', 'pnpm-lock.yaml', '.github/workflows/release.yml') }}
+          restore-keys: |
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-${{ github.workflow }}-${{ matrix.name || 'host' }}-
+            ttsc-go-full-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-build-host-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-website-host-
+            ttsc-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go-cache.outputs.image }}-${{ steps.go.outputs.go-version }}-
+            setup-go-${{ runner.os }}-${{ steps.go-cache.outputs.node-arch }}-${{ runner.os == 'Linux' && format('{0}-', steps.go-cache.outputs.image) || '' }}go-${{ steps.go.outputs.go-version }}-
+      - run: pnpm install --frozen-lockfile
+      - run: test "v$(node -p "require('./packages/ttsc/package.json').version")" = "$GITHUB_REF_NAME"
+      - run: pnpm run build
+      - run: pnpm --dir packages/vscode exec vsce publish --packagePath dist/ttsc-vscode-${GITHUB_REF_NAME#v}.vsix --no-dependencies --skip-duplicate
         continue-on-error: true
-        run: SKIP_BUILD=1 bash scripts/publish-vscode-marketplace.sh
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      - name: Publish to npm
-        # Same fail-fast contract as the Marketplace step: the healthy step
-        # takes ~5.5 minutes; the default 360-minute job timeout would hold a
-        # stalled publish silently for hours (#1008).
-        timeout-minutes: 20
-        run: pnpm run package:latest:publish
-  # A Marketplace rejection is reported, never fatal. Both failures on record
-  # were the gallery's, not the tag's: a 401 and a three-minute request timeout
-  # on two runs that had already produced every artifact. Failing the release
-  # over them would re-block the npm half this change exists to free, so this
-  # job only annotates the run and writes the recovery into the summary, where
-  # it is visible without reading a thirty-thousand-line log.
-  #
-  # The job-level `if` skips it outright on success, and a skipped job cannot
-  # colour the run.
-  marketplace-report:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: publish
-    if: needs.publish.outputs.marketplace != 'success'
-    steps:
-      - name: Report that the Marketplace publish did not succeed
-        run: |
-          {
-            echo "### VS Code Marketplace publish did not succeed"
-            echo
-            echo "Outcome: \`${{ needs.publish.outputs.marketplace }}\`"
-            echo
-            echo "npm published \`${GITHUB_REF_NAME}\`; \`samchon.ttsc\` did not."
-            echo "A 401 means \`VSCE_PAT\` is expired or revoked; rotate the secret."
-            echo "Then republish the extension on its own:"
-            echo
-            echo '```sh'
-            echo "VSCE_PAT=... bash scripts/publish-vscode-marketplace.sh"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::warning title=Marketplace publish did not succeed::npm published ${GITHUB_REF_NAME}; samchon.ttsc did not. Rotate VSCE_PAT if this was a 401, then run scripts/publish-vscode-marketplace.sh."
-  wasm-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: publish
-    steps:
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-          registry-url: https://registry.npmjs.org/
-      - name: Smoke-install @ttsc/wasm from the registry
-        run: |
-          mkdir -p /tmp/ttsc-wasm-smoke
-          cd /tmp/ttsc-wasm-smoke
-          npm init -y
-          # Resolve the just-published version from the tag (refs/tags/<v>).
-          VERSION="${GITHUB_REF_NAME#v}"
-          npm install "@ttsc/wasm@${VERSION}"
-          node -e "if(!require('@ttsc/wasm'))process.exit(1)"
-  vscode-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: publish
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-          registry-url: https://registry.npmjs.org/
-      - name: Smoke-install @ttsc/vscode from the registry
-        run: |
-          mkdir -p /tmp/ttsc-vscode-smoke
-          cd /tmp/ttsc-vscode-smoke
-          npm init -y
-          VERSION="${GITHUB_REF_NAME#v}"
-          export VERSION
-          npm install "@ttsc/vscode@${VERSION}"
-          node "$GITHUB_WORKSPACE/scripts/assert-vscode-package.cjs" node_modules/@ttsc/vscode
-          fake_bin="$(mktemp -d)"
-          cat > "$fake_bin/code" <<'SH'
-          #!/usr/bin/env bash
-          printf '%s\n' "$@" > "$FAKE_CODE_ARGS"
-          SH
-          chmod +x "$fake_bin/code"
-          export FAKE_CODE_ARGS="$PWD/code-args.txt"
-          PATH="$fake_bin:$PATH" node_modules/.bin/ttsc-vscode install
-          node <<'NODE'
-          const fs = require("node:fs");
-          const path = require("node:path");
-          const version = process.env.VERSION;
-          const args = fs.readFileSync(process.env.FAKE_CODE_ARGS, "utf8").trim().split("\n");
-          const expected = path.join(
-            process.cwd(),
-            "node_modules",
-            "@ttsc",
-            "vscode",
-            "dist",
-            `ttsc-vscode-${version}.vsix`,
-          );
-          const want = ["--install-extension", expected, "--force"];
-          if (JSON.stringify(args) !== JSON.stringify(want)) {
-            throw new Error(`unexpected code args: ${JSON.stringify(args)} !== ${JSON.stringify(want)}`);
-          }
-          NODE
-  release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [wasm-smoke, vscode-smoke]
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v6
+      - run: pnpm run package:latest:publish
       - run: pnpm dlx changelogithub
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

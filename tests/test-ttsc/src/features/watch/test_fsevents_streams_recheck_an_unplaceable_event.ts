@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { FseventsStreams } from "../../../../../packages/ttsc/lib/launcher/internal/watch/FseventsStreams.js";
+import { FseventsStreams } from "../../../../../packages/ttsc/src/launcher/internal/watch/FseventsStreams";
 import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
 
 /**
@@ -14,6 +14,11 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  * 1. Open watches on two disjoint roots.
  * 2. Have the first stream report a path outside its own root.
  * 3. Assert only its watch receives an unnamed recheck.
+ *
+ * @evidence contracts/testing.md#behavioral-verification FseventsStreams.open callbacks convert a path outside the emitting stream into one unnamed recheck and leave the other disjoint stream silent.
+ * @evidence contracts/testing.md#independent-expectations An unplaceable callback makes only its owning stream observations uncertain. Literal rename/null for firstEvents and an empty secondEvents vector distinguish loss reporting from silence or cross-stream dispatch.
+ * @evidence contracts/testing.md#distinguishing-cases Two live disjoint roots provide the isolation control; stream zero reports a valid path under the other root. Ordinary in-root delivery is covered by share_an_ancestor_stream_with_nested_watches.
+ * @evidence contracts/testing.md#execution-ownership This exported source unit creates two registry streams through FakeFseventsBinding and injects the mismatched callback with emit. Both handles are closed; no actual native stream or kernel event is involved.
  */
 export const test_fsevents_streams_recheck_an_unplaceable_event = (): void => {
   const parent = path.resolve("fsevents-unplaceable");

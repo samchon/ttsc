@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"sourceMap":true,"outDir":"lib","rootDir":"src","types":[],"lib":["es2022"],"noUnusedLocals":true,"noUnusedParameters":true},"include":["src"]}

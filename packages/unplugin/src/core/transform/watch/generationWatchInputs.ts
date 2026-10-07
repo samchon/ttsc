@@ -19,19 +19,19 @@ const GENERATION_WATCH_INPUTS = new WeakMap<
  * Every input of a generation, with the evidence it recorded: what the
  * project's record holds and a watching session's bridge observes.
  *
- * A generation compiles the whole project, so its inputs are the union over
- * every source file of what `selectWatchInputs` derives for one: every realized
- * or resolver-input path of the graph (edge sources and targets, globals, the
+ * The record uses a conservative generation-wide selection: every realized or
+ * resolver-input path of the graph (edge sources and targets, globals, the
  * config chain, resolution inputs, and every candidate), every plugin-reported
- * dependency, and the universal host inputs. The union is taken directly from
- * the graph's indexes rather than file by file, since the per-file derivation
- * walks the reference closure and the union of those walks is the graph itself.
- * The disposed transform scratch tree is dropped, and so is the temporary
- * tsconfig the compile ran under.
+ * dependency, universal host input and plugin source directory. Graph sources
+ * are retained directly even when a per-file list excludes its own delivered
+ * spelling or admits a complete plugin declaration. This is not an exact union
+ * of all narrowed per-file watch lists. The disposed transform scratch tree is
+ * dropped, and so is the temporary tsconfig the compile ran under.
  *
  * Memoized per generation. Project-record delivery can separately add configs
  * consulted while routing another module; this generation-wide input union
- * retains one readonly snapshot. Consumers must not mutate its array or entries.
+ * retains one readonly snapshot. Consumers must not mutate its array or
+ * entries.
  *
  * Every path is the compiler's own spelling: the record is read by the adapter
  * alone, and the host is handed only the record.
@@ -41,9 +41,9 @@ const GENERATION_WATCH_INPUTS = new WeakMap<
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Scratch exclusion reflects disposed ownership, and dependency entries are validated before path use rather than supplemented with consumer-specific guesses.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains generation-wide derivation and memoization; callers must treat the returned array and its entries as immutable, with separated tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and generation identity preserve filesystem semantics; lexical spellings remain distinct registration keys even when their physical identities agree.
- * @evidence contracts/performance.md#efficient-algorithms A Set makes the first union linear in candidate count plus path/identity work, retaining only unique inputs and avoiding repeated evidence conversion for duplicates.
- * @evidence contracts/performance.md#reuse-equivalent-work The WeakMap shares the completed input union by cached-generation identity; a newly compiled generation receives a new key and derivation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Snapshot storage is O(unique generation inputs) per live generation and weak-keyed, so old snapshots become collectible with their generation rather than accumulating in a strong process-wide map.
+ * @evidence contracts/performance.md#efficient-algorithms Cold selection can build graph and plugin-source indexes before scanning graph member spellings, every dependency occurrence and host/plugin lists. Each occurrence pays lexical path/scratch/key work; unique inputs additionally derive evidence with native identity/project-key queries and any cold observation costs. Temporary member arrays/indexes and output grow with producer/query populations and retained text; duplicates skip evidence conversion only after append checks. A completed generation snapshot needs only WeakMap entry selection.
+ * @evidence contracts/performance.md#reuse-equivalent-work The WeakMap shares the completed input union by cached-generation identity. Result/root/scratch/temporary options, recorded evidence and its native identity view must remain valid for that generation; callers must not mutate the shared array or entries. A new cached generation receives a distinct selection without granting freshness from this memo alone.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The owner retains one input array per cached generation, containing unique lexical keys, evidence carriers and references to recorded payloads; sizes follow selected populations and text without a byte cap. Weak keys do not keep generations alive, but a borrower can retain the array/evidence after generation release. Shared derivation indexes have their own state owner; no watcher handle is acquired here.
  */
 export function generationWatchInputs(
   cached: TtscCachedProjectTransform,

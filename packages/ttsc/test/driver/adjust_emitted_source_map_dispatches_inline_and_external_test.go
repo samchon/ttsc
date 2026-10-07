@@ -22,6 +22,11 @@ import (
 //     plain `.js` with no map.
 //  3. Assert external + inline both move the real segment to source line 2 and the
 //     no-map text is returned unchanged with ok=false.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls AdjustEmittedSourceMap on external JSON, inline base64 JavaScript, plain JavaScript and zero-shift inputs; requires changed external/inline results at literal source line 2, preserves the authored JavaScript prefix, and requires exact unchanged negative inputs.
+// @evidence contracts/testing.md#independent-expectations The authored segment source line 5 shifted by three owes literal line 2. Test-local VLQ encoding/decoding and standard base64 inspect output without calling the production encoder.
+// @evidence contracts/testing.md#distinguishing-cases External and inline carriers are positive controls; plain JavaScript and zero shift must return the exact original text with false.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit runs source-map transformation directly in process with string inputs; no compiler host or product artifact is required.
 func TestAdjustEmittedSourceMapDispatchesInlineAndExternal(t *testing.T) {
   const dropLines = 3
   sources := []string{"src/a.ts"}

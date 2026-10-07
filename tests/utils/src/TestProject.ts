@@ -1,22 +1,34 @@
-import child_process from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
-// Every temp dir handed out by this module is tracked here and removed on
-// process exit. Without this, each test case leaks one or more directories
+import { E2eProcessTrace } from "./E2eProcessTrace";
+
+// Every temp dir handed out by this module is tracked here for process-exit
+// cleanup unless its owner explicitly retains unresolved process inputs.
+// Without this, each test case leaks one or more directories
 // under /tmp — across the full suite that runs into thousands of stale dirs
 // (the symptom that surfaced as Go-build ENOSPC when /tmp is a small tmpfs).
 const TRACKED_TEMP_DIRS = new Set<string>();
+const TEMP_IDENTITIES = new Map<string, readonly ITemporaryIdentity[]>();
+const RETAINED_TEMP_DIRS = new Set<string>();
 let cleanupHookRegistered = false;
 let sharedPluginCacheDir: string | undefined;
+
+interface ITemporaryIdentity {
+  readonly location: string;
+  readonly dev: number;
+  readonly ino: number;
+  readonly birthtimeMs: number;
+}
 
 function ensureCleanupHook(): void {
   if (cleanupHookRegistered) return;
   cleanupHookRegistered = true;
   process.on("exit", () => {
     for (const dir of TRACKED_TEMP_DIRS) {
+      if (RETAINED_TEMP_DIRS.has(dir)) continue;
       try {
         fs.rmSync(dir, { recursive: true, force: true });
       } catch {
@@ -25,6 +37,7 @@ function ensureCleanupHook(): void {
       }
     }
     TRACKED_TEMP_DIRS.clear();
+    TEMP_IDENTITIES.clear();
   });
 }
 
@@ -41,8 +54,6 @@ export namespace TestProject {
   export const WORKSPACE_ROOT = findWorkspaceRoot(process.cwd());
   /** Root of the shared `@ttsc/testing` helper package. */
   export const TEST_PACKAGE_ROOT = path.join(WORKSPACE_ROOT, "tests", "utils");
-  /** Canonical fixture tree copied by project-shaped regression tests. */
-  export const PROJECTS_ROOT = path.join(WORKSPACE_ROOT, "tests", "projects");
   /** Require function scoped to `tests/utils` so helper deps resolve stably. */
   export const REQUIRE_FROM_TEST = createRequire(
     path.join(TEST_PACKAGE_ROOT, "package.json"),
@@ -82,17 +93,135 @@ export namespace TestProject {
   export const TSGO_BINARY = resolveTsgoBinary();
 
   /**
-   * Create a tracked temp directory under the OS temp root.
+   * Create a tracked temp directory under the supplied or OS temp root.
    *
-   * The returned path is removed on process exit so the suite doesn't pile up
-   * stale directories under `/tmp` (each test typically needs a project root
-   * plus a plugin cache dir, and there are hundreds of cases).
+   * The returned path is removed on process exit unless unresolved process
+   * ownership explicitly retains it or a nested tracked root. This prevents
+   * ordinary cases from leaving stale directories under the temporary root.
    */
-  export function tmpdir(prefix: string): string {
+  export function tmpdir(prefix: string, parent: string = os.tmpdir()): string {
     ensureCleanupHook();
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+    fs.mkdirSync(parent, { recursive: true });
+    const dir = fs.mkdtempSync(path.join(parent, prefix));
     TRACKED_TEMP_DIRS.add(dir);
+    const identities: ITemporaryIdentity[] = [];
+    let location = fs.realpathSync.native(dir);
+    while (true) {
+      const stat = fs.lstatSync(location);
+      identities.push({
+        location,
+        dev: stat.dev,
+        ino: stat.ino,
+        birthtimeMs: stat.birthtimeMs,
+      });
+      const next = path.dirname(location);
+      if (next === location) break;
+      location = next;
+    }
+    TEMP_IDENTITIES.set(dir, identities);
     return dir;
+  }
+
+  /**
+   * Keep an allocated root when a process may still read its inputs.
+   *
+   * Only the exact returned spelling and its original native directory and
+   * ancestor identities can transfer out of exit cleanup. Retention is sticky:
+   * the caller reports the unresolved descendant and owns later reclamation
+   * after joining it. This operation never allocates or follows a foreign root.
+   * Tracked ancestors are withheld too, so their recursive cleanup cannot erase
+   * retained inputs. Failed identity validation also withdraws cleanup
+   * authority over the obsolete spelling without accepting retention identity.
+   * Existing one-argument fixture owners use an explicit pending-closure
+   * reason; neither that default nor a supplied reason certifies a live process
+   * or join.
+   *
+   * @evidence contracts/common.md#principled-implementation Allocation records the physical directory and ancestor identities; retention checks the same native objects before withholding that exact owned root from exit cleanup.
+   * @evidence contracts/common.md#clear-and-simple-design One explicit transfer changes only an existing tracked allocation; ordinary allocations retain their exit cleanup behavior.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Aliases, links, replaced or removed directories and untracked inputs cannot acquire retention authority. It does not manufacture process-join evidence.
+   * @evidence contracts/common.md#meaningful-documentation States the exact spelling requirement, sticky transfer, diagnostic reason and caller's unresolved reclamation responsibility.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath and lstat distinguish actual directories from path aliases and reparse links; dev, ino and birth time compare the recorded filesystem identity without assuming case policy.
+   * @evidence contracts/performance.md#efficient-algorithms Captures directory ancestors once per allocation. Retention validates that depth and scans the finite tracked allocation population to withhold actual ancestor owners without traversing fixture contents.
+   * @evidence contracts/performance.md#reuse-equivalent-work The recorded identity can authorize repeated retention only while every original directory and ancestor remains the same native object; changed identities are refused rather than reused.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Normal roots remain exit-owned; unresolved roots and tracked ancestors transfer to caller-owned later reclamation. The retained population grows with unresolved allocations, and no automatic release is claimed before descendant closure is established.
+   */
+  export function retainTemporaryDirectory(
+    root: string,
+    reason: string = "Caller retains fixture inputs pending process closure observation",
+  ): void {
+    const identities = TEMP_IDENTITIES.get(root);
+    if (!TRACKED_TEMP_DIRS.has(root) || !identities || !reason.trim())
+      throw new Error(
+        "Temporary retention requires an owned allocation and reason: " + root,
+      );
+    try {
+      const rootStat = fs.lstatSync(root);
+      if (
+        rootStat.isSymbolicLink() ||
+        fs.realpathSync.native(root) !== identities[0]!.location
+      )
+        throw new Error(
+          "Temporary retention refuses an aliased or linked root: " + root,
+        );
+      for (const identity of identities) {
+        const stat = fs.lstatSync(identity.location);
+        if (
+          !stat.isDirectory() ||
+          stat.isSymbolicLink() ||
+          fs.realpathSync.native(identity.location) !== identity.location ||
+          stat.dev !== identity.dev ||
+          stat.ino !== identity.ino ||
+          stat.birthtimeMs !== identity.birthtimeMs
+        )
+          throw new Error(
+            "Temporary retention identity changed: " + identity.location,
+          );
+      }
+    } catch (error) {
+      // An obsolete allocation spelling cannot authorize later removal of the
+      // occupant either. Ancestor allocations must not remove it indirectly.
+      withholdTemporaryCleanup(identities, reason, "Cleanup authority refused");
+      throw error;
+    }
+    withholdTemporaryCleanup(
+      identities,
+      reason,
+      "Retained owned temporary directory",
+    );
+  }
+
+  function withholdTemporaryCleanup(
+    identities: readonly ITemporaryIdentity[],
+    reason: string,
+    description: string,
+  ): void {
+    const ancestors = new Set(identities.map((identity) => identity.location));
+    for (const [allocation, recorded] of TEMP_IDENTITIES) {
+      if (
+        !ancestors.has(recorded[0]!.location) ||
+        RETAINED_TEMP_DIRS.has(allocation)
+      )
+        continue;
+      RETAINED_TEMP_DIRS.add(allocation);
+      console.error(description + ": " + allocation + "\nReason: " + reason);
+    }
+  }
+
+  /**
+   * Retain an already allocated shared cache without creating one.
+   *
+   * Environment-selected cache roots belong to their external owner. This
+   * operation cannot retain or release those paths; subsequent reuse of an
+   * internally retained cache is refused.
+   *
+   * @evidence contracts/common.md#principled-implementation Only the module's recorded allocation can transfer through native directory identity validation; an environment path supplies no allocation authority.
+   * @evidence contracts/common.md#clear-and-simple-design Delegates the single existing cache root to the allocation owner without creating a second lifecycle registry.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not allocate replacement work or mutate a foreign cache to conceal unknown descendant completion.
+   * @evidence contracts/common.md#meaningful-documentation Describes the no-allocation boundary, foreign ownership and refusal of later internally retained cache reuse.
+   */
+  export function retainSharedPluginCache(reason: string): void {
+    if (sharedPluginCacheDir !== undefined)
+      retainTemporaryDirectory(sharedPluginCacheDir, reason);
   }
 
   /**
@@ -116,12 +245,33 @@ export namespace TestProject {
    * directories in one process. Keeping this owner here prevents each helper
    * module from allocating a different "shared" cache and paying the same Go
    * plugin build again. Tests that observe cold builds or cache lifecycle still
-   * pass their own explicit `tmpdir`.
+   * pass their own explicit `tmpdir`. A retained internally owned cache has
+   * unresolved readers and cannot serve a new consumer in this process.
+   * The first caller can select the existing tmpdir parent contract when its
+   * owned project and relative cache arguments must share a filesystem root.
+   * An existing allocation or externally selected cache is never relocated.
    */
-  export function sharedPluginCache(): string {
+  export function sharedPluginCache(parent?: string): string {
+    if (
+      sharedPluginCacheDir !== undefined &&
+      RETAINED_TEMP_DIRS.has(sharedPluginCacheDir)
+    )
+      throw new Error(
+        "Shared plugin cache has an unresolved process owner: " +
+          sharedPluginCacheDir,
+      );
     return (
       process.env.TTSC_TEST_CACHE_DIR ??
-      (sharedPluginCacheDir ??= tmpdir("ttsc-shared-plugin-cache-"))
+      (sharedPluginCacheDir ??= tmpdir("ttsc-shared-plugin-cache-", parent))
+    );
+  }
+
+  /** Share Go objects even when a case deliberately uses a cold plugin root. */
+  export function sharedGoBuildCache(): string {
+    return (
+      process.env.TTSC_GO_CACHE_DIR ||
+      process.env.GOCACHE ||
+      path.join(sharedPluginCache(), "go-build")
     );
   }
 
@@ -134,19 +284,6 @@ export namespace TestProject {
   export function createProject(files: Record<string, string>) {
     const root = tmpdir("ttsc-smoke-");
     writeFiles(root, files);
-    return root;
-  }
-
-  /**
-   * Copy a checked-in fixture project into a writable temp directory.
-   *
-   * Project fixtures cover behaviors where directory layout matters more than a
-   * small synthetic file map, such as entry discovery or package boundaries.
-   */
-  export function copyProject(name: string) {
-    const source = path.join(PROJECTS_ROOT, name);
-    const root = tmpdir(`ttsc-${name}-`);
-    copyDirectory(source, root);
     return root;
   }
 
@@ -286,7 +423,7 @@ export namespace TestProject {
    */
   export function spawn(command: string, args: string[], options: any = {}) {
     const usesNodeLauncher = command === TTSC_BIN || command === TTSX_BIN;
-    const result = child_process.spawnSync(
+    const result = E2eProcessTrace.spawnSync(
       usesNodeLauncher ? process.execPath : command,
       [...(usesNodeLauncher ? [command] : []), ...args],
       {
@@ -295,6 +432,7 @@ export namespace TestProject {
           ...process.env,
           TTSC_BINARY: NATIVE_BINARY,
           TTSC_TSGO_BINARY: TSGO_BINARY,
+          GOCACHE: sharedGoBuildCache(),
           ...options.env,
         },
         encoding: "utf8",

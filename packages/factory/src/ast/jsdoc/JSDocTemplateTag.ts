@@ -12,11 +12,11 @@ import type { JSDocTypeExpression } from "./JSDocTypeExpression";
  * omission removes that shared prefix. Parameter declarations are retained in
  * order, without checking generic binding or constraint applicability.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation An optional braced constraint and ordered type-parameter nodes express the printed template payload; the representation itself does not establish binding validity or how a consumer applies a shared constraint.
  * @evidence contracts/common.md#clear-and-simple-design One constraint prefix and one parameter list expose the tag's two type roles without storing an inferred per-parameter constraint mapping.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Generic information remains supplied syntax instead of a guessed successful constraint check or a patched foreign type-parameter declaration.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies constraint placement, parameter order and unchecked binding semantics; paragraph and member separation follows the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocTemplateTag {
   /** Discriminant tag; always `"JSDocTemplateTag"`. */

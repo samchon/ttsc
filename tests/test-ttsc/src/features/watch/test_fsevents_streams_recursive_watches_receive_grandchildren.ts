@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { FseventsStreams } from "../../../../../packages/ttsc/lib/launcher/internal/watch/FseventsStreams.js";
+import { FseventsStreams } from "../../../../../packages/ttsc/src/launcher/internal/watch/FseventsStreams";
 import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
 
 /**
@@ -13,6 +13,11 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  * 1. Open recursive and nonrecursive watches on one directory.
  * 2. Deliver an event below a subdirectory.
  * 3. Assert only the recursive watch receives the relative path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification FseventsStreams.open sends a grandchild modification to its recursive watch with the relative nested/deep.ts path while a same-root nonrecursive watch stays silent.
+ * @evidence contracts/testing.md#independent-expectations The recursive DirectoryWatcher contract includes descendants and names them relative to the subscriber root. Literal change and path.join nested/deep.ts plus the empty sibling vector are independent expectations.
+ * @evidence contracts/testing.md#distinguishing-cases The same callback and root are shared by recursive true and false subscriptions, isolating recursion as the deciding property. nonrecursive_watches_ignore_grandchildren covers the direct-entry positive control.
+ * @evidence contracts/testing.md#execution-ownership This exported source unit uses two open subscriptions on an injected FakeFseventsBinding, one emitted callback and both returned closes. It verifies dispatch semantics, not native macOS delivery.
  */
 export const test_fsevents_streams_recursive_watches_receive_grandchildren =
   (): void => {

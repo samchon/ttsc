@@ -4,8 +4,7 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
 
 /**
  * How a host is handed the compiler's inputs for one delivery: spelled under
- * the project as the host itself spelled the module it delivered
- * (samchon/ttsc#1451).
+ * the project as the host itself spelled the module it delivered.
  *
  * The compiler reports its inputs physically, after every link. A host names
  * the project one of two ways, and says which by the module it hands over: one
@@ -22,10 +21,9 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
  * own. A module under neither, which no host names by the project, takes the
  * project's configured spelling. Containment uses native lexical path
  * relations; physical identity was established when the roots were captured.
- * The wrapper tsconfig written for the compiler takes the same
- * function with the compiler's physical root as the delivered path, since the
- * compiler is the other party the adapter spells paths for
- * (samchon/ttsc#1456).
+ * The wrapper tsconfig written for the compiler takes the same function with
+ * the compiler's physical root as the delivered path, since the compiler is the
+ * other party the adapter spells paths for.
  *
  * @param project The project root as configured and as the filesystem resolves
  *   it; equal where the root traverses no link, which makes the answer the
@@ -33,12 +31,23 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
  * @param delivered The module the host asked to transform, as it spelled it, or
  *   the root the compiler spells.
  * @returns The spelling function for this delivery's inputs.
- *
  * @evidence contracts/common.md#principled-implementation The delivered module selects which captured root spelling the host uses; rewriting only paths contained beneath the opposite root preserves project-relative suffixes and leaves external inputs unchanged.
  * @evidence contracts/common.md#clear-and-simple-design Orientation is chosen once and a returned mapper applies that one native relative-path rule; the within helper shares the same containment predicate without consulting bundler-specific configuration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The mapping follows two actual project root spellings and delivery context, not a named-consumer exception or patched resolver; paths outside the selected root are not coerced into the project.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain physical/configured roots, delivery selection, external paths and compiler use, and parameter/return comments document the mapper's inputs with separated acknowledgments under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation path.relative, path.sep, path.isAbsolute and path.join handle native containment, parent escape and cross-volume paths; the function uses captured physical roots without hardcoding a platform's symlink or temporary-directory layout.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Equal roots return an identity mapper. Otherwise at most two lexical
+ *   comparisons choose orientation, then each mapped input uses one relative
+ *   path and optional join. Work scales with the involved path lengths.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   All inputs in one delivery reuse the chosen from/to orientation. The
+ *   supplied captured roots and delivered module establish that orientation;
+ *   a different delivery creates its own mapper rather than sharing stale choice.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The returned closure retains only its two root strings when mapping is
+ *   needed. The caller owns this fixed population until it releases the mapper;
+ *   no input history, filesystem descriptor or watcher is acquired.
  */
 export function hostSpelling(
   project: TtscProjectSpellings,
@@ -62,8 +71,8 @@ export function hostSpelling(
 /**
  * Test native lexical containment, including the root itself.
  *
- * Parent-relative escapes and cross-volume absolute relatives are outside;
- * this check does not resolve symlinks or establish physical file identity.
+ * Parent-relative escapes and cross-volume absolute relatives are outside; this
+ * check does not resolve symlinks or establish physical file identity.
  */
 function within(file: string, root: string): boolean {
   const relative = path.relative(root, file);

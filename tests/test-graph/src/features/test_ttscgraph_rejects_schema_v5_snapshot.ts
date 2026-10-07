@@ -1,37 +1,49 @@
-import { DUMP_SCHEMA_VERSION } from "@ttsc/graph";
+import assert from "node:assert/strict";
 
-import { createNativeSessionFixture } from "../internal/nativeSession";
-import { assert } from "../internal/ttsgraph";
+import { DUMP_SCHEMA_VERSION } from "../../../../packages/graph/src/model/loadGraph";
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 
 /**
- * Verifies the current consumer refuses the prior path vocabulary precisely.
+ * Verifies a response whose dump body declares schema 5 is rejected and its
+ * peer retired.
  *
- * Schema v5 can carry checkout-local absolute sibling paths and collapsed
- * package tails, so accepting it as current would reintroduce ambiguous
- * identity at the client boundary. The body version is checked separately from
- * the serve envelope version and must name both sides of the mismatch.
+ * The envelope is a well-formed serve-v1 response, but the dump inside it is
+ * from an older schema. The session must refuse it, name both versions, and
+ * retire the peer rather than trusting facts the old schema may lack.
  *
- * 1. Serve an otherwise valid protocol-v1 snapshot whose dump says schema 5.
- * 2. Request the resident graph.
- * 3. Require an explicit producer-v5/client-current error.
+ * 1. Start a graph request and build an empty response whose dump provenance
+ *    schemaVersion is 5.
+ * 2. Deliver it and require the rejection "ttscgraph sends dump schema v5, this
+ *    client reads v<current>" and the port to be retired.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSessionState.receive of an envelope whose dump.provenance.schemaVersion is 5 must reject graph() with "ttscgraph sends dump schema v5, this client reads v" followed by DUMP_SCHEMA_VERSION, and retire the port as close(false) then close(true) with live false.
+ * @evidence contracts/testing.md#independent-expectations The schema number 5 and the message text are literals; the consumer version in the expected message is read from the product's DUMP_SCHEMA_VERSION constant, so the test does not pin which current version is expected. No accepted-current-version control is delivered in this test.
+ * @evidence contracts/testing.md#distinguishing-cases Only the body schema version differs from a valid empty response (the envelope, mode and ids are valid), so the rejection comes from the body-version policy rather than envelope shape. Snapshot-bodied responses and newer schemas are not covered.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState directly in the test process against the recorded line ports of internal/sessionState, delivering a typed envelope to receive; TtscGraphProtocol.decode and a native process are not executed.
  */
-export const test_ttscgraph_rejects_schema_v5_snapshot = async () => {
-  const { session } = createNativeSessionFixture({
-    mode: "respond",
-    schemaVersion: 5,
-  });
+export async function test_ttscgraph_rejects_schema_v5_snapshot(): Promise<void> {
+  const fixture = sessionState();
+  const { session, ports } = fixture;
   try {
+    const active = session.graph();
+    void active.catch(() => undefined);
+    const port = await admitted(ports);
+    const frame = emptyResponse(Number(port.writes[0]!.id));
+    frame.dump!.provenance.schemaVersion = 5;
+    session.receive(port.peer, frame);
     await assert.rejects(
-      session.graph(),
-      // The client version is read from the constant that defines it, not
-      // spelled here. It was spelled here, and the moment the schema moved this
-      // case failed for the one reason it was never meant to detect — the
-      // third copy of a version #1250 warned would drift the day it moved.
+      active,
       new RegExp(
         `ttscgraph sends dump schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}`,
       ),
     );
+    assertRetired(port);
   } finally {
-    session.close();
+    await session.close();
   }
-};
+}

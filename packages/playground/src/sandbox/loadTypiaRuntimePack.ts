@@ -53,20 +53,6 @@ const packCache = new Map<string, RuntimePackEntry>();
  *   rejection eviction and network waiting policy. Those reasons follow the
  *   documentation skill, and ILoadTypiaRuntimePackOptions documents the
  *   cancellation scope.
- *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Map lookup indexes loads, and cancellation events end stalled work without
- *   periodic polling. Fetch and JSON decoding process each shared attempt once.
- *
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   A URL shares the network request and decoded records across Execute
- *   preparation. Successful reuse assumes that URL identifies immutable pack
- *   content during the module lifetime; cache-busting URLs select new content.
- *
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Failed attempts are evicted and cancellation listeners are disposed.
- *   Successful records remain for the module lifetime, with memory growing
- *   with distinct URLs and retained bytes and no fixed successful-entry bound.
  */
 export function loadTypiaRuntimePack(
   url: string,
@@ -110,7 +96,9 @@ export function loadTypiaRuntimePack(
       Array.isArray(pack) ||
       !Object.values(pack).every((value) => typeof value === "string")
     ) {
-      throw new Error("loadTypiaRuntimePack: expected a source-text record map.");
+      throw new Error(
+        "loadTypiaRuntimePack: expected a source-text record map.",
+      );
     }
     return pack as Record<string, string>;
   })()

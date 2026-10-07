@@ -17,6 +17,7 @@ const MAX_GENERATION_PROOF_FAILURES = 8;
  * @evidence contracts/performance.md#efficient-algorithms Identity encoding costs the witness text length and Set membership is direct; insertion touches one entry without rescanning the aggregate.
  * @evidence contracts/performance.md#reuse-equivalent-work Retained seen keys prevent repeated insertion of the same printable witness; dropped identities intentionally are not shared because doing so would require unbounded storage.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Entries and seen retain at most eight witnesses/keys per attempt, and omitted saturates at MAX_SAFE_INTEGER; text bytes depend on producer witness lengths rather than a claimed byte-size bound.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Stores the path strings it is given inside a JSON identity key without parsing or comparing them as paths.
  */
 export function recordGenerationProofFailure(
   failures: TtscGenerationProofFailures,

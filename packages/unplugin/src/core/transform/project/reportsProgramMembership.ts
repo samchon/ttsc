@@ -10,11 +10,9 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
 /**
  * Whether one directory event can be a change to the program's membership.
  *
- * The live tracker has to answer the same question the membership digest does,
- * or the two disagree about the same project: a bundler writing content-hashed
- * output fires a rename per rebuild, and treating that as membership kept the
- * cost samchon/ttsc#1307 removes on every host that has no build boundary,
- * which is every host the narrow path exists for.
+ * Configured root selection and exclusions determine lexical relevance. This
+ * answer does not establish that a rejected native event spelling has no alias
+ * among program inputs; the owning tracker handles that authority separately.
  *
  * A name that could be a program input counts, unless it sits under a directory
  * the walk never descends into. A name that could not still counts when the
@@ -32,6 +30,21 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Output events are ignored by actual compiler admission and configured containment, not by broad directory-name exceptions that could hide real inputs.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain creation, deletion and output exclusion; the final sentence distinguishes caller-owned unattributable events from this named-path predicate.
  * @evidence contracts/portability.md#os-neutral-implementation Native relative paths and separators classify event components, and the injected lstat view distinguishes directories from deleted filenames; no platform-wide lowercase rule substitutes for compiler admission.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Relative-path construction and splitting allocate text and segment
+ *   references proportional to the event path. Early policy gates precede at
+ *   most one native lstat. Root matching includes configured patterns, path
+ *   components and spelling variants; exclusion scans configured directory
+ *   paths, and filename eligibility scans the supplied extensions. Repeated
+ *   root questions share the matching owner's immutable-policy compilation,
+ *   while the current kind observation remains local to this event.
+ *   Component regular-expression evaluation depends on component text and
+ *   compiled wildcard expressions; the state count alone is not a bound on
+ *   that work, and this adapter establishes no linear regex-time guarantee.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function reportsProgramMembership(
   root: string,

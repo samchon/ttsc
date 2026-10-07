@@ -17,6 +17,11 @@ import {
  * 1. Create normalized children beneath an existing parent.
  * 2. Attempt missing-parent, file-parent, existing-target, and root cases.
  * 3. Assert exact error codes, atomic state, and unchanged `mkdirp` behavior.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.mkdir creates one normalized child, rejects invalid parents and existing targets atomically, while host.mkdirp remains recursive/idempotent. Sorted children and literal errors reject accidental recursive low-level creation.
+ * @evidence contracts/testing.md#independent-expectations The low-level mkdir contract requires an existing directory parent and an absent target. Independent ENOENT/ENOTDIR/EEXIST codes and seeded FILE bytes establish failures; child and alias names follow authored path normalization.
+ * @evidence contracts/testing.md#distinguishing-cases Normal and dot/dot-dot alias children succeed; missing/file parents, existing file/directory, normalized existing target and root reject. Repeated deep mkdirp is the distinct convenience-operation positive control.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_low_level_mkdir_creates_one_directory directly runs fs.mkdir with callMutation/expectFsError and host.mkdirp, then readdir/readFileText/exists. The entry owns every named code and tree expectation without external filesystem setup.
  */
 export const test_memfs_low_level_mkdir_creates_one_directory =
   async (): Promise<void> => {

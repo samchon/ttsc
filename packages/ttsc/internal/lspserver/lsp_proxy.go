@@ -88,8 +88,9 @@ const utf8BOM = "\uFEFF"
 // the upstream pipes around `tsgo --lsp --stdio` and hands the proxy
 // editor stdio plus those pipe ends.
 //
-// Run owns one source session and closes an io.Closer source on cancellation or
-// completion. Transport owners must close blocked streams on cancellation.
+// Run owns one source session and invokes Close once for an io.Closer source on
+// cancellation or completion. This does not certify that custom Close joins its
+// work. Transport owners must close blocked streams on cancellation.
 //
 // @evidence contracts/common.md#principled-implementation Separate editor and upstream streams model both directions; optional source/provider values and advertisement policy preserve contribution ownership.
 // @evidence contracts/common.md#clear-and-simple-design One options value injects dependencies without global transport or provider mutation.
@@ -98,13 +99,23 @@ const utf8BOM = "\uFEFF"
 // @evidence contracts/portability.md#os-neutral-implementation io streams abstract native transport; OS-dependent stream closability remains the transport owner's explicit responsibility.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Options choose no processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Source and proxy operations own computation sharing.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Run acquires tasks and controls release, not the dependency value.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This dependency value executes no acquisition or release; Run and transport/source owners perform cleanup under their own lifetime contracts.
 type ProxyOptions struct {
-  EditorIn    io.Reader
-  EditorOut   io.Writer
-  UpstreamIn  io.Writer // we write here; the tsgo LSP process reads
-  UpstreamOut io.Reader // the tsgo LSP process writes here; we read
-  Source      PluginSource
+  // EditorIn supplies client frames; its owner must unblock native reads when
+  // cancellation requires the editor pump to return.
+  EditorIn io.Reader
+
+  // EditorOut receives serialized client-bound frames.
+  EditorOut io.Writer
+
+  // UpstreamIn receives frames consumed by the upstream LSP process.
+  UpstreamIn io.Writer
+
+  // UpstreamOut supplies frames produced by the upstream LSP process.
+  UpstreamOut io.Reader
+
+  // Source provides plugin contributions; nil selects NullPluginSource.
+  Source PluginSource
 
   // SuppressExecuteCommandProvider keeps ttsc command ids out of the
   // initialize response for clients that register wrapper commands themselves.
@@ -139,9 +150,11 @@ type ProxyOptions struct {
 // the message types ttsc cares about (publishDiagnostics merge, code
 // action augmentation, executeCommand for ttsc-owned commands).
 //
-// One instance serves one session. Pending requests are removed on reply or
-// cancellation; document text is discarded on close. Generation histories remain
-// for the session so a late result cannot regain validity after a document closes.
+// One instance serves one session. Tracked editor requests have response and
+// cancellation cleanup; proxy-originated client callbacks have separate response
+// and send-failure cleanup. A peer that never responds may leave an entry for
+// the session. Document text is discarded on close, while generation histories
+// remain to prevent late work from regaining the closed generation's validity.
 //
 // @evidence contracts/common.md#principled-implementation Pending IDs preserve string/numeric distinctions; diagnostic generations revoke even a first unpublished computation, while formatting captures live text with its document generation and permits dirty text only until that generation changes.
 // @evidence contracts/common.md#clear-and-simple-design Locks separate frame serialization, request correlation, diagnostic state and watcher reconciliation; helpers own method-specific wire handling.
@@ -150,7 +163,7 @@ type ProxyOptions struct {
 // @evidence contracts/portability.md#os-neutral-implementation Native disk and URI boundaries use shared decoding/path APIs, while protocol positions and CRLF framing do not depend on native text conventions.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Run and method handlers choose processing algorithms; this type represents protected state.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Query and refresh owners establish sharing validity rather than the state declaration.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Run owns session teardown and handlers own entry acquisition/reclamation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This type groups retained state without executing acquisition or release; Run and handlers own cleanup attempts, and unacknowledged entries and generation histories can remain for the session.
 type Proxy struct {
   sourceCloseOnce                sync.Once
   editorIn                       io.Reader
@@ -218,8 +231,7 @@ type Proxy struct {
   // in the order their decisions were made, and releases diagnosticsMu before
   // the write blocks on an editor that is not reading yet: the editor pump
   // takes diagnosticsMu for every document notification before it forwards
-  // the notification upstream, and must never wait on a publication
-  // (samchon/ttsc#1441).
+  // the notification upstream, and must never wait on a publication.
   diagnosticsMu sync.Mutex
 
   upstreamDiagnostics         map[string]cachedDiagnostics
@@ -291,15 +303,17 @@ type projectInputObserverSource interface {
 
 // NewProxy returns a Proxy ready to Run. A nil source selects NullPluginSource.
 // The instance serves one session and takes its source's Close responsibility.
+// Optional observer setters are invoked during construction; an embedding that
+// never runs the proxy must arrange their removal and source closure itself.
 //
 // @evidence contracts/common.md#principled-implementation Initialized maps represent empty correlation and diagnostic state; optional observers connect later source publications to the same proxy session.
 // @evidence contracts/common.md#clear-and-simple-design Constructor dependency capture leaves transport startup to Run and native execution to the source.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Nil source is the explicit no-plugin state; optional interfaces preserve older source capabilities without replacing methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose documents nil default, one-session use and source closure ownership, following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Construction captures injected streams and protocol policy without opening native paths or processes.
-// @evidence contracts/performance.md#efficient-algorithms Suppressed command IDs are indexed once; remaining empty maps add fixed setup before event-driven population.
+// @evidence contracts/performance.md#efficient-algorithms Suppressed command IDs are scanned and hashed once, including their string bytes, into a caller-independent set; empty maps and one buffered error channel add fixed setup. Optional observer setters are synchronous delegated calls whose custom-source cost is not bounded here.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction captures dependencies; serving operations coordinate source and refresh reuse.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The proxy retains source observers and session maps until Run teardown or object reclamation. Constructing without running leaves observer removal with the embedding owner.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Source-held observers can retain the proxy even after the embedding drops its reference. Run teardown removes those registrations and attempts source closure once, ignoring its error; previously copied callbacks and their spawned tasks are not joined by removal. Constructing without Run leaves removal and closure with the embedding. Suppressed string bytes and later session populations have no constructor-imposed budget.
 func NewProxy(opts ProxyOptions) *Proxy {
   source := opts.Source
   if source == nil {
@@ -346,26 +360,25 @@ func NewProxy(opts ProxyOptions) *Proxy {
   return proxy
 }
 
-// Run drives both pump goroutines until they return. Pumps return when
-// their input stream closes (ErrFrameClosed), when context cancellation
-// has already been observed by the upstream/editor closers, or when a
-// pipe write fails. ErrFrameClosed and context.Canceled are folded into
-// a nil result so editor shutdown does not look like a crash.
+// Run waits for the two pump results, except that upstream completion after
+// an editor exit notification can end the session while the editor pump is
+// still blocked. ErrFrameClosed, context.Canceled and os.ErrClosed are omitted
+// from the returned first error. Context cancellation requests source shutdown;
+// interrupting blocked injected streams remains their owner's responsibility.
 //
 // Once the editor has sent `exit` and the upstream has ended, Run returns
 // without waiting for the editor's stream to close: `exit` ends the session,
-// and a read blocked on the editor's stdin is not interrupted by closing it on
-// every platform (a Windows pipe is not), so waiting kept the server running
-// until the editor happened to close the pipe (samchon/ttsc#1575).
+// so the return does not require closing an injected editor stream to interrupt
+// its read. This exception is not a join of that remaining pump.
 //
 // @evidence contracts/common.md#principled-implementation Two pumps dispatch complete frames; generation guards reject stale contributions and initialized position negotiation fixes UTF-16 before live buffer conversions.
 // @evidence contracts/common.md#clear-and-simple-design Method helpers separate correlation, local contributions and passthrough; one source-close boundary coordinates cancellation and completion.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Local answers require actual command/capability ownership; malformed unsupported payloads pass through rather than being repaired into expected responses. Older optional sources use explicit interface capability checks.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stream termination and the editor-exit exception, following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native disk reads and physical input matching stay behind path helpers; negotiated UTF-16 and protocol URI spelling remain distinct from native bytes and path case capability.
-// @evidence contracts/performance.md#efficient-algorithms Streaming frames are decoded once for routing; completion prefilters hints before a document-prefix scan whose identifier accumulation is linear. Watcher populations are deduplicated and sorted before registration reconciliation.
-// @evidence contracts/performance.md#reuse-equivalent-work Live buffer text, producer corpora and diagnostic publications serve equivalent consumers under document/producer generations; owner-scoped invalidation preserves unaffected Programs and coalesces refreshes.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Completion/action/command IDs are removed on response or cancellation and text on document close; diagnostic generation history has no per-session cardinality cap. Timers/schedulers stop and source Close is invoked once, but custom providers, blocked caller streams and local request goroutines lack an independent count or join bound.
+// @evidence contracts/performance.md#efficient-algorithms Each pump frames and parses an envelope before routing; handlers also decode method payloads and can marshal rewritten responses. The wait loop itself has constant per-result bookkeeping, while delegated text scans, producer calls, native input probes and registration reconciliation retain their input-dependent costs. Frame caps do not bound stream duration or all session populations.
+// @evidence contracts/performance.md#reuse-equivalent-work The session retains live text, producer corpora and diagnostic publications under their document/producer guards. Owner-scoped invalidation and refresh coalescing coordinate requests; they do not independently authenticate daemon Program equivalence or a common producer capture. Actual cache validity and native execution remain with their owners.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Session correlation, document text and diagnostic state grow with traffic without a general byte/history budget. Teardown stops pending timer/scheduler admission and requests source closure once; timer callbacks already begun, copied observers and local request tasks are not joined. Stopping the context AfterFunc does not wait for an already-started shutdown callback. Custom streams can block indefinitely; the editor-exit exception can return before its pump completes, and closure errors are ignored.
 func (p *Proxy) Run(ctx context.Context) error {
   stopSourceCancellation := context.AfterFunc(ctx, p.shutdownResidentPlugins)
   defer stopSourceCancellation()
@@ -389,7 +402,7 @@ func (p *Proxy) Run(ctx context.Context) error {
     }
     // RunLSPServer closes the editor input itself when the session ends, and a
     // read that closing ends reports os.ErrClosed: ttsc's own teardown, not a
-    // fault of the session (samchon/ttsc#1575).
+    // fault of the session.
     if first == nil && err != nil && !errors.Is(err, ErrFrameClosed) && !errors.Is(err, context.Canceled) && !errors.Is(err, os.ErrClosed) {
       first = err
       p.closeAfterPumpError()
@@ -449,8 +462,7 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
     }
     // Nothing follows `exit` upstream. Ending its input lets a runner that
     // waits for its stdin to drain before returning, as exec.Cmd.Wait does,
-    // finish once tsgo has quit, instead of waiting on this pump
-    // (samchon/ttsc#1575).
+    // finish once tsgo has quit, instead of waiting on this pump.
     if env.IsNotification() && env.Method == methodExit {
       p.closeUpstreamInput()
     }
@@ -635,9 +647,9 @@ func constrainInitializePositionEncoding(env Envelope, body []byte) []byte {
   if err != nil {
     return body
   }
-  // Re-encode only the subtree that changed: every sibling value stays the
-  // client's original bytes, so a large or unusually shaped initialize payload
-  // reaches tsgo exactly as it was sent.
+  // Preserve sibling JSON values in the rebuilt parameter subtrees. Marshaling
+  // can change their byte spelling/whitespace and serializes the parsed Envelope;
+  // only the earlier pass-through branches preserve the complete original bytes.
   general["positionEncodings"] = constrained
   encodedGeneral, err := json.Marshal(general)
   if err != nil {
@@ -966,11 +978,11 @@ func (p *Proxy) completeExecuteCommand(env Envelope, key string, command string,
     p.reportAsyncError(p.writeExecuteCommandErrorIfClean(env.ID, pending, fmt.Sprintf("ttsc command %q failed: %v", command, err)))
     return
   }
-  // Cycle 1 returns the WorkspaceEdit inside the executeCommand response
-  // instead of sending workspace/applyEdit as a server→client request.
-  // ttsc owns both ends (its VS Code extension), so the extension applies
-  // the edit on its side. Sticking to one direction avoids tracking our
-  // own outgoing request ids in the proxy.
+  // The WorkspaceEdit is returned inside the executeCommand response instead
+  // of being sent as a workspace/applyEdit server→client request. ttsc owns
+  // both ends (its VS Code extension), so the extension applies the edit on
+  // its side. Sticking to one direction avoids tracking the proxy's own
+  // outgoing request ids for this path.
   p.reportAsyncError(p.writeExecuteCommandResultIfClean(env.ID, pending, edit))
 }
 

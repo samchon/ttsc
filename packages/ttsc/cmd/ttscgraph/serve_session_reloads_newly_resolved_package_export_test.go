@@ -8,6 +8,15 @@ import (
 
 // TestServeSessionReloadsNewlyResolvedPackageExport verifies an exports target
 // appearing under an existing package triggers module-resolution reload.
+//
+// 1. Load fixture-package/feature with an existing exports map and missing target.
+// 2. Create the mapped dist/feature.ts declaration.
+// 3. Require a changed reload dump.
+//
+// @evidence contracts/testing.md#behavioral-verification Creating dist/feature.ts behind the existing exports target ./dist/feature.js reports reload, changed and a nonnil dump. The pinned resolver permits that .js-to-.ts substitution; this test does not assert the initial unresolved diagnostic, its disappearance or the new declaration node.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: the exports map targets ./dist/feature.js, which does not exist, and creating dist/feature.ts must yield mode reload, changed, with a dump. The new declaration's node is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases Load fixture-package/feature with an existing exports map and missing target. Create the mapped dist/feature.ts declaration. Require a changed reload dump.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedPackageExport is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedPackageExport(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -25,7 +34,7 @@ func TestServeSessionReloadsNewlyResolvedPackageExport(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -36,7 +45,7 @@ func TestServeSessionReloadsNewlyResolvedPackageExport(t *testing.T) {
   if err := os.WriteFile(target, []byte("export function feature(): void {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

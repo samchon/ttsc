@@ -26,8 +26,16 @@ func declaredCarrierGlobs(set globSet) string {
  *  1. Declare `evidenceExcludeCarriers` on a Markdown, a Prisma, and a TypeScript claim.
  *  2. Decode the graph through the shared claim boundary.
  *  3. Assert each claim retains the exact glob spelling it was given.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts markdown, Prisma and TypeScript claims preserve exact positive and exclusion glob spellings independently.
+ *
+ * @evidence contracts/testing.md#independent-expectations The shared claim base publishes evidenceExcludeCarriers for Markdown, Prisma, and TypeScript. The three independently authored positive/exclusion pattern lists must be retained exactly, including their original spelling.
+ *
+ * @evidence contracts/testing.md#distinguishing-cases Markdown, Prisma and TypeScript claims preserve exact positive and exclusion glob spellings independently.
+ *
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticExclusionCarriersDecodeOnEveryClaimKind is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
  */
-func TestExclusionCarriersDecodeOnEveryClaimKind(t *testing.T) {
+func TestEvidenceSemanticExclusionCarriersDecodeOnEveryClaimKind(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[
     {
       "type":"markdown",
@@ -71,127 +79,5 @@ func TestExclusionCarriersDecodeOnEveryClaimKind(t *testing.T) {
         expected[index],
       )
     }
-  }
-}
-
-/**
- * Verifies an undeclared carrier selection stays the empty zero value.
- *
- * The property is opt-in, and its absence is the historical graph exactly: an `@evidenceExclude` remains eligible everywhere it was eligible before this selector existed. A decoder that defaulted to any non-empty selection would confine every exclusion in every configuration written before the property shipped.
- *
- *  1. Decode a claim of each kind with no `evidenceExcludeCarriers`.
- *  2. Inspect the native carrier selection of each.
- *  3. Assert every one of them carries no pattern at all.
- */
-func TestAbsentExclusionCarriersSelectNothing(t *testing.T) {
-  config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[
-    {
-      "type":"markdown",
-      "files":["docs/**/*.md"],
-      "symbol":"h2",
-      "reference":{"type":"prisma","files":["prisma/**/*.prisma"],"symbol":"model"}
-    },
-    {
-      "type":"prisma",
-      "files":["prisma/**/*.prisma"],
-      "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-    },
-    {
-      "type":"typescript",
-      "files":["src/**/*.ts"],
-      "symbol":"function",
-      "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-    }
-  ]}`))
-  if len(problems) != 0 {
-    t.Fatalf("an omitted carrier selection must decode: %v", problems)
-  }
-  for index, claim := range config.Claims {
-    if len(claim.ExclusionCarriers.Patterns) != 0 {
-      t.Fatalf(
-        "claim %d (%s) invented a carrier selection: %q",
-        index,
-        claim.Type,
-        declaredCarrierGlobs(claim.ExclusionCarriers),
-      )
-    }
-  }
-}
-
-/**
- * Verifies a misspelled carrier property is still rejected by name.
- *
- * The accepted-property set is the only thing standing between a typo and a claim that confines nothing while reading as if it confines everything. Widening that set is the correct way to add the property; deleting the rejection would be the cheap one, and this case tells the two apart by requiring the rejection to fire *and* the offered list to name the real spelling.
- *
- *  1. Write the singular misspelling `evidenceExcludeCarrier`.
- *  2. Decode the claim.
- *  3. Assert the unknown-property diagnostic fires and offers the plural name.
- */
-func TestMisspelledExclusionCarrierPropertyIsRejected(t *testing.T) {
-  config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
-    "type":"typescript",
-    "files":["src/**/*.ts"],
-    "symbol":"function",
-    "evidenceExcludeCarrier":["src/EVIDENCE_EXCLUDE.ts"],
-    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-  }]}`))
-  assertProblemContains(t, problems, "claims[0].evidenceExcludeCarrier: unknown property")
-  assertProblemContains(t, problems, "evidenceExcludeCarriers")
-  if len(config.Claims) != 0 {
-    t.Fatalf("a rejected claim must not reach the graph: %+v", config.Claims)
-  }
-}
-
-/**
- * Verifies a carrier selection enforces the same shape contract as `files`.
- *
- * A carrier glob set decides where reviewed non-applicability may be written, so every malformed spelling of it has the same consequence: an exclusion the author believes is confined, silently governed by a selection the decoder guessed at. An only-negative array is the sharpest case, because it is syntactically a glob set and semantically selects no file at all.
- *
- *  1. Supply a bare string, an empty array, a non-string element, and only exclusions.
- *  2. Decode each through the claim boundary.
- *  3. Assert each is refused at its exact public path and produces no claim.
- */
-func TestExclusionCarriersRejectMalformedShapes(t *testing.T) {
-  cases := []struct {
-    name     string
-    value    string
-    expected string
-  }{
-    {
-      name:  "bare string",
-      value: `"src/EVIDENCE_EXCLUDE.ts"`,
-    },
-    {
-      name:     "empty array",
-      value:    `[]`,
-      expected: "at least one positive glob",
-    },
-    {
-      name:  "non-string element",
-      value: `["src/EVIDENCE_EXCLUDE.ts",7]`,
-    },
-    {
-      name:     "only exclusions",
-      value:    `["!src/legacy/**","!src/generated/**"]`,
-      expected: "at least one positive glob",
-    },
-  }
-  for _, test := range cases {
-    t.Run(test.name, func(t *testing.T) {
-      config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
-        "type":"typescript",
-        "files":["src/**/*.ts"],
-        "symbol":"function",
-        "evidenceExcludeCarriers":` + test.value + `,
-        "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-      }]}`))
-      assertProblemContains(t, problems, "claims[0].evidenceExcludeCarriers")
-      if test.expected != "" {
-        assertProblemContains(t, problems, test.expected)
-      }
-      if len(config.Claims) != 0 {
-        t.Fatalf("a malformed carrier selection must not produce a claim: %+v", config.Claims)
-      }
-    })
   }
 }

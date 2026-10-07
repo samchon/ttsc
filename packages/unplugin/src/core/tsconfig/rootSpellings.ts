@@ -7,11 +7,11 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
 
 /**
  * The policy and the walk both spell the project root as it was named, while a
- * native Windows watcher expands its short names, and a package `extends`
- * anchors its specs physically. Match each equivalent project-root spelling
- * without following child links. Keep patterns intact: a glob can begin above
- * the root, and configDir can retain the requested spelling even when a base
- * config uses the physical one.
+ * native watcher or package `extends` may use another observed root spelling.
+ * Match each equivalent project-root spelling without following child links.
+ * Keep patterns intact: a glob can begin above the root, and configDir can
+ * retain the requested spelling even when a base config uses the physical one.
+ * Observed root aliases do not establish how native events spell child names.
  *
  * Node's Windows relative-path operation ignores case. A containing spelling is
  * therefore checked under the compiler's comparison rule before conversion;
@@ -21,7 +21,6 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
  * @param caseSensitive An already selected compiler comparison rule. Omission
  *   resolves the policy's reported or predicted rule only when root aliases
  *   exist.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Replacing only a containing root spelling preserves the relative suffix
  *   and child-link semantics while matching regular/native aliases of that root.
@@ -44,6 +43,18 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains lexical, physical and watcher spelling and why child
  *   links and above-root globs must retain their original meaning.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   At most three supplied root spellings are deduplicated and tested. Native
+ *   relative/resolution, literal compilation and component matching follow
+ *   their path lengths; the successful branch resolves one suffix under each
+ *   alias. An omitted case answer retains the shared predictor's placement
+ *   and native probe cost rather than becoming constant wrapper work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This one-location conversion coordinates no cross-query result sharing.
+ *   Any provisional case-probe reuse belongs to the policy resolver; local
+ *   root deduplication is not an equivalence cache.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The spellings Set is local to the call.
  */
 export function rootSpellings(
   location: string,

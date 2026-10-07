@@ -1,0 +1,1 @@
+{"compilerOptions":{"module":"commonjs","noEmit":true,"rootDir":"layout-profile/src","strict":true,"target":"ES2022"},"include":["layout-profile/src"]}

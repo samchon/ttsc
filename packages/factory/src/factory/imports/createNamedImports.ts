@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * { a, b }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param elements The elements.
+ * @returns The created {@link NamedImports}.
  * @evidence contracts/common.md#principled-implementation
  *   NamedImports retains ImportSpecifier order as the brace-group contents;
  *   each specifier keeps its own alias and type-only meaning.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose describes the owning clause slot and standalone brace output,
  *   with layout behavior, example and acknowledgment tags visibly separated.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param elements The elements.
- * @returns The created {@link NamedImports}.
  */
 export const createNamedImports = (
   elements: readonly ImportSpecifier[],

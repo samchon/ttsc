@@ -25,6 +25,18 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain writer/reader equivalence and undefined omission,
  *   with prose/tag separation following documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Digesting acquires and retains no handle, task or state.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The JSON round trip copies policy text/values. Delegated membership hashing
+ *   scans all D directory records, copies r relevant address/signature pairs,
+ *   sorts them with O(r log r) path comparisons and stable-encodes sorted policy
+ *   record keys/arrays before hashing. Temporary objects, arrays and text follow
+ *   those populations; this is not a linear directory-list-only computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This call normalizes its supplied policy and directories without coordinating
+ *   a cross-call cache. Delivery revision sharing and fresh disk-replay validity
+ *   remain with the writer/refresh consumers, not an assumed once-per-generation call.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Operates on a JSON value and directory snapshots already collected; it reads no filesystem and parses no path.
  */
 export function membershipRecordDigest(
   policy: ITtscProjectMembershipPolicy,

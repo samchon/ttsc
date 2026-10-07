@@ -1,5 +1,4 @@
-import { spawn } from "node:child_process";
-
+import { traceProcessSpawn } from "../../../tracing/traceProcessSpawn";
 import { WATCH_BROKER } from "./WATCH_BROKER";
 import type { WatchBroker } from "./WatchBroker";
 import { fseventsBindingPath } from "./fseventsBindingPath";
@@ -8,11 +7,11 @@ import { warnMissingFseventsBinding } from "./warnMissingFseventsBinding";
 import { watchBrokerSource } from "./watchBrokerSource";
 
 /**
- * Return the process-wide watch broker, starting it on first use.
+ * Return this loaded adapter's watch broker, starting it on first use.
  *
- * Every Windows and macOS watch of the transform core's trackers and of the
- * input observer's scopes lives in one isolated child process, for a reason on
- * each:
+ * Broker-eligible Windows and macOS default watches share an isolated child;
+ * caller-supplied watch capabilities can bypass it. Isolation has a reason on
+ * each native backend:
  *
  * - Node's Windows fs-event backend can hit a native assertion that aborts the
  *   whole process when a watched temporary tree is deleted. In the child that
@@ -27,11 +26,15 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   passes each drop on as a gap (samchon/ttsc#1425); see
  *   {@link watchBrokerSource}.
  *
- * The child is unreferenced between requests, so it never keeps a host alive.
+ * Registration/drain owners unreference the child and IPC channel after their
+ * outstanding acknowledgments finish; startup itself returns a referenced
+ * child. Last-registration closure attempts disconnection and termination. This
+ * accessor has no independent shutdown deadline or exit wait.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Native failures are isolated in one protocol child; exit fails registrations
- *   and releases drains false instead of certifying their silence.
+ *   Native watches run in a protocol child. Error/exit dispatch reports failure
+ *   and false drain completion, not proven silence; sink/release callbacks must
+ *   complete for all owners to be notified and cleared.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One holder owns startup and process failure routing; registration lifetime
  *   and drain scope remain with their owning operations.
@@ -42,18 +45,30 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   Native platform-reason list and lifecycle paragraph explain isolation and
  *   process ownership under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral startup uses the current Node executable and argument-array spawn;
+ *   OS-neutral startup uses this process's executable and argument-array spawn;
  *   native FSEvents loading and platform differences remain in this boundary.
  * @evidence contracts/performance.md#efficient-algorithms
- *   The current broker lookup is constant work; failure visits registrations and
- *   outstanding drains once, linear in those owners rather than watched files.
+ *   A current-holder read is fixed work. Cold startup includes optional native
+ *   module resolution/warning, child source construction and native process/IPC
+ *   creation; resolution/path/source bytes and process startup cost do not
+ *   vanish into one spawn call. Failure visits R registrations and D drain
+ *   callbacks, whose native/reference/sink work remains delegated; it does not
+ *   enumerate watched source trees.
+ *   Enabled private tracing serializes the actual executable/source argv and
+ *   lifecycle events; this observation cost follows their text bytes.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   All native tracker and observer registrations share the current broker;
- *   failure clears that instance so later opens never reuse a dead producer.
+ *   This module copy's eligible registrations share the broker under its runtime/binding
+ *   view chosen at startup. Completed error/exit handling clears only that
+ *   current instance so later opens can start another. A current holder is not
+ *   a health certificate; binding installation changes are not re-resolved
+ *   while it remains current, and sink exceptions can interrupt failure handling.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Registrations own broker demand and the last closer disconnects and kills it;
- *   requests reference the channel while awaiting replies. Failed children clear
- *   registrations and drains, allowing their timers and waiters to retire.
+ *   One current module holder retains a child and registration/drain maps;
+ *   those populations and caller-retained retired brokers have no cap here.
+ *   Request owners manage references/timers, and last closure attempts native
+ *   disconnection/kill rather than proving exit. Completed failure routing
+ *   clears maps/releases drains; callback exceptions can interrupt it. This
+ *   accessor owns no independent cancellation or child-exit deadline.
  */
 export function getWatchBroker(): WatchBroker {
   if (WATCH_BROKER.current !== undefined) {
@@ -62,10 +77,14 @@ export function getWatchBroker(): WatchBroker {
   const fsevents =
     process.platform === "darwin" ? fseventsBindingPath() : undefined;
   if (fsevents === null) warnMissingFseventsBinding();
-  const child = spawn(process.execPath, ["-e", watchBrokerSource(fsevents)], {
-    stdio: ["ignore", "ignore", "ignore", "ipc"],
-    windowsHide: true,
-  });
+  const child = traceProcessSpawn(
+    process.execPath,
+    ["-e", watchBrokerSource(fsevents)],
+    {
+      stdio: ["ignore", "ignore", "ignore", "ipc"],
+      windowsHide: true,
+    },
+  );
   const broker: WatchBroker = {
     child,
     drains: new Map(),

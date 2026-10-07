@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { FseventsStreams } from "../../../../../packages/ttsc/lib/launcher/internal/watch/FseventsStreams.js";
+import { FseventsStreams } from "../../../../../packages/ttsc/src/launcher/internal/watch/FseventsStreams";
 import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
 
 /**
@@ -14,6 +14,11 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  * 1. Open recursive project and nonrecursive source-directory watches.
  * 2. Deliver a direct source event through the one binding stream.
  * 3. Assert each watch receives its own relative name and one stream closes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification FseventsStreams.open shares one ancestor stream with a nested subscription, gives each its own relative name, isolates an ancestor-only event and stops the binding once after both close.
+ * @evidence contracts/testing.md#independent-expectations Recursive stream sharing and subscriber-relative naming require one recorded stream, literal src/main.ts versus main.ts, and no nested other.ts delivery. The final stop count is a separate lifetime observation.
+ * @evidence contracts/testing.md#distinguishing-cases An event in src reaches both watches; root other.ts reaches only the ancestor, providing the adjacent filtering control. Closing both verifies final shared release; keep_a_child_after_its_ancestor_closes owns partial-release behavior.
+ * @evidence contracts/testing.md#execution-ownership This exported source unit registers both watches through FakeFseventsBinding and injects callbacks with emit before closing them. The recording fake verifies registry sharing without native resource acquisition.
  */
 export const test_fsevents_streams_share_an_ancestor_stream_with_nested_watches =
   (): void => {

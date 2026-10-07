@@ -8,19 +8,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverSessionAppliesIncrementalOverlayEdit verifies the resident Session
-// feeds an in-memory overlay edit to the live program through an incremental
-// UpdateProgram, reflecting the new content without a full reload.
+// TestDriverSessionAppliesIncrementalOverlayEdit verifies Session.Apply reports
+// incremental data reuse for a body-only edit and SourceText shows return 2.
+// The reuse flag does not mean the same native Program object is returned.
 //
-// This is the resident-host foundation of samchon/ttsc#255: @ttsc/metro and
-// @ttsc/unplugin must update one file's content (Metro's src) against a warm
-// program rather than recompile the project. The edit keeps the file's
-// signature and imports, so Apply must reuse the program and SourceText must
-// show the new body.
+// Initial and edited source distinguish update from stale text; diagnostic changes are not asserted.
 //
 // 1. Open a Session on a two-file project (a imports b).
 // 2. Apply an overlay edit to b's body.
-// 3. Assert Apply reused the program and SourceText shows the new body.
+// 3. Assert Apply reports reuse and SourceText shows the new body.
+//
+// @evidence contracts/testing.md#behavioral-verification Session.Apply reports reused=true for a body-only edit and SourceText shows return 2; native object identity is not asserted.
+// @evidence contracts/testing.md#independent-expectations The authored edit preserves signature and imports while changing return 1 to return 2.
+// @evidence contracts/testing.md#distinguishing-cases Initial and edited source distinguish update from stale text; diagnostic changes are not asserted.
+// @evidence contracts/testing.md#execution-ownership Direct Go NewSession, Apply, and SourceText own a private project with deferred Close. Go discovers TestDriverSessionAppliesIncrementalOverlayEdit under ./test/driver.
 func TestDriverSessionAppliesIncrementalOverlayEdit(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"strict":true,"noEmit":true},"files":["a.ts","b.ts"]}`)
@@ -51,19 +52,19 @@ func TestDriverSessionAppliesIncrementalOverlayEdit(t *testing.T) {
   }
 }
 
-// TestDriverSessionRebuildsWhenImportGraphChanges pins the false branch of
-// Session.Apply's reused return value: an edit that changes the file's import
-// graph cannot reuse the program and must rebuild, while SourceText still
-// reflects the edit.
+// TestDriverSessionRebuildsWhenImportGraphChanges verifies Session.Apply reports
+// reused=false after an import is added and SourceText reflects the edit.
 //
-// Apply reuses the program only when the changed file's import/reference graph
-// is unchanged (the structural-reuse contract of UpdateProgram). Adding an
-// import is the canonical case that must fall back to a full rebuild, so this is
-// the complement of TestDriverSessionAppliesIncrementalOverlayEdit.
+// Import-free b.ts gains an edge, complementing body-only reuse in its sibling.
 //
 // 1. Open a Session where b.ts imports nothing.
 // 2. Apply an edit to b.ts that adds an import of c.ts.
 // 3. Assert Apply reported reused=false and SourceText shows the new body.
+//
+// @evidence contracts/testing.md#behavioral-verification Session.Apply reports no reuse after an import is added and SourceText reflects the edit.
+// @evidence contracts/testing.md#independent-expectations The authored c.ts edge changes import structure independently of the reuse decision.
+// @evidence contracts/testing.md#distinguishing-cases Import-free b.ts gains an edge, complementing body-only reuse in its sibling.
+// @evidence contracts/testing.md#execution-ownership The direct Go Session owns and closes its temporary three-file project. Go discovers TestDriverSessionRebuildsWhenImportGraphChanges under ./test/driver.
 func TestDriverSessionRebuildsWhenImportGraphChanges(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"strict":true,"noEmit":true},"files":["a.ts","b.ts","c.ts"]}`)
@@ -81,8 +82,8 @@ func TestDriverSessionRebuildsWhenImportGraphChanges(t *testing.T) {
   defer sess.Close()
 
   bAbs := filepath.Join(root, "b.ts")
-  // Adding an import to b.ts changes its import graph, so Apply must rebuild
-  // rather than reuse the program.
+  // Adding an import changes its import graph, so the update reports no
+  // incremental data reuse. Neither branch asserts native object identity.
   edited := "import { c } from \"./c\";\nexport function b(): number {\n  return c();\n}\n"
   if reused := sess.Apply(bAbs, edited); reused {
     t.Fatalf("expected an import-graph change to rebuild the program, got reused=true")

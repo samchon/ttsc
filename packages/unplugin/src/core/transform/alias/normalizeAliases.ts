@@ -14,6 +14,18 @@ import type { TtscDeclaredAlias } from "./TtscDeclaredAlias";
  * @evidence contracts/common.md#clear-and-simple-design Shape normalization has one guard and one object conversion, without interpreting regex or filesystem path meaning.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A string-only find guard cannot silently delete regex declarations before the responsible translator sees them.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain responsibility separation and the earlier unreachable-regex failure that motivates it.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Array input filters N entries while retaining original alias objects.
+ *   Object input materializes N own entries, filters string replacements and
+ *   maps survivors to new declarations; temporary tuples/output follow N.
+ *   Property-access work remains with the supplied objects.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This one shape conversion coordinates no cross-call work; representability
+ *   and output translation reuse belong to the translator and its consumers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function normalizeAliases(aliases: unknown): TtscDeclaredAlias[] {
   if (Array.isArray(aliases)) {

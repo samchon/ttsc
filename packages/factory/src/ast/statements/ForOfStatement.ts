@@ -8,12 +8,11 @@ import type { Statement } from "./Statement";
  *
  * Built by {@link factory.createForOfStatement}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Binding, iterable expression, body and optional await presence preserve for-of parts; iteration and async-context validity are not checked by the shape.
  * @evidence contracts/common.md#clear-and-simple-design Named fields expose the loop's operands and optional prefix using existing shared nodes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Await presence expresses syntax, not a retry or runtime compatibility compensation.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies for-await and documents absent await, binding and iterable roles; member spacing follows the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ForOfStatement {
   /** Discriminant tag; always `"ForOfStatement"`. */

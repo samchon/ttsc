@@ -6,16 +6,16 @@ import (
   "testing"
 )
 
-// TestTransformDependenciesKeysAReportedPathLikeTheEnvelope verifies a plugin's
-// reported paths reach the envelope under the same key convention as every other
-// section.
+// TestTransformDependenciesKeysAReportedPathLikeTheEnvelope reports a source
+// dependency through an absolute slash spelling and completeness through an
+// absolute native spelling. The cwd-relative dependency is emitted under the
+// two expected project-relative keys. A blank source report contributes nothing
+// to these asserted entries. No compiler output or consumer join is exercised.
 //
-// A plugin reports the spellings its host handed it — absolute program file
-// names, which the compiler normalizes to forward slashes on every platform, or
-// paths relative to the plugin's cwd. Keying either differently from
-// `typescript` would leave a consumer unable to join the sections at all, and on
-// Windows the two spellings differ by separator alone, which is exactly the kind
-// of mismatch that passes on POSIX CI and fails on a developer's machine.
+// @evidence contracts/testing.md#behavioral-verification PluginContext reporting normalizes the supplied source and dependency spellings before aggregation returns the literal src/main.ts completeness and src/consulted.d.ts dependency entries.
+// @evidence contracts/testing.md#independent-expectations The expected keys are literal project-relative slash paths built from a real temporary directory.
+// @evidence contracts/testing.md#distinguishing-cases Absolute slash/native source spellings meet the same expected key; a different dependency uses a cwd-relative spelling. The blank source report leaves these expected entries unchanged. The test does not compare absolute and relative spellings of the same file.
+// @evidence contracts/testing.md#execution-ownership This driver Go unit supplies callbacks backed by its own declaration ledger to PluginContext and calls aggregation. A real temporary root establishes native absolute paths; no files, compiler Program, consumer, or child process are created.
 func TestTransformDependenciesKeysAReportedPathLikeTheEnvelope(t *testing.T) {
   // A real directory, so the absolute spellings below are absolute under the
   // running platform's own rule rather than under POSIX's alone.

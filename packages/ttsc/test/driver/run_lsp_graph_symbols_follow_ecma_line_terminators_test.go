@@ -7,18 +7,23 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
 )
 
-// TestRunLSPGraphSymbolsFollowECMALineTerminators verifies graph-backed
+// TestRunLSPGraphSymbolsFollowECMALineTerminators Verifies graph-backed
 // document symbols and references retain their real lines for every
 // ECMAScript line terminator.
 //
 // Document-symbol and reference answers are distinct graph-provider paths: the
 // first must skip a leading // comment before building a range, while the second
 // must map an editor cursor back to the declaration and then map its edge spans
-// forward. Both had their own CR-only failure mode.
+// forward. Each can mishandle a CR-only terminator independently.
 //
 // 1. Compile the same comment-plus-two-functions source under each separator.
 // 2. Ask the graph SymbolProvider for document symbols and the beta references.
 // 3. Assert declaration ranges and the call/declaration locations stay on lines 1 and 2.
+//
+// @evidence contracts/testing.md#behavioral-verification DocumentSymbols places alpha and beta ranges on lines one and two, and References returns their call/declaration lines for beta under each separator.
+// @evidence contracts/testing.md#independent-expectations Authored comment and two-function source fixes declaration and call lines independently of the provider; ECMAScript LF, CRLF, CR, LS and PS are all line terminators.
+// @evidence contracts/testing.md#distinguishing-cases Five named separator subtests exercise comment skipping and forward/reverse coordinate mapping through both provider operations.
+// @evidence contracts/testing.md#execution-ownership Go test/driver directly uses graphsymbols Provider over temporary source; despite the TestRunLSP name, no LSP server process runs.
 func TestRunLSPGraphSymbolsFollowECMALineTerminators(t *testing.T) {
   cases := []struct {
     name       string

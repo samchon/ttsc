@@ -14,6 +14,9 @@ import { make } from "../internal/make";
  * string?
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param type The element type.
+ * @returns The created {@link OptionalTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   OptionalTypeNode wraps the supplied element type so the printer can apply
  *   postfix grouping; the caller supplies its valid tuple-element context.
@@ -29,10 +32,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   The native description identifies the tuple context and postfix marker;
  *   argument and return documentation describe the wrapped type.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param type The element type.
- * @returns The created {@link OptionalTypeNode}.
  */
 export const createOptionalTypeNode = (type: TypeNode): OptionalTypeNode =>
   make("OptionalTypeNode", { type });

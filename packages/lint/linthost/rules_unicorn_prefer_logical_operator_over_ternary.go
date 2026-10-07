@@ -1,15 +1,9 @@
-// unicorn/prefer-logical-operator-over-ternary: `x ? x : y` evaluates `x`
-// twice and adds a branch only to reproduce what `x || y` (for truthy
-// preservation) or `x ?? y` (for nullish-only) already say in one
-// shorter, allocation-free token. The ternary spelling tends to crop up
-// when authors forget the short-circuit operators exist; the rule nudges
-// them back to the canonical form.
-//
-// AST-only: visit `KindConditionalExpression`. Fire when the textual form
-// of `cond` (after `stripParens`) equals the textual form of `whenTrue`.
-// That covers the `cond ? cond : alt` shape. The negated `!x ? y : x`
-// case is left to a future iteration to keep the rule focused on a
-// single shape.
+// unicorn/prefer-logical-operator-over-ternary reports `x ? x : y` by
+// matching the condition and true branch text. This style baseline does not
+// establish stable reads or purity. A logical operator evaluates x once;
+// the ternary can evaluate it twice. || preserves the truthiness branch,
+// whereas ?? changes the handling of falsy non-nullish values. No edit is
+// supplied, so authors must choose the intended evaluation and null policy.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-logical-operator-over-ternary.md
 package linthost
 
@@ -40,7 +34,7 @@ func (unicornPreferLogicalOperatorOverTernary) Check(ctx *Context, node *shimast
   if condText != nodeText(ctx.File, whenTrue) {
     return
   }
-  ctx.Report(node, "Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.")
+  ctx.Report(node, "Consider a logical operator if evaluating the condition once and its truthiness or nullish policy are intended.")
 }
 
 func init() {

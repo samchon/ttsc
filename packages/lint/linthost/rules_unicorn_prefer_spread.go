@@ -1,15 +1,9 @@
-// unicorn/prefer-spread: `Array.from(x)` with a single iterable argument
-// is equivalent to a spread copy `[...x]`. The spread form is shorter,
-// reads as a value-level operation rather than a constructor call, and
-// removes the `Array` global from the read path entirely.
-//
-// AST-only: visit each `CallExpression`, match `Array.from(x)` — a
-// callee that is a property access reading `from` on a bare identifier
-// `Array`, with exactly one argument. The single-argument restriction
-// is load-bearing: `Array.from(x, mapFn)` and `Array.from(x, mapFn,
-// thisArg)` have observable behavior the spread does not (the mapper
-// receives the index, and `thisArg` is bound on a non-arrow mapper), so
-// the rule deliberately stays away from them.
+// unicorn/prefer-spread suggests reviewing single-argument Array.from calls
+// for a spread copy. Its AST baseline matches the name Array.from, not a
+// resolved builtin or an iterable type. Array.from also accepts non-iterable
+// array-like values, which spread rejects. Authors must establish iterable
+// input and ordinary builtin behavior before making the change. No edit is
+// supplied. Calls with a mapper or thisArg are not reported.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-spread.md
 package linthost
 
@@ -43,7 +37,7 @@ func (unicornPreferSpread) Check(ctx *Context, node *shimast.Node) {
   if call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
     return
   }
-  ctx.Report(node, "Prefer spread `[...x]` over `Array.from(x)` for single-arg shallow copies.")
+  ctx.Report(node, "Consider spread `[...x]` when the argument is iterable and no mapping is needed.")
 }
 
 func init() {

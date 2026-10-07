@@ -26,19 +26,21 @@ export interface ITtscLintSecurityRules {
   "security/detect-bidi-characters"?: TtscLintRuleSetting;
 
   /**
-   * Detect Buffer reads/writes called with `noAssert = true`, which skips
-   * Node's offset/length bounds checks.
+   * Detect recognized Buffer-style read/write method names called with literal
+   * `true` in the historical `noAssert` argument position.
    *
-   * The flag lets the offset slide past the buffer end and read unrelated
-   * memory, so production code should never set it.
+   * Receiver bindings and the installed Node version are not resolved; this is
+   * a source-pattern policy rather than proof of unchecked memory access.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-buffer-noassert.md
    */
   "security/detect-buffer-noassert"?: TtscLintRuleSetting;
 
   /**
-   * Detect any import of `child_process` and any `exec`/`execSync` call whose
-   * command argument is not a string literal.
+   * Detect `require("child_process")` / `require("node:child_process")` and
+   * recognized `exec`/`execSync` calls whose command cannot be resolved as a
+   * static expression. A bare ES import without a dynamic command is not
+   * reported.
    *
    * Non-literal commands are the canonical shell-injection sink in Node
    * services.
@@ -48,21 +50,22 @@ export interface ITtscLintSecurityRules {
   "security/detect-child-process"?: TtscLintRuleSetting;
 
   /**
-   * Detect assignments setting `escapeMarkup = false` (or the equivalent option
-   * on Handlebars/Mustache-style engines), which turns off HTML entity escaping
-   * in template output.
+   * Detect direct property assignments setting `.escapeMarkup = false`.
+   * Object-literal options and other escaping API names are not inspected, and
+   * the rule does not resolve the receiver to a particular template engine.
    *
-   * Result: an unguarded XSS sink for caller-controlled strings.
+   * When the property controls HTML escaping, disabling it can expose an XSS
+   * sink for caller-controlled strings.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-disable-mustache-escape.md
    */
   "security/detect-disable-mustache-escape"?: TtscLintRuleSetting;
 
   /**
-   * Detect `eval(...)` calls whose argument is not a string literal.
+   * Detect `eval(...)` calls whose argument the native static-expression
+   * recognizer cannot resolve.
    *
-   * Any expression argument means caller-controlled data can reach a
-   * code-execution sink. The rule flags the call shape, not proven taint.
+   * The rule flags the call shape, not proven caller control or taint.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-eval-with-expression.md
    */
@@ -84,8 +87,9 @@ export interface ITtscLintSecurityRules {
   "security/detect-new-buffer"?: TtscLintRuleSetting;
 
   /**
-   * Detect Express applications mounting `csrf` middleware before
-   * `methodOverride`, which lets the CSRF token be bypassed.
+   * Detect a property call named `csrf` followed in source traversal by a
+   * property call named `methodOverride`. The native check does not resolve
+   * Express middleware registration, receiver identity, or execution order.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-no-csrf-before-method-override.md
    */
@@ -93,7 +97,7 @@ export interface ITtscLintSecurityRules {
 
   /**
    * Detect `fs` calls (`readFile`, `writeFile`, `createReadStream`, ...) whose
-   * filename argument is not a string literal.
+   * filename argument cannot be resolved by the native static recognizer.
    *
    * Dynamic filenames are the standard path-traversal sink; sanitise or
    * allow-list before the call.
@@ -103,8 +107,8 @@ export interface ITtscLintSecurityRules {
   "security/detect-non-literal-fs-filename"?: TtscLintRuleSetting;
 
   /**
-   * Detect `new RegExp(...)` construction whose pattern argument is not a
-   * string literal.
+   * Detect `new RegExp(...)` and `RegExp(...)` calls whose pattern argument
+   * cannot be resolved by the native static recognizer.
    *
    * Caller-controlled patterns can both trigger catastrophic backtracking and
    * let an attacker reshape the matcher to bypass intended validation.
@@ -114,7 +118,8 @@ export interface ITtscLintSecurityRules {
   "security/detect-non-literal-regexp"?: TtscLintRuleSetting;
 
   /**
-   * Detect `require(...)` calls whose specifier is computed at runtime.
+   * Detect `require(...)` calls whose specifier the native static-expression
+   * recognizer cannot resolve; this does not prove runtime caller control.
    *
    * A dynamic specifier lets caller-controlled data choose the module to load,
    * bypassing any module allow-list on Node.
@@ -144,11 +149,11 @@ export interface ITtscLintSecurityRules {
   "security/detect-possible-timing-attacks"?: TtscLintRuleSetting;
 
   /**
-   * Detect `crypto.pseudoRandomBytes`, which produces values that are not
-   * cryptographically secure.
+   * Detect `crypto.pseudoRandomBytes`, Node's deprecated alias of
+   * `crypto.randomBytes`.
    *
-   * Tokens, session ids, and key material must use `crypto.randomBytes` (or Web
-   * Crypto's `getRandomValues`) instead.
+   * Use the supported `crypto.randomBytes` name. The alias uses the same
+   * cryptographically secure generator; this rule reports the deprecated name.
    *
    * Type-aware via the Checker, which resolves the object at the use site so an
    * automatic rewrite is never applied to a shadowed binding. Enabling this

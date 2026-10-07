@@ -5,7 +5,7 @@ import (
   "time"
 )
 
-// TestLSPProxyResumesExternalProjectDiagnosticsAfterDirtyDocumentClose verifies
+// TestLSPProxyResumesExternalProjectDiagnosticsAfterDirtyDocumentClose Verifies
 // an external refresh deferred for unsaved text is not lost when that buffer is
 // closed without a save.
 //
@@ -14,8 +14,13 @@ import (
 // must resume the pending refresh even though no didSave notification arrives.
 //
 //  1. Open one dirty TypeScript buffer and report an external input change.
-//  2. Assert no project contributor runs while the buffer is dirty.
+//  2. Observe zero project contributor calls after a 150ms dirty-buffer interval.
 //  3. Close the buffer and observe the pending config-URI publication.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run has zero project diagnostic callbacks after the observed 150ms dirty-buffer interval and later publishes one config-URI finding after didClose.
+// @evidence contracts/testing.md#independent-expectations Disk-backed project work cannot describe unsaved text, but closing the last dirty buffer must allow the pending external refresh to run.
+// @evidence contracts/testing.md#distinguishing-cases An external event during a dirty open is deferred, then close without save resumes it; zero calls is observed after a 150ms wait.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver pipe proxy uses the external-project stub and authored notifications, not an actual sidecar or watcher.
 func TestLSPProxyResumesExternalProjectDiagnosticsAfterDirtyDocumentClose(t *testing.T) {
   const externalURI = "file:///project/docs/spec.md"
   const dirtyURI = "file:///project/src/dirty.ts"

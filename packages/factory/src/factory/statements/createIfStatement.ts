@@ -9,9 +9,10 @@ import { make } from "../internal/make";
  * `if`; to build an `else if` chain, pass another `IfStatement` as
  * `elseStatement`.
  *
- * Branches are retained as supplied. Wrap a nested unmatched `if` in a Block
- * when it is the then branch of an outer `if` with an `else`, so the printed
- * else binds to the intended condition; this factory inserts no implicit braces.
+ * Branches are retained as supplied. When the then branch prints as ending in
+ * an `if` with no `else` and this statement has an `else`, the printer wraps
+ * the then branch in a block, so the printed `else` binds to this condition
+ * rather than to the nested one.
  *
  * With an `expression` of `x`, a `thenStatement` block calling `a()`, and an
  * `elseStatement` block calling `b()`, the result is:
@@ -24,26 +25,25 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @param thenStatement The statement run when the condition holds.
+ * @param elseStatement The statement run otherwise, if any.
+ * @returns The created {@link IfStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Condition, then branch and optional else branch retain their syntax roles;
  *   a nested IfStatement in else represents an else-if chain without flattening it.
  *
  * @evidence contracts/common.md#clear-and-simple-design
- *   Branches remain supplied Statement trees, without an implicit block policy.
- *   The caller uses an explicit Block where dangling-else grouping requires one.
+ *   Branches remain supplied Statement trees; the only addition is the printer's
+ *   block around a then branch that would capture the else.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   No condition is evaluated to preselect a branch during construction.
  *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains omitted else and nested else-if use, followed by a
- *   two-branch example and separated acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @param thenStatement The statement run when the condition holds.
- * @param elseStatement The statement run otherwise, if any.
- * @returns The created {@link IfStatement}.
+ *   two-branch example and separated acknowledgment paragraphs. The paragraph on the printer block that keeps an else bound to its own if is part of the described behavior.
  */
 export const createIfStatement = (
   expression: Expression,

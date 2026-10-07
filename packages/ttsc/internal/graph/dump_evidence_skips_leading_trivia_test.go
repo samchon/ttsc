@@ -16,15 +16,21 @@ import (
 // A declaration preceded by a doc comment and a call indented under its function
 // are the two shapes that break a naive Pos->line/col: the node would land on the
 // comment line and the edge column on the indentation. The dump skips leading
-// whitespace and `//` / `/* */` comments first, so this pins both to the real
-// token start.
+// whitespace and comments first. This fixture checks one block comment and
+// one indented call; it does not cover every trivia form or evidence endpoint.
 //
 //  1. Compile a fixture where `main` carries a block doc comment and calls
 //     `helper()` indented two spaces.
 //  2. Build and marshal the dump.
 //  3. Assert the `main` node's evidence starts on the `export function main`
 //     line, and the calls edge's evidence is the indented call's line and column.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Build and MarshalDump results must place the main declaration after its block doc comment at line 5 and the selected calls edge after indentation at line 6 column 3. Other trivia forms, node columns and end coordinates are not asserted.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal source coordinates in the fixture: the main function node's evidence must start on line 5 (past its three-line doc comment), and the calls edge from src/main.ts#main:function must have evidence at line 6, column 3 (the indented helper() call).
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where `main` carries a block doc comment and calls `helper()` indented two spaces; Build and marshal the dump; Assert the `main` node's evidence starts on the `export function main` line, and the calls edge's evidence is the indented call's line and column.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes a native project, constructs and closes its driver Program in-process, calls Build, MarshalDump and SourceTexts, and decodes actual JSON. A restored empty linked-plugin manifest excludes ambient hooks. No consumer installation or native product command runs.
 func TestDumpEvidenceSkipsLeadingTrivia(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export function helper(): void {}

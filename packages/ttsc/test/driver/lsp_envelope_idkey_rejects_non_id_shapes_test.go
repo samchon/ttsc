@@ -6,15 +6,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeIDKeyRejectsNonIDShapes pins the empty-key
-// fall-through for JSON shapes LSP does not allow as request ids
-// (boolean, null, array, object). The proxy's pending-map callers
-// treat an empty key as "no entry" — this test pins the *helper* half
-// of that contract; the proxy-side use of the empty key is covered by
-// the cancel-id tests.
+// TestLSPEnvelopeIDKeyRejectsNonIDShapes Verifies that ParseEnvelope and IDKey reject boolean, null, array, and object IDs as empty keys.
+//
+// Named rows distinguish four unsupported shapes; valid IDs execute in sibling tests.
 //
 // 1. Parse envelopes whose id field is each non-id shape.
 // 2. Assert IDKey returns the empty string for every case.
+//
+// @evidence contracts/testing.md#behavioral-verification ParseEnvelope and IDKey reject boolean, null, array, and object IDs as empty keys.
+// @evidence contracts/testing.md#independent-expectations The LSP correlation-key policy accepts numeric and string IDs and supplies no key for the four authored shapes; null's separate JSON-RPC response meaning is not exercised here.
+// @evidence contracts/testing.md#distinguishing-cases Named rows distinguish four unsupported shapes; valid IDs execute in sibling tests.
+// @evidence contracts/testing.md#execution-ownership Each t.Run row directly calls the Go envelope operations without a proxy session. Go discovers TestLSPEnvelopeIDKeyRejectsNonIDShapes under ./test/driver.
 func TestLSPEnvelopeIDKeyRejectsNonIDShapes(t *testing.T) {
   cases := []struct {
     name string

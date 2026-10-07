@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
+import { traceInvocation } from "../../tracing/traceInvocation";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { disposeCachedTransform } from "../cache/disposeCachedTransform";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
@@ -9,22 +10,20 @@ import { TRANSFORM_FAILED_GENERATION_VALIDATIONS } from "./TRANSFORM_FAILED_GENE
 import { TRANSFORM_GENERATION_FAILURES } from "./TRANSFORM_GENERATION_FAILURES";
 import type { TtscGenerationProofFailures } from "./TtscGenerationProofFailures";
 import { captureTransformGeneration } from "./captureTransformGeneration";
-import { createGenerationProofFailures } from "./createGenerationProofFailures";
+import { carryTransformAttemptInputs } from "./carryTransformAttemptInputs";
 import { createUnstableGenerationError } from "./createUnstableGenerationError";
-import { onlyLearnedCompileFacts } from "./onlyLearnedCompileFacts";
-
-/** One retry absorbs a transient watch write without admitting an infinite loop. */
-const TRANSFORM_GENERATION_ATTEMPTS = 2;
+import { selectTransformAttemptDisposition } from "./selectTransformAttemptDisposition";
 
 /**
  * Compile one whole project generation, retrying within a bound while its proof
  * is lost to a filesystem race.
  *
  * A capture whose snapshot could not be proven stable is disposed and attempted
- * again. The second failure that says the project moved becomes a terminal
- * `TtscUnstableGenerationError` that carries the failed environment, so later
- * deliveries replay the verdict until that environment provably changes instead
- * of each repeating a whole-project compile.
+ * again. At the movement or absolute attempt cap, a coherent diagnostic verdict
+ * is returned; otherwise a terminal `TtscUnstableGenerationError` carries the
+ * failed environment, so later deliveries replay the verdict until that
+ * environment provably changes instead of each repeating a whole-project
+ * compile.
  *
  * The bound is for a project that keeps moving, so it counts the failures that
  * say the project moved: every compile here that fails its proof, and every
@@ -71,14 +70,17 @@ const TRANSFORM_GENERATION_ATTEMPTS = 2;
  * persistent caching. Actual changes, conflicts and unexplained missing proof
  * retain the stabilization gate.
  *
+ * Enabled private tracing records each computed disposition before its state is
+ * applied. It does not supply proof when capture throws or tracing fails.
+ *
  * @evidence contracts/common.md#principled-implementation Each capture establishes config coherence and reusable success proof or a current diagnostic verdict; a local stable success with only explicit unavailable host observations instead transfers one fresh delivery without reuse authority, while mixed mutation, missing or conflicting proof retains retry admission.
- * @evidence contracts/common.md#clear-and-simple-design The loop owns attempt classification and resource handoff, while capture owns proof construction and the shared error builder owns terminal rendering and final disposal.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication state rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
+ * @evidence contracts/common.md#clear-and-simple-design The pure attempt policy selects acceptance and retry budgets; this loop owns mutable learned facts and resource handoff, capture owns proof construction, and the shared error builder owns terminal rendering and final disposal.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Retrying follows learned dependencies/case policy or refuted publication payload rather than an endless workaround chain; only lossless producer-authorized observation unavailability can permit a local fresh answer, and it never becomes a reusable success or excuses actual mutation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain movement versus absolute budgets, failed-compile diagnostics and learned facts; separated props state delivery, tracking and inherited witness meaning.
  * @evidence contracts/portability.md#os-neutral-implementation Each capture delegates native filesystem and compiler behavior to injected host boundaries; reported compiler case policy is carried between attempts rather than guessed from OS names.
- * @evidence contracts/performance.md#efficient-algorithms At most twice the two-movement bound captures occur, reusing witnessed dependency paths and learned case policy; a successful or current diagnostic capture returns immediately.
- * @evidence contracts/performance.md#reuse-equivalent-work The attempt carries learned input witnesses and policy forward, and session publication classification permits equivalent proven compiles to be adopted instead of redundantly compiling each worker's state.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Every nonterminal rejected capture is disposed before retry, terminal error creation disposes the final failed capture and successful/diagnostic return transfers its resources to the cache owner; at most four attempt witness sets remain local.
+ * @evidence contracts/performance.md#efficient-algorithms At most four captures bound retry count, not each capture's project/config/input bytes, native walks, compiler/plugin work, observer setup or session waiting time. Each rejected attempt copies the cumulative witnessed Set and scans its external dependencies into that copy; the next capture receives a separate array of its names; supplied spellings contribute hashing/text cost. Terminal rendering visits retained attempts/witnesses, and disposal delegates observer/probe cleanup rather than making those effects constant work. Enabled tracing serializes disposition scalars and path text through the existing bounded append sink; disabled tracing skips that payload construction.
+ * @evidence contracts/performance.md#reuse-equivalent-work Learned dependency names and reported compiler case policy carry into the next capture, which takes new observations; previous witness bytes are not reused as fresh proof. The exact refuted publication payload is excluded on the next lookup; another payload under that same projected state still requires separate proof. This loop shares no cache entry itself; its caller owns generation/terminal Promise sharing and current-environment replay admission.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each nonterminal rejected capture is detached through the shared disposer before retry; terminal error construction does the same for the final failed capture, while diagnostic/success/fresh-only return transfers the generation to its caller. Cleanup failures do not certify native release. Up to four attempt aggregates remain, but their path/detail bytes and cumulative witnessed dependency names have no byte cap; the terminal error retains comparison data under cache-owner lifetime. Capture owns its own acquisition-failure cleanup and escaped errors.
  */
 export async function transformProject(props: {
   /** Adapter aliases re-stated over inherited project paths for compilation. */
@@ -141,10 +143,11 @@ export async function transformProject(props: {
    */
   useCaseSensitiveFileNames?: boolean;
 }): Promise<TtscCachedProjectTransform> {
+  const attemptTrace = traceInvocation();
   const attempts: TtscGenerationProofFailures[] = [];
   let rejected: string | undefined;
   let moved = 0;
-  const witnessed = new Set(props.witnessedDependencies);
+  let witnessed = new Set(props.witnessedDependencies);
   let useCaseSensitiveFileNames = props.useCaseSensitiveFileNames;
   for (let attempt = 0; ; attempt += 1) {
     const cached = await captureTransformGeneration({
@@ -153,49 +156,59 @@ export async function transformProject(props: {
       useCaseSensitiveFileNames,
       witnessedDependencies: [...witnessed],
     });
-    if (
-      cached.result.type === "failure" &&
-      (cached.result.observationsComplete === false ||
-        Object.keys(cached.result.hostInputProofFailures ?? {}).length !== 0)
-    ) {
-      // Diagnostics still follow the existing current-verdict admission below,
-      // but incomplete host observations cannot authorize pass verdict reuse.
+    const disposition = selectTransformAttemptDisposition({
+      resultType: cached.result.type,
+      configStateComplete: cached.configStateComplete,
+      projectSnapshotComplete: cached.projectSnapshotComplete,
+      projectHeldStill: cached.projectHeldStill,
+      observationsComplete:
+        cached.result.type === "failure"
+          ? cached.result.observationsComplete
+          : undefined,
+      hostInputProofFailureCount:
+        cached.result.type === "failure"
+          ? Object.keys(cached.result.hostInputProofFailures ?? {}).length
+          : 0,
+      failures: TRANSFORM_GENERATION_FAILURES.get(cached.result),
+      adopted: TRANSFORM_ADOPTED_RESULTS.get(cached.result),
+      attempt,
+      moved,
+      rejected,
+    });
+    attemptTrace?.("bridge-attempt-disposition", {
+      pid: process.pid,
+      cwd: cached.projectRoot,
+      data: {
+        tsconfig: props.tsconfig,
+        currentFile: props.currentFile,
+        temporaryTsconfig: cached.temporaryTsconfig,
+        scratchDirectory: cached.scratchDirectory,
+        attempt,
+        movedBefore: moved,
+        rejectedBefore: rejected ?? null,
+        kind: disposition.kind,
+        freshDeliveryOnly: disposition.freshDeliveryOnly,
+        movedAfter: "moved" in disposition ? disposition.moved : null,
+        rejectedAfter:
+          "rejected" in disposition ? (disposition.rejected ?? null) : null,
+      },
+    });
+    if (disposition.freshDeliveryOnly) {
+      // Neither incomplete diagnostic observations nor a permitted local fresh
+      // success authorizes this generation's reuse beyond its current delivery.
       cached.freshDeliveryOnly = true;
     }
-    if (
-      cached.configStateComplete !== false &&
-      (cached.result.type === "success"
-        ? cached.projectSnapshotComplete === true
-        : cached.projectHeldStill !== false)
-    ) {
+    if (disposition.kind === "accepted" || disposition.kind === "fresh-only") {
       return cached;
     }
-    const failures =
-      TRANSFORM_GENERATION_FAILURES.get(cached.result) ??
-      createGenerationProofFailures();
-    if (
-      cached.result.type === "success" &&
-      cached.configStateComplete === true &&
-      cached.projectHeldStill === true &&
-      !TRANSFORM_ADOPTED_RESULTS.has(cached.result) &&
-      failures.omitted === 0 &&
-      failures.entries.length !== 0 &&
-      failures.entries.every(
-        (failure) =>
-          failure.domain === "host" &&
-          failure.kind === "observation-unavailable",
-      )
-    ) {
-      cached.freshDeliveryOnly = true;
-      return cached;
-    }
-    attempts.push(failures);
-    for (const dependency of cached.externalDependencyInputs ?? []) {
-      witnessed.add(dependency);
-    }
-    useCaseSensitiveFileNames =
-      cached.membershipPolicy.useCaseSensitiveFileNames ??
-      useCaseSensitiveFileNames;
+    attempts.push(disposition.failures);
+    const nextInputs = carryTransformAttemptInputs(
+      witnessed,
+      useCaseSensitiveFileNames,
+      cached,
+    );
+    witnessed = nextInputs.witnessed;
+    useCaseSensitiveFileNames = nextInputs.useCaseSensitiveFileNames;
     // A publication refuted here would be found again by a retry for the same
     // state, which therefore compiles and replaces it. A retry whose project
     // moved to another state claims that state's publication, and adopts it:
@@ -203,22 +216,14 @@ export async function transformProject(props: {
     // worker had just published, while the next edit was already landing. An
     // adoption whose own window moved refutes nothing, and is counted as the
     // compile it stood in for.
-    const adopted = TRANSFORM_ADOPTED_RESULTS.get(cached.result);
-    if (adopted?.refuted === true) rejected = adopted.state;
-    else if (!onlyLearnedCompileFacts(failures)) moved += 1;
-    const last =
-      moved === TRANSFORM_GENERATION_ATTEMPTS ||
-      attempt + 1 === TRANSFORM_GENERATION_ATTEMPTS * 2;
+    rejected = disposition.rejected;
+    moved = disposition.moved;
     // A failed compile the project moved under twice still names its own
     // diagnostics, which say more than an unstable-generation error.
-    if (
-      last &&
-      cached.result.type !== "success" &&
-      cached.configStateComplete !== false
-    ) {
+    if (disposition.kind === "diagnostic") {
       return cached;
     }
-    if (last) {
+    if (disposition.kind === "terminal") {
       const validation = TRANSFORM_FAILED_GENERATION_VALIDATIONS.get(
         cached.result,
       );

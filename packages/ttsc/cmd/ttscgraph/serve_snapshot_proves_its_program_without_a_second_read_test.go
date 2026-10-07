@@ -13,24 +13,28 @@ import (
 )
 
 // TestServeSnapshotProvesItsProgramWithoutASecondRead verifies a single serve
-// response carries everything needed to prove which program produced it.
+// response carries the authored metadata and source-manifest memberships,
+// with supplied disk digests reproducible from the untouched fixture.
 //
-// This is the contract the envelope exists for. A consumer used to be handed
-// paths and nothing else, so proving that the nodes, edges, and the file bytes
-// it was about to read all belonged to one Program meant re-reading the disk
-// afterwards and asking the server a second time whether anything had moved —
-// which narrows the race without closing it, and never proves the bytes read are
-// the bytes the checker resolved against. Everything below has to come out of
-// one frame, because a second frame is the thing being replaced.
+// One request supplies the observed protocol, mode, capabilities, producer,
+// config/root memberships and node-file source entries. Independent native
+// reads reproduce its nonempty disk digests without another server request.
+// This does not authenticate a Program object, verify checker-text digests,
+// establish graph-fact semantics, or close races with later external edits.
 //
 //  1. Take one snapshot of a fixture project.
 //  2. Assert the envelope names its protocol, mode, and capabilities.
-//  3. Assert every file the dump names carries a digest, and that hashing the
-//     file off the disk independently reproduces it.
+//  3. Require non-external node files in the source manifest and independently
+//     reproduce every supplied nonempty disk digest, including at least one.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the observed metadata and source-manifest memberships in one serve response and independently reproduces its nonempty disk digests over the untouched fixture. The same supplied generation also requires two native same-file spellings to share one wire source while retaining both raw owners; different checker, disk and absent disk witnesses must fail. Program authentication, checker-text hashes, graph semantics, and external-edit races are not certified.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal contract values plus an independent hash: the envelope must carry serveProtocolVersion, mode initial, a non-empty capability list and a dump whose provenance names producer ttscgraph, a TypeScript version, at least one config and one root; every non-external node's file must appear in the digest manifest; and, for every manifest entry with a disk digest, SHA-256 of the file read from disk by the test must equal it (at least one must be reproduced). A manifest that omitted files or carried digests the bytes do not reproduce fails.
+// @evidence contracts/testing.md#distinguishing-cases Take one snapshot of an untouched fixture; Assert the envelope metadata and source-manifest memberships; Independently reproduce supplied nonempty disk digests, including at least one, without another server request. Alias proof normalization uses two authored spellings of the same existing native source; conflicting checker text, disk content and missing disk proof are separate refusals without another Program or process.
+// @evidence contracts/testing.md#execution-ownership TestServeSnapshotProvesItsProgramWithoutASecondRead is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSnapshotProvesItsProgramWithoutASecondRead(t *testing.T) {
   root := graphSessionFixture(t)
   var output bytes.Buffer
-  if code := serveSnapshots(strings.NewReader("{\"id\":1}\n"), &output, root, "tsconfig.json"); code != 0 {
+  if code := serveSourceSnapshots(strings.NewReader("{\"id\":1}\n"), &output, root, "tsconfig.json"); code != 0 {
     t.Fatalf("serveSnapshots exited %d", code)
   }
 
@@ -71,9 +75,8 @@ func TestServeSnapshotProvesItsProgramWithoutASecondRead(t *testing.T) {
     t.Fatal("universe fingerprinted no root file")
   }
 
-  // Every file a node names must appear in the manifest. A file with facts but
-  // no digest is exactly the gap the manifest closes: a consumer would have to
-  // trust it.
+  // Every non-external node file must have a source-manifest entry. This check
+  // does not reproduce the checker-text digest or authenticate the node facts.
   digests := make(map[string]graph.SourceDigest, len(provenance.Sources))
   for _, source := range provenance.Sources {
     digests[source.File] = source
@@ -96,7 +99,7 @@ func TestServeSnapshotProvesItsProgramWithoutASecondRead(t *testing.T) {
     }
     content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
     if err != nil {
-      continue
+      t.Fatalf("cannot independently read disk-digested source %q: %v", file, err)
     }
     if got := graph.Digest(sha256.Sum256(content)); got != source.Disk {
       t.Fatalf("independent read of %q hashes to %s, manifest says %s", file, got, source.Disk)
@@ -104,6 +107,44 @@ func TestServeSnapshotProvesItsProgramWithoutASecondRead(t *testing.T) {
     proven++
   }
   if proven == 0 {
-    t.Fatal("no file's digest could be reproduced from disk, so the manifest proves nothing")
+    t.Fatal("no supplied disk digest was independently reproduced")
+  }
+  // The two raw spellings name one native file in this generation. Only
+  // complete matching checker/disk witnesses permit one wire identity.
+  var file string
+  if len(provenance.Sources) == 0 {
+    t.Fatal("the initial source generation must be nonempty")
+  }
+  var picked graph.SourceDigest
+  for _, source := range provenance.Sources {
+    if source.Checker != "" && source.Disk != "" {
+      picked = source
+      break
+    }
+  }
+  if picked.File == "" {
+    t.Fatal("no complete native generation source was available for alias proof")
+  }
+  file = filepath.Join(root, filepath.FromSlash(picked.File))
+  alias := filepath.Dir(file) + string(filepath.Separator) + "." + string(filepath.Separator) + filepath.Base(file)
+  first := picked
+  first.File = file
+  second := first
+  second.File = alias
+  pair := provenance
+  pair.Sources = []graph.SourceDigest{first, second}
+  normalized, owners, err := normalizeServeGraphProvenance(root, pair, true)
+  if err != nil || len(normalized.Sources) != 1 || len(owners) != 2 || owners[file] != owners[alias] {
+    t.Fatalf("same native source aliases were not retained at one proven wire owner: %v, %#v", err, owners)
+  }
+  for _, bad := range []graph.SourceDigest{
+    {File: alias, Checker: "different-generation", Disk: first.Disk},
+    {File: alias, Checker: first.Checker, Disk: "different-content"},
+    {File: alias, Checker: first.Checker},
+  } {
+    pair.Sources = []graph.SourceDigest{first, bad}
+    if _, _, err := normalizeServeGraphProvenance(root, pair, true); err == nil {
+      t.Fatalf("a conflicting or incomplete alias proof was accepted: %#v", bad)
+    }
   }
 }

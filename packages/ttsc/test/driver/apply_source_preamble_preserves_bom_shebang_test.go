@@ -10,11 +10,16 @@ import (
 // leaders keep their required order.
 //
 // Source preambles must be inserted after both the Unicode BOM and a hashbang
-// so Node can still recognize executable scripts.
+// under the helper's source-text ordering contract. This string comparison does
+// not certify that Node executes the combined leader form.
 //
 // 1. Build source text with a BOM followed by a hashbang.
 // 2. Apply a generated source preamble.
 // 3. Assert the BOM and hashbang still occupy the physical file leader.
+// @evidence contracts/testing.md#behavioral-verification Calls ApplySourcePreamble with combined BOM and hashbang and compares the complete returned source.
+// @evidence contracts/testing.md#independent-expectations The literal BOM, hashbang, generated comment and body ordering is authored independently of the preamble helper.
+// @evidence contracts/testing.md#distinguishing-cases Combined leaders distinguish this input from the sibling standalone BOM/hashbang and ordinary source rows.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes one string operation directly without a compiler or executable-script process.
 func TestDriverApplySourcePreamblePreservesBOMShebang(t *testing.T) {
   preamble := "/* generated */\n"
   got := driver.ApplySourcePreamble("\ufeff#!/usr/bin/env node\nconsole.log(1);\n", preamble)

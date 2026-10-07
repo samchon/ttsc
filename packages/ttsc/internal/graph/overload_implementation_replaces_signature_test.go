@@ -10,9 +10,20 @@ import (
 
 // TestOverloadImplementationReplacesSignature verifies that an overload set's
 // graph node points at the executable implementation, not the first signature.
-// Overload-heavy APIs otherwise force agents to re-open the file to see the
-// calls that the graph already attributed to the node.
+// A selected implementation span and a selected body call are observed for this
+// method overload. Other overload shapes and downstream agent behavior are not
+// exercised; the span substring does not authenticate exact declaration bounds.
+//
+// 1. Load Query.join overload signatures followed by its implementation calling realJoin.
+// 2. Build the method node and body relations.
+// 3. Require the retained join source to contain return this.realJoin and the join-to-realJoin value-call edge.
+//
+// @evidence contracts/testing.md#behavioral-verification Require the retained join source to contain return this.realJoin and the join-to-realJoin value-call edge.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over the Query.join overload: the node's source span (from Pos to End) must contain return this.realJoin, which appears only in the implementation, and a value-call edge from Query.join to Query.realJoin must exist.
+// @evidence contracts/testing.md#distinguishing-cases Load Query.join overload signatures followed by its implementation calling realJoin. Build the method node and body relations. Require the retained join source to contain return this.realJoin and the join-to-realJoin value-call edge.
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config/source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build runs in this process; source slicing uses that Program's text and node selection shares its filename and the nodeID encoder. No independent identity oracle, consumer installation, product CLI, or emitted method execution runs.
 func TestOverloadImplementationReplacesSignature(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Query {

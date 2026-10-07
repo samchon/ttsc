@@ -10,9 +10,9 @@ import { literalGlobRoot } from "./literalGlobRoot";
  * Decide whether an event that named no declared input can still have moved
  * one.
  *
- * The admitted set is the only bound on how often a watch session re-reads and
- * re-hashes its declared corpus, and both directions cost: too narrow drops an
- * atomic replacement, too wide re-fingerprints on every entry an install
+ * The admitted set narrows which named events lead a watch session to re-read
+ * and re-hash its declared corpus, and both directions cost: too narrow drops
+ * an atomic replacement, too wide re-fingerprints on every entry an install
  * creates. Exported so that boundary is pinned directly instead of being
  * inferred from a rebuild that a silent rescan and a skipped rescan produce
  * identically.
@@ -22,7 +22,7 @@ import { literalGlobRoot } from "./literalGlobRoot";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Admission follows published declarations rather than hardcoded node_modules exclusion or unconditional whole-project rescanning.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lost replacements and unnecessary corpus scans with their reasons, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path operations and transaction-owned physical containment qualify event paths and glob roots with actual case semantics.
- * @evidence contracts/performance.md#efficient-algorithms Declaration lists are short-circuited; the worst case compares G globs with P previous members, O(GP) identity-containment questions, without reading or hashing corpus bytes here.
+ * @evidence contracts/performance.md#efficient-algorithms Up to two anchor checks visit file/reload/glob declarations before reload-directory and G glob branches; each glob can scan P borrowed previous members. Native directory stat and delegated identity/ancestor/case observations plus literal-root/path/key text are additional costs. Short-circuiting can stop earlier; populations/text are uncapped and this predicate does not read or hash corpus contents.
  * @evidence contracts/performance.md#reuse-equivalent-work The caller can share one identity transaction with event matching and later classification; repeated resolutions within this decision use that transaction's cache.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No watcher, historical event population or resident cache is acquired by this admission predicate.
@@ -40,14 +40,14 @@ export function projectInputTopologyMayAffect(
       directory,
       identities,
     );
-  // An atomic replacement never names the declared file whose bytes it changed;
-  // it names the directory that was swapped, and that directory can be one the
-  // declaration does not contain — renaming `docs` away reports the arriving
+  // An atomic replacement can name an ancestor or arriving sibling rather than
+  // the declared file whose bytes moved. That directory can be one the
+  // declaration does not contain: renaming `docs` away can report the arriving
   // `docs-old`, not `docs`. So a directory event is admitted from where it
   // happened rather than from what it contains: its own parent must already lie
   // on the path to a declared input. A tree no declaration reaches, such as
-  // `node_modules` under an ordinary project, then costs nothing per created
-  // entry instead of a population rescan and a full content re-fingerprint. A
+  // `node_modules` under an ordinary project, avoids corpus rescanning for each
+  // created entry while still paying this admission predicate cost. A
   // glob whose literal root covers that tree still admits every directory
   // beneath it through the branch below, because a directory appearing inside a
   // glob root can hold matches; the declaration decides that reach, not this

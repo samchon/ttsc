@@ -5,42 +5,43 @@ import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBu
 import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/resolveSourceBuildCachePaths";
 
 /**
- * Whether the compiler ttsc runs for a project compares file names
- * case-sensitively, answered before that compiler has run (samchon/ttsc#1563).
+ * Approximate the compiler's file-name case policy before its reported answer
+ * is available.
  *
  * TypeScript-Go decides it once, from the executable it runs as
  * (`internal/vfs/osvfs/os.go`, `isFileSystemCaseSensitive`):
  *
- * - On Windows, never;
- * - Elsewhere, unless `os.Executable()` is found again under its case-swapped
- *   spelling, every letter's case flipped (`swapCase`); a missing swapped path
- *   means sensitive, and any other failure stops the compiler.
+ * - On Windows, never; on the upstream WebAssembly host, always;
+ * - On other upstream hosts, unless `os.Executable()` is found again under its
+ *   case-swapped spelling, every letter's case flipped (`swapCase`); a missing
+ *   swapped path means sensitive, and any other failure stops the compiler.
  *
- * The executable of a compile ttsc runs, its compiler host or a plugin host,
- * lives at `<plugin cache root>/<key>/plugin`, below the root the project
- * resolves (`--cache-dir`, `TTSC_CACHE_DIR`, or the default project-local
- * root). The root is created the way the build creates it and probed at its
- * physical path, the spelling `os.Executable()` reads on Linux and the one the
- * build spawns from a default root. The key directory and the binary are made
- * inside that root by ttsc, so a name there is looked up as the root is. On
- * darwin, where `os.Executable()` is the spawned spelling, an explicit root
- * spelled through a link onto a volume of the other case policy is answered for
- * its target, not for the spelling the compiler sees.
+ * This Node helper returns false on Windows. Elsewhere it resolves the
+ * project's plugin-cache root (`--cache-dir`, `TTSC_CACHE_DIR`, or the default
+ * workspace root), creates it and probes its physical spelling. Source-built
+ * compiler and plugin hosts are placed at `<plugin cache root>/<key>/plugin`,
+ * but probing the root is a proxy, not observation of their executable.
+ * Different directory case policies, lexical symlink spellings and Unicode case
+ * mappings can make the proxy disagree. In particular, on Darwin an explicitly
+ * linked root is probed at its target rather than the spelling the compiler
+ * sees. This helper does not implement the upstream WebAssembly branch or
+ * certify an arbitrary selected compiler binary.
  *
- * A failure other than a missing swapped path is one the compiler would not
- * survive, so the answer is insensitive, which matches every spelling.
+ * Cache setup failures and swapped-path errors other than ENOENT return false.
+ * That fallback admits more case spellings than a sensitive answer; it does not
+ * establish what the actual compiler would report. Consumers can replace the
+ * approximation with a reported graph policy and retry membership admission.
  *
  * @param props.projectRoot The project the compile runs for.
  * @param props.cacheDir The cache directory the compile is given, if any.
  * @param props.env The compile's environment.
- *
  * @evidence contracts/common.md#principled-implementation The Windows return matches the pinned compiler's explicit policy; other hosts probe the physical plugin-cache root's swapped spelling as a proxy for the executable placed beneath it, with the documented Darwin lexical-path limitation.
  * @evidence contracts/common.md#clear-and-simple-design Cache-root selection stays with SourceBuildCacheLayout while this boundary owns the compiler case-policy approximation and swapCase owns Unicode spelling conversion.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The platform branch expresses actual upstream compiler behavior rather than a generic filesystem assumption; unreadable probes conservatively admit more spellings instead of inventing a known project answer.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the upstream probe, physical-root premise, Darwin limitation and error fallback; params describe compile context and tags are visibly separated.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish upstream executable observation from this physical-root proxy, its platform/path/Unicode limitations and false fallback; params describe compile context and tags are visibly separated.
  * @evidence contracts/portability.md#os-neutral-implementation Code uses native mkdir/realpath/stat and probes the selected cache volume rather than guessing its policy from OS names; the Windows special case intentionally mirrors the compiler, and the Darwin symlink spelling limitation is explicit.
- * @evidence contracts/performance.md#efficient-algorithms A cache-root lookup performs bounded path setup and one swapped-path stat; Unicode transformation is linear in the root spelling length with no directory traversal.
- * @evidence contracts/performance.md#reuse-equivalent-work Answers share the physical plugin-root key under the compiler's fixed case-policy premise; native case-policy changes during the process are not revalidated and remain a documented limitation.
+ * @evidence contracts/performance.md#efficient-algorithms Windows returns without filesystem work. Every other call resolves cache placement before consulting ANSWERS: default discovery can walk ancestors, read uncapped manifest bytes and snapshot cache-layout entries, followed by marker/root setup and native canonicalization. A cached answer skips only the swapped-spelling conversion and stat. Conversion visits root code points and builds proportional output; native path, metadata and delegated entry work is not bounded by the boolean result.
+ * @evidence contracts/performance.md#reuse-equivalent-work Answers share the physical plugin-root key only after placement and root setup repeat; this avoids repeating the case probe, not the delegated discovery. Native case-policy changes during the process are not revalidated, and the root-to-executable approximation remains conditional even for a cached answer.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The process owns one boolean per distinct physical plugin-cache root; there is no eviction bound, so historical root cardinality grows until process exit, while the probe retains no descriptor.
  */
 export function compilerUsesCaseSensitiveFileNames(props: {
@@ -98,10 +99,10 @@ const ANSWERS = new Map<string, boolean>();
  * several characters: `ß` has no simple upper-case form in either, but `İ`
  * (U+0130) lower-cases to `i` in Go, and the Greek letters with ypogegrammeni
  * upper-case to their title-case forms. Such a character is kept as it is here.
- * A kept character is the path's own, so this swapped path is found whenever
- * Go's is: the answer can differ only by being insensitive where the compiler
- * says sensitive, and a host then matches more spellings than the compiler
- * does, never fewer.
+ * The resulting string therefore need not equal Go's swapped string. Whether
+ * either spelling resolves is a separate native filesystem observation; this
+ * conversion alone does not prove that one probe's answers contain the
+ * other's.
  *
  * This private helper owns only spelling conversion. The caller owns native
  * filesystem interpretation and caches established root answers. One code-point

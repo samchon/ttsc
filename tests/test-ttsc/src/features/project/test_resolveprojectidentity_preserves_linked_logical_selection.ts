@@ -1,11 +1,10 @@
-import { TestProject } from "@ttsc/testing";
-
+import { TestProject } from "../../../../utils/src/TestProject";
 import {
   assert,
   fs,
   path,
   resolveProjectIdentity,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies project identity preserves a linked config selection separately from
@@ -19,6 +18,11 @@ import {
  * 1. Create a physical project and expose it through a directory link.
  * 2. Resolve the linked directory as the explicit project selection.
  * 3. Assert logical paths use the link and physical paths use `realpath`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls resolveProjectIdentity with a linked project directory and compares every cwd, config and project-root channel, detecting leaked physical spellings or unresolved physical Program paths.
+ * @evidence contracts/testing.md#independent-expectations The fixture creates a physical project and a separately named directory link; lexical paths follow the authored request and physical expectations come from filesystem realpath rather than another resolver call.
+ * @evidence contracts/testing.md#distinguishing-cases Directory selection through a link distinguishes logical and physical paths; discovers_config_through_logical_file_path owns source discovery and keeps_explicit_root_separate owns a distinct explicit root.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolveProjectIdentity directly with the linked project directory as the tsconfig selection in private temp directories with a real symlink or junction; no compiler artifact, installed consumer or CLI host is prepared.
  */
 export const test_resolveprojectidentity_preserves_linked_logical_selection =
   (): void => {

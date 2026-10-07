@@ -21,21 +21,24 @@ import { recordCacheFileUse } from "./source/recordCacheFileUse";
  * that had just configured one, which is a wrong answer indistinguishable from
  * the correct answer for the common case.
  *
- * Proving a plugin source reads the build environment, a `go env` run, once per
- * process (`pluginSourceStateHolds`), which is what a walk that finds the
- * binary costs as well: a hit saves the descriptors' evaluation and discovery,
- * not the environment the binary path stands for. The source files themselves
- * are read again only when their metadata moved since the entry was written
- * (`ITtscCapabilityPluginSource`).
+ * Proving a plugin source consults the process's environment observation;
+ * `pluginSourceStateHolds` refreshes that observation on mismatch. A hit avoids
+ * descriptor evaluation/discovery but still checks source/build state. Source
+ * bytes can be skipped only when a recorded digest, matching signature and
+ * fresh separability evidence are available; unavailable evidence also causes a
+ * content read, even without a known metadata change. These sequential checks
+ * rely on producer declarations and native metadata semantics. Binary presence
+ * is checked with existsSync, not a binary content hash or an
+ * executable-lifetime claim.
  *
  * @evidence contracts/common.md#principled-implementation Shape/version, both host-input snapshots, every plugin source's build state and binary presence must all hold before returning the recorded answer; any unproved premise yields null for real project discovery.
  * @evidence contracts/common.md#clear-and-simple-design One reader owns entry acceptance while shared format, source-build proof and input-observation helpers own their distinct identities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An old executable's existence alone cannot prove current plugin behavior; malformed, raced or incompatible inputs cause normal discovery rather than guessed negative capability answers.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains fail-closed absence and which work a hit avoids versus still proves; private helpers explain metadata and bidirectional comparison premises, following the documentation skill's paragraph/tag separation.
- * @evidence contracts/portability.md#os-neutral-implementation Native fs and shared path/realpath observers use actual input and binary identities; metadata acceleration requires matching device-clock witnesses and does not infer path case or precision from the OS name.
- * @evidence contracts/performance.md#efficient-algorithms Validation walks input/source/plugin populations once per stage; an unchanged separable signature avoids reading all source bytes, while environment and actual host inputs are still proven.
- * @evidence contracts/performance.md#reuse-equivalent-work One project/version entry answers every capability only while its exact hashes, physical identities and source/build states hold; failed proofs never publish a reusable answer.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Entry data is call-owned; a hit touches its file for the default source-cache pruning owner. Explicit cache roots belong to their caller, and transient clock probes are released by their owning helper.
+ * @evidence contracts/portability.md#os-neutral-implementation Native fs and shared path/realpath observers preserve input spelling/physical projections and query binary presence. Metadata acceleration requires matching device-clock witnesses without inferring precision or case from an OS name; binary contents are not independently identified here.
+ * @evidence contracts/performance.md#efficient-algorithms Full entry read/JSON/shape/map checks, host file hashes and realpaths precede source population/signature walks and binary presence queries. Signature reuse avoids source-content reads only under recorded digest/separation premises; other cases hash content, and mismatched state can refresh build environment. Delegated authority/root/executable observation, probe operations and path/key/numeric/record/file bytes contribute native work and transient storage.
+ * @evidence contracts/performance.md#reuse-equivalent-work One project/version entry can answer every capability while its recorded hash/physical/source-build projections pass the sequential checks. Metadata acceleration assumes native write/stamp semantics and producer completeness; unavailable observations refuse reuse, without claiming atomic or complete-world identity.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Parsed entry data transfers to the caller. Usage refresh and transient clock-probe removal are attempted by their owners and can skip/fail; default pruning has its own interval/protection/failure policy, while explicit roots remain caller-owned. This reader imposes no entry/input/output byte ceiling.
  */
 export function readCapabilityResolution(options: {
   /** Invocation directory included in the shared cache-entry identity. */
@@ -77,7 +80,7 @@ export function readCapabilityResolution(options: {
   // What each binary path was keyed on, proven by the build's own rule: a
   // module root, linked package, or contributor that moved, or another build
   // environment, names a binary the build would no longer produce, while the
-  // old one still exists (samchon/ttsc#1492).
+  // old one still exists.
   const sources = Object.entries(entry.pluginSources);
   const evidence = sources.some(([, source]) => source.signature !== undefined)
     ? CapabilityResolutionFormat.sourceEvidence(

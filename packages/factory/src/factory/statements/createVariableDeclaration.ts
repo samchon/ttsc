@@ -23,9 +23,16 @@ import { createIdentifier } from "../names/createIdentifier";
  * `x` and an `initializer` of `1`, it prints as:
  *
  * ```ts
- * x = 1
+ * x = 1;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param name The name; a {@link BindingName} allows array / object
+ *   destructuring (e.g. `const [a, b] = ...`).
+ * @param exclamationToken The definite-assignment marker (`!`), if any.
+ * @param type The type.
+ * @param initializer The initializer, if any.
+ * @returns The created {@link VariableDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Strings normalize to Identifier while supplied BindingName patterns stay
  *   intact. Definite-assignment marker, type and initializer occupy separate slots.
@@ -40,14 +47,6 @@ import { createIdentifier } from "../names/createIdentifier";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains binding-pattern support and absent keyword/semicolon, with
  *   its corrected declarator example separated from acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param name The name; a {@link BindingName} allows array / object
- *   destructuring (e.g. `const [a, b] = ...`).
- * @param exclamationToken The definite-assignment marker (`!`), if any.
- * @param type The type.
- * @param initializer The initializer, if any.
- * @returns The created {@link VariableDeclaration}.
  */
 export const createVariableDeclaration = (
   name: string | BindingName,

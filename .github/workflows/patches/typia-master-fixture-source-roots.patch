@@ -1,0 +1,44 @@
+--- a/packages/typia/native/cmd/ttsc-typia/llm_evaluation_rejects_undecidable_types_test.go
++++ b/packages/typia/native/cmd/ttsc-typia/llm_evaluation_rejects_undecidable_types_test.go
+@@ -141,6 +141,10 @@ func llmEvaluationProject(t *testing.T, name string, source string) string {
+   return dir
+ }
+ 
++// These fixtures import the workspace typia package, whose exports select
++// real TypeScript sources outside the fixture src directory. The explicit
++// common root includes both populations; outDir keeps successful emits inside
++// the fixture directory owned and removed by t.Cleanup.
+ const llmEvaluationDiagnosticsTSConfig = `{
+   "compilerOptions": {
+     "target": "ES2022",
+@@ -151,7 +155,7 @@ const llmEvaluationDiagnosticsTSConfig = `{
+     "esModuleInterop": true,
+     "strict": true,
+     "skipLibCheck": true,
+-    "rootDir": "src",
++    "rootDir": "../../..",
+     "outDir": "dist"
+   },
+   "include": ["src"]
+--- a/packages/typia/native/cmd/ttsc-typia/random_recursive_min_items_diagnostic_test.go
++++ b/packages/typia/native/cmd/ttsc-typia/random_recursive_min_items_diagnostic_test.go
+@@ -95,6 +95,10 @@ func randomRecursiveMinItemsProject(t *testing.T, name string, source string) st
+   return dir
+ }
+ 
++// These fixtures import the workspace typia package, whose exports select
++// real TypeScript sources outside the fixture src directory. The explicit
++// common root includes both populations; outDir keeps successful emits inside
++// the fixture directory owned and removed by t.Cleanup.
+ const randomRecursiveMinItemsTSConfig = `{
+   "compilerOptions": {
+     "target": "ES2022",
+@@ -105,7 +109,7 @@ const randomRecursiveMinItemsTSConfig = `{
+     "esModuleInterop": true,
+     "strict": true,
+     "skipLibCheck": true,
+-    "rootDir": "src",
++    "rootDir": "../../..",
+     "outDir": "dist"
+   },
+   "include": ["src"]

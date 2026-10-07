@@ -6,6 +6,11 @@ import "testing"
 // nearest the cursor, not merely the longest text somewhere earlier on the
 // line. At one occurrence, nested triggers remain layerable and duplicate
 // producers of the same trigger may contribute together.
+//
+// @evidence contracts/testing.md#behavioral-verification Four direct matcher outcomes observe a later broad trigger, one nested trigger, later equal-length trigger selection, and merged same-trigger records, with literal ordered Insert strings and filters. Actual producer discovery, other item fields, scope parsing, and request publication are not asserted.
+// @evidence contracts/testing.md#independent-expectations The expected item lists and filters are literal per line.
+// @evidence contracts/testing.md#distinguishing-cases Lines with an earlier long trigger and a later short one, a later broad trigger and duplicate producers separate nearest from longest-earlier.
+// @evidence contracts/testing.md#execution-ownership Directly supplies six authored hint records and four line prefixes to matchCompletionHints with inJSDoc=true in this process. Ordered Insert/filter expectations are literal; no seam is substituted, directory created, sidecar resolved, Program loaded, process started, or editor/plugin connection made.
 func TestLSPCompletionHintsNearestTriggerWins(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "broad"}}},

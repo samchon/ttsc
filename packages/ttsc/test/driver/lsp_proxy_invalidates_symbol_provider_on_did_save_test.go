@@ -7,14 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyInvalidatesSymbolProviderOnDidSave verifies the proxy discards the
-// SymbolProvider's cached graph on textDocument/didSave, the notification whose
-// on-disk write the graph provider rebuilds against, so the outline reflects the
-// saved edit rather than the first-request snapshot (#620).
+// TestLSPProxyInvalidatesSymbolProviderOnDidSave Verifies that didSave forwards unchanged and invalidates the recording SymbolProvider.
+//
+// Invalidation presence is asserted, not an exact count or rebuilt graph content.
 //
 // 1. Wire a recording SymbolProvider.
 // 2. Send textDocument/didSave from the editor.
 // 3. Assert the provider was invalidated (and the notification still forwards).
+//
+// @evidence contracts/testing.md#behavioral-verification didSave forwards unchanged and invalidates the recording SymbolProvider.
+// @evidence contracts/testing.md#independent-expectations A saved edit requires subsequent graph queries to discard their prior snapshot.
+// @evidence contracts/testing.md#distinguishing-cases Invalidation presence is asserted, not an exact count or rebuilt graph content.
+// @evidence contracts/testing.md#execution-ownership The Go proxy calls a recording provider using a temporary source URI. Go discovers TestLSPProxyInvalidatesSymbolProviderOnDidSave under ./test/driver.
 func TestLSPProxyInvalidatesSymbolProviderOnDidSave(t *testing.T) {
   provider := &recordingSymbolProvider{}
   h := newProxyHarnessWithOptions(t, nil, driver.ProxyOptions{SymbolProvider: provider})

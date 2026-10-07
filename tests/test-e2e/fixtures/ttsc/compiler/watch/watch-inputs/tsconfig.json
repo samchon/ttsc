@@ -1,0 +1,14 @@
+{
+  "extends": "../support/base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "build",
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src", "lib", "dist"],
+  "references": [{"path":"../support/reference"}]
+}

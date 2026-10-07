@@ -7,16 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLinkedPluginsRejectInvalidManifest verifies that invalid manifest
-// JSON fails during Program load.
+// TestDriverLinkedPluginsRejectInvalidManifest Verifies that LoadProgram rejects malformed linked manifest JSON with an error naming its environment variable.
 //
-// The linked plugin manifest enters the Go host through an environment
-// variable. Invalid JSON must stop Program creation before emit or transform
-// hooks can run with an empty plugin list.
+// Malformed manifest rejection is asserted, without requiring nil Program or exact parser wording.
 //
 // 1. Set TTSC_LINKED_PLUGINS_JSON to malformed JSON.
 // 2. Load a real tsconfig project.
 // 3. Assert the returned error names the invalid manifest variable.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram rejects malformed linked manifest JSON with an error naming its environment variable.
+// @evidence contracts/testing.md#independent-expectations A lone opening brace is invalid JSON independently of manifest loading.
+// @evidence contracts/testing.md#distinguishing-cases Malformed manifest rejection is asserted, without requiring nil Program or exact parser wording.
+// @evidence contracts/testing.md#execution-ownership The registry is reset and t.Setenv restores the manifest after direct Go loading. Go discovers TestDriverLinkedPluginsRejectInvalidManifest under ./test/driver.
 func TestDriverLinkedPluginsRejectInvalidManifest(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `{`)

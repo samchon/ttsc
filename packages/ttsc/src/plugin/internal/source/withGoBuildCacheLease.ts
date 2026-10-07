@@ -11,17 +11,20 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  *
  * Protection assumes the coordination heartbeat stays within its freshness
  * grace; a later suspension or refresh failure is not process-absence proof.
+ * The lease covers the synchronous callback invocation, not later asynchronous
+ * work it might return. Finish requests refresher shutdown and record cleanup;
+ * it does not join worker/child termination or guarantee native removal.
  *
  * @evidence contracts/common.md#principled-implementation Publishing before scanning maintenance makes either ordering visible to the other participant under the coordination freshness premise; startup acknowledgment does not prove continued heartbeat progress, and lease cleanup covers the scan and callback.
  * @evidence contracts/common.md#clear-and-simple-design Unmanaged caches bypass ttsc coordination; one retry loop owns managed lease acquisition, maintenance negotiation and finally release.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Maintenance uses the shared live-record protocol instead of assuming no other process writes the cache; contention retries address the actual arbitration requirement.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the two possible arrival orders and why independent builds remain concurrent, with distinct acknowledgment tags.
  * @evidence contracts/portability.md#os-neutral-implementation Managed roots are physically canonicalized and Node-backed lease/heartbeat operations isolate native coordination details.
- * @evidence contracts/performance.md#efficient-algorithms Contention waits sleep between directory-record scans; when maintenance is absent the callback executes without serializing separate builders behind one global build lock.
+ * @evidence contracts/performance.md#efficient-algorithms Each attempt publishes a record and scans maintenance entries and their path/JSON/mtime bytes, with native directory validation. Contention sleeps between attempts; heartbeat startup adds a worker or Node-child readiness handshake before the callback. Separate builders are not serialized when maintenance is absent. The callback's own build cost is delegated; native calls and startup observation can exceed a between-attempt admission budget check.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A lease protects an individual effectful build; equivalent binary reuse belongs to the outer plugin-key build owner.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Each iteration owns at most one record/heartbeat; finally releases it on scan failure, startup failure, callback return or throw before retrying or leaving the wait.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each attempt owns one published record and, after successful startup, one refresher capability. Finally calls finish after scan/startup failure or synchronous callback completion; worker termination and child kill are not joined, and record/ready-file cleanup is best-effort. A failed worker startup may overlap its requested termination with child fallback; leftover records follow freshness/uncertainty policy rather than a guaranteed removal bound. A returned asynchronous task is outside this callback-invocation lease.
  */
 export function withGoBuildCacheLease<T>(
   root: string,

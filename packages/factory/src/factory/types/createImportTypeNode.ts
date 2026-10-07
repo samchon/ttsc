@@ -22,9 +22,16 @@ import { make } from "../internal/make";
  * argument, the printer renders:
  *
  * ```ts
- * import("foo").Bar<string>
+ * import("foo").Bar<string>;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param argument The module specifier inside `import(...)`.
+ * @param attributes The import-call attributes, if any.
+ * @param qualifier The `.Member` access on the import, if any.
+ * @param typeArguments The generic type arguments, if any.
+ * @param isTypeOf Whether to prefix the type with `typeof`; defaults to false.
+ * @returns The created {@link ImportTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   The constructor preserves the module type, attributes, qualifier and type
  *   arguments in their import-type slots; only true enables typeof. The printer
@@ -41,14 +48,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc records the parameter order and attribute context, separates the
  *   example from acknowledgments, and documents every argument in signature order.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param argument The module specifier inside `import(...)`.
- * @param attributes The import-call attributes, if any.
- * @param qualifier The `.Member` access on the import, if any.
- * @param typeArguments The generic type arguments, if any.
- * @param isTypeOf Whether to prefix the type with `typeof`; defaults to false.
- * @returns The created {@link ImportTypeNode}.
  */
 export const createImportTypeNode = (
   argument: TypeNode,

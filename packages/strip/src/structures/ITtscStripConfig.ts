@@ -28,19 +28,6 @@
  *   The whole type is data-only, with no foreign mutation, fixture branch,
  *   test-only behavior or alternate runtime implementation.
  *
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   These lists identify TypeScript statement syntax to remove. They define
- *   no native filesystem, path-identity or process boundary.
- *
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   This schema carries consumer choices and performs no computation.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   The schema does not coordinate config evaluation or AST transformations.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   These value lists do not own the compiler or loader's resource lifetime.
- *
  * @evidence contracts/common.md#meaningful-documentation
  *   Interface and member JSDoc distinguish both-key defaults from one-key
  *   replacement, explain exact and deeper prefix matching and its negative
@@ -54,8 +41,8 @@ export interface ITtscStripConfig {
   /**
    * Dotted callee patterns for whole call-expression statements to remove.
    *
-   * An exact name matches that dotted identifier chain. A trailing `.*`
-   * matches one or more further property segments, so `assert.*` includes
+   * An exact name matches that dotted identifier chain. A trailing `.*` matches
+   * one or more further property segments, so `assert.*` includes
    * `assert.equal()` and `assert.strict.equal()` but excludes `assert()`.
    * Computed access and calls embedded in other expressions remain untouched.
    * Empty or whitespace-only entries, empty dotted segments, a bare `*` and

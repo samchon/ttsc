@@ -29,6 +29,7 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
  * @evidence contracts/performance.md#efficient-algorithms The incoming index restricts counting to this node's degree instead of scanning every graph edge.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This count is a primitive over an already shared generation index; caller-owned rank computation decides any broader reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Counting borrows indexed edges and retains only a scalar local accumulator.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation counts edges in an in-memory index.
  */
 export function exportFanIn(graph: TtscGraphMemory, id: string): number {
   let count = 0;
@@ -48,6 +49,7 @@ export function exportFanIn(graph: TtscGraphMemory, id: string): number {
  * @evidence contracts/performance.md#efficient-algorithms The first check scans edges until a match; later lookups are map accesses.
  * @evidence contracts/performance.md#reuse-equivalent-work The model's owned frozen facts make graph identity a stable generation key; a new generation is a different key and does not inherit the result.
  * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap entries follow graph reachability and do not retain historical graph generations.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation scans in-memory edges and caches the answer per graph object.
  */
 export function hasExportSurface(graph: TtscGraphMemory): boolean {
   const known = cache.get(graph);

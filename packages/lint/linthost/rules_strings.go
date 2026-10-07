@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "regexp"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -23,27 +24,16 @@ func (noTemplateCurlyInString) Check(ctx *Context, node *shimast.Node) {
 }
 
 // hasTemplatePlaceholder reports whether `text` contains a `${...}`
-// sequence — i.e. at least one `${` followed by a closing `}`. A lone
-// `${` with no matching brace is not flagged.
+// sequence with a non-empty body. A lone `${` with no closing brace, and an
+// empty `${}`, are not flagged.
 func hasTemplatePlaceholder(text string) bool {
-  if !strings.Contains(text, "${") {
-    return false
-  }
-  // Match `${ ... }` style, not just literal "${" with nothing after.
-  idx := strings.Index(text, "${")
-  for idx >= 0 {
-    rest := text[idx+2:]
-    if strings.Contains(rest, "}") {
-      return true
-    }
-    next := strings.Index(text[idx+1:], "${")
-    if next < 0 {
-      return false
-    }
-    idx += next + 1
-  }
-  return false
+  return templatePlaceholderPattern.MatchString(text)
 }
+
+// templatePlaceholderPattern is ESLint's no-template-curly-in-string pattern:
+// `${`, at least one character that is not `}`, then `}`. An empty `${}` is
+// therefore not a placeholder.
+var templatePlaceholderPattern = regexp.MustCompile(`\$\{[^}]+\}`)
 
 // noMultiStr: `"line one \\n line two"` style backslash continuations.
 // TS strips them silently and the result is rarely what the author meant.

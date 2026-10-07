@@ -1,0 +1,1 @@
+{"name":"shared-runtime-signal-boundary","private":true,"workspaces":["packages/*"],"type":"commonjs"}

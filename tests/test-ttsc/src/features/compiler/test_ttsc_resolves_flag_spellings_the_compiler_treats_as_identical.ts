@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
-import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parseFlags.js";
-import { resolveFlagSpec } from "../../../../../packages/ttsc/lib/flags/resolveFlagSpec.js";
+import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
+import { resolveFlagSpec } from "../../../../../packages/ttsc/src/flags/resolveFlagSpec";
 
 const isInputFile = (token: string): boolean =>
   [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
@@ -32,6 +32,11 @@ const parse = (argv: string[]) =>
  *    their original forwarded argv.
  * 4. Assert an unknown flag, a near-miss flag name, and a bare token that spells a
  *    flag are still forwarded verbatim with their adjacency intact.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls parseFlags and resolveFlagSpec to assert canonical launcher identities, verbatim compiler forwarding and exact positional partitioning; negative twins reject capture of unknown, near-miss and bare names.
+ * @evidence contracts/testing.md#independent-expectations Expected maps and ordered argv vectors are authored literals encoding the rule that names match case-insensitively with one or two dashes while launcher-owned values are consumed and compiler-owned argv is forwarded verbatim; the TypeScript-Go parser is not run to confirm that rule, so these literals pin ttsc's documented reading of it.
+ * @evidence contracts/testing.md#distinguishing-cases Owns case/dash/alias/value spellings, false boolean values, compiler-output aliases, a source-looking option value, compiler inline and uppercase value tokens, launcher-only CWD, unknown strict/target, cwd2 and bare out controls. Both listEmittedFiles spellings resolve to the same literal option identity while retaining their exact forwarded argv and no positional input; the shared compiler Program retains the actual lowercase listing and emitted main.js observation.
+ * @evidence contracts/testing.md#execution-ownership This exported source-unit entry invokes authored flag functions through a local build parser with an explicit TypeScript-file positional predicate. Every assertion runs in this entry without starting tsgo or reading a consumer project.
  */
 export const test_ttsc_resolves_flag_spellings_the_compiler_treats_as_identical =
   () => {
@@ -73,6 +78,11 @@ export const test_ttsc_resolves_flag_spellings_the_compiler_treats_as_identical 
       "--tsBuildInfoFile",
     );
     assert.equal(resolveFlagSpec("-JsX")?.name, "--jsx");
+    for (const spelling of ["--listEmittedFiles", "--listemittedfiles"]) {
+      assert.equal(resolveFlagSpec(spelling)?.name, "--listEmittedFiles");
+      assert.deepEqual(parse([spelling]).passthrough, [spelling]);
+      assert.deepEqual(parse([spelling]).positional, []);
+    }
     const compilerOutputFlags = parse([
       "-D",
       "--DECLARATION",

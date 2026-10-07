@@ -1,11 +1,10 @@
 package evidence
 
 import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
   "sort"
   "strings"
   "testing"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // hostPositionCorpus carries one citation on every declaration form that
@@ -96,6 +95,11 @@ export namespace Outer.Inner {
  *  1. Collect one file holding every declaration form that registers a host.
  *  2. Take the host map and the unit-to-node index the collector filled.
  *  3. Assert no key of the host map is missing from the index.
+ *
+ * @evidence contracts/testing.md#behavioral-verification collectTypeScriptStatements is run over a corpus covering interfaces with members, an object alias, a class with fields, a method and a parameter property, a function, variable statements (including a multi-declarator one), a namespace with members and a dotted namespace, and the test fails if any key of the collector's supported-host map is absent from every unit's node list, reporting the node kind, hosted kinds and line of each orphan.
+ * @evidence contracts/testing.md#independent-expectations The expectation is the structural invariant that every host position the collector registers is reachable from a unit: both sets are taken from the collector's own output of one pass, so the test checks consistency between them rather than a hand-written list of expected positions; an orphaned position would be invisible to withdrawal reconciliation and review ledgers.
+ * @evidence contracts/testing.md#distinguishing-cases The corpus carries one tagged position per declaration form, including positions that cannot hold a block, so the next declaration form that registers a host without a unit fails here. The comparison is set membership only; it does not assert which units exist.
+ * @evidence contracts/testing.md#execution-ownership TestEveryHostPositionBelongsToAUnit is a Go unit entry in the native test process; it parses the corpus with the TypeScript parser and calls collectTypeScriptStatements directly, with no consumer install or product host.
  */
 func TestEveryHostPositionBelongsToAUnit(t *testing.T) {
   file := parseTestSourceFile(t, "src/contracts.ts", hostPositionCorpus)

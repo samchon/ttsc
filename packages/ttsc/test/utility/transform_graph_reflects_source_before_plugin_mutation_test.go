@@ -51,7 +51,7 @@ func rewriteSpecifierLiterals(node *shimast.Node, from, to string) {
 // literals the graph's edge resolution reads through the checker. If the host
 // computed the graph after ApplyLinkedPlugins, a rewritten specifier would
 // resolve to nothing and the edge would silently vanish — exactly the class
-// of missing invalidation edge samchon/ttsc#716 exists to close. The graph is
+// of missing invalidation edge the graph exists to close. The graph is
 // therefore computed before plugin hooks run: edges are transform inputs, the
 // mutated text is transform output.
 //
@@ -59,8 +59,14 @@ func rewriteSpecifierLiterals(node *shimast.Node, from, to string) {
 //  2. Run the utility transform subcommand.
 //  3. Assert the printed output carries the rewritten specifier while the
 //     graph still edges main.ts -> types.ts.
+//
+// @evidence contracts/testing.md#behavioral-verification RunTransform prints the plugin's rewritten specifier while the graph still has the main.ts to types.ts edge computed from the original source.
+// @evidence contracts/testing.md#independent-expectations The rewritten specifier and the edge are literal values authored in the test.
+// @evidence contracts/testing.md#distinguishing-cases Original resolved graph edge and rewritten output are both asserted; no separately reordered pipeline is executed as a negative control.
+// @evidence contracts/testing.md#execution-ownership TestTransformGraphReflectsSourceBeforePluginMutation is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformGraphReflectsSourceBeforePluginMutation(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   driver.RegisterPlugin(specifierRewritePlugin{from: "./types", to: "./rewritten"})
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

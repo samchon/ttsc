@@ -92,12 +92,10 @@ type storybookHierarchySeparator struct{}
 
 func (storybookHierarchySeparator) Name() string { return "storybook/hierarchy-separator" }
 
-// DiagnosticTags strikes the separator through: `|` is Storybook's superseded
-// hierarchy separator, and a title that uses it still renders — Storybook
-// keeps reading it — so the finding is exactly "this still works, migrate off
-// it", never "delete this title property".
+// DiagnosticTags leaves the obsolete separator untagged. The rule does not
+// establish a Storybook version where it still performs hierarchy separation.
 func (storybookHierarchySeparator) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+  return nil
 }
 func (storybookHierarchySeparator) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
@@ -116,7 +114,7 @@ func (storybookHierarchySeparator) Check(ctx *Context, node *shimast.Node) {
   if !located {
     // The decoded title carries the separator, so the finding is real even when
     // the raw spelling that produced it cannot be bounded. Report the property
-    // rather than dropping the diagnostic: a wider strikethrough is an
+    // rather than dropping the diagnostic: a wider reported range is an
     // imprecision, a missing diagnostic is a rule that stopped working.
     ctx.Report(prop, message)
     return
@@ -218,13 +216,10 @@ type storybookNoRedundantStoryName struct{}
 
 func (storybookNoRedundantStoryName) Name() string { return "storybook/no-redundant-story-name" }
 
-// DiagnosticTags greys the redundant annotation out. Both arms of this rule
-// report an annotation that restates the name Storybook already derives from
-// the export identifier — the object property in one, the standalone
-// `Story.storyName =` assignment in the other — and each is reported at
-// exactly the range whose deletion is the whole resolution.
+// DiagnosticTags leaves redundant-name findings untagged: a matching literal
+// does not prove that assigning the property is free of observable effects.
 func (storybookNoRedundantStoryName) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
+  return nil
 }
 func (storybookNoRedundantStoryName) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
@@ -266,10 +261,9 @@ func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
         child.Parent.Parent.Kind != shimast.KindSourceFile {
         return
       }
-      // The Unnecessary tag is rule-wide. Only a standalone assignment can be
-      // removed as a whole; an assignment nested in another expression still
-      // contributes its value, while one in a nested scope can refer to a
-      // same-named shadow instead of the exported story.
+      // Restrict this finding to standalone top-level annotations: a nested
+      // assignment contributes a value or can refer to a same-named shadow.
+      // This syntactic restriction does not certify deletion safety.
       ctx.Report(child.Parent, "Named exports should not use a redundant story name annotation.")
     }
   })
@@ -375,12 +369,10 @@ type storybookNoStoriesOf struct{}
 
 func (storybookNoStoriesOf) Name() string { return "storybook/no-stories-of" }
 
-// DiagnosticTags strikes the `storiesOf` import specifier through. The builder
-// API is deprecated in favor of CSF but still runs, and the whole reported
-// range is the specifier that names it, so migration — not deletion — is the
-// instruction the editor should render.
+// DiagnosticTags leaves storiesOf untagged. It was removed in Storybook 8;
+// this import predicate does not establish an earlier working runtime version.
 func (storybookNoStoriesOf) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+  return nil
 }
 func (storybookNoStoriesOf) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindImportSpecifier}
@@ -402,12 +394,10 @@ type storybookNoTitlePropertyInMeta struct{}
 
 func (storybookNoTitlePropertyInMeta) Name() string { return "storybook/no-title-property-in-meta" }
 
-// DiagnosticTags greys the `title` property out. CSF3 derives a story's title
-// from the file's location on disk, so the property is dead weight rather than
-// a wrong value, and the reported range is the property itself: removing
-// exactly what the editor fades is the resolution.
+// DiagnosticTags leaves title findings untagged: rejecting explicit metadata
+// under this lint policy does not prove its value or evaluation is removable.
 func (storybookNoTitlePropertyInMeta) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
+  return nil
 }
 func (storybookNoTitlePropertyInMeta) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}

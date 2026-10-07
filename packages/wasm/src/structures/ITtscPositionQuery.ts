@@ -17,13 +17,16 @@ import type { ITtscFileQuery } from "./ITtscFileQuery";
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc gives the accepted interval and explains the caller's UTF-16
  *   conversion responsibility, following the documentation skill's units rule.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscPositionQuery is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscPositionQuery is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscPositionQuery is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscPositionQuery extends ITtscFileQuery {
   /**
-   * Integer byte offset into the file's source text. It must satisfy `0 <= position <
-   * sourceText's UTF-8 byte length`; the offset immediately after the final
-   * byte is out of range. JS callers with a UTF-16 line/character pair must
-   * resolve it to a byte offset first.
+   * Integer byte offset into the file's source text. It must satisfy `0 <=
+   * position < sourceText's UTF-8 byte length`; the offset immediately after
+   * the final byte is out of range. JS callers with a UTF-16 line/character
+   * pair must resolve it to a byte offset first.
    */
   position: number;
 }

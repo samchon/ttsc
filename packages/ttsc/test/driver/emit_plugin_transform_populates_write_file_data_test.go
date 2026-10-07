@@ -37,12 +37,12 @@ const (
 // plugin-transform emit lane hands its WriteFile callback the same
 // WriteFileData the pinned tsgo emitter hands its own.
 //
-// `writePluginEmitOutput` used to call `writeFile(fileName, text, nil)`, so an
-// embedder that reads `WriteFileData.SourceMapUrlPos` to locate and rewrite the
-// `//# sourceMappingURL=` trailer without re-scanning the text got nothing back
-// the moment a plugin transform joined the chain — and a `nil` meant both
-// "nothing to report" and "never populated", which is indistinguishable at the
-// callback. `printSourceFile` records that offset from the printer's writer, so
+// Calling `writeFile(fileName, text, nil)` from `writePluginEmitOutput` would
+// leave an embedder that reads `WriteFileData.SourceMapUrlPos` to locate and
+// rewrite the `//# sourceMappingURL=` trailer without re-scanning the text with
+// nothing the moment a plugin transform joined the chain — and a `nil` would
+// mean both "nothing to report" and "never populated", which is indistinguishable
+// at the callback. `printSourceFile` records that offset from the printer's writer, so
 // the hand-assembled lane records it in the same place: before `emitBOM`
 // prepends its mark, exactly as the emitter does, so the plugin build agrees
 // with the plain build of the same project rather than being independently
@@ -52,12 +52,19 @@ const (
 //  1. For each option set, materialize one project and compile it twice: once
 //     through `EmitAllRaw` (plain tsgo emit) and once through
 //     `EmitLinkedTransforms` (the hand-assembled plugin lane).
-//  2. Assert the plugin lane's WriteFileData for `index.js` is present and
-//     equals the plain lane's field for field, the plain lane being the oracle.
+//  2. Assert the plugin lane's WriteFileData for `index.js` is present, that its
+//     SourceMapUrlPos equals the plain lane's (the plain lane being the oracle),
+//     and that Diagnostics is empty, BuildInfo is nil and SkippedDtsWrite is
+//     unset on a clean build with no `.tsbuildinfo`.
 //  3. Assert the reported offset addresses the trailer in the written text
 //     (allowing for the mark taken after it), or is the -1 sentinel when no
 //     trailer was written.
 //  4. Assert the external map is still written with no WriteFileData at all.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual raw and plugin emission for five map/BOM rows and asserts nonnil JS callback metadata, exact offset parity, empty diagnostics, unset build info/skip flag and correct trailer position or minus-one sentinel.
+// @evidence contracts/testing.md#independent-expectations Literal trailer and minus-one sentinel plus independent BOM byte count establish metadata-text correspondence; raw native emitter separately owns compatibility of offset convention.
+// @evidence contracts/testing.md#distinguishing-cases External/inline/no map and BOM with/without map distinguish absent metadata, sentinel corruption and premark offsets. External map callbacks must retain nil data when present.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit loads separate real Programs through its emitter helper, captures WriteFileData snapshots, closes Programs and uses no product executable.
 func TestEmitPluginTransformPopulatesWriteFileData(t *testing.T) {
   cases := []writeFileDataCase{
     {

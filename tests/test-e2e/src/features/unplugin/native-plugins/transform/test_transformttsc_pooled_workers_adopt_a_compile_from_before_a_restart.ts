@@ -1,0 +1,131 @@
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+
+const { spawnSync } = E2eProcessTrace;
+
+/**
+ * Verifies a pooled session started again adopts the compile the last one
+ * published, and refuses it once an input it depends on changed while nothing
+ * ran (samchon/ttsc#1483).
+ *
+ * Turbopack runs the loader for every module after a dev-server restart, in
+ * fresh workers with nothing in memory, and the store they shared died with the
+ * process that opened it: each restart compiled every project once, while
+ * webpack, Rspack, and Farm restored the same project without compiling. The
+ * store now outlives the process, and a fresh worker adopts from it after the
+ * same proof any adopter makes against its own disk.
+ *
+ * 1. Open a session in a process of its own, transform the entry module there, and
+ *    exit: the project compiles, once more with the plugin's reported file
+ *    witnessed, and that compile is published.
+ * 2. Do it again in a new process, and assert it serves the same output without
+ *    compiling.
+ * 3. Edit a file outside the project that a plugin reads, while nothing runs; do
+ *    it again, and assert it refuses the publication and compiles the current
+ *    content.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Three fresh sessions yield PLUGIN:FIRST/count two, same/count two, then PLUGIN:SECOND/count three after external edit.
+ * @evidence contracts/testing.md#independent-expectations External content literals and byte counter detect restart reuse and stale persisted publication.
+ * @evidence contracts/testing.md#distinguishing-cases Cold session, process restart over unchanged state, edit while no session runs.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_pooled_workers_adopt_a_compile_from_before_a_restart is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native producer and separate Node workers exchange session publications for cold session, process restart over unchanged state, edit while no session runs. In-process cache calls cannot establish cross-process locks, publication transport or adoption.
+ * @evidence contracts/e2e.md#shared-execution One fixture project and private session publication store are reused across this case's workers/attempts. Native artifact builds use shared cache identity; separate workers are needed for publication/adoption, and changed state or producer inputs legitimately require the compile counts above.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project, run log and session/store roots prevent other workers' publications from satisfying this case. Worker processes complete before assertions inspect state, except the explicitly killed producer in the recovery case. Tracked roots are removed at process exit; cache instances used directly here have no explicit finally disposal, and abrupt cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Three fresh sessions yield PLUGIN:FIRST/count two, same/count two, then PLUGIN:SECOND/count three after external edit. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
+ */
+export async function test_transformttsc_pooled_workers_adopt_a_compile_from_before_a_restart(): Promise<void> {
+  const external = path.join(
+    TestProject.tmpdir("ttsc-unplugin-restart-external-"),
+    "helper.ts",
+  );
+  fs.writeFileSync(external, "first\n", "utf8");
+  const runLog = path.join(
+    TestProject.tmpdir("ttsc-unplugin-restart-log-"),
+    "compiles.bin",
+  );
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const relative = path.relative(root, external);
+  const tsconfig = path.join(root, "tsconfig.json");
+  const config = JSON.parse(fs.readFileSync(tsconfig, "utf8"));
+  config.compilerOptions.plugins = [
+    {
+      transform: "./plugin.cjs",
+      name: "reader",
+      operation: "read-configured-helper",
+      path: relative,
+    },
+    {
+      transform: "./plugin.cjs",
+      name: "reporter",
+      operation: "emit-dependencies",
+      dependencies: [relative.split(path.sep).join("/")],
+    },
+    {
+      transform: "./plugin.cjs",
+      name: "runs",
+      operation: "count-runs",
+      runLog,
+    },
+  ];
+  fs.writeFileSync(tsconfig, JSON.stringify(config, null, 2), "utf8");
+  const compiles = () => (fs.existsSync(runLog) ? fs.statSync(runLog).size : 0);
+  const main = TestUnpluginProject.mainFile(root);
+  // A private temporary directory, so the per-user store is this test's own.
+  const temporary = TestProject.tmpdir("ttsc-unplugin-restart-tmp-");
+
+  /** One dev-server session: open the store, transform the module, exit. */
+  const session = (): string => {
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      TEMP: temporary,
+      TMP: temporary,
+      TMPDIR: temporary,
+    };
+    delete env.TTSC_UNPLUGIN_TRANSFORM_SESSION;
+    const run = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        [
+          `const api = await import(${JSON.stringify(TestUnpluginRuntime.libUrl("api"))});`,
+          'const fs = await import("node:fs");',
+          "const [file] = JSON.parse(process.argv[1]);",
+          "api.openTtscTransformSession();",
+          "const cache = api.createTtscTransformCache();",
+          "api.shareTtscTransformCache(cache, api.readTtscTransformSession());",
+          'const result = await api.transformTtsc(file, fs.readFileSync(file, "utf8"), api.resolveOptions(), undefined, cache);',
+          'process.stdout.write(result?.code ?? "");',
+        ].join("\n"),
+        JSON.stringify([main]),
+      ],
+      { encoding: "utf8", env, windowsHide: true },
+    );
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout;
+  };
+
+  // 1. The first session compiles and publishes: its first compile learns the
+  // file the plugin reports, and the second, which witnessed it, is published
+  // (samchon/ttsc#1541).
+  assert.match(session(), /PLUGIN:FIRST/);
+  assert.equal(compiles(), 2);
+
+  // 2. A restart adopts it.
+  assert.match(session(), /PLUGIN:FIRST/);
+  assert.equal(compiles(), 2, "a restart over an unchanged project");
+
+  // 3. An input edited while nothing ran refutes it, and the refuted
+  // publication names the file, so one compile witnesses it.
+  fs.writeFileSync(external, "second\n", "utf8");
+  assert.match(session(), /PLUGIN:SECOND/);
+  assert.equal(compiles(), 3, "the current content, compiled");
+}

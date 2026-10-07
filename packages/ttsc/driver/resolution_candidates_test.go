@@ -8,7 +8,18 @@ import (
   "testing"
 )
 
+// TestTransformGraphReplaysCompilerResolutionSemantics loads authored native
+// projects and checks selected resolver candidates, type-root membership,
+// project-reference edges and observations, and semantic config selection.
+// Required candidate membership is checked rather than an exact candidate set;
+// the same maintained compiler supplies the Program and resolution replay.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual LoadProgram and NewTransformGraph expose the asserted package/import/suffix/reference candidate paths and type-root listing. Additional fixtures check JSON-reference admission, a noResolve target outside the Program, unbuilt project-reference resident versus nonresident edges, and explicit versus absent or relative semantic config selection.
+// @evidence contracts/testing.md#independent-expectations Required candidate paths, project-reference edge presence/absence, and selected config filenames are authored literals. The explicit wildcard type root contains exactly fixture-types and no files; independent native EvalSymlinks supplies its expected directory identity. Candidates are not checked for exact equality, and the uppercase JSON expectation uses the Program's filesystem case policy; this does not independently certify that policy or the compiler's full resolver semantics. Wildcard type enumeration is not claimed for an omitted types option.
+// @evidence contracts/testing.md#distinguishing-cases resolveJsonModule false/true and conditional uppercase admission contrast; noResolve retains a successful target as a candidate. Project-reference source presence and output absence differ from realized edge membership. Explicit absolute semantic config, an unmarked wrapper despite ambient metadata, and a rejected relative semantic path exercise separate selection branches.
+// @evidence contracts/testing.md#execution-ownership This driver Go unit writes and cleans its own temporary projects, constructs maintained native compiler Programs in-process, and calls the owning graph operation. Each returned Program is closed; a restored empty linked-plugin manifest excludes ambient hooks, and no installed consumer or external compiler command is used. It does not substitute a literal-input-only aggregation test for this native compiler connection.
 func TestTransformGraphReplaysCompilerResolutionSemantics(t *testing.T) {
+  t.Setenv(LinkedPluginsEnv, "")
   root := t.TempDir()
   files := map[string]string{
     "package.json": `{
@@ -91,6 +102,23 @@ export const value: Folder = { value: internal + self };
   entries := graph.InputObservations[typeRoot].AccessibleEntries
   if entries == nil || !slices.Contains(entries.Directories, "fixture-types") {
     t.Fatalf("automatic type-root listing = %#v", entries)
+  }
+  if !slices.Equal(entries.Directories, []string{"fixture-types"}) || len(entries.Files) != 0 {
+    t.Errorf("wildcard type-root exact accessible population = %#v", entries)
+  }
+  typeObservation := graph.InputObservations[typeRoot]
+  if typeObservation.DirectoryExists == nil || !*typeObservation.DirectoryExists {
+    t.Errorf("wildcard type-root directory predicate = %#v", typeObservation.DirectoryExists)
+  }
+  physicalTypeRoot, err := filepath.EvalSymlinks(filepath.Join(root, "node_modules", "@types"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  if typeObservation.Realpath == nil || !typeObservation.Realpath.OK || filepath.Clean(typeObservation.Realpath.Path) != filepath.Clean(physicalTypeRoot) {
+    t.Errorf("wildcard type-root observed identity = %#v, want %q", typeObservation.Realpath, physicalTypeRoot)
+  }
+  if projected := graph.InputRealpaths[typeRoot]; projected == nil || filepath.Clean(*projected) != filepath.Clean(physicalTypeRoot) {
+    t.Errorf("wildcard type-root projected identity = %#v, want %q", projected, physicalTypeRoot)
   }
   if len(graph.InputProofFailures) != 0 {
     t.Fatalf("stable exact replay reported failures: %#v", graph.InputProofFailures)

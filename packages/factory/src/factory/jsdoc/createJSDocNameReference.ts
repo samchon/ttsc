@@ -15,16 +15,16 @@ import { make } from "../internal/make";
  * With a `Foo` name, the printer emits:
  *
  * ```ts
- * Foo
+ * Foo;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param name The referenced name.
+ * @returns The created {@link JSDocNameReference}.
  * @evidence contracts/common.md#principled-implementation Wrapping the entity or member node records a reference role while preserving the contained name for undecorated printing; construction does not resolve a declaration.
  * @evidence contracts/common.md#clear-and-simple-design The one-field adapter reuses name structure and leaves surrounding tag syntax to its owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied name remains explicit data rather than a guessed target or consumer-specific reference fallback.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains undecorated reference output and its use by see tags, with a corrected example and separate paragraphs under the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
- * @param name The referenced name.
- * @returns The created {@link JSDocNameReference}.
  */
 export const createJSDocNameReference = (
   name: EntityName | JSDocMemberName,

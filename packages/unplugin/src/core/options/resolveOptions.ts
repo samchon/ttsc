@@ -27,6 +27,16 @@ const defaultOptions: ResolvedTtscUnpluginOptions = {
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc identifies the normalized result and explains the non-falsy plugin
  *   check. Separate prose and tags follow the documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One shallow object spread copies the supplied compiler-option keys in
+ *   linear time and space. Nested option values are not traversed; this copy
+ *   detaches the returned top-level overlay from later caller assignments.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function resolveOptions(
   options: TtscUnpluginOptions = {},

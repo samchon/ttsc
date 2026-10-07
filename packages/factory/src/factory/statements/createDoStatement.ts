@@ -17,6 +17,10 @@ import { make } from "../internal/make";
  * } while (cond);
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param statement The statement.
+ * @param expression The expression.
+ * @returns The created {@link DoStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   The body and condition occupy do-while's distinct slots, preserving the
  *   after-body condition position rather than lowering it to a while loop.
@@ -30,11 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains body-first argument order and at-least-once execution, with
  *   a do-while example separated from the acknowledgment block.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param statement The statement.
- * @param expression The expression.
- * @returns The created {@link DoStatement}.
  */
 export const createDoStatement = (
   statement: Statement,

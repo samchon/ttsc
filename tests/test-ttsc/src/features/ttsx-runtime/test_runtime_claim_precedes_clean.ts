@@ -1,7 +1,14 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+
+import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/src/internal/resolveSafeCacheCleanupTargets";
+import { ProcessOwnedDirectory } from "../../../../../packages/ttsc/src/launcher/internal/runtime/ProcessOwnedDirectory";
+import { claimRuntimeProjectDirectory } from "../../../../../packages/ttsc/src/launcher/internal/runtime/claimRuntimeProjectDirectory";
+import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/src/launcher/internal/runtime/resolveRuntimeCleanTargets";
+import { runtimeRunKey } from "../../../../../packages/ttsc/src/launcher/internal/runtime/runtimeRunKey";
+import { withRuntimeDirectoryLock } from "../../../../../packages/ttsc/src/launcher/internal/runtime/withRuntimeDirectoryLock";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies default clean cannot remove a newly pinned index before its claim.
@@ -15,8 +22,13 @@ import path from "node:path";
  *    decision immediately after the first lock transaction.
  * 2. Remove only the test-owned targets that clean selected.
  * 3. Assert clean selected nothing and the claimed run remains reachable.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the authored claimRuntimeProjectDirectory with a declared lock operation that actually executes withRuntimeDirectoryLock, then runs the real default-clean target decision immediately after its first completed transaction. It then asserts the handoff ran, the clean target list is empty, the claimed run directory exists, and it is reachable through the linked project index.
+ * @evidence contracts/testing.md#independent-expectations A published live owner must prevent default clean from selecting its index. The literal empty target list, existence and physical reachability are independent fixture observations; neither the claim result nor clean classification supplies an expected snapshot.
+ * @evidence contracts/testing.md#distinguishing-cases The project index actually links to an external fixture directory, pinning the create-before-claim race. An intervening clean after the first transaction would select an unclaimed empty index, so the four assertions (handoff ran, no clean targets, run exists, run reachable) distinguish a split publication transaction from an atomic claim. This case does not claim scheduler-level concurrent clean execution.
+ * @evidence contracts/testing.md#execution-ownership This named source unit exercises actual filesystem pinning, process-owned records, runtime lock acquisition/release and cleanup classification in process. Its supplied lock operation delegates to the real lock and performs the observation after release; it patches no compiled export, builds no compiler and launches no worker. Finally relinquishes the live claim under the real lock and removes only the owned fixture.
  */
-export const test_runtime_claim_precedes_clean = (): void => {
+export function test_runtime_claim_precedes_clean(): void {
   const root = TestProject.tmpdir("ttsx-atomic-claim-");
   const project = path.join(root, "project");
   const cacheRoot = path.join(root, "cache", "ttsc");
@@ -43,67 +55,67 @@ export const test_runtime_claim_precedes_clean = (): void => {
     process.platform === "win32" ? "junction" : "dir",
   );
 
-  const worker = path.join(project, "claim-worker.cjs");
-  const moduleRoot = path.join(
-    TestProject.WORKSPACE_ROOT,
-    "packages",
-    "ttsc",
-    "lib",
-  );
-  fs.writeFileSync(
-    worker,
-    [
-      'const fs = require("node:fs");',
-      'const path = require("node:path");',
-      `const project = ${JSON.stringify(project)};`,
-      `const cacheRoot = ${JSON.stringify(cacheRoot)};`,
-      `const runtime = ${JSON.stringify(runtime)};`,
-      `const source = ${JSON.stringify(path.join(project, "src", "main.ts"))};`,
-      `const locks = require(${JSON.stringify(path.join(moduleRoot, "launcher", "internal", "runtime", "withRuntimeDirectoryLock.js"))});`,
-      `const { resolveRuntimeCleanTargets } = require(${JSON.stringify(path.join(moduleRoot, "launcher", "internal", "runtime", "resolveRuntimeCleanTargets.js"))});`,
-      `const { resolveSafeCacheCleanupTargets } = require(${JSON.stringify(path.join(moduleRoot, "internal", "resolveSafeCacheCleanupTargets.js"))});`,
-      "const original = locks.withRuntimeDirectoryLock;",
-      "let injected = false;",
-      "let cleanTargets = [];",
-      "locks.withRuntimeDirectoryLock = (location, work) => {",
-      "  const answer = original(location, work);",
-      "  if (!injected) {",
-      "    injected = true;",
-      '    if (path.resolve(location) !== fs.realpathSync.native(runtime)) throw new Error("wrong runtime lock");',
-      "    const plan = resolveRuntimeCleanTargets(cacheRoot);",
-      "    cleanTargets = plan.targets;",
-      "    for (const target of resolveSafeCacheCleanupTargets(project, plan.targets)) {",
-      "      if (target.exists) fs.rmSync(target.path, { recursive: true, force: true });",
-      "    }",
-      "  }",
-      "  return answer;",
-      "};",
-      `const { prepareExecution } = require(${JSON.stringify(path.join(moduleRoot, "launcher", "internal", "prepareExecution.js"))});`,
-      "const execution = prepareExecution(source, { cwd: project });",
-      "process.stdout.write(JSON.stringify({",
-      "  injected,",
-      "  cleanTargets,",
-      "  runExists: fs.existsSync(execution.cleanupDir),",
-      '  runReachable: fs.existsSync(path.join(runtime, "project", path.basename(execution.cleanupDir))),',
-      "}));",
-      "",
-    ].join("\n"),
-    "utf8",
-  );
-
-  const result = TestProject.spawn(process.execPath, [worker], {
-    cwd: project,
-    env: { TTSC_CACHE_DIR: cacheRoot },
-  });
-  assert.equal(result.status, 0, result.stderr);
-  const report = JSON.parse(result.stdout) as {
-    injected: boolean;
-    cleanTargets: string[];
-    runExists: boolean;
-    runReachable: boolean;
+  const pinnedRuntime = fs.realpathSync.native(runtime);
+  let claimed: string | undefined;
+  let injected = false;
+  let cleanTargets: string[] = [];
+  const handoff: typeof withRuntimeDirectoryLock = (location, work) => {
+    const answer = withRuntimeDirectoryLock(location, work);
+    if (!injected) {
+      injected = true;
+      assert.equal(path.resolve(location), pinnedRuntime, "wrong runtime lock");
+      const plan = resolveRuntimeCleanTargets(cacheRoot);
+      cleanTargets = plan.targets;
+      for (const target of resolveSafeCacheCleanupTargets(
+        project,
+        plan.targets,
+      )) {
+        if (!target.exists) continue;
+        const physicalRoot = fs.realpathSync.native(root);
+        const relative = path.relative(
+          physicalRoot,
+          fs.realpathSync.native(target.path),
+        );
+        assert.ok(
+          relative !== "" &&
+            relative !== ".." &&
+            !relative.startsWith(`..${path.sep}`) &&
+            !path.isAbsolute(relative),
+          "clean selected a target outside the owned fixture",
+        );
+        fs.rmSync(target.path, { recursive: true, force: true });
+      }
+    }
+    return answer;
   };
-  assert.equal(report.injected, true, "the clean handoff was not exercised");
-  assert.deepEqual(report.cleanTargets, [], "clean pruned the unclaimed index");
-  assert.equal(report.runExists, true);
-  assert.equal(report.runReachable, true, "the claimed run was orphaned");
-};
+  try {
+    claimed = claimRuntimeProjectDirectory(
+      pinnedRuntime,
+      runtimeRunKey(),
+      handoff,
+    );
+    const report = {
+      injected,
+      cleanTargets,
+      runExists: fs.existsSync(claimed),
+      runReachable: fs.existsSync(
+        path.join(runtime, "project", path.basename(claimed)),
+      ),
+    };
+    assert.equal(report.injected, true, "the clean handoff was not exercised");
+    assert.deepEqual(
+      report.cleanTargets,
+      [],
+      "clean pruned the unclaimed index",
+    );
+    assert.equal(report.runExists, true);
+    assert.equal(report.runReachable, true, "the claimed run was orphaned");
+  } finally {
+    if (claimed !== undefined) {
+      withRuntimeDirectoryLock(pinnedRuntime, () =>
+        ProcessOwnedDirectory.relinquish(claimed!),
+      );
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}

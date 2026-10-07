@@ -3,16 +3,21 @@ package lspserver
 import "testing"
 
 // TestLSPResidentInvalidationBroadcastsProgramInputOverlap verifies an input's
-// contributor ownership never hides its second role as a shared Program input.
+// supplied ownership does not suppress extension-based broadcast queueing.
 //
 // A TypeScript source or resolveJsonModule JSON file can be declared by one
-// producer while belonging to every resident Program. All residents must see
-// the content delta; the daemon itself skips an external path when its Program
-// does not contain it.
+// producer while qualifying for broadcast by the routing policy. This unit
+// inspects queued values on two empty resident records; no actual Program
+// membership, daemon receipt or content delta is executed.
 //
 //  1. Install two resident entries with distinct producer keys.
 //  2. Attribute one shared-Program URI to the first producer only.
 //  3. Assert both residents receive the changed and external deltas.
+//
+// @evidence contracts/testing.md#behavioral-verification Each supplied .ts/.json URI is queued once in both changed and external lists on both resident records despite a first-owner-only map. This observes extension-policy queueing, not native receipt or actual shared Program membership.
+// @evidence contracts/testing.md#independent-expectations Both records must contain exactly the authored URI in each list; those literal values are not derived from the routing result. Generated transport keys populate the input records, not the expected URI queues.
+// @evidence contracts/testing.md#distinguishing-cases Named .ts and .json subtests cover two extension-based broadcasts; the separate owner-only .md case distinguishes non-Program data. Ordinary changes, missing owner lists, duplicate batches and a full-invalidated record are not exercised here.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit calls actual NativePluginSource.InvalidateResidentProgramsForOwnedWatchedChanges and its queueing helper on owned empty resident records. Binary names and URIs are opaque routing inputs; no filesystem, native child, installed consumer or product host is created.
 func TestLSPResidentInvalidationBroadcastsProgramInputOverlap(t *testing.T) {
   for _, externalURI := range []string{
     "file:///project/src/shared.ts",

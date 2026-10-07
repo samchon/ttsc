@@ -8,6 +8,9 @@ import {
 } from "../internal/fakeWorker";
 
 /**
+ * Verifies a nonzero typia transform fails the build instead of compiling the
+ * untransformed source.
+ *
  * A configured typia transform that exits nonzero must fail the build, never
  * silently fall through to compiling the original untransformed source.
  *
@@ -21,6 +24,11 @@ import {
  * 2. Negative twin: the same wiring with a `code: 0` transform whose payload
  *    rewrites the entry must succeed, invoke the build exactly once, and feed
  *    the build the rewritten text (proving the transform result is honored).
+ *
+ * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService compile and bundle reject nonzero transform envelopes without calling build; a valid transform succeeds once and writes the exact rewritten entry before compilation.
+ * @evidence contracts/testing.md#independent-expectations Independent API call records require failure build0 and success build1, while authored transformedTS/emittedJS literals prove intended change and preserved output instead of accepting any successful envelope.
+ * @evidence contracts/testing.md#distinguishing-cases Both compile/bundle failure verbs retain named assertions, contrasted with a successful compile carrying populated transformed source and exact output; disabled/no-op controls belong to neighboring cases.
+ * @evidence contracts/testing.md#execution-ownership This entry owns its verb loop and successful makeFakeWorker instance, directly invoking service operations over injected boot/API/host doubles; no WASM runtime or actual compiler process executes.
  */
 export const test_playground_plugin_failure_transform_nonzero_never_emits_untransformed =
   async () => {
@@ -64,10 +72,16 @@ export const test_playground_plugin_failure_transform_nonzero_never_emits_untran
               typescript: { "src/playground.ts": "export const x = 1; /*t*/" },
             }),
           }),
-        build: () =>
-          envelope({
+        build: () => {
+          assert.equal(
+            record.writes["/work/src/playground.ts"],
+            "export const x = 1; /*t*/",
+            "the transformed source must exist when build starts",
+          );
+          return envelope({
             result: compilePayload({ "src/playground.js": "x = 1;" }),
-          }),
+          });
+        },
       },
     );
     const ok = await service.compile({ source });

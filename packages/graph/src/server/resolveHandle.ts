@@ -2,29 +2,11 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { parseTtscGraphNodeId } from "../model/TtscGraphNodeId";
 import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
 import { ITtscGraphNode as NodeShape } from "../structures/ITtscGraphNode";
+import type { IResolvedGraphHandle } from "./IResolvedGraphHandle";
 import { exportFanIn } from "./exportSurface";
 import { isSupportPath } from "./pathPolicy";
 
 type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
-
-/**
- * Exact resolved node, ambiguous candidates or an empty unknown outcome.
- *
- * @evidence contracts/common.md#principled-implementation Optional node and candidates preserve the resolver's unique, ambiguous and absent states without fabricating identity.
- * @evidence contracts/common.md#clear-and-simple-design One compact outcome is shared by direct-id, name and file-qualified resolution paths.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranked candidates remain unresolved choices rather than a guessed definitive node.
- * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish uniquely resolved identity from ranked ambiguity.
- * @evidenceExclude contracts/performance.md#efficient-algorithms This outcome record chooses no search or ranking strategy; resolveGraphHandle owns those choices.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The result transfers a resolution state without coordinating reusable computation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Callers own the optional candidate array; this record retains no independent resource.
- */
-export interface IResolvedGraphHandle {
-  /** Present when the handle identifies exactly one node. */
-  node?: ITtscGraphNode;
-
-  /** Ranked remaining choices when more than one identity matches. */
-  candidates?: ITtscGraphNode[];
-}
 
 /**
  * Resolve a tool handle as an id, an exact symbol name, a dotted suffix, or a
@@ -59,6 +41,7 @@ export interface IResolvedGraphHandle {
  * @evidence contracts/performance.md#efficient-algorithms Exact id and symbol probes use generation indexes; a dotted-suffix miss can scan V nodes and collect C matches, while ranking their indexed edge neighborhoods retains the best K in O(CK) time and O(K) additional space for the normal small cap.
  * @evidence contracts/performance.md#reuse-equivalent-work The graph shares id, symbol and adjacency indexes across handle resolutions; each call ranks a fresh candidate set because the spelling and requested limit can differ.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate lists are request-local and returned to the caller; the resolver retains no history, handle or running task.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation looks handles up in in-memory indexes; a path part of an id is matched as text.
  */
 export function resolveGraphHandle(
   graph: TtscGraphMemory,

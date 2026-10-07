@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
-import { isAbsoluteLocalProjectInputPath } from "../../../../../packages/ttsc/lib/compiler/internal/build/isAbsoluteLocalProjectInputPath.js";
-import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/build/mergeProjectInputSnapshots.js";
-import { parseProjectInputSnapshot } from "../../../../../packages/ttsc/lib/compiler/internal/build/parseProjectInputSnapshot.js";
+import { isAbsoluteLocalProjectInputPath } from "../../../../../packages/ttsc/src/compiler/internal/build/isAbsoluteLocalProjectInputPath";
+import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/src/compiler/internal/build/mergeProjectInputSnapshots";
+import { parseProjectInputSnapshot } from "../../../../../packages/ttsc/src/compiler/internal/build/parseProjectInputSnapshot";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the launcher accepts only absolute local dependency snapshots and
@@ -15,12 +17,36 @@ import { parseProjectInputSnapshot } from "../../../../../packages/ttsc/lib/comp
  *
  * 1. Reject relative/remote/NUL reload files and resolution directories.
  * 2. Reject two otherwise-valid snapshots that publish different roots.
- * 3. Accept an old snapshot without reload metadata and merge physical aliases.
+ * 3. Accept an old snapshot without reload metadata and merge identical duplicate
+ *    declarations.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Invokes parseProjectInputSnapshot, mergeProjectInputSnapshots and isAbsoluteLocalProjectInputPath to reject malformed/foreign views and retain exact validated reload/file/glob populations.
+ * @evidence contracts/testing.md#independent-expectations Absolute-local namespace and same-selected-root protocol requirements define rejection. Independent literal normalized lists establish duplicate collapse and omitted optional reload fields; explicit Windows/POSIX syntax inputs do not derive answers from the parser.
+ * @evidence contracts/testing.md#distinguishing-cases Relative/URL/NUL paths, wrong reload-list shapes and foreign roots contrast with old producer omission and identical duplicate snapshots. Drive/UNC/extended paths succeed while root-only, wildcard-volume, device and pipe namespaces reject; POSIX slash-root remains valid.
+ * @evidence contracts/testing.md#execution-ownership The exported source unit calls owning parsers and merger directly with a fully authored supported plugin DTO. TestProject owns the real root and independently absent selected descendants; merge may perform native identity and read-only case observations but starts no product host or watcher. Explicit platform grammar is portable, and duplicate snapshot merging does not claim genuine symlink-alias validation.
  */
 export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_roots =
   () => {
-    const root = path.resolve("project-input-root");
-    const plugin = { name: "@ttsc/test-project-inputs" } as never;
+    const root = fs.realpathSync.native(
+      TestProject.tmpdir("ttsc-project-input-protocol-"),
+    );
+    for (const descendant of [
+      "docs",
+      "api",
+      "config-deps",
+      "lint.config.json",
+      "other-project",
+      "foreign-project",
+    ])
+      assert.equal(fs.existsSync(path.join(root, descendant)), false);
+    const plugin: Parameters<typeof parseProjectInputSnapshot>[1] = {
+      binary: path.join(root, "unused-plugin"),
+      config: { transform: "@ttsc/test-project-inputs" },
+      kind: "executable",
+      name: "@ttsc/test-project-inputs",
+      source: root,
+      stage: "check",
+    };
     const invalidSnapshots = [
       { root, files: ["docs/spec.md"], globs: [] },
       { root, files: ["https://example.com/openapi.json"], globs: [] },
@@ -110,14 +136,14 @@ export const test_project_input_snapshots_reject_non_local_paths_and_mismatched_
       () =>
         mergeProjectInputSnapshots(root, [
           first,
-          { root: path.resolve("other-project"), files: [], globs: [] },
+          { root: path.join(root, "other-project"), files: [], globs: [] },
         ]),
       /differs from the selected project root/,
     );
     assert.throws(
       () =>
         mergeProjectInputSnapshots(root, [
-          { root: path.resolve("foreign-project"), files: [], globs: [] },
+          { root: path.join(root, "foreign-project"), files: [], globs: [] },
         ]),
       /differs from the selected project root/,
     );

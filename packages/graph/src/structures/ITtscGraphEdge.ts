@@ -4,13 +4,20 @@ import { TtscGraphEdgeKind } from "./TtscGraphEdgeKind";
 /**
  * A directed relationship between two {@link ITtscGraphNode}s, both named by
  * `id`. The triple `(from, to, kind)` is unique; a repeat keeps the first
- * source-order evidence. Every edge is compiler-resolved, so there is no
- * per-edge trust flag: the whole graph is checker-resolved fact.
+ * source-order evidence. Every edge between declarations is compiler-resolved,
+ * apart from the `contains` ownership the memory layer derives and the
+ * trace-only `dispatches` hop, and an artifact node's `contains` parent is the
+ * one its publishing plugin named. There is no per-edge trust flag: `kind` says
+ * which of these an edge is.
  *
  * @evidence contracts/common.md#principled-implementation Directed endpoint identities and a relation kind express a resolved edge; optional evidence supplies coordinates without changing identity.
  * @evidence contracts/common.md#clear-and-simple-design One record separates relation identity from its source span, with no duplicated node payload.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Relation kinds come from the shared vocabulary rather than fixture-specific relationships.
  * @evidence contracts/common.md#meaningful-documentation Native documentation states edge uniqueness and first-source evidence semantics; member comments are visibly separated.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphEdge {
   /** Node id the relationship originates from. */

@@ -45,9 +45,9 @@ export interface ITtscLintPlugin {
 
   /**
    * Descriptive rule names exported by the Go side. The list does not define
-   * configuration types or register rules; those use TypeScript module
-   * augmentation and Go `init()` respectively. Missing entries are not flagged
-   * at runtime.
+   * configuration types or register rules; those use a published rule-options
+   * interface and Go `init()` respectively. Missing entries are not flagged at
+   * runtime.
    */
   rules?: readonly string[];
 

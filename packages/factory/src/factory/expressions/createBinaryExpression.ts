@@ -12,28 +12,28 @@ import { make } from "../internal/make";
  * {@link createLogicalAnd}.
  *
  * Flat output surrounds ordinary operators with spaces. Commas attach to the
- * left operand; width can replace the following space with a line break.
+ * left operand; width can replace the following space with a line break, except
+ * after `>` and `>>`, which keep their right operand on the same line.
  *
  * Given operands `a`, `b` and the `+` operator, the printer emits:
  *
  * ```ts
- * a + b
+ * a + b;
  * ```
  *
  * SyntaxKind and Token accept more than legal binary operators. Callers supply
- * an appropriate operator and valid operands, including assignment targets.
- * No lexical or semantic validation is performed here.
- *
- * @evidence contracts/common.md#principled-implementation A token operand normalizes to its token spelling and both expression operands retain their roles; legal binary operator and target validity remain caller premises for the broad accepted types.
- * @evidence contracts/common.md#clear-and-simple-design One normalization and shared make call own binary construction; operator-specific helpers delegate here rather than duplicating node shape.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Extracting an explicit Token's spelling follows the accepted input contract, without consumer-based operator guessing or mutations of foreign nodes.
- * @evidence contracts/common.md#meaningful-documentation JSDoc states accepted operator representations and validation limits, with an example, ordered parameters and separate acknowledgment block under documentation guidance.
+ * an appropriate operator and valid operands, including assignment targets. No
+ * lexical or semantic validation is performed here.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.
  * @param operator The operator token or its `SyntaxKind`.
  * @param right The right-hand operand.
  * @returns The created {@link BinaryExpression}.
+ * @evidence contracts/common.md#principled-implementation A token operand normalizes to its token spelling and both expression operands retain their roles; legal binary operator and target validity remain caller premises for the broad accepted types.
+ * @evidence contracts/common.md#clear-and-simple-design One normalization and shared make call own binary construction; operator-specific helpers delegate here rather than duplicating node shape.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Extracting an explicit Token's spelling follows the accepted input contract, without consumer-based operator guessing or mutations of foreign nodes.
+ * @evidence contracts/common.md#meaningful-documentation JSDoc states accepted operator representations and validation limits, with an example, ordered parameters and separate acknowledgment block under documentation guidance.
  */
 export const createBinaryExpression = (
   left: Expression,

@@ -1,66 +1,67 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { pluginSourceState, pluginSourceStateHolds } from "ttsc/plugin-source";
+
+import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceState";
+import { pluginSourceStateHolds } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceStateHolds";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies a plugin source's state proof follows a build environment changed
- * through the Go environment file, so a change no variable carries never makes
- * it refute the state a compile reports (samchon/ttsc#1493).
+ * Verifies source-state proof follows a Go environment-file change without a
+ * variable change.
  *
- * The state a transform reports covers the environment a build is keyed on,
- * which costs a `go env` run and a GOROOT walk to read, so a process keeps its
- * reading under its variables. `go env -w` changes that environment through a
- * file, with no variable moving. A compile keys its binaries on a fresh read
- * and reports the state it built from; a proof holding on to the process's
- * first reading would refute that state on every delivery and recompile
- * forever. The kept reading now holds only while the environment file keeps its
- * metadata (samchon/ttsc#1516), and the proof reads the environment again
- * before it refutes a state all the same.
+ * GOENV can change a build's effective flags while the process environment
+ * stays fixed. The kept environment reading must agree with the fresh producer
+ * state, accept that state and refuse the earlier state.
  *
- * 1. Point `GOENV` at a Go environment file of the test's own, and read a plugin
- *    source's state.
- * 2. Write `GOFLAGS` into that file, moving no variable, and assert the process's
- *    reading follows it to the state a fresh read gives.
- * 3. Assert the proof accepts the fresh state and refutes the old one.
+ * 1. Copy the package-owned source and point GOENV at a private empty file.
+ * 2. Write GOFLAGS into that file and compare the fresh and kept readings.
+ * 3. Accept the fresh state, refuse the old state and restore GOENV in finally.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Direct pluginSourceState and pluginSourceStateHolds calls preserve all five original assertions: initial acceptance, a changed fresh state, kept/fresh agreement, fresh acceptance and stale-state refusal after a private GOENV edit.
+ * @evidence contracts/testing.md#independent-expectations The literal GOFLAGS file edit establishes an external input transition while source bytes and variables stay fixed. The supported fresh-versus-kept environment contract supplies inequality/equality and true/false expectations independently of their computed digest strings.
+ * @evidence contracts/testing.md#distinguishing-cases Initial state is valid before the file-only mutation; afterwards the fresh state must hold and the old state must fail. Caller-supplied source digest behavior and supplied-reading composition have separate named API units.
+ * @evidence contracts/testing.md#execution-ownership This named API unit calls the actual authored source-state owners using package-owned fixture bytes copied by TestProject. Real Go environment queries/toolchain observations run synchronously, but no native artifact, installed consumer or real compiler/product host is created. GOENV is restored in finally and TestProject owns private roots.
  */
-export const test_plugin_source_state_holds_reads_the_environment_again_before_refuting =
-  () => {
-    const root = TestProject.tmpdir("ttsc-plugin-source-goenv-");
-    const source = path.join(root, "plugin");
-    TestProject.writeFiles(source, {
-      "go.mod": "module example.com/plugin\n\ngo 1.26\n",
-      "main.go": "package main\n\nfunc main() {}\n",
-    });
-    const goenv = path.join(root, "go.env");
-    fs.writeFileSync(goenv, "");
-    const previous = process.env.GOENV;
-    process.env.GOENV = goenv;
-    try {
-      // 1. The process's reading.
-      const before = pluginSourceState(source);
-      assert.equal(pluginSourceStateHolds(source, before), true);
-
-      // 2. A change no variable carries.
-      fs.writeFileSync(goenv, "GOFLAGS=-tags=ttsc_goenv_probe\n");
-      const fresh = pluginSourceState(source, { env: process.env });
-      assert.notEqual(fresh, before, "the environment file moved the state");
-      assert.equal(
-        pluginSourceState(source),
-        fresh,
-        "the process's reading follows the environment file",
-      );
-
-      // 3. The proof accepts what a compile would report now.
-      assert.equal(
-        pluginSourceStateHolds(source, fresh),
-        true,
-        "the state a compile would report now holds",
-      );
-      assert.equal(pluginSourceStateHolds(source, before), false);
-    } finally {
-      if (previous === undefined) delete process.env.GOENV;
-      else process.env.GOENV = previous;
-    }
-  };
+export function test_plugin_source_state_holds_reads_the_environment_again_before_refuting(): void {
+  const root = TestProject.tmpdir("ttsc-plugin-source-goenv-");
+  const source = path.join(root, "plugin");
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "e2e",
+      "plugin_source_state_holds_reads_the_environment_again_before_refuting",
+      "inputs-1",
+    ),
+    source,
+  );
+  const goenv = path.join(root, "go.env");
+  fs.writeFileSync(goenv, "");
+  const previous = process.env.GOENV;
+  process.env.GOENV = goenv;
+  try {
+    const before = pluginSourceState(source);
+    assert.equal(pluginSourceStateHolds(source, before), true);
+    fs.writeFileSync(goenv, "GOFLAGS=-tags=ttsc_goenv_probe\n");
+    const fresh = pluginSourceState(source, { env: process.env });
+    assert.notEqual(fresh, before, "the environment file moved the state");
+    assert.equal(
+      pluginSourceState(source),
+      fresh,
+      "the process's reading follows the environment file",
+    );
+    assert.equal(
+      pluginSourceStateHolds(source, fresh),
+      true,
+      "the state a compile would report now holds",
+    );
+    assert.equal(pluginSourceStateHolds(source, before), false);
+  } finally {
+    if (previous === undefined) delete process.env.GOENV;
+    else process.env.GOENV = previous;
+  }
+}

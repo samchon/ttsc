@@ -1,7 +1,6 @@
 package driver_test
 
 import (
-  "os/exec"
   "path/filepath"
   "regexp"
   "strings"
@@ -10,16 +9,26 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteExcludesSourceOwnedHelperDeclaration verifies helper shape
-// cannot make a source variable impersonate an emitter-owned import binding.
+// TestDriverRewriteExcludesSourceOwnedHelperDeclaration Verifies a source-owned helper-shaped decoy cannot own the imported rewrite.
 //
 // A user variable may use the same __importDefault helper shape as the emitted
 // default import. Helper kind alone then leaves two preferred candidates and
 // cannot establish which declaration owns the source import.
 //
-// 1. Emit a default import beside a same-module, helper-shaped user decoy.
-// 2. Register one rewrite for the imported call through the public driver API.
-// 3. Execute the output and assert the decoy survives beside the replacement.
+// The preserved esModuleInterop:false input is a removed compiler option in the
+// pinned upstream; its checker and helper emission keep interop enabled.
+// Parsing must still preserve the explicit raw false value. The separate
+// direct compiler/Node-oracle batch owns the equivalent runtime value check;
+// this case does not certify that batch's execution or producer sharing.
+//
+// 1. Load the original explicit-false fixture and assert its parsed raw option.
+// 2. Emit the imported rewrite, find its separate binding and retain the decoy call.
+// 3. Require the literal imported replacement in the exported assignment.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual LoadProgram and asserts the parsed ESModuleInterop value is explicit false, then EmitAll requires an emitter binding distinct from plugin_99, the retained decoy call and rewritten export.
+// @evidence contracts/testing.md#independent-expectations Authored esModuleInterop:false independently requires the parsed raw false value; literal plugin_99 decoy and rewritten-import replacement independently distinguish source-owned and emitter-owned declarations.
+// @evidence contracts/testing.md#distinguishing-cases Both declarations share __importDefault(require("./plugin")) shape; the original removed esModuleInterop:false input is preserved without claiming it disables pinned-upstream interop.
+// @evidence contracts/testing.md#execution-ownership The Go driver unit inspects actual in-process emission only; its original runtime decoy/value oracle is a separate batch subcase.
 func TestDriverRewriteExcludesSourceOwnedHelperDeclaration(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -59,6 +68,9 @@ export const value = plugin.make("input");
     t.Fatalf("unexpected config diagnostics: %#v", diags)
   }
   defer prog.Close()
+  if !prog.TSProgram.Options().ESModuleInterop.IsFalse() {
+    t.Fatalf("parsed ESModuleInterop = %v, want explicit false", prog.TSProgram.Options().ESModuleInterop)
+  }
   file := prog.SourceFile(filepath.Join(root, "index.ts"))
   if file == nil {
     t.Fatal("SourceFile did not find index.ts")
@@ -93,16 +105,7 @@ export const value = plugin.make("input");
   if !strings.Contains(js, `plugin_99.default.make("kept")`) {
     t.Fatalf("source-owned helper declaration was rewritten:\n%s", js)
   }
-  command := exec.Command("node", "-e", `const v = require("./index.js"); process.stdout.write(JSON.stringify(v))`)
-  command.Dir = filepath.Dir(jsPath)
-  output, err := command.CombinedOutput()
-  if err != nil {
-    t.Fatalf("rewritten JavaScript failed: %v\n%s", err, output)
-  }
-  got := string(output)
-  for _, want := range []string{`"decoy":"plugin:kept"`, `"value":"rewritten-import"`} {
-    if !strings.Contains(got, want) {
-      t.Fatalf("runtime output missing %s: %s\n%s", want, got, js)
-    }
+  if !strings.Contains(js, `exports.value = "rewritten-import";`) {
+    t.Fatalf("rewritten imported export missing:\n%s", js)
   }
 }

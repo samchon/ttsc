@@ -15,7 +15,8 @@ interface IPackageJson {
 }
 
 /**
- * Version-specific registry manifest; absent dist metadata cannot supply a tarball.
+ * Version-specific registry manifest; absent dist metadata cannot supply a
+ * tarball.
  *
  * @evidence contracts/common.md#principled-implementation Identity, dependency fields and optional distribution witnesses express the registry subset consumed by version selection and authentication.
  * @evidence contracts/common.md#clear-and-simple-design Registry metadata remains separate from unpacked files and mounted state.
@@ -37,7 +38,8 @@ export interface INpmVersionMetadata {
 }
 
 /**
- * Registry packument subset, indexed by exact version with optional tag aliases.
+ * Registry packument subset, indexed by exact version with optional tag
+ * aliases.
  *
  * @evidence contracts/common.md#principled-implementation Version entries and dist-tag mappings provide the domain over which semver constraints are resolved.
  * @evidence contracts/common.md#clear-and-simple-design The packument index is independent of a particular install request or mounted graph.
@@ -118,7 +120,8 @@ export const DECLARATION_FILE_REGEXP = /\.d\.[cm]?ts$/i;
 const RUNTIME_FILE_REGEXP = /(^package\.json$|\.([cm]?js|json)$)/i;
 
 /**
- * Preserve the signal's abort reason; use AbortError only when no reason exists.
+ * Preserve the signal's abort reason; use AbortError only when no reason
+ * exists.
  *
  * @evidence contracts/common.md#principled-implementation AbortSignal.aborted gates rejection and its reason remains the deciding thrown value.
  * @evidence contracts/common.md#clear-and-simple-design One guard centralizes cancellation semantics across transport and archive phases.
@@ -132,7 +135,8 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
 }
 
 /**
- * Fetch the public registry packument; only an optional package's 404 is omitted.
+ * Fetch the public registry packument; only an optional package's 404 is
+ * omitted.
  *
  * @evidence contracts/common.md#principled-implementation Encoded package identity forms the registry URL; status handling distinguishes an allowed optional absence from transport failure and decodes the requested metadata.
  * @evidence contracts/common.md#clear-and-simple-design Transport and abort helpers serve one metadata request while version solving stays separate.
@@ -218,7 +222,9 @@ export function selectVersion(
       semverRanges.every((range) => satisfies(version, range)) &&
       (taggedVersions.size === 0 || taggedVersions.has(version)),
   );
-  const selected = maxSatisfying(candidates, "*");
+  // Candidates already satisfy every requested constraint, including the
+  // explicit prerelease admission of a range or exact registry tag.
+  const selected = maxSatisfying(candidates, "*", { includePrerelease: true });
   if (selected) return selected;
   throw new Error(
     `No version of ${metadata.name} satisfies ${requested
@@ -273,9 +279,9 @@ export async function downloadTarball(
 }
 
 /**
- * Verify registry authentication metadata against compressed bytes. The strongest
- * supported SRI group wins; absent SRI falls back to shasum, and absent both is
- * accepted without an authentication claim.
+ * Verify registry authentication metadata against compressed bytes. The
+ * strongest supported SRI group wins; absent SRI falls back to shasum, and
+ * absent both is accepted without an authentication claim.
  *
  * @evidence contracts/common.md#principled-implementation Web Crypto digests the actual compressed bytes and equalBytes compares against the strongest supported witnesses; malformed metadata or mismatch rejects.
  * @evidence contracts/common.md#clear-and-simple-design Authentication precedes decompression and keeps digest parsing separate from byte comparison.
@@ -290,7 +296,10 @@ export async function verifyTarball(
   throwIfAborted(signal);
   if (dist.integrity !== undefined) {
     const candidates = parseIntegrity(dist.integrity);
-    const strength = Math.max(...candidates.map(({ rank }) => rank));
+    const strength = candidates.reduce(
+      (maximum, { rank }) => Math.max(maximum, rank),
+      0,
+    );
     const strongest = candidates.filter(
       (candidate) => candidate.rank === strength,
     );
@@ -801,7 +810,8 @@ function formatByteLimit(bytes: number): string {
 }
 
 /**
- * Validate an archive byte budget as a positive safe integer before related work.
+ * Validate an archive byte budget as a positive safe integer before related
+ * work.
  *
  * @evidence contracts/common.md#principled-implementation Safe positive integers support exact byte accounting and a branded result distinguishes budgets that passed the numeric gate.
  * @evidence contracts/common.md#clear-and-simple-design One validation gate serves compressed and expanded budgets without duplicating numeric policy.

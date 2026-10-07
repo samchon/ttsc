@@ -37,11 +37,22 @@ export async function startServer(options: {
   const tsconfig = options.tsconfig ?? "tsconfig.json";
   let session: TtscGraphSession | undefined;
   const server = createServer(async () => {
+    if (closed) throw new Error("@ttsc/graph: server is closed");
     session ??= new TtscGraphSession({ cwd, tsconfig });
     return session.graph();
   }, options.version);
   const transport = new StdioServerTransport();
-  const closeSession = () => session?.close();
+  let closed = false;
+  const closeSession = () => {
+    if (closed) return;
+    closed = true;
+    void session?.close().catch((error: unknown) => {
+      process.stderr.write(
+        `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exitCode = 1;
+    });
+  };
   transport.onclose = closeSession;
   process.stdin.once("end", closeSession);
   await server.connect(transport);

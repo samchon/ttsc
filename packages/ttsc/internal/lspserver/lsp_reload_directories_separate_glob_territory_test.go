@@ -1,25 +1,33 @@
 package lspserver
 
 import (
+  "errors"
   "net/url"
   "os"
   "path/filepath"
+  "runtime"
+  "syscall"
   "testing"
 )
 
 // TestLSPReloadDirectoriesSeparateGlobTerritory verifies the native LSP host
-// applies the same data-versus-selection boundary as the CLI watcher.
+// reload matcher distinguishes the supplied glob territory and selection paths.
 //
 // A reload directory records resolution topology, but a declared glob's
 // literal root appearing strictly below it is an ordinary data-population
-// transition. Restarting the JavaScript launcher for that event loses the
-// resident process that should instead reload its Program.
+// transition in the direct policy. This unit does not run a CLI watcher,
+// JavaScript launcher, resident process or Program reload.
 //
 //  1. Create a missing glob root directly inside a reload directory and prove
 //     it remains on the warm data lane.
 //  2. Prove unrelated immediate entries and the directory itself remain cold.
 //  3. Prove exact reload files are never exempt inside glob territory.
 //  4. Prove a glob rooted on or above the reload directory exempts nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct reload-policy booleans exempt a newly created literal glob root and its in-root symlink form, but match unrelated immediate entries, the directory itself, an exact reload file, an outside-root symlink target and globs rooted on or above the reload directory. Warm/cold process lifetimes are not observed.
+// @evidence contracts/testing.md#independent-expectations Each supplied native mutation has a literal true/false expectation independent of the matcher. Real normalized snapshots establish baselines; no particular digest value or process reuse is certified.
+// @evidence contracts/testing.md#distinguishing-cases The six named subtests distinguish below-root territory, exact-file precedence, symlink targets inside/outside the reload directory and globs on/above it. Both symlink cases expose Windows privilege-only skips; other fixture errors fail.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit and its named subtests call actual snapshot normalization and NativePluginSource.ProjectInputReloadMatchesChange over owned temporary native inputs. The snapshot helper receives the current subtest's testing handle for failure ownership. No child, installed consumer, substitute operation or product host is used.
 func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
   uri := func(location string) string {
     normalized := filepath.ToSlash(location)
@@ -29,6 +37,7 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     return (&url.URL{Scheme: "file", Path: normalized}).String()
   }
   snapshot := func(
+    t *testing.T,
     root string,
     globs []string,
     reloadFiles []string,
@@ -55,6 +64,7 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     globRoot := filepath.Join(root, "api")
     source := &NativePluginSource{
       projectInputs: snapshot(
+        t,
         root,
         []string{filepath.Join(globRoot, "**", "*.json")},
         nil,
@@ -68,6 +78,7 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     }
 
     source.projectInputs = snapshot(
+      t,
       root,
       []string{filepath.Join(globRoot, "**", "*.json")},
       nil,
@@ -90,6 +101,7 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     reloadFile := filepath.Join(globRoot, "selection.json")
     source := &NativePluginSource{
       projectInputs: snapshot(
+        t,
         root,
         []string{filepath.Join(globRoot, "**", "*.json")},
         []string{reloadFile},
@@ -115,13 +127,17 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     }
     source := &NativePluginSource{
       projectInputs: snapshot(
+        t,
         root,
         []string{filepath.Join(globRoot, "**", "*.json")},
         nil,
       ),
     }
     if err := os.Symlink(physicalData, globRoot); err != nil {
-      t.Skipf("directory symlinks unavailable: %v", err)
+      if runtime.GOOS == "windows" && errors.Is(err, syscall.Errno(1314)) {
+        t.Skipf("Windows symlink privilege is unavailable: %v", err)
+      }
+      t.Fatalf("create owned directory symlink: %v", err)
     }
     if source.ProjectInputReloadMatchesChange(uri(globRoot), &created) {
       t.Fatal("symlinked glob root lost its physical data identity")
@@ -134,13 +150,17 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     physicalData := t.TempDir()
     source := &NativePluginSource{
       projectInputs: snapshot(
+        t,
         root,
         []string{filepath.Join(globRoot, "**", "*.json")},
         nil,
       ),
     }
     if err := os.Symlink(physicalData, globRoot); err != nil {
-      t.Skipf("directory symlinks unavailable: %v", err)
+      if runtime.GOOS == "windows" && errors.Is(err, syscall.Errno(1314)) {
+        t.Skipf("Windows symlink privilege is unavailable: %v", err)
+      }
+      t.Fatalf("create owned directory symlink: %v", err)
     }
     if !source.ProjectInputReloadMatchesChange(uri(globRoot), &created) {
       t.Fatal("glob root outside reload directory exempted selection")
@@ -167,7 +187,7 @@ func TestLSPReloadDirectoriesSeparateGlobTerritory(t *testing.T) {
     t.Run(test.name, func(t *testing.T) {
       root := t.TempDir()
       source := &NativePluginSource{
-        projectInputs: snapshot(root, []string{test.glob(root)}, nil),
+        projectInputs: snapshot(t, root, []string{test.glob(root)}, nil),
       }
       entry := filepath.Join(root, "new-package")
       if err := os.Mkdir(entry, 0o755); err != nil {

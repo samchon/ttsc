@@ -18,15 +18,15 @@ import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
  * Babel locations have one-based lines and zero-based UTF-16 columns; source
  * map segments have zero-based lines and columns. The map points from generated
  * text to the authored file. Missing or reversed mapped ends clamp to the
- * mapped start. Traversal tracks visited objects and mutates only AST locations.
- * Absolute sources are compared by filesystem identity within this call, so
- * links and actual directory case capabilities determine the owning source.
+ * mapped start. Traversal tracks visited objects and mutates only AST
+ * locations. Absolute sources are compared by filesystem identity within this
+ * call, so links and actual directory case capabilities determine the owning
+ * source.
  *
  * @param ast The upstream transformer's AST, rewritten in place.
  * @param map The adapter's map from the transformed text to `file`, with
  *   absolute `sources`.
  * @param file Absolute path of the module.
- *
  * @evidence contracts/common.md#principled-implementation
  *   The adapter consumes its own source-map VLQ segments using
  *   greatest-lower-bound lookup, then updates the upstream-owned AST through
@@ -125,7 +125,7 @@ export function remapAstLocations(
     }
     visited.add(value);
     if (Array.isArray(value)) {
-      pending.push(...value);
+      for (const entryToAppend of value) pending.push(entryToAppend);
       continue;
     }
     const node = value as Record<string, unknown>;

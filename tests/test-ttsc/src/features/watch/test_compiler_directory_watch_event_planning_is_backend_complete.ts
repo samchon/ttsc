@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/lib/launcher/internal/watch/planCompilerDirectoryWatchEvent.js";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
+import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/src/launcher/internal/watch/planCompilerDirectoryWatchEvent";
 
 /**
  * Verifies compiler directory events map deterministically to watch actions.
@@ -9,13 +10,33 @@ import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/li
  * A named POSIX change is a candidate for the bytes to decide, since the file's
  * own watcher can miss it (samchon/ttsc#1583), named replacements rearm one
  * file, and filename-less events conservatively cover every surviving tracked
- * input on both POSIX and Windows.
+ * input on both POSIX and Windows. The supplied virtual path identity has no
+ * aliases and unknown case policy; native case discovery is not exercised.
+ *
+ * 1. Plan a named POSIX change and rename for a tracked file and require its
+ *    change, its rearm and no refresh.
+ * 2. Plan filename-less events on POSIX and Windows and require every surviving
+ *    tracked input to change, with a refresh.
+ * 3. Plan a filename-less rename after an input disappeared (only the survivor
+ *    changes) and a named change of an untracked file (no change, refresh
+ *    only).
+ * 4. Contrast Windows named rename, missing/empty members and an outside root.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual directory-event planner for named content changes, replacements and unnamed notifications, checking exact change, rearm and refresh plans.
+ * @evidence contracts/testing.md#independent-expectations Literal arrays and booleans specify event policy independently of the planner; supplied membership, existence and virtual identity describe the input authority only.
+ * @evidence contracts/testing.md#distinguishing-cases POSIX named content change differs from rename; Windows named rename and unnamed change never rearm. Named missing, empty membership and unrelated named events refresh without a candidate; unnamed events exclude a surviving member outside the subscribed root. Physical/case-alias policy is separately owned by identity units, not simulated as native watch delivery here.
+ * @evidence contracts/testing.md#execution-ownership Executes planner and identity policy in one source-unit process with supplied virtual filesystem operations; no native watch, filesystem case query, compiler or child process is needed.
  */
 export const test_compiler_directory_watch_event_planning_is_backend_complete =
   (): void => {
     const root = path.resolve("watch-event-root");
     const source = path.join(root, "src", "main.ts");
     const config = path.join(root, "tsconfig.json");
+    const identities = createProjectInputPathIdentityContext({
+      platform: process.platform,
+      realpath: (location) => location,
+      caseSensitive: () => undefined,
+    });
     const trackedFiles = new Map([
       [source, source],
       [config, config],
@@ -28,6 +49,7 @@ export const test_compiler_directory_watch_event_planning_is_backend_complete =
         changed: source,
         event: "change",
         exists,
+        identities,
         location: root,
         platform: "linux",
         trackedFiles,
@@ -39,6 +61,7 @@ export const test_compiler_directory_watch_event_planning_is_backend_complete =
         changed: source,
         event: "rename",
         exists,
+        identities,
         location: root,
         platform: "linux",
         trackedFiles,
@@ -49,6 +72,7 @@ export const test_compiler_directory_watch_event_planning_is_backend_complete =
       planCompilerDirectoryWatchEvent({
         event: "rename",
         exists,
+        identities,
         location: root,
         platform: "linux",
         trackedFiles,
@@ -63,6 +87,7 @@ export const test_compiler_directory_watch_event_planning_is_backend_complete =
       planCompilerDirectoryWatchEvent({
         event: "change",
         exists,
+        identities,
         location: root,
         platform: "win32",
         trackedFiles,
@@ -72,5 +97,78 @@ export const test_compiler_directory_watch_event_planning_is_backend_complete =
         rearm: [],
         refresh: true,
       },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        event: "rename",
+        exists: (location) => location === config,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles,
+      }),
+      { changes: [config], rearm: [config], refresh: true },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        changed: path.join(root, "untracked.ts"),
+        event: "change",
+        exists,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles,
+      }),
+      { changes: [], rearm: [], refresh: true },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        changed: source,
+        event: "rename",
+        exists,
+        identities,
+        location: root,
+        platform: "win32",
+        trackedFiles,
+      }),
+      { changes: [source], rearm: [], refresh: false },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        changed: source,
+        event: "change",
+        exists: () => false,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles,
+      }),
+      { changes: [], rearm: [], refresh: true },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        event: "rename",
+        exists,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles: new Map(),
+      }),
+      { changes: [], rearm: [], refresh: true },
+    );
+    const outside = path.join(path.dirname(root), "outside.ts");
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        event: "rename",
+        exists: () => true,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles: new Map([
+          [source, source],
+          [outside, outside],
+        ]),
+      }),
+      { changes: [source], rearm: [source], refresh: true },
     );
   };

@@ -2,11 +2,10 @@ package evidence
 
 import (
   "encoding/json"
+  "github.com/samchon/ttsc/packages/lint/rule"
   "os"
   "path/filepath"
   "testing"
-
-  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 /**
@@ -16,8 +15,13 @@ import (
  * would hide that failure, while following it would cross the declared boundary.
  *
  * 1. Configure a disk barrel whose re-export leaves its root.
- * 2. Assert the boundary failure without derivative missing coverage.
+ * 2. Assert the explicit root-boundary failure.
  * 3. Move its implementation into the root and verify recovery.
+ *
+ * @evidence contracts/testing.md#behavioral-verification With a TypeScript reference rooted at `api`, graphRule.Check is run over temp files where api/index.ts re-exports `../private/value`, which must report `re-export leaves the explicitly configured root`; after api/index.ts is rewritten to re-export `./value` and api/value.ts is created, the check must report nothing.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the root contract: an explicit root authorizes `./value` but not `../private/value`, so the outside traversal must fail with the boundary reason and the repaired layout must pass.
+ * @evidence contracts/testing.md#distinguishing-cases The same link before and after moving the implementation into the root; whether derivative diagnostics are suppressed after the boundary failure is not asserted.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksConfineRootedExportTraversal is a Go unit entry in the native test process; a local write closure creates the temp files and a check closure calls graphRule.Check directly, with no consumer install or product host.
  */
 func TestFileLinksConfineRootedExportTraversal(t *testing.T) {
   root := t.TempDir()

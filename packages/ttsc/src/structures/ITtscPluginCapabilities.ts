@@ -17,12 +17,17 @@
  * @evidence contracts/common.md#clear-and-simple-design Each supported protocol has its own named field so callers can negotiate one behavior without inferring unrelated support.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability declarations replace plugin-name special cases; false defaults are the conservative protocol contract rather than test accommodations.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains each protocol, its false default and relevant independence from other capabilities; documented members and descriptive prose are separated according to the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+ * @evidence contracts/portability.md#os-neutral-implementation These opt-ins describe a native sidecar's accepted argv and process protocols, including private absolute artifact paths and separate lexical/physical project identities; omission leaves the optional protocol unsupported on every platform rather than inferring it from an OS or plugin name.
  */
 export interface ITtscPluginCapabilities {
   /**
    * Whether a check-stage host accepts `--check-observations-json=<absolute
    * private path>` and writes the host input observations from that same check
-   * Program to the private channel.
+   * Program to the private channel. This opt-in applies to the actual check
+   * verb, not effectful fix/format verbs exposed by a check-stage descriptor.
    *
    * The channel preserves input paths, content and physical-identity witnesses,
    * and explicit observation incompleteness independently of text diagnostics
@@ -118,13 +123,13 @@ export interface ITtscPluginCapabilities {
 
   /**
    * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
-   * command line. The lint sidecar parses both flags via `parseSubcommandFlags`
-   * and threads them into `loadProgram` (parse phase) and `engine.SetSerial`
-   * (rule walk); other check-stage hosts may not.
+   * command line. The lint sidecar parses both flags in its shared subcommand
+   * flag parser and threads them into program loading (parse phase) and
+   * `engine.SetSerial` (rule walk); other check-stage hosts may not.
    *
    * When `false` (the default), ttsc strips both flags from the sidecar's arg
-   * list — the conservative behavior that ad3443a restored after `#113`
-   * over-forwarded them to typia/nestia hosts.
+   * list, because a host that does not declare the capability has an unknown
+   * flag set and would reject an undeclared flag.
    *
    * @default false
    */

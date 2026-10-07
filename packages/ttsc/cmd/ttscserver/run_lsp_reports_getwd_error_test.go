@@ -15,6 +15,11 @@ import (
 // 1. Substitute the getwd seam to return an error.
 // 2. Run runLSP with --stdio (no explicit --cwd).
 // 3. Assert exit 2 and a stderr message mentioning the working directory.
+//
+// @evidence contracts/testing.md#behavioral-verification runLSP without --cwd exits with status 2 and a 'could not resolve working directory' message when the working directory cannot be read.
+// @evidence contracts/testing.md#independent-expectations Status 2 and the message fragment are literals from the command contract; the failure is injected through the getwd seam.
+// @evidence contracts/testing.md#distinguishing-cases The explicit --cwd path avoids Getwd and is covered by sibling tests; this case is the implicit one.
+// @evidence contracts/testing.md#execution-ownership TestRunLSPReportsGetwdError is a Go unit test in the cmd/ttscserver package: it calls runLSP in-process with the runLSPServer or getwd seam replaced and captured streams, starting neither tsgo nor a product process.
 func TestRunLSPReportsGetwdError(t *testing.T) {
   prev := getwd
   getwd = func() (string, error) { return "", errors.New("synthetic getwd failure") }

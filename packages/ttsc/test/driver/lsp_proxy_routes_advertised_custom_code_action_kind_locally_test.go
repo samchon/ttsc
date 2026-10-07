@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRoutesAdvertisedCustomCodeActionKindLocally verifies custom
+// TestLSPProxyRoutesAdvertisedCustomCodeActionKindLocally Verifies custom
 // plugin-only codeAction requests bypass upstream when the plugin advertised
 // their kind.
 //
@@ -20,7 +20,12 @@ import (
 // 1. Initialize with upstream `codeActionProvider: true`.
 // 2. Configure a plugin source that advertises a custom source action kind.
 // 3. Request only that custom kind.
-// 4. Assert the proxy answers locally without forwarding upstream.
+// 4. Observe a local answer and no upstream frame within 150ms.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns the Custom source action for an advertised custom-only request and sends no upstream frame within 150ms.
+// @evidence contracts/testing.md#independent-expectations The plugin advertises source.custom.ttsc despite upstream code-action support, so that exclusive request belongs to local dispatch.
+// @evidence contracts/testing.md#distinguishing-cases Upstream provider true plus a custom plugin kind requested in context.only owns this routing case.
+// @evidence contracts/testing.md#execution-ownership Go test/driver executes initialize and codeAction frames through the pipe harness using a stub plugin source, without an editor host.
 func TestLSPProxyRoutesAdvertisedCustomCodeActionKindLocally(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions: []driver.LSPCodeAction{{

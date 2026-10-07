@@ -11,20 +11,19 @@ import { make } from "../internal/make";
  * Given elements `a`, `b`, `c`, the printer emits:
  *
  * ```ts
- * a, b, c
+ * (a, b, c);
  * ```
  *
  * Supply at least one valid operand. Parentheses are added only when required
  * by the enclosing expression context, not by this flat node itself.
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param elements The element expressions.
+ * @returns The created {@link CommaListExpression}.
  * @evidence contracts/common.md#principled-implementation An unchanged flat sequence preserves comma-operand order without nested binary nodes; nonempty valid expression input is a caller premise.
  * @evidence contracts/common.md#clear-and-simple-design One make call records the ordered list while printer context owns separators and necessary grouping.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Operands remain structured expressions rather than text fragments spliced around a missing tree.
  * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes the flat form, minimum operand requirement and contextual parentheses; its direct output example and tags are separate.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param elements The element expressions.
- * @returns The created {@link CommaListExpression}.
  */
 export const createCommaListExpression = (
   elements: readonly Expression[],

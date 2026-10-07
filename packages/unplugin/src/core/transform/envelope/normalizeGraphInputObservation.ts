@@ -8,15 +8,21 @@ import { graphInputObservationCompatible } from "./graphInputObservationCompatib
  * Normalize one untrusted predicate proof without filling missing predicates.
  *
  * Malformed, empty or contradictory records return undefined. Present directory
- * lists are copied, successful read hashes must be lowercase SHA-256 text, and
- * successful realpaths must be absolute in the producer's platform semantics.
- * Unknown fields are ignored; absent supported predicates remain unknown.
+ * lists require a string in every slot and are copied. Successful read hashes
+ * must be lowercase SHA-256 text, and successful realpaths must be absolute in
+ * the producer's platform semantics. Unknown fields are ignored; absent
+ * supported predicates remain unknown.
  *
  * @evidence contracts/common.md#principled-implementation Own-property checks distinguish an omitted predicate from an explicit result, schema checks establish supported value shapes, and compatibility rejects contradictory normalized states without adding new observations.
  * @evidence contracts/common.md#clear-and-simple-design Parsing produces one detached observation and delegates cross-predicate meaning to graphInputObservationCompatible, keeping host filesystem replay outside this boundary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol hash syntax and absolute-realpath checks validate genuine producer data; neither missing predicates nor malformed evidence receive fabricated values.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain undefined outcomes, copied lists, hash form, platform interpretation and unknown versus absent fields with documentation-skill paragraph and tag separation.
  * @evidence contracts/portability.md#os-neutral-implementation The declared producer platform chooses realpath parsing and resolution, while the host platform is only the default; native case behavior is not inferred or rewritten by this structural parser.
+ * @evidence contracts/performance.md#efficient-algorithms Each native predicate is validated/copied once with a kind/scope uniqueness Set; work includes digest/path text and retained predicate count. Each of E entry-list slots is validated and copied in one indexed traversal; missing slots yield undefined rather than being skipped. Hash syntax and producer-path normalization add work proportional to their supplied text, while other predicate fields are fixed in number. Temporary space is O(E) copied string references plus normalized path text; immutable entry strings are shared, not reread from the filesystem.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function normalizeGraphInputObservation(
   value: unknown,
@@ -27,6 +33,54 @@ export function normalizeGraphInputObservation(
   }
   const entry = value as Record<string, unknown>;
   const observation: ITtscCompilerTransformation.IInputObservation = {};
+  if (Object.prototype.hasOwnProperty.call(entry, "nativePredicates")) {
+    if (
+      !Array.isArray(entry.nativePredicates) ||
+      entry.nativePredicates.length === 0
+    )
+      return undefined;
+    const native: NonNullable<
+      ITtscCompilerTransformation.IInputObservation["nativePredicates"]
+    > = [];
+    const kinds = new Set<string>();
+    for (let index = 0; index < entry.nativePredicates.length; index++) {
+      const value = entry.nativePredicates[index];
+      if (typeof value !== "object" || value === null || Array.isArray(value))
+        return undefined;
+      const predicate = value as Record<string, unknown>;
+      if (
+        predicate.version !== 1 ||
+        !["file", "directory", "entry", "optional-file"].includes(
+          predicate.kind as string,
+        ) ||
+        typeof predicate.digest !== "string" ||
+        !/^[0-9a-f]{64}$/.test(predicate.digest) ||
+        typeof predicate.identityStable !== "boolean" ||
+        !["cache", "watch"].includes(predicate.scope as string) ||
+        (predicate.realpath !== null &&
+          (typeof predicate.realpath !== "string" ||
+            !(platform === "win32" ? path.win32 : path.posix).isAbsolute(
+              predicate.realpath,
+            ))) ||
+        kinds.has(`${predicate.kind}:${predicate.scope}`)
+      )
+        return undefined;
+      kinds.add(`${predicate.kind}:${predicate.scope}`);
+      native.push({
+        version: 1,
+        kind: predicate.kind as
+          | "file"
+          | "directory"
+          | "entry"
+          | "optional-file",
+        digest: predicate.digest,
+        identityStable: predicate.identityStable,
+        realpath: predicate.realpath as string | null,
+        scope: predicate.scope as "cache" | "watch",
+      });
+    }
+    observation.nativePredicates = native;
+  }
   if (Object.prototype.hasOwnProperty.call(entry, "accessibleEntries")) {
     const accessible = entry.accessibleEntries;
     if (
@@ -37,20 +91,26 @@ export function normalizeGraphInputObservation(
       return undefined;
     }
     const lists = accessible as Record<string, unknown>;
-    if (
-      !Array.isArray(lists.directories) ||
-      !lists.directories.every(
-        (name): name is string => typeof name === "string",
-      ) ||
-      !Array.isArray(lists.files) ||
-      !lists.files.every((name): name is string => typeof name === "string")
-    ) {
+    const directories = lists.directories;
+    const files = lists.files;
+    if (!Array.isArray(directories) || !Array.isArray(files)) {
       return undefined;
     }
-    observation.accessibleEntries = {
-      directories: [...lists.directories],
-      files: [...lists.files],
+    const normalized = {
+      directories: [] as string[],
+      files: [] as string[],
     };
+    for (const [names, target] of [
+      [directories, normalized.directories],
+      [files, normalized.files],
+    ] as const) {
+      for (let index = 0; index < names.length; index++) {
+        const name = names[index];
+        if (typeof name !== "string") return undefined;
+        target.push(name);
+      }
+    }
+    observation.accessibleEntries = normalized;
   }
   if (Object.prototype.hasOwnProperty.call(entry, "fileExists")) {
     if (typeof entry.fileExists !== "boolean") return undefined;

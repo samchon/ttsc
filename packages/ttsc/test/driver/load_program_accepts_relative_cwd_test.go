@@ -8,17 +8,24 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLoadProgramAcceptsRelativeCwd verifies LoadProgram accepts relative cwd
+// TestLoadProgramAcceptsRelativeCwd Verifies LoadProgram accepts relative cwd
 // values.
 //
 // Command callers may pass a project directory relative to the current process
-// instead of an absolute path. The driver should normalize that cwd before
-// resolving tsconfig and source files.
+// instead of an absolute path. The driver should resolve that cwd before
+// locating tsconfig and source files.
 //
-// 1. Create a project under the current working directory.
-// 2. Load it with a relative cwd.
-// 3. Assert a Program is produced without diagnostics.
+//  1. Create a project directory under a temp parent and chdir into the parent.
+//  2. Load it with the relative cwd "project".
+//  3. Assert a Program is produced without diagnostics (the tsconfig and its
+//     source file were found; the resolved path itself is not inspected).
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram accepts project relative to a temporary current directory and returns a non-nil Program without config diagnostics.
+// @evidence contracts/testing.md#independent-expectations The authored parent/project fixture must be locatable from the supplied relative cwd; the test does not inspect the resolved absolute spelling.
+// @evidence contracts/testing.md#distinguishing-cases This owns the relative-cwd success case and restores process cwd afterward; missing config is covered separately.
+// @evidence contracts/testing.md#execution-ownership Go test/driver calls LoadProgram directly after os.Chdir, with no compiler CLI; this case is not parallel because cwd is process state.
 func TestLoadProgramAcceptsRelativeCwd(t *testing.T) {
+  t.Setenv(driver.TsgoArgsEnv, "")
   parent := t.TempDir()
   project := filepath.Join(parent, "project")
   writeProjectFile(t, project, "tsconfig.json", `{
@@ -36,7 +43,11 @@ func TestLoadProgramAcceptsRelativeCwd(t *testing.T) {
   if err := os.Chdir(parent); err != nil {
     t.Fatal(err)
   }
-  defer os.Chdir(previous)
+  t.Cleanup(func() {
+    if err := os.Chdir(previous); err != nil {
+      t.Errorf("restore process cwd: %v", err)
+    }
+  })
 
   prog, diags, err := driver.LoadProgram("project", "tsconfig.json", driver.LoadProgramOptions{})
   if err != nil {

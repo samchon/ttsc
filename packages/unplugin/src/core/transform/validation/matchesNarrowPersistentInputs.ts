@@ -10,9 +10,9 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
 
 /**
  * Validate one graph-bearing cached output against only the inputs that can
- * affect that file. Project membership is validated once per event-loop turn,
- * so sibling module deliveries share one directory-metadata pass instead of
- * multiplying it by module count.
+ * affect that file. The delivery validator establishes its complete baseline
+ * before admitting this path. Here live project notifications qualify current
+ * membership, and universal and derived inputs still require their own proof.
  *
  * Returns `undefined` when this narrow proof is unavailable — live
  * notifications can no longer prove membership, or the generation carries no
@@ -24,14 +24,30 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
  * @evidence contracts/common.md#principled-implementation Proven membership and a universal manifest qualify derived-input validation; undefined distinguishes unavailable narrow authority from an observed mismatch.
  * @evidence contracts/common.md#clear-and-simple-design One narrow boundary composes universal and per-input proofs while its caller owns complete-snapshot fallback.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Lost watcher authority cannot be converted to false unchanged data or an invented dependency set.
- * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain shared membership cost and the three-state verdict's required caller behavior.
- * @evidence contracts/performance.md#efficient-algorithms Membership proof is shared by the tracker layer; one derived-input scan skips universally covered spellings and reads only inputs whose own proof must be refreshed.
- * @evidence contracts/performance.md#reuse-equivalent-work Generation-wide universal validation and per-input qualified signatures let sibling deliveries share established work without equating merely similar module paths.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This boundary borrows generation trackers and manifests; their owners acquire and retire retained resources.
+ * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs distinguish baseline admission, current membership authority and the three-state verdict's required caller behavior.
  * @evidence contracts/portability.md#os-neutral-implementation Native lexical spelling qualifies exact manifest coverage while dependency selection and its validators use the generation's filesystem identity policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This boundary borrows generation trackers and manifests; their owners acquire and retire retained resources.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Fixed membership flag checks precede universal validation and one selected
+ *   input scan. Universal costs include coverage/event comparisons, unresolved
+ *   native probes/content and mandatory tree/environment qualification. A first
+ *   module spelling also derives its graph/dependency union; each unskipped
+ *   input pays native identity/metadata and any necessary predicate/content
+ *   replay. Work follows these populations, path text and bytes, not just the
+ *   number of modules or a fixed membership check.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Immutable envelope selections, universal manifests and currently qualified
+ *   per-input signatures serve sibling deliveries. Universal validation is
+ *   invoked on each call; covered lexical spellings skip only the second input
+ *   proof, and memoized dependency lists do not themselves prove fresh content.
  */
 export function matchesNarrowPersistentInputs(
+  /**
+   * Generation whose baseline, trackers and input witnesses the caller
+   * qualified.
+   */
   cached: TtscCachedProjectTransform,
+  /** Delivered file spelling selecting this envelope's dependency closure. */
   file: string,
 ): boolean | undefined {
   if (reportsMembershipChange(cached)) {

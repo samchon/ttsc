@@ -303,9 +303,17 @@ func decodeRestrictedTypeConfig(raw json.RawMessage) (noRestrictedTypeConfig, er
     }
   }
   if len(object.Suggest) != 0 {
+    var suggestions []json.RawMessage
     if bytes.Equal(bytes.TrimSpace(object.Suggest), []byte("null")) ||
-      json.Unmarshal(object.Suggest, &restriction.suggestions) != nil {
+      json.Unmarshal(object.Suggest, &suggestions) != nil {
       return noRestrictedTypeConfig{}, errors.New("restriction object suggest must be a string array")
+    }
+    restriction.suggestions = make([]string, len(suggestions))
+    for index, replacement := range suggestions {
+      if !isRestrictedTypeJSONString(replacement) ||
+        json.Unmarshal(replacement, &restriction.suggestions[index]) != nil {
+        return noRestrictedTypeConfig{}, errors.New("restriction object suggest must be a string array")
+      }
     }
   }
   restriction.enabled = true

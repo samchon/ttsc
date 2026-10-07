@@ -16,6 +16,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains bridge scope, time and size units and synthetic fields,
  *   following the documentation skill's concrete context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IFileStats only groups the virtual-filesystem members and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms IFileStats only groups the virtual-filesystem members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work IFileStats only groups the virtual-filesystem members and coordinates no computation.
  */
 export interface IFileStats {
   /**
@@ -25,6 +28,9 @@ export interface IFileStats {
    * @evidence contracts/common.md#clear-and-simple-design The kind query is separate from metadata fields and shares the captured classification with isFile.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts It reports the sampled node kind, not a filename heuristic.
    * @evidence contracts/common.md#meaningful-documentation JSDoc names snapshot provenance under the documentation skill's context rule.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isDirectory is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms isDirectory is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work isDirectory is a signature only; sharing of repeated work belongs to createMemFS.
    */
   isDirectory(): boolean;
 
@@ -35,6 +41,9 @@ export interface IFileStats {
    * @evidence contracts/common.md#clear-and-simple-design The predicate exposes the other supported node kind through the same snapshot rather than recalculating a path.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The virtual node kind determines the result, without extension special cases.
    * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes regular-file classification under the documentation skill's clarity rule.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isFile is a signature only; the lifetime of what it touches belongs to createMemFS.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms isFile is a signature only; its algorithm and cost belong to createMemFS.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work isFile is a signature only; sharing of repeated work belongs to createMemFS.
    */
   isFile(): boolean;
 

@@ -16,8 +16,10 @@
  */
 export interface ITtscLintTestingLibraryConsistentDataTestIdRuleOptions {
   /**
-   * Regular expression string every configured test-id attribute value must
-   * match. `{fileName}` is replaced with the basename before the first dot.
+   * Go regular expression applied to nonempty JSX string-literal values of the
+   * configured attributes. Expression-valued attributes are not checked.
+   * `{fileName}` is replaced with the basename before its first non-leading
+   * dot. An empty or invalid pattern produces no findings.
    */
   testIdPattern: string;
 

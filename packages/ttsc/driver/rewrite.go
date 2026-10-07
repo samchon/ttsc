@@ -1,15 +1,14 @@
 // Package driver: post-emit rewriter.
 //
 // tsgo emits `.js` with plugin-owned call expressions preserved as-is because
-// the compile-time transformer stage is now hosted outside the native
-// compiler. This file implements the emit-time rewrite pattern pioneered by
-// tsgonest: we intercept tsgo's Emit() via its WriteFile callback, locate each
-// previously-recognized plugin call in the emitted JS, and replace the call
+// the compile-time transformer stage is hosted outside the native compiler.
+// This file implements an emit-time rewrite pattern: it intercepts tsgo's Emit() via its WriteFile callback, locates each
+// previously-recognized plugin call in the emitted JS, and replaces the call
 // expression with the JS the native consumer produced.
 //
 // The rewriter operates on the output text only — it relies on the caller
-// having already produced an ordered list of (file, call, emittedJS) triples.
-// Today we match by textual pattern (`<alias>.<method>(...)`), which is safe
+// having already registered an ordered list of Rewrite values per source file.
+// Calls are matched by textual pattern (`<alias>.<method>(...)`), which is safe
 // because the compiler-stripped call site is distinctive.
 package driver
 
@@ -31,13 +30,14 @@ import (
   shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
-// Rewrite describes one emit-time patch. Produced by CollectCallSites after
-// the engine has generated a replacement JS fragment for the call. When
-// RootName names a default or namespace import, emit resolves it through the
-// matching emitted require declaration, including any collision suffix chosen
-// by TypeScript-Go.
+// Rewrite describes one emit-time patch: the replacement JS fragment a linked
+// plugin generated for one recognized call. When
+// RootName names a default or namespace import, emit examines matching emitted
+// import/require declarations, including collision-suffixed names. A unique
+// applicable binding selects that alias; absent or ambiguous candidates fall
+// back to the source root spelling rather than certifying emitted identity.
 //
-// @evidence contracts/common.md#principled-implementation Rewrite descriptors bind emitted replacements to recognized source calls and their actual emitter-owned import identities.
+// @evidence contracts/common.md#principled-implementation Descriptors carry caller-recognized source-call replacements; emit attempts emitted import-alias association and otherwise uses its documented source-root fallback, without independently validating descriptor contents or certifying every binding.
 // @evidence contracts/common.md#clear-and-simple-design One descriptor separates source identity, call path, replacement text, and argument consumption.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Import collision suffixes are resolved from emitted declarations rather than hardcoded numeric guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains production and imported-root binding following the documentation skill.
@@ -54,9 +54,11 @@ type Rewrite struct {
   ConsumeParens bool
 }
 
-// RewriteSet groups rewrites by file, preserving source order.
+// RewriteSet groups rewrites by slash-normalized AST filename, preserving
+// registration order. Callers supply the source-call order required by emit;
+// the container neither sorts positions nor validates descriptor contents.
 //
-// @evidence contracts/common.md#principled-implementation Per-file ordered descriptors preserve the call-site order expected by the emit cursor.
+// @evidence contracts/common.md#principled-implementation Per-file descriptor lists preserve registration order for the emit cursor; correct source-call ordering and descriptor contents remain the registering caller's responsibility.
 // @evidence contracts/common.md#clear-and-simple-design One path-to-list map stores registrations; emit-local state is not mixed into it.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Registrations describe recognized source calls rather than fixture-only output patches.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies file grouping and order following the documentation skill.
@@ -77,19 +79,21 @@ type RewriteSet struct {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Map allocation performs no native operation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms This constructor selects no collection-processing algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work It owns no repeated-work coordinator.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned set is caller-owned without an external resource.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Construction transfers an empty map to the caller-owned set. Later registrations retain source AST references, descriptor slices and strings without a cap or removal API; releasing the set drops its ownership, while other consumers may retain the same values. No native handle is acquired.
 func NewRewriteSet() *RewriteSet { return &RewriteSet{byPath: map[string][]Rewrite{}} }
 
-// Add registers a rewrite under the absolute path of its source file.
+// Add registers a rewrite under its source file's slash-normalized filename.
+// It preserves registration order, without sorting by call position or
+// validating that the caller's filename is absolute.
 //
-// @evidence contracts/common.md#principled-implementation A descriptor with no source is ignored; valid descriptors append in call-site order under their real source filename.
+// @evidence contracts/common.md#principled-implementation A descriptor with no source is ignored; other descriptors append under their supplied AST filename. Callers must register recognized calls in the order expected by emitted-call matching; this operation does not validate or sort them.
 // @evidence contracts/common.md#clear-and-simple-design One nil guard, key normalization, and append own registration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The map key comes from the source AST, not an inferred output basename.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies source-path registration following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.ToSlash normalizes actual native filenames without guessing host separators.
-// @evidence contracts/performance.md#efficient-algorithms Map indexing appends to one source's list without scanning all registered files.
+// @evidence contracts/performance.md#efficient-algorithms Filename slash conversion and key hashing process path bytes before appending to one source list, without scanning other registered files. Slice growth may copy that list's descriptors and map growth depends on the distinct source-key population.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration owns no shared computation or cache validity decision.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Entries remain in the caller-owned set; no independent resource is acquired.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each append retains descriptor/source-AST references and supplied slices/strings in the set. Registration count and retained bytes have no configured bound or removal API; ownership ends when the caller releases the set, without releasing independently retained aliases or native handles.
 func (rs *RewriteSet) Add(r Rewrite) {
   if r.File == nil {
     return
@@ -121,22 +125,23 @@ func (rs *RewriteSet) Len() int {
 const RewriteSentinel = "/* @ttsc-rewritten */"
 
 // EmitAll runs tsgo's emitter, patching every registered plugin-owned call in
-// the output. Returns the tsgo diagnostics and any patch-time error. When
-// `writeFile` is nil, the patched JS is written to disk via the standard
-// tsgo WriteFile.
+// the output. Returns native emit diagnostics; returned writer/patch callback errors
+// become native write diagnostics. The separate error reports early program
+// admission or linked-hook failure. When
+// `writeFile` is nil, output is written through DefaultWriteFile.
 //
 // `writeFile` does not need to be concurrency-safe: emit() funnels every
 // invocation through one mutex, so the callback never runs on two goroutines
-// at once even though TypeScript-Go emits files in parallel.
+// at once even when the native program uses parallel emission.
 //
 // @evidence contracts/common.md#principled-implementation Whole-program rewrites delegate to one emit owner that qualifies linked-hook failures and serializes callback state.
 // @evidence contracts/common.md#clear-and-simple-design A nil target selects whole-program work without duplicating output policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The common emit path prevents a separate whole-program shortcut from bypassing rewrites or linked hooks.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain result errors, default writer, and callback serialization following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation The shared emit owner handles native path containment and disk writing.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The shared emit owner handles output matching and traversal.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work The shared emit owner maintains invocation-local pattern reuse and generation hook latching.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The delegated emit owns its temporary descriptor cache; this wrapper acquires no independent resource.
+// @evidence contracts/portability.md#os-neutral-implementation Delegated emission uses native lexical output containment and the program's reported case policy; the default writer uses native filesystem APIs, while custom destination effects remain caller-owned.
+// @evidence contracts/performance.md#efficient-algorithms Whole-program native generation and callback source association/pattern matching process source, registered-path and output bytes. The callback mutex serializes rewriting and destination work, including arbitrary caller writer costs; diagnostic conversion adds returned findings/text work.
+// @evidence contracts/performance.md#reuse-equivalent-work Delegated emission reuses the current loaded program and generation-latched linked hooks; cursors and compiled call patterns are shared only within this emit invocation, not across subsequent emits.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Emit-local cursors and patterns grow with encountered source keys and distinct call patterns without a configured cap. Local ownership ends on return, while native program/checker state, supplied descriptors, writer effects and returned results remain with their owners; Close releases a checker lease rather than all those values or disk output.
 func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   return p.emit(rs, nil, writeFile)
 }
@@ -145,7 +150,7 @@ func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*sh
 //
 // `writeFile` does not need to be concurrency-safe: like EmitAll, EmitAllRaw
 // funnels every invocation through one mutex, so the callback never runs on
-// two goroutines at once even though TypeScript-Go emits files in parallel.
+// two goroutines at once even when the native program uses parallel emission.
 // This is the contract a plugin's output rewriter relies on — it is the
 // emit-stage phase ttsc guarantees runs single-threaded (a plugin's WriteFile
 // is the standard place to carry per-file cursors or an output map), so ttsc
@@ -157,9 +162,9 @@ func (p *Program) EmitAll(rs *RewriteSet, writeFile shimcompiler.WriteFile) (*sh
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler emission is not patched or replaced with expected-output text; skipped writes are marked for accurate emitted-file reporting.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes raw output and guaranteed callback serialization following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native containment resolves compiler paths with its case policy, and DefaultWriteFile uses native filesystem APIs.
-// @evidence contracts/performance.md#efficient-algorithms Only the callback is serialized; native parse/check/emit generation keeps the compiler's own processing strategy.
+// @evidence contracts/performance.md#efficient-algorithms Native generation processes the current program and emitted text; serialized callbacks add lexical path-containment and default filesystem or arbitrary caller-writer costs. Result diagnostics require conversion. Native threading policy remains selected by the loaded program, with no measured claim that callback serialization is inexpensive.
 // @evidence contracts/performance.md#reuse-equivalent-work The loaded program and latched linked-hook outcome are reused by emission instead of loading an independent compiler instance.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call owns no new lease or retained output cache; Program.Close remains the program lifecycle owner.
+// @evidence contracts/performance.md#bound-retention-and-release-resources This call adds no persistent output cache or checker lease. Native program/checker state and returned output/diagnostic data remain reachable through their respective owners; writer handles, retained buffers or disk artifacts follow the selected writer's policy. Program.Close releases its checker lease, not all program state or destination output.
 func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, nil, errors.New("driver: nil program")
@@ -167,14 +172,13 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
   if err := p.ApplyLinkedPlugins(); err != nil {
     return nil, nil, err
   }
-  // TypeScript-Go's parallel emit invokes WriteFile once per emitted file,
-  // concurrently — one goroutine per source file. Serialize the whole callback
+  // Native emission may invoke WriteFile concurrently under its selected
+  // threading policy. Serialize the whole callback
   // under wfMu so a plugin's output rewriter sees one writer at a time: a
   // callback that mutates shared state (e.g. @nestia/core's per-file rewrite
-  // cursors and runtime-alias cache) would otherwise trip `fatal error:
-  // concurrent map read and map write`. The callback is cheap I/O, so
-  // serializing it costs ~nothing while parse/check/emit-text still parallelize
-  // — the same trade EmitAll makes for its own WriteFile.
+  // cursors and runtime-alias cache) could otherwise race. Writer work and
+  // lock contention are included in emission cost; this does not change the
+  // native generation threading policy.
   var wfMu sync.Mutex
   wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
@@ -198,17 +202,19 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
   return result, p.convertProgramDiagnostics(result.Diagnostics), nil
 }
 
-// EmitFile runs tsgo's emitter for one source file, applying the same rewrite
-// pipeline as EmitAll.
+// EmitFile passes target to native emission through EmitAll's shared rewrite
+// pipeline. A nil target selects whole-program emission. Native emit owns the
+// selected target's output/diagnostic scope and returned writer errors become
+// emit diagnostics, while early admission or linked-hook failure returns error.
 //
 // @evidence contracts/common.md#principled-implementation Targeted emission uses the same rewrite, failure, and writer policy as whole-program emission.
 // @evidence contracts/common.md#clear-and-simple-design One target parameter delegates to the shared emit owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No special single-file path bypasses registered hooks or containment.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies single-source emission and shared policy following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation The shared emit owner performs native output operations.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Targeted traversal and rewriting belong to the delegated emitter.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work The shared emit owner reuses invocation patterns and generation hooks.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This wrapper acquires no independent resource or resident cache.
+// @evidence contracts/portability.md#os-neutral-implementation Delegated output containment uses native lexical compiler paths and its reported case policy; the default native writer and caller-supplied writer retain their own destination semantics.
+// @evidence contracts/performance.md#efficient-algorithms Target selection remains native; delegated source generation, output association, pattern/splice work and diagnostic conversion depend on reached inputs and emitted text. Callback serialization includes actual writer work and lock contention, without a constant-cost or target-only-computation claim.
+// @evidence contracts/performance.md#reuse-equivalent-work The current program and generation-latched hooks are reused, with cursors and call patterns shared only within this delegated emit; a later invocation owns a fresh matching cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Delegated invocation-local matching maps have no configured source/pattern cap and lose local ownership on return. Supplied descriptors, native program/checker state, returned data and writer artifacts may outlive the call under their owners; this wrapper does not release them or acquire another checker lease.
 func (p *Program) EmitFile(rs *RewriteSet, target *ast.SourceFile, writeFile shimcompiler.WriteFile) (*shimcompiler.EmitResult, []Diagnostic, error) {
   return p.emit(rs, target, writeFile)
 }
@@ -225,14 +231,13 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
   }
   cursors := map[string]int{}
   patterns := map[string]*regexp.Regexp{}
-  // TypeScript-Go's parallel emit invokes this WriteFile callback once per
-  // emitted file, concurrently — one goroutine per source file. Serialize the
+  // Native emission may invoke this WriteFile callback concurrently under its
+  // selected threading policy. Serialize the
   // whole callback body under wfMu: the `cursors` map would otherwise trip
   // `fatal error: concurrent map writes`, and the wrapped `writeFile` (which a
   // caller may back with its own non-thread-safe state, e.g. api-compile's
-  // output map) must likewise see one writer at a time. The patch work here is
-  // cheap, so serializing only the callback costs ~nothing while parsing,
-  // checking, and emit-text generation still parallelize.
+  // output map) must likewise see one writer at a time. Rewriting, destination
+  // work and lock contention remain part of this emission's cost.
   var wfMu sync.Mutex
   wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
@@ -281,14 +286,13 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
 // incremental lane when the resolved compiler options ask for build
 // information.
 //
-// tsgo's own CLI branches the same way — `performIncrementalCompilation` vs
-// `performCompilation`, on `CompilerOptions.IsIncremental()` — but it branches
-// in `internal/execute`, which a host constructing its Program in-process never
-// enters. ttsc always took the plain branch, so `incremental`, `composite`, and
-// `tsBuildInfoFile` parsed, resolved, and then vanished: a plugin-carrying
-// project emitted its JavaScript and no `.tsbuildinfo` at all (issue #1188).
-// `driver/emit_containment.go` had already exempted `.tsbuildinfo` from the
-// outDir guard for a write that could not happen.
+// tsgo's own CLI branches the same way, `performIncrementalCompilation` vs
+// `performCompilation` on `CompilerOptions.IsIncremental()`, in
+// `internal/execute`, which a host constructing its Program in-process never
+// enters. Without this branch `incremental`, `composite`, and `tsBuildInfoFile`
+// would parse and resolve and then have no effect: a plugin-carrying project
+// would emit its JavaScript and no `.tsbuildinfo`. `driver/emit_containment.go`
+// exempts `.tsbuildinfo` from the outDir guard for that write.
 //
 // A single-file emit stays on the plain lane. Build information describes a
 // whole program, and tsgo's incremental program returns early on a
@@ -321,16 +325,18 @@ func (p *Program) emitsBuildInfo() bool {
 }
 
 // DefaultWriteFile is the default disk writer used when EmitAll's caller does not
-// supply a custom WriteFile callback.
+// supply a custom WriteFile callback. Existing files are truncated; a failed
+// write can leave partial output. Requested creation modes are subject to the
+// native platform and umask, and do not replace existing file permissions.
 //
 // @evidence contracts/common.md#principled-implementation Parent directories are created before the output is written, and native errors remain visible to emit callers.
 // @evidence contracts/common.md#clear-and-simple-design One directory-creation step precedes one file write.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The writer uses actual requested filenames without suppressing filesystem failures or relying on shell commands.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the default callback role following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.Dir, os.MkdirAll, and os.WriteFile supply OS-neutral native operations without separator or command assumptions.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Standard filesystem APIs own the single requested write; this adapter chooses no traversal algorithm.
+// @evidence contracts/performance.md#efficient-algorithms Native parent creation can walk missing ancestors and query existing entries; path length/depth and output bytes drive delegated work. The text-to-byte conversion and file write process the supplied output without a directory enumeration or intermediate output collection.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each emit write is requested independently; this writer owns no reuse coordinator.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources os.WriteFile owns descriptor acquisition and closure; this adapter retains no resource.
+// @evidence contracts/performance.md#bound-retention-and-release-resources os.WriteFile opens one output handle and attempts its closure after the write, including write failure; open failure acquires no handle. The adapter retains no handle or historical output buffer after returning, but created directories and partial or completed files remain on disk without rollback.
 func DefaultWriteFile(fileName, text string) error {
   if dir := filepath.Dir(fileName); dir != "" {
     if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -420,10 +426,9 @@ func applyRewritesWithPatterns(outputName, text string, rs *RewriteSet, cursors 
 // relative path (with a leading "/" boundary unless the source sits at the
 // common directory root). This is stricter than a generic suffix match: a
 // barrel file like `lib/api/x/index.js` will not accidentally collide with an
-// unrelated `src/.../y/index.ts` that happens to share the basename. The bug
-// surfaced when typia ran across shopping-backend's nestia-generated barrel
-// files; the looser match steered the rewriter at the wrong source and threw
-// `driver: could not locate typia.random(…) call in …`.
+// unrelated `src/.../y/index.ts` that happens to share the basename; a looser
+// match would steer the rewriter at the wrong source and fail with
+// `driver: could not locate <call>(…) call in …`.
 //
 // Ambiguous matches (two or more registered sources with the same tail) return
 // no match so the caller treats the output as having no rewrites.
@@ -535,11 +540,6 @@ func spliceCallWithPattern(text string, r Rewrite, pattern *regexp.Regexp, searc
   return replaced, idx + len(r.Replacement), true, nil
 }
 
-// collectEmittedImportBindings recovers the identifiers TypeScript-Go
-// actually assigned to top-level CommonJS imports in one emitted JavaScript
-// file. The source-level import name is not enough: the emitter owns collision
-// suffixes and may choose any free number. Parsing the emitted declarations
-// keeps alias discovery coupled to that output instead of guessing a maximum.
 type emittedImportKind uint8
 
 const (
@@ -555,6 +555,11 @@ type emittedImportBinding struct {
   kind emittedImportKind
 }
 
+// collectEmittedImportBindings recovers the identifiers TypeScript-Go
+// actually assigned to top-level CommonJS imports in one emitted JavaScript
+// file. The source-level import name is not enough: the emitter owns collision
+// suffixes and may choose any free number. Parsing the emitted declarations
+// keeps alias discovery coupled to that output instead of guessing a maximum.
 func collectEmittedImportBindings(outputName, text string) map[string][]emittedImportBinding {
   parseName := filepath.ToSlash(outputName)
   if !filepath.IsAbs(outputName) {
@@ -709,10 +714,6 @@ func stringLiteralValue(node *ast.Node) (string, bool) {
   return literal.Text, true
 }
 
-// rewriteAliases binds one source import to the identifiers recovered from its
-// emitted require declaration. Retained ESM imports and non-import roots keep
-// their source spelling; CommonJS imports use only emitter-owned bindings so a
-// nearby identifier cannot be mistaken for the plugin call.
 type sourceImportKind uint8
 
 const (
@@ -726,6 +727,10 @@ type sourceImport struct {
   kind   sourceImportKind
 }
 
+// rewriteAliases binds one source import to the identifiers recovered from its
+// emitted require declaration. Retained ESM imports and non-import roots keep
+// their source spelling; CommonJS imports use only emitter-owned bindings so a
+// nearby identifier cannot be mistaken for the plugin call.
 func rewriteAliases(r Rewrite, emittedBindings map[string][]emittedImportBinding) []string {
   imported, ok := sourceImportForRoot(r.File, r.RootName)
   if !ok {
@@ -918,7 +923,7 @@ func callPatternKey(aliases, namespaces []string, method string) string {
 
 // findCallMatch scans `text` from `searchFrom` for the next call expression
 // matched by the loose-match `pattern`, applying the same "must start outside
-// an identifier" rule as the old literal indexAtCallStart so generated locals
+// an identifier" rule as a literal call-start search would, so generated locals
 // like `mytypia.foo(` don't shadow `typia.foo(`. Returns the start byte of the
 // match and the length up to (but not including) the captured `(`.
 func findCallMatch(text string, pattern *regexp.Regexp, searchFrom int) (int, int) {
@@ -1067,9 +1072,8 @@ func skipQuoted(text string, pos int, quote byte) (int, bool) {
 }
 
 // skipTemplate advances past a backtick template literal starting at pos.
-// Nested template expressions (${...}) are not recursed into — the rewriter
-// only needs to balance the outer backtick so it does not misinterpret a
-// backtick inside the template as the end of a surrounding construct.
+// A `${...}` expression is scanned by skipTemplateExpression so a backtick,
+// quote or brace inside it is not mistaken for the end of the literal.
 func skipTemplate(text string, pos int) (int, bool) {
   for i := pos + 1; i < len(text); i++ {
     switch text[i] {
@@ -1077,6 +1081,61 @@ func skipTemplate(text string, pos int) (int, bool) {
       i++
     case '`':
       return i, true
+    case '$':
+      if i+1 < len(text) && text[i+1] == '{' {
+        end, ok := skipTemplateExpression(text, i+2)
+        if !ok {
+          return 0, false
+        }
+        i = end
+      }
+    }
+  }
+  return 0, false
+}
+
+// skipTemplateExpression advances past the body of a `${...}` expression whose
+// first byte is at pos. Braces are balanced, and strings, nested templates and
+// comments are skipped whole. Returns the index of the closing "}" and true, or
+// (0, false) when the expression is unterminated. Regex literals are not
+// recognized here: one holding an unbalanced brace or quote inside a template
+// expression is outside what emitted plugin calls carry.
+func skipTemplateExpression(text string, pos int) (int, bool) {
+  depth := 1
+  for i := pos; i < len(text); i++ {
+    switch text[i] {
+    case '{':
+      depth++
+    case '}':
+      depth--
+      if depth == 0 {
+        return i, true
+      }
+    case '"', '\'':
+      end, ok := skipQuoted(text, i, text[i])
+      if !ok {
+        return 0, false
+      }
+      i = end
+    case '`':
+      end, ok := skipTemplate(text, i)
+      if !ok {
+        return 0, false
+      }
+      i = end
+    case '/':
+      if i+1 < len(text) {
+        switch text[i+1] {
+        case '/':
+          i = skipLineComment(text, i+2)
+        case '*':
+          end, ok := skipBlockComment(text, i+2)
+          if !ok {
+            return 0, false
+          }
+          i = end
+        }
+      }
     }
   }
   return 0, false

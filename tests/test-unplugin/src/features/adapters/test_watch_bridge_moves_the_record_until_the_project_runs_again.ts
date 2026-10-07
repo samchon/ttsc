@@ -1,12 +1,12 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/bridge/openHostWatchBridge.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
+import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
+import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the bridge moves a project's record at once when a registered
@@ -34,6 +34,15 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  *    the bridge owes the signal for the rest of that pass and the next, and not
  *    for the one after; then close the bridge with moves still owed to another
  *    record, and assert it writes nothing more.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Authored bridge registers stale and current predicate evidence; literal signal counts and owed-state assertions verify immediate and repeated moves, pass debt and cessation after close.
+ * @evidence contracts/testing.md#independent-expectations
+ *   A stale delivery must signal until a current-state registration answers it. The answer still owes its current and next host passes so earlier cached modules cannot remain stale; a closed bridge must write nothing.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers stale initial evidence, identical generation registration, a new stale generation, a current answer, current/next/following pass debt and a closed bridge with another outstanding record.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_watch_bridge_moves_the_record_until_the_project_runs_again calls openHostWatchBridge.register/begin/owes/close with quiet observation doubles and actual temporary records; this entry owns scheduled signal assertions and final closure without a build host.
  */
 export async function test_watch_bridge_moves_the_record_until_the_project_runs_again(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -76,74 +85,81 @@ export async function test_watch_bridge_moves_the_record_until_the_project_runs_
   const signal = () => readProjectRecordFile(record)?.signal;
 
   const bridge = openHostWatchBridge(root, quiet);
-  bridge.register(record, stale);
-  assert.equal(signal(), 1, "a stale registration moves the record at once");
-  assert.ok(bridge.owes(record));
-  assert.ok(bridge.owes(), "and the bridge owes a signal");
-  await wait(20);
-  assert.equal(signal(), 1, "the second move waits");
-  await wait(150);
-  assert.equal(signal(), 2, "the second move lands");
-  await wait(250);
-  assert.equal(signal(), 3, "the signal repeats");
+  try {
+    bridge.register(record, stale);
+    assert.equal(signal(), 1, "a stale registration moves the record at once");
+    assert.ok(bridge.owes(record));
+    assert.ok(bridge.owes(), "and the bridge owes a signal");
+    await wait(20);
+    assert.equal(signal(), 1, "the second move waits");
+    await wait(150);
+    assert.equal(signal(), 2, "the second move lands");
+    await wait(250);
+    assert.equal(signal(), 3, "the signal repeats");
 
-  bridge.register(record, stale);
-  assert.equal(
-    signal(),
-    3,
-    "a delivery of the same generation registers nothing again",
-  );
-  assert.ok(bridge.owes(), "and answers nothing");
-  bridge.register(record, recorded(true));
-  assert.equal(
-    signal(),
-    4,
-    "a new generation that read the old state is signalled again at once",
-  );
-  bridge.register(record, current);
-  assert.equal(bridge.owes(), false, "the current state answers the signal");
-  await wait(1_200);
-  assert.equal(
-    signal(),
-    4,
-    "a registration that read the current state stops the moves",
-  );
+    bridge.register(record, stale);
+    assert.equal(
+      signal(),
+      3,
+      "a delivery of the same generation registers nothing again",
+    );
+    assert.ok(bridge.owes(), "and answers nothing");
+    bridge.register(record, recorded(true));
+    assert.equal(
+      signal(),
+      4,
+      "a new generation that read the old state is signalled again at once",
+    );
+    bridge.register(record, current);
+    assert.equal(bridge.owes(), false, "the current state answers the signal");
+    await wait(1_200);
+    assert.equal(
+      signal(),
+      4,
+      "a registration that read the current state stops the moves",
+    );
 
-  // A host that asks per module whether its cache may serve it is answered
-  // for the pass the signal was answered in and the next: the delivery that
-  // answered vouches for the state, not for the modules its pass served
-  // before it, and the next pass runs them all.
-  bridge.register(record, recorded(true));
-  assert.ok(bridge.owes(), "a stale delivery owes the signal");
-  const pass = bridge.begin();
-  bridge.register(record, recorded(false), false, pass);
-  assert.ok(
-    bridge.owes(),
-    "the delivery that answered it still owes the rest of its pass",
-  );
-  bridge.begin();
-  assert.ok(
-    bridge.owes(),
-    "and the next pass, which runs the modules served before the answer",
-  );
-  bridge.begin();
-  assert.equal(bridge.owes(), false, "the pass after that owes nothing");
+    // A host that asks per module whether its cache may serve it is answered
+    // for the pass the signal was answered in and the next: the delivery that
+    // answered vouches for the state, not for the modules its pass served
+    // before it, and the next pass runs them all.
+    bridge.register(record, recorded(true));
+    assert.ok(bridge.owes(), "a stale delivery owes the signal");
+    const pass = bridge.begin();
+    bridge.register(record, recorded(false), false, pass);
+    assert.ok(
+      bridge.owes(),
+      "the delivery that answered it still owes the rest of its pass",
+    );
+    bridge.begin();
+    assert.ok(
+      bridge.owes(),
+      "and the next pass, which runs the modules served before the answer",
+    );
+    bridge.begin();
+    assert.equal(bridge.owes(), false, "the pass after that owes nothing");
 
-  const other = projectRecordFile(tool, path.join(root, "tsconfig.other.json"));
-  writeProjectRecordFile(other, {
-    inputs: {},
-    membership: null,
-    root,
-    signal: 0,
-    tsconfig: path.join(root, "tsconfig.other.json"),
-  });
-  bridge.register(other, stale);
-  const owed = fs.readFileSync(other, "utf8");
-  await bridge.close();
-  await wait(400);
-  assert.equal(
-    fs.readFileSync(other, "utf8"),
-    owed,
-    "a closed bridge writes no owed move",
-  );
+    const other = projectRecordFile(
+      tool,
+      path.join(root, "tsconfig.other.json"),
+    );
+    writeProjectRecordFile(other, {
+      inputs: {},
+      membership: null,
+      root,
+      signal: 0,
+      tsconfig: path.join(root, "tsconfig.other.json"),
+    });
+    bridge.register(other, stale);
+    const owed = fs.readFileSync(other, "utf8");
+    await bridge.close();
+    await wait(400);
+    assert.equal(
+      fs.readFileSync(other, "utf8"),
+      owed,
+      "a closed bridge writes no owed move",
+    );
+  } finally {
+    await bridge.close();
+  }
 }

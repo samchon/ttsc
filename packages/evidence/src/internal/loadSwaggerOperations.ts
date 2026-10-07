@@ -52,9 +52,9 @@ interface ISwaggerOperation {
  * One source read, with the identity of the bytes it came from.
  *
  * The digest is empty for a remote source. A URL has nothing the native side
- * can hash without fetching it again, so it never participates in reuse, and
- * reporting a digest for one would let it into a cache that cannot revalidate
- * it.
+ * can hash without fetching it again, so it never participates in the local
+ * content-addressed cache. The native host separately retains successful URL
+ * results for its process lifetime; a new process fetches the URL again.
  */
 interface IReadSource {
   text: string;
@@ -70,6 +70,27 @@ interface IReadSource {
  * operation's content taken here because this is the only side that sees the
  * document.
  *
+ * URL protocols are interpreted by the URL parser, preserving the configured
+ * source spelling in every returned inventory or problem. Local paths resolve
+ * against the supplied root and carry their raw-byte digest; remote sources
+ * carry no content-cache digest and retain normal fetch and TLS failures.
+ *
+ * Native configuration owns locator validation. The URL parser canonicalizes
+ * protocol case without changing document paths or replacing fetch and its TLS
+ * validation. Local paths retain path.resolve and raw-byte SHA256 identity;
+ * normalization and operation digests remain independent of source spelling.
+ *
+ * One source reader separates URL transport from local byte reading. The outer
+ * per-source boundary preserves original identity and collects every read or
+ * normalization problem. Remote content has no local cache digest. The matching
+ * configuration guide states scheme case and unsupported file URLs. Local reads
+ * use one handle, acquire at most 16MiB of input plus a sentinel byte, and fill
+ * bounded chunks across short reads. Every acquired-handle path awaits a close
+ * attempt. A rejected close becomes a source problem with no read digest and
+ * may replace an earlier read error; it does not certify successful resource
+ * release. UTF-8 decoding and parsing have their own costs; this byte limit is
+ * not a total process-memory quota.
+ *
  * @internal
  */
 export const loadSwaggerOperations = async (request: {
@@ -84,10 +105,10 @@ export const loadSwaggerOperations = async (request: {
           const read: IReadSource = await readSource(request.root, source);
           digest = read.digest;
           const input: unknown = parse(read.text);
-          const document: OpenApi.IDocument = normalizeSwaggerDocument(input);
+          const normalized = normalizeSwaggerDocument(input, componentAt);
           return {
             source,
-            operations: operationsOf(document),
+            operations: operationsOf(normalized),
             digest,
           } satisfies ISwaggerDocumentInventory;
         } catch (error) {
@@ -109,33 +130,70 @@ const readSource = async (
   root: string,
   source: string,
 ): Promise<IReadSource> => {
-  if (source.startsWith("http://") || source.startsWith("https://"))
+  if (source.includes("://")) {
+    const location: URL = new URL(source);
+    if (location.protocol !== "http:" && location.protocol !== "https:")
+      throw new Error("only http: and https: URLs are supported");
     return { text: await readRemoteSource(source), digest: "" };
-  if (source.includes("://"))
-    throw new Error("only http: and https: URLs are supported");
+  }
 
   // A local document may sit anywhere on the filesystem, including above the
   // project or on an absolute path. The native decoder is what validates the
   // spelling; this side only has to resolve it the same way, which
   // `path.resolve` already does for both forms.
   const location: string = path.resolve(root, source);
-  const stat: Awaited<ReturnType<typeof fs.stat>> = await fs.stat(location);
-  if (!stat.isFile()) throw new Error("the local Swagger source is not a file");
-  if (stat.size > MAX_DOCUMENT_BYTES)
-    throw new Error(
-      `the Swagger document exceeds the ${MAX_DOCUMENT_BYTES} byte limit`,
-    );
-
-  // Hashed before decoding, over the bytes as they were read. The native side
-  // hashes the file's bytes too, so the two agree by construction; hashing the
-  // decoded string instead would agree only for inputs where the round trip
-  // happens to be exact.
-  const content: Buffer = await fs.readFile(location);
-  return {
-    text: decodeUtf8(content),
-    digest: createHash("sha256").update(content).digest("hex"),
-  };
+  const handle = await fs.open(location, "r");
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile())
+      throw new Error("the local Swagger source is not a file");
+    if (stat.size > MAX_DOCUMENT_BYTES) throw documentSizeError();
+    // The file can grow after stat. Read at most the limit plus one sentinel
+    // byte from this same handle, rather than allocating its new whole size.
+    const chunks: Buffer[] = [];
+    let length = 0;
+    let chunk = Buffer.allocUnsafe(64 * 1024);
+    let used = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(
+        chunk,
+        used,
+        Math.min(chunk.length - used, MAX_DOCUMENT_BYTES - length + 1),
+        null,
+      );
+      if (bytesRead === 0) {
+        if (used > 0) chunks.push(chunk.subarray(0, used));
+        break;
+      }
+      length += bytesRead;
+      if (length > MAX_DOCUMENT_BYTES) throw documentSizeError();
+      used += bytesRead;
+      // Short reads fill the same buffer. Retaining a new 64KiB backing
+      // allocation for every one-byte read would defeat the memory bound.
+      if (used === chunk.length) {
+        chunks.push(chunk);
+        chunk = Buffer.allocUnsafe(
+          Math.min(64 * 1024, MAX_DOCUMENT_BYTES - length + 1),
+        );
+        used = 0;
+      }
+    }
+    const content = Buffer.concat(chunks, length);
+    // Cache identity hashes exactly the accepted raw bytes. Invalid UTF-8 is
+    // an unreadable source and returns no read result or content-cache digest.
+    return {
+      text: decodeUtf8(content),
+      digest: createHash("sha256").update(content).digest("hex"),
+    };
+  } finally {
+    await handle.close();
+  }
 };
+
+const documentSizeError = (): Error =>
+  new Error(
+    `the Swagger document exceeds the ${MAX_DOCUMENT_BYTES} byte limit`,
+  );
 
 const readRemoteSource = async (source: string): Promise<string> => {
   const response: Response = await fetch(source, {
@@ -175,29 +233,33 @@ const readRemoteSource = async (source: string): Promise<string> => {
 const decodeUtf8 = (content: Uint8Array): string =>
   new TextDecoder("utf-8", { fatal: true }).decode(content);
 
-const operationsOf = (document: OpenApi.IDocument): ISwaggerOperation[] => {
+const operationsOf = (
+  normalized: ReturnType<typeof normalizeSwaggerDocument>,
+): ISwaggerOperation[] => {
+  const document = normalized.document;
   const operations: ISwaggerOperation[] = [];
-  const components: Record<string, unknown> = (document.components ??
-    {}) as Record<string, unknown>;
   for (const [operationPath, item] of Object.entries(document.paths ?? {})) {
     for (const method of METHODS) {
       const operation: OpenApi.IOperation | undefined = item[method];
       if (operation !== undefined)
         operations.push(
-          operationOf(method, operationPath, operation, components),
+          operationOf(method, operationPath, operation, normalized),
         );
     }
     for (const [method, operation] of Object.entries(
       item.additionalOperations ?? {},
     ))
       operations.push(
-        operationOf(method, operationPath, operation, components),
+        operationOf(method, operationPath, operation, normalized),
       );
   }
   operations.sort((left, right) => {
     const leftTarget: string = `${left.method}:${left.path}`;
     const rightTarget: string = `${right.method}:${right.path}`;
-    return leftTarget.localeCompare(rightTarget);
+    // Code-unit order, never locale order: collation treats canonically
+    // equivalent spellings as equal, which can leave two identical targets
+    // apart and hide the duplicate the next loop looks for.
+    return leftTarget < rightTarget ? -1 : leftTarget > rightTarget ? 1 : 0;
   });
   for (let index: number = 1; index < operations.length; index++) {
     const previous: ISwaggerOperation = operations[index - 1]!;
@@ -217,7 +279,7 @@ const operationOf = (
   method: string,
   operationPath: string,
   operation: OpenApi.IOperation,
-  components: Record<string, unknown>,
+  normalized: Parameters<typeof operationsOf>[0],
 ): ISwaggerOperation => {
   if (!operationPath.startsWith("/"))
     throw new Error(
@@ -233,7 +295,7 @@ const operationOf = (
   return {
     method: method.toUpperCase(),
     path: operationPath,
-    digest: canonicalDigest(withResolvedReferences(operation, components)),
+    digest: canonicalDigest(withResolvedReferences(operation, normalized)),
   };
 };
 
@@ -256,48 +318,61 @@ const operationOf = (
  *
  * Siblings of a `$ref` are kept and override what it resolves to, which is what
  * OpenAPI 3.1 says they do. A reference already open on the path above is left
- * as written, so a recursive schema terminates while two operations reaching
- * one cycle by different routes still differ. An undeclared reference is left
- * as written too: a broken document is not a digest question, and inventing an
- * empty schema for it would make two different broken documents agree.
+ * as written. The guard uses the decoded pointer, so percent-encoded and plain
+ * spellings of the same recursive component stop at the same boundary. Two
+ * operations reaching one cycle by different routes can still differ. An
+ * undeclared or malformed reference is left as written too: a broken document
+ * is not a digest question, and inventing an empty schema for it would make two
+ * different broken documents agree. Normalization retains the original pointer
+ * identity behind private schema aliases, so a version converter cannot change
+ * the recursion boundary or bind an unresolved reference to an unrelated
+ * component. Literal example, default, const, enum and extension values are
+ * hashed as data, not dereferenced.
  */
 const withResolvedReferences = (
   value: unknown,
-  components: Record<string, unknown>,
+  normalized: Parameters<typeof operationsOf>[0],
   open: Set<string> = new Set<string>(),
 ): unknown => {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value))
     return value.map((element) =>
-      withResolvedReferences(element, components, open),
+      withResolvedReferences(element, normalized, open),
     );
   const entries: Array<[string, unknown]> = Object.entries(
     value as Record<string, unknown>,
   );
   const reference: unknown = (value as Record<string, unknown>)["$ref"];
-  if (typeof reference !== "string" || open.has(reference))
+  const preserved =
+    typeof reference === "string"
+      ? normalized.referenceAt(reference)
+      : undefined;
+  const target = preserved?.target;
+  if (target === undefined || open.has(target.pointer))
     return Object.fromEntries(
       entries.map(([key, element]) => [
         key,
-        withResolvedReferences(element, components, open),
+        key === "$ref" && preserved !== undefined
+          ? preserved.reference
+          : normalized.isLiteral(value, key)
+            ? literalValue(element)
+            : withResolvedReferences(element, normalized, open),
       ]),
     );
-  const target: unknown = componentAt(components, reference);
-  if (target === undefined)
-    return Object.fromEntries(
-      entries.map(([key, element]) => [
-        key,
-        withResolvedReferences(element, components, open),
-      ]),
-    );
-  open.add(reference);
+  open.add(target.pointer);
   try {
-    const resolved: unknown = withResolvedReferences(target, components, open);
+    const resolved: unknown = withResolvedReferences(
+      target.value,
+      normalized,
+      open,
+    );
     const siblings: Array<[string, unknown]> = entries
       .filter(([key]) => key !== "$ref")
       .map(([key, element]) => [
         key,
-        withResolvedReferences(element, components, open),
+        normalized.isLiteral(value, key)
+          ? literalValue(element)
+          : withResolvedReferences(element, normalized, open),
       ]);
     if (siblings.length === 0) return resolved;
     if (resolved === null || typeof resolved !== "object")
@@ -307,36 +382,86 @@ const withResolvedReferences = (
       ...Object.fromEntries(siblings),
     };
   } finally {
-    open.delete(reference);
+    open.delete(target.pointer);
   }
 };
 
-const COMPONENT_REFERENCE_PREFIX = "#/components/";
+/**
+ * Copies data without interpreting `$ref`, refusing non-JSON object cycles.
+ *
+ * Each occurrence contributes its JSON value, even when YAML anchors share an
+ * acyclic child. The active path is released in finally; the allocated value
+ * lasts through hashing. This is not a total memory or depth bound.
+ */
+const literalValue = (
+  value: unknown,
+  open: Set<object> = new Set<object>(),
+): unknown => {
+  if (value === null || typeof value !== "object") return value;
+  if (open.has(value))
+    throw new Error("a Swagger literal value contains an object cycle");
+  open.add(value);
+  try {
+    return Array.isArray(value)
+      ? value.map((element) => literalValue(element, open))
+      : Object.fromEntries(
+          Object.entries(value).map(([key, element]) => [
+            key,
+            literalValue(element, open),
+          ]),
+        );
+  } finally {
+    open.delete(value);
+  }
+};
 
-/** Reads one `#/components/<section>/<name>` pointer, or nothing. */
+const COMPONENT_REFERENCE_PREFIX = "/components/";
+
+/**
+ * Reads one local component URI fragment, or nothing.
+ *
+ * RFC 6901 URI decoding precedes tokenization: %2F separates pointer tokens,
+ * while ~1 names a slash inside one token. Malformed URI or tilde escapes name
+ * nothing; the caller preserves their original reference rather than selecting
+ * a literal property with invalid pointer syntax. Tokens are decoded once and
+ * remain case-sensitive, without Unicode normalization.
+ *
+ * Own object members and canonical unsigned array indices can be selected.
+ * Inherited properties, leading-zero indices, array append and absent elements
+ * cannot. The decoded pointer also identifies the recursion guard independently
+ * of percent-escape spelling. Walking costs the fragment length plus its token
+ * count and retains only this lookup's tokens and result.
+ */
 const componentAt = (
   components: Record<string, unknown>,
   reference: string,
-): unknown => {
-  if (!reference.startsWith(COMPONENT_REFERENCE_PREFIX)) return undefined;
-  const segments: string[] = reference
+): { pointer: string; value: unknown } | undefined => {
+  if (!reference.startsWith("#")) return undefined;
+  let pointer: string;
+  try {
+    pointer = decodeURIComponent(reference.slice(1));
+  } catch {
+    return undefined;
+  }
+  if (!pointer.startsWith(COMPONENT_REFERENCE_PREFIX)) return undefined;
+  const tokens: string[] = pointer
     .slice(COMPONENT_REFERENCE_PREFIX.length)
-    .split("/")
-    .map((segment) =>
-      decodeURIComponent(segment).replaceAll("~1", "/").replaceAll("~0", "~"),
-    );
+    .split("/");
   let current: unknown = components;
-  for (const segment of segments) {
+  for (const token of tokens) {
+    if (/~(?:[^01]|$)/u.test(token)) return undefined;
+    const segment: string = token.replaceAll("~1", "/").replaceAll("~0", "~");
+    if (current === null || typeof current !== "object") return undefined;
     if (
-      current === null ||
-      typeof current !== "object" ||
-      Array.isArray(current)
+      Array.isArray(current) &&
+      /^(?:0|[1-9][0-9]*)$/u.test(segment) === false
     )
       return undefined;
-    if (!(segment in (current as Record<string, unknown>))) return undefined;
+    if (!Object.hasOwn(current as Record<string, unknown>, segment))
+      return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
-  return current;
+  return current === undefined ? undefined : { pointer, value: current };
 };
 
 const isInventory = (

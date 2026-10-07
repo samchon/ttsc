@@ -7,23 +7,26 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestValueCallEdgesRecordConstructVersusCallOrigin verifies that a value-call
-// edge carries the syntactic Origin the dump splits into the schema's `calls`
-// versus `instantiates` kinds: a plain call records "call", a `new T()` records
-// "new".
+// TestValueCallEdgesRecordConstructVersusCallOrigin checks that selected
+// internal value-call edges report "call" for a method call and "new" for a
+// class construction. This test does not invoke the dump's wire-kind mapping.
 //
-// The internal model keeps one EdgeValueCall kind so the existing MCP stays
-// untouched; the finer distinction the redesigned graph schema requires
-// (`new Foo()` is an instantiation, not a call) rides on Edge.Origin. Without it
-// the dump could not recover a constructor from an invocation after the fact, so
-// this pins the discriminator at its source.
+// The two targets also have different node kinds, so these selected origins do
+// not independently reject origin inference from target kind. Exact counts,
+// all matching edges, emitted execution, and MCP consumption are unobserved.
 //
 //  1. Compile a fixture where Controller.handle both calls Service.run and
 //     constructs `new Service()`.
 //  2. Build the graph.
 //  3. Assert the handle->Service.run edge has Origin "call" and the
 //     handle->Service edge has Origin "new".
+//
+// @evidence contracts/testing.md#behavioral-verification Requires literal call/new origins on the first matching internal value-call triples. The target kinds differ too, so exclusive syntax acquisition is not authenticated; wire calls/instantiates mapping and exact edge counts are not asserted.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "call", "new"; the handle->Service.run edge has Origin "call" and the handle->Service edge has Origin "new".
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where Controller.handle both calls Service.run and constructs `new Service()`; Build the graph; Assert the handle->Service.run edge has Origin "call" and the handle->Service edge has Origin "new".
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config/source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build and first-match edgeOrigin observations run in this process using its actual filename and shared nodeID encoder. No independent identity oracle, dump serialization, product CLI, installation, emitted invocation, or MCP consumer runs.
 func TestValueCallEdgesRecordConstructVersusCallOrigin(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Service {

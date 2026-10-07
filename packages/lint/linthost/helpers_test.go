@@ -1,0 +1,910 @@
+// Helpers for the lint engine and config unit scenarios.
+//
+// These are in-package tests of linthost, so they can inspect unexported engine
+// and config helpers directly.
+package linthost
+
+import (
+  "encoding/json"
+  "fmt"
+  "net/url"
+  "os"
+  "path/filepath"
+  "regexp"
+  "sort"
+  "strings"
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+)
+
+var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
+var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+var renderedRuleDiagnosticPattern = regexp.MustCompile(`(?m)(?:^|[\s/\\])[^\s:]+\.(?:[cm]?tsx?|jsx?):\d+:\d+\s+-\s+(?:error|warning)\s+TS\d+:\s*\[([@\w/-]+)\]`)
+
+// diagnosticOutputContains compares rendered diagnostics after removing ANSI
+// control sequences. Windows and POSIX runners color different path segments,
+// so raw file:line substrings are not portable even when the diagnostic is.
+func diagnosticOutputContains(output, substring string) bool {
+  return strings.Contains(ansiControlSequencePattern.ReplaceAllString(output, ""), substring)
+}
+
+type ruleExpectation struct {
+  Rule     string
+  Severity Severity
+  Line     int
+}
+
+// parseTS parses one virtual TypeScript source file for engine-only tests.
+//
+// 1. Use an absolute virtual path because the tsgo parser rejects relatives.
+// 2. Parse as TypeScript, not JavaScript, so TS-only lint rules can run.
+// 3. Fail the current scenario immediately if the parser returns no SourceFile.
+func parseTS(t *testing.T, source string) *shimast.SourceFile {
+  t.Helper()
+  return parseTSFile(t, "/virtual/test.ts", source)
+}
+
+// parseTSFile parses one virtual TypeScript file with a caller-selected path.
+//
+// Some cases live in subdirectories and import sibling fixtures. The native rule
+// engine only needs the offending source file for these AST rules, but
+// preserving the relative fixture name makes assertion failures easier to map
+// back to packages/lint/test/testdata/corpus.
+//
+// 1. Keep the filename absolute because the tsgo parser rejects relatives.
+// 2. Parse as TypeScript so TS-only syntax and directives are preserved.
+// 3. Fail the current scenario immediately if parsing returns no SourceFile.
+func parseTSFile(t *testing.T, fileName, source string) *shimast.SourceFile {
+  t.Helper()
+  opts := shimast.SourceFileParseOptions{
+    // The tsgo parser asserts on normalized absolute paths; Windows
+    // t.TempDir() callers would otherwise panic it with backslashes.
+    FileName: filepath.ToSlash(fileName),
+  }
+  file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTS)
+  if file == nil {
+    t.Fatalf("parser returned nil source file")
+  }
+  return file
+}
+
+// parseTSXFile parses one virtual TSX file with a caller-selected path.
+// Mirrors parseTSFile but uses ScriptKindTSX so JSX nodes
+// (KindJsxElement, KindJsxAttribute, …) appear in the AST.
+//
+//  1. Keep the filename absolute because the tsgo parser rejects relatives.
+//  2. Parse as TSX so JSX-only kinds are recognized instead of becoming
+//     parse errors or alternative-grammar tokens.
+//  3. Fail the current scenario immediately if parsing returns no SourceFile.
+func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
+  t.Helper()
+  opts := shimast.SourceFileParseOptions{
+    // Same normalization as parseTSFile — see the comment there.
+    FileName: filepath.ToSlash(fileName),
+  }
+  file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTSX)
+  if file == nil {
+    t.Fatalf("parser returned nil source file")
+  }
+  return file
+}
+
+// validateSemanticRuleFindings rejects execution failures before semantic
+// harnesses normalize ranges or record positive rule coverage. Panic recovery
+// deliberately uses the original rule identity and error severity, so those
+// fields alone cannot distinguish a diagnostic from a failed rule invocation.
+// This guard is for semantic fixtures; tests of intentional engine failures
+// retain direct access to their recovered findings.
+func validateSemanticRuleFindings(rules RuleConfig, findings []*Finding) error {
+  for index, finding := range findings {
+    if finding == nil {
+      return fmt.Errorf("finding %d is nil", index)
+    }
+    if finding.engineFailure {
+      return fmt.Errorf("rule %q execution failed: %s", finding.Rule, finding.Message)
+    }
+    severity, enabled := rules[finding.Rule]
+    if !enabled || severity == SeverityOff || finding.Severity != severity {
+      return fmt.Errorf("finding %d has unexpected rule/severity %q/%v for %v", index, finding.Rule, finding.Severity, rules)
+    }
+  }
+  return nil
+}
+
+// parseRuleExpectations mirrors the TypeScript fixture helper's annotation
+// parser. `// expect:` comments pin to the next non-blank target line, while
+// stacked expectation comments can share the same target.
+func parseRuleExpectations(t *testing.T, source string) []ruleExpectation {
+  t.Helper()
+  lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")
+  expected := []ruleExpectation{}
+  for i, line := range lines {
+    match := ruleExpectationPattern.FindStringSubmatch(line)
+    if match == nil {
+      continue
+    }
+    target := i + 1
+    for target < len(lines) {
+      candidate := lines[target]
+      if strings.TrimSpace(candidate) == "" || ruleExpectationPattern.MatchString(candidate) {
+        target++
+        continue
+      }
+      if match[1] != "typescript/ban-ts-comment" &&
+        regexp.MustCompile(`^\s*//\s*@ts-(?:expect-error|ignore)\b`).MatchString(candidate) {
+        target++
+        continue
+      }
+      break
+    }
+    if target >= len(lines) {
+      continue
+    }
+    expected = append(expected, ruleExpectation{
+      Rule:     match[1],
+      Severity: parseExpectedSeverity(t, match[2]),
+      Line:     target + 1,
+    })
+  }
+  return expected
+}
+
+func parseExpectedSeverity(t *testing.T, text string) Severity {
+  t.Helper()
+  switch text {
+  case "error":
+    return SeverityError
+  case "warn":
+    return SeverityWarn
+  default:
+    t.Fatalf("unknown fixture severity %q", text)
+    return SeverityOff
+  }
+}
+
+func normalizeRuleFindings(file *shimast.SourceFile, findings []*Finding) []ruleExpectation {
+  actual := make([]ruleExpectation, 0, len(findings))
+  for _, finding := range findings {
+    actual = append(actual, ruleExpectation{
+      Rule:     finding.Rule,
+      Severity: finding.Severity,
+      Line:     shimscanner.GetECMALineOfPosition(file, finding.Pos) + 1,
+    })
+  }
+  sort.Slice(actual, func(i, j int) bool {
+    if actual[i].Line != actual[j].Line {
+      return actual[i].Line < actual[j].Line
+    }
+    if actual[i].Rule != actual[j].Rule {
+      return actual[i].Rule < actual[j].Rule
+    }
+    return actual[i].Severity < actual[j].Severity
+  })
+  return actual
+}
+
+// findingRules returns a sorted rule-name snapshot from engine findings.
+//
+// 1. Drop source ranges because directive tests only need rule identity.
+// 2. Sort names so assertions do not depend on AST walk order.
+func findingRules(findings []*Finding) []string {
+  names := make([]string, 0, len(findings))
+  for _, finding := range findings {
+    names = append(names, finding.Rule)
+  }
+  sort.Strings(names)
+  return names
+}
+
+// requireNoAmbientInstall skips the case when a `node_modules` above the
+// fixture already installs `pkg`.
+//
+// The negative resolutions assert that a project answers with nothing, and the
+// walk they exercise climbs to the filesystem root by design, exactly as Node's
+// does. A stray install above the system temp directory would answer for the
+// project the case deliberately left empty, and the failure would read as a
+// defect in the resolution rather than as pollution outside the tree. The probe
+// anchors one level above `root`, so it inspects the ambient ancestry only and
+// never the fixture.
+func requireNoAmbientInstall(t *testing.T, root, pkg string) {
+  t.Helper()
+  probe := filepath.Join(filepath.Dir(root), "ambient-probe-anchor")
+  if found := nodePackageManifestFrom(probe, pkg); found != "" {
+    t.Skipf("an ambient %s install at %s answers above the fixture", pkg, found)
+  }
+}
+
+// seedProjectTtsc materializes the `ttsc` install a project-anchored launcher
+// resolution walks to, under `root`'s node_modules, and returns the launcher
+// path it should produce. Only the manifest and `lib/launcher/ttsx.js` matter;
+// nothing spawns the file, so its contents are irrelevant.
+func seedProjectTtsc(t *testing.T, root string) string {
+  t.Helper()
+  packageRoot := filepath.Join(root, "node_modules", "ttsc")
+  writeFile(t, filepath.Join(packageRoot, "package.json"), `{"name":"ttsc"}`)
+  launcher := filepath.Join(packageRoot, "lib", "launcher", "ttsx.js")
+  writeFile(t, launcher, "")
+  return launcher
+}
+
+// captureCommandOutput records stdout and stderr for command-frontdoor tests.
+//
+// The lint package writes directly to process streams because it is a native
+// sidecar command. Capturing the real streams keeps tests close to host
+// behavior while still allowing assertions on rendered diagnostics.
+//
+// 1. Swap os.Stdout and os.Stderr for temporary files around the command.
+// 2. Execute the command and close files before reading captured output.
+// 3. Restore process streams before returning to the caller.
+func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
+  t.Helper()
+  prevOut, prevErr := os.Stdout, os.Stderr
+  outputDirectory := t.TempDir()
+  outWriter, err := os.Create(filepath.Join(outputDirectory, "stdout"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  errWriter, err := os.Create(filepath.Join(outputDirectory, "stderr"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  os.Stdout = outWriter
+  os.Stderr = errWriter
+  defer func() {
+    os.Stdout = prevOut
+    os.Stderr = prevErr
+  }()
+  code := fn()
+  if err := outWriter.Close(); err != nil {
+    t.Fatal(err)
+  }
+  if err := errWriter.Close(); err != nil {
+    t.Fatal(err)
+  }
+  os.Stdout = prevOut
+  os.Stderr = prevErr
+  out, err := os.ReadFile(outWriter.Name())
+  if err != nil {
+    t.Fatal(err)
+  }
+  errOut, err := os.ReadFile(errWriter.Name())
+  if err != nil {
+    t.Fatal(err)
+  }
+  stderr := string(errOut)
+  public := registeredBuiltInNonFormatRuleSet()
+  normalizedStderr := ansiControlSequencePattern.ReplaceAllString(stderr, "")
+  for _, match := range renderedRuleDiagnosticPattern.FindAllStringSubmatch(normalizedStderr, -1) {
+    if len(match) != 2 {
+      continue
+    }
+    if _, ok := public[match[1]]; ok {
+      recordBehavioralWitness(
+        t,
+        match[1],
+        behavioralWitnessKindForRule(match[1]),
+      )
+    }
+  }
+  return code, string(out), stderr
+}
+
+// seedLintProject materializes a minimal project for command-frontdoor tests.
+//
+// Project commands need a real tsconfig because RunCheck, RunBuild, and
+// RunTransform all bootstrap tsgo. The helper keeps those fixtures consistent
+// while letting each scenario decide source text and compiler options.
+//
+// 1. Create a temporary root with tsconfig.json and src/main.ts.
+// 2. Use strict CommonJS output so emitted JavaScript has stable assertions.
+// 3. Return the root path for --cwd command execution.
+func seedLintProject(t *testing.T, source string) string {
+  t.Helper()
+  return seedLintProjectFile(t, "main.ts", source)
+}
+
+// seedLintSiblingSourceProject materializes a two-package workspace whose
+// consumer project imports a sibling package's TypeScript source, and returns
+// the consumer project root together with the sibling source path.
+//
+// This is the pnpm-workspace shape from samchon/ttsc#1065: a package publishes
+// `./src/index.ts` as its entry, so every workspace consumer resolves it to
+// first-party TypeScript. The consumer tsconfig selects its own file alone, so
+// the sibling can only enter the Program through the import — exactly the file
+// the type-check pass reads and the lint pass used to skip.
+//
+//  1. Write a consumer project whose `files` list names `src/main.ts` only.
+//  2. Write the sibling package's source outside that project directory.
+//  3. Return the consumer root and the absolute sibling source path.
+//
+// The consumer config sets `noEmit` rather than the usual rootDir/outDir pair:
+// an import that resolves above rootDir is a TS6059 emit error, which would
+// mask the lint-scope behavior every caller of this helper is asserting.
+func seedLintSiblingSourceProject(
+  t *testing.T,
+  consumerSource string,
+  siblingSource string,
+) (string, string) {
+  t.Helper()
+  workspace := t.TempDir()
+  consumer := filepath.Join(workspace, "consumer")
+  sibling := filepath.Join(workspace, "api", "src", "index.ts")
+  config, err := json.MarshalIndent(map[string]any{
+    "compilerOptions": map[string]any{
+      "target": "ES2022",
+      "module": "commonjs",
+      "strict": true,
+      "noEmit": true,
+    },
+    "files": []string{"src/main.ts"},
+  }, "", "  ")
+  if err != nil {
+    t.Fatalf("marshal tsconfig: %v", err)
+  }
+  writeFile(t, filepath.Join(consumer, "tsconfig.json"), string(config)+"\n")
+  writeFile(t, filepath.Join(consumer, "src", "main.ts"), consumerSource)
+  writeFile(t, sibling, siblingSource)
+  return consumer, sibling
+}
+
+// seedLintProjectFile is seedLintProject with a caller-selected source name.
+// Snapshot tests use it when the filename controls TypeScript's grammar, while
+// command-frontdoor tests keep the main.ts default above.
+func seedLintProjectFile(t *testing.T, fileName, source string) string {
+  t.Helper()
+  root := t.TempDir()
+  compilerOptions := map[string]any{
+    "target":  "ES2022",
+    "module":  "commonjs",
+    "strict":  true,
+    "rootDir": "src",
+    "outDir":  "dist",
+  }
+  if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
+    compilerOptions["jsx"] = "preserve"
+  }
+  config, err := json.MarshalIndent(map[string]any{
+    "compilerOptions": compilerOptions,
+    "files": []string{
+      filepath.ToSlash(filepath.Join("src", fileName)),
+    },
+  }, "", "  ")
+  if err != nil {
+    t.Fatalf("marshal tsconfig: %v", err)
+  }
+  writeFile(t, filepath.Join(root, "tsconfig.json"), string(config)+"\n")
+  writeFile(t, filepath.Join(root, "src", fileName), source)
+  return root
+}
+
+// lintManifest serializes the plugin payload shape passed by ttsc.
+//
+// The command package receives its plugin entry through --plugins-json, not by
+// reading package.json. The tsconfig plugin entry carries no inline rule
+// surface: it points at a lint config file via `configFile` or relies on
+// auto-discovery. Tests that need rules pair this helper with `seedLintConfig`.
+func lintManifest(t *testing.T) string {
+  t.Helper()
+  return lintManifestWithConfig(t, map[string]any{})
+}
+
+func lintManifestWithConfig(t *testing.T, config map[string]any) string {
+  t.Helper()
+  data, err := json.Marshal([]map[string]any{{
+    "name":   "@ttsc/lint",
+    "stage":  "check",
+    "config": config,
+  }})
+  if err != nil {
+    t.Fatal(err)
+  }
+  return string(data)
+}
+
+// seedLintConfig writes a `lint.config.json` carrying the given
+// `ITtscLintConfig` object into `root`, so a command run with `--cwd root`
+// discovers it the way a real project's config file would be picked up.
+func seedLintConfig(t *testing.T, root string, config map[string]any) {
+  t.Helper()
+  data, err := json.Marshal(config)
+  if err != nil {
+    t.Fatal(err)
+  }
+  writeFile(t, filepath.Join(root, "lint.config.json"), string(data))
+}
+
+// seedLintRules is the common-case wrapper over seedLintConfig: it writes a
+// `lint.config.json` whose only key is a `rules` severity map.
+func seedLintRules(t *testing.T, root string, rules map[string]string) {
+  t.Helper()
+  seedLintConfig(t, root, map[string]any{"rules": rules})
+}
+
+func assertFileText(t *testing.T, file string, expected string) {
+  t.Helper()
+  got, err := os.ReadFile(file)
+  if err != nil {
+    t.Fatalf("ReadFile(%s): %v", file, err)
+  }
+  if string(got) != expected {
+    t.Fatalf("%s text mismatch:\nwant %q\ngot  %q", file, expected, string(got))
+  }
+}
+
+func lintTestFileURI(t *testing.T, file string) string {
+  t.Helper()
+  abs, err := filepath.Abs(file)
+  if err != nil {
+    t.Fatalf("Abs: %v", err)
+  }
+  uriPath := filepath.ToSlash(abs)
+  if filepath.VolumeName(abs) != "" && !strings.HasPrefix(uriPath, "/") {
+    uriPath = "/" + uriPath
+  }
+  return (&url.URL{Scheme: "file", Path: uriPath}).String()
+}
+
+// assertFixSnapshot runs one rule's findings through the native fix applier.
+//
+// Fixer tests need the real file-writing path, not just in-memory edit
+// selection, because RunFix reloads a fresh Program from disk after every pass.
+//
+// 1. Materialize a real source file and load the AST or checker path the rule requires.
+// 2. Run one enabled rule and apply collected text edits to disk.
+// 3. Compare the rewritten source exactly.
+func assertFixSnapshot(t *testing.T, ruleName, source, expected string) {
+  t.Helper()
+  got, fixed := runFixSnapshot(t, ruleName, source)
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  if got != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, got)
+  }
+}
+
+// assertFixSnapshotFile is assertFixSnapshot with a caller-selected source
+// filename. Fixers whose safety depends on TypeScript's extension-selected
+// grammar use it to exercise TS, TSX, MTS, and CTS without substituting a
+// synthetic main.ts mode.
+func assertFixSnapshotFile(t *testing.T, ruleName, fileName, source, expected string) {
+  t.Helper()
+  got, fixed := runFixSnapshotFile(t, ruleName, fileName, source)
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  if got != expected {
+    t.Fatalf("%s fixed source mismatch for %s:\nwant %q\ngot  %q", ruleName, fileName, expected, got)
+  }
+}
+
+// assertNoFixSnapshot verifies a reported rule does not offer automatic edits.
+func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
+  t.Helper()
+  got, fixed := runFixSnapshot(t, ruleName, source)
+  if fixed != 0 {
+    t.Fatalf("%s: expected no applied fixes, got %d", ruleName, fixed)
+  }
+  if got != source {
+    t.Fatalf("%s source should remain unchanged:\nwant %q\ngot  %q", ruleName, source, got)
+  }
+}
+
+// assertSuggestionSnapshot verifies a rule withholds its automatic fix and
+// offers the same rewrite as one titled, opt-in suggestion instead.
+//
+// The suggestion channel exists for an edit that is correct but lossy or
+// behavior-changing, so both halves have to hold at once: the automatic
+// text-edit pass must change nothing, while explicit application of the
+// suggestion's edits must produce `expected`. This helper does not execute
+// the CLI or an LSP request. Asserting only the first
+// half would pass for a rule that dropped the edit entirely, which is the
+// regression this helper exists to catch.
+//
+//  1. Run one rule over `source` and require exactly one finding.
+//  2. Assert it carries no automatic fix and exactly one suggestion titled
+//     `title`, and that the automatic pass leaves the source untouched.
+//  3. Apply the suggestion's own edits and compare the result exactly.
+func assertSuggestionSnapshot(t *testing.T, ruleName, source, title, expected string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  if len(findings) != 1 {
+    t.Fatalf("%s: findings = %d, want 1 (%+v)", ruleName, len(findings), findings)
+  }
+  finding := findings[0]
+  if len(finding.Fix) != 0 {
+    t.Fatalf("%s: automatic fix must stay withheld, got %+v", ruleName, finding.Fix)
+  }
+  if len(finding.Suggestions) != 1 {
+    t.Fatalf(
+      "%s: suggestions = %d, want 1 (%+v)",
+      ruleName,
+      len(finding.Suggestions),
+      finding.Suggestions,
+    )
+  }
+  suggestion := finding.Suggestions[0]
+  if suggestion.Title != title {
+    t.Fatalf("%s: suggestion title:\nwant %q\ngot  %q", ruleName, title, suggestion.Title)
+  }
+  if unchanged, applied := applyFindingFixesToText(source, findings); applied != 0 || unchanged != source {
+    t.Fatalf(
+      "%s: automatic pass must change nothing: applied=%d got %q",
+      ruleName,
+      applied,
+      unchanged,
+    )
+  }
+  got, applied := applyFindingFixesToText(source, []*Finding{{Fix: suggestion.Edits}})
+  if applied != len(suggestion.Edits) {
+    t.Fatalf(
+      "%s: applied %d of %d suggestion edits",
+      ruleName,
+      applied,
+      len(suggestion.Edits),
+    )
+  }
+  if got != expected {
+    t.Fatalf("%s suggested source mismatch:\nwant %q\ngot  %q", ruleName, expected, got)
+  }
+}
+
+// assertReportOnlySnapshot verifies a rule reports but offers the author
+// nothing at all — neither an automatic fix nor an opt-in suggestion.
+//
+// It is the counter-assertion to `assertSuggestionSnapshot`. Where a rewrite
+// is withheld because applying it would change what the program does, routing
+// it to the suggestion channel is wrong, not merely cautious;
+// `assertNoFixSnapshot` alone cannot tell that apart from a correctly offered
+// suggestion because suggestion edits never reach the fix applier.
+//
+//  1. Run one rule over `source` and require at least one finding.
+//  2. Assert no finding carries a fix or a suggestion.
+//  3. Assert the automatic pass leaves the source byte-for-byte intact.
+func assertReportOnlySnapshot(t *testing.T, ruleName, source string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  for index, finding := range findings {
+    if len(finding.Fix) != 0 {
+      t.Fatalf("%s: finding %d carries a fix: %+v", ruleName, index, finding.Fix)
+    }
+    if len(finding.Suggestions) != 0 {
+      t.Fatalf(
+        "%s: finding %d carries a suggestion: %+v",
+        ruleName,
+        index,
+        finding.Suggestions,
+      )
+    }
+  }
+  if unchanged, applied := applyFindingFixesToText(source, findings); applied != 0 || unchanged != source {
+    t.Fatalf(
+      "%s: automatic pass must change nothing: applied=%d got %q",
+      ruleName,
+      applied,
+      unchanged,
+    )
+  }
+}
+
+// assertRuleSkipsSource asserts the rule emits zero findings for the input.
+// Distinguished from `assertNoFixSnapshot`: the latter requires at least one
+// finding (and asserts no fix is applied); this helper is for cases where the
+// rule must not fire at all — used for round-2 regression coverage of fixers
+// that previously fired on the wrong shape and corrupted source.
+func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  if len(findings) != 0 {
+    t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
+  }
+}
+
+// assertRuleFindingRanges asserts the rule reports exactly one finding per
+// marker, in source order, each spanning that marker's byte range.
+//
+// Markers are literal substrings of `source` and must occur exactly once, so
+// a missing, extra, duplicated, or over-wide diagnostic fails the assertion
+// instead of hiding behind a bare count. Passing no marker asserts the rule
+// stays silent, which keeps a positive arm and its negative twin in one
+// helper.
+func assertRuleFindingRanges(t *testing.T, ruleName, source string, markers ...string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  if len(findings) != len(markers) {
+    t.Fatalf("%s: want %d findings, got %d (%+v)", ruleName, len(markers), len(findings), findings)
+  }
+  for index, marker := range markers {
+    start := strings.Index(source, marker)
+    if start < 0 {
+      t.Fatalf("%s: marker %q missing from source", ruleName, marker)
+    }
+    if strings.Contains(source[start+1:], marker) {
+      t.Fatalf("%s: marker %q occurs more than once in source", ruleName, marker)
+    }
+    finding := findings[index]
+    if finding.Pos != start || finding.End != start+len(marker) {
+      t.Fatalf(
+        "%s: finding %d range: want [%d,%d) %q, got [%d,%d)",
+        ruleName,
+        index,
+        start,
+        start+len(marker),
+        marker,
+        finding.Pos,
+        finding.End,
+      )
+    }
+  }
+}
+
+// assertFixSnapshotWithOptions runs one rule (configured with optsJSON)
+// through the native fix applier and snapshots the rewritten source.
+// Mirrors `assertFixSnapshot`; option-gated sibling of
+// `assertRuleSkipsSourceWithOptions`. Cannot delegate to `runFixSnapshot`
+// because that path uses the default `NewEngine` rather than
+// `NewEngineWithResolver`; the shared findings loader selects the resolver.
+func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
+  t.Helper()
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  got, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  if string(got) != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, string(got))
+  }
+}
+
+// assertFixCRLFConsistentWithOptions runs one rule (configured with optsJSON,
+// which must set endOfLine:"crlf") through the fixer, asserts the rewritten
+// source equals `expected`, and additionally asserts the output carries zero
+// lone LFs — every "\n" belongs to a "\r\n". The lone-LF invariant is the
+// direct regression shield for issue #616: a reflow builder that hard-codes
+// "\n" injects a bare LF into an otherwise-CRLF file, so this check fails on a
+// reintroduced literal independently of the exact snapshot. It is checked on
+// the real applied output, not on the oracle literal.
+func assertFixCRLFConsistentWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
+  t.Helper()
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  raw, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  got := string(raw)
+  if got != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, got)
+  }
+  if lf, crlf := strings.Count(got, "\n"), strings.Count(got, "\r\n"); lf != crlf {
+    t.Fatalf("%s: output has lone LFs (%d LF, %d CRLF): %q", ruleName, lf, crlf, got)
+  }
+}
+
+// assertRuleSkipsSourceWithOptions asserts the rule emits zero findings for
+// the input when configured with the given options JSON. Mirrors
+// `assertRuleSkipsSource`; used for option-gated skip arms (e.g.
+// `format/trailing-comma` under `mode: "es5"`) so per-case tests do not have
+// to inline `InlineRuleResolver` + `NewEngineWithResolver` boilerplate.
+func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
+  if len(findings) != 0 {
+    t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
+  }
+}
+
+func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
+  t.Helper()
+  return runFixSnapshotFile(t, ruleName, "main.ts", source)
+}
+
+func runFixSnapshotFile(t *testing.T, ruleName, fileName, source string) (string, int) {
+  t.Helper()
+  root, filePath, findings := runRuleFindingsSnapshotFile(
+    t,
+    ruleName,
+    fileName,
+    source,
+    nil,
+  )
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  got, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  return string(got), fixed
+}
+
+// runRuleFindingsSnapshot runs one rule against a disk-backed source file.
+// AST-only rules keep the parser-only fast path; type-aware rules receive a
+// real Program and checker so fixer tests exercise the same binding identity
+// as command, LSP, and CLI execution.
+func runRuleFindingsSnapshot(
+  t *testing.T,
+  ruleName string,
+  source string,
+  options json.RawMessage,
+) (string, string, []*Finding) {
+  t.Helper()
+  return runRuleFindingsSnapshotFile(t, ruleName, "main.ts", source, options)
+}
+
+// markedIdentifierRanges returns the exact identifier ranges immediately
+// following each marker. Rule tests use the marker-free finding set as their
+// oracle, so an extra, missing, duplicate, or over-wide diagnostic fails.
+func markedIdentifierRanges(t *testing.T, source string, marker string) [][2]int {
+  t.Helper()
+  if marker == "" {
+    t.Fatal("markedIdentifierRanges requires a non-empty marker")
+  }
+  ranges := make([][2]int, 0)
+  remaining := source
+  consumed := 0
+  for {
+    markerOffset := strings.Index(remaining, marker)
+    if markerOffset < 0 {
+      return ranges
+    }
+    start := consumed + markerOffset + len(marker)
+    end := start
+    for end < len(source) && (source[end] == '_' || source[end] == '$' ||
+      source[end] >= 'a' && source[end] <= 'z' || source[end] >= 'A' && source[end] <= 'Z' ||
+      end > start && source[end] >= '0' && source[end] <= '9') {
+      end++
+    }
+    if end == start {
+      t.Fatalf("marker at byte %d is not followed by an identifier", start-len(marker))
+    }
+    ranges = append(ranges, [2]int{start, end})
+    consumed = end
+    remaining = source[end:]
+  }
+}
+
+// runRuleFindingsSnapshotFile selects the lightweight parser or the real
+// Program/checker lifecycle from the configured engine's requirements. Both
+// paths materialize the caller's exact filename and project directory so the
+// returned findings can flow through the same disk-backed edit assertions.
+// The named file rule must bind successfully before either path executes;
+// an unknown identity or invalid options cannot establish a zero-finding control.
+func runRuleFindingsSnapshotFile(
+  t *testing.T,
+  ruleName string,
+  fileName string,
+  source string,
+  options json.RawMessage,
+) (string, string, []*Finding) {
+  t.Helper()
+  engine, err := newRuleSnapshotEngine(ruleName, options)
+  if err != nil {
+    t.Fatalf("%s: snapshot engine configuration: %v", ruleName, err)
+  }
+
+  needsRuleChecker := engine.NeedsTypeChecker()
+  if !needsRuleChecker {
+    root := t.TempDir()
+    engine.SetCurrentDirectory(root)
+    filePath := filepath.Join(root, "src", fileName)
+    writeFile(t, filePath, source)
+    var file *shimast.SourceFile
+    if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
+      file = parseTSXFile(t, filePath, source)
+    } else {
+      file = parseTSFile(t, filePath, source)
+    }
+    findings := engine.Run([]*shimast.SourceFile{file}, nil)
+    if err := validateSemanticRuleFindings(RuleConfig{ruleName: SeverityError}, findings); err != nil {
+      t.Fatalf("%s: invalid snapshot findings: %v", ruleName, err)
+    }
+    kind := behavioralWitnessEngine
+    if len(options) != 0 {
+      kind = behavioralWitnessOptions
+    }
+    recordFindingBehavioralWitnesses(t, findings, kind)
+    return root, filePath, findings
+  }
+
+  root := seedLintProjectFile(t, fileName, source)
+  engine.SetCurrentDirectory(root)
+  filePath := filepath.Join(root, "src", fileName)
+  program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
+    forceNoEmit:      true,
+    needsRuleChecker: needsRuleChecker,
+  })
+  if program != nil {
+    defer program.close()
+  }
+  if err != nil {
+    t.Fatalf("%s: loadProgram: %v", ruleName, err)
+  }
+  if len(diagnostics) != 0 {
+    t.Fatalf("%s: loadProgram diagnostics: %+v", ruleName, diagnostics)
+  }
+  if program == nil {
+    t.Fatalf("%s: loadProgram returned no program", ruleName)
+  }
+  if program.checker == nil {
+    t.Fatalf("%s: loadProgram returned no checker for a type-aware rule", ruleName)
+  }
+  findings := program.runLintCycle(engine)
+  if err := validateSemanticRuleFindings(RuleConfig{ruleName: SeverityError}, findings); err != nil {
+    t.Fatalf("%s: invalid snapshot findings: %v", ruleName, err)
+  }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessChecker)
+  return root, filePath, findings
+}
+
+// newRuleSnapshotEngine binds one file rule for semantic finding/fixer fixtures.
+// Unlike tests of intentional configuration failure, these callers require a
+// usable active rule even when their expected finding count is zero.
+func newRuleSnapshotEngine(ruleName string, options json.RawMessage) (*Engine, error) {
+  var engine *Engine
+  if len(options) == 0 {
+    engine = NewEngine(RuleConfig{ruleName: SeverityError})
+  } else {
+    engine = NewEngineWithResolver(InlineRuleResolver{
+      Rules:   RuleConfig{ruleName: SeverityError},
+      Options: RuleOptionsMap{ruleName: options},
+    })
+  }
+
+  if err := engine.ConfigError(); err != nil {
+    return nil, err
+  }
+  if unknown := engine.UnknownRules(); len(unknown) != 0 {
+    return nil, fmt.Errorf("unknown snapshot rule identities: %v", unknown)
+  }
+  if severity, enabled := engine.EnabledRules()[ruleName]; !enabled || severity != SeverityError {
+    return nil, fmt.Errorf("snapshot file rule %q did not bind at error severity", ruleName)
+  }
+  return engine, nil
+}
+
+func recordExpectedBehavioralWitnesses(
+  t *testing.T,
+  expected []ruleExpectation,
+  kind behavioralWitnessKind,
+) {
+  t.Helper()
+  recorded := map[string]struct{}{}
+  for _, expectation := range expected {
+    if _, ok := recorded[expectation.Rule]; ok {
+      continue
+    }
+    recorded[expectation.Rule] = struct{}{}
+    recordBehavioralWitness(t, expectation.Rule, kind)
+  }
+}

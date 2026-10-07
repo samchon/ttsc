@@ -13,13 +13,11 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * The generation's resolution candidates recorded as not files, so its
  * host-input watcher can be told to announce a later file-availability change.
  *
- * A missing candidate is the one input class no proof can be memoized for: its
- * metadata cannot be read, so the signature shortcut that stands in for every
- * other input's comparison never applies, and every delivery that reaches it
- * probes the filesystem again. Watching the name instead turns that repeated
- * probe into one notification for the whole generation, using the same channel
- * and the same failure rules the universal inputs already run under
- * (samchon/ttsc#1261).
+ * A failed file predicate supplies no readable-file byte signature. A retained
+ * candidate tracker can qualify the narrower unavailable-file comparison only
+ * while its native coverage and notification authority remain valid; selection
+ * alone does not acquire that permission. Universal absence validation retains
+ * its own native candidate probes.
  *
  * Compiler fileExists:false can describe either an absent path or a directory.
  * Without a predicate observation, the fallback requires the host existence
@@ -27,15 +25,37 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * replaced; watched also includes their project-local ancestor components so
  * link retargeting cannot leave observers attached only to the old target.
  *
- * Outside-project paths and selections requiring more than 512 parent-directory
- * locations retain direct probing. This function selects paths; the tracker
- * owns actual watcher acquisition, notifications and release.
+ * A chain that does not reach a captured project root before the
+ * filesystem-root stopping condition retains direct probing. More than 512
+ * distinct lexical parent locations rejects the whole selection after
+ * collection; this limits admitted directory locations, not candidate count,
+ * temporary memory or scan work. The tracker owns actual watcher acquisition,
+ * notifications and release.
  *
  * @evidence contracts/common.md#principled-implementation Exact failed file predicates select unavailable resolver names, while the lexical ancestor chain witnesses component creation and retargeting; selections outside the root retain direct probes because their chain cannot be covered by project-local watchers.
  * @evidence contracts/common.md#clear-and-simple-design Separate candidate and ancestor sets expose probe-replacement names versus required watcher paths; resource acquisition remains with the tracker instead of occurring during envelope selection.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The 512-location bound rejects the entire selection so direct validation remains active; it does not return an incomplete watch claim or special-case known candidate names to fit a measurement.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish not-file from missing, candidate versus watched lists, root coverage, the population bound and tracker ownership; acknowledgments are separate under the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve and filesystem-aware root relations derive lexical ancestor chains on the host, preserving symlink and junction retarget sensitivity; physical identity is used only for temporary-input exclusion, not to collapse alias watcher names.
+ * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve and lexical containment against captured named/physical roots derive ancestor spellings on the host. Path grammar containment is not a certificate of filesystem case or notification coverage; the tracker owns that native admission. Physical identity excludes the temporary input without collapsing alias watcher names, and supplied/result-derived views must remain coherent.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Cold graph construction and the materialized candidate-list array precede
+ *   a scan of every candidate occurrence. Path/predicate checks precede seen
+ *   rejection; each admitted candidate constructs its parent chain again before
+ *   chain deduplication limits appended components. Cost includes path/root
+ *   text, chain depth, cold native identity/existence work and two final string
+ *   sorts. Candidate, component and directory populations allocate storage
+ *   before the 512-directory rejection, so that limit does not bound scan cost.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Seen suppresses repeated candidate admission after predicate/path work;
+ *   chain suppresses repeated component output after constructing the chain.
+ *   Shared generation parsing and this call's identity context reuse qualified
+ *   observations under coherent supplied/result native views. No completed
+ *   selection is memoized here across calls.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Temporary collections retain no call history or native handles. Returned
+ *   candidate/watched arrays transfer to the caller; directory admission caps
+ *   neither candidate-name count nor bytes, and the tracker separately owns
+ *   actual subscriptions and release.
  */
 export function selectNotifiableAbsentInputs(props: {
   filesystem: TtscTransformFilesystemOperations;
@@ -127,11 +147,9 @@ export function selectNotifiableAbsentInputs(props: {
           components.push(child);
           continue;
         }
-        // Compared through `path.relative` rather than by string, so a
-        // spelling that differs from the root only in case still counts as
-        // having arrived where the platform says it has; and against both of
-        // the root's spellings, since the compiler names a candidate
-        // physically while the project was named through a link.
+        // Native lexical path grammar compares both captured root spellings.
+        // Its root match selects an ancestor chain, not an independent proof
+        // of filesystem case equivalence or healthy notification coverage.
         reachedProject = below === "";
         break;
       }
@@ -150,12 +168,9 @@ export function selectNotifiableAbsentInputs(props: {
     }
   }
   if (directories.size > NOTIFIABLE_ABSENCE_DIRECTORY_LIMIT) {
-    // Past this many distinct directories the watch registration is the more
-    // expensive half: a host that runs out of watch descriptors fails the
-    // tracker, and a failed tracker sends every delivery to complete-snapshot
-    // validation, which re-hashes the whole project. Declining to watch leaves
-    // the per-delivery probe in place, which is what this replaces and is far
-    // cheaper than that.
+    // Decline the whole candidate selection past the lexical directory policy
+    // limit. Returning partial names would claim only part of the intended
+    // chain; an empty selection leaves direct candidate validation active.
     return empty;
   }
   output.sort();
@@ -166,13 +181,14 @@ export function selectNotifiableAbsentInputs(props: {
 /**
  * Distinct directories the absent-candidate watch may open before it declines.
  *
- * Sized well below the inotify per-user default so a project's own walk keeps
- * its share, and far above the distinct `node_modules` package directories a
- * real dependency graph produces.
+ * This admission policy declines a larger lexical directory population instead
+ * of claiming partial candidate coverage. It does not reserve descriptors or
+ * certify the native backend's available capacity.
  *
  * Counted lexically, over the parents of every watched name. A missing subtree
  * collapses onto the one watch its nearest existing ancestor carries, so the
- * count is an upper bound on the watches actually opened rather than their
- * number; the bound stays sound and is merely not tight.
+ * count describes requested lexical parent locations, not an exact handle
+ * count. Native resolution, coverage and acquisition failures remain tracker
+ * responsibilities.
  */
 const NOTIFIABLE_ABSENCE_DIRECTORY_LIMIT = 512;

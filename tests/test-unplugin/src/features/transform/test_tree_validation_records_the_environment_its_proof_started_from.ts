@@ -1,31 +1,31 @@
 import assert from "node:assert/strict";
 
-import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/lib/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM.mjs";
-import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/lib/core/transform/cache/TtscCachedProjectTransform.mjs";
-import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/lib/core/transform/tracker/TtscProjectMutationTracker.mjs";
-import type { TtscHostInputValidation } from "../../../../../packages/unplugin/lib/core/transform/validation/TtscHostInputValidation.mjs";
-import { matchesUniversalHostInputTrees } from "../../../../../packages/unplugin/lib/core/transform/validation/matchesUniversalHostInputTrees.mjs";
-import { createMovingEnvironmentFixture } from "../../internal/moving-environment/createMovingEnvironmentFixture";
+import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
+import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import type { TtscProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/TtscProjectMutationTracker";
+import type { TtscHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/TtscHostInputValidation";
+import { matchesUniversalHostInputTrees } from "../../../../../packages/unplugin/src/core/transform/validation/matchesUniversalHostInputTrees";
+import { createMovingEnvironmentUnitFixture } from "../../internal/transform-project-cache/createMovingEnvironmentUnitFixture";
 
 /**
- * Verifies a delivery's plugin source proof records the environment reading it
- * started from, so an environment that moved during the proof is proven again.
+ * Verifies successful tree revalidation records its starting environment,
+ * forcing a later silent validation to reprove a move arriving during proof.
  *
- * A delivery skips a plugin source tree its tracker heard nothing below while
- * the recorded environment is this process's reading (samchon/ttsc#1516).
- * Recording a reading taken after the proof would record a move that landed
- * during it as proven, and the next delivery would skip a tree it never proved
- * under that environment (samchon/ttsc#1522). Nothing pinned the order
- * (samchon/ttsc#1565).
+ * The native source state is prepared under the moved GOENV, but the actual
+ * proof starts under before and moves on first source metadata access. A
+ * successful comparison cannot retroactively certify the post-proof label.
  *
- * 1. Validate a tree through a filesystem whose first metadata read below it moves
- *    the Go environment, with the tree's state under the moved one.
- * 2. Assert the proof held and recorded the reading from before the move.
- * 3. Validate again with a tracker that heard nothing, and assert the tree was
- *    read again rather than skipped.
+ * 1. Prepare distinct before/moved readings and record moved source state.
+ * 2. Validate through the environment move and require true with before label.
+ * 3. Reset only read counts and require another true with actual source reads.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls actual matchesUniversalHostInputTrees twice over an existing manifest. First success must record before; second success must perform source metadata reads instead of treating the move during the first proof as already certified.
+ * @evidence contracts/testing.md#independent-expectations Private GOENV before/moved readings and one authored first-metadata write fix the event order independently of the validator. The expected older label and nonzero second reads follow that order, not a product-generated snapshot. Shared native provider state is setup, not an independent hash-format oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Before and moved must differ; first successful proof contrasts with forbidden moved labeling, then quiet tracker plus later current environment requires reproof. The capture sibling owns fresh-manifest admission. Fixture catch/finally restores exact GOENV and GOFLAGS absence/values and resetReads never rolls back the actual moved state.
+ * @evidence contracts/testing.md#execution-ownership This discoverable direct unit uses suite-owned native source/project bytes and actual Go environment observations as owning inputs, with supported metadata timing and authored manifest/tracker fields. It produces no compiler/plugin binary, native watcher, installed consumer or host and does not certify transported E2E authority.
  */
 export function test_tree_validation_records_the_environment_its_proof_started_from(): void {
-  const fixture = createMovingEnvironmentFixture();
+  const fixture = createMovingEnvironmentUnitFixture();
   try {
     assert.notEqual(fixture.moved, fixture.before, "GOENV moved nothing");
     const result = { type: "success", typescript: {} };

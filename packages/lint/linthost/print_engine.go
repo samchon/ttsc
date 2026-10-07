@@ -55,25 +55,22 @@ import "strings"
 // convention of indenting relative to the surrounding line's left
 // edge.
 //
-// Asymmetry on the first line: the engine never emits an indent for
-// the first character of the printed output. The first line uses
-// `StartingColumn` only — fit measurement charges it, but
-// `writeIndent` is not called. Every newline after that emits
-// `BaseIndent` plus any nested `Indent` contributions, which is what
-// makes the close brace of a reflowed list land at `BaseIndent`
-// while its children sit at `BaseIndent + indentUnit`.
+// The first printed character receives no generated indentation;
+// StartingColumn only charges fit measurement. Subsequent indented newlines
+// use BaseIndent plus nested Indent increments, unless Align replaces the
+// target with the current column. Literal lines intentionally emit no indent.
 //
-// TrailingComma mirrors Prettier's `trailingComma` setting and controls
-// which broken-list shapes the printer emits a trailing comma on:
+// TrailingComma selects the generated comma policy for supported node lists:
 //
-//   - "all"  (default)  every multi-line list gets one.
-//   - "es5"             arrays, objects, named imports / exports get one;
-//     call arguments, parameter lists, and type-level
-//     lists do not — those positions accepted trailing
-//     commas only in ES2017+, so es5 mode skips them
-//     to match Prettier and avoid oscillating against
-//     the formatter on every cascade pass.
-//   - "none"            no list gets one.
+//   - all (default) permits commas in supported broken lists where grammar
+//     allows them, including ordinary call and new arguments.
+//   - es5 permits them in supported arrays, objects and named imports/exports,
+//     but excludes call/new arguments.
+//   - none suppresses generated trailing commas.
+//
+// Node printers retain grammar-specific exclusions, including dynamic import
+// and rest assignment targets. This field is not a promise to reprint every
+// TypeScript list grammar or an exact replica of Prettier's es5 scope.
 //
 // An empty string is treated as "all", which keeps `DefaultPrintOptions()`
 // callers and tests that pre-date this field on their original behavior.
@@ -85,38 +82,46 @@ import "strings"
 // @evidence contracts/common.md#clear-and-simple-design One options record keeps output policy separate from layout structure and source grammar dispatch.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Options encode supported formatting policy instead of fixture-dependent widths or post-render patches.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains column units, first-line asymmetry, continuation indentation and defaults; members and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PrintOptions is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms PrintOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work PrintOptions is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintOptions is a declaration of data shape; the code that holds its values owns their lifetime.
 type PrintOptions struct {
   // PrintWidth is the preferred line budget in display columns.
-  PrintWidth     int
+  PrintWidth int
 
   // TabWidth is the column increment for one indentation step.
-  TabWidth       int
+  TabWidth int
 
   // UseTabs emits tabs for full indentation steps and spaces for alignment remainder.
-  UseTabs        bool
+  UseTabs bool
 
   // EndOfLine selects generated line breaks; empty means LF.
-  EndOfLine      string
+  EndOfLine string
 
   // TrailingComma is all, es5 or none; empty retains the all default.
-  TrailingComma  string
+  TrailingComma string
 
   // StartingColumn accounts for text preceding the first printed character.
   StartingColumn int
 
   // BaseIndent anchors continuation lines independently from StartingColumn.
-  BaseIndent     int
+  BaseIndent int
 }
 
-// DefaultPrintOptions returns the Prettier defaults: 80-column lines,
-// 2-space indentation, LF line terminators, trailing commas on every
-// multi-line list (the `trailingComma: "all"` default Prettier adopted
-// in v3).
+// DefaultPrintOptions returns Prettier-aligned defaults: preferred width 80,
+// two-space indentation, LF generated breaks and trailingComma all, Prettier's
+// default since v3. Actual comma generation remains bounded by supported node
+// grammars and their exclusions.
 //
 // @evidence contracts/common.md#principled-implementation The returned values instantiate the documented Prettier-aligned layout policy without changing the caller's source geometry.
 // @evidence contracts/common.md#clear-and-simple-design One constructor centralizes defaults shared by context creation and rendering.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Numeric widths and string modes are documented defaults rather than known-answer special cases.
 // @evidence contracts/common.md#meaningful-documentation Native prose names line, indentation and comma defaults; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation DefaultPrintOptions performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms DefaultPrintOptions has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work DefaultPrintOptions keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources DefaultPrintOptions acquires no handle or task and retains nothing beyond the receiver's own fields.
 func DefaultPrintOptions() PrintOptions {
   return PrintOptions{PrintWidth: 80, TabWidth: 2, UseTabs: false, EndOfLine: "lf", TrailingComma: "all"}
 }
@@ -145,6 +150,10 @@ type printFrame struct {
 // @evidence contracts/common.md#clear-and-simple-design Rendering, fit measurement and source grammar dispatch remain distinct operations; the per-call stack and suffix queue hold only the current print's state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The renderer follows explicit layout operations rather than reparsing expected strings or patching foreign formatter behavior.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the algorithm, verbatim whitespace and requested breaks; option members document geometry and paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Print renders an in-memory document to a string and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms The main renderer uses a frame stack, while width-dependent group/fill choices run additional fits walks, conditional first-line checks can recursively build flat temporary Docs, and suffixes call Print recursively. Work includes all rendering and measurement occurrences, text-width scans and emitted text/indent bytes, not just unique tree nodes. Fits short-circuits at overflow/forced breaks and uses the current column budget; nested fitting can revisit subtrees, so no globally linear node bound or unmeasured speedup is claimed. Temporary space includes live frames, measurement/flat trees, suffix recursion and the growing output buffer.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Print owns one rendering computation and no cross-request coordinator. Input tree backing storage may change between calls, and options/starting geometry change valid output; the caller establishes equivalence for any result reuse. No persistent pointer-only or Doc-only memo is maintained here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Per-call stacks, flat measurement trees and suffix queues are temporary and released after rendering; recursive suffix renders also own temporary buffers. The returned string keeps builder backing storage reachable, including spare capacity, until its caller releases it. Retained output grows with emitted bytes; this operation imposes no hard output-size or nesting limit and keeps no historical print cache, handle or running task.
 func Print(doc Doc, opts PrintOptions) string {
   if opts.PrintWidth <= 0 {
     opts.PrintWidth = 80

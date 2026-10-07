@@ -14,6 +14,11 @@ import (
  * 1. Select one declaration through a barrel and through barrel plus source.
  * 2. Cite its barrel address with both references requiring review.
  * 3. Assert both diagnostics demand the same content fingerprint.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule gathers review findings for Public.property reached through a barrel and a source glob, with Markdown and TypeScript claim carriers; exactly one unique fingerprint is required.
+ * @evidence contracts/testing.md#independent-expectations One resolved declaration scope has one fingerprint regardless of population alias. This is an equality relation over implementation-produced values, not a known hash oracle.
+ * @evidence contracts/testing.md#distinguishing-cases The two carrier subtests vary syntax while comparing repeated projections; the nonempty fingerprint set detects absence, but does not assert each finding's count or content.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinkReviewsIgnorePopulationAliases is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestFileLinkReviewsIgnorePopulationAliases(t *testing.T) {
   for _, host := range []string{"markdown", "typescript"} {

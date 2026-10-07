@@ -1,53 +1,42 @@
-import {
-  TtscCompiler,
-  assert,
-  createProject,
-  fs,
-  path,
-  tsgo,
-  writeCompilerPlugin,
-} from "../../internal/compiler";
+import assert from "node:assert/strict";
+
+import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/compiler/internal/parseNativeTransformOutput";
 
 /**
- * Verifies TtscCompiler.transform surfaces a populated reference-graph
- * candidate map.
+ * Verifies native reference-graph candidates retain their importer and order.
  *
- * The negative half of this contract is pinned by
- * `test_ttsccompiler_transform_surfaces_reference_graph_and_volatile_list`,
- * which asserts that a host reporting no superseding candidate produces no
- * `candidates` key at all. Without this positive twin, `parseReferenceGraph`
- * could drop or mangle every candidate a host does report and both the wire
- * omission and the exact-shape assertion would still pass.
+ * Candidate metadata identifies superseding resolution targets. The decoder
+ * must preserve that ordered positive population rather than dropping a valid
+ * field while accepting the rest of the graph. Native transport uses the same
+ * payload in the shared one-project envelope batch.
  *
- * 1. Create a project whose fixture plugin echoes a candidate map alongside the
- *    graph it stamps.
- * 2. Call `transform()` via the programmatic API.
- * 3. Assert the success result carries the candidate map unchanged, keyed by
- *    importing file and ordered as the host reported it.
+ * 1. Decode a valid source envelope carrying candidates and the original graph.
+ * 2. Assert the complete candidate, config, edge and global map unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification parseNativeTransformOutput retains the candidate map keyed by importing file and all original graph fields.
+ * @evidence contracts/testing.md#independent-expectations The native envelope contract preserves producer-reported candidate priority; independently authored literal graph values are the oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Two ordered superseding candidates remain distinct from the absence of candidates owned by the existing graph unit; config, resolved edge and global values remain intact.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput on an inline JSON envelope; no native producer, install or compiler host runs.
  */
-export const test_ttsccompiler_transform_surfaces_superseding_resolution_candidates =
-  () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-      source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
-    });
-    writeCompilerPlugin(root);
-    fs.writeFileSync(
-      path.join(root, "graph-candidates.json"),
-      JSON.stringify({
-        "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"],
-      }),
-      "utf8",
-    );
-    const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
-
-    const result = compiler.transform();
-
-    assert.equal(result.type, "success");
-    assert.deepEqual(result.graph, {
-      candidates: { "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"] },
-      configs: ["tsconfig.json"],
-      edges: { "src/main.ts": ["src/mytype.ts"] },
-      globals: ["src/ambient.d.ts"],
-    });
-  };
+export function test_ttsccompiler_transform_surfaces_superseding_resolution_candidates() {
+  const result = parseNativeTransformOutput(
+    JSON.stringify({
+      typescript: {
+        "src/main.ts": 'export const value = "PLUGIN";\nconsole.log(value);\n',
+      },
+      graph: {
+        candidates: { "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"] },
+        configs: ["tsconfig.json"],
+        edges: { "src/main.ts": ["src/mytype.ts"] },
+        globals: ["src/ambient.d.ts"],
+      },
+    }),
+    "",
+  );
+  assert.deepEqual(result.graph, {
+    candidates: { "src/main.ts": ["src/mytype.ts", "src/mytype.tsx"] },
+    configs: ["tsconfig.json"],
+    edges: { "src/main.ts": ["src/mytype.ts"] },
+    globals: ["src/ambient.d.ts"],
+  });
+}

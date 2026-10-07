@@ -9,12 +9,11 @@ import (
 // ProjectInputs declares the files this rule reads from outside the Program.
 //
 // Markdown, Prisma, and Swagger evidence never enters the TypeScript Program,
-// so until `@ttsc/lint@0.22.0` shipped this contract the host had no way to
-// learn that the graph depended on them. The resulting asymmetry was invisible
-// rather than merely inconvenient: a developer editing code saw fresh
-// diagnostics, because the TypeScript event drove a cycle that reloaded the
-// documents along with it, while a developer editing only a spec section or a
-// schema saw the citation that had just gone stale keep reporting green.
+// so without this declaration the host cannot learn that the graph depends on
+// them. Editing code drives a project cycle that reloads the documents along
+// with it, but editing only a spec section or a schema would raise no event the
+// host associates with this rule, and the citation that had just gone stale
+// would keep reporting green.
 //
 // The host calls this after resolving options and project identity but before
 // loading a Program, so nothing here may read `ctx.Sources`, and nothing here
@@ -84,8 +83,8 @@ func graphProjectInputs(config graphConfig) []rule.ProjectInput {
 //
 // The root is prefixed as the author wrote it rather than resolved here. The
 // host anchors a relative pattern against the same physical project root this
-// rule uses (`linthost/project_inputs.go:151-171`), and it accepts one that
-// ascends or is absolute — so `../../docs/**/*.md` and `C:/shared/docs/**/*.md`
+// rule uses (`normalizeProjectInput` in `linthost/project_inputs.go`), and it
+// accepts one that ascends or is absolute — so `../../docs/**/*.md` and `C:/shared/docs/**/*.md`
 // both arrive at the directory `Check` will read. Resolving it here would
 // duplicate that arithmetic and make this contract depend on a project identity
 // it is supposed to be able to answer without.
@@ -110,9 +109,9 @@ func globInputs(root string, globs globSet) []rule.ProjectInput {
 // localSwaggerInputs publishes a Swagger reference only when it names a file.
 //
 // Withholding the URL form is not a shortcut. The host rejects a remote pattern
-// outright (`linthost/project_inputs.go:159-161`), and one rejected input
-// discards the whole snapshot for every project rule in the run
-// (`linthost/project_inputs.go:113-135`) — so declaring a URL here would take
+// outright (`normalizeProjectInput` in `linthost/project_inputs.go`), and one
+// rejected input discards the whole snapshot for every project rule in the run
+// (`collectProjectInputs` returns the joined error and an empty snapshot) — so declaring a URL here would take
 // this graph's Markdown globs down with it and restore the exact blindness the
 // contract removes.
 //

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { installPlaygroundDependencies } from "../../../../packages/playground/lib/src/index.js";
+import { installPlaygroundDependencies } from "../../../../packages/playground/src/npm/installPlaygroundDependencies";
 
 /**
  * Verifies cancellation wins at the public install error handoff.
@@ -12,6 +12,11 @@ import { installPlaygroundDependencies } from "../../../../packages/playground/l
  * 1. Control metadata JSON rejection and a successful tarball response.
  * 2. Queue cancellation across each stage-error handoff in turn.
  * 3. Assert both installs reject with their exact signal reason.
+ *
+ * @evidence contracts/testing.md#behavioral-verification installPlaygroundDependencies must reject with the caller AbortError identity when cancellation arrives across metadata-JSON rejection or tarball-header failure handoff.
+ * @evidence contracts/testing.md#independent-expectations Two independently authored DOMException instances are compared by identity; controlled microtask gates create the handoff without deriving an expected wrapper error from installation output.
+ * @evidence contracts/testing.md#distinguishing-cases Metadata rejection and successful-response/header throwing paths exercise distinct catch boundaries, and exact signal reason prevents either older stage error from replacing cancellation.
+ * @evidence contracts/testing.md#execution-ownership This source unit owns its controlled JSON promise, response-header double and AbortControllers; it directly calls the installer with injected fetch and launches no network or product process.
  */
 export const test_npm_registry_prioritizes_abort_at_the_install_error_handoff =
   async () => {

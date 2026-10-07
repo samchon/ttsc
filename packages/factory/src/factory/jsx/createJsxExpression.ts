@@ -16,6 +16,10 @@ import { make } from "../internal/make";
  * {value}
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param dotDotDotToken The `...` token, if a spread.
+ * @param expression The expression, if any.
+ * @returns The created {@link JsxExpression}.
  * @evidence contracts/common.md#principled-implementation
  *   The optional spread marker and expression remain distinct brace-content
  *   fields; an omitted expression intentionally represents empty JSX braces.
@@ -31,11 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains ordinary, empty and spread braces before its example and
  *   documents both optional inputs rather than claiming grammar validation.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param dotDotDotToken The `...` token, if a spread.
- * @param expression The expression, if any.
- * @returns The created {@link JsxExpression}.
  */
 export const createJsxExpression = (
   dotDotDotToken: Token | undefined,

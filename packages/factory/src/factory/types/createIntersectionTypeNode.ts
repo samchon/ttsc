@@ -12,9 +12,12 @@ import { make } from "../internal/make";
  * Given the constituents `A` and `B`, the printer renders:
  *
  * ```ts
- * A & B
+ * A & B;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param types The constituent types.
+ * @returns The created {@link IntersectionTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered constituent types remain an intersection node; the printer groups
  *   lower-precedence constituents rather than changing their intersection meaning.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the intersection list and its layout, with an example of the
  *   bare type and the constituent array documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param types The constituent types.
- * @returns The created {@link IntersectionTypeNode}.
  */
 export const createIntersectionTypeNode = (
   types: readonly TypeNode[],

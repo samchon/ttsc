@@ -23,6 +23,11 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param initializer The initializer.
+ * @param expression The expression.
+ * @param statement The statement.
+ * @returns The created {@link ForInStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Initializer, enumerated object and body retain for-in's key-enumeration
  *   grammar; ForInitializer permits declaration lists or assignment-target trees.
@@ -37,12 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains enumerable string keys and header/body roles, with a key-loop
  *   example and separated acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param initializer The initializer.
- * @param expression The expression.
- * @param statement The statement.
- * @returns The created {@link ForInStatement}.
  */
 export const createForInStatement = (
   initializer: ForInitializer,

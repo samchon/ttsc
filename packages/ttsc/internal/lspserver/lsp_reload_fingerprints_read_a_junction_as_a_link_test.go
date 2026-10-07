@@ -12,20 +12,25 @@ import (
 )
 
 // TestReloadFingerprintsReadAJunctionAsALink verifies the Go startup validator
-// fingerprints a Windows junction the way the launcher does.
+// fingerprints one Windows junction using independently framed link records.
 //
 // The launcher's Node reads a junction as a symbolic link with its target, and
-// Go reports it as an irregular entry, so the host hashed an exact input that
-// was a junction, and a reload directory holding one, as `other`. The digests
-// the launcher recorded then never matched: pnpm links a package into
-// node_modules as a junction on Windows, and a plugin selection loaded through
-// one refused every session as changed during startup (samchon/ttsc#1507).
+// Go reports it as an irregular entry, so hashing it as `other` would make an
+// exact input that is a junction, and a reload directory holding one, never match
+// the digests the launcher recorded: pnpm links a package into node_modules as a
+// junction on Windows, and a plugin selection loaded through one would refuse
+// every session as changed during startup.
 //
 //  1. Create a junction to a directory, inside a directory, on Windows.
 //  2. Assert the exact-file fingerprint is the protocol's symlink record: the
 //     target, then missing content, as a directory reads as none.
 //  3. Assert the directory fingerprint lists the junction as a symlink with its
 //     target.
+//
+// @evidence contracts/testing.md#behavioral-verification On Windows actual exact-file and immediate-directory topology digests match independently framed symlink records for a created junction. The directory target contributes missing file content; no actual launcher, pnpm installation or startup session is executed.
+// @evidence contracts/testing.md#independent-expectations Literal file framing and literal link-name/kind topology framing feed a separate SHA-256 calculation. Target bytes come from native os.Readlink, so this distinguishes record-kind/framing errors without independently certifying native target spelling or Node parity.
+// @evidence contracts/testing.md#distinguishing-cases One junction to an empty directory is checked both as an exact file and as the single immediate topology entry. Other entry kinds, retargeting and unreadable targets are not exercised; non-Windows discovery reaches an explicit runtime skip.
+// @evidence contracts/testing.md#execution-ownership The Go unit is discoverable on all platforms and uses a runtime Windows guard, not a Windows build tag. On Windows it owns temporary directories, creates the junction through actual windowsjunction.Create and its native setup child, then calls both actual digest operations. No sidecar, installed consumer, Node launcher or product host runs.
 func TestReloadFingerprintsReadAJunctionAsALink(t *testing.T) {
   if runtime.GOOS != "windows" {
     t.Skip("junctions exist only on Windows")

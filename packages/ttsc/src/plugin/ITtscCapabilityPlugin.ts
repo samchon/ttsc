@@ -2,9 +2,9 @@
  * One plugin that declared the requested capability.
  *
  * `manifest` is the `--plugins-json` payload its sidecar needs to find its own
- * configured entry. Without it the sidecar loads an empty rule configuration
- * and answers as though the project declared nothing — an empty answer that
- * looks exactly like a project which genuinely publishes none.
+ * configured entry. Consumers must forward the selected manifest rather than
+ * infer configuration from an empty capability answer; handling an absent
+ * manifest remains with the particular sidecar implementation.
  *
  * @evidence contracts/common.md#principled-implementation A selected sidecar carries its executable plus full plugin manifest and optional requested project identity, so it can locate its own configuration without rediscovering the project.
  * @evidence contracts/common.md#clear-and-simple-design The result contains only invocation identity and payloads; discovery, building and sidecar lifetime remain with their owners.
@@ -27,12 +27,10 @@ export interface ITtscCapabilityPlugin {
    * The `--project-context-json` payload, or `undefined` when the plugin's
    * descriptor does not declare it wants one.
    *
-   * A sidecar is handed a project root, not asked to derive one. Without this a
-   * rule that resolves its own inputs — the documents an evidence claim reads,
-   * a Prisma schema, an OpenAPI file — has no base to resolve them against, and
-   * answers with an empty set rather than an error, because "this project
-   * declares nothing" is a legitimate answer it cannot distinguish from "I was
-   * not told where the project is".
+   * A context-capable sidecar receives the selected project identity to resolve
+   * its own inputs, such as claim documents or a schema. When this payload is
+   * absent, the sidecar owns its fallback or refusal policy; this result type
+   * does not certify an empty answer or independently resolve that context.
    */
   projectContext?: string;
 }
@@ -40,13 +38,14 @@ export interface ITtscCapabilityPlugin {
 /**
  * A capability lookup and an opaque proof of its continued validity.
  *
- * A resolved empty list means no configured plugin declares the capability. An
- * unavailable lookup also has no entries, but must be retried rather than
- * retained as proof of absence. Even a resolved lookup can lack reusable proof,
- * for example when a descriptor does not declare its external reads or config
- * inheritance uses module resolution with unobserved selection authority.
+ * A resolved empty list means no admitted sidecar matches the requested
+ * capability. An unavailable lookup also has no entries, but must be retried
+ * rather than retained as proof of absence. Even a resolved lookup can lack
+ * reusable proof, for example when a descriptor does not declare its external
+ * reads or config inheritance uses module resolution with unobserved selection
+ * authority.
  *
- * @evidence contracts/common.md#principled-implementation Status distinguishes completed discovery from degraded failure, while an owning freshness predicate separately establishes reuse permission and prevents incomplete consumer discovery inventories.
+ * @evidence contracts/common.md#principled-implementation Status distinguishes completed lookup from degraded failure; the selected array contains only admitted nonempty-binary sidecars with the requested capability declared true. The owning freshness predicate separately decides reuse under its recorded premises, rather than an independently reconstructed consumer inventory.
  * @evidence contracts/common.md#clear-and-simple-design Plugins, outcome and one opaque validity query expose the consumer's decisions without leaking persistent-cache format or requiring a second package resolver.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An unavailable or unproved lookup is not reusable empty success; only the owner can validate discovery and evaluation authorities.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes empty resolved results, degraded failures and non-reusable resolved results; documented members and tag separation follow the documentation skill.
@@ -89,6 +88,6 @@ export interface ITtscCapabilityPluginResolution {
  * @evidenceExclude contracts/performance.md#efficient-algorithms This callback type specifies a result and carries no implementation of observation traversal or hashing.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work True permits reuse only under the original complete discovery/evaluation identity; unavailable lookups always return false.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The query belongs to one result snapshot and owns no sidecar; releasing the result releases its retained proof data.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The query owns no sidecar. Its producer closure retains proof/context data while the result or a separately retained callback remains reachable; dropping the result alone does not release another reference to that callback.
  */
 export type TtscCapabilityFreshnessQuery = () => boolean;

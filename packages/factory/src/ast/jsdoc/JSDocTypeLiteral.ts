@@ -6,14 +6,16 @@ import type { JSDocPropertyTag } from "./JSDocPropertyTag";
  * Built by {@link factory.createJSDocTypeLiteral}.
  *
  * The printer emits property tags on separate lines and appends `[]` when
- * isArrayType is true. Omitted properties produce no member text. This is a
- * tag collection, not a validated or brace-wrapped TypeScript object type.
+ * isArrayType is true. Inside a typedef tag it prints as `{Object}` or
+ * `{Object[]}` and the property tags follow the typedef. Omitted properties
+ * produce no member text. This is a tag collection, not a validated or
+ * brace-wrapped TypeScript object type.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Ordered property tags and an array flag preserve the represented JSDoc shape, while the current printer emits tag lines and an optional suffix rather than validating object-type grammar.
  * @evidence contracts/common.md#clear-and-simple-design One optional member collection and one array distinction capture the payload without duplicating a TypeScript type literal or inferred property map.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Properties remain explicit structured tags and the array suffix is grammar data, not a known-shape shortcut or a guessed semantic type.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains omitted properties, multiline output and the representation's object-type limitation, with separated paragraphs and members under the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocTypeLiteral {
   /** Discriminant tag; always `"JSDocTypeLiteral"`. */

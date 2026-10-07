@@ -1,17 +1,14 @@
 import path from "node:path";
 
 /**
- * Whether a descriptor declared the state of every file it read outside its
- * module graph, so an answer computed from its evaluation can be proven by what
- * the evaluation recorded (samchon/ttsc#1561).
+ * Whether a descriptor supplies a fingerprint-record declaration covering its
+ * explicit hostInputs, by resolved native path keys.
  *
- * The declaration is `hostInputHashes`: a descriptor that returns it names each
- * file it read with the state it read it in, `{}` when it read none. Nothing
- * else can vouch for the reads a descriptor leaves out. Node's permission model
- * reports a read it would deny only through `--permission-audit`, which no Node
- * 22 release has; without it a denial the descriptor catches looks, to its
- * answer, like a file that is absent. An answer from a descriptor without the
- * declaration holds only for the evaluation that produced it.
+ * An explicit empty record declares no external reads. This shape/key predicate
+ * cannot detect omitted reads or validate fingerprint values; producer honesty,
+ * evaluator observations and cache proof acceptance remain separate premises. A
+ * caught filesystem failure or the observed module graph alone cannot prove the
+ * complete external input set.
  *
  * A `hostInputs` entry without a fingerprint is a declared input whose state
  * the descriptor could not prove, the way the protocol reports contradictory
@@ -22,6 +19,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Undeclared reads do not gain cache eligibility through a guessed module graph or permission-model workaround; the producer must state its actual external input set.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains the explicit empty declaration, unsupported observation gap and missing-fingerprint refusal in distinct paragraphs under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation path.resolve compares native input spellings through the same host path semantics; this declaration checker does not require POSIX separators or use OS names to guess filesystem identity.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The resolved-key Set and normalized path temporaries are call-local; no historical descriptor population, handle or cache lifecycle is owned.
+ * @evidence contracts/performance.md#efficient-algorithms With explicit hostInputs, enumerable fingerprint keys are resolved into a Set and each supplied string is resolved for indexed membership. Key/input counts and complete path text, native normalization, property enumeration and ordinary descriptor accessor work drive cost; the explicit-inputs-absent case skips key materialization.
+ * @evidence contracts/performance.md#reuse-equivalent-work The resolved-key Set is shared by membership checks within this descriptor, while no cross-request cache or reusable producer identity is owned here.
  */
 export function declaresHostInputReads(descriptor: unknown): boolean {
   if (

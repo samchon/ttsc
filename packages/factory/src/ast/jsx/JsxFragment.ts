@@ -7,12 +7,11 @@ import type { JsxOpeningFragment } from "./JsxOpeningFragment";
  *
  * Built by {@link factory.createJsxFragment}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Dedicated opening/closing fragment nodes and ordered children preserve name-free grouping rather than introducing a synthetic component tag.
  * @evidence contracts/common.md#clear-and-simple-design The fragment owns child order while delimiter nodes own fixed spelling and child variants own payloads.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Grouping is represented syntax, without injecting a consumer-specific runtime fragment component.
  * @evidence contracts/common.md#meaningful-documentation JSDoc illustrates paired fragment syntax and identifies delimiters and children; member spacing follows the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JsxFragment {
   /** Discriminant tag; always `"JsxFragment"`. */

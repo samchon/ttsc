@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { EmitOwnershipIndex } from "../../compiler/internal/EmitOwnershipIndex";
+import { privateRuntimeRootDir } from "../../compiler/internal/build/privateRuntimeRootDir";
 import { runBuild } from "../../compiler/internal/build/runBuild";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveOwningProjectConfig } from "../../compiler/internal/project/resolveOwningProjectConfig";
@@ -19,6 +20,7 @@ import { resolveCacheDir } from "./resolveCacheDir";
 import { type OwningModuleOptions } from "./runtime/OwningModuleOptions";
 import { ProcessOwnedDirectory } from "./runtime/ProcessOwnedDirectory";
 import { RuntimeEmitProvenance } from "./runtime/RuntimeEmitProvenance";
+import { claimRuntimeProjectDirectory } from "./runtime/claimRuntimeProjectDirectory";
 import { runtimeRunKey } from "./runtime/runtimeRunKey";
 import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
 import { runtimeCompilerArgs } from "./runtimeCompilerArgs";
@@ -31,20 +33,25 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  *
  * Discovery uses the caller's spelling while emit ownership uses filesystem
  * identity. The result transfers the process-owned runtime directory to the
- * caller for execution and cleanup. Preparation failure relinquishes it here;
- * successful execution must release it through the runtime directory protocol.
+ * caller for execution and cleanup. After context creation returns, preparation
+ * failure attempts relinquishment and removal here; native lock or cleanup
+ * failure can prevent release. Context construction owns its acquisition
+ * failures. Successful execution must release the transferred directory through
+ * the runtime directory protocol.
  *
  * Source ownership comes from the completed compiler's output-to-source record;
- * a producer without that record is unsupported for checked execution.
+ * a producer without that record is unsupported for checked execution. An
+ * observed empty output inventory selects the checked single-entry build and
+ * supplies no authority to execute output from the empty project.
  *
- * @evidence contracts/common.md#principled-implementation Project discovery retains the requested lexical anchor; validated compiler provenance, not a stem or source-map inference, supplies EmitOwnershipIndex with actual output ownership, and an excluded entry uses the supported checked single-root build with its own ledger.
- * @evidence contracts/common.md#clear-and-simple-design Context creation, project compilation, entry fallback and output selection have distinct helpers; one top-level failure boundary cleans the prepared generation before propagating the error.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed producer provenance fails instead of being reconstructed from filenames; the excluded-entry build inherits actual project settings rather than stripping source through a test-only lane.
+ * @evidence contracts/common.md#principled-implementation Project discovery retains the requested lexical anchor; validated compiler provenance, not a stem or source-map inference, supplies EmitOwnershipIndex with actual output ownership. An observed empty JavaScript inventory or proven excluded entry selects the checked single-root build, which must supply its own ledger before execution.
+ * @evidence contracts/common.md#clear-and-simple-design Context creation, project compilation, entry fallback and output selection have distinct helpers. After a context returns, one failure boundary attempts cleanup without replacing the original error; construction owns earlier acquisition failures.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed provenance cannot authorize emitted bytes. An empty inventoried build serves nothing and selects the excluded-entry build, which inherits actual project settings and proves its own output rather than stripping source or fabricating an empty ledger.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain discovery, cleanup and mandatory producer provenance; result members distinguish relative output-list paths from absolute output-to-source records without property acknowledgments.
- * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers separate lexical discovery from physical Node loading; directory locks pin runtime ownership and the virtual layout encodes distinct volume roots without OS-specific shell operations.
- * @evidence contracts/performance.md#efficient-algorithms Each completed build validates its provenance once in O(outputs + contributing sources) entries and retains it for entry lookup and runtime transfer; only a proven-unowned entry receives an additional single-entry build, and mirrored ancestor traversal has an explicit depth/safety boundary.
- * @evidence contracts/performance.md#reuse-equivalent-work One context shares the completed build's validated ledger, output inventory and emit profile with lookup and execution rather than rereading or recomputing producer observations; a fallback replaces the complete emit generation together.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Preparation owns one claimed generation under a pinned cache root; failures relinquish/remove it under the lock, while success transfers cleanupDir and runtimeCacheDir to the caller's execution lifecycle.
+ * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers preserve lexical discovery separately from best-effort native source/cache coordinates. Cooperating directory locks serialize ownership mutations without pinning filesystem objects; virtual layout encodes distinct volume roots through native path operations rather than shell commands.
+ * @evidence contracts/performance.md#efficient-algorithms Delegated config discovery, effective-options preparation and compilation precede native output inventory and provenance-shape inspection. Each nonempty entry lookup builds an EmitOwnershipIndex with record/path/identity costs; an empty inventory or unowned entry selects the additional checked build. Native virtual linking and bounded ancestor traversal add their own entry and byte costs, so entry counts alone do not bound this operation.
+ * @evidence contracts/performance.md#reuse-equivalent-work A context retains the accepted producer record and output inventory for lookup and transfer, without synthesizing ownership or re-reading producer observations. Lookup indexes are constructed per lookup; project lowering prepares its effective reader independently of the stored profile, while checked fallback shares its overlay reader within that build and then replaces the generation and recomputes the context profile.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A returned context owns one claimed generation at the resolved cache coordinate. Later failures attempt relinquishment and recursive removal under its cooperative lock; cleanup errors are swallowed to preserve the initiating failure and can retain storage. Success transfers cleanupDir and runtimeCacheDir to the caller, while delegated compilers, identity contexts and construction failures retain their own lifecycle responsibilities.
  */
 export function prepareExecution(
   entryFile: string,
@@ -62,16 +69,16 @@ export function prepareExecution(
   /** Claimed runtime generation whose cleanup ownership transfers to the caller. */
   cleanupDir: string;
 
-  /** Physical directory containing this preparation's emitted output. */
+  /** Native directory coordinate containing this preparation's emitted output. */
   emitDir: string;
 
   /** Emitted JavaScript file owned by the requested source entry. */
   entryFile: string;
 
-  /** Physical runtime cache root whose lock serializes this run and clean. */
+  /** Resolved cache coordinate whose cooperative lock serializes run and clean. */
   runtimeCacheDir: string;
 
-  /** Physical directory holding the run, even when `project` is a link. */
+  /** Resolved directory coordinate holding the run when `project` is a link. */
   runtimeRunsDir: string;
 
   /** The build's record of its outputs, relative to `emitDir`. */
@@ -169,12 +176,15 @@ const ENTRY_PROJECT_EMIT_DIR = "entry-project";
  * Only an output proven to come from the entry itself counts. A
  * `scripts/index.ts` outside `include` shares its name with the `src/index.js`
  * the project build emitted, and taking that output would run the wrong program
- * instead of compiling the requested one (samchon/ttsc#1382).
+ * instead of compiling the requested one.
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
   entry: string,
 ): string | null {
+  // A completed, inventoried build with no JavaScript cannot own this entry.
+  // This selects another checked build; it grants no authority to serve bytes.
+  if (context.outputs.length === 0) return null;
   return new EmitOwnershipIndex({
     emitDir: context.emitDir,
     emittedSources: executionProvenance(context),
@@ -302,9 +312,12 @@ function createProjectContext(
       : undefined;
   const cacheDirSpelling = explicitCacheDir ?? defaultCache!.runtime;
   const runtimeCacheKey = resolveRuntimeCacheKey(options.runtimeCacheKey);
-  // Resolved once: it now costs a realpath (and, for a missing directory on
-  // Windows, a case-sensitivity probe) rather than a string join.
-  const runtimeRootDir = resolveRuntimeSourceRoot(project, options);
+  // Resolved once: resolution costs a realpath (and, for a missing directory on
+  // Windows, a case-sensitivity probe).
+  const privateEmitRootDir = resolveRuntimeSourceRoot(project, options);
+  const runtimeRootDir = createFilesystemPathIdentityContext({
+    throwOnRealpathError: false,
+  }).resolve(privateEmitRootDir).path;
   const emitProfile = runtimeEmitProfile(
     project,
     options.passthrough,
@@ -319,7 +332,7 @@ function createProjectContext(
     createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
-  // collects them with the rest (samchon/ttsc#1562).
+  // collects them with the rest.
   const cacheRoot =
     defaultCache === undefined || defaultCache.runtime === defaultCache.root
       ? cacheDir
@@ -329,25 +342,11 @@ function createProjectContext(
   // The `project` child can itself be a link. Pin its physical target, sweep
   // abandoned runs, and publish this run's owner in one locked transaction.
   // Clean can never observe a newly selected but still unowned index.
-  const { processDir, virtualRoot, emitDir } = withRuntimeDirectoryLock(
-    cacheDir,
-    () => {
-      const directory = path.join(
-        cacheDir,
-        SourceBuildCacheLayout.RUNTIME_PROJECT_DIRNAME,
-      );
-      fs.mkdirSync(directory, { recursive: true });
-      const runsDir = fs.realpathSync.native(directory);
-      const processDir = path.join(runsDir, runtimeCacheKey);
-      const virtualRoot = path.join(processDir, "fs");
-      const emitDir = project.compilerOptions.outDir
-        ? virtualPath(virtualRoot, project.compilerOptions.outDir)
-        : virtualPath(virtualRoot, runtimeRootDir);
-      ProcessOwnedDirectory.sweep(runsDir);
-      fs.rmSync(processDir, { recursive: true, force: true });
-      ProcessOwnedDirectory.claim(processDir);
-      return { processDir, virtualRoot, emitDir };
-    },
+  const processDir = claimRuntimeProjectDirectory(cacheDir, runtimeCacheKey);
+  const virtualRoot = path.join(processDir, "fs");
+  const emitDir = virtualPath(
+    virtualRoot,
+    project.compilerOptions.outDir || runtimeRootDir,
   );
   return {
     project,
@@ -367,6 +366,9 @@ function createProjectContext(
     // map a source `.ts` back to its emitted `.js` when the runtime hooks serve
     // the built entry under its source URL.
     runtimeRootDir,
+    // Compiler input names retain their lexical project spelling. Physical
+    // runtime lookup coordinates must not become a containment override.
+    privateEmitRootDir,
     // The tsconfig options that decide the emit format, so the runtime hooks
     // classify each served file the same way tsgo chose when emitting it.
     // `target` belongs here as much as `module` does: with `module` absent tsgo
@@ -377,7 +379,7 @@ function createProjectContext(
     // Force a source map on the transient runtime emit only when the build
     // would carry none — when the project or a forwarded flag already emits
     // `sourceMap` or `inlineSourceMap`, the serve path inlines/absolutizes that
-    // map, so no override is needed (issue #353).
+    // map, so no override is needed.
     forceRuntimeSourceMap: emitProfile.forceRuntimeSourceMap,
     built: false,
     outputs: [] as readonly string[],
@@ -396,9 +398,9 @@ function createProjectContext(
  * The nearest config is where discovery starts, not where it has to stop. A
  * solution-style config (`"files": []` plus `references`) owns nothing itself,
  * and compiling an entry through it applies its empty options to code whose
- * real project sets `experimentalDecorators`, `jsx`, or `paths`
- * (samchon/ttsc#1406). When the nearest config does not contain the file, the
- * referenced project that does is used; an explicit `-P` skips all of this.
+ * real project sets `experimentalDecorators`, `jsx`, or `paths`. When the
+ * nearest config does not contain the file, the referenced project that does is
+ * used; an explicit `-P` skips all of this.
  */
 function discoverOwningProject(
   cwd: string,
@@ -425,28 +427,25 @@ function discoverOwningProject(
 }
 
 /**
- * The source-tree root the emit mirrors, in the same physical spelling as the
- * entry it will be compared against.
+ * Select the compiler's lexical private layout root. The context independently
+ * resolves its physical spelling for comparisons with served source files.
  *
- * Undeclared, the root is the project's own directory, because that is the one
- * tsgo uses: with a config file in play `GetCommonSourceDirectory` answers that
- * file's directory and never computes a common directory of the input files.
- * The entry's directory is not that root — it is only the same directory when
- * the entry happens to sit beside the tsconfig, which is precisely why a
- * `src/`-shaped project mislaid its emit here (issue #1172) while a flat one
- * worked. `installRuntimeHooks.ts::resolveDependencySourceRoot` and
- * `WatchTopology.ts::inferPerSourceCompilerOutputs` already model the same
- * rule, and `TsgoArguments.ts::pinnedRootDirArgs` pins it for tsgo itself.
+ * Private ordinary emit without a declared root uses the native volume root.
+ * Unlike the compiler's config-directory default, this does not impose a new
+ * containment error when a check-only project imports sources outside that
+ * directory. Explicit and composite roots retain their containment policy.
+ * TsgoArguments and dependency serving use the same private layout selection.
  *
- * Resolving it is the other half of `resolveEntrySpelling`, and skipping it
- * leaves the comparison mixed rather than merely imprecise. `project.root`
- * arrives through plain `fs.realpathSync`, which resolves reparse points but
- * leaves a Windows 8.3 component alone, while the entry arrives through
- * `fs.realpathSync.native`, which expands it — and `path.relative` folds case
- * but not 8.3. A declared `rootDir` is worse still: it is joined verbatim, so a
- * `rootDir` that is itself a symlinked directory never resolves at all. Either
- * way the gate reads an in-project entry as outside its own root, pays a second
- * whole build for it, and publishes a wider root than the project has.
+ * Resolving the selected root in the context is the other half of
+ * `resolveEntrySpelling`, and skipping it leaves the comparison mixed rather
+ * than merely imprecise. `project.root` arrives through plain
+ * `fs.realpathSync`, which resolves reparse points but leaves a Windows 8.3
+ * component alone, while the entry arrives through `fs.realpathSync.native`,
+ * which expands it — and `path.relative` folds case but not 8.3. A declared
+ * `rootDir` is worse still: it is joined verbatim, so a `rootDir` that is
+ * itself a symlinked directory never resolves at all. Either way the gate reads
+ * an in-project entry as outside its own root, pays a second whole build for
+ * it, and publishes a wider root than the project has.
  *
  * The pass costs nothing in agreement with the root tsgo was pinned to, which
  * stays unresolved on purpose so it matches the spelling tsgo gives the input
@@ -460,24 +459,23 @@ function resolveRuntimeSourceRoot(
 ): string {
   // A `--rootDir` forwarded before the entry reaches the compiler after the
   // config, so it is the root the outputs are laid out against. Invalid
-  // arguments fail the build on their own; the config's root stands until then.
+  // arguments fail the build on their own; an unreadable effective config keeps
+  // the declared root until then. A readable explicit reset uses the project
+  // private default instead of reviving the declared root.
   const effective = readEffectiveCompilerOptions(
     project,
     options.passthrough,
     options.binary,
-  )?.("rootDir");
+  );
   const rootDir =
-    typeof effective === "string" ? effective : project.compilerOptions.rootDir;
-  const identities = createFilesystemPathIdentityContext({
-    throwOnRealpathError: false,
-  });
-  return identities.resolve(
-    typeof rootDir !== "string"
-      ? project.root
-      : path.isAbsolute(rootDir)
-        ? rootDir
-        : path.resolve(project.root, rootDir),
-  ).path;
+    effective === null ? project.compilerOptions.rootDir : effective("rootDir");
+  return privateRuntimeRootDir(
+    project.root,
+    rootDir,
+    effective === null
+      ? project.compilerOptions.composite
+      : effective("composite"),
+  );
 }
 
 /**
@@ -495,7 +493,10 @@ function buildProject(
 ): void {
   if (context.built) return;
 
-  fs.mkdirSync(path.dirname(context.emitDir), { recursive: true });
+  // A successful empty solution may write no directory. Own an empty output
+  // container before compilation so its inventory can still prove exclusion
+  // and select the checked single-entry lane without hiding enumeration errors.
+  fs.mkdirSync(context.emitDir, { recursive: true });
   const result = runBuild({
     binary: options.binary,
     checkers: options.checkers,
@@ -507,7 +508,7 @@ function buildProject(
     // Every output this build writes stays in ttsx's private directory: a
     // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
     // output location forwarded on the command line, would otherwise land in
-    // the user's tree (samchon/ttsc#1404).
+    // the user's tree.
     isolateOutputsTo: context.emitDir,
     passthrough: runtimeCompilerArgs(
       context.project,
@@ -515,17 +516,16 @@ function buildProject(
       options.binary,
     ),
     // `context.emitDir` is ttsx's own temp directory, not an output the project
-    // asked for, and tsgo demands an explicit `rootDir` (TS5011) as soon as any
-    // `outDir` is in play. Pinning the root tsgo would infer keeps a check-only
-    // project runnable without moving its emit (issue #1172); a project that
-    // declares `rootDir` is left exactly as it is, which is also the root
-    // `resolveRuntimeSourceRoot` published above.
+    // asked for. A private ordinary volume-root layout permits the full input
+    // graph without adding config-directory containment to a check-only
+    // project. Declared and composite roots retain their compiler policy,
+    // matching the root recorded by resolveRuntimeSourceRoot above.
     pinInferredRootDir: true,
+    privateEmitRootDir: context.privateEmitRootDir,
     // Emit a source map on the transient entry emit (a PID-isolated temp dir,
     // never the consumer's `outDir`) so the serve path can inline it under the
     // source URL. Routed as a dedicated build option, not a forwarded tsgo
-    // flag, so it never reaches a native plugin host's argument parser (issue
-    // #353).
+    // flag, so it never reaches a native plugin host's argument parser.
     forceRuntimeSourceMap: context.forceRuntimeSourceMap,
     forceEmitProvenance: true,
     pluginConfigDir: options.pluginConfigDir,
@@ -541,10 +541,12 @@ function buildProject(
     // mirror of the project root, and a `tool.js` linked there from the user's
     // tree would otherwise be recorded as the output of `tool.ts`.
     context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
-    context.emittedSources = requireEmitProvenance(
-      result.emittedSources,
-      context.tsconfig,
-    );
+    // An empty solution may not run an emitting producer. Its observed empty
+    // inventory selects the entry-only build, which must prove its own writes.
+    context.emittedSources =
+      context.outputs.length === 0
+        ? undefined
+        : requireEmitProvenance(result.emittedSources, context.tsconfig);
     context.emittedSourceProofFailures = result.emittedSourceProofFailures;
     linkVirtualProjectLayout(context);
     context.built = true;

@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerRejectsRelativeTsgoBinary verifies the upstream binary contract
+// TestLSPServerRejectsRelativeTsgoBinary Verifies the upstream binary contract
 // requires an absolute path.
 //
 // ttscserver should run the project-selected TypeScript-Go binary, not whatever
@@ -17,8 +17,13 @@ import (
 // protects callers that bypass the JavaScript launcher.
 //
 // 1. Call RunLSPServer with TsgoBinary="tsgo".
-// 2. Close editor input immediately so the proxy side can drain.
+// 2. Supply empty editor input; validation rejects before either pump starts.
 // 3. Assert the absolute-path validation error is surfaced.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer rejects TsgoBinary tsgo with an error containing must be absolute.
+// @evidence contracts/testing.md#independent-expectations The default upstream executable must be an absolute selected path rather than PATH lookup; the relative literal establishes the rejected input.
+// @evidence contracts/testing.md#distinguishing-cases A nonempty valid cwd and relative binary isolate path validation; missing and spawn-failure inputs are handled separately.
+// @evidence contracts/testing.md#execution-ownership Go test/driver calls the server entry with empty input, but validation rejects before creating the product child.
 func TestLSPServerRejectsRelativeTsgoBinary(t *testing.T) {
   err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
     In:         strings.NewReader(""),

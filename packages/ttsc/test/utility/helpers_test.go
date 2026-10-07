@@ -184,8 +184,30 @@ func captureUtilityOutput(t *testing.T, fn func() int) (int, string, string) {
   }
   errReader, errWriter, err := os.Pipe()
   if err != nil {
+    _ = outReader.Close()
+    _ = outWriter.Close()
     t.Fatal(err)
   }
+  defer func() {
+    os.Stdout, os.Stderr = prevOut, prevErr
+    _ = outWriter.Close()
+    _ = errWriter.Close()
+    _ = outReader.Close()
+    _ = errReader.Close()
+  }()
+  type capture struct {
+    bytes []byte
+    err   error
+  }
+  read := func(reader *os.File) <-chan capture {
+    completed := make(chan capture, 1)
+    go func() {
+      bytes, err := io.ReadAll(reader)
+      completed <- capture{bytes, err}
+    }()
+    return completed
+  }
+  outResult, errResult := read(outReader), read(errReader)
   os.Stdout = outWriter
   os.Stderr = errWriter
   code := fn()
@@ -197,13 +219,13 @@ func captureUtilityOutput(t *testing.T, fn func() int) (int, string, string) {
   }
   os.Stdout = prevOut
   os.Stderr = prevErr
-  out, err := io.ReadAll(outReader)
-  if err != nil {
-    t.Fatal(err)
+  out := <-outResult
+  if out.err != nil {
+    t.Fatal(out.err)
   }
-  errOut, err := io.ReadAll(errReader)
-  if err != nil {
-    t.Fatal(err)
+  errOut := <-errResult
+  if errOut.err != nil {
+    t.Fatal(errOut.err)
   }
-  return code, string(out), string(errOut)
+  return code, string(out.bytes), string(errOut.bytes)
 }

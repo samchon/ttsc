@@ -15,6 +15,9 @@ import { make } from "../internal/make";
  * {...props}
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The expression.
+ * @returns The created {@link JsxSpreadAttribute}.
  * @evidence contracts/common.md#principled-implementation
  *   The expression remains the source of the spread at its explicit list
  *   position; syntax construction does not evaluate or enumerate its properties.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   The native description locates the spread among ordinary attributes and
  *   uses a direct brace example, with expression and return type documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @returns The created {@link JsxSpreadAttribute}.
  */
 export const createJsxSpreadAttribute = (
   expression: Expression,

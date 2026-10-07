@@ -12,17 +12,19 @@ import (
 // assembly succeeds for a project that declares an ambient global in its own
 // `.d.ts` and assigns the implementation elsewhere.
 //
-// Shard partition indexes edge sources by non-external node, and external nodes
-// live in a non-source shard that may own no edges. An edge leaving one is
-// therefore not a wrong fact but an unassemblable snapshot: the session refused
-// the whole transaction with "edge source node is absent from shard facts", so
-// every request failed before it ran while `dump`, which applies no such check,
-// still emitted the graph.
+// Source shard partitioning requires an owner for each outgoing edge. This
+// fixture combines an owned ambient declaration and an implementation elsewhere,
+// exercising assembly rather than certifying every underlying graph fact.
 //
 //  1. Serve a project whose `src/globals.d.ts` declares `var patched` and whose
 //     `src/index.ts` assigns an arrow function to it.
 //  2. Request one negotiated shard snapshot.
 //  3. Assert the response carries a complete transaction and no error.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies shard assembly succeeds for a project that declares an ambient global in its own `.d.ts` and assigns the implementation elsewhere.
+// @evidence contracts/testing.md#independent-expectations The supported initial-transaction invariant requires no error, initial mode, changed=true, no legacy dump, a nonempty manifest, exactly one upsert per manifest key with its declared digest, and no deletes. Duplicate keys, unknown upserts or mismatched digests violate this independently stated correspondence; equality does not authenticate digest bytes or complete graph semantics. The authored ambient/global assignment supplies the assembly boundary input, without claiming a newly executed historical reproduction.
+// @evidence contracts/testing.md#distinguishing-cases Serve a project whose `src/globals.d.ts` declares `var patched` and whose `src/index.ts` assigns an arrow function to it; Request one negotiated shard snapshot; Assert the response carries a complete transaction and no error.
+// @evidence contracts/testing.md#execution-ownership TestServeAnswersAProjectThatImplementsItsOwnAmbientDeclaration is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeAnswersAProjectThatImplementsItsOwnAmbientDeclaration(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -42,7 +44,7 @@ patched = (message: string): void => {
 
   input := strings.NewReader("{\"id\":1,\"graphSnapshotVersion\":1}\n")
   var output bytes.Buffer
-  if code := serveSnapshots(input, &output, root, "tsconfig.json"); code != 0 {
+  if code := serveSourceSnapshots(input, &output, root, "tsconfig.json"); code != 0 {
     t.Fatalf("serveSnapshots exited %d: %s", code, output.String())
   }
 
@@ -65,5 +67,31 @@ patched = (message: string): void => {
       len(initial.Snapshot.Upserts),
       len(initial.Snapshot.Deletes),
     )
+  }
+  manifestDigests := make(map[string]string, len(initial.Snapshot.Manifest))
+  for _, entry := range initial.Snapshot.Manifest {
+    if entry.Key == "" || entry.Digest == "" {
+      t.Fatalf("initial manifest entry lacks a key or digest: %+v", entry)
+    }
+    if _, duplicate := manifestDigests[entry.Key]; duplicate {
+      t.Fatalf("duplicate initial manifest key: %s", entry.Key)
+    }
+    manifestDigests[entry.Key] = entry.Digest
+  }
+  seenUpserts := make(map[string]bool, len(initial.Snapshot.Upserts))
+  for _, upsert := range initial.Snapshot.Upserts {
+    expectedDigest, exists := manifestDigests[upsert.Shard.Key]
+    if !exists || upsert.Digest != expectedDigest {
+      t.Fatalf("initial upsert does not match its manifest entry: key=%s digest=%s", upsert.Shard.Key, upsert.Digest)
+    }
+    if seenUpserts[upsert.Shard.Key] {
+      t.Fatalf("duplicate initial upsert key: %s", upsert.Shard.Key)
+    }
+    seenUpserts[upsert.Shard.Key] = true
+  }
+  for key := range manifestDigests {
+    if !seenUpserts[key] {
+      t.Fatalf("initial manifest key has no upsert: %s", key)
+    }
   }
 }

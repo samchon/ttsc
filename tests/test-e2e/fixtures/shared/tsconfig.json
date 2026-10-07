@@ -1,0 +1,52 @@
+{
+    "compilerOptions":  {
+                            "target":  "ESNext",
+                            "module":  "NodeNext",
+                            "strict":  true,
+                            "preserveConstEnums": true,
+                            "rootDir":  "src",
+                            "outDir":  "dist",
+                            "declaration":  true,
+                            "sourceMap":  true,
+                            "inlineSources":  true,
+                            "resolveJsonModule":  true,
+                            "esModuleInterop":  true,
+                            "jsx":  "react",
+                            "jsxFactory":  "jsx",
+                            "types":  [
+
+                                      ],
+                            "paths":  {
+                                          "@typed/*": ["./src/type-population/*"],
+                                          "@data":  [
+                                                        "./src/data.json"
+                                                    ],
+                                          "@lib/*":  [
+                                                         "./src/runtime-corpus/require-shadow/lib/*"
+                                                     ]
+                                      },
+                            "plugins":  [
+                                            {
+                                                "transform":  "@ttsc/banner",
+                                                "configFile": "./config/banner.config.json"
+                                            },
+                                            {
+                                                "transform":  "@ttsc/paths"
+                                            },
+                                            {
+                                                "transform":  "@ttsc/strip",
+                                                "configFile": "./config/strip.config.json"
+                                            },
+                                            {
+                                                "transform":  "@ttsc/lint"
+                                            }
+                                        ],
+                            "lib":  [
+                                        "esnext"
+                                    ],
+                            "skipLibCheck":  true
+                        },
+    "include":  [
+                    "src"
+                ]
+}

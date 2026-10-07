@@ -14,6 +14,8 @@ import { createToken } from "./createToken";
  * super
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created node.
  * @evidence contracts/common.md#principled-implementation
  *   SuperKeyword is the outline token the printer maps to super; valid usage
  *   still requires the caller to place it in a permitted class context.
@@ -27,8 +29,5 @@ import { createToken } from "./createToken";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc describes the no-input keyword builder and shows its source form;
  *   prose, example and tags have separate paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created node.
  */
 export const createSuper = (): Token => createToken(SyntaxKind.SuperKeyword);

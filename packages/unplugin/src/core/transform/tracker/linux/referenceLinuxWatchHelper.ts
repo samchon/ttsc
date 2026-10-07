@@ -7,8 +7,9 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * output referenced exactly while any is owed (samchon/ttsc#1426).
  *
  * The helper is unreferenced between requests so it never keeps a host alive. A
- * reply is the only thing a waiting registration or drain can be released by,
- * so while one is owed the helper must keep the loop from emptying.
+ * pending registration or drain is released by a reply, failed submission,
+ * retirement or timeout. While a request remains outstanding, the helper keeps
+ * the loop from emptying.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Outstanding reply counts determine loop ownership, not the number of quiet
@@ -33,6 +34,8 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Outstanding replies keep the process and output referenced; the final
  *   release unrefs them. Request owners must balance additions and removals.
+ *   The zero clamp prevents a negative counter; it does not prove balanced
+ *   ownership or repair an extra release by a caller.
  */
 export function referenceLinuxWatchHelper(
   helper: LinuxWatchHelper,

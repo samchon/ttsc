@@ -35,6 +35,15 @@ import { make } from "../internal/make";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param asteriskToken The generator marker (`*`), if any.
+ * @param name The name.
+ * @param typeParameters The generic type parameters, if any.
+ * @param parameters The parameters.
+ * @param type The type.
+ * @param body The body.
+ * @returns The created {@link FunctionDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Optional name/body preserve anonymous or bodyless forms; generator token,
  *   generics, ordered parameters and return type retain independent grammar slots.
@@ -49,16 +58,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes generator and anonymous forms and signature/body pieces
  *   in separate paragraphs with a concrete function example before tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param asteriskToken The generator marker (`*`), if any.
- * @param name The name.
- * @param typeParameters The generic type parameters, if any.
- * @param parameters The parameters.
- * @param type The type.
- * @param body The body.
- * @returns The created {@link FunctionDeclaration}.
  */
 export const createFunctionDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

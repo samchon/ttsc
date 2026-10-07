@@ -7,20 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsDocumentSymbolWhenUpstreamAdvertises verifies the proxy
-// forwards textDocument/documentSymbol to upstream tsgo when tsgo advertised the
-// capability, instead of hijacking it with the local graph SymbolProvider.
+// TestLSPProxyForwardsDocumentSymbolWhenUpstreamAdvertises Verifies that an advertised documentSymbol request forwards unchanged and the local provider remains uncalled during the authored observation.
 //
-// tsgo implements documentSymbol with its compiler-exact language service. When
-// its initialize result advertises documentSymbolProvider and the local provider
-// is not forced, the proxy must leave the request to tsgo so the editor gets the
-// precise answer rather than the coarse graph outline (#620).
+// Advertised ownership contrasts with fallback entries; local silence is observed for 150 milliseconds.
 //
-//  1. Complete an initialize handshake whose upstream result advertises
-//     documentSymbolProvider: true.
-//  2. Send textDocument/documentSymbol from the editor.
-//  3. Assert the request reaches upstream verbatim and the local provider is
-//     never consulted.
+// 1. Complete an initialize handshake whose upstream result advertises documentSymbolProvider: true.
+// 2. Send textDocument/documentSymbol from the editor.
+// 3. Assert the request reaches upstream verbatim and the local provider remains uncalled through the 150ms observation.
+//
+// @evidence contracts/testing.md#behavioral-verification An advertised documentSymbol request forwards unchanged; the provider call count stays zero after the authored 150ms no-editor-frame interval, not an arbitrary later scheduling guarantee.
+// @evidence contracts/testing.md#independent-expectations The initialize capability assigns upstream ownership; original request bytes and zero calls define expectations.
+// @evidence contracts/testing.md#distinguishing-cases Advertised ownership contrasts with fallback entries; local silence is observed for 150 milliseconds.
+// @evidence contracts/testing.md#execution-ownership A recording provider and synthetic frames exercise dispatch in the in-process Go proxy. Go discovers TestLSPProxyForwardsDocumentSymbolWhenUpstreamAdvertises under ./test/driver.
 func TestLSPProxyForwardsDocumentSymbolWhenUpstreamAdvertises(t *testing.T) {
   provider := &recordingSymbolProvider{}
   h := newProxyHarnessWithOptions(t, nil, driver.ProxyOptions{SymbolProvider: provider})

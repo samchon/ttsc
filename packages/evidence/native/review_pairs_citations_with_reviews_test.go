@@ -19,6 +19,11 @@ import (
  *  2. Each citation carries an `@evidenceReview` naming the identical target,
  *     one of them with a `#`-prefixed fingerprint the rule must not interpret.
  *  3. Assert the rule reports nothing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runReviewRule pairs three citations and reviews on ISale and requires silence.
+ * @evidence contracts/testing.md#independent-expectations Matching target, review kind and nonempty description satisfy the pairing rule for Markdown, Swagger operation and inline TypeScript-link syntax.
+ * @evidence contracts/testing.md#distinguishing-cases Three target grammars and optional fingerprint-shaped text execute together; targets are not resolved and no cited artifact is loaded.
+ * @evidence contracts/testing.md#execution-ownership TestReviewPairsCitationsWithReviews is a selectable native Go unit entry. runReviewRule parses one supplied source and calls reviewRule.Check in-process with a captured reporter; no target artifact, installed consumer or real compiler host is needed.
  */
 func TestReviewPairsCitationsWithReviews(t *testing.T) {
   assertSilent(t, runReviewRule(t, "src/ISale.ts", `

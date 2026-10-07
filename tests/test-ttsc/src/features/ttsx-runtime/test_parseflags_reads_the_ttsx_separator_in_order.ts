@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { parseFlags } from "../../../../../packages/ttsc/lib/flags/parseFlags.js";
+import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
 
 const isEntry = (token: string): boolean =>
   [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
@@ -21,6 +21,11 @@ const isEntry = (token: string): boolean =>
  * 2. Assert each program tail, and that a post-entry `--help` is tail, not a
  *    launcher value.
  * 3. Parse a ttsc argv with `--` and assert the split-first behaviour.
+ *
+ * @evidence contracts/testing.md#behavioral-verification parseFlags consumes the optional separator immediately after the entry but retains later program separators and preserves ttsc split-first behavior.
+ * @evidence contracts/testing.md#independent-expectations Literal tail and passthrough arrays fix each separator position and the help-token ownership independently.
+ * @evidence contracts/testing.md#distinguishing-cases Immediate, later, doubled and pre-entry separators plus post-entry help distinguish launcher boundaries from program argv; the ttsc control covers the other parser mode.
+ * @evidence contracts/testing.md#execution-ownership The named source unit directly runs both parser modes with authored argv, without spawning ttsx or the user program.
  */
 export const test_parseflags_reads_the_ttsx_separator_in_order = () => {
   const ttsx = (argv: string[]) =>

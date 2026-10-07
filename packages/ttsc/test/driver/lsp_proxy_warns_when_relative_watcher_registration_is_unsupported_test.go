@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyWarnsWhenRelativeWatcherRegistrationIsUnsupported verifies the
+// TestLSPProxyWarnsWhenRelativeWatcherRegistrationIsUnsupported Verifies the
 // proxy does not pretend a partial in-project watcher covers external inputs.
 //
 // A client without relative file-pattern support can still be registered for
@@ -21,7 +21,12 @@ import (
 //     pattern support, while a declared input sits outside the project.
 //  2. Complete the initialize handshake.
 //  3. Assert the proxy logs the unsupported-capability notice.
-//  4. Assert no registration request follows it.
+//  4. Observe no further editor frame within 100ms.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run logs unsupported relative-pattern capability and sends no registration during 100ms.
+// @evidence contracts/testing.md#independent-expectations The client lacks relative support and the authored input is outside its project.
+// @evidence contracts/testing.md#distinguishing-cases Dynamic registration true with relative support false differs from supported registration; silence is bounded.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyWarnsWhenRelativeWatcherRegistrationIsUnsupported in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyWarnsWhenRelativeWatcherRegistrationIsUnsupported(t *testing.T) {
   root := t.TempDir()
   external := t.TempDir()

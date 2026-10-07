@@ -10,12 +10,11 @@ import type { TypeParameterDeclaration } from "./TypeParameterDeclaration";
  *
  * Built by {@link factory.createMethodSignature}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The property name, optional marker, generics, ordered parameters and return annotation preserve a method member's syntax without checking name/context legality.
  * @evidence contracts/common.md#clear-and-simple-design Each signature clause has one field using shared name, parameter and type nodes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Name and signature parts are caller data, with no hardcoded method names or callable outcomes.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies interface/type-literal use and distinguishes return annotation and argument order; separated comments follow the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface MethodSignature {
   /** Discriminant tag; always `"MethodSignature"`. */

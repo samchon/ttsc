@@ -627,7 +627,13 @@ export type TtscLintCoreNoMixedOperatorsOperator =
  * @evidence contracts/common.md#meaningful-documentation Members explain unparenthesized mixing, same-precedence allowance and the true default with separate comments.
  */
 export interface ITtscLintCoreNoMixedOperatorsRuleOptions {
-  /** Operator groups within which an unparenthesized mix is checked. */
+  /**
+   * Operator groups within which an unparenthesized mix is checked.
+   *
+   * A nonempty collection replaces the defaults. Omitted or empty groups use
+   * the arithmetic, bitwise, comparison, logical and relational defaults;
+   * conditional and coalesce operators require an explicit group.
+   */
   groups?: readonly (readonly TtscLintCoreNoMixedOperatorsOperator[])[];
 
   /**

@@ -40,14 +40,15 @@ const TURBOPACK_RULE_GLOBS = TYPESCRIPT_TURBOPACK_RULE_GLOBS;
  * (samchon/ttsc#1310).
  *
  * Both halves are additive. An existing `webpack` hook is preserved and called
- * after the plugin is injected, and an existing `turbopack` block keeps every
- * setting and every rule it already had. It also opens the transform session
- * Turbopack's loader workers share, so the pool compiles each generation once.
+ * after the plugin is injected, with its returned object forwarded. Own
+ * enumerable Turbopack settings/rules are copied and nested caller values
+ * remain shared unless a source rule needs augmentation. Optional session
+ * storage lets workers adopt an equivalent proven publication; rejection or
+ * unavailable storage can require independent compilation.
  *
  * @param nextConfig - The caller's existing Next.js config (spread into the
  *   returned object unchanged, except for `webpack` and `turbopack`).
  * @param options - Ttsc plugin options forwarded to both bundlers.
- *
  * @evidence contracts/common.md#principled-implementation
  *   The wrapper preserves caller settings and webpack-hook results while adding
  *   both supported bundler integrations. Turbopack rule helpers preserve loader
@@ -72,14 +73,19 @@ const TURBOPACK_RULE_GLOBS = TYPESCRIPT_TURBOPACK_RULE_GLOBS;
  *   Four exact source globs inspect R caller rules and their L loader entries;
  *   project-wide coverage uses an indexed measured set. A per-invocation map
  *   avoids repeated manifest/realpath checks of the same loader string.
+ *   Own setting/option keys and loader arrays are copied; cold ownership reads
+ *   retain path/manifest byte costs. Session setup includes native state/legacy
+ *   scans and reclamation; record refresh includes parsing/current proof/IO.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Loader ownership verdicts share one configuration snapshot and expire after
  *   this call so later atomic installs or link retargets are observed. The process
  *   session lets forked workers share generation identity with validation on adoption.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Rule copies and ownership memos live only for this invocation. The opened
- *   process session is inherited by workers and ends with its process; downstream
- *   cache owners, not this configuration record, acquire watchers and subprocesses.
+ *   The ownership memo is call-local, but returned rule copies and webpack
+ *   closure/options live with the host config. The inherited store deliberately
+ *   persists across processes under its pruning owner; this wrapper adds no
+ *   count/byte bound or independent close. Plugin/cache owners acquire later
+ *   watchers/processes; no guaranteed complete storage reclamation is asserted.
  */
 export function next(
   nextConfig: NextLikeConfig = {},

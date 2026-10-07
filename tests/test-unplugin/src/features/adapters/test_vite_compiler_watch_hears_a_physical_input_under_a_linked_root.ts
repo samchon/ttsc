@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the Vite serve watcher places an input spelled physically in the
@@ -22,6 +22,15 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/
  *    opens.
  * 2. Assert only the project scope was opened, on the link, and that an event for
  *    the input under the link's name invalidates the importer.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Registers a physical declaration under a linked project, captures opened scope, then emits a linked-path change and asserts the sole importer invalidates.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The link and physical directory name the same fixture. The attached project scope must remain the link spelling and the physical input must reach its authored importer exactly once.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Contrasts physical registration with linked notification; requires exactly one linked scope, excluding redundant physical observers, and checks real changed fixture bytes before notification.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_vite_compiler_watch_hears_a_physical_input_under_a_linked_root calls createViteServeInputWatch.attach/replace against a real temporary directory link or Windows junction, then invokes the captured linked-path listener; watch handles are doubles and disposal is in finally.
  */
 export async function test_vite_compiler_watch_hears_a_physical_input_under_a_linked_root(): Promise<void> {
   const physical = fs.realpathSync.native(

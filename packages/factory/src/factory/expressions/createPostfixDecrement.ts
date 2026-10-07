@@ -10,19 +10,18 @@ import { createPostfixUnaryExpression } from "./createPostfixUnaryExpression";
  * With `operand` of `a`, the printer emits:
  *
  * ```ts
- * a--
+ * a--;
  * ```
  *
  * Supply a legal update target; this builder does not validate or update it.
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param operand The operand to decrement.
+ * @returns The created {@link PostfixUnaryExpression}.
  * @evidence contracts/common.md#principled-implementation MinusMinusToken after the operand retains postfix decrement rather than prefix result semantics; the caller supplies a valid update target.
  * @evidence contracts/common.md#clear-and-simple-design This wrapper selects decrement through the existing postfix constructor without another update-node representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The target remains supplied syntax instead of a patched value or fixture-dependent decrement result.
  * @evidence contracts/common.md#meaningful-documentation Native prose states postfix behavior and target restrictions; expression example, parameters and acknowledgment block remain separate under documentation guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param operand The operand to decrement.
- * @returns The created {@link PostfixUnaryExpression}.
  */
 export const createPostfixDecrement = (
   operand: Expression,

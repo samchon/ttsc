@@ -10,22 +10,23 @@ import (
 )
 
 // TestMarshalDumpSerializesTheFullGraph verifies that MarshalDump projects a
-// built graph onto the IGraphDump wire contract the `ttscgraph dump` command
-// prints and the @ttsc/graph engine loads: the project envelope, every node and
-// edge, project-relative paths, line/col evidence, and the lowercase wire keys.
-//
-// The Node/Edge structs carry no json tags, so dump.go's projection is the only
-// thing standing between the Go fields and the wire. A regression there would
-// ship keys or kinds the engine does not read, so the key and kind assertions
-// are load-bearing, not cosmetic.
+// built two-function graph to JSON with selected envelope, node and call-edge
+// facts, count agreement, endpoint membership and key checks. No graph engine
+// or CLI consumes this output, and counts alone do not certify fact identity.
 //
 //  1. Build a two-function fixture with one call, so the dump has a node set and
 //     a value-call edge.
 //  2. Marshal it with source texts and assert the envelope, counts, and that the
 //     call edge maps to kind "calls" with a line/col evidence span.
 //  3. Assert paths are project-relative, the wire keys are the lowercase json
-//     tags, every edge endpoint resolves to a dumped node, and --pretty indents.
+//     tags, every edge endpoint resolves to a dumped node, and pretty=true indents.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual compact MarshalDump JSON must decode selected project/tsconfig, main/helper and call facts, match the built graph's node/edge counts, contain every edge endpoint and selected lowercase keys, and omit selected Go-field/trust/text keys. Evidence checks require positive start lines, not columns or exact spans. pretty=true must produce indentation; no consumer loader or CLI runs.
+// @evidence contracts/testing.md#independent-expectations Literal tsconfig.json, main ID/file, calls relation, key presence/absence, omitted edge evidence File, endpoint membership and indentation expectations are checked. Counts are derived from the built graph and prove only count agreement, not identity preservation. Project equality reuses canonicalDumpPath and nodeFile decodes the actual edge ID, so neither is an independent filesystem/ID oracle; positive evidence lines do not authenticate exact coordinates.
+// @evidence contracts/testing.md#distinguishing-cases One authored main/helper call provides positive nodes, edge and evidence; selected forbidden keys and missing endpoint identities are negative guards. Compact versus pretty serialization contrasts formatting. Other graph payload families and empty/error cases are not owned here.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build, SourceTexts and compact/pretty MarshalDump, decoding actual JSON and re-encoding edge records. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or product process runs.
 func TestMarshalDumpSerializesTheFullGraph(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export function helper(): void {}
@@ -104,7 +105,7 @@ export function main(): void {
   }
   // The edge's span carries no file: it is the file its `from` id names, which
   // the loader reconstructs (see ITtscGraphDump.IEdge). Sending the path a
-  // second time on every edge is 17% of the document for a value the reader
+  // second time on every edge would bloat the document with a value the reader
   // already holds.
   if call.Evidence == nil || call.Evidence.StartLine == 0 {
     t.Fatalf("call edge missing line/col evidence: %+v", call.Evidence)
@@ -138,15 +139,8 @@ export function main(): void {
       t.Fatalf("dump leaked Go field name %s:\n%s", leaked, s)
     }
   }
-  // Every edge is checker-resolved by construction, so no record carries a
-  // per-edge trust flag saying so — that is the `provenance`/`confidence` pair
-  // 6d74a88c3 removed, and it stays removed. The dump's own `provenance` is a
-  // different thing at a different level: it describes the one program that
-  // produced every record, which no record can state about itself.
-  //
-  // No source body text rides the wire either. The manifest names its fields
-  // `checkerDigest` and `diskDigest` precisely so a digest can never be read as
-  // the text it stands for.
+  // Selected trust/text keys must not appear in this fixture's JSON, and no
+  // decoded edge may serialize a per-edge provenance key.
   for _, gone := range []string{`"confidence":`, `"text":`} {
     if strings.Contains(s, gone) {
       t.Fatalf("dump still emits removed key %s:\n%s", gone, s)

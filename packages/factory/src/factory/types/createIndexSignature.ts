@@ -19,6 +19,11 @@ import { make } from "../internal/make";
  * [key: string]: number
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param parameters The index parameter list.
+ * @param type The value type.
+ * @returns The created {@link IndexSignatureDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Modifiers, index parameters and result type retain their index-member
  *   roles; contextual legality of the supplied parameter list remains with the caller.
@@ -34,12 +39,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   The native description identifies the index key and value type and shows
  *   the member form; argument documentation names each retained field.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param parameters The index parameter list.
- * @param type The value type.
- * @returns The created {@link IndexSignatureDeclaration}.
  */
 export const createIndexSignature = (
   modifiers: readonly ModifierLike[] | undefined,

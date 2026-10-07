@@ -20,9 +20,18 @@
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral consumers use owned comparison and verification operations;
  *   native backend differences do not change the meaning of the verdict fields.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectMutationTracker only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectMutationTracker only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectMutationTracker only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscProjectMutationTracker {
-  /** Absolute paths named by generation-time mutation events. */
+  /** Absolute paths named by mutation events since this tracker opened. */
   changes: Set<string>;
 
   /** Whether additional event paths were discarded after the witness bound. */
@@ -35,13 +44,13 @@ export interface TtscProjectMutationTracker {
   close: CloseProjectMutationTracker;
 
   /**
-   * Absolute spellings whose creation, change or removal this tracker would
-   * report, when it watches exact names rather than whole directories.
+   * Absolute input spellings eligible for this tracker's notification proof
+   * when it watches exact scopes rather than whole directories.
    *
-   * A validation that finds an input here needs no filesystem call of its own:
-   * the tracker is the evidence, and every path that leaves this set falls back
-   * to being proven by hand. Empty for a tracker that watches directories as a
-   * whole, which cannot answer for one name.
+   * A healthy verified content tracker can qualify an input in this set when no
+   * unproven scope or recorded change overlaps it. Paths outside the set remain
+   * on direct validation. A project-directory tracker may also carry the walk's
+   * exact input coverage while its root watch supplies notifications.
    */
   covered?: ReadonlySet<string>;
 
@@ -83,6 +92,10 @@ export interface TtscProjectMutationTracker {
    * {@link failed}, the tracker still hears everything after the gap, so one
    * delivery that proves the recorded state by reading it clears the flag, and
    * its silence is proof again.
+   *
+   * Uncertain native event-name aliases also withdraw this authority without
+   * asserting a membership change. A complete recorded-state proof must settle
+   * that uncertainty before notification silence can qualify reuse again.
    */
   unverified?: boolean;
 
@@ -113,8 +126,8 @@ export interface TtscProjectMutationTracker {
    * root that moves, so replacing a watched directory, or any of its ancestors,
    * leaves the watch observing the old directory while the new one goes
    * unheard, and silence would then be read as proof (samchon/ttsc#1384). One
-   * metadata call per watched directory, made once per delivery, bounds that
-   * window.
+   * metadata observation per watched directory checks the selected target for
+   * that delivery; it does not make later native replacement atomic with use.
    *
    * @param seen Identities already read during this verification, by directory,
    *   shared across a generation's trackers so a directory they all watch is
@@ -131,6 +144,15 @@ export interface TtscProjectMutationTracker {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Quiet closed handles cannot remain a validation proof.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies both release and authority withdrawal, with documentation-skill spacing.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral callers close through the owner without knowing its native backend.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   CloseProjectMutationTracker only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   CloseProjectMutationTracker only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   CloseProjectMutationTracker only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type CloseProjectMutationTracker = () => void;
 
@@ -145,6 +167,15 @@ export type CloseProjectMutationTracker = () => void;
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A timeout cannot fabricate a successful drain.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish ordering from validation and explain false-result meaning under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral consumers use each backend's supported queue boundary instead of transferring one platform's timing assumption.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   DrainProjectMutationTracker only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   DrainProjectMutationTracker only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   DrainProjectMutationTracker only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type DrainProjectMutationTracker = () => Promise<boolean>;
 
@@ -156,6 +187,15 @@ export type DrainProjectMutationTracker = () => Promise<boolean>;
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The boundary contains no fixture exemptions or foreign-state patching.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the comparison owner; named parameters identify both inputs under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral callers delegate physical aliases and directory case policy instead of universally lowercasing paths.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ProjectMutationOverlap only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ProjectMutationOverlap only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ProjectMutationOverlap only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type ProjectMutationOverlap = (
   input: string,
@@ -172,6 +212,15 @@ export type ProjectMutationOverlap = (
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Lexical equality cannot substitute for physical directory identity after replacement.
  * @evidence contracts/common.md#meaningful-documentation Native prose and parameter documentation state withdrawal and memo lifetime under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral verification follows owned physical identity through aliases and ancestors rather than an OS-wide casing rule.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   VerifyProjectMutationLocations only declares a shape; it has no
+ *   computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   VerifyProjectMutationLocations only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   VerifyProjectMutationLocations only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type VerifyProjectMutationLocations = (
   seen?: Map<string, string | undefined>,

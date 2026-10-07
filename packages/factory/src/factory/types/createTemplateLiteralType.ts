@@ -18,9 +18,13 @@ import { make } from "../internal/make";
  * the printer renders:
  *
  * ```ts
- * `id-${string}`
+ * `id-${string}`;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param head The leading text up to the first interpolation.
+ * @param templateSpans The interpolated spans.
+ * @returns The created {@link TemplateLiteralTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   The head and ordered type spans preserve template boundaries; each span
  *   carries its interpolated type and following literal instead of a value expression.
@@ -36,11 +40,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains head/span boundary ownership and illustrates the complete
  *   type without a statement terminator; both child inputs are documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param head The leading text up to the first interpolation.
- * @param templateSpans The interpolated spans.
- * @returns The created {@link TemplateLiteralTypeNode}.
  */
 export const createTemplateLiteralType = (
   head: TemplateHead,

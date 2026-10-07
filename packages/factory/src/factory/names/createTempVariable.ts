@@ -18,9 +18,15 @@ import { createIdentifier } from "./createIdentifier";
  * With no arguments, this prints:
  *
  * ```ts
- * _temp
+ * _temp;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param _recordTempVariable Ignored; kept for signature parity.
+ * @param _reservedInNestedScopes Ignored; kept for signature parity.
+ * @param prefix An optional name prefix.
+ * @param suffix An optional name suffix.
+ * @returns The created {@link Identifier}.
  * @evidence contracts/common.md#principled-implementation
  *   Concatenating prefix, _temp and suffix implements the documented stateless
  *   placeholder. It neither records allocations nor guarantees distinct names;
@@ -37,13 +43,6 @@ import { createIdentifier } from "./createIdentifier";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains collision responsibility, ignored callbacks/flags and optional
  *   affixes in separated paragraphs with an example and blank before tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param _recordTempVariable Ignored; kept for signature parity.
- * @param _reservedInNestedScopes Ignored; kept for signature parity.
- * @param prefix An optional name prefix.
- * @param suffix An optional name suffix.
- * @returns The created {@link Identifier}.
  */
 export const createTempVariable = (
   _recordTempVariable?: unknown,

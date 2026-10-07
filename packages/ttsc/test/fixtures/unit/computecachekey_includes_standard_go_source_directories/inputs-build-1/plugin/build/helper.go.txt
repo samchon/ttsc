@@ -1,0 +1,2 @@
+package build
+const Value = 1

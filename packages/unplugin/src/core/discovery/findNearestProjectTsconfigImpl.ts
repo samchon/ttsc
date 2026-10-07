@@ -29,6 +29,15 @@ import type { TtscProjectTsconfigCandidate } from "./TtscProjectTsconfigCandidat
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains optional recording, failure handling and root termination;
  *   separate paragraphs give the purpose and the nonobvious boundary.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Walks D parent levels with one stat each and stops at the native root;
+ *   resolution/join/dirname cost follows each reached prefix's text. Optional
+ *   recording allocates D candidate pairs/path strings, not a constant-size
+ *   result; no directory enumeration or content read occurs.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function findNearestProjectTsconfigImpl(
   startDirectory: string,

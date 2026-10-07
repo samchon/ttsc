@@ -14,9 +14,13 @@ import { make } from "../internal/make";
  * With `text` of `hello`, this prints:
  *
  * ```ts
- * `hello`
+ * `hello`;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The text.
+ * @param rawText The source spelling before escape processing, if supplied.
+ * @returns The created node.
  * @evidence contracts/common.md#principled-implementation
  *   Cooked text and optional raw spelling populate distinct template fields.
  *   With no substitutions this node represents the entire backtick literal.
@@ -31,11 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes cooked/raw content and the absence of substitutions;
  *   example and tags are separated under the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The text.
- * @param rawText The source spelling before escape processing, if supplied.
- * @returns The created node.
  */
 export const createNoSubstitutionTemplateLiteral = (
   text: string,

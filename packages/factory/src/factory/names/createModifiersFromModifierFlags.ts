@@ -34,8 +34,8 @@ const FLAG = {
  * matter how the mask was assembled. When no recognized bit is set, the result
  * is `undefined` rather than an empty array.
  *
- * Variance flags produce `in` then `out`, preserving the legacy factory's
- * order when both are present. Bits without a represented modifier keyword are
+ * Variance flags produce `in` then `out`, preserving the legacy factory's order
+ * when both are present. Bits without a represented modifier keyword are
  * ignored rather than converted to an unrelated token.
  *
  * With `flags` of `Export | Readonly`, the tokens print in order as:
@@ -44,6 +44,9 @@ const FLAG = {
  * export readonly
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param flags The modifier flags bitmask (legacy `ts.ModifierFlags`).
+ * @returns The created modifier tokens, or `undefined` when none apply.
  * @evidence contracts/common.md#principled-implementation
  *   Bit tests read legacy ModifierFlags values and append tokens in declaration
  *   order, independent of bit ordering. No recognized bits yields undefined.
@@ -60,10 +63,6 @@ const FLAG = {
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc records ordering, undefined empty results and variance modifiers in
  *   separate paragraphs with an example, following documentation guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param flags The modifier flags bitmask (legacy `ts.ModifierFlags`).
- * @returns The created modifier tokens, or `undefined` when none apply.
  */
 export const createModifiersFromModifierFlags = (
   flags: number,

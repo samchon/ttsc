@@ -1,0 +1,63 @@
+package linthost
+
+import (
+  "sort"
+  "strings"
+  "testing"
+  "unicode/utf8"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
+// TestNoUselessEscapeInvalidUtf8NamesReplacementCharacter verifies the
+// no-useless-escape message when the escaped byte is not valid UTF-8.
+//
+// The authored source carries a lone 0xFF byte after a backslash in each
+// lexical container. The message builder decodes that byte to U+FFFD;
+// it must not copy the invalid byte into the diagnostic message.
+// The direct oracle checks UTF-8 validity, the literal replacement-character
+// message and a range covering only the backslash. It does not exercise
+// decoding a file through Node, CLI JSON serialization or LSP transport.
+// Those downstream operations are not certified by this direct unit.
+//
+//  1. Lint a string and a regex whose escape targets a lone 0xFF byte.
+//  2. Assert both messages name the replacement character.
+//  3. Assert both messages are well-formed UTF-8 and still span one backslash.
+//
+// @evidence contracts/testing.md#behavioral-verification Invalid escaped UTF-8 yields a valid replacement-character message and a backslash-only range in both string and regex.
+// @evidence contracts/testing.md#independent-expectations Unicode decoding represents an invalid byte as U+FFFD; literal expected message and authored backslash offsets independently define output.
+// @evidence contracts/testing.md#distinguishing-cases Both lexical containers and UTF-8-valid message assertions prevent raw-byte leakage or multibyte range expansion.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngine.Run execute the invalid-byte string/regex source. This Test sorts findings by Pos, then owns both valid-UTF8/message comparisons and the two literal backslash-only ranges. The calls remain in the lint Go process without consumer installation or a native product-host build/launch.
+func TestNoUselessEscapeInvalidUtf8NamesReplacementCharacter(t *testing.T) {
+  source := "const bad = \"\\\xff\";\nconst pattern = /\\\xff/;\nJSON.stringify([bad, pattern]);\n"
+  file := parseTS(t, source)
+  findings := NewEngine(RuleConfig{
+    "no-useless-escape": SeverityError,
+  }).Run([]*shimast.SourceFile{file}, nil)
+  sort.Slice(findings, func(i, j int) bool { return findings[i].Pos < findings[j].Pos })
+  if len(findings) != 2 {
+    t.Fatalf("want 2 findings, got %d (%+v)", len(findings), findings)
+  }
+  const message = "Unnecessary escape character: \\\uFFFD."
+  wanted := []int{
+    strings.Index(source, "\\\xff"),
+    strings.LastIndex(source, "\\\xff"),
+  }
+  for i, finding := range findings {
+    if wanted[i] < 0 {
+      t.Fatalf("[%d]: fixture lost its escape", i)
+    }
+    // Checked before the exact match so a regression that leaks the raw byte
+    // back into the message is named as such instead of as a text mismatch.
+    if !utf8.ValidString(finding.Message) {
+      t.Fatalf("[%d]: message is not valid UTF-8: %x", i, finding.Message)
+    }
+    if finding.Message != message {
+      t.Fatalf("[%d]: message mismatch:\nwant %q\ngot  %q", i, message, finding.Message)
+    }
+    if finding.Pos != wanted[i] || finding.End != wanted[i]+1 {
+      t.Fatalf("[%d]: want range [%d,%d), got [%d,%d)",
+        i, wanted[i], wanted[i]+1, finding.Pos, finding.End)
+    }
+  }
+}

@@ -115,7 +115,12 @@ func named(lines []Response, name string) []Response {
 }
 
 // Shared watch descriptors: two subscriptions of one directory each hear its
-// events, typed as libuv types them, until one is removed.
+// events as rename/change responses until one is removed.
+//
+// @evidence contracts/testing.md#behavioral-verification Both subscription IDs receive a rename response for native creation and a change response for modification; after removal of ID 1, deletion responses for the file contain only ID 2 with type rename. Actual libuv execution and exact native descriptor identity are not observed.
+// @evidence contracts/testing.md#independent-expectations The expected event types and subscription ids are literals from the helper protocol.
+// @evidence contracts/testing.md#distinguishing-cases Native creation/modification are checked for both IDs; explicit removal followed by a sync barrier leaves only the remaining ID observing deletion. Exact response counts and physical descriptor sharing are not asserted.
+// @evidence contracts/testing.md#execution-ownership TestSharedDescriptorsAndRemoval is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSharedDescriptorsAndRemoval(t *testing.T) {
   root := t.TempDir()
   s := start(t)
@@ -133,7 +138,7 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
   for _, id := range []int64{1, 2} {
     found := false
     for _, line := range created {
-      found = found || line.ID == id
+      found = found || (line.ID == id && line.Type == "rename")
     }
     if !found {
       t.Fatalf("subscription %d missed the creation: %+v", id, created)
@@ -146,6 +151,15 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
   modified := named(s.sync(101), "a.ts")
   if len(modified) == 0 || modified[0].Type != "change" {
     t.Fatalf("modification: %+v", modified)
+  }
+  for _, id := range []int64{1, 2} {
+    found := false
+    for _, line := range modified {
+      found = found || (line.ID == id && line.Type == "change")
+    }
+    if !found {
+      t.Fatalf("subscription %d missed the modification: %+v", id, modified)
+    }
   }
 
   // Requests are served in order, so once this sync is answered the removal
@@ -168,6 +182,11 @@ func TestSharedDescriptorsAndRemoval(t *testing.T) {
 
 // Sync reads the instance empty first, so an edit made before it is answered
 // is reported ahead of the answer.
+//
+// @evidence contracts/testing.md#behavioral-verification Responses preceding the actual sync reply contain all 200 authored file names for subscription ID 1, with change/rename event types. Multiple native events for one file may occur, so exact event count and ordering are not asserted.
+// @evidence contracts/testing.md#independent-expectations Count 200 and names f000 through f199 follow from the authored creation population, independently of the helper decoder. Literal ID 1 and declared change/rename response types distinguish unrelated or non-event responses.
+// @evidence contracts/testing.md#distinguishing-cases All distinct creations finish before the sync request, whose matching reply ends the observed interval. Missing or altered names fail even if the total count remains 200; concurrent creation and kernel overflow are separate cases.
+// @evidence contracts/testing.md#execution-ownership TestSyncFollowsEveryQueuedEvent is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSyncFollowsEveryQueuedEvent(t *testing.T) {
   root := t.TempDir()
   s := start(t)
@@ -181,15 +200,29 @@ func TestSyncFollowsEveryQueuedEvent(t *testing.T) {
   lines := s.sync(100)
   names := map[string]bool{}
   for _, line := range lines {
+    if line.ID != 1 || (line.Type != "rename" && line.Type != "change") {
+      t.Fatalf("unexpected response before sync: %+v", line)
+    }
     names[line.Name] = true
   }
   if len(names) != 200 {
     t.Fatalf("heard %d of 200 entries before the sync answer", len(names))
   }
+  for index := 0; index < 200; index++ {
+    name := fmt.Sprintf("f%03d", index)
+    if !names[name] {
+      t.Fatalf("missing authored entry %q before sync", name)
+    }
+  }
 }
 
 // A deleted directory ends its subscription with `gone`, and its parent hears
 // the deletion as a rename of the entry.
+//
+// @evidence contracts/testing.md#behavioral-verification Native deletion yields a gone response for child ID 2 and a parent ID 1 rename for child. After an explicit remove request for ID 2, recreation yields no response for that ID before the next sync reply; this does not independently certify automatic helper-map cleanup before explicit removal.
+// @evidence contracts/testing.md#independent-expectations Authored IDs 1/2, name child, type rename and gone=true are checked in decoded responses, then any ID-2 response is forbidden in the next sync interval. These are semantic field expectations rather than literal full JSON lines or exact response counts.
+// @evidence contracts/testing.md#distinguishing-cases Watched child deletion, simultaneous parent attention and recreation after explicit removal have different expected responses. Gone/rename ordering and duplicate response counts are not asserted.
+// @evidence contracts/testing.md#execution-ownership TestSelfDeletionEndsTheSubscription is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestSelfDeletionEndsTheSubscription(t *testing.T) {
   root := t.TempDir()
   child := filepath.Join(root, "child")
@@ -212,7 +245,7 @@ func TestSelfDeletionEndsTheSubscription(t *testing.T) {
     t.Fatalf("gone=%v renamed=%v: %+v", gone, renamed, lines)
   }
 
-  // The descriptor is released, so a later event reaches nobody through it.
+  // Explicit removal precedes recreation; ID 2 must not hear the later event.
   s.send(Request{Op: "remove", ID: 2})
   if err := os.Mkdir(child, 0o755); err != nil {
     t.Fatal(err)
@@ -225,6 +258,11 @@ func TestSelfDeletionEndsTheSubscription(t *testing.T) {
 }
 
 // A directory that cannot be watched is answered with an error.
+//
+// @evidence contracts/testing.md#behavioral-verification Adding a path that does not exist answers with an error and no ready reply.
+// @evidence contracts/testing.md#independent-expectations A missing temporary subdirectory cannot be watched by the kernel, so the error reply is the contract.
+// @evidence contracts/testing.md#distinguishing-cases A missing directory contrasts with the watchable directories of sibling tests.
+// @evidence contracts/testing.md#execution-ownership TestAddReportsAnUnwatchableDirectory is a Go unit test built only on Linux: it runs the helper's Run in-process over pipes against a real inotify instance and a temporary directory, without starting a built binary.
 func TestAddReportsAnUnwatchableDirectory(t *testing.T) {
   s := start(t)
   s.send(Request{Op: "add", ID: 1, Path: filepath.Join(t.TempDir(), "missing")})
@@ -235,6 +273,11 @@ func TestAddReportsAnUnwatchableDirectory(t *testing.T) {
 }
 
 // The helper exits cleanly once its client closes stdin.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual in-process Run returns code 0 and its session wrapper reports that result within ten seconds after the input pipe is closed. A built child-process exit, output-reader join and descendant shutdown are not exercised.
+// @evidence contracts/testing.md#independent-expectations Exit code 0 is the documented clean-shutdown status.
+// @evidence contracts/testing.md#distinguishing-cases A helper that kept running would fail the timeout branch.
+// @evidence contracts/testing.md#execution-ownership The Linux-only discoverable Go unit runs actual Run in a goroutine over owned input/output pipes and a real inotify instance. Closing the writer delivers EOF; the wrapper closes its output writer before reporting the return code. No temporary filesystem fixture, native child or built product host is started, and the output-reader goroutine's completion is not asserted.
 func TestExitsWhenStdinCloses(t *testing.T) {
   s := start(t)
   s.stdin.Close()
@@ -248,10 +291,15 @@ func TestExitsWhenStdinCloses(t *testing.T) {
   }
 }
 
-// The event decoder: an overflow reaches every subscription at once, a
-// directory entry's attribute change is a rename as libuv reports it, a
+// The event decoder: an overflow produces one unscoped overflow response, a
+// directory entry's attribute change produces a rename response, a
 // nameless event and an unknown descriptor are dropped, and the end of a watch
 // is reported once.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual dispatch emits ordered change/rename responses for two subscribers, one unscoped overflow response, and one gone response per subscriber, then forgets both subscription maps. A nameless attribute, unknown descriptor and post-ignored event emit nothing. Actual kernel generation, libuv execution and downstream overflow fan-out are not observed.
+// @evidence contracts/testing.md#independent-expectations Seven complete Response values and empty subscription maps are authored expectations. Input headers are independently hand-encoded with native byte order and declared inotify masks; actual JSON output is decoded before comparing semantic values rather than byte formatting.
+// @evidence contracts/testing.md#distinguishing-cases Modify, directory-attribute, nameless attribute, unknown descriptor, queue overflow, ignored-watch and post-ignored create events cover distinct branches. Two out-of-order inserted subscriber IDs require ascending response order. Truncated headers/payloads and native descriptor removal are not exercised.
+// @evidence contracts/testing.md#execution-ownership TestDispatchMapsEventsAsLibuvDoes is a Go unit test built only on Linux: it feeds hand-encoded inotify event bytes to the decoder of an in-process helper and starts no process.
 func TestDispatchMapsEventsAsLibuvDoes(t *testing.T) {
   var out bytes.Buffer
   h := newHelper(-1, &out)
@@ -314,6 +362,11 @@ func TestDispatchMapsEventsAsLibuvDoes(t *testing.T) {
 // A real kernel overflow: an instance nobody reads fills past
 // fs.inotify.max_queued_events, the kernel drops the rest and queues one
 // IN_Q_OVERFLOW event, and the helper's own read and decode report it.
+//
+// @evidence contracts/testing.md#behavioral-verification A real kernel overflow, created by filling an unread inotify instance past fs.inotify.max_queued_events, is reported by the helper's own drain and decode as an overflow response.
+// @evidence contracts/testing.md#independent-expectations The kernel's queue limit is read from /proc and exceeded by one creation, so the overflow is produced by the kernel and not by the test's encoding.
+// @evidence contracts/testing.md#distinguishing-cases Distinct file names fill an unread native queue through its configured limit and one extra creation; decoded output must contain an overflow response. No synthetic event is substituted and a large native limit is not a reason to skip this case. Exact overflow count and downstream invalidation are not asserted.
+// @evidence contracts/testing.md#execution-ownership The Linux-only discoverable Go unit owns a real inotify descriptor and temporary directory, creates limit+1 distinct empty files before draining actual helper output, and defers native descriptor close. File and output populations scale with the configured queue limit; no separate test cap or kernel setting change is applied, and no child process or product host runs.
 func TestReportsARealKernelOverflow(t *testing.T) {
   setting, err := os.ReadFile("/proc/sys/fs/inotify/max_queued_events")
   if err != nil {
@@ -322,9 +375,6 @@ func TestReportsARealKernelOverflow(t *testing.T) {
   limit, err := strconv.Atoi(strings.TrimSpace(string(setting)))
   if err != nil {
     t.Fatalf("parse the queue limit %q: %v", setting, err)
-  }
-  if limit > 1<<20 {
-    t.Skipf("fs.inotify.max_queued_events is %d; filling it would take too long", limit)
   }
   fd, err := unix.InotifyInit1(unix.IN_NONBLOCK | unix.IN_CLOEXEC)
   if err != nil {
@@ -346,7 +396,9 @@ func TestReportsARealKernelOverflow(t *testing.T) {
     if err != nil {
       t.Fatal(err)
     }
-    file.Close()
+    if err := file.Close(); err != nil {
+      t.Fatal(err)
+    }
   }
   if err := h.drain(); err != nil {
     t.Fatal(err)

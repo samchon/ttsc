@@ -8,22 +8,26 @@ import (
 )
 
 // TestValueCallEdgesCoverMethodsAndConstructors verifies that the value-call walk
-// reaches what the checker resolves but the first cut dropped: a method-to-method
+// records the selected authored relationships: a method-to-method
 // call lands on the callee's method node, and a `new T()` lands on T's class node,
 // both attributed to the calling method.
 //
-// Before method nodes existed, a callee that resolved to a method symbol was
-// dropped (no node to point at) and a `new` expression was never visited, so a
-// class whose logic lived in method bodies showed almost no outgoing edges. This
-// pins that gap closed — the load-bearing reason a model could trust the graph
-// for an architecture question instead of re-reading the source.
+// Both run calls share endpoints, so presence cannot authenticate each call or
+// deduplication. The new-expression triple does not assert its origin or wire
+// kind. No runtime call, construction, or architecture-query consumer executes.
 //
 //  1. Compile a fixture where Controller.handle calls Service.run (via a parameter
 //     and a constructed value) and constructs a Service.
 //  2. Build the graph.
-//  3. Assert handle -> Service.run (value-call, deduped) and handle -> Service
+//  3. Assert handle -> Service.run (value-call presence) and handle -> Service
 //     (the new-expression constructor edge) both exist.
+//
+// @evidence contracts/testing.md#behavioral-verification Requires the Service.run node and two selected handle value-call triples, to that method and to Service. Exact counts, each of the two run call sites, source spans, new origin, and wire instantiates kind are not asserted.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over Controller.handle: the Service.run method node must exist, a value-call edge must run from Controller.handle to Service.run (reached through s.run() and made.run()), and a value-call edge must run from Controller.handle to the Service class node (new Service()). The test checks edge presence only, not that the two run() calls collapse to one edge.
+// @evidence contracts/testing.md#distinguishing-cases The method call and construction have different authored target kinds, while the parameter and constructed-value run calls share one expected triple. Presence distinguishes missing method/class relationships but does not authenticate deduplication.
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config/source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build and literal edge observations run in this process using its actual filename and shared nodeID encoder. No independent identity oracle, product CLI, installation, emitted construction/calls, or architecture-query consumer runs.
 func TestValueCallEdgesCoverMethodsAndConstructors(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Service {
@@ -58,8 +62,7 @@ export class Controller {
   if _, ok := graph.Nodes[run]; !ok {
     t.Fatalf("Build did not record the method node Service.run; have %v", nodeIDSet(graph))
   }
-  // Method-to-method: handle calls Service.run (from s.run() and made.run(),
-  // deduped to a single edge) — the call the first cut dropped.
+  // Method-to-method presence; both authored calls share this triple.
   if !hasEdge(graph, handle, run, EdgeValueCall) {
     t.Fatalf("missing value-call edge Controller.handle -> Service.run; edges: %v", graph.Edges)
   }

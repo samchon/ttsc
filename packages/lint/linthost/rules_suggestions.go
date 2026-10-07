@@ -343,14 +343,15 @@ func noExtraBindFixEdits(
   }, !hasCommentBetween(src, memberStart, callEnd)
 }
 
+// Literals and function creation cannot throw due to identifier TDZ, an unresolved
+// binding, a with-environment getter, or uninitialized derived-constructor this.
+// Those evaluation-sensitive receiver expressions retain their diagnostic only.
 func noExtraBindReceiverIsSideEffectFree(node *shimast.Node) bool {
   node = stripParens(node)
   if node == nil {
     return false
   }
   return isLiteralExpression(node) ||
-    node.Kind == shimast.KindIdentifier ||
-    node.Kind == shimast.KindThisKeyword ||
     node.Kind == shimast.KindFunctionExpression
 }
 
@@ -929,8 +930,13 @@ func (noUnneededTernary) Check(ctx *Context, node *shimast.Node) {
   condText := src[condStart:cond.Condition.End()]
   var replacement string
   if tBool {
-    // `cond ? true : false` → `Boolean(cond)`
-    replacement = "Boolean(" + condText + ")"
+    // `cond ? true : false` → `!!cond`, grouped when necessary.
+    // Intrinsic coercion must not resolve a shadowable Boolean binding.
+    if needsParensForUnaryNegation(cond.Condition) {
+      replacement = "!!(" + condText + ")"
+    } else {
+      replacement = "!!" + condText
+    }
   } else {
     // `cond ? false : true` → `!cond`. Wrap the condition in parentheses
     // when it is not already a primary expression so operator precedence
@@ -1327,7 +1333,7 @@ func reportUselessRenameFix(ctx *Context, node, propertyName, name *shimast.Node
   edit := TextEdit{Pos: propertyName.End(), End: name.End(), Text: ""}
   // A comment between the two names (`{ a as /* c */ a }`) sits inside the
   // deleted rename tail; imposing that loss is unacceptable, so the autofix
-  // declines. Mirrors ESLint no-useless-rename's `commentsExistBetween` guard.
+  // declines. ESLint no-useless-rename also withholds comment-discarding edits.
   // The collapse is still what the author wants, so the same edit is offered
   // as an opt-in suggestion whose title states that the comment goes with it.
   if hasCommentBetween(ctx.File.Text(), propertyName.End(), name.End()) {
@@ -1360,15 +1366,20 @@ func (objectShorthand) Check(ctx *Context, node *shimast.Node) {
   if keyName != valueName {
     return
   }
+  // A colon-form __proto__ property sets the object's prototype. Shorthand
+  // instead creates an own data property, even when both names are identical.
+  if keyName == "__proto__" {
+    return
+  }
   // Delete `: <value>` so `{ x: x }` becomes `{ x }`. The range starts
   // at the end of the property name and ends at the end of the
   // initializer; any whitespace between `:` and the value is part of
   // that range.
   //
   // A comment inside that range (`{ x: /* c */ x }`) would be dropped by the
-  // deletion, so the autofix declines. Mirrors ESLint object-shorthand's
-  // `commentsExistBetween` guard. The shorthand rewrite is still correct, so
-  // the same edit is offered as an opt-in suggestion that names the loss.
+  // deletion, so the autofix declines. ESLint object-shorthand also withholds
+  // edits when the identifier property contains comments. The edit is instead
+  // offered as an opt-in suggestion that names the loss.
   edit := TextEdit{Pos: prop.Name().End(), End: prop.Initializer.End(), Text: ""}
   if hasCommentBetween(ctx.File.Text(), prop.Name().End(), prop.Initializer.End()) {
     ctx.ReportSuggestion(
@@ -1486,18 +1497,48 @@ func (preferTemplate) Check(ctx *Context, node *shimast.Node) {
   if expr.OperatorToken.Kind != shimast.KindPlusToken {
     return
   }
-  // Skip when the parent is also a string-concat — only the topmost
-  // `+` chain emits one finding.
-  parent := node.Parent
-  if parent != nil && parent.Kind == shimast.KindBinaryExpression {
-    parentBin := parent.AsBinaryExpression()
-    if parentBin != nil && parentBin.OperatorToken != nil && parentBin.OperatorToken.Kind == shimast.KindPlusToken {
+  // A directly enclosing addition owns the whole contiguous tree. Skip its
+  // children before computing shape, so long numeric chains remain linear.
+  if node.Parent != nil && node.Parent.Kind == shimast.KindBinaryExpression {
+    parent := node.Parent.AsBinaryExpression()
+    if parent.OperatorToken != nil && parent.OperatorToken.Kind == shimast.KindPlusToken {
       return
     }
   }
   hasString, hasOther := concatChainShape(node)
   if !(hasString && hasOther) {
     return
+  }
+  // An empty-prefix coercion within an interpolation deliberately retains
+  // concatenation's default ToPrimitive hint. Rewriting it would remove that
+  // distinction and repeatedly rewrite the renderer's own output.
+  for ancestor := node; ancestor != nil; ancestor = ancestor.Parent {
+    if ancestor.Parent == nil || ancestor.Parent.Kind != shimast.KindTemplateSpan || ancestor.Kind != shimast.KindBinaryExpression {
+      continue
+    }
+    coercion := ancestor.AsBinaryExpression()
+    if coercion != nil && coercion.OperatorToken != nil && coercion.OperatorToken.Kind == shimast.KindPlusToken &&
+      isStringLikeLiteral(stripParens(coercion.Left)) && stringLiteralText(stripParens(coercion.Left)) == "" {
+      return
+    }
+  }
+  // Skip when the parent is also a string-concat — only the topmost
+  // `+` chain emits one finding.
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindParenthesizedExpression {
+      continue
+    }
+    if parent.Kind != shimast.KindBinaryExpression {
+      break
+    }
+    parentBin := parent.AsBinaryExpression()
+    if parentBin == nil || parentBin.OperatorToken == nil || parentBin.OperatorToken.Kind != shimast.KindPlusToken {
+      break
+    }
+    parentString, parentOther := concatChainShape(parent)
+    if parentString && parentOther {
+      return
+    }
   }
   message := "Unexpected string concatenation."
   src := ctx.File.Text()
@@ -1515,8 +1556,8 @@ func (preferTemplate) Check(ctx *Context, node *shimast.Node) {
   edit := TextEdit{Pos: editPos, End: node.End(), Text: template}
   // A comment in an operator seam (`"a" + /* c */ b`) is dropped by the
   // template rebuild, so the autofix declines and the rendered literal is
-  // offered as an opt-in suggestion that names the loss. Mirrors ESLint
-  // prefer-template's `commentsExistBetween` guard. Only the seams are scanned:
+  // offered as an opt-in suggestion that names the loss. The native guard
+  // scans only the seams:
   // operand interiors are copied verbatim (their comments survive) and string
   // contents are cooked, so scanning the whole span would misread a `//` or
   // `/*` inside a string literal (`"https://" + host`) as a comment.
@@ -1571,47 +1612,36 @@ func concatChainShape(node *shimast.Node) (hasString bool, hasOther bool) {
   return false, true
 }
 
-// flattenConcatOperands walks a `+` chain left-to-right and returns each
-// leaf operand in source order. It only descends into a `+` subtree that
-// itself contains a string-like operand (see
-// concatChainContainsString): a subtree without one — the `a + b` in
-// `a + b + " items"` — evaluates BEFORE any string concatenation, so
-// splitting it into separate `${a}${b}` slots would change the runtime
-// value (numeric 3 becomes the digits "12"). Such a subtree stays one
-// operand and renders as a single `${a + b}` slot, mirroring upstream
-// ESLint prefer-template, which embeds non-string sub-chains as one
-// expression. Parenthesized sub-expressions are likewise kept as a
-// single operand so the rendered template literal does not lose their
-// grouping.
+// flattenConcatOperands preserves addition evaluation and coercion order.
+// A subtree may split only when its left result is already a string, or its
+// right operand is an inert string literal. Otherwise its complete addition
+// stays inside one interpolation: evaluating an effectful right operand must
+// precede coercing an object-valued left operand. Numeric subchains and
+// parenthesized operands likewise remain grouped. The renderer retains the
+// default ToPrimitive hint in every dynamic slot.
 func flattenConcatOperands(node *shimast.Node) []*shimast.Node {
   if node == nil {
     return nil
   }
   if node.Kind == shimast.KindBinaryExpression {
     bin := node.AsBinaryExpression()
-    if bin != nil && bin.OperatorToken != nil && bin.OperatorToken.Kind == shimast.KindPlusToken && concatChainContainsString(node) {
+    if bin != nil && bin.OperatorToken != nil && bin.OperatorToken.Kind == shimast.KindPlusToken &&
+      (concatChainContainsString(bin.Left) || isStringLikeLiteral(stripParens(bin.Right))) {
       out := flattenConcatOperands(bin.Left)
       out = append(out, flattenConcatOperands(bin.Right)...)
       return out
     }
   }
+  // Splitting an object-valued left operand from an effectful right string
+  // expression would coerce the left before evaluating the right. Keep that
+  // complete addition inside one slot so its original evaluation order survives.
   return []*shimast.Node{node}
 }
 
-// concatChainContainsString reports whether a `+` chain (or a single
-// operand) contains a string-like operand: a string literal, a template
-// literal (with or without substitutions), or a nested `+` chain —
-// parenthesized or not — that itself contains one. This is the
-// flattening gate for flattenConcatOperands. Once a string-like operand
-// appears in a left-associative chain, every later `+` is string
-// concatenation, so splitting the chain into template segments preserves
-// the value; a chain with none may be numeric addition and must stay
-// whole. Parentheses are transparent to the DECISION (`("a" + b) + c`
-// is a string chain, so `c` still gets its own slot) even though the
-// flattener keeps the parenthesized operand itself as one slot. A
-// string-like node under any other operator (e.g. `a * "x"`) does NOT
-// qualify: that subexpression coerces away from string, so its chain
-// may still be numeric addition.
+// concatChainContainsString proves a string result for a literal, template,
+// or addition tree containing one. Parentheses preserve that result; other
+// operators do not. The flattener uses this only on the left operand, whose
+// complete evaluation must already have finished before the right begins.
 func concatChainContainsString(node *shimast.Node) bool {
   node = stripParens(node)
   if node == nil {
@@ -1628,8 +1658,8 @@ func concatChainContainsString(node *shimast.Node) bool {
 
 // renderConcatAsTemplate renders the flattened concat operands as a single
 // backtick template literal. String-like literals contribute their value
-// directly (with template-specific escaping); any other expression becomes
-// a `${…}` placeholder copied verbatim from the source text. Returns ok=false
+// directly (with template-specific escaping). Other expressions retain
+// default-hint concatenation coercion inside a `${…}` placeholder copied verbatim from the source text. Returns ok=false
 // when an operand cannot be rendered (typically because its source range is
 // unavailable), so the caller falls back to detection-only.
 //
@@ -1670,7 +1700,11 @@ func renderConcatAsTemplate(src string, operands []*shimast.Node) (string, bool)
     }
     flushLiteral()
     sb.WriteString("${")
+    // Concatenation uses ToPrimitive's default hint; interpolation uses the
+    // string hint. Keep the original coercion before interpolating its string.
+    sb.WriteString("\"\" + (")
     sb.WriteString(src[pos:end])
+    sb.WriteByte(')')
     sb.WriteByte('}')
   }
   flushLiteral()

@@ -9,13 +9,14 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  * The sink a tracker's brokered watches report to: what each message of the
  * isolated watch process means to a generation's tracker.
  *
- * - An event is classified by the tracker's own filters, so a brokered tracker
- *   records exactly what the in-process listener would for the same event. With
- *   the exact-input trackers' classifier, it alone decides between a mutation,
- *   a content change, and nothing. With the project-directory tracker's
- *   filters, a named event is a mutation when it can change membership, a
- *   content change when it can change a program input's content, and otherwise
- *   nothing. Any other event is a mutation.
+ * - An event is classified by the tracker's own filters. With the exact-input
+ *   trackers' shared classifier, it alone decides between a mutation, a content
+ *   change, and no recorded change; uncertain native aliases can independently
+ *   withdraw the tracker's verification authority. With the project-directory
+ *   tracker's filters, a named event records membership when admitted and
+ *   structural, or content for an admitted non-rename event. Rejected
+ *   membership can still withdraw authority through the owner filter. Events
+ *   without that filter are mutations.
  * - An event the child could not place is a membership change of unknown kind.
  * - A failed watch fails the tracker, so its silence is never read as proof.
  * - A gap leaves the tracker hearing everything after it, so it is marked
@@ -34,7 +35,7 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  *   One sink adapts the broker protocol to tracker state and delegates exact
  *   input classification wholesale, keeping backend policies equivalent.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Unknown names remain structural witnesses and failed coverage remains failed;
+ *   Unattributed events remain structural witnesses and failed coverage remains failed;
  *   the adapter neither suppresses events nor patches a foreign watcher.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native message list and parameter comments distinguish each verdict and
@@ -42,6 +43,12 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral event construction uses node:path and owner-translated directory
  *   spellings; native drop and probe semantics are explicit protocol inputs.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The sink retains its tracker and owner filters until registration retirement.
+ *   A supplied unproven-directory Set transfers to the tracker and is replaced
+ *   by subsequent drain verdicts; the tracker close retires its registration.
+ * @evidence contracts/performance.md#efficient-algorithms Each message follows one handler; named events include native path construction, delegated owner classification and bounded witness recording. Those costs follow path text and the owner's scope indexes, not the adapter's statement count.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each tracker has its own sink, and events are effects rather than computations to share.
  */
 export function brokeredTrackerSink(
   tracker: TtscProjectMutationTracker,

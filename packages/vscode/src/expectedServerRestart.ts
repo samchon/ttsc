@@ -4,8 +4,8 @@ import type {
 } from "vscode-languageclient/node";
 
 /**
- * A language-client error handler with an operation that marks the next
- * close as expected.
+ * A language-client error handler with an operation that marks the next close
+ * as expected.
  *
  * A server-requested plugin transition must not consume the default
  * transport-crash budget.
@@ -27,6 +27,22 @@ import type {
  *   one-shot expected-close marker and explain the crash-budget reason.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   ExpectedServerRestartHandler only describes values and opens no file, path
+ *   or process.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ExpectedServerRestartHandler is a type definition with no computation to
+ *   cost.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ExpectedServerRestartHandler is a type definition and coordinates no work
+ *   across requests.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ExpectedServerRestartHandler is a type definition and owns no state,
+ *   handle or task.
  */
 export type ExpectedServerRestartHandler = {
   /** Supported language-client callbacks carrying the expected-close policy. */
@@ -55,6 +71,18 @@ export type ExpectedServerRestartHandler = {
    *   later unannounced closes return to the fallback crash policy. Purpose,
    *   conditions and reasons use separate native paragraphs under the
    *   documentation skill; member comments remain beside their fields.
+   *
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   It sets one in-memory flag and touches no path or process.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   It performs one constant-time assignment.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   It computes nothing that another request could share.
+   *
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   The flag it sets is owned by the handler closure and holds no handle.
    */
   expectRestart(): void;
 };
@@ -88,6 +116,20 @@ export type ExpectedServerRestartHandler = {
  *   reason. Purpose, conditions and reasons use separate native paragraphs
  *   under the documentation skill; member comments remain beside their
  *   fields.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   It forwards language-client callbacks and touches no path or process.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Each callback does constant work.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Each close decision depends on the one-shot flag, so no result is
+ *   shareable.
+ *
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The closure owns one boolean per language client and is reclaimed with
+ *   that client's error handler; it holds no handle, timer or task.
  */
 
 export function createExpectedServerRestartHandler(

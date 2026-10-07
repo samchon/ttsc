@@ -6,18 +6,24 @@ import (
 )
 
 // TestProjectInputRegistrationShapesRelativePatterns verifies exact paths and
-// glob populations become deterministic LSP RelativePatterns without treating
+// glob populations become deduplicated LSP RelativePatterns without treating
 // literal filename metacharacters as wildcards.
 //
 // Reload directories need two registrations: immediate children carry
-// topology changes, while the exact directory identity carries deletion and
-// replacement when a child-rooted watcher can no longer observe the object.
+// topology attention, while the exact directory identity represents deletion
+// and replacement attention. This unit checks descriptors, not actual watcher
+// delivery after native replacement.
 //
 //  1. Declare duplicate exact files, portable globs, and one reload directory.
 //  2. Build and index the deduplicated relative-pattern registrations.
 //  3. Assert literals are escaped while portable wildcard segments survive.
 //  4. Assert reload-directory identity and immediate-child patterns both exist.
 //  5. Assert drive and UNC file URIs preserve their authority and escaping.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual watcher descriptors contain five deduplicated pattern strings with literal metacharacters escaped, wildcard segments preserved, and reload-directory identity plus child patterns. Two independent URI literals check drive escaping and UNC authority. Iteration order, complete base URIs and actual client matching are not asserted.
+// @evidence contracts/testing.md#independent-expectations Five pattern strings, count five and two complete URI strings are authored literals. Watcher kind is compared with the declared all-events constant; base URI checks require nonempty values for the exact and JSON-glob lanes rather than independent full URI equality.
+// @evidence contracts/testing.md#distinguishing-cases Duplicate exact/reload-file entries, literal star/question/bracket/brace filename characters, wildcard segments with literal bracket/brace segments, two reload-directory patterns, drive paths and UNC paths are covered. The test does not certify descriptor ordering or native watcher delivery.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit calls actual projectInputFileWatchers and projectInputFileURI in-process using an owned temporary root and authored path data. No substituted operation, native child, sidecar, installed consumer or product host runs; the filename with Windows-reserved characters is not materialized on disk.
 func TestProjectInputRegistrationShapesRelativePatterns(t *testing.T) {
   root := t.TempDir()
   exact := filepath.Join(

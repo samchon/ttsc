@@ -9,22 +9,22 @@ import (
 )
 
 // TestLiteralsResolveThroughAliasIndirection verifies that a union assembled out
-// of other unions reports every member it admits, including the ones no token of
-// its own declaration names.
-//
-// This is the half of #732 that was not truncation but a wrong answer of the
-// right shape. Reading `type Wide = Narrow | 'd'` off the source text finds one
-// quoted token and reports `'d'`, a complete-looking three-member type reduced
-// to one, with nothing marking the loss. Only the checker has followed Narrow.
-// The nested case (`Wider = Wide | 'e'`) pins that the resolution is not one hop
-// deep, and the checker also flattens and dedups, so `Duplicated` must report
-// `'a'` once rather than twice.
+// of other unions reports the literal values of the three authored aliases.
+// One- and two-hop forms include inherited members; re-listing a requires one
+// occurrence. This does not authenticate the acquisition algorithm, deeper
+// alias handling or its cost.
 //
 //  1. Compile a fixture whose aliases build on each other, one of them
 //     re-listing a member an aliased union already has.
 //  2. Build the graph.
 //  3. Assert each alias reports the full set it admits, deduplicated.
+//
+// @evidence contracts/testing.md#behavioral-verification Build must report exact ordered literal arrays for Wide, Wider and Duplicated, retaining inherited values across the tested one/two-hop aliases and one a in the duplicate form. Other alias structures and resolution work are not asserted.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: Wide (Narrow | 'd') must report a, b, c, d; Wider (Wide | 'e') must report a through e; and Duplicated (Narrow | 'a') must report a, b, c with a once, all in source-quoted form.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose aliases build on each other, one of them re-listing a member an aliased union already has; Build the graph; Assert each alias reports the full set it admits, deduplicated.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build and existing-node literalsOf. Actual filename/shared ID formatting select the aliases; a restored empty linked-plugin manifest excludes ambient hooks. No emit, installed consumer or product process runs.
 func TestLiteralsResolveThroughAliasIndirection(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export type Narrow = 'a' | 'b' | 'c';
@@ -50,7 +50,7 @@ export type Duplicated = Narrow | 'a';
   if want := []string{`"a"`, `"b"`, `"c"`, `"d"`}; !slices.Equal(wide, want) {
     t.Fatalf("alias indirection lost members: got %v, want %v", wide, want)
   }
-  // Two hops: resolution is the type's, so depth costs nothing.
+  // Two authored hops; this result check does not measure resolution cost.
   wider := literalsOf(t, graph, nodeID(path, "Wider", NodeTypeAlias))
   if want := []string{`"a"`, `"b"`, `"c"`, `"d"`, `"e"`}; !slices.Equal(wider, want) {
     t.Fatalf("nested alias indirection lost members: got %v, want %v", wider, want)

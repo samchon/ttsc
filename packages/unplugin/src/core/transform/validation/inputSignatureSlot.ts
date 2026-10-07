@@ -23,6 +23,11 @@ import { toProjectKey } from "../project/toProjectKey";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An input without a recorded hash cannot acquire a metadata substitute through an invented slot.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain precedence, lazy signature admission and the exact undefined condition before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native lexical resolution supplies metadata spelling while derivationIdentity and toProjectKey apply the generation's actual filesystem identity context.
+ * @evidence contracts/performance.md#efficient-algorithms Native identity and project-key selection use the supplied transaction rather than scanning input populations. Path resolution, key hashing and formatting scale with path text, and a transaction miss pays native identity and case observations; fixed field probes do not make that work constant.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Hands back the existing signature record on the cached transform instead
+ *   of rebuilding it.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The operation lazily attaches a signature record to the borrowed cached transform and returns its slot. Validators populate it and the generation owner controls its lifetime; this lookup owns no separate history, handle or release boundary.
  */
 export function inputSignatureSlot(
   cached: TtscCachedProjectTransform,

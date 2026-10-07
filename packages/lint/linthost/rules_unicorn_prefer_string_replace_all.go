@@ -6,7 +6,8 @@
 //
 // AST-only: a `CallExpression` whose callee is `.replace` AND whose
 // first argument is a `RegularExpressionLiteral` carrying the `g` flag
-// in its trailing flag block matches. The flag is read from the raw
+// in its trailing flag block matches, except i (case folding) and y
+// (sticky matching), whose behavior a literal string cannot retain. The flag is read from the raw
 // source text — the AST does not split pattern from flags — using the
 // shared `nodeText` accessor.
 //
@@ -59,7 +60,7 @@ func (unicornPreferStringReplaceAll) Check(ctx *Context, node *shimast.Node) {
 
 // unicornPreferStringReplaceAllHasGlobalFlag returns true when `raw` (the
 // source text of a RegularExpressionLiteral, including the surrounding
-// `/` delimiters and trailing flag block) carries the `g` flag.
+// `/` delimiters and trailing flag block) carries g without i or y.
 func unicornPreferStringReplaceAllHasGlobalFlag(raw string) bool {
   if len(raw) < 3 || raw[0] != '/' {
     return false
@@ -69,7 +70,7 @@ func unicornPreferStringReplaceAllHasGlobalFlag(raw string) bool {
     return false
   }
   flags := raw[closing+1:]
-  return strings.ContainsRune(flags, 'g')
+  return strings.ContainsRune(flags, 'g') && !strings.ContainsAny(flags, "iy")
 }
 
 // unicornPreferStringReplaceAllIsLiteralPattern returns true when the

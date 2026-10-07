@@ -24,22 +24,18 @@ func (in closingEditorInput) Close() error {
   return in.w.CloseWithError(os.ErrClosed)
 }
 
-// TestLSPServerEndsCleanlyWhenItsTeardownClosesTheEditorInput pins that the
-// session an `exit` after `shutdown` ends reports no error when RunLSPServer's
-// own teardown closes the editor's input.
+// TestLSPServerEndsCleanlyWhenItsTeardownClosesTheEditorInput Verifies that RunLSPServer returns nil after shutdown and exit even when teardown closes input with os.ErrClosed.
 //
-// When the session ends, RunLSPServer closes the editor input it was given, and
-// a read on a closed stdin fails with os.ErrClosed ("file already closed").
-// Since the session stopped waiting for the editor's EOF after `exit`
-// (samchon/ttsc#1575), that read can finish before the upstream is seen to end,
-// and it was reported as the session's failure: ttscserver exited with status 1
-// after a clean `shutdown` and `exit`, in about one run of four on Windows.
+// Fifty sessions vary scheduling; success does not prove every teardown ordering occurred.
 //
-//  1. Give RunLSPServer an editor input that its Close ends with os.ErrClosed,
-//     and an upstream that answers `shutdown` and returns on `exit`.
-//  2. Send `shutdown`, then `exit`, and keep the input open.
-//  3. Assert RunLSPServer returns nil, over enough sessions that both orders of
-//     the two ends occur.
+// 1. Provide the closed-file-error editor input and in-process shutdown/exit runner.
+// 2. Send shutdown then exit without closing editor input.
+// 3. Repeat fifty sessions and assert each server invocation returns nil.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer returns nil after shutdown and exit even when teardown closes input with os.ErrClosed.
+// @evidence contracts/testing.md#independent-expectations The custom reader reproduces closed-file input failure, which clean teardown must fold.
+// @evidence contracts/testing.md#distinguishing-cases Fifty sessions vary scheduling; success does not prove every teardown ordering occurred.
+// @evidence contracts/testing.md#execution-ownership An injected tsgoLikeUpstream runs in Go over pipes; no native LSP server starts. Go discovers TestLSPServerEndsCleanlyWhenItsTeardownClosesTheEditorInput under ./test/driver.
 func TestLSPServerEndsCleanlyWhenItsTeardownClosesTheEditorInput(t *testing.T) {
   for session := 0; session < 50; session++ {
     editorInR, editorInW := io.Pipe()

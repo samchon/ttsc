@@ -15,14 +15,19 @@ const O_APPEND = 1024;
  * The descriptor table never recorded the append flag, so appending was only a
  * coincidence of an implementation that could do nothing else. Once writes
  * honor the cursor, `O_APPEND` has to be retained or Go's `os.OpenFile` with
- * `O_APPEND` — which typescript-go's `AppendFile` uses — would start
- * overwriting from byte 0.
+ * `O_APPEND` (which typescript-go's `AppendFile` uses) would start overwriting
+ * from byte 0.
  *
  * 1. Open `abc` with `O_APPEND` and write with `position: null` and then with an
  *    explicit in-bounds position.
  * 2. Open the same file without `O_APPEND` and write at an explicit position.
  * 3. Assert both append writes landed at the end and the plain write overwrote in
  *    place.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.open retains O_APPEND so both null-position and positioned writes append, while an ordinary descriptor overwrites. Literal bytes reject cursor-based overwrites that merely resemble append on empty files.
+ * @evidence contracts/testing.md#independent-expectations The advertised O_APPEND contract fixes the write location at current EOF regardless of requested offset. Starting from authored abc independently yields abcD, abcDE and zbcDE for the three writes.
+ * @evidence contracts/testing.md#distinguishing-cases Append at null position and explicit zero both succeed at EOF; identical explicit zero without O_APPEND is the adjacent overwrite control. Retained append across rename is covered by descriptor-state recovery.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_open_append_always_writes_at_end_of_file directly calls createMemFS, openFd and writeFdText, comparing code/count and complete readFileText after each write. Its one Node unit entry owns both flag populations.
  */
 export const test_memfs_open_append_always_writes_at_end_of_file =
   async (): Promise<void> => {

@@ -1,8 +1,8 @@
 package driver_test
 
 import (
+  "encoding/json"
   "path/filepath"
-  "strings"
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -10,18 +10,26 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitAllWritesBuildInfoForAnIncrementalProject pins the build-information
-// output of the driver's emit lanes.
+// TestEmitAllWritesBuildInfoForAnIncrementalProject Verifies both whole-program emit lanes
+// write build information at the configured incremental path.
 //
 // tsgo's CLI branches to performIncrementalCompilation whenever the resolved
 // options are incremental, and that branch is what writes `.tsbuildinfo`. A
 // host that builds its Program in-process never enters `internal/execute`, so
-// the driver used to take the plain lane unconditionally and `incremental` /
-// `tsBuildInfoFile` were accepted by the parser and then silently discarded —
-// every plugin-carrying project emitted JavaScript and no build information at
-// all (issue #1188). The path is checked at the exact location the options
+// the driver must not take the plain lane unconditionally, or `incremental` /
+// `tsBuildInfoFile` would be accepted by the parser and then silently discarded —
+// every plugin-carrying project would emit JavaScript and no build information at
+// all. The path is checked at the exact location the options
 // name, not merely "some .tsbuildinfo somewhere", and both whole-program lanes
 // are checked because they reach the emitter through different callbacks.
+//
+// 1. Load fresh incremental Programs for EmitAll and EmitAllRaw.
+// 2. Require the configured build-info path, nonempty JavaScript and decoded build-info JSON with a version.
+//
+// @evidence contracts/testing.md#behavioral-verification Loads an incremental Program separately for EmitAll and EmitAllRaw, then requires the exact configured build-info path, nonempty JavaScript and a successfully decoded JSON document with a nonempty version.
+// @evidence contracts/testing.md#independent-expectations Literal cache/app.tsbuildinfo and dist/index.js from authored compiler options define exact output keys independently of emitter output.
+// @evidence contracts/testing.md#distinguishing-cases Both whole-program lanes own incremental positives; the sibling nonincremental case owns suppression. JSON decoding rejects truncated or malformed build information that a prefix or substring alone would admit.
+// @evidence contracts/testing.md#execution-ownership Each named lane runs direct compiler/driver APIs on immutable fixture input with its own Program and map; deferred close releases the Program, with no compiler executable.
 func TestEmitAllWritesBuildInfoForAnIncrementalProject(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -88,8 +96,11 @@ func TestEmitAllWritesBuildInfoForAnIncrementalProject(t *testing.T) {
       // A `.tsbuildinfo` tsgo can read back is a JSON object carrying the
       // compiler version it was produced by; an empty or truncated write would
       // satisfy a bare existence check and fail every consumer.
-      if !strings.HasPrefix(strings.TrimSpace(buildInfo), "{") || !strings.Contains(buildInfo, `"version"`) {
-        t.Fatalf("build information is not a versioned JSON document:\n%s", buildInfo)
+      var document struct {
+        Version string `json:"version"`
+      }
+      if err := json.Unmarshal([]byte(buildInfo), &document); err != nil || document.Version == "" {
+        t.Fatalf("build information is not a versioned JSON document: %v\n%s", err, buildInfo)
       }
       // The JavaScript this build exists for must still be emitted alongside it.
       if written[filepath.ToSlash(filepath.Join(root, "dist", "index.js"))] == "" {

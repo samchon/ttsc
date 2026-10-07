@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { threadId } from "node:worker_threads";
+
+import { E2ETrace } from "./E2ETrace";
 
 /**
  * Fingerprint an absolute executable's spelling, target and actual bytes.
@@ -15,62 +18,128 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Node filesystem and crypto APIs inspect the actual candidate; no fixture identity, foreign mutation or metadata-only shortcut substitutes for content.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains absolute-path scope, failure meaning, hash freshness and the remaining concurrent-mutation limitation, with separate prose and tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node native realpath and bigint stat preserve link/target identity on supported hosts; absolute paths use native platform semantics, and unreadable or non-regular targets cannot be reused.
- * @evidence contracts/performance.md#efficient-algorithms A sequential read hashes B bytes in O(B) time with one 64 KiB buffer; stat comparisons use fixed-size metadata and no complete executable allocation.
+ * @evidence contracts/performance.md#efficient-algorithms A sequential read hashes B bytes with one 64 KiB buffer instead of a complete executable allocation. Native path/realpath/stat observations and serialized physical spelling/metadata add text/lookup costs; B and spelling lengths have no quota here. Returned identity storage includes the physical path as well as the fixed-length digest.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation establishes whether later work is equivalent; retaining a digest by metadata would reproduce the stale-byte defect it must prevent.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One descriptor and one fixed buffer belong to this synchronous call; finally closes the descriptor on every read or observation failure, and only the fixed-size identity escapes.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One descriptor and one fixed buffer belong to this synchronous call; finally attempts closure after read/observation failures as well as success. A close failure returns no identity but cannot confirm native release. Returned path/metadata/digest text transfers to the caller and no helper history survives. Opt-in opened/closed/close-failed observations carry one trace-only call id and actual descriptor, PID/thread and already observed physical identity. The existing finally performs the single close; no observer retries it or converts an unavailable identity to success. An observed close is release of this Node descriptor, not proof that an OS image lock or another actor has released the executable.
  */
 export function runtimeExecutableIdentity(runtime: string): string | undefined {
   if (!path.isAbsolute(runtime)) return undefined;
+  const startedAt = new Date().toISOString();
   let descriptor: number | undefined;
+  let traceLease: Readonly<Record<string, string | number>> | undefined;
+  let stage = "lexical-stat";
+  const unavailable = (reason: string, expected?: string, observed?: string,
+    observations?: { before: fs.BigIntStats; after: fs.BigIntStats }) => {
+    E2ETrace.capabilityResolution("runtime-executable-identity-unavailable", {
+      runtime, stage, reason, expected, observed,
+      expectedAtimeNs: observations === undefined ? undefined : String(observations.before.atimeNs),
+      observedAtimeNs: observations === undefined ? undefined : String(observations.after.atimeNs),
+      expectedBirthtimeNs: observations === undefined ? undefined : String(observations.before.birthtimeNs),
+      observedBirthtimeNs: observations === undefined ? undefined : String(observations.after.birthtimeNs),
+    });
+    return undefined;
+  };
   try {
     const lexical = fs.lstatSync(runtime, { bigint: true });
+    stage = "physical-realpath";
     const physicalPath = fs.realpathSync.native(runtime);
+    stage = "physical-stat";
     const physical = fs.statSync(physicalPath, { bigint: true });
-    if (!physical.isFile()) return undefined;
+    if (!physical.isFile()) return unavailable("not-regular", undefined, fileIdentity(physical));
+    stage = "open";
     descriptor = fs.openSync(physicalPath, "r");
+    if (process.env.TTSC_E2E_TRACE) {
+      traceLease = {
+        callId: String(++identityTraceOrdinal),
+        runtime,
+        physicalPath,
+        descriptor,
+        pid: process.pid,
+        threadId,
+        dev: String(physical.dev),
+        ino: String(physical.ino),
+      };
+      E2ETrace.capabilityResolution(
+        "runtime-executable-identity-opened",
+        traceLease,
+      );
+    }
+    stage = "opened-stat";
     const opened = fs.fstatSync(descriptor, { bigint: true });
-    if (fileIdentity(opened) !== fileIdentity(physical)) return undefined;
+    if (fileIdentity(opened) !== fileIdentity(physical))
+      return unavailable("opened-file-changed", fileIdentity(physical), fileIdentity(opened));
     const hash = crypto.createHash("sha256");
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let remaining = opened.size;
+    stage = "read";
     while (remaining > 0n) {
       const requested =
         remaining > BigInt(buffer.length) ? buffer.length : Number(remaining);
       const length = fs.readSync(descriptor, buffer, 0, requested, null);
-      if (length === 0) return undefined;
+      if (length === 0) return unavailable("premature-eof", String(opened.size), String(opened.size - remaining));
       hash.update(buffer.subarray(0, length));
       remaining -= BigInt(length);
     }
-    if (
-      fileIdentity(fs.fstatSync(descriptor, { bigint: true })) !==
-        fileIdentity(opened) ||
-      fs.realpathSync.native(runtime) !== physicalPath ||
-      fileIdentity(fs.lstatSync(runtime, { bigint: true })) !==
-        fileIdentity(lexical) ||
-      fileIdentity(fs.statSync(physicalPath, { bigint: true })) !==
-        fileIdentity(physical)
-    )
-      return undefined;
+    stage = "post-read-opened-stat";
+    const afterOpened = fs.fstatSync(descriptor, { bigint: true });
+    if (fileIdentity(afterOpened) !== fileIdentity(opened))
+      return unavailable("opened-file-changed-during-read", fileIdentity(opened), fileIdentity(afterOpened), { before: opened, after: afterOpened });
+    stage = "post-read-realpath";
+    const afterPath = fs.realpathSync.native(runtime);
+    if (afterPath !== physicalPath)
+      return unavailable("physical-target-changed", physicalPath, afterPath);
+    stage = "post-read-lexical-stat";
+    const afterLexical = fs.lstatSync(runtime, { bigint: true });
+    if (fileIdentity(afterLexical) !== fileIdentity(lexical))
+      return unavailable("lexical-file-changed-during-read", fileIdentity(lexical), fileIdentity(afterLexical));
+    stage = "post-read-physical-stat";
+    const afterPhysical = fs.statSync(physicalPath, { bigint: true });
+    if (fileIdentity(afterPhysical) !== fileIdentity(physical))
+      return unavailable("physical-file-changed-during-read", fileIdentity(physical), fileIdentity(afterPhysical));
+    const digest = hash.digest("hex");
+    E2ETrace.capabilityResolution("runtime-executable-identity-observed", {
+      runtime, physicalPath, startedAt, finishedAt: new Date().toISOString(),
+      lexical: fileIdentity(lexical), physical: fileIdentity(physical), digest,
+      openedAtimeNs: String(opened.atimeNs), afterOpenedAtimeNs: String(afterOpened.atimeNs),
+      openedBirthtimeNs: String(opened.birthtimeNs), afterOpenedBirthtimeNs: String(afterOpened.birthtimeNs),
+    });
     return [
       physicalPath,
       fileIdentity(lexical),
       fileIdentity(physical),
-      hash.digest("hex"),
+      digest,
     ].join("\0");
-  } catch {
-    return undefined;
+  } catch (error) {
+    return unavailable("filesystem-error", undefined, error instanceof Error ? error.message : String(error));
   } finally {
     if (descriptor !== undefined) {
       try {
         fs.closeSync(descriptor);
-      } catch {
-        return undefined;
+        if (traceLease !== undefined)
+          E2ETrace.capabilityResolution(
+            "runtime-executable-identity-closed",
+            traceLease,
+          );
+      } catch (error) {
+        if (traceLease !== undefined)
+          E2ETrace.capabilityResolution(
+            "runtime-executable-identity-close-failed",
+            {
+              ...traceLease,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          );
+        stage = "close";
+        return unavailable("descriptor-close-error", undefined, error instanceof Error ? error.message : String(error));
       }
     }
   }
 }
+
+// Trace-only ordinal distinguishes sequential uses of a reused descriptor.
+let identityTraceOrdinal = 0;
 
 /** Bigint metadata distinguishes file replacement and observed writes. */
 function fileIdentity(stat: fs.BigIntStats): string {

@@ -22,6 +22,9 @@ import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral tracker drainage invokes the explicit helper boundary; it does
  *   not assume another platform's event-loop barrier applies to inotify.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The sync owns and clears its own timer; this function keeps no state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One sync request.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A drain must prove every event queued before it, so each call sends its own sync.
  */
 export function drainLinuxWatchHelper(): Promise<boolean> {
   const helper = LINUX_WATCH_HELPER.current;

@@ -12,16 +12,16 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerHonorsRemoveComments locks removeComments on the
-// AST plugin-transform emit path (the seam typia integrates through).
+// TestEmitWithPluginTransformerHonorsRemoveComments Verifies comment removal suppresses the
+// authored marker while preserving the generated source-map trailer.
 //
 // EmitWithPluginTransformers hand-assembles printing via PrintFileWithSourceMap.
-// That helper historically forwarded SourceMap / InlineSourceMap / InlineSources
-// into PrinterOptions but omitted RemoveComments, so `removeComments: true` in
-// tsconfig was silently ignored whenever a plugin transform ran — comments
-// survived in the emitted JS even though a plain (no-plugin) emit stripped them.
-// Pairing removeComments with sourceMap is the common production shape that
-// exposed the miss: both options are consulted in the same PrinterOptions
+// That helper forwards SourceMap / InlineSourceMap / InlineSources into
+// PrinterOptions and must forward RemoveComments too; otherwise
+// `removeComments: true` in tsconfig would be silently ignored whenever a plugin
+// transform ran — comments would survive in the emitted JS even though a plain
+// (no-plugin) emit strips them. Pairing removeComments with sourceMap is the
+// common production shape: both options are consulted in the same PrinterOptions
 // construction.
 //
 //  1. Compile a project with removeComments + sourceMap whose source carries a
@@ -30,6 +30,11 @@ import (
 //     take the plugin path).
 //  3. Assert the authored comment is absent from the JS while the
 //     sourceMappingURL trailer (written as a printer comment after print) remains.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual plugin-lane emission with removeComments and sourceMap, requiring absent authored comment plus retained trailer and map.
+// @evidence contracts/testing.md#independent-expectations The independently authored marker must disappear while literal source-map artifact/trailer must remain according to configured options.
+// @evidence contracts/testing.md#distinguishing-cases An authored ordinary comment contrasts the generated source-map trailer; retained-comment control belongs to the printer-options matrix.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit directly runs the actual emitter with identity transform, local writes and private Program cleanup, without a product executable.
 func TestEmitWithPluginTransformerHonorsRemoveComments(t *testing.T) {
   const marker = "TTSC_REMOVE_COMMENTS_MARKER"
   root := t.TempDir()

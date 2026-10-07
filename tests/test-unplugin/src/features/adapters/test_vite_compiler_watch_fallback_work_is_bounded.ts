@@ -1,9 +1,9 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a failed native watcher moves its inputs to a bounded fallback
@@ -21,6 +21,15 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/lib/
  * 3. Drive ticks and assert each inspects one fair, fixed-size slice, and the
  *    scheduler stops when no work remains.
  * 4. Dispose and assert the detached watcher is not closed again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Injects native watcher failure into createViteServeInputWatch; asserts immediate handle release, one scheduler, 64 then 65 invalidations and scheduler stop without a second close.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The scheduler budget of 64 inputs per tick is a literal in the test. With 65 changed inputs, the first tick must invalidate exactly 64 (a full scan would invalidate 65) and the second the last one (a scheduler that never reaches the final input would stop at 64). Because a changed input leaves the poll set, the counts do not prove the order in which inputs are visited.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Includes native open failure, one input beyond the budget, exhausted work and final disposal; captures both callback count and handle-close count.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_vite_compiler_watch_fallback_work_is_bounded calls createViteServeInputWatch.attach/replace with a failing watch double, drives its captured poll twice, and disposes in finally; it owns the 65-input boundary without a Vite server or native observer.
  */
 export async function test_vite_compiler_watch_fallback_work_is_bounded(): Promise<void> {
   const root = fs.realpathSync.native(

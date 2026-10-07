@@ -17,14 +17,13 @@ import { make } from "../internal/make";
  * In an object assignment pattern the operand instead denotes the rest target.
  * The caller establishes legal target and rest placement for that context.
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The object expression to spread.
+ * @returns The created {@link SpreadAssignment}.
  * @evidence contracts/common.md#principled-implementation The retained operand represents object spread in value context or rest in assignment context; the enclosing outline determines its role and caller-owned target validity.
  * @evidence contracts/common.md#clear-and-simple-design One operand feeds make, with the enclosing object owning order and the printer handling rest-context punctuation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Spread is not expanded from a known object's properties into hardcoded assignments or patched consumer state.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes value-spread and assignment-rest roles, with an object-context example and separated acknowledgment block.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The object expression to spread.
- * @returns The created {@link SpreadAssignment}.
  */
 export const createSpreadAssignment = (
   expression: Expression,

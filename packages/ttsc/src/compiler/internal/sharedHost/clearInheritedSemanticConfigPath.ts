@@ -10,7 +10,7 @@ import { SidecarEnvironment } from "./SidecarEnvironment";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Channel cleanup changes only the supplied child environment and does not alter the global process environment or invent a config path.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains retained caller authority and alias handling, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The shared reader and writer preserve POSIX case distinctions and clear every Windows alias of the invocation channel.
- * @evidence contracts/performance.md#efficient-algorithms The shared boundary performs at most one scan of each supplied environment on Windows; POSIX channel lookup and deletion are direct key operations.
+ * @evidence contracts/performance.md#efficient-algorithms The shared boundary performs at most one scan of each supplied environment on Windows, with Object.keys allocation and uppercase/comparison/deletion text costs. POSIX uses direct supplied-object key operations; the selected path text is transferred rather than parsed or resolved here.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Environment mutation is this invocation's ownership effect and cannot be replaced by a prior cleanup result.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Both environment objects remain caller-owned; no historical wrapper authority or native handle is retained here.

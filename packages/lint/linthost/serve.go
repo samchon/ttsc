@@ -224,16 +224,19 @@ type serveLSPResponse struct {
 //
 // Only the read verbs run resident here. lsp-diagnostics and lsp-hints (one per
 // save) and lsp-code-actions (one per cursor) are the hot path and reuse the
-// warm Program; lsp-command-ids and lsp-code-action-kinds answer their static
-// lists; an invalidate control drops the Program. lsp-execute-command is
-// deliberately left to the spawn-per-verb path — it is user-initiated and its
-// temp-workspace fix cascade does not fit the resident cache.
+// warm Program, as do lsp-project-diagnostics and graph-nodes; project-inputs
+// builds no Program and reuses only the rule memo; lsp-command-ids and
+// lsp-code-action-kinds answer their static lists; an invalidate control drops
+// the Program. lsp-execute-command is deliberately left
+// to the spawn-per-verb path — it is user-initiated and its temp-workspace fix
+// cascade does not fit the resident cache.
 //
 // in and out are explicit so the loop is testable; dispatch wires them to
 // os.Stdin and os.Stdout.
 //
-// Requests run serially under fixed project options. The daemon releases warm
-// Programs when invalidated, superseded or stopped. Callers supply nonnil
+// Requests run serially under fixed project options. Only one resident session
+// may install these process-global caches at a time. The daemon drops warm
+// Program references when invalidated, superseded or stopped. Callers supply nonnil
 // streams. Startup, input and reply-write failures return 2; verb failures are
 // returned in the reply.
 //
@@ -242,9 +245,9 @@ type serveLSPResponse struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler incremental updates and explicit reloads handle supported source transitions; a checker-bearing Program legitimately serves checker-free requests without disguising missing checker capability.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes resident read verbs, one-shot writes, streams, resource release and failure channels; paragraphs and tags follow documentation guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Changed file URIs pass through native URI conversion and physical project identity helpers, so source matching uses compiler paths instead of assumed drive spelling or case folding.
-// @evidence contracts/performance.md#efficient-algorithms A change scans each retained Program's changed-path set and updates only known source files; a verb's diagnostics still incur its rule walk, and protocol buffers scale with the current request and result.
-// @evidence contracts/performance.md#reuse-equivalent-work Fixed daemon options define Program keys, compatible changed sources update them, unknown topology changes invalidate them and checker-bearing entries satisfy checker-free requests; rule-config memo reuse independently validates recorded dependencies.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Under one fixed project the cache retains one Program, upgrades release checker-free entries and invalidation or exit closes all entries. Rule memo retains one resolver snapshot; per-request result buffers are not accumulated.
+// @evidence contracts/performance.md#efficient-algorithms Each line is read/parsed and changed/external URI bytes are normalized before the chosen verb. For each retained Program, changed-source membership scans its source-file list, repeats during application and adds physical-name/path work; compiler updates and the chosen acquisition/rule/projection/diagnostic workload remain input-dependent. Result marshaling and response encoding add payload bytes and buffers. No globally linear transition or fixed complete-session cost is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work Fixed session options define Program keys, and caller-reported compatible changed sources use compiler updates; unknown non-external topology changes drop entries and checker-bearing entries satisfy checker-free requests. Acquisition clears the previous project-cycle memo before each reused evaluation. Rule-config memo reuse separately validates recorded dependency fingerprints. Omitted changes or incorrect external classifications are not independently discovered by this protocol, and effectful verb results have no address-only cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Within the supported single fixed-project session, one current Program entry is retained; upgrades/invalidation/exit drop standalone checkers and references. The latest project-cycle memo can remain until the next acquisition/update/invalidation. The rule memo holds one resolver snapshot, while executable config caches retain separate process/disk history without eviction here. Deferred session cleanup clears the global caches, and streams remain caller-owned. Input/response, Program and dependency bytes have no fixed cap or caller deadline; blocked streams/evaluators can keep the synchronous session alive.
 func RunLSPServe(in io.Reader, out io.Writer, args []string) int {
   base, ok := parseLSPCommandOptions("lsp-serve", args)
   if !ok {

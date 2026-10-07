@@ -64,7 +64,8 @@ export async function recoverTerminalCompilerWorker(
 }
 
 /**
- * Recognize the terminal runtime's stable code or message prefix after transport.
+ * Recognize the terminal runtime's stable code or message prefix after
+ * transport.
  *
  * @evidence contracts/common.md#principled-implementation The host-owned code matches both enumerable error records and prefixed string messages without relying on cross-realm instanceof.
  * @evidence contracts/common.md#clear-and-simple-design One classifier centralizes local and transported identity for every recovery caller.

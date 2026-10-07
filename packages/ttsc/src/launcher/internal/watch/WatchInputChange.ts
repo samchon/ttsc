@@ -7,6 +7,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The event does not invent a changed path for an unnamed native notification.
  * @evidence contracts/common.md#meaningful-documentation Member paragraphs explain reload categories, invalidation and absent localization following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Optional path preserves the backend's inability to name a changed input instead of assuming every native notification carries a filename.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type WatchInputChange = {
   /** Keep the resident process but cold-load its compiler Program. */
@@ -14,8 +17,9 @@ export type WatchInputChange = {
 
   /**
    * Which population the path belongs to. `config` and `plugin` changes force a
-   * full reload; `compiler` is a TypeScript input; `project` is a file a
-   * project rule declared as its own input.
+   * full reload; `compiler` belongs to the compiler input topology, including
+   * non-TypeScript files the compiler reports; `project` is a file a project
+   * rule declared as its own input.
    */
   kind: "compiler" | "config" | "plugin" | "project";
 

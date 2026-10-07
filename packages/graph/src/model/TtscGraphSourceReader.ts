@@ -9,15 +9,18 @@ type ReadFile = (file: string) => Buffer;
 /**
  * Immutable, provenance-gated source lines owned by one graph snapshot.
  *
- * Declaration documentation is a display fact derived from source text,
- * but the live disk is not the snapshot the checker resolved. A file becomes
- * readable here only after its current bytes hash to `diskDigest` and the
+ * Declaration documentation is a display fact derived from source text, but the
+ * live disk is not the snapshot the checker resolved. A file becomes readable
+ * here only after its current bytes hash to `diskDigest` and the
  * compiler-decoded text hashes to `checkerDigest`. Manifest members cache both
  * success and failure, so every consumer of a `TtscGraphMemory` sees one
  * adjudication and one immutable line array. Unknown names remain uncached;
  * they have no snapshot witness to adjudicate.
  *
- * @evidence contracts/common.md#principled-implementation Raw-byte and decoded-text SHA-256 must both match producer witnesses before live disk text can become a snapshot display fact.
+ * Marked UTF-16 files follow the compiler's Unicode scalar decoding: valid
+ * surrogate pairs remain intact and unpaired surrogates become U+FFFD.
+ *
+ * @evidence contracts/common.md#principled-implementation Raw-byte SHA-256 establishes disk identity before compiler-equivalent BOM removal and Unicode scalar decoding; decoded-text SHA-256 then establishes checker identity.
  * @evidence contracts/common.md#clear-and-simple-design One snapshot reader owns provenance selection, decoding and per-file adjudication rather than letting consumers read disk independently.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing provenance or digest mismatch yields absence instead of mixing current source into old checker facts.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the dual witnesses, immutable lines and cached failure behavior.
@@ -62,7 +65,7 @@ export class TtscGraphSourceReader {
    * and digest mismatch are cached absences rather than reasons to mix current
    * disk text into old graph facts.
    *
-   * @evidence contracts/common.md#principled-implementation Normalized file lookup, raw hash, BOM-aware decoding and checker-text hash establish both byte and semantic snapshot identity before freezing lines.
+   * @evidence contracts/common.md#principled-implementation Normalized file lookup, raw hash, BOM-aware decoding with the compiler's unpaired-surrogate replacement and checker-text hash establish both byte and semantic snapshot identity before freezing lines.
    * @evidence contracts/common.md#clear-and-simple-design One path adjudicates all source display reads, with decoding/hash helpers isolated from cache ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing witnesses return absence without disk access; changed bytes remain a cached absence rather than a fallback to unverified live text.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes uncached unknown names from cached adjudications of manifest members.
@@ -112,12 +115,14 @@ function normalize(file: string): string {
   return file.replace(/\\/g, "/");
 }
 
+/** Decode complete UTF-16 units to compiler scalars; ignore a trailing byte. */
 function decodeSource(bytes: Buffer): string {
   if (bytes.length >= 2) {
     const body = bytes.subarray(2, bytes.length - ((bytes.length - 2) % 2));
-    if (bytes[0] === 0xff && bytes[1] === 0xfe) return body.toString("utf16le");
+    if (bytes[0] === 0xff && bytes[1] === 0xfe)
+      return body.toString("utf16le").toWellFormed();
     if (bytes[0] === 0xfe && bytes[1] === 0xff)
-      return Buffer.from(body).swap16().toString("utf16le");
+      return Buffer.from(body).swap16().toString("utf16le").toWellFormed();
   }
   if (
     bytes.length >= 3 &&

@@ -1,0 +1,6 @@
+{
+  "extends": "./cascade.config.json",
+  "rules": {
+    "no-var": "error"
+  }
+}

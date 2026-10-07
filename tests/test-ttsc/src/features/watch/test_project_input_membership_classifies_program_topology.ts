@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { projectInputMembershipInvalidatesProgram } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputMembershipInvalidatesProgram.js";
+import { projectInputMembershipInvalidatesProgram } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputMembershipInvalidatesProgram";
 
 /**
  * Verifies project-input membership invalidates only possible Program modules.
@@ -15,6 +15,11 @@ import { projectInputMembershipInvalidatesProgram } from "../../../../../package
  * 1. Classify JSON and compiler-source population additions/removals.
  * 2. Keep content-only and data-only transitions warm.
  * 3. Require conservative invalidation for an unattributed population change.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls projectInputMembershipInvalidatesProgram on source/data populations and content edits, checking exact cold/warm decisions rather than filesystem watcher output.
+ * @evidence contracts/testing.md#independent-expectations JSON and TypeScript/JavaScript additions/removals can reshape a Program; package metadata content changes resolution, while unchanged membership and ordinary data edits permit warm reuse. Literal booleans follow these independent contracts.
+ * @evidence contracts/testing.md#distinguishing-cases JSON create/delete contrasts with content-only JSON edits and Markdown/YAML additions. Package content invalidates, unnamed changed population invalidates, unchanged empty population stays warm, and a named data event cannot conceal removal of another compiler source.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it passes in-memory population maps and path.resolve-built spellings to projectInputMembershipInvalidatesProgram. It starts no watcher, compiler or host and writes no files.
  */
 export const test_project_input_membership_classifies_program_topology =
   (): void => {
@@ -98,5 +103,21 @@ export const test_project_input_membership_classifies_program_topology =
       }),
       true,
       "filename-less membership changes must invalidate conservatively",
+    );
+    assert.equal(
+      projectInputMembershipInvalidatesProgram({
+        previous: empty,
+        next: empty,
+      }),
+      false,
+    );
+    assert.equal(
+      projectInputMembershipInvalidatesProgram({
+        changed: markdown,
+        previous: population(typescript),
+        next: population(markdown),
+      }),
+      true,
+      "a named data event cannot hide a removed compiler source elsewhere in the population",
     );
   };

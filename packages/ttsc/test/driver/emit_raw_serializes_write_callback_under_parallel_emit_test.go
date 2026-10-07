@@ -2,6 +2,7 @@ package driver_test
 
 import (
   "fmt"
+  "path/filepath"
   "strings"
   "testing"
 
@@ -11,27 +12,25 @@ import (
 )
 
 // TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit verifies that
-// EmitAllRaw funnels its WriteFile callback through one mutex even though
-// TypeScript-Go emits files in parallel.
+// a wide EmitAllRaw invocation retains every authored output in an unguarded
+// caller map under the emitter's selected threading policy.
 //
-// With SingleThreaded dropped (PR #112), TypeScript-Go runs one emitter
-// goroutine per source file. EmitAll already serializes its callback, but
-// EmitAllRaw — the seam a plugin's own output rewriter uses (e.g. @nestia/core,
-// which carries per-file rewrite cursors and a runtime-alias cache) — used to
-// hand the callback straight to the parallel emitter. A stateful callback then
-// tripped `fatal error: concurrent map read and map write` (issue #115). This
-// case mutates a bare, unguarded map from inside the callback across many
-// sources, so `go test -race` flags the regression if the mutex is ever
-// removed. A single-source fixture cannot surface it — only one emitter spawns.
+// Multiple sources exercise the parallel-capable callback boundary. Actual
+// worker overlap/count and race-detector coverage are not measured. The boolean
+// map does not count duplicate callbacks.
 //
-// 1. Load a multi-file project so the parallel emitter actually fans out.
+// 1. Load a multi-file project into one in-process Program.
 // 2. EmitAllRaw with a callback that reads and writes a shared unguarded map.
-// 3. Assert every source produced exactly one output with no lost writes.
+// 3. Require every configured source output path as well as cardinality.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls EmitAllRaw and requires all eight authored output paths through an unguarded callback map.
+// @evidence contracts/testing.md#independent-expectations Authored source names and the literal configured bin directory independently establish expected output paths and count.
+// @evidence contracts/testing.md#distinguishing-cases Wide input exercises the parallel-capable callback boundary under selected threading policy; missing or substituted output paths fail. Duplicate callbacks and actual overlap are not certified.
+// @evidence contracts/testing.md#execution-ownership The owning driver unit loads/closes an in-process Program and records actual callbacks with private filesystem inputs, without an executable compiler or installed consumer.
 func TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit(t *testing.T) {
   root := t.TempDir()
 
-  // Scenario setup: enough sources that TypeScript-Go's parallel emit spawns
-  // many concurrent emitter goroutines, each invoking the WriteFile callback.
+  // Scenario setup: eight sources for the selected emitter threading policy.
   names := []string{"index", "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta"}
   writeProjectFile(t, root, "tsconfig.json", fmt.Sprintf(`{
   "compilerOptions": {
@@ -58,8 +57,7 @@ func TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit(t *testing.T) {
 
   // Emit assertion: `emitted` is a deliberately unguarded map standing in for a
   // plugin's per-file rewrite state. Both the read (length probe) and the write
-  // happen inside the callback; without EmitAllRaw's mutex the concurrent
-  // emitter goroutines would race it.
+  // happen inside the callback; actual concurrent scheduling is not measured.
   emitted := map[string]bool{}
   _, emitDiags, err := prog.EmitAllRaw(func(fileName, _ string, _ *shimcompiler.WriteFileData) error {
     _ = len(emitted)
@@ -74,5 +72,15 @@ func TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit(t *testing.T) {
   }
   if len(emitted) != len(names) {
     t.Fatalf("expected %d emitted outputs, got %d: %#v", len(names), len(emitted), emitted)
+  }
+  normalizedPaths := map[string]bool{}
+  for fileName := range emitted {
+    normalizedPaths[filepath.ToSlash(fileName)] = true
+  }
+  for _, name := range names {
+    want := filepath.ToSlash(filepath.Join(root, "bin", name+".js"))
+    if !normalizedPaths[want] {
+      t.Fatalf("missing authored output %s: %#v", want, emitted)
+    }
   }
 }

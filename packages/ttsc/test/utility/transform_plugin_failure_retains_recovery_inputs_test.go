@@ -21,7 +21,7 @@ func (plugin failureHostInputPlugin) ApplyProgram(_ *driver.Program, ctx driver.
 }
 
 // TestTransformPluginFailureRetainsRecoveryInputs verifies an apply failure
-// preserves the original graph and the input evaluated by the failing plugin.
+// preserves the original graph and the input reported by the failing plugin.
 //
 // A partially mutated Program must not publish source output, but discarding its
 // already captured graph and host-input paths also discards its recovery channel.
@@ -29,6 +29,11 @@ func (plugin failureHostInputPlugin) ApplyProgram(_ *driver.Program, ctx driver.
 // 1. Run a linked plugin that reports its input and fails while applying.
 // 2. Decode the failed transform envelope and require its diagnostic.
 // 3. Require graph and host-input ownership with no successful source output.
+//
+// @evidence contracts/testing.md#behavioral-verification A plugin that fails while applying leaves the envelope with a diagnostic, the original graph and its reported host-input path, and no successful source output. The stub supplies a hash without reading that input; native content or hash integrity is not certified.
+// @evidence contracts/testing.md#independent-expectations The diagnostic, the input path and the empty source map are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases A failed transform must not publish text, yet must keep its recovery channel; the two halves are asserted separately.
+// @evidence contracts/testing.md#execution-ownership TestTransformPluginFailureRetainsRecoveryInputs is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformPluginFailureRetainsRecoveryInputs(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Cleanup(resetLinkedPluginRegistry)

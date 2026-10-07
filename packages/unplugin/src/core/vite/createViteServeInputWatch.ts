@@ -14,23 +14,22 @@ import { reloadImporters } from "./reloadImporters";
  * type-only `.server` files and non-module plugin assets, so compiler inputs
  * never go through it (samchon/ttsc#1368). Each importer registers them with
  * the adapter's own observer instead (`createInputObserver`), `node_modules`
- * included, which Vite's watcher ignores, and the observer's verdict reaches
- * Vite through its own graph: an importer whose input changed is updated as an
- * edit to it would be (`reloadImporters`, samchon/ttsc#1393), and one whose
- * project only gained or lost a root file is invalidated without an HMR update,
- * since most new files change no other module (`invalidateImporters`,
- * samchon/ttsc#1419).
+ * included. A reload verdict requests importer-node propagation through Vite
+ * (`reloadImporters`, samchon/ttsc#1393); Vite decides HMR acceptance and
+ * client effects. A remaining membership invalidation verdict only invalidates
+ * graph nodes (`invalidateImporters`, samchon/ttsc#1419), without proving that
+ * the actual root set changed or requesting an HMR update.
  *
  * The observer opens on the server's root once a server attaches, and a server
- * told to poll sends every input to the observer's bounded poll
+ * told to poll registers inputs for the observer's per-tick bounded poll
  * (samchon/ttsc#1395).
  *
  * @param operations Native watch seams, replaceable for tests.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Compiler-only inputs belong to the shared observer, while verdicts route to
- *   Vite's actual importer nodes. Content changes request HMR propagation and
- *   membership-only changes invalidate without inventing runtime imports.
+ *   Vite's importer lookup. Reload verdicts request HMR propagation and
+ *   remaining membership verdicts attempt invalidation without inventing
+ *   runtime imports; absent or failed host APIs can limit those effects.
  * @evidence contracts/common.md#clear-and-simple-design
  *   The wrapper owns server association and verdict routing; input observation,
  *   graph lookup and reload transport remain dedicated operations.
@@ -41,21 +40,26 @@ import { reloadImporters } from "./reloadImporters";
  *   Native paragraphs explain graph ownership, membership behavior and polling;
  *   returned interface docs and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   Configured root or native cwd enters the shared observer. Injected filesystem
- *   and watcher seams judge actual capability; the wrapper assumes no universal
- *   path case policy or cross-platform native notification guarantee.
+ *   Configured root or native cwd enters the shared observer. Watch, polling,
+ *   platform and case-policy seams must agree with the native input corpus;
+ *   they do not replace the observer's default filesystem reads. Neither an OS
+ *   label nor declared polling proves a universal notification or case policy.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Verdict sets deduplicate changed importers before graph work; subscription
- *   indexing and bounded watch handles remain owned by createInputObserver.
- *   Fallback graph lookup can scan G files for each unmatched importer.
+ *   Verdict sets deduplicate importer spellings before graph work. For E host
+ *   graphs and I importers, lookup can scan G file keys per missed exact lookup
+ *   with native identity comparisons; selected nodes create reload promises.
+ *   Registration and polling delegate input indexing, evidence serialization,
+ *   native metadata/content checks and per-tick probe limits to the observer.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   One observer shares compiler-input subscriptions across served modules using
  *   their generation evidence; replace supplies the capture token so stale
  *   registration does not acknowledge a change since compilation began.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   This wrapper owns the observer; forget releases an importer's registrations
- *   and dispose releases scopes, timers and entries. The server association is
- *   retained across overlapping containers; retained bytes grow with inputs.
+ *   The observer retains input/evidence/owner indexes and bounded scope/history
+ *   populations, without a total input-byte bound. Forget removes that owner's
+ *   claims; dispose clears entries/timers and attempts independent handle closes,
+ *   suppressing close errors. Server/root association survives for re-registration
+ *   during overlap; reload tasks already handed to Vite are not cancelled here.
  */
 export function createViteServeInputWatch(
   operations: Partial<InputObserverOperations> = {},

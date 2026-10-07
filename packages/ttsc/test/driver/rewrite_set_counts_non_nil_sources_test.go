@@ -6,15 +6,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteSetCountsNonNilSources verifies RewriteSet ignores invalid
-// rewrites and counts valid source-associated patches.
+// TestDriverRewriteSetCountsNonNilSources Verifies that RewriteSet ignores a nil-source entry and counts the later valid source entry.
 //
-// Rewrite collectors can skip individual call sites, so the set must tolerate
-// nil files while still preserving valid source-associated entries.
+// Nil rejection contrasts with singleton acceptance; repeated valid entries are not exercised.
 //
 // 1. Add a rewrite without a source file and confirm it is ignored.
 // 2. Load a real project and add one source-associated rewrite.
 // 3. Assert Len reports only the valid rewrite.
+//
+// @evidence contracts/testing.md#behavioral-verification RewriteSet ignores a nil-source entry and counts the later valid source entry.
+// @evidence contracts/testing.md#independent-expectations Two authored entries define zero and one counts independently of set storage.
+// @evidence contracts/testing.md#distinguishing-cases Nil rejection contrasts with singleton acceptance; repeated valid entries are not exercised.
+// @evidence contracts/testing.md#execution-ownership The Go entry operates directly on RewriteSet and closes its temporary Program. Go discovers TestDriverRewriteSetCountsNonNilSources under ./test/driver.
 func TestDriverRewriteSetCountsNonNilSources(t *testing.T) {
   root := t.TempDir()
 

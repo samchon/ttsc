@@ -15,6 +15,9 @@ import { make } from "../internal/make";
  * </Foo>
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param tagName The tag name.
+ * @returns The created {@link JsxClosingElement}.
  * @evidence contracts/common.md#principled-implementation
  *   The closing tag retains its structured name, with paired-name agreement
  *   explicitly left to the caller instead of assuming a matching opening exists.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states the matching-tag obligation and shows the closing delimiter
  *   alone, with its name input and return type documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param tagName The tag name.
- * @returns The created {@link JsxClosingElement}.
  */
 export const createJsxClosingElement = (
   tagName: JsxTagName,

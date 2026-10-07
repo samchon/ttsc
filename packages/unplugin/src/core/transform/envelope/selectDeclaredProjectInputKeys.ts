@@ -8,18 +8,34 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 /**
  * Project-walk keys of every input the envelope declares: the reference graph's
  * edge endpoints, globals, config chain, and resolution candidates, plus the
- * universal host inputs, intersected with the files the project walk actually
- * hashed. Out-of-walk declarations and candidates carry their own graph proof;
- * asking the project observer to witness them as well makes unrelated activity
- * in ignored directories invalidate an otherwise complete generation. Returns
- * `undefined` for an envelope with no graph, which declares no input set and
- * therefore keeps whole-walk comparison.
+ * universal host inputs and the plugin-reported dependencies, intersected with
+ * the files the project walk actually hashed. Out-of-walk declarations and
+ * candidates carry their own graph proof; asking the project observer to
+ * witness them as well makes unrelated activity in ignored directories
+ * invalidate an otherwise complete generation. Returns `undefined` for an
+ * successful envelope with no graph, and for failed results whose diagnostics
+ * concern the whole program rather than a successful output's dependency set.
+ * Both keep whole-walk comparison.
  *
  * @evidence contracts/common.md#principled-implementation Declared inputs intersect actual project snapshot keys, so narrowing never asks the project walk to prove out-of-walk inputs; undefined preserves whole-walk comparison when the graph cannot declare a bound.
  * @evidence contracts/common.md#clear-and-simple-design A local add adapter owns validity, scratch exclusion and project-key intersection, while each producer input category contributes through that same rule.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Out-of-walk and unresolved inputs retain their separate proof responsibility instead of being inserted into a fictitious project snapshot; malformed entries supply no declarations.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains input categories, intersection, external proof ownership and undefined fallback, with a separate acknowledgment block under the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and the supplied FilesystemPathIdentityContext align declarations to the project's actual snapshot key semantics without hand-coded case or separator rules.
+ * @evidence contracts/portability.md#os-neutral-implementation Entry expansion uses Node host-native path.resolve; the supplied context must describe that same native address domain and decides actual case/link identity before project hash-key encoding. This operation selects no independent foreign-view path grammar or global case rule.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Visits each reported occurrence in graph endpoints/globals/configs,
+ *   candidates, host inputs and dependency arrays. Native resolve, scratch
+ *   checks, project-key identity/ancestor/case observations and text hashing
+ *   precede each own-key membership test; duplicate declarations still pay
+ *   those queries, with native answers shared by the supplied context. Entry
+ *   arrays from Object.entries/Object.values follow producer populations,
+ *   while the returned set cannot exceed keys present in the project snapshot.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The generation memo owner shares this completed selection, including
+ *   undefined whole-walk policy. This selector retains no cross-call verdict;
+ *   native identity observations are shared by its caller-owned context.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The key set is local to the call and handed to the caller.
  */
 export function selectDeclaredProjectInputKeys(props: {
   identities: FilesystemPathIdentityContext;
@@ -28,7 +44,7 @@ export function selectDeclaredProjectInputKeys(props: {
   result: ITtscCompilerTransformation;
   scratchDirectory?: string;
 }): Set<string> | undefined {
-  if (props.result.type === "exception" || props.result.graph === undefined) {
+  if (props.result.type !== "success" || props.result.graph === undefined) {
     return undefined;
   }
   const graph = props.result.graph;

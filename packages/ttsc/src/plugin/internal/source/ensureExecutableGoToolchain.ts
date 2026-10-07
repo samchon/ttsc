@@ -4,22 +4,25 @@ import path from "node:path";
 import { GoSourceInputs } from "./GoSourceInputs";
 
 /**
- * Make sure a POSIX Go toolchain can execute before ttsc reads its metadata.
+ * Attempt POSIX Go toolchain permission repair before metadata reads.
  *
  * Package managers can drop the execute bit of the bundled Go SDK. For the
  * bundled toolchain (`normalizeBundledPermissions`) the `go` and `gofmt`
- * binaries and every file under `pkg/tool` are normalized to `0755`; for a
- * toolchain the user selected, the owner-execute bit is added only when no
- * execute bit is present, preserving other permission bits. Windows requires no
- * POSIX permission repair. Failures are left for the build spawn to report with
- * the real OS error.
+ * regular binaries and observed regular files under ordinary `pkg/tool`
+ * directories are normalized to `0755`; for a toolchain the user selected, the
+ * owner-execute bit is added only when no execute bit is present, preserving
+ * other permission bits. Windows requires no POSIX permission repair. A
+ * nonregular main candidate stops repair, and nonregular secondary entries are
+ * skipped. Traversal/repair failures are tolerated; a later Go invocation may
+ * report a relevant native error but is not guaranteed to expose every skipped
+ * repair failure.
  *
- * @evidence contracts/common.md#principled-implementation POSIX execute permissions are repaired before metadata probing; owned SDK files can be normalized while caller-selected files only gain the owner bit when no execute bit exists.
+ * @evidence contracts/common.md#principled-implementation Regular-file admission precedes chmod and a nonregular main candidate stops SDK repair. The caller's bundled-layout flag selects full normalization; selected files otherwise gain owner execution only when no execute bit exists. This is a path-based attempt, not an immutable ownership or race-free handle certificate.
  * @evidence contracts/common.md#clear-and-simple-design Platform exit, SDK recognition and recursive tool discovery remain explicit; one private file operation owns the permission policy.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Permission repair serves real packaged SDK installation behavior, not an injected fixture bypass; failures remain visible through the actual Go spawn.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Permission repair serves packaged SDK installation behavior rather than an injected fixture bypass; native errors are tolerated and ordinary Go execution retains its own failure outcome instead of this helper fabricating success.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish owned and selected toolchains and explain the failure boundary rather than promising successful chmod.
  * @evidence contracts/portability.md#os-neutral-implementation Windows bypasses POSIX permission bits; POSIX uses native stat/chmod and Node path APIs with explicit ownership-dependent modes.
- * @evidence contracts/performance.md#efficient-algorithms SDK tool discovery visits each directory/file once; stat/chmod occurs only for relevant executable files and unchanged permissions avoid writes.
+ * @evidence contracts/performance.md#efficient-algorithms Native path/existence/stat checks precede ordinary-directory enumeration. Selected entries are stat-kind checked and unchanged modes avoid chmod; recursive helper arrays append descendant references through ancestors, so enumeration count alone does not bound path/array work. Native lookup/text/listing buffers contribute cost without reading compiler content.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Permission state must be read on the current installation; no cross-call validity cache is owned here.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The traversal holds only its temporary file list and synchronous filesystem operations acquire no retained handle.
@@ -31,7 +34,7 @@ export function ensureExecutableGoToolchain(
   if (process.platform === "win32") return;
   if (!path.isAbsolute(goBinary) || !fs.existsSync(goBinary)) return;
   try {
-    ensureExecutableFile(goBinary, normalizeBundledPermissions);
+    if (!ensureExecutableFile(goBinary, normalizeBundledPermissions)) return;
     const goRoot = GoSourceInputs.inferGoRoot(goBinary);
     if (!goRoot) return;
     const gofmt = path.join(path.dirname(goBinary), "gofmt");
@@ -52,13 +55,16 @@ export function ensureExecutableGoToolchain(
 function ensureExecutableFile(
   file: string,
   normalizeBundledPermissions: boolean,
-): void {
-  const mode = fs.statSync(file).mode & 0o7777;
+): boolean {
+  const stats = fs.statSync(file);
+  if (!stats.isFile()) return false;
+  const mode = stats.mode & 0o7777;
   if (normalizeBundledPermissions) {
     if (mode !== 0o755) fs.chmodSync(file, 0o755);
   } else if ((mode & 0o111) === 0) {
     fs.chmodSync(file, mode | 0o100);
   }
+  return true;
 }
 
 function walkToolFiles(dir: string): string[] {
@@ -72,7 +78,7 @@ function walkToolFiles(dir: string): string[] {
   for (const entry of entries) {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      out.push(...walkToolFiles(file));
+      for (const entryToAppend of walkToolFiles(file)) out.push(entryToAppend);
     } else if (entry.isFile()) {
       out.push(file);
     }

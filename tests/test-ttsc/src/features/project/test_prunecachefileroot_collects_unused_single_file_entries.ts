@@ -1,12 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
-import {
-  assert,
-  fs,
-  path,
-  pruneCacheFileRoot,
-  recordCacheFileUse,
-} from "../../internal/source-build";
+import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
+import { recordCacheFileUse } from "../../../../../packages/ttsc/src/plugin/internal/source/recordCacheFileUse";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the single-file cache parts of the cache root are collected by the
@@ -25,6 +23,11 @@ import {
  *    gone.
  * 3. Age the fresh entry, collect again without forcing, and assert the daily
  *    marker kept the second pass from running.
+ *
+ * @evidence contracts/testing.md#behavioral-verification pruneCacheFileRoot removes aged unused/staging entries, keeps fresh/reused entries, suppresses the daily repeat and honors forced collection.
+ * @evidence contracts/testing.md#independent-expectations Manually set 31-day ages and an explicit recordCacheFileUse establish retention outcomes independently of the collector.
+ * @evidence contracts/testing.md#distinguishing-cases An entry unused for 31 days and a 31-day-old staging file are collected, while a fresh entry and an old entry that a recorded use keeps survive; a second pass within a day leaves an aged entry alone until a forced collection removes it.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pruneCacheFileRoot and recordCacheFileUse directly on a temp directory whose file mtimes are set with utimes; no product host, native build or install is involved.
  */
 export const test_prunecachefileroot_collects_unused_single_file_entries =
   (): void => {

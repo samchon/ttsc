@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLoadProgramOutDirOverride verifies LoadProgramOptions.OutDir
+// TestDriverLoadProgramOutDirOverride Verifies LoadProgramOptions.OutDir
 // controls raw emit output even when tsconfig does not specify outDir.
 //
 // The test observes the default writer path through real output files so the
@@ -18,6 +18,11 @@ import (
 // 1. Load a real project with ForceEmit and an OutDir override.
 // 2. Emit through the default writer.
 // 3. Assert JavaScript appears under the requested output directory.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram and EmitAllRaw(nil) write code under custom/index.js.
+// @evidence contracts/testing.md#independent-expectations The explicit OutDir override supplies the expected path and exports.value identifies code.
+// @evidence contracts/testing.md#distinguishing-cases Missing config outDir selects the override; the body does not rule out extra output elsewhere.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverLoadProgramOutDirOverride is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverLoadProgramOutDirOverride(t *testing.T) {
   root := t.TempDir()
 

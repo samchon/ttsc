@@ -1,8 +1,9 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies VS Code server resolution finds a per-package ttsc when the root has
@@ -19,76 +20,61 @@ import path from "node:path";
  * 1. Create a workspace whose root has no ttsc but a package installs its own.
  * 2. Resolve the launcher from the package file's directory and from the root.
  * 3. Assert the package file finds the nested launcher and the root finds none.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveTtscServerLauncher finds the file-anchored package launcher while the empty workspace root resolves nothing.
+ * @evidence contracts/testing.md#independent-expectations Node package resolution follows ancestors from the supplied absolute anchor.
+ * @evidence contracts/testing.md#distinguishing-cases nested package manifest and launcher contrast with an uninstalled workspace-root anchor.
+ * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_finds_package_ttsc_without_root_install function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
  */
-export const test_vscode_server_resolution_finds_package_ttsc_without_root_install =
-  () => {
-    const repo = TestProject.WORKSPACE_ROOT;
-    const workspace = TestProject.physicalPath(
-      TestProject.tmpdir("vscode-nested-ttsc-"),
-    );
-    const packageDir = path.join(workspace, "packages", "app");
-    const fileDir = path.join(packageDir, "src");
-    const ttscPackage = path.join(packageDir, "node_modules", "ttsc");
-    const launcher = path.join(ttscPackage, "lib", "launcher", "ttscserver.js");
+export function test_vscode_server_resolution_finds_package_ttsc_without_root_install() {
+  const repo = TestProject.WORKSPACE_ROOT;
+  const workspace = TestProject.physicalPath(
+    TestProject.tmpdir("vscode-nested-ttsc-"),
+  );
+  const packageDir = path.join(workspace, "packages", "app");
+  const fileDir = path.join(packageDir, "src");
+  const ttscPackage = path.join(packageDir, "node_modules", "ttsc");
+  const launcher = path.join(ttscPackage, "lib", "launcher", "ttscserver.js");
 
-    fs.writeFileSync(
-      path.join(workspace, "package.json"),
-      JSON.stringify({ private: true, name: "workspace-root" }, null, 2),
-    );
-    fs.mkdirSync(fileDir, { recursive: true });
-    fs.writeFileSync(path.join(fileDir, "main.ts"), "export {};\n");
-    fs.mkdirSync(path.dirname(launcher), { recursive: true });
-    fs.writeFileSync(
-      path.join(ttscPackage, "package.json"),
-      JSON.stringify(
-        {
-          name: "ttsc",
-          bin: { ttscserver: "lib/launcher/ttscserver.js" },
-          exports: { "./package.json": "./package.json" },
-        },
-        null,
-        2,
-      ),
-    );
-    fs.writeFileSync(launcher, "module.exports = {};\n");
-
-    const script = `
-      import { pathToFileURL } from "node:url";
-      const mod = await import(pathToFileURL(${JSON.stringify(
-        path.join(repo, "packages", "vscode", "src", "serverResolution.ts"),
-      )}).href);
-      console.log(JSON.stringify({
-        fromFile: mod.resolveTtscServerLauncher(${JSON.stringify(fileDir)}) ?? "",
-        fromRoot: mod.resolveTtscServerLauncher(${JSON.stringify(workspace)}) ?? "",
-      }));
-    `;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--disable-warning=ExperimentalWarning",
-        "--experimental-strip-types",
-        "--input-type=module",
-        "--eval",
-        script,
-      ],
+  fs.writeFileSync(
+    path.join(workspace, "package.json"),
+    JSON.stringify({ private: true, name: "workspace-root" }, null, 2),
+  );
+  fs.mkdirSync(fileDir, { recursive: true });
+  fs.writeFileSync(path.join(fileDir, "main.ts"), "export {};\n");
+  fs.mkdirSync(path.dirname(launcher), { recursive: true });
+  fs.writeFileSync(
+    path.join(ttscPackage, "package.json"),
+    JSON.stringify(
       {
-        cwd: workspace,
-        encoding: "utf8",
+        name: "ttsc",
+        bin: { ttscserver: "lib/launcher/ttscserver.js" },
+        exports: { "./package.json": "./package.json" },
       },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    const resolved = JSON.parse(result.stdout.trim()) as {
-      fromFile: string;
-      fromRoot: string;
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(launcher, "module.exports = {};\n");
+
+  const observed = (() => {
+    return {
+      fromFile: mod.resolveTtscServerLauncher(fileDir) ?? "",
+      fromRoot: mod.resolveTtscServerLauncher(workspace) ?? "",
     };
-    assert.equal(
-      path.normalize(resolved.fromFile),
-      path.normalize(launcher),
-      "package file walks up to its own node_modules ttsc launcher",
-    );
-    assert.equal(
-      resolved.fromRoot,
-      "",
-      "root without ttsc resolves no launcher and is dropped, not thrown",
-    );
+  })();
+  const resolved = observed as {
+    fromFile: string;
+    fromRoot: string;
   };
+  assert.equal(
+    path.normalize(resolved.fromFile),
+    path.normalize(launcher),
+    "package file walks up to its own node_modules ttsc launcher",
+  );
+  assert.equal(
+    resolved.fromRoot,
+    "",
+    "root without ttsc resolves no launcher and is dropped, not thrown",
+  );
+}

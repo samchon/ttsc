@@ -5,24 +5,25 @@ import { pathIsWithin } from "../../filesystem/pathIsWithin";
 import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
 
 /**
- * Observe `root` recursively on a platform without native recursive
- * notification, by watching only the directories `admit` accepts
- * (samchon/ttsc#1389).
+ * Observe `root` recursively through Linux helper directory watches, applying
+ * caller admission before acquiring descendant coverage (samchon/ttsc#1389).
  *
- * Node's `fs.watch(root, { recursive: true })` on Linux walks the whole tree
- * synchronously and opens one inotify watch per file and directory, so a
- * project root with a large `node_modules` blocked every capture and could
- * exhaust the per-user watch limit. This observer opens one non-recursive watch
- * per admitted directory, shared process-wide, and never one per file. A
+ * This observer opens one non-recursive subscription per admitted directory,
+ * shared through the loaded helper directory registry, and never one per file.
+ * Root and paths forced by `track` can be watched despite admission. A
  * directory created inside a watched one is watched as soon as its creation is
  * reported, when `admit` accepts it, and every entry already inside it is
  * reported as created, since it may have appeared before its watch opened. A
- * directory that disappears releases its watches.
+ * directory confirmed absent releases its subtree watches; unavailable topology
+ * or enumeration instead withdraws coverage through `onError`.
  *
  * The watches live in the Linux watch helper (samchon/ttsc#1426), which answers
  * each one asynchronously. A directory is read only once its watch is live, so
- * nothing created in between goes unheard, and `ready` resolves once every
- * directory of the initial tree is watched and read.
+ * the opening interval can be covered by enumeration or delivered events.
+ * Successful initial readiness requires admitted directories to be watched and
+ * enumerated. This is not an atomic tree snapshot; native loss still arrives as
+ * a conservative unnamed event. Failure resolves false, and later failure does
+ * not change an already resolved readiness Promise.
  *
  * Events reach `listener` as a recursive watch reports them: the event type and
  * the changed path relative to `root`, or `null` when the backend could not
@@ -42,14 +43,17 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  *   directories below that path again and watches every one `admit` now
  *   accepts, for a registration that widened what `admit` accepts there
  *   (samchon/ttsc#1419). Once every watch a `track` opened is live, the path is
- *   reported changed, since it may have changed before they were. `prune`
- *   releases non-root directories that current admission no longer needs; call
- *   it after an atomic registration update, once per observer.
+ *   reported changed when that pending batch completes, since it may have
+ *   changed before they were. A track with no pending opening emits no such
+ *   batch callback. `prune` releases non-root directories that current
+ *   admission no longer needs; call it after an atomic registration update,
+ *   once per observer.
  * @evidence contracts/common.md#principled-implementation
  *   Watches go live before enumeration; newly admitted directories announce
- *   existing entries so the opening interval cannot masquerade as known absence.
+ *   existing entries; failed enumeration or unknown topology withdraws coverage
+ *   instead of certifying an empty or deleted subtree.
  * @evidence contracts/common.md#clear-and-simple-design
- *   One directory map owns recursive coverage; process-wide non-recursive
+ *   One directory map owns recursive coverage; loaded-registry non-recursive
  *   subscriptions own native handles and track batches own widened admission.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Admission follows caller responsibility, not a hardcoded tree blacklist;
@@ -61,19 +65,25 @@ import { subscribeLinuxDirectoryWatch } from "./subscribeLinuxDirectoryWatch";
  *   OS-neutral recursive semantics use node:path and directory metadata; native
  *   non-recursive helper watches avoid assuming every platform supports fs recursion.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Initial traversal enumerates admitted directories and entries once, with one
- *   watch per directory. Subtree retirement and widened admission scan current
- *   watched directories; overflow events coalesce per microtask instead of per-watch bursts.
+ *   Enumeration visits E entries across D admitted/forced directories and
+ *   delegates native watch/read/path work. Retirement copies/scans the D-watch
+ *   map and compares path text; prune scans D entries, while track examines
+ *   path-component prefixes and widening rescans selected directory listings.
+ *   Named events add native metadata and listener work. Unnamed bursts share
+ *   one notification until the queued microtask clears the coalescing flag.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The observer reuses live directory entries and joins opening readiness;
  *   shared native subscriptions avoid reopening equivalent directory watches.
  *   Explicit subtree widening revisits only existing coverage that may admit more.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Current admitted directories own handles and pending batches; disappeared
- *   subtrees and withdrawn admission retire entries; close retires the whole
- *   map. Outstanding reads
- *   check closed state before adding coverage; failed coverage remains owned
- *   until the caller closes its observer rather than implying successful release.
+ *   The caller owns D directory subscriptions and outstanding readiness/batch
+ *   references; confirmed absence and prune retire entries, while failure keeps
+ *   remaining handles until close. Closure attempts each handle and prevents
+ *   later reads from adding coverage. No count/byte or initial-readiness deadline
+ *   is supplied. Listener/admission/error callbacks must return normally for
+ *   batch settlement and cleanup to finish; arbitrary callback exceptions are
+ *   not isolated, and local retirement is not certified native completion.
+ *   Track prefix stat failures can also propagate to the caller.
  */
 export function openLinuxDirectoryObserver(
   root: string,
@@ -148,13 +158,20 @@ export function openLinuxDirectoryObserver(
         directory,
         (eventType, filename) => deliver(directory, eventType, filename),
         () => {
-          // A directory that is gone ends its own watch; one still present
-          // leaves a hole in the coverage.
-          if (directory !== base && !fs.existsSync(directory)) {
-            release(directory);
-          } else {
-            fail();
+          // Only confirmed absence retires descendant coverage. A failed
+          // presence observation does not prove that those directories vanished.
+          if (directory !== base) {
+            try {
+              fs.lstatSync(directory);
+            } catch (error) {
+              const code = (error as NodeJS.ErrnoException | undefined)?.code;
+              if (code === "ENOENT" || code === "ENOTDIR") {
+                release(directory);
+                return;
+              }
+            }
           }
+          fail();
         },
       );
     } catch (error) {
@@ -179,6 +196,7 @@ export function openLinuxDirectoryObserver(
       try {
         entries = fs.readdirSync(directory, { withFileTypes: true });
       } catch {
+        fail();
         return;
       }
       for (const child of entries) {
@@ -198,6 +216,7 @@ export function openLinuxDirectoryObserver(
     try {
       entries = fs.readdirSync(directory, { withFileTypes: true });
     } catch {
+      fail();
       return;
     }
     for (const entry of entries) {
@@ -234,8 +253,10 @@ export function openLinuxDirectoryObserver(
       try {
         const stats = fs.lstatSync(changed);
         directoryNow = stats.isDirectory();
-      } catch {
-        release(changed);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException | undefined)?.code;
+        if (code === "ENOENT" || code === "ENOTDIR") release(changed);
+        else fail();
       }
       listener(eventType, path.relative(base, changed));
       if (directoryNow) watch(changed, false, true);

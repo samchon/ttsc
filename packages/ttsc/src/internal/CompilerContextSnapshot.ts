@@ -6,8 +6,9 @@ import type { ITtscProjectPluginConfig } from "../structures/ITtscProjectPluginC
  *
  * Construction evaluates each entry's JSON serialization once. Date and custom
  * toJSON behavior is preserved in that captured payload; cycles and BigInt fail
- * at capture rather than during a later plugin launch. Every consumer receives
- * a fresh parsed payload, so it cannot mutate the retained snapshot.
+ * at capture rather than during a later plugin launch. Each adapter conversion
+ * parses defined captured JSON anew; an undefined payload stays omitted. A
+ * parsed result cannot mutate the retained string.
  *
  * Worker transfer sends selectors and serialized payload separately because
  * structured cloning cannot carry the local JSON adapter method.
@@ -17,9 +18,9 @@ import type { ITtscProjectPluginConfig } from "../structures/ITtscProjectPluginC
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The toJSON method belongs to a newly owned adapter, not a foreign object or global patch; unsupported cyclic/BigInt payloads fail instead of being replaced with invented defaults.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain capture timing, supported JSON conversion, failure timing, private ownership and the worker distinction, following documentation paragraph and tag separation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Context path strings and environment overrides remain native inputs; own undefined environment overrides are preserved rather than being lost through JSON serialization of the whole context.
- * @evidence contracts/performance.md#efficient-algorithms Capture and local copies take O(P) serialized plugin bytes plus O(E) environment entries; retaining JSON strings avoids a custom recursive object copier and consumers parse only the payload they receive.
- * @evidence contracts/performance.md#reuse-equivalent-work Captured JSON strings reuse the constructor's plugin serialization across operations; host selectors and the payload are immutable snapshots, while caller-visible parsed objects are freshly allocated.
- * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap associations disappear with their owned plugin adapters; retained strings scale with configured plugin bytes and are reclaimed with the compiler context rather than a global historical registry.
+ * @evidence contracts/performance.md#efficient-algorithms Local copies traverse context/environment fields and plugin entries, including their key text. First capture also traverses JSON input and invokes its conversion/property behavior, whose work is not bounded by output bytes alone; captured copies share immutable strings and consumers parse only requested payloads. This avoids a custom recursive object copier without asserting constant callback or conversion cost.
+ * @evidence contracts/performance.md#reuse-equivalent-work Captured JSON strings reuse the constructor's conversion result independently of later original-input mutation. Host selectors are copied into owned, mutable adapters rather than frozen; internal consumers must preserve them. Caller-visible parsed payloads are newly allocated and do not change retained strings.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap associations do not strongly retain owned adapters. Payload strings scale with captured plugin bytes and remain reachable through adapter closures or copied transfer channels until their holders release them; no global strong history, forced reclamation deadline or payload-size cap is imposed.
  */
 export class CompilerContextSnapshot {
   /**
@@ -30,9 +31,9 @@ export class CompilerContextSnapshot {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Only newly owned objects receive adapters; arbitrary plugin payload remains governed by actual JSON serialization, without foreign patches or invented fallback config.
    * @evidence contracts/common.md#meaningful-documentation The method states capture versus copying, while the enclosing native paragraphs explain JSON conversion timing and ownership consequences.
    * @evidence contracts/portability.md#os-neutral-implementation Native path fields remain unchanged and environment entries are copied without JSON omission; downstream native owners interpret their respective bases and name semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Context copying is linear in environment entries and plugin count; first capture serializes each plugin payload once, with subsequent clones sharing only immutable strings.
-   * @evidence contracts/performance.md#reuse-equivalent-work Existing adapters use WeakMap-captured payload strings rather than reevaluating the user's conversion, because constructor snapshot inputs cannot change between operations.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources New adapters own their strings through weak associations and remain reachable only through the returned context; no strong registry retains historical contexts.
+   * @evidence contracts/performance.md#efficient-algorithms Copying traverses context/environment own fields and plugin entries with their key text and property reads. An uncaptured entry additionally runs JSON.stringify, including input traversal and user conversion behavior; subsequent captured clones share immutable payload strings rather than repeat conversion.
+   * @evidence contracts/performance.md#reuse-equivalent-work Existing adapters reuse their WeakMap-captured payload strings without reevaluating user conversion. Selectors are copied from the supplied adapter at this call, so preserving internal adapter selectors is a consumer premise rather than an enforced freeze.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned context initially owns new adapter references; an independently retained adapter or payload channel can extend its string lifetime. Weak associations impose no strong historical retention, and reclamation depends on holders dropping their references rather than a disposal hook here.
    */
   public static clone(context: ITtscCompilerContext): ITtscCompilerContext {
     return {
@@ -66,7 +67,7 @@ export class CompilerContextSnapshot {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This maps captured JSON strings and performs no native path, environment or process interpretation.
    *
-   * @evidence contracts/performance.md#efficient-algorithms Mapping costs O(N) references for N entries; already captured JSON strings need no serialization traversal.
+   * @evidence contracts/performance.md#efficient-algorithms Mapping captured entries costs O(N) reference operations for N entries. Uncaptured entries run JSON.stringify with input traversal, output bytes and user conversion work; only captured strings avoid that serialization traversal.
    * @evidence contracts/performance.md#reuse-equivalent-work Retained payload strings preserve the constructor's conversion outcome across worker calls; uncaptured direct internal inputs are serialized once for this transfer.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string array transfers to the caller; this method acquires no independent retained population or native resource.
@@ -89,9 +90,9 @@ export class CompilerContextSnapshot {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Pairing failures throw a protocol error rather than inventing defaults; adapter methods belong solely to newly owned objects.
    * @evidence contracts/common.md#meaningful-documentation Native wording identifies worker restoration and links it to the class's capture and transfer semantics, with prose and tags separated.
    * @evidence contracts/portability.md#os-neutral-implementation Native option spellings and own undefined environment entries survive restoration unchanged; the worker's separate environment adoption remains the native-name owner.
-   * @evidence contracts/performance.md#efficient-algorithms One indexed pass builds N adapters and copying E environment entries costs O(N+E); plugin payload bytes are parsed only when a consumer requests JSON.
+   * @evidence contracts/performance.md#efficient-algorithms With a supplied paired channel, one indexed pass builds N adapters and copies context/environment fields plus their key text; payload bytes are parsed when consumers request JSON. Without a channel, clone may capture uncaptured entries and incur their JSON traversal/conversion work.
    * @evidence contracts/performance.md#reuse-equivalent-work Rehydration reuses the caller's captured conversion rather than recomputing custom behavior in another environment.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Restored contexts retain their configured payload bytes for their request lifetime; weak associations do not retain completed contexts globally.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Restored contexts and any separately retained adapters hold their configured payload strings while reachable. Weak associations do not globally keep completed contexts alive; this method enforces no request-end reclamation or payload-size bound.
    */
   public static restorePlugins(
     context: ITtscCompilerContext,

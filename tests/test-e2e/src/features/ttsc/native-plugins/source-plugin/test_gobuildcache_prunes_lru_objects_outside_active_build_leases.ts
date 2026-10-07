@@ -1,0 +1,517 @@
+import { TestProject } from "@ttsc/testing";
+
+import {
+  assert,
+  child_process,
+  fs,
+  path,
+  pruneGoBuildCacheRoot,
+  resolvePluginCacheRoot,
+  waitForCondition,
+  withGoBuildCacheLease,
+} from "../../../../internal/ttsc/internal/source-build";
+
+/**
+ * Verifies Go object-cache LRU pruning yields to active builds and user caches.
+ *
+ * The ttsc-owned cache must converge toward its size target without deleting
+ * objects under a concurrent Go build. An ambient `GOCACHE` remains wholly
+ * user-owned and must not receive ttsc maintenance metadata or pruning.
+ *
+ * 1. Seed three old object files and prove an active build lease blocks GC.
+ * 2. Release the lease, prune toward one object, and assert the newest survives.
+ * 3. Seed four recent objects and assert the newest target-sized cohort is
+ *    protected.
+ * 4. Prove a future-dated GC marker cannot suppress maintenance after a clock
+ *    rollback or restored cache, or mutate an external hard-linked file.
+ * 5. Prove completed and stale intents cannot poison a live process, while a
+ *    future-dated intent and fresh orphan lease retain a conservative grace.
+ * 6. Deny Worker permission and prove the IPC heartbeat fallback cleans up its
+ *    lease after running the callback.
+ * 7. Reject cache-root and coordination-directory junctions without deleting their
+ *    external objects or JSON files.
+ * 8. Resolve user and explicitly named cache layouts and assert their objects and
+ *    maintenance metadata remain untouched at the exact resolved roots.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual lease/GC/layout operations preserve objects under an active lease, prune older objects to the literal budget, bound a recent cohort, recover stale/completed/future records and refuse link escapes without rewriting external data or metadata.
+ * @evidence contracts/testing.md#independent-expectations Fixture object bytes and explicitly ordered mtimes define the independent LRU/budget results; hard-linked external contents/mtime and junction targets establish ownership boundaries. Literal callback/record assertions and a timed child mutation expose maintenance arbitration.
+ * @evidence contracts/testing.md#distinguishing-cases Active/released lease, recent sizes, future marker, stale/completed/future records, fresh/expired synthetic-PID lease, hard links, junctions and cache layouts retain original controls. Synthetic PID is not OS-death proof; collection uses status/heartbeat age. Permission-supported Node hosts retain the original conditional IPC-heartbeat fallback input.
+ * @evidence contracts/testing.md#execution-ownership The exported entry invokes shipped cache owners on real files and heartbeats, creates a native timestamp-release child and conditionally runs a permission-mode Node child; it runs no Go compiler or contributor host.
+ * @evidence contracts/e2e.md#necessary-boundary Actual product heartbeat worker/IPC permissions and cross-process timestamp release retain their native connection. Native hard-link/junction inputs alone do not make owning policy operations E2E. Direct collector status/age ownership is separately mapped to test-ttsc; LRU/layout/physical-policy contributions still require exact unit ownership and survival before removal.
+ * @evidence contracts/e2e.md#shared-execution One fixture tree and cached object-writing helper serve the entire lease/GC corpus. Ordinary objects are seeded directly rather than Go-built; only future-intent release and permission-mode heartbeat need their own child roles, and shared Go compiler objects are not touched.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate cache subroots isolate epochs/link targets. Future-release close/error observers register immediately; arbitration/kill/close-wait failures aggregate without masking the original. A bounded wait requires actual close or reports unjoined failure; tracked root remains retained. Product lease release alone is not all-descendant closure, and permission-process launch error/signal are distinct from status/marker assertions.
+ * @evidence contracts/e2e.md#preserved-coverage Every original file-presence/cohort, callback, grace-time, external-byte/mtime, permission status/marker/empty-lease and resolved-cache assertion remains. No fake successful maintenance or removed negative link control is introduced; conditional permission execution is unchanged.
+ */
+export const test_gobuildcache_prunes_lru_objects_outside_active_build_leases =
+  async (): Promise<void> => {
+    const root = TestProject.tmpdir("ttsc-go-cache-gc-");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "Go cache heartbeat/arbitration graph has unresolved descendant ownership",
+    );
+    const goCache = path.join(root, "go-build");
+    const now = Date.now();
+    const files = [
+      writeObject(goCache, "00", "old-a", now - 30_000),
+      writeObject(goCache, "01", "old-b", now - 20_000),
+      writeObject(goCache, "02", "newest", now - 10_000),
+    ];
+    const maintain = () =>
+      pruneGoBuildCacheRoot(goCache, {
+        force: true,
+        maxBytes: 8,
+        now,
+        protectedAgeMs: 0,
+        targetBytes: 4,
+      });
+
+    withGoBuildCacheLease(goCache, true, () => {
+      maintain();
+      assert.ok(files.every((file) => fs.existsSync(file)));
+    });
+
+    maintain();
+    assert.equal(fs.existsSync(files[0]!), false);
+    assert.equal(fs.existsSync(files[1]!), false);
+    assert.equal(fs.existsSync(files[2]!), true);
+
+    const recentCache = path.join(root, "recent-go-build");
+    const recent = [
+      writeObject(recentCache, "10", "recent-a", now - 4_000),
+      writeObject(recentCache, "11", "recent-b", now - 3_000),
+      writeObject(recentCache, "12", "recent-c", now - 2_000),
+      writeObject(recentCache, "13", "recent-d", now - 1_000),
+    ];
+    pruneGoBuildCacheRoot(recentCache, {
+      force: true,
+      maxBytes: 12,
+      now,
+      protectedAgeMs: 60_000,
+      targetBytes: 8,
+    });
+    assert.deepEqual(
+      recent.map((file) => fs.existsSync(file)),
+      [false, false, true, true],
+    );
+
+    const unevenCache = path.join(root, "uneven-recent-go-build");
+    const uneven = [
+      writeObject(unevenCache, "14", "old", now - 30_000),
+      writeObject(unevenCache, "15", "recent-a", now - 2_000, "123456"),
+      writeObject(unevenCache, "16", "recent-b", now - 1_000, "123456"),
+    ];
+    pruneGoBuildCacheRoot(unevenCache, {
+      force: true,
+      maxBytes: 8,
+      now,
+      protectedAgeMs: 60_000,
+      targetBytes: 8,
+    });
+    assert.deepEqual(
+      uneven.map((file) => fs.existsSync(file)),
+      [false, false, true],
+      "an uneven recent cohort must not overshoot its protection budget",
+    );
+
+    const futureMarkerCache = path.join(root, "future-marker-go-build");
+    const futureMarkerObject = writeObject(
+      futureMarkerCache,
+      "14",
+      "future-marker",
+      now - 30_000,
+    );
+    const externalMarker = path.join(root, "external-go-cache-marker.txt");
+    fs.writeFileSync(externalMarker, `${now + 24 * 60 * 60 * 1000}\n`, "utf8");
+    fs.linkSync(externalMarker, path.join(futureMarkerCache, ".ttsc-gc"));
+    pruneGoBuildCacheRoot(futureMarkerCache, {
+      maxBytes: 0,
+      now,
+      protectedAgeMs: 0,
+      targetBytes: 0,
+    });
+    assert.equal(fs.existsSync(futureMarkerObject), false);
+    assert.equal(
+      fs.readFileSync(externalMarker, "utf8"),
+      `${now + 24 * 60 * 60 * 1000}\n`,
+      "Go cache GC followed its marker outside the owned cache",
+    );
+
+    const staleIntent = writeCoordinationRecord(
+      goCache,
+      ".ttsc-maintenance",
+      process.pid,
+      now - 2 * 60 * 60 * 1000,
+    );
+    let staleIntentYielded = false;
+    withGoBuildCacheLease(goCache, true, () => {
+      staleIntentYielded = true;
+    });
+    assert.equal(staleIntentYielded, true);
+    assert.equal(fs.existsSync(staleIntent), false);
+
+    const completedCache = path.join(root, "completed-maintenance");
+    const completedIntent = writeCoordinationRecord(
+      completedCache,
+      ".ttsc-maintenance",
+      process.pid,
+      now,
+      "complete",
+    );
+    let completedIntentYielded = false;
+    withGoBuildCacheLease(completedCache, true, () => {
+      completedIntentYielded = true;
+    });
+    assert.equal(completedIntentYielded, true);
+    assert.equal(fs.existsSync(completedIntent), false);
+
+    const linkedLeaseCache = path.join(root, "linked-lease-record");
+    const externalLease = path.join(root, "external-lease-record.json");
+    let externalLeaseContents = "";
+    withGoBuildCacheLease(linkedLeaseCache, true, () => {
+      const leaseDirectory = path.join(linkedLeaseCache, ".ttsc-build-leases");
+      const lease = path.join(
+        leaseDirectory,
+        fs.readdirSync(leaseDirectory)[0]!,
+      );
+      externalLeaseContents = fs.readFileSync(lease, "utf8");
+      fs.linkSync(lease, externalLease);
+    });
+    assert.equal(
+      fs.readFileSync(externalLease, "utf8"),
+      externalLeaseContents,
+      "lease completion rewrote an external hard-linked file",
+    );
+
+    const futureIntent = writeCoordinationRecord(
+      goCache,
+      ".ttsc-maintenance",
+      process.pid,
+      now + 24 * 60 * 60 * 1000,
+    );
+    const externalFutureIntent = path.join(root, "external-future-intent.json");
+    const externalFutureContents = `${JSON.stringify({
+      directoryName: ".ttsc-maintenance",
+      hostname: "localhost",
+      pid: process.pid,
+      startedAt: now,
+      status: "active",
+      version: 1,
+    })}\n`;
+    fs.writeFileSync(externalFutureIntent, externalFutureContents, "utf8");
+    const futureModified = new Date(now + 24 * 60 * 60 * 1000);
+    fs.utimesSync(externalFutureIntent, futureModified, futureModified);
+    const linkedFutureIntent = path.join(
+      goCache,
+      ".ttsc-maintenance",
+      "external-future.json",
+    );
+    fs.linkSync(externalFutureIntent, linkedFutureIntent);
+    const futureRelease = child_process.spawn(
+      process.execPath,
+      [
+        "-e",
+        [
+          'const fs = require("node:fs");',
+          "setTimeout(() => {",
+          "  const stale = new Date(Date.now() - 2 * 60 * 60 * 1000);",
+          "  for (const file of process.argv.slice(1)) {",
+          "    fs.utimesSync(file, stale, stale);",
+          "  }",
+          "}, 200);",
+        ].join("\n"),
+        futureIntent,
+        linkedFutureIntent,
+      ],
+      { stdio: "ignore", windowsHide: true },
+    );
+    let futureDidClose = false;
+    const futureClosed = new Promise<void>((resolve) => {
+      futureRelease.once("close", () => {
+        futureDidClose = true;
+        resolve();
+      });
+    });
+    let futureProcessError: Error | undefined;
+    futureRelease.once("error", (error) => {
+      futureProcessError = error;
+    });
+    let futureIntentYielded = false;
+    const futureWaitStarted = Date.now();
+    const arbitrationErrors: unknown[] = [];
+    try {
+      withGoBuildCacheLease(goCache, true, () => {
+        futureIntentYielded = true;
+      });
+    } catch (error) {
+      arbitrationErrors.push(error);
+    } finally {
+      try {
+        futureRelease.kill();
+      } catch (error) {
+        arbitrationErrors.push(error);
+      }
+      try {
+        await waitForCondition(
+          () => futureDidClose,
+          "future-intent child actual close",
+          120_000,
+        );
+        await futureClosed;
+      } catch (error) {
+        arbitrationErrors.push(error);
+      }
+    }
+    if (arbitrationErrors.length)
+      throw new AggregateError(
+        arbitrationErrors,
+        "future-intent arbitration or close failed",
+      );
+    assert.equal(futureProcessError, undefined);
+    assert.equal(futureIntentYielded, true);
+    assert.ok(
+      Date.now() - futureWaitStarted >= 150,
+      "a future-dated intent must receive one conservative grace period",
+    );
+    assert.equal(fs.existsSync(futureIntent), false);
+    assert.equal(fs.existsSync(linkedFutureIntent), false);
+    assert.equal(
+      fs.readFileSync(externalFutureIntent, "utf8"),
+      externalFutureContents,
+      "coordination recovery rewrote an external hard-linked file",
+    );
+    assert.equal(
+      fs.statSync(externalFutureIntent).mtimeMs,
+      futureModified.getTime(),
+      "coordination recovery changed external hard-link metadata",
+    );
+
+    const linkedCoordinationCache = path.join(root, "linked-coordination");
+    const outsideCoordination = path.join(root, "outside-coordination");
+    fs.mkdirSync(linkedCoordinationCache, { recursive: true });
+    fs.mkdirSync(outsideCoordination, { recursive: true });
+    const outsideRecord = path.join(outsideCoordination, "keep.json");
+    fs.writeFileSync(outsideRecord, "{}", "utf8");
+    const outsideStale = new Date(now - 2 * 60 * 60 * 1000);
+    fs.utimesSync(outsideRecord, outsideStale, outsideStale);
+    fs.symlinkSync(
+      outsideCoordination,
+      path.join(linkedCoordinationCache, ".ttsc-maintenance"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.throws(
+      () => withGoBuildCacheLease(linkedCoordinationCache, true, () => {}),
+      /unsafe Go build cache coordination directory/,
+    );
+    assert.equal(
+      fs.existsSync(outsideRecord),
+      true,
+      "coordination cleanup escaped through a junction",
+    );
+
+    const linkedRootCache = path.join(root, "linked-root");
+    const outsideRootCache = path.join(root, "outside-root");
+    const outsideObject = writeObject(
+      outsideRootCache,
+      "aa",
+      "keep-a",
+      now - 30_000,
+    );
+    fs.symlinkSync(
+      outsideRootCache,
+      linkedRootCache,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.throws(
+      () => withGoBuildCacheLease(linkedRootCache, true, () => {}),
+      /unsafe Go build cache root/,
+    );
+    pruneGoBuildCacheRoot(linkedRootCache, {
+      force: true,
+      maxBytes: 0,
+      now,
+      protectedAgeMs: 0,
+      targetBytes: 0,
+    });
+    assert.equal(
+      fs.existsSync(outsideObject),
+      true,
+      "Go cache GC escaped through a root junction",
+    );
+
+    const orphanCache = path.join(root, "orphan-go-build");
+    const orphanObject = writeObject(
+      orphanCache,
+      "20",
+      "orphan-protected",
+      now - 30_000,
+    );
+    const orphanLease = writeCoordinationRecord(
+      orphanCache,
+      ".ttsc-build-leases",
+      2_147_483_647,
+      now,
+    );
+    pruneGoBuildCacheRoot(orphanCache, {
+      force: true,
+      maxBytes: 0,
+      now,
+      protectedAgeMs: 0,
+      targetBytes: 0,
+    });
+    assert.equal(fs.existsSync(orphanObject), true);
+    const expired = new Date(now - 2 * 60 * 60 * 1000);
+    fs.utimesSync(orphanLease, expired, expired);
+    pruneGoBuildCacheRoot(orphanCache, {
+      force: true,
+      maxBytes: 0,
+      now,
+      protectedAgeMs: 0,
+      targetBytes: 0,
+    });
+    assert.equal(fs.existsSync(orphanObject), false);
+
+    if (process.allowedNodeEnvironmentFlags.has("--permission")) {
+      const permissionCache = path.join(root, "permission-heartbeat");
+      const permissionMarker = path.join(root, "permission-callback.txt");
+      const library = path.join(
+        TestProject.WORKSPACE_ROOT,
+        "packages",
+        "ttsc",
+        "lib",
+        "plugin",
+        "internal",
+        "source",
+        "withGoBuildCacheLease.js",
+      );
+      const permissionRun = child_process.spawnSync(
+        process.execPath,
+        [
+          "--permission",
+          "--allow-fs-read=*",
+          "--allow-fs-write=*",
+          "--allow-child-process",
+          "-e",
+          [
+            'const fs = require("node:fs");',
+            "const { withGoBuildCacheLease } = require(process.argv[1]);",
+            "withGoBuildCacheLease(process.argv[2], true, () => {",
+            '  fs.writeFileSync(process.argv[3], "ran\\n", "utf8");',
+            "});",
+          ].join("\n"),
+          library,
+          permissionCache,
+          permissionMarker,
+        ],
+        { encoding: "utf8" },
+      );
+      assert.equal(
+        permissionRun.error,
+        undefined,
+        "permission heartbeat child launch error",
+      );
+      assert.equal(
+        permissionRun.signal,
+        null,
+        "permission heartbeat child terminated by signal",
+      );
+      assert.equal(
+        permissionRun.status,
+        0,
+        `${permissionRun.stdout}\n${permissionRun.stderr}`,
+      );
+      assert.equal(fs.readFileSync(permissionMarker, "utf8"), "ran\n");
+      assert.deepEqual(
+        fs.readdirSync(path.join(permissionCache, ".ttsc-build-leases")),
+        [],
+      );
+    }
+
+    const project = path.join(root, "project");
+    fs.mkdirSync(path.join(project, "node_modules"), { recursive: true });
+    const userCache = path.join(root, "user-gocache");
+    const userObject = writeObject(userCache, "03", "user", now - 30_000);
+    resolvePluginCacheRoot(project, undefined, { GOCACHE: userCache });
+    assert.equal(fs.existsSync(userObject), true);
+    assert.equal(fs.existsSync(path.join(userCache, ".ttsc-gc")), false);
+    assert.equal(
+      fs.existsSync(path.join(userCache, ".ttsc-maintenance")),
+      false,
+    );
+
+    for (const layout of [
+      {
+        cacheDir: path.join(root, "explicit-cache-dir"),
+        goBuildRoot: path.join(root, "explicit-cache-dir", "go-build"),
+        env: {},
+        label: "cache-dir",
+      },
+      {
+        cacheDir: undefined,
+        goBuildRoot: path.join(root, "explicit-env-cache", "go-build"),
+        env: { TTSC_CACHE_DIR: path.join(root, "explicit-env-cache") },
+        label: "TTSC_CACHE_DIR",
+      },
+      {
+        cacheDir: undefined,
+        goBuildRoot: path.join(root, "explicit-go-cache"),
+        env: { TTSC_GO_CACHE_DIR: path.join(root, "explicit-go-cache") },
+        label: "TTSC_GO_CACHE_DIR",
+      },
+    ]) {
+      const object = writeObject(
+        layout.goBuildRoot,
+        "04",
+        layout.label,
+        now - 30_000,
+      );
+      resolvePluginCacheRoot(project, layout.cacheDir, layout.env);
+      assert.equal(fs.existsSync(object), true);
+      assert.equal(
+        fs.existsSync(path.join(layout.goBuildRoot, ".ttsc-gc")),
+        false,
+      );
+    }
+  };
+
+function writeCoordinationRecord(
+  root: string,
+  directoryName: string,
+  pid: number,
+  mtimeMs: number,
+  status: "active" | "complete" = "active",
+): string {
+  const directory = path.join(root, directoryName);
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, `synthetic-${pid}.json`);
+  fs.writeFileSync(
+    file,
+    `${JSON.stringify({
+      directoryName,
+      hostname: "localhost",
+      pid,
+      startedAt: mtimeMs,
+      status,
+      version: 1,
+    })}\n`,
+    "utf8",
+  );
+  const modified = new Date(mtimeMs);
+  fs.utimesSync(file, modified, modified);
+  return file;
+}
+
+function writeObject(
+  root: string,
+  bucket: string,
+  name: string,
+  mtimeMs: number,
+  contents: string = "data",
+): string {
+  const directory = path.join(root, bucket);
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, name);
+  fs.writeFileSync(file, contents, "utf8");
+  const modified = new Date(mtimeMs);
+  fs.utimesSync(file, modified, modified);
+  return file;
+}

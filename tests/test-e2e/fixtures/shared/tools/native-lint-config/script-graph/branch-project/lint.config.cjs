@@ -1,0 +1,1 @@
+let blocked="off";try{require("exports-branches/blocked")}catch{blocked="error"}module.exports={extends:__NEXT__,files:["__transport-only__.ts"],rules:{"no-var":require("exports-branches"),"no-debugger":require("exports-branches/alias/pick"),"no-eval":blocked}};

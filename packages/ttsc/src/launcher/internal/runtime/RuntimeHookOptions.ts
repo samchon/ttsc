@@ -13,6 +13,9 @@ import type { RuntimeEntryPreparer } from "./RuntimeEntryPreparer";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Host preparation is an explicit injection boundary; this options type introduces no foreign mutation or consumer-specific branch.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain why the callback is optional and how direct ttsx differs from a discovering host, while the field retains native documentation without tags.
  * @evidence contracts/portability.md#os-neutral-implementation The callback's named type specifies a resolved native filename and an owning manifest, keeping filesystem representation explicit at the preparation boundary.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface RuntimeHookOptions {
   /** Prepare and type-check a TypeScript root discovered after registration. */

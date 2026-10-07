@@ -8,17 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRoutesPluginOnlyCodeActionLocally verifies source-only plugin
-// action requests bypass upstream even when upstream advertises code actions.
+// TestLSPProxyRoutesPluginOnlyCodeActionLocally Verifies a local plugin-only answer and no upstream frame within 150ms even when upstream advertises actions.
 //
-// Editors send `context.only` when a user invokes a source action such as
-// fix-all. That request belongs to ttsc's sidecar, and forwarding it to tsgo can
-// hang or return irrelevant TypeScript actions before the plugin action is
-// available.
+// The advertised-provider case complements the no-provider initialization entry.
 //
 // 1. Initialize with upstream `codeActionProvider: true`.
 // 2. Send a source.fixAll.ttsc codeAction request.
-// 3. Assert the proxy answers from the plugin source without forwarding.
+// 3. Observe the plugin source answer and no upstream frame within 150ms.
+//
+// @evidence contracts/testing.md#behavioral-verification The explicit plugin-only request receives the authored local action and no upstream frame within 150ms despite advertised upstream support.
+// @evidence contracts/testing.md#independent-expectations The explicit source.fixAll.ttsc filter and authored title establish local ownership and result.
+// @evidence contracts/testing.md#distinguishing-cases The advertised-provider case complements the no-provider initialization entry.
+// @evidence contracts/testing.md#execution-ownership Initialize and action share one Go proxy harness checking local response and upstream silence. Go discovers TestLSPProxyRoutesPluginOnlyCodeActionLocally under ./test/driver.
 func TestLSPProxyRoutesPluginOnlyCodeActionLocally(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions:  []driver.LSPCodeAction{{Title: "Fix all", Kind: "source.fixAll.ttsc"}},

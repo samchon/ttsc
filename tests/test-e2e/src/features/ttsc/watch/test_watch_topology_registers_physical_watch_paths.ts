@@ -1,0 +1,111 @@
+import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
+import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
+import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+
+/**
+ * Verifies watchers register physical paths while reporting declared ones.
+ *
+ * The two spellings must not be mixed. A watcher backend stores the string it
+ * was given and matches delivered events against it after canonicalizing them,
+ * so registering an aliased spelling breaks event delivery — on Windows libuv
+ * expands each event to its long path and aborts the process when the stored
+ * string is no longer its prefix, which any short (8.3) component produces.
+ * Classification runs in the opposite domain: every compiler, config, and
+ * plugin decision is expressed in the caller's own paths, so a notification
+ * that arrived through the physical spelling would stop matching them.
+ *
+ * 1. Point a directory alias at a real project root.
+ * 2. Watch the project through the alias and edit a tracked source file.
+ * 3. Assert the change is reported under the alias, not the physical root.
+ *
+ * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: watchers register physical paths while reporting declared ones. 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
+ * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
+ * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
+ * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ */
+export const test_watch_topology_registers_physical_watch_paths =
+  async (): Promise<void | false> => {
+    const physicalRoot = TestProject.tmpdir("ttsc-watch-physical-");
+    const aliasParent = TestProject.tmpdir("ttsc-watch-alias-");
+    const root = path.join(aliasParent, "project");
+    try {
+      fs.symlinkSync(physicalRoot, root, "junction");
+    } catch {
+      // The filesystem cannot express a directory alias; the invariant this
+      // case pins is unobservable here, so leave it to the platforms that can.
+      return false;
+    }
+    const physical = fs.realpathSync.native?.(root) ?? fs.realpathSync(root);
+    if (physical === path.resolve(root)) return false;
+
+    const source = path.join(root, "src", "main.ts");
+    fs.mkdirSync(path.dirname(source), { recursive: true });
+    fs.writeFileSync(source, "export const value = 1;\n", "utf8");
+    const config = path.join(root, "tsconfig.json");
+    fs.writeFileSync(
+      config,
+      JSON.stringify({
+        compilerOptions: { noEmit: true },
+        files: ["src/main.ts"],
+      }),
+      "utf8",
+    );
+
+    const changes: WatchInputChange[] = [];
+    const topology = new WatchTopology(
+      {
+        cwd: root,
+        files: [source],
+        projectRoot: root,
+        tsconfig: config,
+      },
+      {
+        onError: (location, error) => {
+          throw new Error(`watch error on ${location}`, { cause: error });
+        },
+        onInputChange: (change) => changes.push(change),
+        onTopologyChange: () => undefined,
+      },
+    );
+    try {
+      topology.refresh(false);
+      // Only paths this class resolved from an event are in scope. A config
+      // path arrives already canonicalized from the project reader, which owns
+      // that normalization and is not what this case is about, so the wait ends
+      // on a source change rather than on any change at all.
+      const sourceChanges = (): string[] =>
+        changes
+          .map((change) => change.path)
+          .filter((location): location is string => location !== undefined)
+          .filter((location) => path.basename(location) === "main.ts");
+      const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+      while (sourceChanges().length === 0) {
+        if (Date.now() >= deadline) {
+          assert.fail(
+            `an aliased project root must still deliver events: ${JSON.stringify(changes)}`,
+          );
+        }
+        fs.writeFileSync(source, "export const value = 2;\n", "utf8");
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      const reported = sourceChanges();
+      assert.equal(
+        reported.every((location) => location === source),
+        true,
+        `declared spelling expected, got ${JSON.stringify(reported)}`,
+      );
+    } finally {
+      topology.close();
+    }
+  };

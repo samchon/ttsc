@@ -1,5 +1,5 @@
-import type { TtscEvidenceGraphTypeScriptSymbol } from "../typings/TtscEvidenceGraphTypeScriptSymbol";
 import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphReferenceBase";
+import type { TtscEvidenceGraphTypeScriptSymbol } from "./TtscEvidenceGraphTypeScriptSymbol";
 
 /**
  * A population of TypeScript evidence that the owning claim must cite.

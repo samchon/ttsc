@@ -7,17 +7,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyFiltersSuppressedExecuteCommandIDs verifies wrapper-owned command
-// ids can be hidden without hiding custom plugin command ids.
+// TestLSPProxyFiltersSuppressedExecuteCommandIDs Verifies that initialize removes two suppressed built-in command IDs and retains the custom advertised command.
 //
-// The VS Code extension registers built-in lint/format wrappers itself, but
-// third-party command-backed code actions still need their command ids
-// advertised so vscode-languageclient can register and forward them.
+// Built-in and custom commands coexist, distinguishing selective suppression from provider removal.
 //
 // 1. Start a proxy with two suppressed built-in command ids.
 // 2. Configure a source with a built-in command and a custom command.
 // 3. Forward initialize through an upstream response.
 // 4. Assert only the custom command remains in executeCommandProvider.
+//
+// @evidence contracts/testing.md#behavioral-verification Initialize removes two suppressed built-in command IDs and retains the custom advertised command.
+// @evidence contracts/testing.md#independent-expectations The explicit suppressed list and literal source IDs define the surviving command.
+// @evidence contracts/testing.md#distinguishing-cases Built-in and custom commands coexist, distinguishing selective suppression from provider removal.
+// @evidence contracts/testing.md#execution-ownership A synthetic initialize exchange drives capability augmentation in the Go proxy. Go discovers TestLSPProxyFiltersSuppressedExecuteCommandIDs under ./test/driver.
 func TestLSPProxyFiltersSuppressedExecuteCommandIDs(t *testing.T) {
   h := newProxyHarnessWithOptions(
     t,

@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyMergesUpstreamConfigDiagnosticsWithProjectPublication verifies a
+// TestLSPProxyMergesUpstreamConfigDiagnosticsWithProjectPublication Verifies a
 // project finding does not replace TypeScript diagnostics already cached for
 // the selected config URI.
 //
@@ -19,6 +19,11 @@ import (
 //  1. Cache one upstream diagnostic at the logical config URI.
 //  2. Return one project diagnostic for the same URI.
 //  3. Assert the replacement publication contains both entries.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run preserves the original frame then emits a versionless two-entry config publication.
+// @evidence contracts/testing.md#independent-expectations One authored upstream finding and one stub project finding ground count two at the selected URI.
+// @evidence contracts/testing.md#distinguishing-cases Shared config URI and order are checked; individual merged messages are not inspected.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyMergesUpstreamConfigDiagnosticsWithProjectPublication in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyMergesUpstreamConfigDiagnosticsWithProjectPublication(t *testing.T) {
   const configURI = "file:///logical/project/tsconfig.json"
   source := &stubSource{

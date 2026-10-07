@@ -1,4 +1,4 @@
-// noMixedOperators is a faithful port of ESLint's no-mixed-operators. It
+// noMixedOperators implements ESLint's no-mixed-operators. It
 // flags an unparenthesized binary sub-expression whose operator is mixed with
 // a different operator from the SAME configured group, unless the two share a
 // precedence and allowSamePrecedence is on. The classic gotcha is `a && b ||
@@ -6,23 +6,27 @@
 // so the parse is `(a && b) || c`. Wrapping the inner sub-expression in parens
 // removes the ambiguity.
 //
-// The default groups mirror ESLint's DEFAULT_GROUPS — arithmetic, bitwise,
-// comparison, logical, relational — and a mix is only reportable when both
+// The default groups mirror ESLint's DEFAULT_GROUPS: arithmetic, bitwise,
+// comparison, logical and relational. A mix is only reportable when both
 // operators live in one group. So `a + b * c` (arithmetic × arithmetic,
 // different precedence) IS flagged, while `a | b && c` (bitwise × logical,
-// different groups) is NOT: the earlier port had this exactly backwards,
-// pairing across groups and omitting arithmetic. Ternary ("?:") and coalesce
+// different groups) is NOT. Ternary ("?:") and coalesce
 // ("??") are in no default group, so a mix involving either is only considered
 // when a custom `groups` option lists it.
 //
 // Because the TypeScript AST models parentheses as explicit
 // ParenthesizedExpression nodes, a wrapped inner expression (`(a && b) || c`)
 // has a non-binary parent and is skipped without ESLint's token-level paren
-// probe. The `groups` and `allowSamePrecedence` options are honored.
+// probe. Each mixed pair reports both operator tokens, using the question
+// token for a conditional parent. The options are decoded once per file.
 // https://eslint.org/docs/latest/rules/no-mixed-operators
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  "fmt"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
 
 // noMixedOperatorsDefaultGroups mirrors ESLint's DEFAULT_GROUPS. Each inner
 // slice is one precedence family; a mix is only reportable when both operators
@@ -94,7 +98,35 @@ func (noMixedOperators) Check(ctx *Context, node *shimast.Node) {
     shimast.GetExpressionPrecedence(node) == shimast.GetExpressionPrecedence(parent) {
     return
   }
-  ctx.Report(node, "Unexpected mix of different operators. Wrap the inner expression in parentheses to make the grouping explicit.")
+  noMixedOperatorsReportPair(ctx, node, parent, childOp, parentOp)
+}
+
+// noMixedOperatorsReportPair anchors the pair's two diagnostics to actual
+// operator tokens. Position order determines the left/right message spelling,
+// including a binary expression in any conditional operand. A token can belong
+// to two adjacent mixed pairs, so reports are not deduplicated here.
+func noMixedOperatorsReportPair(ctx *Context, child, parent *shimast.Node, childOp, parentOp string) {
+  childToken := child.AsBinaryExpression().OperatorToken
+  var parentToken *shimast.Node
+  if parent.Kind == shimast.KindConditionalExpression {
+    parentToken = parent.AsConditionalExpression().QuestionToken
+  } else {
+    parentToken = parent.AsBinaryExpression().OperatorToken
+  }
+  childStart, childEnd := tokenRange(ctx.File, childToken)
+  parentStart, parentEnd := tokenRange(ctx.File, parentToken)
+  leftOp, rightOp := childOp, parentOp
+  if childStart > parentStart {
+    leftOp, rightOp = parentOp, childOp
+  }
+  message := fmt.Sprintf("Unexpected mix of '%s' and '%s'. Use parentheses to clarify the intended order of operations.", leftOp, rightOp)
+  if childStart < parentStart {
+    ctx.ReportRange(childStart, childEnd, message)
+    ctx.ReportRange(parentStart, parentEnd, message)
+  } else {
+    ctx.ReportRange(parentStart, parentEnd, message)
+    ctx.ReportRange(childStart, childEnd, message)
+  }
 }
 
 // noMixedOperatorsResolveOptions decodes and caches the file's options. The
@@ -141,8 +173,8 @@ func noMixedOperatorsBinarySymbol(node *shimast.Node) (string, bool) {
 
 // noMixedOperatorsParentSymbol returns the operator name of a candidate parent.
 // A binary parent contributes its operator; a conditional parent contributes
-// "?:". Any other parent — a ParenthesizedExpression wrapping the child, a
-// statement, a call argument — means the child is not mixed with an operator,
+// "?:". Any other parent, including a ParenthesizedExpression wrapping the child,
+// a statement or a call argument, means the child is not mixed with an operator,
 // so it reports false and the mix is skipped.
 func noMixedOperatorsParentSymbol(parent *shimast.Node) (string, bool) {
   switch parent.Kind {

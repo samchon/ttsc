@@ -1,75 +1,65 @@
-import { TTSX_EXTRACTOR_SCRIPT } from "@ttsc/lint";
+import assert from "node:assert/strict";
+import ts from "ts-legacy";
 
-import { assert } from "../../internal/config-file";
+import { TTSX_EXTRACTOR_SCRIPT } from "../../../../../packages/lint/src/createTtscPlugin";
 
 /**
- * Verifies the descriptor extractor is emitted as source that can parse.
+ * Verifies the extractor's generated TypeScript parses after its input
+ * substitution.
  *
- * Three loaders are generated from literals, and the two on the Go side are
- * already checked at their generators. This one is the most dangerous of the
- * three and was the only one unchecked: it lives inside a template literal, so
- * the template consumes its own escapes before anything is emitted, and a
- * dropped backslash there turns an escape into the character it was escaping —
- * a real newline or a NUL inside a JavaScript string. That produces source
- * which does not parse and takes every descriptor load with it, the same defect
- * that already shipped once on the Go side and was caught only by review.
+ * Template escape consumption can insert a raw newline into a generated
+ * literal. A real TypeScript parser validates what the evaluator receives,
+ * rather than a quote-counting approximation of the emitted grammar.
  *
- * The emitted string is what is inspected, not this repository's text. Reading
- * the source file would check characters no consumer ever executes, and the
- * defect this exists for is invisible there.
+ * 1. Substitute POSIX and Windows-shaped import, output and root values, including
+ *    a quote and backslashes, into the extractor template.
+ * 2. Parse each result with the TypeScript parser and require no syntax
+ *    diagnostics.
+ * 3. Parse a literal containing a raw newline and require diagnostics, so the
+ *    oracle detects the failure it guards.
  *
- * 1. Take the extractor's emitted source.
- * 2. Assert no line leaves a string literal open, and none carries a control
- *    character a string cannot hold.
- * 3. Assert the placeholders the caller substitutes survive.
+ * @evidence contracts/testing.md#behavioral-verification The authored extractor template is instantiated with quoted file URL and path inputs and parsed by the independent TypeScript parser; syntax diagnostics must be absent.
+ * @evidence contracts/testing.md#independent-expectations TypeScript syntax defines validity independently of the emitter. Literal placeholder tokens are the documented substitution interface, and an intentionally broken string must produce a parser diagnostic.
+ * @evidence contracts/testing.md#distinguishing-cases POSIX and Windows path strings containing quotes and backslashes must parse after JSON quoting; a raw newline inside a quoted literal is rejected by the same parser. Import, output, root and inherited-chain substitutions must exist before replacement.
+ * @evidence contracts/testing.md#execution-ownership This named source unit reads the authored generated value and invokes a parser in process without a built descriptor, config evaluator, consumer installation or native producer. Real config evaluation remains in E2E.
  */
-export const test_lint_config_descriptor_extractor_emits_parseable_source =
-  (): void => {
-    for (const line of TTSX_EXTRACTOR_SCRIPT.split("\n")) {
-      assert.equal(
-        quotesPair(line),
-        true,
-        `the extractor leaves a string literal open: ${line}`,
-      );
-      assert.equal(
-        // A carriage return is in the class even though a newline is not: the
-        // split above already turns a stray newline into an unterminated literal
-        // the scanner catches, while a stray carriage return neither splits the
-        // line nor unbalances a quote - and it is still a syntax error.
-        /[\u0000-\u0008\u000b\u000c\r\u000e-\u001f]/.test(line),
-        false,
-        `the extractor emitted a raw control character: ${JSON.stringify(line)}`,
-      );
-    }
-    for (const placeholder of [
+export function test_lint_config_descriptor_extractor_emits_parseable_source(): void {
+  for (const values of [
+    ["file:///project/lint.config.ts", "/project/result.json", "/project"],
+    [
+      "file:///C:/project/lint.config.ts",
+      'C:\\project\\quoted"result.json',
+      "C:\\project",
+    ],
+  ]) {
+    let source = TTSX_EXTRACTOR_SCRIPT;
+    for (const [index, token] of [
       "%CONFIG_IMPORT%",
       "%CONFIG_OUTPUT%",
       "%CONFIG_ROOT%",
-    ]) {
-      assert.equal(
-        TTSX_EXTRACTOR_SCRIPT.includes(placeholder),
-        true,
-        `the extractor lost ${placeholder}`,
-      );
+    ].entries()) {
+      assert.ok(source.includes(token), token);
+      source = source.replace(token, JSON.stringify(values[index]));
     }
-  };
-
-/**
- * Whether a line's double quotes pair, ignoring escapes and line comments.
- *
- * Every literal in the emitted script opens and closes on one line, so counting
- * is enough, and stopping at a comment keeps prose carrying a lone quote from
- * failing as if it were code.
- */
-function quotesPair(line: string): boolean {
-  let quotes = 0;
-  for (let index = 0; index < line.length; index++) {
-    if (line[index] === "\\") {
-      index++;
-      continue;
-    }
-    if (quotes % 2 === 0 && line.startsWith("//", index)) break;
-    if (line[index] === '"') quotes++;
+    assert.ok(source.includes("%CONFIG_CHAIN%"));
+    source = source.replace(
+      "%CONFIG_CHAIN%",
+      JSON.stringify([values[2] + "/lint.config.ts"]),
+    );
+    assert.deepEqual(parseDiagnostics(source), []);
   }
-  return quotes % 2 === 0;
+  assert.notEqual(parseDiagnostics('const broken = "raw\nnewline";').length, 0);
+}
+
+function parseDiagnostics(source: string): readonly ts.Diagnostic[] {
+  const parsed = ts.createSourceFile(
+    "extractor.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  return (
+    parsed as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+  ).parseDiagnostics;
 }

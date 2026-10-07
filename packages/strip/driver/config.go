@@ -39,20 +39,16 @@ var allowedTsconfigKeys = map[string]struct{}{
   "transform":  {},
 }
 
-// loadStripConfigMap validates the tsconfig plugin entry and loads the strip
-// configuration from either an explicit configFile or an auto-discovered
-// strip.config.* file. Returns the raw config map ready for parseStrip.
-func loadStripConfigMap(pluginConfig map[string]any, cwd, tsconfigPath string) (map[string]any, error) {
-  return loadStripConfigMapWithReporter(pluginConfig, cwd, tsconfigPath, nil)
-}
-
-func loadStripConfigMapWithReporter(pluginConfig map[string]any, cwd, tsconfigPath string, reporter func(string)) (map[string]any, error) {
-  return loadStripConfigMapWithReporters(pluginConfig, cwd, tsconfigPath, reporter, nil, nil)
-}
-
-// loadStripConfigMapWithReporters reports the exact known configuration inputs.
-// Optional incomplete reporters disclose unavailable public resolution observation
-// separately from a moved input's missing proof; the evaluated value remains usable.
+// loadStripConfigMapWithReporters validates the tsconfig plugin entry and loads
+// the strip configuration from either an explicit configFile or an
+// auto-discovered strip.config.* file. It returns the raw config map ready for
+// parseStrip, which applies the built-in defaults to an empty one.
+//
+// The reporters declare the exact known configuration inputs: the evaluated
+// config and everything its evaluation read, and the discovery candidates that
+// were rejected on the way. Optional incomplete reporters disclose unavailable
+// public resolution observation separately from a moved input's missing proof;
+// the evaluated value remains usable.
 func loadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter, realpathReporter func(string, *string), incompleteReporters ...func()) (map[string]any, error) {
   // Reject any key that @ttsc/strip does not recognise. This surfaces
   // stale inline keys (calls, statements) with a clear error so users
@@ -171,19 +167,8 @@ func resolveStripConfigFilePath(configPath, cwd, tsconfigPath string) string {
   return filepath.Join(stripDiscoveryBaseDir(cwd, tsconfigPath), configPath)
 }
 
-// loadStripConfigFile loads and deserializes a strip config file at location.
-// The format is determined by extension: .json is parsed natively; .js/.cjs/.mjs
-// run through a Node subprocess; .ts/.cts/.mts run through ttsx.
-//
-// resolutionRoot is the project directory the TypeScript branch anchors its
-// toolchain resolution on when the config file's own ancestry answers nothing;
-// see stripConfigToolAnchors. The JSON and JS branches spawn no ttsx and
-// ignore it.
-func loadStripConfigFile(location, resolutionRoot string) (any, error) {
-  loaded, err := loadStripConfigFileWithInputs(location, resolutionRoot)
-  return loaded.value, err
-}
-
+// stripLoadedConfig is an evaluated config value with the inputs its
+// evaluation read.
 type stripLoadedConfig struct {
   // complete concerns resolution capability, independently of per-input stability.
   complete bool
@@ -194,6 +179,15 @@ type stripLoadedConfig struct {
   value     any
 }
 
+// loadStripConfigFileWithInputs loads and deserializes a strip config file at
+// location together with the inputs its evaluation read. The format is
+// determined by extension: .json is parsed natively; .js/.cjs/.mjs run through
+// a Node subprocess; .ts/.cts/.mts run through ttsx.
+//
+// resolutionRoot is the project directory the TypeScript branch anchors its
+// toolchain resolution on when the config file's own ancestry answers nothing;
+// see stripConfigToolAnchors. The JSON and JS branches spawn no ttsx and
+// ignore it.
 func loadStripConfigFileWithInputs(location, resolutionRoot string) (stripLoadedConfig, error) {
   ext := strings.ToLower(filepath.Ext(location))
   switch ext {
@@ -297,17 +291,6 @@ func stripResolveHostInputLinkAncestor(location string) (string, bool) {
   }
 }
 
-// loadStripJSONConfigFile reads and JSON-parses a strip config file. A leading
-// UTF-8 BOM is stripped before parsing so files saved by Windows editors are
-// accepted.
-func loadStripJSONConfigFile(location string) (any, error) {
-  body, err := os.ReadFile(location)
-  if err != nil {
-    return nil, fmt.Errorf("@ttsc/strip: read config file %s: %w", location, err)
-  }
-  return parseStripJSONConfigFile(location, body)
-}
-
 func parseStripJSONConfigFile(location string, body []byte) (any, error) {
   body = bytes.TrimPrefix(body, []byte{0xEF, 0xBB, 0xBF})
   var out any
@@ -318,7 +301,7 @@ func parseStripJSONConfigFile(location string, body []byte) (any, error) {
 }
 
 // stripScriptLoaderSource is the inline Node.js script used by
-// loadStripScriptConfigFile to evaluate a .js/.cjs/.mjs strip config and
+// loadStripScriptConfigFileWithInputs to evaluate a .js/.cjs/.mjs strip config and
 // serialize the result to stdout as JSON.
 const stripScriptLoaderSource = `
 const { pathToFileURL } = require("node:url");
@@ -357,14 +340,9 @@ observeResolutions(recorder);
 });
 `
 
-// loadStripScriptConfigFile evaluates a .js/.cjs/.mjs config file by running a
-// Node subprocess that dynamic-imports the file, resolves the default export,
-// and serializes the result as JSON to stdout.
-func loadStripScriptConfigFile(location string) (any, error) {
-  loaded, err := loadStripScriptConfigFileWithInputs(location)
-  return loaded.value, err
-}
-
+// loadStripScriptConfigFileWithInputs evaluates a .js/.cjs/.mjs config file by
+// running a Node subprocess that dynamic-imports the file, resolves the default
+// export, and serializes the result and the inputs it read as JSON to stdout.
 func loadStripScriptConfigFileWithInputs(location string) (stripLoadedConfig, error) {
   node := os.Getenv("TTSC_NODE_BINARY")
   if node == "" {
@@ -505,7 +483,7 @@ declare const process: {
 `, importLiteral, recorderLiteral)
 }
 
-// loadStripTypeScriptConfigFile evaluates a .ts/.cts/.mts config file by writing
+// loadStripTypeScriptConfigFileWithInputs evaluates a .ts/.cts/.mts config file by writing
 // an ephemeral loader script and tsconfig into a temp directory, symlinking the
 // nearest node_modules, then running ttsx.
 //
@@ -517,11 +495,6 @@ declare const process: {
 // Both tools this spawns — the launcher and the compiler handed to it — are
 // resolved from the project rather than from the process environment alone;
 // see stripConfigToolAnchors.
-func loadStripTypeScriptConfigFile(location, resolutionRoot string) (any, error) {
-  loaded, err := loadStripTypeScriptConfigFileWithInputs(location, resolutionRoot)
-  return loaded.value, err
-}
-
 func loadStripTypeScriptConfigFileWithInputs(location, resolutionRoot string) (stripLoadedConfig, error) {
   tempDir, err := os.MkdirTemp(stripLoaderTempBase(location, os.TempDir()), "ttsc-strip-config-")
   if err != nil {

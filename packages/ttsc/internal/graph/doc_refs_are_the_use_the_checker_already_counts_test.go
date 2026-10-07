@@ -2,6 +2,7 @@ package graph
 
 import (
   "path/filepath"
+  "reflect"
   "strings"
   "testing"
 
@@ -28,21 +29,24 @@ const unusedLocalsFixtureTSConfig = `{
 // rests on: the compiler resolves a documentation link and counts it as a use,
 // and recording the edge does not change what it reports.
 //
-// The whole argument for the edge is that it is a compiler fact rather than a
-// text match, and the compiler says so itself — an import supporting only a link
-// survives `noUnusedLocals` while the same import without one does not. That
-// asymmetry is the evidence the issue was opened on, and it lived only in its
-// prose. Pinning it here matters twice: it fails if a TypeScript upgrade ever
-// stops counting links as uses, which would make the edge a text match dressed
-// as a checker fact, and it fails if this pass ever changes what the compiler
-// reports, which it must never do.
+// Two local interfaces differ in whether the function's documentation links to
+// them. The native compiler must report the unlinked declaration unused and not
+// the linked one. Build must expose the matching spanned edge and preserve the
+// before/after rendered diagnostic list. This is the maintained compiler's
+// report for one fixture, not an independent full compiler-semantics oracle.
 //
-//  1. Build one file importing two types, using one only through a link and the
+//  1. Build one file declaring two types, using one only through a link and the
 //     other not at all.
-//  2. Assert the compiler reports the unlinked import unused and the linked one
+//  2. Assert the compiler reports the unlinked declaration unused and the linked one
 //     not.
 //  3. Assert the link produced its edge in the same build.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the premise this edge rests on: the compiler resolves a documentation link and counts it as a use, and recording the edge does not change what it reports.
+// @evidence contracts/testing.md#independent-expectations Authored IUnlinked must match an unused-declaration report while ILinked must not, and the literal subject-to-ILinked suffix pair must have exactly one doc-ref with a positive span. The compiler supplies the report; ID grammar and full language correctness are not independently certified. The before/after rendered report equality checks Build transparency, not the correctness of unrelated diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases Linked versus unlinked local interfaces contrast within one source. The positive unused control prevents an empty diagnostic set from satisfying the linked absence check; the spanned edge and unchanged rendered report are separately required after Build.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native temporary project, constructs and closes a driver compiler Program in-process, queries Diagnostics, and calls Build. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command is used.
 func TestDocRefsAreTheUseTheCheckerAlreadyCounts(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), unusedLocalsFixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `interface ILinked {
@@ -64,8 +68,10 @@ export function subject(): void {}
   defer func() { _ = prog.Close() }()
 
   linked, unlinked := false, false
+  before := []string{}
   for _, diagnostic := range prog.Diagnostics() {
     message := diagnostic.String()
+    before = append(before, message)
     if !strings.Contains(message, "never used") &&
       !strings.Contains(message, "declared but") {
       continue
@@ -87,7 +93,13 @@ export function subject(): void {}
       "match rather than a checker fact")
   }
 
-  // The same build produced the edge, so the fact the compiler counted and the
-  // fact the graph records are one fact.
-  assertDocRef(t, Build(prog), "#subject:function", "#ILinked:interface")
+  graph := Build(prog)
+  assertDocRef(t, graph, "#subject:function", "#ILinked:interface")
+  after := []string{}
+  for _, diagnostic := range prog.Diagnostics() {
+    after = append(after, diagnostic.String())
+  }
+  if !reflect.DeepEqual(after, before) {
+    t.Fatalf("Build changed the rendered diagnostic report: before %v, after %v", before, after)
+  }
 }

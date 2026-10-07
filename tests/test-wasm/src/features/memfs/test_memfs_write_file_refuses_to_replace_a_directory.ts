@@ -18,6 +18,11 @@ import { expectHostError, readdir, stat } from "../../internal/callbackFs";
  *    onto `/` (directly and through a normalized alias).
  * 3. Assert the overwrite replaced the bytes, every directory write was rejected
  *    with `EISDIR`, and each directory plus its descendants survived intact.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.writeFile replaces ordinary-file bytes but rejects nonempty/empty directories and root aliases while preserving their full namespace. Exact errors, data and directory stats detect type replacement or orphaned children.
+ * @evidence contracts/testing.md#independent-expectations The convenience write contract targets regular files only. Independently authored BEFORE/AFTER, LEAF bytes and literal listings establish intended overwrite and unchanged directories; EISDIR follows the target type.
+ * @evidence contracts/testing.md#distinguishing-cases Ordinary-file overwrite succeeds; nonempty directory, empty directory, root and normalized root reject. File-valued ancestor rejection is covered by the adjacent write-file test.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_write_file_refuses_to_replace_a_directory calls host.writeFile directly, expectHostError captures its synchronous failures, and readdir/stat/readFileText verify the same MemFS. This unit owns all five target states without real filesystem I/O.
  */
 export const test_memfs_write_file_refuses_to_replace_a_directory =
   async (): Promise<void> => {

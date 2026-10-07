@@ -12,6 +12,9 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc identifies the envelope, empty state and unspecified order using the
  *   documentation skill's concrete context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscSnapshotsResult is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscSnapshotsResult is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscSnapshotsResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscSnapshotsResult {
   /** Live handles in unspecified order; empty when none are registered. */

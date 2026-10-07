@@ -12,13 +12,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerNestedNamespaceWriteback is the multi-level
-// version of the namespace-writeback regression: a nested `export namespace
-// Foo { export namespace Bar { ... } }`. When the plugin rebuilds a node buried
-// in the inner namespace, BOTH the outer (`exports.Foo = Foo = {}`) and the
-// inner (`Foo.Bar = Bar = {}`) writebacks, plus the deepest export member, must
-// survive. A single missed parent-restore anywhere along the chain drops a
-// writeback and leaves a namespace level `undefined` at runtime.
+// TestEmitWithPluginTransformerNestedNamespaceWriteback Verifies an inner namespace rewrite
+// retains both namespace writebacks and the deepest member export.
+//
+// The changed initializer lies inside two nested namespaces. Checking the outer Foo
+// export, inner Foo.Bar initialization and deepest Bar.value assignment distinguishes a
+// complete preserved hierarchy from a rewrite that loses only one level.
+//
+// 1. Transform the nested namespace initializer while rebuilding its ancestors.
+// 2. Require outer and inner writebacks, the value export and the changed 0 + 5 initializer.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual nested initializer rebuilding and requires outer/inner namespace writebacks and the literal Bar.value assignment to the changed 0 + 5 initializer.
+// @evidence contracts/testing.md#independent-expectations Literal Foo/Bar/value topology and authored 0 + 5 expression independently define expected generated structure.
+// @evidence contracts/testing.md#distinguishing-cases Two namespace levels distinguish partial parent/writeback loss; changed deepest initializer verifies the transform actually rebuilt ancestors.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes actual compiler and visitor APIs with private Program cleanup and local write map; it inspects emitted structure without a host executable.
 func TestEmitWithPluginTransformerNestedNamespaceWriteback(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -89,5 +96,8 @@ func TestEmitWithPluginTransformerNestedNamespaceWriteback(t *testing.T) {
   // The rebuilt initializer actually applied.
   if !strings.Contains(js, "0 + 5") {
     t.Fatalf("rebuilt initializer `0 + 5` not present, rewrite did not apply:\n%s", js)
+  }
+  if !strings.Contains(js, "Bar.value = 0 + 5;") {
+    t.Fatalf("deepest member assignment `Bar.value = 0 + 5;` dropped:\n%s", js)
   }
 }

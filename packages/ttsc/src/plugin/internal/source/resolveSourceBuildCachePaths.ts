@@ -10,15 +10,16 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  *
  * `pluginRoot` stores compiled plugin binaries; `goBuildRoot` is the Go object
  * cache passed as `GOCACHE` while ttsc builds those binaries. The default Go
- * cache lives under `root`; an explicit `TTSC_GO_CACHE_DIR` or `GOCACHE` keeps
- * its independently resolved location and ownership policy.
+ * cache lives under `root`; `TTSC_GO_CACHE_DIR` is independently resolved,
+ * while external `GOCACHE` preserves its supplied value for Go to validate.
+ * Their selection provenance keeps the ownership policies distinct.
  *
  * @evidence contracts/common.md#principled-implementation Plugin and Go paths derive from one root while provenance preserves dedicated ttsc ownership versus external GOCACHE.
  * @evidence contracts/common.md#clear-and-simple-design Root selection and Go override selection are separate helpers; the result carries paths with their ownership discriminant.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Workspace markers and environment overrides are supported configuration inputs rather than project-name exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain each payload and independent Go ownership, separated from tags under the documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs anchor ttsc overrides; environment names use Windows case-insensitive lookup, and external GOCACHE preserves Go's supplied spelling and validation semantics.
- * @evidence contracts/performance.md#efficient-algorithms Dominant work is ancestor discovery and small boundary snapshots, never recursive cache-payload traversal.
+ * @evidence contracts/performance.md#efficient-algorithms Default discovery walks ancestor directories, reading each inspected manifest's bytes and snapshotting entries at the node_modules/.cache/ttsc layout levels; those entry populations are not capped or recursively traversed. Path processing depends on visited text, while Windows override lookup scans current environment names. Explicit root selection skips ancestor discovery; Go provenance selection still observes its overrides.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Shared workspace placement permits producer caches to be shared, but this path query coordinates neither completed nor in-flight computations and establishes no answer equivalence.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returning paths and provenance acquires no retained cache entry or handle.
@@ -43,8 +44,9 @@ const LOCAL_CACHE_PARENT_DIRNAME = ".cache";
 const PLUGIN_CACHE_DIRNAME = "plugins";
 
 // Directories whose presence marks a monorepo/workspace root, so every package
-// in the workspace shares ONE cache and a plugin builds once, not once per
-// package. `package.json` with a `workspaces` field (yarn/npm/bun) is checked
+// in the workspace can select one cache location. Reuse of a compiled plugin
+// still requires the build owner's key and artifact validity. `package.json`
+// with a `workspaces` field (yarn/npm/bun) is checked
 // separately in isWorkspaceRootDir.
 const WORKSPACE_ROOT_MARKER_FILES: readonly string[] = ["pnpm-workspace.yaml"];
 
@@ -57,9 +59,9 @@ const WORKSPACE_ROOT_MARKER_FILES: readonly string[] = ["pnpm-workspace.yaml"];
  * 2. `TTSC_CACHE_DIR` environment variable (relative to `projectRoot`);
  * 3. `<workspaceRoot>/node_modules/.cache/ttsc` — project-local by default.
  *
- * There is deliberately NO global (`~/.cache`) fallback: the cache is scoped to
- * the workspace so it can never accumulate machine-wide, and `rm -rf
- * node_modules` reclaims it.
+ * There is no automatic global (`~/.cache`) fallback. Removing the selected
+ * workspace's node_modules reclaims its default cache; explicit and environment
+ * overrides may select storage elsewhere and keep their own lifetime.
  */
 function resolveSourceBuildCacheRoot(
   projectRoot: string,
@@ -86,8 +88,8 @@ function resolveSourceBuildCacheRoot(
 }
 
 /**
- * Resolve the monorepo/workspace root for `projectRoot` so every package shares
- * one cache and a plugin builds once per workspace, not once per package.
+ * Resolve the monorepo/workspace root for `projectRoot` so packages can select
+ * the same default cache location. This query does not certify artifact reuse.
  *
  * Walks up from `projectRoot` and returns, in order of preference: the NEAREST
  * ancestor that is a workspace root (holds `pnpm-workspace.yaml`, or a
@@ -95,11 +97,11 @@ function resolveSourceBuildCacheRoot(
  * contains an installation; else the outermost ttsc-only cache owner at or
  * below the nearest ordinary package manifest, or `projectRoot` itself.
  *
- * A directory whose only payload is ttsc's own `.cache/ttsc` tree is not
- * installation evidence: an older ttsx may have created that tree below a
- * nested tsconfig before this resolver ran. Remembering the outermost such
- * owner still gives manifest-less projects a stable answer after their empty
- * `node_modules` becomes a ttsc cache on the first run.
+ * A nonempty, unmarked ttsc-only `.cache/ttsc` payload is fallback cache
+ * evidence rather than an installation. Empty or marked ttsc roots remain
+ * installation evidence, including the interval before marker publication.
+ * Remembering the outermost fallback owner avoids choosing a nearer unmarked
+ * payload merely because it contains previously produced ttsc output.
  *
  * Nearest (not highest) so an unrelated ancestor that happens to declare
  * `workspaces` — for example a `package.json` in the user's home directory —

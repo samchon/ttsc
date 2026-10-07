@@ -27,17 +27,20 @@ func (emitOnlyPlugin) EmitTransform(_ driver.PluginContext) (driver.PluginTransf
   }, nil
 }
 
-// TestTransformDependenciesExcludeAnEmitOnlyPlugin verifies which linked entries
-// the host counts as transform contributors.
+// TestTransformDependenciesExcludeAnEmitOnlyPlugin Verifies that TransformDependenciesFor retains index.ts completeness beside an emit-only plugin.
 //
-// The classification decides whether one silent plugin blocks every declaration
-// in the envelope, and it is the half of the aggregation that reads the
-// process-wide plugin registry, so it needs a real program rather than a
-// hand-built state. An `EmitTransform` runs in the `build` lane, which emits no
-// envelope, so an entry that implements only that hook cannot influence a
-// transform output and must not withhold the declaring plugin's claim.
+// Declaring and emit-only hook classes coexist; silent transform contributors have separate coverage.
+//
+// 1. Register a declaring ProgramPlugin and an emit-only plugin and load the temporary project.
+// 2. Request transform dependencies and assert index.ts remains complete.
+//
+// @evidence contracts/testing.md#behavioral-verification TransformDependenciesFor retains index.ts completeness beside an emit-only plugin.
+// @evidence contracts/testing.md#independent-expectations Transform output does not execute EmitTransform, so that entry cannot veto the declaring ProgramPlugin.
+// @evidence contracts/testing.md#distinguishing-cases Declaring and emit-only hook classes coexist; silent transform contributors have separate coverage.
+// @evidence contracts/testing.md#execution-ownership Two synthetic Go plugins and one directly loaded Program execute without a sidecar build. Go discovers TestTransformDependenciesExcludeAnEmitOnlyPlugin under ./test/driver.
 func TestTransformDependenciesExcludeAnEmitOnlyPlugin(t *testing.T) {
   resetLinkedPluginRegistry()
+  t.Cleanup(resetLinkedPluginRegistry)
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"declaring","stage":"transform","config":{}},{"name":"emitOnly","stage":"transform","config":{}}]`)
   driver.RegisterPlugin(declaringProgramPlugin{})
   driver.RegisterPlugin(emitOnlyPlugin{})

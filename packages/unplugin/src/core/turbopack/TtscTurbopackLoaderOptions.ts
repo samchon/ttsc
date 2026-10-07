@@ -15,5 +15,19 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies the producer and rule boundary, with separated tags
  *   following the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The alias carries the same native project-config spelling as
+ *   TtscUnpluginOptions: relative project paths anchor at process.cwd and absent
+ *   project requests discovery. Compiler-owned path settings keep their own
+ *   semantics; the loader rule does not convert them to URLs or choose case policy.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTurbopackLoaderOptions only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTurbopackLoaderOptions only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTurbopackLoaderOptions only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type TtscTurbopackLoaderOptions = TtscUnpluginOptions;

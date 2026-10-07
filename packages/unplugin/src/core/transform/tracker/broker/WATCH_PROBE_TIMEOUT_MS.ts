@@ -4,11 +4,10 @@
  * and the wait for a probe written to a macOS stream to come back through it
  * (samchon/ttsc#1453).
  *
- * A backend that delivers answers in milliseconds; only one that does not
- * deliver at all, such as FSEvents on a volume it does not cover or a helper
- * that died, runs this out. The watch then fails, and its tracker's silence is
- * never read as proof again. Every delivery keeps validating against the
- * recorded state instead, so a slower answer costs a proof, never a stale
- * output.
+ * Expiry withdraws this observation's delivery authority, not proof that the
+ * backend can never deliver. Native latency, scheduling and unsupported
+ * coverage can all miss the threshold. Owners fail or mark unproven watches and
+ * retain state validation instead of treating timeout as acknowledgment; actual
+ * callback execution still depends on event-loop progress.
  */
 export const WATCH_PROBE_TIMEOUT_MS = 10_000;

@@ -1,11 +1,11 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/lib/launcher/internal/watch/watchDirectoryThroughFsWatch.js";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies project-input publication closes the snapshot-to-watcher handoff.
@@ -15,69 +15,88 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/lib/l
  * window, coalesce repeated publications, deduplicate a real event that wins
  * the race, and stay silent after close.
  *
- * 1. Swallow the startup event and recover the synchronous input change once.
- * 2. Let a backend event win the race without producing a duplicate.
- * 3. Close before reconciliation and prove the queued scan stays silent.
- * 4. Reject one root while a healthy root still completes its handoff scan.
- * 5. Materialize a symlink and retain both its declared and physical owners.
- * 6. Keep an unchanged republication from starting a polling-style rescan.
+ * 1. Swallow the startup event and recover the synchronous input change once, then
+ *    let a backend event win the race without a duplicate.
+ * 2. Close before reconciliation and prove the queued scan stays silent.
+ * 3. Reject one root while a healthy root still completes its handoff scan, and
+ *    materialize a symlink retaining both its declared and physical owners.
+ * 4. Keep an unchanged republication from starting a polling-style rescan.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Preserves startup recovery, event-first deduplication, close cancellation, uncovered versus healthy roots, newly materialized link owners and quiet unchanged republication.
+ * @evidence contracts/testing.md#independent-expectations Literal created input bytes, exact notification and handle counts, explicit rejected-root errors and distinct lexical/physical owners define the publication contract.
+ * @evidence contracts/testing.md#distinguishing-cases A republished unchanged snapshot reports one change and no extra watcher, while a file written after registration is found by the microtask scan when the backend is silent (swallowed startup) but reported only once when a backend event wins the race; closing before the scan reports nothing; a rejected (ENOSPC) external root leaves a healthy root reconciling and is reported as unavailable; a glob root that becomes a symlink gets a watcher on its physical target, which then delivers a later file. Native fs.watch timing is never exercised because every subscription is a fake watcher.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it drives the real WatchTopology.setProjectInputs and its recovery scheduling over TestProject.tmpdir files, with fake fs.watch subscriptions that record callbacks and close counts. No compiler refresh, native build, product host or real OS watcher is involved.
  */
-export const test_watch_topology_reconciles_project_inputs_after_registration =
-  async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-project-input-registration-");
-    fs.mkdirSync(path.join(root, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, "src", "main.ts"),
-      "export const value = 1;\n",
-      "utf8",
-    );
-    fs.writeFileSync(
-      path.join(root, "tsconfig.json"),
-      JSON.stringify({ files: ["src/main.ts"] }),
-      "utf8",
-    );
-    const originalWatch = fs.watch;
-    const callbacks: fs.WatchListener<string>[] = [];
-    const watchers: FakeWatcher[] = [];
+export async function test_watch_topology_reconciles_project_inputs_after_registration() {
+  const root = TestProject.tmpdir("ttsc-project-input-registration-");
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "src", "main.ts"),
+    "export const value = 1;\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    JSON.stringify({ files: ["src/main.ts"] }),
+    "utf8",
+  );
+  const callbacks: fs.WatchListener<string>[] = [];
+  const watchers: FakeWatcher[] = [];
 
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: ((
-        _location: fs.PathLike,
-        _options: fs.WatchOptions,
-        listener: fs.WatchListener<string>,
-      ) => {
-        callbacks.push(listener);
-        const watcher = new FakeWatcher();
-        watchers.push(watcher);
-        return watcher as unknown as fs.FSWatcher;
-      }) as typeof fs.watch,
-      writable: true,
-    });
+  const openFileWatch = ((
+    _location: fs.PathLike,
+    _options: fs.WatchOptions,
+    listener: fs.WatchListener<string>,
+  ) => {
+    callbacks.push(listener);
+    const watcher = new FakeWatcher();
+    watchers.push(watcher);
+    return watcher as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
+  const failures: Error[] = [];
+  for (const [name, run] of [
+    [
+      "swallowed startup",
+      () =>
+        verifySwallowedStartupEvent(root, callbacks, watchers, openFileWatch),
+    ],
+    [
+      "backend event wins",
+      () => verifyBackendEventWins(root, callbacks, openFileWatch),
+    ],
+    [
+      "close cancellation",
+      () => verifyCloseCancelsReconciliation(root, openFileWatch),
+    ],
+    [
+      "uncovered and healthy roots",
+      verifyUncoveredRootDoesNotDisableHealthyReconciliation,
+    ],
+    ["new physical owner", verifyReconciliationRegistersNewPhysicalOwner],
+  ] as const) {
     try {
-      await verifySwallowedStartupEvent(root, callbacks, watchers);
-      await verifyBackendEventWins(root, callbacks);
-      await verifyCloseCancelsReconciliation(root);
-    } finally {
-      Object.defineProperty(fs, "watch", {
-        configurable: true,
-        value: originalWatch,
-        writable: true,
-      });
+      await run();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
     }
-    await verifyUncoveredRootDoesNotDisableHealthyReconciliation();
-    await verifyReconciliationRegistersNewPhysicalOwner();
-  };
+  }
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "project-input registration scenarios failed",
+    );
+}
 
 async function verifySwallowedStartupEvent(
   root: string,
   callbacks: readonly fs.WatchListener<string>[],
   watchers: readonly FakeWatcher[],
+  openFileWatch: typeof fs.watch = fs.watch,
 ): Promise<void> {
   const changes: WatchInputChange[] = [];
   const input = path.join(root, "swallowed.md");
-  const topology = createTopology(root, changes);
+  const topology = createTopology(root, changes, openFileWatch);
   try {
     const snapshot = { files: [input], globs: [], root };
     topology.setProjectInputs(snapshot);
@@ -112,10 +131,11 @@ async function verifySwallowedStartupEvent(
 async function verifyBackendEventWins(
   root: string,
   callbacks: readonly fs.WatchListener<string>[],
+  openFileWatch: typeof fs.watch = fs.watch,
 ): Promise<void> {
   const changes: WatchInputChange[] = [];
   const input = path.join(root, "backend.md");
-  const topology = createTopology(root, changes);
+  const topology = createTopology(root, changes, openFileWatch);
   try {
     topology.setProjectInputs({ files: [input], globs: [], root });
     fs.writeFileSync(input, "{}\n", "utf8");
@@ -130,16 +150,23 @@ async function verifyBackendEventWins(
   }
 }
 
-async function verifyCloseCancelsReconciliation(root: string): Promise<void> {
+async function verifyCloseCancelsReconciliation(
+  root: string,
+  openFileWatch: typeof fs.watch = fs.watch,
+): Promise<void> {
   const changes: WatchInputChange[] = [];
   const input = path.join(root, "closed.md");
-  const topology = createTopology(root, changes);
-  topology.setProjectInputs({ files: [input], globs: [], root });
-  topology.close();
-  fs.writeFileSync(input, "{}\n", "utf8");
-  await Promise.resolve();
+  const topology = createTopology(root, changes, openFileWatch);
+  try {
+    topology.setProjectInputs({ files: [input], globs: [], root });
+    topology.close();
+    fs.writeFileSync(input, "{}\n", "utf8");
+    await Promise.resolve();
 
-  assert.deepEqual(changes, []);
+    assert.deepEqual(changes, []);
+  } finally {
+    topology.close();
+  }
 }
 
 async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise<void> {
@@ -149,28 +176,22 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
   );
   const healthyInput = path.join(root, "healthy.md");
   const unavailableInput = path.join(externalRoot, "unavailable.md");
-  const originalWatch = fs.watch;
   const changes: WatchInputChange[] = [];
   const errors: NodeJS.ErrnoException[] = [];
   const unavailable: string[][] = [];
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: ((location: fs.PathLike) => {
-      if (
-        fs.realpathSync.native(location) ===
-        fs.realpathSync.native(externalRoot)
-      ) {
-        const error = new Error(
-          "project-input watcher unavailable",
-        ) as NodeJS.ErrnoException;
-        error.code = "ENOSPC";
-        throw error;
-      }
-      return new FakeWatcher() as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+  const openFileWatch = ((location: fs.PathLike) => {
+    if (
+      fs.realpathSync.native(location) === fs.realpathSync.native(externalRoot)
+    ) {
+      const error = new Error(
+        "project-input watcher unavailable",
+      ) as NodeJS.ErrnoException;
+      error.code = "ENOSPC";
+      throw error;
+    }
+    return new FakeWatcher() as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
   const topology = new WatchTopology(
     {
@@ -192,7 +213,14 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
         );
       },
     },
-    watchDirectoryThroughFsWatch,
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
+    openFileWatch,
   );
   try {
     topology.setProjectInputs({
@@ -215,11 +243,6 @@ async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise
     assert.equal(unavailable[0]?.length, 1);
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
   }
 }
 
@@ -231,7 +254,6 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
   const link = path.join(root, "linked");
   const first = path.join(externalRoot, "first.md");
   const second = path.join(externalRoot, "second.md");
-  const originalWatch = fs.watch;
   const changes: WatchInputChange[] = [];
   const registrations: Array<{
     listener: fs.WatchListener<string>;
@@ -239,25 +261,21 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
     watcher: FakeWatcher;
   }> = [];
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: ((
-      location: fs.PathLike,
-      _options: fs.WatchOptions,
-      listener: fs.WatchListener<string>,
-    ) => {
-      const watcher = new FakeWatcher();
-      registrations.push({
-        listener,
-        location: fs.realpathSync.native(location),
-        watcher,
-      });
-      return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+  const openFileWatch = ((
+    location: fs.PathLike,
+    _options: fs.WatchOptions,
+    listener: fs.WatchListener<string>,
+  ) => {
+    const watcher = new FakeWatcher();
+    registrations.push({
+      listener,
+      location: fs.realpathSync.native(location),
+      watcher,
+    });
+    return watcher as unknown as fs.FSWatcher;
+  }) as typeof fs.watch;
 
-  const topology = createTopology(root, changes);
+  const topology = createTopology(root, changes, openFileWatch);
   try {
     topology.setProjectInputs({
       files: [],
@@ -269,6 +287,11 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
       externalRoot,
       link,
       process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
+    assert.equal(
+      fs.realpathSync.native(link),
+      fs.realpathSync.native(externalRoot),
     );
     await Promise.resolve();
 
@@ -291,11 +314,6 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
     ]);
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
   }
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
@@ -306,6 +324,8 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
 function createTopology(
   root: string,
   changes: WatchInputChange[],
+  openFileWatch: typeof fs.watch = fs.watch,
+  readDirectory: typeof fs.readdirSync = fs.readdirSync,
 ): WatchTopology {
   return new WatchTopology(
     {
@@ -323,8 +343,16 @@ function createTopology(
         throw new Error("project-input publication changed compiler topology");
       },
     },
-    // Every directory watch goes through the `fs.watch` this case replaces.
-    watchDirectoryThroughFsWatch,
+    // Every directory watch goes through the explicitly supplied subscription operation.
+    (location, recursive, listener) =>
+      watchDirectoryThroughFsWatch(
+        location,
+        recursive,
+        listener,
+        openFileWatch,
+      ),
+    openFileWatch,
+    readDirectory,
   );
 }
 

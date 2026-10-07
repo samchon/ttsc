@@ -1,0 +1,1 @@
+throw new Error("TTSC_TEST_PATTERN_RUNTIME_LOADED");

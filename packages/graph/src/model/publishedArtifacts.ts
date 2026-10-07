@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -9,133 +8,11 @@ import {
   resolveCapabilityPluginResolution,
 } from "ttsc";
 
+import { GraphProcessTrace } from "../internal/GraphProcessTrace";
+import type { IArtifactDirectory } from "./IArtifactDirectory";
+import type { IArtifactInputs } from "./IArtifactInputs";
+import type { IPublishedArtifacts } from "./IPublishedArtifacts";
 import { TtscLintDaemon } from "./TtscLintDaemon";
-
-/**
- * Ask the project's `@ttsc/lint` for the artifacts a citation can name, and
- * write them where `ttscgraph dump --artifacts` reads them.
- *
- * A project that configures no such plugin gets `file: null`, which is the
- * common case and not an error: the graph it produces is the graph it produced
- * before this existed, and the dump says so by not claiming the capability.
- *
- * ## Why this runs here and not in the compiler host
- *
- * The addresses a citation names — a Markdown anchor, `prisma:Sale.price`,
- * `POST:/orders` — are produced by parsers that live in the rule that owns
- * them, and re-deriving any of them in the graph producer would be a second
- * implementation of a published contract. So the units have to arrive from the
- * rule.
- *
- * They cannot arrive in-process. `ttscgraph` is the shipped per-platform
- * binary, never a per-project native host, so it can never have a linked
- * plugin; and `packages/lint` is its own Go module that deliberately carries no
- * requirement on the compiler host. What is left is the channel the host
- * already has: a plugin declares a capability and its sidecar answers a verb,
- * exactly as `lsp-hints` does. `resolveCapabilityPluginResolution` builds and
- * locates those sidecars, and it is the seam `ttscserver` already uses for
- * `capabilities.lsp`, published so a consumer outside the compiler can ask
- * too.
- *
- * Nothing here knows what `@ttsc/evidence` is. It asks a lint install for
- * whatever its configured rules published, and a project that configured none
- * gets an empty answer.
- *
- * @evidence contracts/common.md#principled-implementation Publication carries the sidecar's artifact file and the input identity captured before asking for artifacts, so later input changes can invalidate that answer.
- * @evidence contracts/common.md#clear-and-simple-design The result separates the producer exchange path, input inventory and freshness identity without embedding compiler Program state.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A null file states an absent publication, not an invented artifact set or a successful compiler capability claim.
- * @evidence contracts/common.md#meaningful-documentation Native member prose explains publication absence, independent document inputs and the fingerprint's ordering role.
- * @evidenceExclude contracts/performance.md#efficient-algorithms This result shape chooses no publication or fingerprint algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The session and freshness predicate decide continued publication reuse.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The publisher/session own exchange storage; the DTO transfers its path and witnesses.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This result describes a path; publisher assembly and freshness helpers own native filesystem access.
- */
-export interface IPublishedArtifacts {
-  /**
-   * Path to the JSON the native producer reads, or `null` when no configured
-   * plugin publishes one.
-   *
-   * `null` is a state rather than an absence, which is why it still carries
-   * {@link inputs}. A project that adds an evidence plugin while a session is
-   * running would otherwise never be reconsidered: nothing would be watched, so
-   * nothing could report that the answer had changed from "none" to "some".
-   */
-  file: string | null;
-
-  /**
-   * Everything the answer was derived from, as paths this process can state for
-   * itself.
-   *
-   * The artifacts describe documents the compiler's Program never read, so a
-   * source edit does not move them and a document edit does not move the code
-   * graph. Refreshing them is therefore a second invalidation with its own
-   * inputs, and these are those inputs.
-   */
-  inputs: IArtifactInputs;
-
-  /**
-   * The state of {@link inputs} when the answer was produced.
-   *
-   * Compared against a freshly taken one to decide whether the answer is stale.
-   * When it moved, nothing else in the session can tell: the compiler's own
-   * invalidation watches the build universe, and none of this is in it.
-   */
-  fingerprint: string;
-
-  /**
-   * Owning plugin discovery proof, including successful absence. Omitted by
-   * legacy callers, whose publication cannot establish discovery freshness.
-   */
-  discovery?: ITtscCapabilityPluginResolution;
-}
-
-/**
- * Paths an answer was derived from, split by how they are watched.
- *
- * @evidence contracts/common.md#principled-implementation Explicit files and watched directories represent edits and membership changes as distinct input populations.
- * @evidence contracts/common.md#clear-and-simple-design Two lists carry sidecar-declared provenance without a second glob interpreter or compiler dependency model.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts An input inventory does not assert complete discovery provenance for a missing publisher.
- * @evidence contracts/common.md#meaningful-documentation Native property prose identifies individual files and directories that notice additions and deletions.
- * @evidenceExclude contracts/performance.md#efficient-algorithms The inventory declares input populations; fingerprintInputs chooses their processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The inventory itself does not validate or coordinate publication reuse.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The publisher/session own inventory lifetime rather than this data shape.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Inventory paths are consumed by fingerprintInputs; this shape does not resolve or access them.
- */
-export interface IArtifactInputs {
-  /** Files stated one by one. */
-  files: string[];
-
-  /** Directories walked, which is what notices an added or deleted file. */
-  directories: IArtifactDirectory[];
-}
-
-/**
- * A directory watched on behalf of the pattern that named it.
- *
- * @evidence contracts/common.md#principled-implementation The absolute root and descent flag identify the conservative tree population needed to notice a declared pattern changing.
- * @evidence contracts/common.md#clear-and-simple-design A directory watch contains only its native root and traversal choice; resolved files remain in the separate file list.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The depth decision follows wildcard path structure rather than an arbitrary maximum documentation depth.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains the recursive distinction and why a bare filename wildcard does not require a repository-wide scan.
- * @evidenceExclude contracts/performance.md#efficient-algorithms watchedBy and fingerprintInputs own the selection and traversal that consume this descriptor.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This directory value coordinates no completed or in-flight work.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The descriptor owns no directory handle or retained task.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation The directory coordinate is a value; selection and fingerprinting own its native resolution and access.
- */
-export interface IArtifactDirectory {
-  /** Absolute path of the directory to walk. */
-  path: string;
-
-  /**
-   * Whether the walk descends.
-   *
-   * Taken from wildcard path structure rather than assumed, because assuming it
-   * is expensive in exactly the case that looks harmless: a rule declaring
-   * `*.md` has the project root for its fixed prefix, and treating that as
-   * recursive would state every file in the repository before every graph
-   * request.
-   */
-  recursive: boolean;
-}
 
 /**
  * Discover configured publishers and synchronously publish their artifact set.
@@ -207,8 +84,10 @@ export function publishArtifacts(options: {
  * @evidence contracts/portability.md#os-neutral-implementation The fallback preserves native argument-vector invocation and Node path resolution; daemon ownership uses the same cross-platform process boundary.
  */
 export async function publishArtifactsResident(
-  options: { cwd: string; tsconfig: string },
-  daemon: (plugin: ITtscCapabilityPlugin) => TtscLintDaemon | undefined,
+  options: { cwd: string; tsconfig: string; signal?: AbortSignal },
+  daemon: (
+    plugin: ITtscCapabilityPlugin,
+  ) => TtscLintDaemon | undefined | Promise<TtscLintDaemon | undefined>,
 ): Promise<IPublishedArtifacts> {
   const discovery = resolveCapabilityPluginResolution({
     capability: "graphNodes",
@@ -227,8 +106,8 @@ export async function publishArtifactsResident(
   // evaluation, which is most of the cost.
   const inputs = readInputs(
     await Promise.all(
-      plugins.map((plugin) =>
-        askVerb(plugin, "project-inputs", options, daemon(plugin), true),
+      plugins.map(async (plugin) =>
+        askVerb(plugin, "project-inputs", options, await daemon(plugin), true),
       ),
     ),
     options,
@@ -239,8 +118,8 @@ export async function publishArtifactsResident(
     inputs,
     fingerprint,
     await Promise.all(
-      plugins.map((plugin) =>
-        askVerb(plugin, "graph-nodes", options, daemon(plugin), false),
+      plugins.map(async (plugin) =>
+        askVerb(plugin, "graph-nodes", options, await daemon(plugin), false),
       ),
     ),
     discovery,
@@ -253,7 +132,7 @@ function runVerb(
   verb: string,
   options: { cwd: string; tsconfig: string },
 ): string | null {
-  const result = spawnSync(
+  const result = GraphProcessTrace.spawnSync(
     plugin.binary,
     [
       verb,
@@ -291,11 +170,13 @@ function runVerb(
 async function askVerb(
   plugin: ITtscCapabilityPlugin,
   verb: string,
-  options: { cwd: string; tsconfig: string },
+  options: { cwd: string; tsconfig: string; signal?: AbortSignal },
   daemon: TtscLintDaemon | undefined,
   invalidate: boolean,
 ): Promise<string | null> {
+  options.signal?.throwIfAborted();
   const served = await daemon?.ask(verb, invalidate);
+  options.signal?.throwIfAborted();
   return served ?? runVerb(plugin, verb, options);
 }
 
@@ -312,7 +193,8 @@ function assemble(
     if (output === null) continue;
     try {
       const parsed: unknown = JSON.parse(output);
-      if (Array.isArray(parsed)) published.push(...parsed);
+      if (Array.isArray(parsed))
+        for (const entryToAppend of parsed) published.push(entryToAppend);
     } catch {
       continue;
     }
@@ -575,7 +457,12 @@ export function fingerprintInputs(inputs: IArtifactInputs): string {
   const states = new Map<string, string>();
   for (const file of inputs.files) parts.push(stateOf(file, states));
   for (const directory of inputs.directories)
-    parts.push(...walkState(directory.path, directory.recursive, states));
+    for (const entryToAppend of walkState(
+      directory.path,
+      directory.recursive,
+      states,
+    ))
+      parts.push(entryToAppend);
   parts.sort();
   return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
@@ -638,7 +525,10 @@ function globRoot(pattern: string, cwd: string): string {
   const magic = pattern.search(GLOB_MAGIC);
   const head = magic < 0 ? pattern : pattern.slice(0, magic);
   const slash = Math.max(head.lastIndexOf("/"), head.lastIndexOf("\\"));
-  const root = slash < 0 ? "" : head.slice(0, slash);
+  const root =
+    slash < 0
+      ? ""
+      : head.slice(0, Math.max(slash, path.parse(head).root.length));
   return root === "" ? cwd : absolute(root, cwd);
 }
 
@@ -686,7 +576,13 @@ function walkState(
         states.push(stateOf(child, inputStates));
         continue;
       }
-      states.push(...walkState(child, recursive, inputStates, nextAncestors));
+      for (const entryToAppend of walkState(
+        child,
+        recursive,
+        inputStates,
+        nextAncestors,
+      ))
+        states.push(entryToAppend);
       continue;
     }
     states.push(stateOf(child, inputStates));

@@ -24,18 +24,23 @@ func (preambleEmitPlugin) SourcePreamble(driver.PluginContext) (string, error) {
 // plugin-transform emit path corrects a source map shifted by a source-level
 // preamble — the typia + @ttsc/banner combination.
 //
-// The preamble correction was first wired only into the utility host's WriteFile
-// (tsgo native emit). An executable-transform host emits through
-// EmitWithPluginTransformers instead, where a linked banner's preamble still
-// shifts the map. EmitWithPluginTransformers now runs AdjustEmittedSourceMap too;
-// without it every mapping would land four lines too deep. No test otherwise
-// exercises that block, so this is its only coverage.
+// The utility host's WriteFile (tsgo native emit) corrects the preamble shift,
+// but an executable-transform host emits through EmitWithPluginTransformer (a
+// wrapper over EmitWithPluginTransformers) instead, where a linked banner's
+// preamble would still shift the map. That emit corrects the map for the
+// preamble too; the authored-source coordinates otherwise retain that shift.
 //
 //  1. Register a SourcePreamblePlugin and load a `sourceMap` project, so the
 //     source is preamble-shifted by four lines and prog.SourcePreamble is set.
 //  2. Emit through EmitWithPluginTransformer with an identity transform.
-//  3. Decode the `.js.map` and assert the two authored statements map to source
-//     lines {0, 1}, not the shifted {4, 5}.
+//  3. Decode source-bearing `.js.map` segments and require their source lines
+//     in {0, 1} (not the shifted {4, 5}) and both authored lines represented.
+//     The test decoder ignores generated-column-only segments.
+//
+// @evidence contracts/testing.md#behavioral-verification Registers a real preamble plugin and emits through the actual identity-transform route, decoding source-map JSON/VLQ and requiring mappings to both authored zero/one lines and no shifted lines.
+// @evidence contracts/testing.md#independent-expectations Literal two authored lines and four injected lines independently establish permitted original mapping coordinates; test-local decoding does not call production map correction.
+// @evidence contracts/testing.md#distinguishing-cases Applied preamble presence plus nonempty mappings and both source-line controls prevent vacuous success from absent preamble or map output.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit executes actual registered plugin/compiler/emitter APIs with test-scoped manifest, private Program cleanup and local writes, without building a transform host.
 func TestEmitWithPluginTransformerCorrectsPreambleShift(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(preambleEmitPlugin{})

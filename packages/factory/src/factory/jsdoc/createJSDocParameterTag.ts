@@ -35,10 +35,6 @@ import { createIdentifier } from "../names/createIdentifier";
  * @param {number} x the x
  * ```
  *
- * @evidence contracts/common.md#principled-implementation Name, brackets, optional braced type and description map directly to the tag, while the name-order input is normalized to a boolean and an absent identifier defaults to param; no function correspondence is inferred.
- * @evidence contracts/common.md#clear-and-simple-design Independent bracket and ordering flags expose two separate syntax decisions beside reusable name and type nodes, without alternate flattened parameter formats.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Param and type-first ordering are documented defaults rather than known-argument special cases; caller signatures and foreign parameter tables are not changed.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains both ordering forms, bracket/type independence, retained nodes and unchecked executable correspondence; examples and parameter tags use separated paragraphs under the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `param`.
  * @param name The parameter name.
@@ -47,6 +43,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @param isNameFirst Whether the name was written before the type.
  * @param comment The trailing comment, if any.
  * @returns The created {@link JSDocParameterTag}.
+ * @evidence contracts/common.md#principled-implementation Name, brackets, optional braced type and description map directly to the tag, while the name-order input is normalized to a boolean and an absent identifier defaults to param; no function correspondence is inferred.
+ * @evidence contracts/common.md#clear-and-simple-design Independent bracket and ordering flags expose two separate syntax decisions beside reusable name and type nodes, without alternate flattened parameter formats.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Param and type-first ordering are documented defaults rather than known-argument special cases; caller signatures and foreign parameter tables are not changed.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains both ordering forms, bracket/type independence, retained nodes and unchecked executable correspondence; examples and parameter tags use separated paragraphs under the documentation guidance.
  */
 export const createJSDocParameterTag = (
   tagName: Identifier | undefined,

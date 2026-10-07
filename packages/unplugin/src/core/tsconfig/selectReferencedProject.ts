@@ -27,7 +27,6 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  *   re-route the file, whether an earlier project's `include` starts admitting
  *   it or a missing reference appears, so the caller registers them as watch
  *   inputs. When no project admits the file, that is every config searched.
- *
  * @evidence contracts/common.md#principled-implementation
  *   Nearest-project root admission wins, then depth-first declaration-order
  *   references. A visited set cuts cycles; rejected and missing configs remain
@@ -49,6 +48,22 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain solution configs and consulted negative choices;
  *   return prose tells callers why those rejected inputs still need watching.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A lexical visited set bounds reached graph operations by V configs and E
+ *   edges until the first admission. Depth drives recursion; path resolution,
+ *   nested native stat and delegated entry graph/read/hash/identity validation
+ *   add their actual input costs even on cached entries. Root matching follows
+ *   spec/path dimensions; explicit files after exclusion build a fresh policy
+ *   projection. Consulted insertion and returned arrays grow with observed
+ *   configs, inherited sources and unresolved candidates.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Repeated lexical references share the first search within this traversal.
+ *   Cross-call policy/reference reuse belongs to the selection-entry reader's
+ *   fresh input validation; this call does not claim an atomic filesystem view.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Visited/consulted state and recursion are call-local; returned config keys
+ *   transfer to the caller. Delegated entry-cache retention belongs to that
+ *   owner; the search retains no native handle or running task.
  */
 export function selectReferencedProject(
   file: string,

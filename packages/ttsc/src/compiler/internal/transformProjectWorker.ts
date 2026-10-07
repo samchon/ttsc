@@ -1,6 +1,6 @@
 /**
  * Entry of the worker threads {@link transformProjectInWorker} runs project
- * transforms on (samchon/ttsc#1391).
+ * transforms on.
  *
  * Each message is one {@link TransformProjectWorkerRequest}. The thread adopts
  * the request's environment, runs the synchronous transform, and answers with a

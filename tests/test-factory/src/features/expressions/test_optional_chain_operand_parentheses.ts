@@ -1,7 +1,10 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, SyntaxKind } from "@ttsc/factory";
 import ts from "ts-legacy";
 
+import factory, {
+  type Expression,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 import { assertOracle, wide } from "../../internal/oracle";
 
@@ -44,9 +47,9 @@ const legacyElementChain = (): ts.Expression =>
  * `a?.b()` re-parses the call _into_ the chain, so a nullish head stops
  * throwing and quietly evaluates to `undefined`; in `new`, tagged-template and
  * decorator position the same omission does not compile at all (TS1209, TS1358,
- * TS1146). Every expectation below is the legacy printer's own output for the
- * same tree, taken through the differential oracle rather than from this
- * printer.
+ * TS1146). Positive rows compare separately constructed legacy trees through
+ * the differential oracle; exact source literals additionally pin this
+ * printer's spacing and the negative controls.
  *
  * 1. Print each non-optional consumer over each optional-chain node kind.
  * 2. Assert the printed text means what the legacy printer's text means, and pin
@@ -54,6 +57,11 @@ const legacyElementChain = (): ts.Expression =>
  * 3. Assert the negative twins — a consumer that continues the same chain, and a
  *    postfix update, which the legacy parenthesizer does not guard — stay
  *    bare.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Consumers outside an optional chain wrap its operand, while continuing chains and ordinary-call controls remain bare.
+ * @evidence contracts/testing.md#independent-expectations Literal expectations plus independent ts-legacy trees and parser chain membership distinguish a?.b() from (a?.b)().
+ * @evidence contracts/testing.md#distinguishing-cases Eight operand rows, tagged/decorator routes and seven negative twins cover termination versus continuation rather than all-purpose wrapping.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_optional_chain_operand_parentheses. Runs the labeled tables with TsPrinter.print and assertOracle; each row label identifies its failure within this unit export.
  */
 export const test_optional_chain_operand_parentheses = (): void => {
   const rows: [string, Expression, ts.Expression, string][] = [

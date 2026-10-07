@@ -8,11 +8,16 @@
 // `!==`. One operand must be a `CallExpression` of the shape
 // `_.slice(0, N)` or `_.slice(-N)` (the `-N` form being a unary minus
 // over a numeric literal) and the other operand must be a string literal
-// whose text length matches N. Reports on the binary expression.
+// whose cooked JavaScript UTF-16 length matches N. The compiler string codec
+// preserves lone surrogate units; UTF-8 bytes and Unicode rune counts are not
+// the slice bound. Reports on the binary expression.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-string-starts-ends-with.md
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimstringutil "github.com/microsoft/typescript-go/shim/stringutil"
+)
 
 type unicornPreferStringStartsEndsWith struct{}
 
@@ -106,7 +111,21 @@ func unicornPreferStringStartsEndsWithMatches(callSide, literalSide *shimast.Nod
   if wantLen <= 0 {
     return false
   }
-  return len(stringLiteralText(literalSide)) == wantLen
+  text := stringLiteralText(literalSide)
+  units := 0
+  for len(text) > 0 {
+    symbol, size := shimstringutil.DecodeJSStringRune(text)
+    if size <= 0 {
+      return false
+    }
+    if symbol > 0xffff {
+      units += 2
+    } else {
+      units++
+    }
+    text = text[size:]
+  }
+  return units == wantLen
 }
 
 // unicornPreferStringStartsEndsWithDigits reports whether `text` is a

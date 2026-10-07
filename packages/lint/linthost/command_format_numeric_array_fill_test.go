@@ -1,0 +1,94 @@
+package linthost
+
+import "testing"
+
+// TestCommandFormatNumericArrayFill covers Prettier's concise "fill" layout
+// for arrays. The fill predicate accepts a nonempty array of numeric literals,
+// including signed literals and a single element. The overflowing numeric
+// fixture packs elements per line; string and identifier fixtures use ordinary
+// list breaking. Short numeric and singleton fixtures fit flat. Eight sources
+// are authored unchanged expectations and one has an authored rewrite; two
+// cases use the default width rather than 60. No independent formatter runs.
+//
+//  1. Format canonical numeric, signed-numeric, string, identifier, short and
+//     single-element arrays and `new Float32Array([...])` fills, and require
+//     them unchanged.
+//  2. Format a flat numeric array that overflows printWidth 60 and require the
+//     packed fill layout.
+//
+// @evidence contracts/testing.md#behavioral-verification Nine subcases run the in-process `format` command at printWidth 60 (two at the default width): numeric and signed-numeric arrays packed several per line, string and identifier arrays one per line, a short and a single-element numeric array flat, an overflowing flat numeric array rewritten to packed form, a numeric fill hugged in `new Float32Array([...])`, and a long fill wrapping over several lines.
+// @evidence contracts/testing.md#independent-expectations The complete authored unchanged literals and the one independent packed-output literal preserve element values, order, signs and surrounding bindings. Expected text is never computed from the formatter or an independent Prettier invocation.
+// @evidence contracts/testing.md#distinguishing-cases Numeric packed layouts contrast with nonnumeric string/identifier lists and fitting short/singleton numeric layouts; a flat singleton does not imply exclusion from the fill predicate. Only numeric_array_flat_reflows_to_fill starts from a layout that must change; the other eight are fixed points.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via the assertFormat helpers; no child process, built binary or installed consumer.
+func TestCommandFormatNumericArrayFill(t *testing.T) {
+  pw := map[string]any{"printWidth": 60}
+  t.Run("numeric_array_fills", func(t *testing.T) {
+    assertFormatUnchangedWithFormat(t, `const codes = [
+  79, 98, 106, 101, 99, 116, 70, 105, 108, 101, 83, 121,
+  115, 116, 101, 109, 80,
+];
+`, pw)
+  })
+  t.Run("signed_numeric_array_fills", func(t *testing.T) {
+    assertFormatUnchangedWithFormat(t, `const signed = [
+  -1, 2, -33, 44, -555, 66, -7, 88, -9, 100, -111, 22, -3,
+  4444, -5, 66, -777,
+];
+`, pw)
+  })
+  // negatives: string / identifier arrays do NOT fill — one per line.
+  t.Run("string_array_one_per_line", func(t *testing.T) {
+    assertFormatUnchangedWithFormat(t, `const names = [
+  "alphaValue",
+  "betaValueHere",
+  "gammaValue",
+  "deltaValueLong",
+  "epsilonV",
+];
+`, pw)
+  })
+  t.Run("identifier_array_one_per_line", func(t *testing.T) {
+    assertFormatUnchangedWithFormat(t, `const mixed = [
+  someIdentifier,
+  anotherIdentifierHere,
+  thirdIdentifierValue,
+  fourthIdentifierV,
+];
+`, pw)
+  })
+  // Short numeric and single-element arrays fit flat in these fixtures.
+  t.Run("small_numeric_array_flat", func(t *testing.T) {
+    assertFormatUnchangedWithFormat(t, "const small = [1, 2, 3];\n", pw)
+  })
+  t.Run("single_numeric_array_flat", func(t *testing.T) {
+    assertFormatUnchangedWithFormat(t, "const one = [123456789];\n", pw)
+  })
+  // a flat numeric array that overflows must reflow to the packed fill form.
+  t.Run("numeric_array_flat_reflows_to_fill", func(t *testing.T) {
+    assertFormatResultWithFormat(t,
+      "const codes = [79, 98, 106, 101, 99, 116, 70, 105, 108, 101, 83, 121, 115, 116, 101, 109, 80];\n",
+      `const codes = [
+  79, 98, 106, 101, 99, 116, 70, 105, 108, 101, 83, 121,
+  115, 116, 101, 109, 80,
+];
+`, pw)
+  })
+  // a numeric fill array hugged as the sole argument of a `new`: the brackets
+  // break and the fill packs inside the indented region. The flatten fix keeps
+  // a supposedly all-flat option from carrying a live (breakable) fill, which
+  // had produced `[1, 0, …, 1,\n0]` with the fill broken inside flat brackets.
+  t.Run("hugged_numeric_fill_breaks_brackets", func(t *testing.T) {
+    assertFormatUnchanged(t, `export const quadVertices = new Float32Array([
+  1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0,
+]);
+`)
+  })
+  // a long numeric fill wraps onto multiple packed lines at the default width.
+  t.Run("long_numeric_fill_wraps_multiple_lines", func(t *testing.T) {
+    assertFormatUnchanged(t, `const arr = [
+  1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+  17,
+];
+`)
+  })
+}

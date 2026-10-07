@@ -1,0 +1,17 @@
+package evidence
+
+const emptyPrismaScaffold = `generator client {
+  provider     = "prisma-client"
+  output       = "../../src/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+generator markdown {
+  provider = "prisma-markdown"
+  output   = "../../../../docs/ERD.md"
+}
+`

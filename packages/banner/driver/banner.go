@@ -24,13 +24,6 @@ func init() {
 // plugin implements driver.SourcePreamblePlugin for @ttsc/banner.
 type plugin struct{}
 
-var (
-  // linkConfigNodeModules is overridable in tests to avoid real symlink creation.
-  linkConfigNodeModules = linkNearestNodeModules
-  // writeConfigLoaderFile is overridable in tests to avoid real file I/O.
-  writeConfigLoaderFile = os.WriteFile
-)
-
 // frameworkKeys lists the tsconfig plugin-entry keys that the ttsc host
 // framework owns. They are accepted without error; all other keys are rejected.
 var frameworkKeys = map[string]struct{}{
@@ -99,17 +92,9 @@ func (plugin) SourcePreamble(ctx driver.PluginContext) (string, error) {
   return preamble, nil
 }
 
-// parseBanner resolves and formats banner text into a JSDoc block comment.
-// Trailing blank lines are stripped from the resolved text before formatting.
-func parseBanner(config map[string]any, cwd, tsconfigPath string) (string, error) {
-  return parseBannerWithReporter(config, cwd, tsconfigPath, nil)
-}
-
-func parseBannerWithReporter(config map[string]any, cwd, tsconfigPath string, reporter func(string)) (string, error) {
-  return parseBannerWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
-}
-
-// parseBannerWithReporters formats text while forwarding exact config witnesses.
+// parseBannerWithReporters resolves banner text and formats it as a JSDoc block
+// comment, stripping trailing blank lines first, while forwarding exact config
+// witnesses.
 // Optional incomplete reporters disclose unavailable public resolution observation
 // without deleting known witnesses or treating an evaluated value as a failure.
 func parseBannerWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string), incompleteReporters ...func()) (string, error) {
@@ -144,25 +129,17 @@ func sanitizeJSDocLine(line string) string {
   return strings.ReplaceAll(line, "*/", "* /")
 }
 
-// resolveBannerText extracts the banner text from the plugin config.
-// The config entry is validated first: only the "configFile" key (plus
+// resolveBannerTextWithReporters extracts the banner text from the plugin
+// config. The entry is validated first: only the "configFile" key (plus
 // framework keys) is accepted. When "configFile" is present its value is
-// resolved to an absolute path and loaded. When absent the upward-walk
-// discovery is used. Returns an error when the config is invalid or when
-// no banner text can be found.
+// resolved to an absolute path and loaded; when absent the upward-walk
+// discovery is used. Returns an error when the config is invalid or no banner
+// text can be found.
 //
-// The discovery base directory doubles as the resolution root the config
-// loader anchors its toolchain lookup on; see configToolAnchors.
-func resolveBannerText(config map[string]any, cwd, tsconfigPath string) (string, error) {
-  return resolveBannerTextWithReporter(config, cwd, tsconfigPath, nil)
-}
-
-func resolveBannerTextWithReporter(config map[string]any, cwd, tsconfigPath string, reporter func(string)) (string, error) {
-  return resolveBannerTextWithReporters(config, cwd, tsconfigPath, reporter, nil, nil)
-}
-
-// resolveBannerTextWithReporters keeps configuration value loading separate from
-// observation capability. Incomplete reports cannot restore a missing input proof.
+// The discovery base directory doubles as the resolution root the config loader
+// anchors its toolchain lookup on; see configToolAnchors. Configuration value
+// loading stays separate from observation capability: incomplete reports cannot
+// restore a missing input proof.
 func resolveBannerTextWithReporters(config map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter func(string, *string), realpathReporter func(string, *string), incompleteReporters ...func()) (string, error) {
   if err := validateBannerConfig(config); err != nil {
     return "", err
@@ -318,21 +295,6 @@ func tsconfigBaseDir(cwd, tsconfigPath string) string {
   return driver.PluginConfigBaseDir(cwd, tsconfigPath)
 }
 
-// loadBannerConfigFile loads and evaluates a banner config file, returning its
-// exported value as a Go any. A valid banner config exports an object with a
-// "text" string; the value is validated by bannerTextFromConfigValue. The file
-// must be named banner.config.{ts,cts,mts,js,cjs,mjs,json}; JS/CJS/MJS variants
-// run under Node, TypeScript variants compile and run via ttsx in a temp
-// directory, and JSON files are parsed natively.
-//
-// resolutionRoot is the project directory the TypeScript branch anchors its
-// toolchain resolution on when the config file's own ancestry answers nothing;
-// see configToolAnchors. The JSON and JS branches spawn no ttsx and ignore it.
-func loadBannerConfigFile(location, resolutionRoot string) (any, error) {
-  loaded, err := loadBannerConfigFileWithInputs(location, resolutionRoot)
-  return loaded.value, err
-}
-
 type bannerLoadedConfig struct {
   // complete concerns resolution capability; missing per-input proofs still signal instability.
   complete bool
@@ -343,6 +305,16 @@ type bannerLoadedConfig struct {
   value     any
 }
 
+// loadBannerConfigFileWithInputs loads and evaluates a banner config file and
+// returns its exported value with the input observations of the load. The file
+// must be named banner.config.{ts,cts,mts,js,cjs,mjs,json}; JS/CJS/MJS variants
+// run under Node, TypeScript variants compile and run via ttsx in a temp
+// directory, and JSON files are parsed natively. The value is validated by
+// bannerTextFromConfigValue, not here.
+//
+// resolutionRoot is the project directory the TypeScript branch anchors its
+// toolchain resolution on when the config file's own ancestry answers nothing;
+// see configToolAnchors. The JSON and JS branches spawn no ttsx and ignore it.
 func loadBannerConfigFileWithInputs(location, resolutionRoot string) (bannerLoadedConfig, error) {
   if !isBannerConfigFileName(filepath.Base(location)) {
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: config file must be named banner.config.{ts,cts,mts,js,cjs,mjs,json}: %s", location)
@@ -462,17 +434,10 @@ func isBannerConfigFileName(name string) bool {
   }
 }
 
-// loadBannerJSONConfigFile reads and JSON-parses a banner config file. A leading
-// UTF-8 BOM is stripped before parsing so files saved by Windows editors are
-// accepted. The parsed value must be an object with a non-empty "text" string.
-func loadBannerJSONConfigFile(location string) (any, error) {
-  body, err := os.ReadFile(location)
-  if err != nil {
-    return nil, fmt.Errorf("@ttsc/banner: read config file %s: %w", location, err)
-  }
-  return parseBannerJSONConfigFile(location, body)
-}
-
+// parseBannerJSONConfigFile parses a banner config file already read from
+// location. A leading UTF-8 BOM is stripped first so files saved by Windows
+// editors are accepted; object and text validation belong to
+// bannerTextFromConfigValue.
 func parseBannerJSONConfigFile(location string, body []byte) (any, error) {
   // Strip a leading UTF-8 BOM so files saved by Windows editors round
   // trip through json.Unmarshal without an opaque "invalid character" failure.
@@ -484,14 +449,9 @@ func parseBannerJSONConfigFile(location string, body []byte) (any, error) {
   return out, nil
 }
 
-// loadBannerScriptConfigFile evaluates a JS/CJS/MJS banner config file by
-// running a small Node.js loader script that dynamic-imports the file and
-// serializes its exported value to stdout as JSON.
-func loadBannerScriptConfigFile(location string) (any, error) {
-  loaded, err := loadBannerScriptConfigFileWithInputs(location)
-  return loaded.value, err
-}
-
+// loadBannerScriptConfigFileWithInputs evaluates a JS/CJS/MJS banner config file
+// by running a small Node.js loader script that dynamic-imports the file and
+// serializes its exported value, with the loader's input observations, to stdout.
 func loadBannerScriptConfigFileWithInputs(location string) (bannerLoadedConfig, error) {
   const script = `
 const { pathToFileURL } = require("node:url");
@@ -605,20 +565,15 @@ func decodeBannerConfigLoaderOutput(output []byte) (bannerLoadedConfig, error) {
   return bannerLoadedConfig{complete: *envelope.Complete, hashes: envelope.Hashes, inputs: envelope.Inputs, realpaths: envelope.Realpaths, value: value}, nil
 }
 
-// loadBannerTypeScriptConfigFile compiles and runs a TypeScript banner config
-// file using ttsx in a temp directory. A symlink to the nearest node_modules
-// is created so the config file can import its own dependencies. The ttsx
-// build runs with `--no-plugins` so evaluating the config never triggers the
+// loadBannerTypeScriptConfigFileWithInputs compiles and runs a TypeScript banner
+// config file using ttsx in a temp directory. A symlink to the nearest
+// node_modules is created so the config file can import its own dependencies. The
+// ttsx build runs with --no-plugins so evaluating the config never triggers the
 // host project's transform/check plugins against the loader tsconfig.
 //
-// Both tools this spawns — the launcher and the compiler handed to it — are
-// resolved from the project rather than from the process environment alone;
-// see configToolAnchors.
-func loadBannerTypeScriptConfigFile(location, resolutionRoot string) (any, error) {
-  loaded, err := loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot)
-  return loaded.value, err
-}
-
+// Both tools this spawns, the launcher and the compiler handed to it, are
+// resolved from the project rather than from the process environment alone; see
+// configToolAnchors.
 func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (bannerLoadedConfig, error) {
   tempDir, err := os.MkdirTemp(loaderTempBase(location, os.TempDir()), "ttsc-banner-config-")
   if err != nil {
@@ -626,27 +581,11 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
   }
   defer os.RemoveAll(tempDir)
 
-  if err := linkConfigNodeModules(tempDir, filepath.Dir(location)); err != nil {
-    return bannerLoadedConfig{}, err
-  }
-
-  loader := filepath.Join(tempDir, "loader.mts")
-  tsconfig := filepath.Join(tempDir, "tsconfig.json")
-  importSpecifier, err := relativeImportSpecifier(tempDir, location)
+  loader, tsconfig, err := prepareBannerTypeScriptConfigLoader(
+    tempDir, location, linkNearestNodeModules, os.WriteFile,
+  )
   if err != nil {
     return bannerLoadedConfig{}, err
-  }
-  importLiteral, _ := json.Marshal(importSpecifier)
-  recorder := filepath.Join(tempDir, "ttsc-resolution-inputs.cjs")
-  if err := writeConfigLoaderFile(recorder, []byte(resolutioninputs.Recorder), 0o644); err != nil {
-    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader: %w", err)
-  }
-  recorderLiteral, _ := json.Marshal(recorder)
-  if err := writeConfigLoaderFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral), string(recorderLiteral))), 0o644); err != nil {
-    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader: %w", err)
-  }
-  if err := writeConfigLoaderFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
-    return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: write config loader tsconfig: %w", err)
   }
 
   args := []string{
@@ -685,6 +624,48 @@ func loadBannerTypeScriptConfigFileWithInputs(location, resolutionRoot string) (
     return bannerLoadedConfig{}, fmt.Errorf("@ttsc/banner: parse TypeScript config file %s output: %w", location, err)
   }
   return loaded, nil
+}
+
+// prepareBannerTypeScriptConfigLoader owns the ordered preparation needed before
+// the loader process can start: dependency links, resolution recorder, generated
+// loader and tsconfig. Its caller supplies the invocation's filesystem operations
+// explicitly and retains directory lifetime ownership. The native caller supplies
+// linkNearestNodeModules and os.WriteFile; no mutable process-global hooks exist.
+//
+// A failed operation returns immediately with its original error context and
+// never admits the process with partial preparation. Each fixed file is written
+// once, native paths are joined through filepath, and helpers retain no state
+// across invocations. I/O failure decisions can be verified at this owner without
+// claiming that supplied callbacks establish actual kernel link capabilities.
+func prepareBannerTypeScriptConfigLoader(
+  tempDir, location string,
+  linkNodeModules func(string, string) error,
+  writeFile func(string, []byte, os.FileMode) error,
+) (string, string, error) {
+  if err := linkNodeModules(tempDir, filepath.Dir(location)); err != nil {
+    return "", "", err
+  }
+
+  loader := filepath.Join(tempDir, "loader.mts")
+  tsconfig := filepath.Join(tempDir, "tsconfig.json")
+  importSpecifier, err := relativeImportSpecifier(tempDir, location)
+  if err != nil {
+    return "", "", err
+  }
+  importLiteral, _ := json.Marshal(importSpecifier)
+  recorder := filepath.Join(tempDir, "ttsc-resolution-inputs.cjs")
+  if err := writeFile(recorder, []byte(resolutioninputs.Recorder), 0o644); err != nil {
+    return "", "", fmt.Errorf("@ttsc/banner: write config loader: %w", err)
+  }
+  recorderLiteral, _ := json.Marshal(recorder)
+  if err := writeFile(loader, []byte(bannerTypeScriptConfigLoaderSource(string(importLiteral), string(recorderLiteral))), 0o644); err != nil {
+    return "", "", fmt.Errorf("@ttsc/banner: write config loader: %w", err)
+  }
+  if err := writeFile(tsconfig, []byte(typeScriptConfigLoaderTsconfig(loader, location, tempDir)), 0o644); err != nil {
+    return "", "", fmt.Errorf("@ttsc/banner: write config loader tsconfig: %w", err)
+  }
+
+  return loader, tsconfig, nil
 }
 
 // bannerTypeScriptConfigLoaderSource returns the source of a TypeScript loader
@@ -1178,13 +1159,6 @@ func nodePlatformPairFor(goos, goarch string) (string, string) {
     arch = "ppc64"
   }
   return platform, arch
-}
-
-// ttsxCommand builds an exec.Cmd that runs ttsx with the given args.
-// When the resolved launcher has a script extension (.js, .ts, …) the binary is
-// invoked via the Node runtime so it is executed correctly on all platforms.
-func ttsxCommand(anchors []string, args ...string) *exec.Cmd {
-  return ttsxCommandContext(context.Background(), anchors, args...)
 }
 
 // ttsxCommandContext is the context-bound variant used by config loaders. It

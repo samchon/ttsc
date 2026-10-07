@@ -5,32 +5,38 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
 import { RuntimeFilesystem } from "./RuntimeFilesystem";
 
 /**
- * The module format (ES module or CommonJS) of a TypeScript file, decided the
- * way TypeScript-Go decided it when it emitted the file.
+ * The runtime's module format (ES module or CommonJS) for a TypeScript file.
+ * For supported checked-project settings, classification follows the pinned
+ * TypeScript-Go emit precedence; unowned sources use this runtime's nearest
+ * package-scope policy, not a full Node loader validation or syntax detector.
  *
  * The runtime serves compiled JavaScript under the `.ts` URL, and Node must be
  * told the format of that JavaScript. Guessing from the text would disagree
  * with the emit whenever a file's syntax and its configuration differ, so the
  * answer comes from the extension, the owning project's options, and the
- * package `type`, in tsgo's own order.
+ * package `type`, in the supported emit order. Unreadable or malformed present
+ * manifests use CommonJS/no-declaration here rather than reporting a package
+ * parse error; cached scope observations are not invalidated by later
+ * mutation.
  *
- * @evidence contracts/common.md#principled-implementation Extension, source-shipping dependency package declaration and effective compiler module/target determine format in the upstream emit order; only an unowned raw source falls back entirely to Node's package rule.
+ * @evidence contracts/common.md#principled-implementation Extension, dependency package declaration and effective module/target determine supported checked-emit format in pinned upstream order; unowned sources use the runtime's nearest-scope CommonJS fallback policy without claiming full Node loader equivalence.
  * @evidence contracts/common.md#clear-and-simple-design One classifier owns format policy with private option normalization and package-scope lookup helpers, keeping hooks from independently guessing authored syntax.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Documented compiler precedence replaces source-text sniffing; node_modules is the upstream package-metadata boundary rather than a hardcoded consumer exception.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain emit-versus-source format, package override scope and defaults; private comments identify upstream premises and cache behavior following the documentation skill.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain supported emit precedence, unowned-source and malformed-manifest policy, package override scope and cache invalidation limits.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.dirname/fs select package scopes; node_modules matching is upstream's exact protocol segment rather than a guessed filesystem case policy.
- * @evidence contracts/performance.md#efficient-algorithms One package-scope walk costs ancestor depth and manifest bytes and fills every traversed directory; both Node-default and explicit-declaration requests then use the same constant-time scope lookup.
- * @evidence contracts/performance.md#reuse-equivalent-work One cached scope observation shares package lookup and JSON validation across both format decisions under the process's Node module snapshot; changing package metadata after module loading begins is not a supported live reconfiguration boundary.
- * @evidence contracts/performance.md#bound-retention-and-release-resources packageTypeCache retains one answer per visited directory until process exit, growing with encountered package scopes without an eviction quota while loaded modules retain their format decisions.
+ * @evidence contracts/performance.md#efficient-algorithms Classification processes filename/option text; uncached scope lookup walks ancestor paths with native stat/read and uncapped JSON-byte costs, then fills visited directory keys. Cached scope map access avoids new native reads but still processes path keys; no fixed wrapper count bounds native latency.
+ * @evidence contracts/performance.md#reuse-equivalent-work This module instance shares its first scope observation across default and explicit-declaration decisions. No watcher or invalidation revisits a changed manifest, so reuse relies on the caller's stable package-scope premise rather than tracking Node's independent loader state.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources packageTypeCache retains directory-key text and shared scope answers without eviction while this module instance remains reachable, growing with observed scopes. Native reads retain no descriptor, and this cache does not own loaded modules or their release.
  */
 export namespace RuntimeModuleFormat {
   /**
-   * Decide the module format the way Node and tsgo do — from configuration,
-   * never by sniffing the emitted text.
+   * Classify supported checked emit from configuration and package scope, never
+   * by sniffing emitted text or validating the full Node loader contract.
    *
    * The file extension is authoritative first (`.mts`/`.mjs` → module,
-   * `.cts`/`.cjs` → commonjs), exactly as tsgo's
-   * `getImpliedNodeFormatForEmitWorker` checks it ahead of everything else.
+   * `.cts`/`.cjs` → commonjs): tsgo records these in
+   * `GetImpliedNodeFormatForFile`, then its emit worker consumes that metadata
+   * or preserves the explicit extension for non-node module kinds.
    *
    * After that the decision belongs to the project that emitted the file, so
    * `options` is the whole compiler-option pair tsgo consults, not just
@@ -41,18 +47,19 @@ export namespace RuntimeModuleFormat {
    * `type` for every module kind. Otherwise only the `node*` family defers to
    * the nearest package `type`.
    *
-   * `options` is `null` for a file no tsconfig owns at all — a raw `.ts`
-   * shipped under `node_modules`. Nothing emitted it, so Node's own rule is the
-   * only rule there is, and the package `type` decides.
+   * `options` is `null` when the caller has no recorded checked preparation for
+   * the file, as in the orphan-source lane. The runtime's package-scope policy
+   * applies: supported `type` decides, otherwise CommonJS is returned,
+   * including a present unreadable/malformed manifest.
    *
    * @evidence contracts/common.md#principled-implementation Authoritative extension wins, then a node_modules package's explicit declaration, then the owning compiler's effective kind and node-family scope rule; this preserves the format of checked emit instead of treating absent module as an unowned file.
    * @evidence contracts/common.md#clear-and-simple-design The ordered classifier delegates package lookup and option defaulting to focused private helpers while keeping precedence visible in one function.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No source sniffing or project-specific exception supplies a format; package overrides are constrained by the actual upstream source metadata boundary.
-   * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain extension precedence, compiler defaults, dependency overrides and null ownership rather than conflating those cases.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain supported extension/options precedence, dependency overrides and null ownership, including the runtime's CommonJS malformed-manifest fallback rather than certifying all Node loader behavior.
    * @evidence contracts/portability.md#os-neutral-implementation Native ancestor traversal locates manifests; exact extension and node_modules protocol spelling are distinguished from filesystem case sensitivity.
-   * @evidence contracts/performance.md#efficient-algorithms Fixed option classification follows at most one ancestor package walk; every traversed directory shares its scope answer, including parsed explicit declarations, so repeat classifications avoid manifest reads.
-   * @evidence contracts/performance.md#reuse-equivalent-work Both explicit-declaration and Node-default consumers share one nearest-scope observation under the running Node module snapshot; unrelated project options still classify independently from that shared package fact.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Native reads are synchronous and leave no handle; package-scope answers remain in the namespace map for the process lifetime and grow with visited directories.
+   * @evidence contracts/performance.md#efficient-algorithms Filename suffix/segment and option normalization process their text; at most one uncached ancestor scope walk adds native stat/read, manifest bytes and visited path-key storage. Both scope questions share the map answer, avoiding repeat native reads without making path work or latency constant.
+   * @evidence contracts/performance.md#reuse-equivalent-work Explicit-declaration and default consumers share the instance's first nearest-scope observation under stable package metadata; later filesystem mutation does not invalidate that answer, and owning project options still classify independently.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Native reads leave no retained handle; the namespace retains observed directory keys and scope answers without eviction while its instance remains reachable. Per-walk ancestor chains and decoded manifest data are temporary; this operation does not own emitted artifact storage.
    */
   export function moduleFormat(
     filename: string,
@@ -88,11 +95,9 @@ export namespace RuntimeModuleFormat {
       return "commonjs";
     }
     // Everything that remains (es2015 … esnext, and `preserve`, which keeps the
-    // authored ESM syntax verbatim whatever the package `type` says) is emitted
-    // as ECMAScript modules. `amd`, `umd`, and `system` are not among them:
-    // TypeScript 7 removed all three, so a project declaring one cannot build,
-    // and a file it would have owned reaches the run through the orphan lane
-    // instead.
+    // authored ESM syntax verbatim) classifies as ECMAScript modules for
+    // supported project settings. This helper does not validate unsupported
+    // module values or certify that such a project reached successful emit.
     return "module";
   }
 
@@ -181,7 +186,7 @@ export namespace RuntimeModuleFormat {
 
   /**
    * One nearest package-scope observation for both format decisions. Values
-   * remain stable for the process's Node module snapshot.
+   * remain cached within this module instance without filesystem invalidation.
    */
   interface PackageScope {
     /** Node's format when this scope owns an otherwise unclassified file. */
@@ -258,8 +263,8 @@ export namespace RuntimeModuleFormat {
    * The `"type"` the nearest `package.json` states outright, or `null` when the
    * nearest manifest omits it (or there is none).
    *
-   * `nearestPackageType` answers "what format would Node use", which defaults a
-   * silent manifest to CommonJS. This answers the narrower question "did a
+   * `nearestPackageType` applies the runtime's CommonJS default to a silent or
+   * unreadable/malformed manifest. This answers the narrower question "did a
    * package actually say", which is what an override has to be built on: a
    * manifest that says nothing must not out-vote the compiling project's own
    * `module` option.

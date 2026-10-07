@@ -1,0 +1,65 @@
+package linthost
+
+import (
+  "strings"
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
+// TestEngineDirectiveRecordsUnknownRuleInUnknownChannel verifies that a
+// `// eslint-disable-next-line <unknown>` directive surfaces its
+// unresolved rule name through `Engine.UnknownRules()` instead of
+// silently no-opping.
+//
+// The legacy `@typescript-eslint/<id>` prefix is not a supported alias:
+// its unresolved name enters the unknown-rule channel and its suppression
+// has no effect on the canonical `typescript/<id>` rule.
+// Without surfacing that name, the user cannot tell their suppression is
+// dead. The diagnostic shares the same `UnknownRules()` channel the
+// config layer uses, so existing CLI warning paths display it without
+// extra wiring.
+//
+//  1. Enable `typescript/no-explicit-any`.
+//  2. Parse a file with a legacy `@typescript-eslint/no-explicit-any`
+//     disable directive plus an unknown `garbage/no-such-rule` one.
+//  3. Run the engine.
+//  4. Assert both unknown directive names appear in `UnknownRules()`.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine.Run preserves both no-explicit-any errors while UnknownRules exposes both unresolved directive names in sorted order.
+// @evidence contracts/testing.md#independent-expectations Literal legacy and garbage names define the warning channel, and literal annotation offsets prove neither unknown directive suppresses a real finding.
+// @evidence contracts/testing.md#distinguishing-cases Two different unknown names and two covered violations distinguish warning collection, ordering and ineffective suppression from silently dropping diagnostics.
+// @evidence contracts/testing.md#execution-ownership Direct NewEngine and Engine.Run consume this literal virtual source in one Go process; this selectable entry inspects returned Finding objects and the actual UnknownRules warning channel, without CLI warning rendering, native compilation or installation.
+func TestEngineDirectiveRecordsUnknownRuleInUnknownChannel(t *testing.T) {
+  engine := NewEngine(RuleConfig{"typescript/no-explicit-any": SeverityError})
+  source := `
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const skipped: any = 1;
+    // eslint-disable-next-line garbage/no-such-rule
+    const other: any = 2;
+  `
+  file := parseTS(t, source)
+  findings := engine.Run([]*shimast.SourceFile{file}, nil)
+  if len(findings) != 2 {
+    t.Fatalf("unknown directives changed finding count: %+v", findings)
+  }
+
+  unknown := engine.UnknownRules()
+  if len(unknown) != 2 {
+    t.Fatalf("want 2 unknown directive names, got %d: %v", len(unknown), unknown)
+  }
+  // UnknownRules sorts the merged list alphabetically.
+  if unknown[0] != "@typescript-eslint/no-explicit-any" {
+    t.Errorf("want unknown[0] = @typescript-eslint/no-explicit-any, got %q", unknown[0])
+  }
+  if unknown[1] != "garbage/no-such-rule" {
+    t.Errorf("want unknown[1] = garbage/no-such-rule, got %q", unknown[1])
+  }
+  expected := []int{strings.Index(source, "const skipped: any") + len("const skipped: "), strings.Index(source, "const other: any") + len("const other: ")}
+  for i, pos := range expected {
+    finding := findings[i]
+    if finding.File != file || finding.Rule != "typescript/no-explicit-any" || finding.Severity != SeverityError || finding.Pos != pos || finding.End != pos+3 {
+      t.Fatalf("finding %d: want canonical any error at [%d,%d), got %+v", i, pos, pos+3, finding)
+    }
+  }
+}

@@ -15,6 +15,8 @@ import { make } from "../internal/make";
  * </>
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @returns The created {@link JsxClosingFragment}.
  * @evidence contracts/common.md#principled-implementation
  *   JsxClosingFragment denotes the fixed </> boundary and uses the upstream
  *   factory's exact createJsxJsxClosingFragment name, without a tag name or a
@@ -31,9 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies the closing delimiter and pairing constructor,
  *   with a standalone example and its returned node type documented.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @returns The created {@link JsxClosingFragment}.
  */
 export const createJsxJsxClosingFragment = (): JsxClosingFragment =>
   make("JsxClosingFragment", {});

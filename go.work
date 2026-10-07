@@ -1,0 +1,32 @@
+go 1.26
+
+use (
+	./packages/banner
+	./packages/evidence
+	./packages/lint
+	./packages/paths
+	./packages/strip
+	./packages/ttsc
+	./packages/ttsc/shim/ast
+	./packages/ttsc/shim/astnav
+	./packages/ttsc/shim/bundled
+	./packages/ttsc/shim/checker
+	./packages/ttsc/shim/compiler
+	./packages/ttsc/shim/core
+	./packages/ttsc/shim/diagnosticwriter
+	./packages/ttsc/shim/lsp
+	./packages/ttsc/shim/parser
+	./packages/ttsc/shim/printer
+	./packages/ttsc/shim/scanner
+	./packages/ttsc/shim/stringutil
+	./packages/ttsc/shim/transformers
+	./packages/ttsc/shim/tsoptions
+	./packages/ttsc/shim/tspath
+	./packages/ttsc/shim/vfs
+	./packages/ttsc/shim/vfs/cachedvfs
+	./packages/ttsc/shim/vfs/osvfs
+	./packages/ttsc/tools/gen_shims
+	./packages/ttsc/tools/shim_audit
+	./packages/wasm
+	./website/compiler
+)

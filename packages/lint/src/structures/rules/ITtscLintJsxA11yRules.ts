@@ -53,10 +53,9 @@ export interface ITtscLintJsxA11yRules {
   "jsx-a11y/anchor-is-valid"?: TtscLintRuleSetting;
 
   /**
-   * Require `tabIndex` on any element carrying `aria-activedescendant` unless
-   * the tag is already focusable by default (`<input>`, etc.) — the
-   * composite-widget host must keep document focus for the descendant id to do
-   * anything.
+   * Require an explicit tabIndex on elements carrying aria-activedescendant,
+   * including natively focusable tags. Elements with a spread are skipped
+   * because the attribute may arrive through it.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/aria-activedescendant-has-tabindex.md
    */
@@ -72,10 +71,9 @@ export interface ITtscLintJsxA11yRules {
   "jsx-a11y/aria-props"?: TtscLintRuleSetting;
 
   /**
-   * Validate literal values supplied to ARIA properties against the type the
-   * spec declares for them — e.g. `aria-checked` must be one of `true`,
-   * `false`, `"mixed"`, and `aria-hidden="yes"` is rejected because the type is
-   * boolean.
+   * Validate the native subset of boolean, tristate, and integer ARIA values —
+   * e.g. `aria-checked` must be one of `true`, `false`, `"mixed"`, and
+   * `aria-hidden="yes"` is rejected because the type is boolean.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/aria-proptypes.md
    */
@@ -142,10 +140,9 @@ export interface ITtscLintJsxA11yRules {
   "jsx-a11y/html-has-lang"?: TtscLintRuleSetting;
 
   /**
-   * Require every `<iframe>` JSX element to declare a non-empty, unique `title`
-   * so assistive tech can announce the embedded content. Empty strings,
-   * booleans, numbers, and `{...spread}` without a literal title are all
-   * flagged.
+   * Require a known, nonempty title value on iframe JSX elements without a
+   * spread. The native check does not compare title uniqueness and skips
+   * elements carrying a spread.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/iframe-has-title.md
    */
@@ -178,18 +175,18 @@ export interface ITtscLintJsxA11yRules {
 
   /**
    * Deprecated predecessor of `label-has-associated-control`. Checks the same
-   * nesting / `htmlFor` association requirement and supports configuring which
-   * custom components count as labels. Off in `recommended`; kept only for
-   * legacy configs.
+   * nesting / htmlFor presence requirement. The native alias exposes no custom
+   * label-component options and does not verify the referenced control id.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/label-has-for.md
    */
   "jsx-a11y/label-has-for"?: TtscLintRuleSetting;
 
   /**
-   * Require the `<html lang>` value to be a valid IETF BCP-47 tag (`"en"`,
-   * `"en-US"`, ...). Superset of `html-has-lang`, since it also catches
-   * present-but-invalid tags like `lang="foo"`.
+   * Validate present, statically known html lang values with the pinned Go
+   * language parser, rejecting unsupported literal shapes and surrounding
+   * whitespace. Missing lang is left to html-has-lang; dynamic values are
+   * generally not validated.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/lang.md
    */
@@ -254,7 +251,7 @@ export interface ITtscLintJsxA11yRules {
 
   /**
    * Reject interaction event handlers (`onClick`, `onKeyDown`) placed on known
-   * non-interactive elements without a role override.
+   * non-interactive elements, even when a role attribute is present.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/no-noninteractive-element-interactions.md
    */
@@ -285,8 +282,9 @@ export interface ITtscLintJsxA11yRules {
   "jsx-a11y/no-redundant-roles"?: TtscLintRuleSetting;
 
   /**
-   * Require static elements with interaction handlers to declare an interactive
-   * `role`.
+   * Require a role attribute on recognized static elements with interaction
+   * handlers. This check accepts attribute presence without validating that the
+   * supplied role is interactive.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/main/docs/rules/no-static-element-interactions.md
    */

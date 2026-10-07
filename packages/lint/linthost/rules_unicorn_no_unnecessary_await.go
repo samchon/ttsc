@@ -1,15 +1,12 @@
-// unicorn/no-unnecessary-await: `await x` only changes anything when
-// `x` is thenable; awaiting a value that the language guarantees is
-// not a promise (a literal, an object/array literal, the result of a
-// non-async constructor call, etc.) just costs one extra microtask and
-// reads as if the author forgot what type they were holding.
+// unicorn/no-unnecessary-await reports ordinary literal values whose await
+// typically only adds a scheduling boundary. Removing await can change task
+// ordering even for a primitive. Object/array/RegExp literal classification
+// assumes unchanged built-in prototypes; own then or unknown object properties
+// and prototype setters are excluded because they can introduce thenables.
 //
-// AST-only minimum-viable port: visit each `AwaitExpression` and only
-// fire when the operand (after `stripParens`) is a node whose value the
-// parser already pins as not-thenable: a string/number/bigint/regex
-// literal, a template literal, an array or object literal, `true`,
-// `false`, or `null`. Without type information, identifiers and
-// function calls are unsafe to flag — their values can be promises.
+// AST-only: primitive literals and ordinary array/RegExp literals are reported.
+// Object literals require known properties without then, computed names,
+// spreads or __proto__. Unknown identifiers and calls are left alone.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-await.md
 package linthost
 
@@ -40,10 +37,39 @@ func (unicornNoUnnecessaryAwait) Check(ctx *Context, node *shimast.Node) {
     shimast.KindTrueKeyword,
     shimast.KindFalseKeyword,
     shimast.KindNullKeyword,
-    shimast.KindArrayLiteralExpression,
-    shimast.KindObjectLiteralExpression:
+    shimast.KindArrayLiteralExpression:
     ctx.Report(node, "Don't `await` a non-thenable expression.")
+  case shimast.KindObjectLiteralExpression:
+    if unicornAwaitObjectHasKnownPlainProperties(operand) {
+      ctx.Report(node, "Don't `await` a non-thenable expression.")
+    }
   }
+}
+
+// unicornAwaitObjectHasKnownPlainProperties excludes then, prototype setters,
+// spreads and computed names, which can give an object literal thenable behavior.
+func unicornAwaitObjectHasKnownPlainProperties(node *shimast.Node) bool {
+  object := node.AsObjectLiteralExpression()
+  if object == nil || object.Properties == nil {
+    return object != nil
+  }
+  for _, property := range object.Properties.Nodes {
+    if property.Kind == shimast.KindSpreadAssignment {
+      return false
+    }
+    name := property.Name()
+    if name == nil || name.Kind == shimast.KindComputedPropertyName {
+      return false
+    }
+    text := identifierText(name)
+    if name.Kind == shimast.KindStringLiteral {
+      text = stringLiteralText(name)
+    }
+    if text == "then" || text == "__proto__" {
+      return false
+    }
+  }
+  return true
 }
 
 func init() {

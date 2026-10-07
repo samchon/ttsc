@@ -2,10 +2,11 @@
   "private": true,
   "name": "@ttsc/test-ttsc",
   "version": "0.30.4",
-  "description": "Compiler, API, plugin host, platform, and utility plugin integration tests for ttsc.",
+  "description": "Unit tests for ttsc source operations.",
   "type": "module",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+    "start": "node --import ../../config/register-unit-loader.mjs src/index.ts",
+    "evidence": "evidence"
   },
   "devDependencies": {
     "@ttsc/banner": "workspace:*",

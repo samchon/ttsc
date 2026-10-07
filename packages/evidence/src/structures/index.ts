@@ -11,3 +11,7 @@ export * from "./ITtscEvidenceGraphReferenceBase";
 export * from "./ITtscEvidenceGraphSwaggerReference";
 export * from "./ITtscEvidenceGraphTypeScriptClaim";
 export * from "./ITtscEvidenceGraphTypeScriptReference";
+export * from "./ITtscEvidenceRules";
+export * from "./TtscEvidenceGraphMarkdownSymbol";
+export * from "./TtscEvidenceGraphPrismaSymbol";
+export * from "./TtscEvidenceGraphTypeScriptSymbol";

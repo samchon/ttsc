@@ -1,0 +1,1 @@
+{"extends":"../../native-lint-config/tsconfig.json","include":[],"files":["../../native-lint-config/src/discovery.ts","../../native-lint-config/next-env.d.ts","../../native-lint-config/.next/types/generated.ts"]}

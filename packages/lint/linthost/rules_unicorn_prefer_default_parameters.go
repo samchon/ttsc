@@ -1,19 +1,11 @@
-// unicorn/prefer-default-parameters: the legacy pattern of reassigning
-// an undefined-or-falsy parameter to a literal at the top of a function
-// body (`name = name ?? "guest"`) has been redundant since ES2015. A
-// default-parameter expression (`name = "guest"`) covers the same case,
-// reads as exactly what it means, and avoids both the visual noise and
-// the missed-edit risk of keeping the name in three places.
+// unicorn/prefer-default-parameters reports a first-statement parameter
+// assignment of the form `name = name ?? literal`. It is a style suggestion,
+// not an equivalent rewrite: the assignment handles null and undefined,
+// while a parameter default handles only undefined. Authors must decide
+// whether changing the null policy is intended. No edit is supplied.
 //
-// AST-only: visit every function-like declaration. Fire when the first
-// body statement is `<param> = <param> ?? <literal>` — an
-// `ExpressionStatement` containing an `=` `BinaryExpression` whose LHS
-// is a bare identifier matching a parameter name, and whose RHS is a
-// `??` `BinaryExpression` whose LHS is the same identifier and whose
-// RHS is a primitive literal. The rule is conservative on purpose: it
-// stays away from `||` (which has different semantics for falsy
-// non-undefined values) and the explicit-ternary shape, since both add
-// branches the default-parameter rewrite does not strictly preserve.
+// AST-only: match a plain parameter name and literal fallback. Destructured
+// parameters, || assignments and later statements are outside this baseline.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-default-parameters.md
 package linthost
 

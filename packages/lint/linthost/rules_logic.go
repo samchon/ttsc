@@ -2,7 +2,8 @@
 // Problems" and "Suggestions" categories that catch logic errors rather than
 // style issues: redundant boolean casts, unsafe negations, loose equality,
 // NaN comparisons, constant conditions, and assignment-in-condition.
-// AST-only, no scope analysis.
+// Boolean constructor calls require checker-owned binding identity; the
+// remaining rules operate on syntax.
 package linthost
 
 import (
@@ -15,7 +16,8 @@ import (
 // https://eslint.org/docs/latest/rules/no-extra-boolean-cast
 type noExtraBooleanCast struct{}
 
-func (noExtraBooleanCast) Name() string { return "no-extra-boolean-cast" }
+func (noExtraBooleanCast) Name() string           { return "no-extra-boolean-cast" }
+func (noExtraBooleanCast) NeedsTypeChecker() bool { return true }
 func (noExtraBooleanCast) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindCallExpression, shimast.KindPrefixUnaryExpression}
 }
@@ -26,13 +28,13 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if call == nil {
       return
     }
-    if identifierText(call.Expression) != "Boolean" {
+    if !isGlobalBooleanConverter(ctx, call.Expression) {
       return
     }
     if call.QuestionDotToken != nil {
       return
     }
-    if !isInBooleanContext(node) {
+    if !isInBooleanContext(node) && !isBooleanCallArgument(ctx, node) {
       return
     }
     message := "Redundant Boolean call."
@@ -63,12 +65,51 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if inner == nil || inner.Operator != shimast.KindExclamationToken {
       return
     }
-    if !isInBooleanContext(node) {
+    if !isInBooleanContext(node) && !isBooleanCallArgument(ctx, node) {
       return
     }
     message := "Redundant double negation."
     reportBooleanCastFix(ctx, node, inner.Operand, message)
   }
+}
+
+// isGlobalBooleanConverter distinguishes the built-in truthiness conversion
+// from lexical converters with the same name. Script-level runtime declarations
+// can merge into the global table, so they must be refused even when the symbols
+// compare equal. Type-only declarations do not replace the global value.
+func isGlobalBooleanConverter(ctx *Context, callee *shimast.Node) bool {
+  if ctx == nil || ctx.Checker == nil || identifierText(callee) != "Boolean" {
+    return false
+  }
+  // Binding retains this file's own runtime declaration even when a duplicate
+  // global declaration is omitted from the checker's merged global symbol.
+  if ctx.File != nil {
+    if local := ctx.File.AsNode().Locals()["Boolean"]; local != nil && local.Flags&shimast.SymbolFlagsValue != 0 {
+      return false
+    }
+  }
+  resolved := ctx.Checker.GetSymbolAtLocation(callee)
+  global := ctx.Checker.GetGlobalSymbol("Boolean", shimast.SymbolFlagsValue, nil)
+  if resolved == nil || global == nil ||
+    ctx.Checker.GetMergedSymbol(resolved) != ctx.Checker.GetMergedSymbol(global) {
+    return false
+  }
+  for _, declaration := range ctx.Checker.GetMergedSymbol(resolved).Declarations {
+    if declaration == nil {
+      continue
+    }
+    file := shimast.GetSourceFileOfNode(declaration)
+    if file != nil && !file.IsDeclarationFile {
+      switch declaration.Kind {
+      case shimast.KindVariableDeclaration, shimast.KindBindingElement,
+        shimast.KindFunctionDeclaration, shimast.KindClassDeclaration,
+        shimast.KindEnumDeclaration, shimast.KindModuleDeclaration,
+        shimast.KindImportEqualsDeclaration:
+        return false
+      }
+    }
+  }
+  return true
 }
 
 // reportBooleanCastFix reports a redundant boolean cast covering `node` and,
@@ -186,6 +227,33 @@ func isInBooleanContext(node *shimast.Node) bool {
   return false
 }
 
+// isBooleanCallArgument reports whether `node` is the first argument of a
+// built-in `Boolean(...)` call or `new Boolean(...)`. A shadowed converter can
+// observe the difference between a boolean argument and its original value.
+func isBooleanCallArgument(ctx *Context, node *shimast.Node) bool {
+  outer := skipParents(node)
+  if outer == nil || outer.Parent == nil {
+    return false
+  }
+  parent := outer.Parent
+  var callee *shimast.Node
+  var arguments *shimast.NodeList
+  switch parent.Kind {
+  case shimast.KindCallExpression:
+    if call := parent.AsCallExpression(); call != nil {
+      callee, arguments = call.Expression, call.Arguments
+    }
+  case shimast.KindNewExpression:
+    if construct := parent.AsNewExpression(); construct != nil {
+      callee, arguments = construct.Expression, construct.Arguments
+    }
+  default:
+    return false
+  }
+  return isGlobalBooleanConverter(ctx, callee) && arguments != nil &&
+    len(arguments.Nodes) > 0 && arguments.Nodes[0] == outer
+}
+
 // skipParents walks up through any wrapping ParenthesizedExpression nodes and
 // returns the outermost parenthesized wrapper. This is the inverse of
 // stripParens: where stripParens descends into the canonical inner expression,
@@ -280,9 +348,6 @@ func isEqeqeqAutoFixSafe(expr *shimast.BinaryExpression) bool {
   if left == nil || right == nil {
     return false
   }
-  if left.Kind == shimast.KindTypeOfExpression || right.Kind == shimast.KindTypeOfExpression {
-    return true
-  }
   leftKind := comparableLiteralKind(left)
   return leftKind != "" && leftKind == comparableLiteralKind(right)
 }
@@ -292,7 +357,7 @@ func comparableLiteralKind(node *shimast.Node) string {
     return ""
   }
   switch node.Kind {
-  case shimast.KindStringLiteral:
+  case shimast.KindStringLiteral, shimast.KindTypeOfExpression:
     return "string"
   case shimast.KindNumericLiteral:
     return "number"
@@ -320,9 +385,15 @@ func (useIsNaN) Check(ctx *Context, node *shimast.Node) {
   if !isComparisonOperator(expr.OperatorToken.Kind) {
     return
   }
-  if identifierText(expr.Left) == "NaN" || identifierText(expr.Right) == "NaN" {
+  if isNaNReference(expr.Left) || isNaNReference(expr.Right) {
     ctx.Report(node, "Use the isNaN function to compare with NaN.")
   }
+}
+
+// isNaNReference reports whether node is the global `NaN` or `Number.NaN`.
+func isNaNReference(node *shimast.Node) bool {
+  node = stripParens(node)
+  return identifierText(node) == "NaN" || isMatchingPropertyAccess(node, "Number", "NaN")
 }
 
 // validTypeof: typeof expressions can only be compared to known type
@@ -353,6 +424,12 @@ func (validTypeof) Check(ctx *Context, node *shimast.Node) {
     return
   }
   if literal == nil {
+    return
+  }
+  // `typeof x === undefined` compares a type name with the value undefined, so
+  // the identifier can never match; ESLint reports it as an invalid value.
+  if identifierText(literal) == "undefined" {
+    ctx.Report(literal, "Invalid typeof comparison value.")
     return
   }
   value := stringLiteralText(literal)
@@ -387,7 +464,7 @@ func (noCompareNegZero) Check(ctx *Context, node *shimast.Node) {
   if !isComparisonOperator(expr.OperatorToken.Kind) {
     return
   }
-  if isNegZero(expr.Left) || isNegZero(expr.Right) {
+  if isNegZero(stripParens(expr.Left)) || isNegZero(stripParens(expr.Right)) {
     ctx.Report(node, "Do not use the '-0' literal in comparisons.")
   }
 }

@@ -4,9 +4,9 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * Next.js framework rules from `@next/eslint-plugin-next`, applied to
  * TypeScript and TSX sources inside Next.js apps.
  *
- * Checks Next.js-specific conventions — pages/app routing, `<Head>` placement,
- * font and script loading, image and link components — that the framework's
- * runtime treats as load-bearing.
+ * Configures static Next.js conventions for pages/app paths, `<Head>`
+ * placement, and font, script, image and link syntax. These checks do not run
+ * the framework or predict rendering and hydration outcomes.
  *
  * @reference https://nextjs.org/docs/app/api-reference/config/eslint
  *
@@ -17,9 +17,9 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  */
 export interface ITtscLintNextjsRules {
   /**
-   * Require a non-blocking `display=` value on Google Fonts stylesheet links;
-   * reject `auto`, `block`, and `fallback`, which keep text invisible while the
-   * font loads and hurt LCP. Prefer `optional` or `swap`.
+   * Reject missing, `auto`, `block`, and `fallback` display query values on
+   * static https://fonts.googleapis.com/css links. Prefer `optional` or
+   * `swap`.
    *
    * @reference https://nextjs.org/docs/messages/google-font-display
    */
@@ -37,9 +37,9 @@ export interface ITtscLintNextjsRules {
    * Require an `id` attribute on inline `<Script>` components from
    * `next/script`.
    *
-   * Next.js uses the id to track the script across client navigations and to
-   * satisfy its loading-strategy budget; an inline script without one is
-   * silently dropped on subsequent renders.
+   * The native check recognizes default imports from `next/script` and reports
+   * JSX elements containing inline content or dangerouslySetInnerHTML when the
+   * `id` attribute is absent.
    *
    * @reference https://nextjs.org/docs/messages/inline-script-id
    */
@@ -54,29 +54,24 @@ export interface ITtscLintNextjsRules {
   "nextjs/next-script-for-ga"?: TtscLintRuleSetting;
 
   /**
-   * Reject local declarations named `module`, which shadow the CommonJS
-   * `module` binding Next.js relies on.
+   * Reject variable declarations whose identifier is `module`.
    *
    * @reference https://nextjs.org/docs/messages/no-assign-module-variable
    */
   "nextjs/no-assign-module-variable"?: TtscLintRuleSetting;
 
   /**
-   * Reject `async` function bodies on React Client Components.
-   *
-   * The client-side React runtime can't await a component's render, so an
-   * `async` `"use client"` component returns a pending promise that crashes
-   * hydration; do data fetching in a Server Component or in `useEffect`
-   * instead.
+   * Reject recognized async default component exports in files with a leading
+   * `"use client"` directive. The native check follows top-level async bindings
+   * and direct default-export expressions; it does not execute React.
    *
    * @reference https://nextjs.org/docs/messages/no-async-client-component
    */
   "nextjs/no-async-client-component"?: TtscLintRuleSetting;
 
   /**
-   * Restrict the `next/script` `strategy="beforeInteractive"` option to
-   * `pages/_document.tsx` — anywhere else, the strategy is downgraded
-   * silently.
+   * Restrict recognized `next/script` uses with a static
+   * `strategy="beforeInteractive"` value to pages/_document paths.
    *
    * @reference https://nextjs.org/docs/messages/no-before-interactive-script-outside-document
    */
@@ -85,17 +80,16 @@ export interface ITtscLintNextjsRules {
   /**
    * Reject raw `<link rel="stylesheet">` tags.
    *
-   * Next.js handles CSS through its bundler — imported stylesheets, CSS
-   * Modules, or `next/font` — and manual stylesheet links skip the runtime's
-   * critical-CSS extraction and render-blocking heuristics.
+   * The native check reports static nonempty href values on links whose rel
+   * value is `stylesheet`; it does not inspect a bundler's CSS output.
    *
    * @reference https://nextjs.org/docs/messages/no-css-tags
    */
   "nextjs/no-css-tags"?: TtscLintRuleSetting;
 
   /**
-   * Restrict `next/document` imports to `pages/_document.tsx` — `Document`
-   * cannot be used in a regular page.
+   * Reject `next/document` imports in recognized pages paths other than
+   * pages/_document.
    *
    * @reference https://nextjs.org/docs/messages/no-document-import-in-page
    */
@@ -105,16 +99,15 @@ export interface ITtscLintNextjsRules {
    * Reject more than one `<Head>` element from `next/document` in
    * `pages/_document.tsx`.
    *
-   * Next.js merges metadata into the single `<Head>` it renders into the HTML
-   * shell; additional instances are dropped silently and any tags inside them
-   * never reach the page.
+   * The native check counts JSX uses of the imported next/document Head name in
+   * recognized document paths; it does not inspect generated HTML.
    *
    * @reference https://nextjs.org/docs/messages/no-duplicate-head
    */
   "nextjs/no-duplicate-head"?: TtscLintRuleSetting;
 
   /**
-   * Reject raw `<head>` elements outside the `app/` directory — use `next/head`
+   * Reject raw `<head>` elements outside the `app/` directory; use `next/head`
    * or the metadata exports.
    *
    * @reference https://nextjs.org/docs/messages/no-head-element
@@ -122,7 +115,7 @@ export interface ITtscLintNextjsRules {
   "nextjs/no-head-element"?: TtscLintRuleSetting;
 
   /**
-   * Reject `next/head` imports inside `pages/_document.tsx` — use
+   * Reject `next/head` imports inside pages/_document paths; use
    * `next/document`'s `Head` there.
    *
    * @reference https://nextjs.org/docs/messages/no-head-import-in-document
@@ -130,16 +123,16 @@ export interface ITtscLintNextjsRules {
   "nextjs/no-head-import-in-document"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `next/link` for internal anchors with a static `href`, since `Link`
-   * performs client-side routing.
+   * Prefer `next/link` for anchors whose static href starts with a single `/`
+   * and contains no dot. This native path heuristic does not resolve routes.
    *
    * @reference https://nextjs.org/docs/messages/no-html-link-for-pages
    */
   "nextjs/no-html-link-for-pages"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `next/image` over raw `<img>` elements so the framework can optimize
-   * the asset.
+   * Prefer `next/image` over raw `<img>` elements outside a `<picture>`
+   * ancestor.
    *
    * @reference https://nextjs.org/docs/messages/no-img-element
    */
@@ -162,8 +155,8 @@ export interface ITtscLintNextjsRules {
   "nextjs/no-script-component-in-head"?: TtscLintRuleSetting;
 
   /**
-   * Reject styled-jsx tags inside `pages/_document.tsx`, which the server
-   * renders incorrectly.
+   * Reject style tags carrying a jsx attribute in recognized pages/_document
+   * paths.
    *
    * @reference https://nextjs.org/docs/messages/no-styled-jsx-in-document
    */
@@ -178,8 +171,8 @@ export interface ITtscLintNextjsRules {
   "nextjs/no-sync-scripts"?: TtscLintRuleSetting;
 
   /**
-   * Reject `<title>` inside `Head` from `next/document`. Set the title from the
-   * metadata exports instead.
+   * Reject `<title>` inside an imported next/document Head in recognized
+   * pages/_document paths.
    *
    * @reference https://nextjs.org/docs/messages/no-title-in-document-head
    */
@@ -189,16 +182,16 @@ export interface ITtscLintNextjsRules {
    * Catch near-miss typos in Next.js data-fetching export names
    * (`getStaticProps`, `getStaticPaths`, `getServerSideProps`).
    *
-   * A misspelled export is treated as ordinary module state, so the page
-   * silently falls back to client-side rendering with no build-time warning.
+   * The native check reports names one edit away from these spellings in
+   * recognized non-API pages paths. It does not determine rendering mode.
    *
    * @reference https://nextjs.org/docs/messages/no-typos
    */
   "nextjs/no-typos"?: TtscLintRuleSetting;
 
   /**
-   * Reject Polyfill.io script URLs — Next.js already polyfills modern browsers,
-   * and Polyfill.io has a checkered history.
+   * Reject static script src values containing `polyfill.io` or
+   * `polyfill-fastly.io`, including recognized next/script imports.
    *
    * @reference https://nextjs.org/docs/messages/no-unwanted-polyfillio
    */

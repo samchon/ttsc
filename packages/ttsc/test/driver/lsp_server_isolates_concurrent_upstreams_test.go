@@ -5,6 +5,7 @@ import (
   "encoding/json"
   "fmt"
   "io"
+  "sync"
   "testing"
   "time"
 
@@ -19,10 +20,10 @@ type lspInvocationHarness struct {
   close  func()
 }
 
-// TestLSPServerIsolatesConcurrentUpstreams verifies each server captures its
+// TestLSPServerIsolatesConcurrentUpstreams Verifies each server captures its
 // own runner and validation policy.
 //
-// The old package-global test seam allowed overlapping servers to replace each
+// A package-global runner seam would let overlapping servers replace each
 // other's runner between validation and execution. Two concurrent invocations
 // must instead keep their dependency pair and lifecycle independent, including
 // after one invocation closes.
@@ -30,6 +31,11 @@ type lspInvocationHarness struct {
 // 1. Start two servers with distinct validators and tagged fake runners.
 // 2. Exchange one request with each server and assert each runner answers it.
 // 3. Close server A, then prove server B still uses runner B for another request.
+//
+// @evidence contracts/testing.md#behavioral-verification Two RunLSPServer calls retain their own cwd validators and tagged response runners, and B answers again after A closes.
+// @evidence contracts/testing.md#independent-expectations Independent literal tags A/B and cwd values establish which invocation dependency pair handled each request.
+// @evidence contracts/testing.md#distinguishing-cases Concurrent startup, per-server exchanges, A shutdown and surviving B exchange distinguish global-runner interference from isolated ownership.
+// @evidence contracts/testing.md#execution-ownership Go test/driver uses two supported in-process upstream dependencies and pipe sessions, then awaits both server completions; no tsgo executable is used.
 func TestLSPServerIsolatesConcurrentUpstreams(t *testing.T) {
   events := make(chan string, 4)
   cwdA := t.TempDir()
@@ -40,6 +46,7 @@ func TestLSPServerIsolatesConcurrentUpstreams(t *testing.T) {
     editorOutR, editorOutW := io.Pipe()
     ctx, cancel := context.WithCancel(context.Background())
     done := make(chan error, 1)
+    finished := make(chan struct{})
 
     validate := func(opts driver.LSPServerOptions) error {
       if opts.Cwd != cwd {
@@ -84,6 +91,7 @@ func TestLSPServerIsolatesConcurrentUpstreams(t *testing.T) {
     }
 
     go func() {
+      defer close(finished)
       done <- driver.RunLSPServer(ctx, driver.LSPServerOptions{
         In:  editorInR,
         Out: editorOutW,
@@ -96,16 +104,31 @@ func TestLSPServerIsolatesConcurrentUpstreams(t *testing.T) {
       })
     }()
 
+    var closeOnce sync.Once
+    closeSession := func() {
+      closeOnce.Do(func() {
+        cancel()
+        _ = editorInW.Close()
+        _ = editorOutR.Close()
+        _ = editorInR.Close()
+        _ = editorOutW.Close()
+      })
+    }
+    t.Cleanup(func() {
+      closeSession()
+      select {
+      case <-finished:
+      case <-time.After(3 * time.Second):
+        t.Errorf("server %s did not finish during cleanup", tag)
+      }
+    })
+
     return &lspInvocationHarness{
       cancel: cancel,
       done:   done,
       input:  editorInW,
       output: driver.NewFrameReader(editorOutR),
-      close: func() {
-        cancel()
-        _ = editorInW.Close()
-        _ = editorOutR.Close()
-      },
+      close:  closeSession,
     }
   }
 

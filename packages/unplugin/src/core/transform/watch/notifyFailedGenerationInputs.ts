@@ -38,14 +38,13 @@ import { selectionInputs } from "./selectionInputs";
  *   spelling every input is handed under (`hostSpelling`).
  * @param selection The configs that routed the file to its project, handed
  *   beside the failed generation's inputs.
- *
- * @evidence contracts/common.md#principled-implementation Failed deliveries retain walked and external inputs plus named diagnostic paths and current routing configs, deliberately omitting module evidence that a replayed failure did not revalidate.
+ * @evidence contracts/common.md#principled-implementation Failed deliveries retain walked/external inputs, named diagnostic paths and the known selected config alongside consulted routing configs, even when optional envelope lists omit it. Ordinary recovery paths omit generation evidence that a replayed failure did not revalidate; separately captured membership can still accompany them, while project-record delivery maps available retained facts under its own contract.
  * @evidence contracts/common.md#clear-and-simple-design One append boundary owns scratch exclusion and lexical deduplication; module recovery and project-record delivery share the same routing observations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Diagnostic extraction accepts only supported TypeScript forms, and recovery absence is explicit rather than fabricated successful state or fixture-specific paths.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain recovery, external-path coverage and failed evidence ownership; parameter prose and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and host spelling preserve absolute external paths, including drive-letter diagnostic forms; project-record locations remain host-selected capabilities.
- * @evidence contracts/performance.md#efficient-algorithms Recovery traverses O(P+D) retained paths and diagnostic text with Set deduplication; routing hashes are read once for both notification models in this delivery.
- * @evidence contracts/performance.md#reuse-equivalent-work Project-record generation facts are derived lazily once per cached generation; later module routing inputs are supplied separately so sharing does not discard new dependencies.
+ * @evidence contracts/performance.md#efficient-algorithms Every call materializes project hash keys and scans retained external/diagnostic entries. Each occurrence pays path/scratch/key text work before accepted paths create ordinary carriers and recorded spellings. Exception extraction formats/splits text and runs two anchored diagnostic patterns per line; matching and caller conversion costs are not a fixed per-diagnostic operation. Routing byte/native observations, optional membership encoding, lazy record evidence/persistence and callback effects add delegated work. Arrays/sets and formatted lines retain their respective populations/text; routing evidence is shared between current notification branches.
+ * @evidence contracts/performance.md#reuse-equivalent-work notifyProjectRecord owns qualified generation snapshot/accepted-revision sharing; its input callback is derived only when required. This recovery traversal and host callback effects still run per delivery, with current routing observations added separately. No matching failure message or quiet watcher authorizes skipping the notification effect.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This delivery owns only local arrays and sets; the project-record and host watcher owners retain or release the transferred dependencies.
  */
 export function notifyFailedGenerationInputs(
@@ -109,13 +108,15 @@ export function notifyFailedGenerationInputs(
     }
   }
   const routedInputs = selectionInputs(
-    selection.consulted,
+    [...new Set([...selection.consulted, selection.tsconfig])],
     selection.filesystem,
     (input) => input,
   );
-  inputs.push(
-    ...routedInputs.map((input) => ({ ...input, file: spell(input.file) })),
-  );
+  for (const entryToAppend of routedInputs.map((input) => ({
+    ...input,
+    file: spell(input.file),
+  })))
+    inputs.push(entryToAppend);
   // A build host takes the record, written to what the failed compile
   // consulted, so the repair moves it wherever it lands; a module handed over
   // without it depends on its own bytes alone, and no persistent cache may

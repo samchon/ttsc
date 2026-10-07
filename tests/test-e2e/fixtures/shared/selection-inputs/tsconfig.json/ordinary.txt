@@ -1,0 +1,1 @@
+This directory is not a TypeScript project configuration file.

@@ -55,19 +55,30 @@ const FILESYSTEM_CLOCK_REFERENCES = new WeakMap<
  * contents before a validation, and `stampSeparable` reads it: an input whose
  * stamp is strictly older than its device's reference can be trusted by
  * signature. A device with no entry proves nothing, so its inputs keep being
- * compared by content. The map is held per operations object, so references
- * minted through a replaced filesystem seam never vouch for the host's
- * filesystem.
+ * compared by content. The map is held per operations object; a distinct view
+ * object gets an independent table. The view owner must keep observations
+ * coherent when its backing state or methods change: object identity alone does
+ * not establish equivalent filesystem evidence.
  *
- * @evidence contracts/common.md#principled-implementation Device-keyed references belong to the same operation table as observed metadata, so a timestamp from another filesystem view cannot certify an input signature.
+ * @evidence contracts/common.md#principled-implementation Device-keyed references are partitioned by observing operation object; refresh and metadata owners must maintain that view's coherence before its table can qualify a signature. Table identity alone proves no observation equivalence.
  * @evidence contracts/common.md#clear-and-simple-design One WeakMap owns reference tables by operation identity; refresh and separability consumers retain their own write and comparison responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The table contains minted filesystem stamps, never a passive historical maximum or guessed process time that would hide same-tick writes.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain racy-clean metadata, fresh writes, device identity, cross-volume behavior, and proof interleaving before describing the lookup.
  * @evidence contracts/performance.md#efficient-algorithms Operation-table and device maps provide constant-time reference selection rather than rescanning inputs to infer a clock.
  * @evidence contracts/performance.md#reuse-equivalent-work All proofs using the same operations object share its current device reference; replacement of that object creates independent evidence.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Weak operation keys release tables with their filesystem view, and refresh replaces previous device entries rather than retaining clock history.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Weak association does not retain the operations object. Current writers
+ *   clear old entries and record at most one minted device stamp per refresh;
+ *   the returned Map can also be retained by its borrower. No native handle,
+ *   clock history or running task is acquired by table selection.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The table carries the observing view's bigint device/time representation;
+ *   actual probe reads and stamp comparison remain with their native owners.
+ *   A different view receives independent storage, without assuming equal OS
+ *   names or device labels establish cross-view clock equivalence.
  */
 export function filesystemClockReferences(
+  /** Coherent observing view partitioning native device/time authority. */
   filesystem: TtscTransformFilesystemOperations,
 ): Map<bigint, bigint> {
   let references = FILESYSTEM_CLOCK_REFERENCES.get(filesystem);

@@ -10,12 +10,11 @@ import type { TypeNode } from "./TypeNode";
  * The argument should be a module string literal type. Its broad TypeNode
  * representation does not check that restriction or resolve a module.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The argument, optional attributes/qualification/generics and typeof flag preserve import-type parts; broad argument validity and module resolution remain caller responsibilities.
  * @evidence contracts/common.md#clear-and-simple-design Each import-type suffix or prefix has one field, reusing EntityName and ImportAttributes representations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No module names are embedded; the typeof flag is a syntax distinction rather than a compatibility workaround.
  * @evidence contracts/common.md#meaningful-documentation JSDoc states the argument restriction and member comments explain absent suffixes; separated paragraphs follow the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ImportTypeNode {
   /** Discriminant tag; always `"ImportTypeNode"`. */

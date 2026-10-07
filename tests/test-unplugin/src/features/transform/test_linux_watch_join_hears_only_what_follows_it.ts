@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import type { ChildProcess } from "node:child_process";
 import path from "node:path";
 
-import { LINUX_DIRECTORY_WATCHES } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES.mjs";
-import { LINUX_WATCH_HELPER } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_WATCH_HELPER.mjs";
-import type { LinuxWatchHelper } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/LinuxWatchHelper.mjs";
-import { routeLinuxWatchHelperLine } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/routeLinuxWatchHelperLine.mjs";
-import { subscribeLinuxDirectoryWatch } from "../../../../../packages/unplugin/lib/core/transform/tracker/linux/subscribeLinuxDirectoryWatch.mjs";
+import { LINUX_DIRECTORY_WATCHES } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES";
+import { LINUX_WATCH_HELPER } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/LINUX_WATCH_HELPER";
+import type { LinuxWatchHelper } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/LinuxWatchHelper";
+import { routeLinuxWatchHelperLine } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/routeLinuxWatchHelperLine";
+import { subscribeLinuxDirectoryWatch } from "../../../../../packages/unplugin/src/core/transform/tracker/linux/subscribeLinuxDirectoryWatch";
 
 /**
  * Verifies a subscriber joining a shared Linux directory watch hears only the
@@ -23,18 +23,21 @@ import { subscribeLinuxDirectoryWatch } from "../../../../../packages/unplugin/l
  * and everything after that answer. The helper is scripted here, so the order
  * of every line is decided by the test on every platform.
  *
- * 1. Open a watch, answer it, and deliver an event, and assert its opener hears it
- *    at once.
- * 2. Join the watch, and assert the join sends one sync and no second watch;
- *    deliver an event the helper wrote before the answer, and assert only the
- *    opener hears it.
- * 3. Route the sync's answer and, in the same turn, the next event, and assert
- *    both subscribers hear that event and the joiner is ready.
- * 4. Join a watch whose opening the helper has not answered yet, and assert the
- *    joiner, too, hears only what follows its own sync.
- * 5. Join once more and never answer the sync, and assert the joiner is not live,
- *    is told of the error once, and hears nothing more, while the others still
- *    do; then close every subscriber, and assert the watches are removed.
+ * 1. Open a watch, answer it and deliver an event so its opener hears it at once,
+ *    then join and assert one sync and no second watch, with an event written
+ *    before the answer reaching only the opener.
+ * 2. Route the sync answer and the next event together and assert both subscribers
+ *    hear that event and the joiner is ready, then join a watch whose opening
+ *    is unanswered and assert the joiner hears only what follows its own sync.
+ * 3. Join once more and never answer the sync, and assert the joiner is not live,
+ *    is told of the error once and hears nothing more while the others still
+ *    do.
+ * 4. Close every subscriber and assert the watches are removed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls subscribeLinuxDirectoryWatch and routeLinuxWatchHelperLine with a scripted helper; asserts one underlying watch, sync-gated joining, exact subscribers before/after sync, unanswered-join failure and final watch removal.
+ * @evidence contracts/testing.md#independent-expectations A join cannot inherit events queued before its own sync acknowledgment. Explicit line ordering and literal subscriber lists specify the temporal contract independently of subscription state computation.
+ * @evidence contracts/testing.md#distinguishing-cases Owns joining a ready and not-yet-ready watch, the first event in the sync turn, never-answered sync and closure. LINUX_WATCH_HELPER.current is restored; this case does not launch the Linux native helper.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real subscribeLinuxDirectoryWatch and routeLinuxWatchHelperLine against a scripted LinuxWatchHelper whose stdin records the JSON requests, installed as LINUX_WATCH_HELPER.current and restored in finally. The test writes every helper line itself, so no Linux helper process or inotify watch runs; the unanswered-sync case waits for the owner's own sync timeout.
  */
 export async function test_linux_watch_join_hears_only_what_follows_it(): Promise<void> {
   const previous = LINUX_WATCH_HELPER.current;
@@ -63,12 +66,16 @@ export async function test_linux_watch_join_hears_only_what_follows_it(): Promis
     routeLinuxWatchHelperLine(helper, JSON.stringify(line));
   const heard: string[] = [];
   const errors: string[] = [];
-  const subscribe = (name: string, directory: string) =>
-    subscribeLinuxDirectoryWatch(
+  const subscriptions: { close(): void }[] = [];
+  const subscribe = (name: string, directory: string) => {
+    const subscription = subscribeLinuxDirectoryWatch(
       directory,
       (eventType, filename) => heard.push(`${name} ${eventType} ${filename}`),
       () => errors.push(name),
     );
+    subscriptions.push(subscription);
+    return subscription;
+  };
   const source = path.resolve("/scripted/join/src");
   const types = path.resolve("/scripted/join/types");
   LINUX_WATCH_HELPER.current = helper;
@@ -134,6 +141,7 @@ export async function test_linux_watch_join_hears_only_what_follows_it(): Promis
     assert.equal(LINUX_DIRECTORY_WATCHES.has(source), false);
     assert.equal(LINUX_DIRECTORY_WATCHES.has(types), false);
   } finally {
+    for (const subscription of subscriptions) subscription.close();
     LINUX_WATCH_HELPER.current = previous;
   }
 }

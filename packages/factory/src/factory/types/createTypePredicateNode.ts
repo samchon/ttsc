@@ -24,6 +24,11 @@ import { createIdentifier } from "../names/createIdentifier";
  * x is string
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param assertsModifier The `asserts` modifier, if any.
+ * @param parameterName The guarded parameter name, or `this`.
+ * @param type The narrowed type, if any.
+ * @returns The created {@link TypePredicateNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Strings become identifiers while Identifier/ThisTypeNode inputs are kept;
  *   the asserts marker and optional target type preserve guard versus assertion forms.
@@ -39,12 +44,6 @@ import { createIdentifier } from "../names/createIdentifier";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose separates assertion-marker presence from target-type presence
  *   and documents identifier/this inputs alongside a guard example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param assertsModifier The `asserts` modifier, if any.
- * @param parameterName The guarded parameter name, or `this`.
- * @param type The narrowed type, if any.
- * @returns The created {@link TypePredicateNode}.
  */
 export const createTypePredicateNode = (
   assertsModifier: Token | undefined,

@@ -32,13 +32,13 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * cache has no delivery in this process to register it, and an input of it
  * edited while the host runs would otherwise be heard by nothing.
  *
- * This is the same proof a delivery makes of a generation, paid once per
- * project instead of once per module, and it costs what the host's own snapshot
- * costs: one read per recorded input and one listing per project directory.
+ * The detached path replays the recorded input codecs and optional membership
+ * walk, rather than proving every module independently. The observing bridge
+ * owns later invalidation attempts; neither registration nor signaling is a
+ * certificate that the host received or completed a rebuilding delivery.
  *
  * @param file The project record (`projectRecordFile`).
  * @param bridge The watching session's bridge, when the host has one.
- *
  * @evidence contracts/common.md#principled-implementation
  *   An unreadable record proves nothing and is signaled; a vanished project is
  *   removed. Watching restoration transfers evidence to the bridge, while a
@@ -53,6 +53,17 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *   Native paragraphs explain cached-session restoration and proof failure effects,
  *   with lifecycle comments and tag separation per documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Record persistence remains on the host's native filesystem, while project existence and proof use the supplied observation view; deletion errors remain retryable rather than being treated as successful removal.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources It keeps no handle. A record whose tsconfig is gone is removed, which ends a record no generation will write again, and a removal another process blocks is retried by the next proof.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Record reading parses and validates byte/list populations. Detached replay
+ *   pays clock admission, input codec native/byte/tree work and any membership
+ *   walk/digest sorting; watching conversion builds input lists and delegates
+ *   observer admission. Removal/signaling retain native path/serialization/IO
+ *   costs. Codec replay is not uniformly one read and one listing per directory.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Project-record granularity permits host owners to avoid per-module replay;
+ *   this function itself refreshes each request without a verdict cache. A bridge
+ *   coordinates retained observations only under its current evidence authority.
  */
 export function refreshProjectRecordFile(
   file: string,

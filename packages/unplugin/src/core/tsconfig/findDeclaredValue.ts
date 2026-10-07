@@ -54,6 +54,19 @@ import { resolveRealPath } from "./resolveRealPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains precedence, lexical anchors, physical guards and why collect
  *   cannot be reused as seen; transaction-map lifetime is stated separately.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Depth-first search stops at the winning declaration and branch-local
+ *   ancestor sets stop cycles while preserving lexical alias contexts.
+ *   Set copying costs the sum of visited depths; resolution and parsing follow
+ *   config occurrences and source bytes. The selector's own work is additional.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   An optional caller-owned map shares decoded sources and failed observations
+ *   by lexical path within one read transaction. Inheritance selections still
+ *   retain each branch's context; reuse across changed inputs requires a new map.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Recursive ancestor sets are temporary search state; collected paths and
+ *   decoded sources transfer to their caller-owned transaction containers.
+ *   No handle or task remains after the synchronous search returns.
  */
 export function findDeclaredValue<T>(
   tsconfig: string,

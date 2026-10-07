@@ -3,6 +3,8 @@ package ttsc_test
 import (
   "bytes"
   "encoding/json"
+  "os"
+  "path/filepath"
   "slices"
   "strings"
   "testing"
@@ -20,6 +22,8 @@ func (plugin failureGraphMutationProbe) ApplyProgram(*driver.Program, driver.Plu
 
 // TestTransformFailureRetainsMissingResolutionGraph verifies invalid Programs
 // publish their missing dependency observations without running source mutations.
+// The same failed check publishes its compiler graph through the negotiated
+// metadata channel before the existing dependency repair recovers transformation.
 //
 // A diagnostic names the importer, not the unresolved declaration. Watch hosts
 // need the original Program's graph to observe a dependency-only repair.
@@ -27,6 +31,11 @@ func (plugin failureGraphMutationProbe) ApplyProgram(*driver.Program, driver.Plu
 // 1. Transform an unresolved type-only package import through the utility host.
 // 2. Require structured diagnostics, its missing candidate, and no source output.
 // 3. Restore only the declaration and verify the next transform runs the plugin.
+//
+// @evidence contracts/testing.md#behavioral-verification RunTransformWithIO over an unresolved type-only import returns structured diagnostics, the missing candidate in the graph and no source output, and after only the declaration is restored the next transform runs the plugin.
+// @evidence contracts/testing.md#independent-expectations The diagnostics, the missing candidate and the plugin call count are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases The invalid program (no plugin call, graph kept) contrasts with the repaired program (plugin called once).
+// @evidence contracts/testing.md#execution-ownership TestTransformFailureRetainsMissingResolutionGraph is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformFailureRetainsMissingResolutionGraph(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Cleanup(resetLinkedPluginRegistry)
@@ -57,8 +66,28 @@ func TestTransformFailureRetainsMissingResolutionGraph(t *testing.T) {
   if len(result.Diagnostics) != 1 || result.Diagnostics[0].Code != 2307 || result.Diagnostics[0].Category != "error" || result.Diagnostics[0].File == nil {
     t.Fatalf("missing structured compiler diagnostic: %+v", result.Diagnostics)
   }
+  if filepath.Clean(*result.Diagnostics[0].File) != filepath.Join(root, "main.ts") {
+    t.Fatalf("missing dependency diagnostic belongs to %q, want main.ts", *result.Diagnostics[0].File)
+  }
   if result.Graph == nil || !slices.Contains(result.Graph.Candidates["main.ts"], "node_modules/typed-dep/missing.d.ts") || !slices.Contains(result.Graph.Configs, "tsconfig.json") {
     t.Fatalf("failure dropped resolution or config ownership: %+v", result.Graph)
+  }
+  observations := filepath.Join(root, "check-observations.json")
+  stdout.Reset()
+  stderr.Reset()
+  code = utility.RunCheckWithIO([]string{"--cwd", root, "--check-observations-json", observations}, &stdout, &stderr)
+  observed, err := os.ReadFile(observations)
+  if err != nil {
+    t.Fatalf("failed check lost its same-generation metadata: %v", err)
+  }
+  var check struct {
+    Graph *driver.TransformGraph `json:"graph"`
+  }
+  if err := json.Unmarshal(observed, &check); err != nil {
+    t.Fatalf("invalid check graph metadata: %v", err)
+  }
+  if code != 2 || calls != 0 || check.Graph == nil || !slices.Contains(check.Graph.Candidates["main.ts"], "node_modules/typed-dep/missing.d.ts") {
+    t.Fatalf("failed check did not retain its compiler generation: code=%d calls=%d graph=%+v stderr=%s", code, calls, check.Graph, &stderr)
   }
   writeProjectFile(t, root, "node_modules/typed-dep/missing.d.ts", "export interface Shape { id: number }\n")
   stdout.Reset()

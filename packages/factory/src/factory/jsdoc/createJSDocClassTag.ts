@@ -14,14 +14,14 @@ import { createIdentifier } from "../names/createIdentifier";
  * @class
  * ```
  *
- * @evidence contracts/common.md#principled-implementation The class tag kind, preserved identifier or documented class default and optional description construct a documentation marker without creating a class declaration.
- * @evidence contracts/common.md#clear-and-simple-design A direct name default and comment assignment retain only the marker's payload, without constructor or member state.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The class spelling is the public default rather than a known-consumer class name, and no foreign declaration is modified.
- * @evidence contracts/common.md#meaningful-documentation Native prose states the default and optional description and shows bare-tag output; separate paragraphs and parameter descriptions follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `class`.
  * @param comment The trailing comment, if any.
  * @returns The created {@link JSDocClassTag}.
+ * @evidence contracts/common.md#principled-implementation The class tag kind, preserved identifier or documented class default and optional description construct a documentation marker without creating a class declaration.
+ * @evidence contracts/common.md#clear-and-simple-design A direct name default and comment assignment retain only the marker's payload, without constructor or member state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The class spelling is the public default rather than a known-consumer class name, and no foreign declaration is modified.
+ * @evidence contracts/common.md#meaningful-documentation Native prose states the default and optional description and shows bare-tag output; separate paragraphs and parameter descriptions follow the documentation guidance.
  */
 export const createJSDocClassTag = (
   tagName: Identifier | undefined,

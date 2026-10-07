@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLinkedPluginsApplyRejectsMissingRegistration verifies that missing
+// TestDriverLinkedPluginsApplyRejectsMissingRegistration Verifies that missing
 // registrations are checked during ApplyProgram too.
 //
 // Source-preamble collection and Program mutation are separate phases. This
@@ -17,6 +17,11 @@ import (
 // 1. Load a Program with a registered no-op linked plugin.
 // 2. Clear the registry before applying linked plugins.
 // 3. Assert ApplyLinkedPlugins rejects the missing registration.
+//
+// @evidence contracts/testing.md#behavioral-verification ApplyLinkedPlugins reports a registry entry removed after loading.
+// @evidence contracts/testing.md#independent-expectations The one-entry manifest requires a corresponding registered plugin.
+// @evidence contracts/testing.md#distinguishing-cases Registered-at-load then missing-at-apply contrasts with missing-at-load coverage.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverLinkedPluginsApplyRejectsMissingRegistration is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverLinkedPluginsApplyRejectsMissingRegistration(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(linkedNoopPlugin{})

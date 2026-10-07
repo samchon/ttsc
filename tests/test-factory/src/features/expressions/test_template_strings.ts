@@ -1,14 +1,23 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "@ttsc/factory";
 
+import factory from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 /**
- * Print template strings.
+ * Verifies printing of template strings.
  *
- * A single-substitution template, a multi-substitution template (head + middle
+ * A multi-substitution template must retain its head, middle and tail around
+ * both substitutions; zero and single spans exercise the adjacent boundaries.
  *
- * - Tail), a tagged template, and a no-substitution template literal.
+ * 1. Single/multiple spans, tagged templates and no-substitution templates
+ *    preserve text, substitutions and tag identity.
+ * 2. Exact independent template-source literals define backticks, ${} delimiters
+ *    and segment order.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Single/multiple spans, tagged templates and no-substitution templates preserve text, substitutions and tag identity.
+ * @evidence contracts/testing.md#independent-expectations Exact independent template-source literals define backticks, ${} delimiters and segment order.
+ * @evidence contracts/testing.md#distinguishing-cases Zero/one/multiple substitutions and tagged versus untagged shapes complement hostile escape-specific cases.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_template_strings. Calls template expression/span/tagged/no-substitution constructors and print directly.
  */
 export const test_template_strings = (): void => {
   TestValidator.equals(

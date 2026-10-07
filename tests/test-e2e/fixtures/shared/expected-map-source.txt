@@ -1,0 +1,8 @@
+/**
+ * ----------------------------------------------------------------
+ * Shared boundary corpus
+ * Authored source positions remain observable
+ *
+ * @packageDocumentation
+ */
+export const value = "authored-marker";

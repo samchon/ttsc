@@ -2,6 +2,7 @@ package driver_test
 
 import (
   "encoding/json"
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -9,21 +10,26 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose verifies local source
-// actions cannot answer for a closed document.
+// TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose Verifies that a plugin-only action yields an empty result after its document closes during computation.
 //
-// Plugin-only code actions run in a side goroutine so the editor pump can keep
-// reading notifications. A close that arrives while the plugin is computing
-// invalidates the request; otherwise ttsc can return command-backed actions for
-// a buffer the editor has already discarded.
+// A channel handshake ensures computation starts before didClose and stale completion follows it.
 //
 // 1. Start a plugin-only codeAction request and block the plugin callback.
 // 2. Send didClose for the same URI while the callback is blocked.
 // 3. Release the callback.
 // 4. Assert the local response is empty, not the stale plugin action.
+//
+// @evidence contracts/testing.md#behavioral-verification A plugin-only action yields an empty result after its document closes during computation.
+// @evidence contracts/testing.md#independent-expectations The closed document cannot receive actions from its previous generation.
+// @evidence contracts/testing.md#distinguishing-cases A channel handshake ensures computation starts before didClose and stale completion follows it.
+// @evidence contracts/testing.md#execution-ownership The Go proxy and synthetic action source execute over private pipes without a child host. Go discovers TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose under ./test/driver.
 func TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   var called atomic.Bool
   source := &stubSource{
     actionsWithContext: func(uri string, ctx driver.LSPCodeActionContext) []driver.LSPCodeAction {
@@ -47,10 +53,11 @@ func TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose(t *testing.T) {
 
   h.sendEditor([]byte(`{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"file:///a.ts"}}}`))
   _ = h.recvUpstream()
-  close(release)
+  releaseCallback()
 
   body := h.recvEditor()
   var decoded struct {
+    ID     int                    `json:"id"`
     Result []driver.LSPCodeAction `json:"result"`
   }
   if err := json.Unmarshal(body, &decoded); err != nil {
@@ -58,5 +65,8 @@ func TestLSPProxyDropsPluginOnlyCodeActionAfterDocumentClose(t *testing.T) {
   }
   if len(decoded.Result) != 0 {
     t.Fatalf("closed-document plugin actions were not dropped: %#v", decoded.Result)
+  }
+  if decoded.ID != 12 || decoded.Result == nil {
+    t.Fatalf("closed action must receive its correlated empty array: %s", body)
   }
 }

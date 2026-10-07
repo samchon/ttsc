@@ -16,14 +16,14 @@ import { make } from "../internal/make";
  * {@linkplain Foo the foo}
  * ```
  *
- * @evidence contracts/common.md#principled-implementation The linkplain kind records plain-style annotation spelling while retaining an optional target and raw suffix; no target resolution or styling is performed by construction.
- * @evidence contracts/common.md#clear-and-simple-design Two assignments retain the name/text separation, and the kind replaces the need for another style selector.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Plain styling uses the public link form instead of a special label rewrite or mutation of a foreign documentation renderer.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains plain styling and required label spacing with an example; paragraph and tag separation follows the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param name The linked name, if any.
  * @param text The trailing link text.
  * @returns The created {@link JSDocLinkPlain}.
+ * @evidence contracts/common.md#principled-implementation The linkplain kind records plain-style annotation spelling while retaining an optional target and raw suffix; no target resolution or styling is performed by construction.
+ * @evidence contracts/common.md#clear-and-simple-design Two assignments retain the name/text separation, and the kind replaces the need for another style selector.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Plain styling uses the public link form instead of a special label rewrite or mutation of a foreign documentation renderer.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains plain styling and required label spacing with an example; paragraph and tag separation follows the documentation guidance.
  */
 export const createJSDocLinkPlain = (
   name: EntityName | JSDocMemberName | undefined,

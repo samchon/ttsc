@@ -1,0 +1,42 @@
+package linthost
+
+import (
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
+// TestBlockHasNonStatementCommentSkipsNilStmts verifies that
+// blockHasNonStatementComment skips nil entries in the stmts slice when
+// building the statement-range exclusion list.
+//
+// blockHasNonStatementComment delegates to nodeHasNonItemComment, whose item
+// loop skips nil pointers before reading their byte ranges. This test supplies
+// the nil placeholder directly; it does not establish that parser recovery
+// emits such a list. The comment-free source independently requires false,
+// and a missing nil guard would dereference the placeholder during range
+// collection rather than reach that result.
+//
+//  1. Parse a block from a real source so the node has valid byte positions.
+//  2. Call blockHasNonStatementComment with a stmts slice containing one nil
+//     element (bypassing the real block.Statements.Nodes list directly).
+//  3. Assert the function returns false without panicking (the block holds no
+//     comment, so even with the nil stmt skipped the result is false).
+//
+// @evidence contracts/testing.md#behavioral-verification blockHasNonStatementComment must safely skip nil entries and report no comment in the comment-free block.
+// @evidence contracts/testing.md#independent-expectations The literal block { a(); } contains no comment delimiter, so a nil item cannot create one.
+// @evidence contracts/testing.md#distinguishing-cases The supplied singleton nil statement exercises item filtering; comment-only and inter-statement-comment dispatch cases own the opposite coverage outcome.
+// @evidence contracts/testing.md#execution-ownership TestBlockHasNonStatementCommentSkipsNilStmts is a plain top-level Go unit test, selectable with go test -run, that calls blockHasNonStatementComment directly on a parsed comment-free block and a hand-built statement slice holding nil inside the test process; it installs no consumer, builds no native artifact and starts no product host.
+func TestBlockHasNonStatementCommentSkipsNilStmts(t *testing.T) {
+  // Parse a block with no comments so the expected result is false.
+  file := parseTS(t, "{ a(); }\n")
+  block := firstNodeOfKind(t, file, shimast.KindBlock)
+  ctx := NewPrintContext(file, DefaultPrintOptions())
+
+  // Pass a stmts list with a nil entry; the nil must be skipped, not dereferenced.
+  stmtsWithNil := []*shimast.Node{nil}
+  got := blockHasNonStatementComment(ctx, block, stmtsWithNil)
+  if got {
+    t.Fatalf("blockHasNonStatementComment should return false for comment-free block, got true")
+  }
+}

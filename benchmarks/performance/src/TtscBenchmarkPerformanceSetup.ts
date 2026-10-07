@@ -54,7 +54,7 @@ export class TtscBenchmarkPerformanceSetup {
       (): void => {
         fs.mkdirSync(this.options.paths.tarballRoot, { recursive: true });
         this.options.process.shell(
-          "pnpm run build:current",
+          "pnpm run build",
           this.options.paths.repositoryRoot,
           {
             label: "build current ttsc",

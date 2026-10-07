@@ -9,10 +9,11 @@ import (
 )
 
 // TestHeritageEdgesTraverseBarrelsAndStopAtExternalLeaves verifies the two edge
-// behaviors that distinguish a checker-resolved graph from a path-heuristic one:
+// endpoints in the authored barrel and declaration-package fixture:
 // a heritage edge into a barrel-re-exported base lands on the sibling source
 // that declares it (not the index file), and a heritage edge into a dependency
-// becomes an external boundary leaf that the walk does not descend into.
+// targets a node marked external under node_modules. This entry does not inspect
+// dependency internals or prove that no traversal occurred there.
 //
 //  1. Compile a fixture: `Sub extends Base` where Base is re-exported through a
 //     barrel, and `SubExt extends Ext` where Ext is declared in a node_modules
@@ -21,7 +22,13 @@ import (
 //  3. Assert the Sub->Base edge targets the real declaration in impl.ts and is
 //     not external, while the SubExt->Ext edge targets an external leaf under
 //     node_modules.
+//
+// @evidence contracts/testing.md#behavioral-verification Build must link Sub to the non-external Base node keyed at impl.ts and SubExt to a found Ext node marked external with /node_modules/ in File. The entry does not assert absent dependency internals, no traversal, or independent authentication of the resolution algorithm.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over a barrel and a dependency: Sub extends a Base re-exported through index.ts must have a heritage edge to the non-external Base node whose id names impl.ts, and SubExt extends the node_modules d.ts class Ext must have a heritage edge to a node named Ext that is external and lives under /node_modules/. The test does not check that the external node's internals are absent.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture: `Sub extends Base` where Base is re-exported through a barrel, and `SubExt extends Ext` where Ext is declared in a node_modules `.d.ts`; Build the graph; Assert the Sub->Base edge targets the real declaration in impl.ts and is not external, while the SubExt->Ext edge targets an external leaf under node_modules.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes an actual project, sibling barrel/source and private node_modules declaration-package fixture, then constructs/closes a driver Program and calls Build in-process. Actual Program filenames/shared nodeID formatting select workspace endpoints and a first-name-match helper selects Ext; no package installation, dump serialization or product process runs. A restored empty linked-plugin manifest excludes ambient hooks.
 func TestHeritageEdgesTraverseBarrelsAndStopAtExternalLeaves(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "node_modules", "dep", "package.json"), `{
@@ -65,8 +72,8 @@ export class SubExt extends Ext {}
     t.Fatalf("missing heritage edge Sub -> Base@impl.ts; edges: %v", graph.Edges)
   }
 
-  // External leaf: the dependency base is a boundary leaf, kept as a node with
-  // its incoming edge but never walked into.
+  // External classification and incoming edge; dependency internals are not
+  // inspected by these assertions.
   ext := findNodeByName(graph, "Ext")
   if ext == nil {
     t.Fatal("Ext base was not recorded as a node")

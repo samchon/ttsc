@@ -6,21 +6,20 @@ import (
   "testing"
 )
 
-// TestServeShardsAbandonedGenerationConvergesOnRetry verifies a consumer that
-// abandons a request mid-flight can still converge, and that the facts it
-// eventually commits match the ones it discarded.
+// TestServeShardsAbandonedGenerationConvergesOnRetry verifies discarding a returned snapshot does not prevent later convergence.
 //
-// The producer has no abort path: it commits after the projection succeeds, so
-// a client that walks away leaves the producer's committed generation ahead of
-// the consumer's. Cancellation is therefore discharged by base negotiation
-// rather than by cancellation handling, which is sound only if the abandoned
-// generation is not the sole carrier of its facts. A consumer replaying from
-// its own stale base has to receive those same facts again.
+// Publication commits the producer generation before a client consumes its
+// response. A later edit must advance that state again and publish the latest
+// source, rather than replaying the snapshot the client discarded.
 //
-//  1. Commit one generation, then edit and take a generation the client discards.
-//  2. Edit again and take the generation a recovered client would actually read.
-//  3. Require the store to have advanced once per accepted call and the final
-//     shard for the edited source to carry the latest text, not the abandoned one.
+// 1. Commit a generation, edit the source and discard its returned snapshot.
+// 2. Edit again and request the snapshot a recovering client would consume.
+// 3. Require one advance per publication and the latest Converged source facts.
+//
+// @evidence contracts/testing.md#behavioral-verification The source state commits each requested publication even when this caller discards a returned snapshot; a later edit converges on the latest source rather than the abandoned text.
+// @evidence contracts/testing.md#independent-expectations The literal successive source edits distinguish Abandoned from Converged. The committed sequence must advance once per accepted publication, and the final shard must carry Converged; equality with the discarded facts is not expected.
+// @evidence contracts/testing.md#distinguishing-cases Initial publication, a discarded changed response and another source edit distinguish producer commit from client consumption. This direct state case does not simulate a transport cancellation.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsAbandonedGenerationConvergesOnRetry is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   root := graphSessionFixture(t)
   session, err := newGraphSession(root, "tsconfig.json")
@@ -28,9 +27,12 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  committed, _, _, err := session.SnapshotShards()
+  committed, _, _, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
+  }
+  if committed == nil || committed.Sequence != 1 || committed.Generation == "" {
+    t.Fatalf("initial committed generation = %#v", committed)
   }
   file := filepath.Join(root, "src", "index.ts")
   indexSource := session.compiler.Program().SourceFile(file)
@@ -43,14 +45,20 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   if err := os.WriteFile(file, []byte("export class Abandoned {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  abandoned, _, changed, err := session.SnapshotShards()
+  abandoned, _, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
   if abandoned == nil || !changed || abandoned.BaseGeneration != committed.Generation {
     t.Fatalf("abandoned generation = snapshot:%#v changed:%v", abandoned, changed)
   }
+  if abandoned.Sequence != committed.Sequence+1 {
+    t.Fatalf("abandoned sequence = %d, want %d", abandoned.Sequence, committed.Sequence+1)
+  }
   abandonedKey := session.graphStore.sourceKeys[indexKeyFile]
+  if abandonedKey == "" {
+    t.Fatal("abandoned source has no committed shard key")
+  }
 
   // The producer moved on regardless. A later edit plus the client's retry has
   // to publish a generation that supersedes the abandoned one rather than
@@ -58,7 +66,7 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   if err := os.WriteFile(file, []byte("export class Converged {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  converged, _, changed, err := session.SnapshotShards()
+  converged, _, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -81,6 +89,23 @@ func TestServeShardsAbandonedGenerationConvergesOnRetry(t *testing.T) {
   }
   if !containsUpsertedShardKey(converged, convergedKey) {
     t.Fatalf("converged generation did not publish the latest shard %q", convergedKey)
+  }
+  foundConverged := false
+  for _, upsert := range converged.Upserts {
+    if upsert.Shard.Key != convergedKey {
+      continue
+    }
+    for _, node := range upsert.Shard.Nodes {
+      if node.Name == "Abandoned" {
+        t.Error("latest source shard retained the abandoned declaration")
+      }
+      if node.Name == "Converged" {
+        foundConverged = true
+      }
+    }
+  }
+  if !foundConverged {
+    t.Error("latest source shard omitted the literal Converged declaration")
   }
   if !containsString(converged.Deletes, abandonedKey) {
     t.Fatalf(

@@ -10,7 +10,7 @@
 /**
  * `react/only-export-components` rule options.
  *
- * @evidence contracts/common.md#principled-implementation HOC and export-name lists identify refresh-safe exports; separate booleans control literal constants and JavaScript scanning without changing component identity.
+ * @evidence contracts/common.md#principled-implementation HOC and export-name lists configure syntactic export exceptions; separate booleans control constant-expression forms and JavaScript scanning without proving runtime refresh safety.
  * @evidence contracts/common.md#clear-and-simple-design One option object keeps export exceptions beside the source-file scan switch for the refresh rule that consumes them.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Framework exceptions are explicit caller configuration, rather than hardcoded project names or patched React internals.
  * @evidence contracts/common.md#meaningful-documentation Member comments identify refresh-handled exports, constant categories, JavaScript opt-in and defaults; separated comments follow documentation guidance.
@@ -24,8 +24,9 @@ export interface ITtscLintReactOnlyExportComponentsRuleOptions {
   extraHOCs?: readonly string[];
 
   /**
-   * Export names the active framework handles during refresh, such as route
-   * metadata exports.
+   * Export names exempted by caller policy, such as framework route metadata.
+   * The rule does not verify that the active framework handles them at
+   * runtime.
    *
    * @default [ ]
    */
@@ -40,7 +41,9 @@ export interface ITtscLintReactOnlyExportComponentsRuleOptions {
   allowConstantExport?: boolean;
 
   /**
-   * Also scan JavaScript files that import React. TSX files are always scanned.
+   * Also scan `.js` files that import React. `.tsx` and `.jsx` files are
+   * eligible without this switch; names containing `.test.`, `.spec.`, `.cy.`,
+   * or `.stories.` remain excluded for every supported extension.
    *
    * @default false
    */

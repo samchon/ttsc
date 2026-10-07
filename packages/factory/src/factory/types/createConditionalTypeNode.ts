@@ -16,6 +16,12 @@ import { make } from "../internal/make";
  * T extends U ? string : number
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param checkType The type being tested.
+ * @param extendsType The type tested against.
+ * @param trueType The branch type when the test passes.
+ * @param falseType The branch type when the test fails.
+ * @returns The created {@link ConditionalTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Check, extends, true and false types preserve their grammatical roles and
  *   order. Printer operand grouping protects the condition's precedence.
@@ -31,13 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc names all four roles and explains operand grouping separately from the
  *   concrete example; acknowledgments follow a blank comment line.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param checkType The type being tested.
- * @param extendsType The type tested against.
- * @param trueType The branch type when the test passes.
- * @param falseType The branch type when the test fails.
- * @returns The created {@link ConditionalTypeNode}.
  */
 export const createConditionalTypeNode = (
   checkType: TypeNode,

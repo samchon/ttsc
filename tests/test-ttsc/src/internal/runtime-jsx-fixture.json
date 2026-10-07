@@ -1,0 +1,13 @@
+{
+  "files": {
+    "node_modules/myjsx/package.json": "{\"name\":\"myjsx\",\"version\":\"1.0.0\",\"main\":\"index.js\",\"types\":\"index.d.ts\",\"exports\":{\".\":{\"types\":\"./index.d.ts\",\"default\":\"./index.js\"},\"./jsx-runtime\":{\"types\":\"./jsx-runtime.d.ts\",\"default\":\"./jsx-runtime.js\"},\"./jsx-dev-runtime\":{\"types\":\"./jsx-dev-runtime.d.ts\",\"default\":\"./jsx-dev-runtime.js\"}}}",
+    "node_modules/myjsx/index.js": "function Fragment() {}\nfunction render(type, props) {\n  const children = [].concat(props?.children ?? []).join(\"\");\n  return type === Fragment ? children : \"<\" + type + \">\" + children + \"</\" + type + \">\";\n}\nfunction h(type, props, ...children) {\n  return render(type, { ...props, children });\n}\nmodule.exports = { Fragment, createElement: h, h, render };\n",
+    "node_modules/myjsx/index.d.ts": "export declare function Fragment(props: { children?: unknown }): string;\nexport declare function h(type: unknown, props: unknown, ...children: unknown[]): string;\nexport declare const createElement: typeof h;\nexport declare function render(type: unknown, props: unknown): string;\nexport declare namespace JSX {\n  type Element = string;\n  interface IntrinsicElements { [name: string]: { children?: unknown } }\n}\n",
+    "node_modules/myjsx/jsx-runtime.js": "const { Fragment, render } = require(\"./index.js\");\nmodule.exports = { Fragment, jsx: render, jsxs: render };\n",
+    "node_modules/myjsx/jsx-dev-runtime.js": "const { Fragment, render } = require(\"./index.js\");\nmodule.exports = { Fragment, jsxDEV: render };\n",
+    "node_modules/myjsx/jsx-dev-runtime.d.ts": "export { Fragment, JSX } from \"./index\";\nexport declare function jsxDEV(type: unknown, props: unknown, ...rest: unknown[]): string;\n",
+    "node_modules/myjsx/jsx-runtime.d.ts": "export { Fragment, JSX } from \"./index\";\nexport declare function jsx(type: unknown, props: unknown): string;\nexport declare function jsxs(type: unknown, props: unknown): string;\n"
+  },
+  "source": "export const view: string = <><div>hello</div><b>world</b></>;\n",
+  "expected": "<div>hello</div><b>world</b>"
+}

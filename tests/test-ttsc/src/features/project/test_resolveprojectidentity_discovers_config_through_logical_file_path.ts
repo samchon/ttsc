@@ -1,11 +1,10 @@
-import { TestProject } from "@ttsc/testing";
-
+import { TestProject } from "../../../../utils/src/TestProject";
 import {
   assert,
   fs,
   path,
   resolveProjectIdentity,
-} from "../../internal/project";
+} from "../../internal/project-unit";
 
 /**
  * Verifies file-based config discovery walks the caller's logical path instead
@@ -18,6 +17,12 @@ import {
  * 1. Create a linked project containing a config and one source file.
  * 2. Discover from the source path relative to the linked root.
  * 3. Assert the selected config stays logical and the Program config is real.
+ * 4. Add a nested owning config and require it to win over the ancestor.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls resolveProjectIdentity from a source reached through a directory link and compares logicalConfigPath with physicalConfigPath, detecting discovery that physicalizes the source before selecting its config.
+ * @evidence contracts/testing.md#independent-expectations The independently created link and underlying project define distinct authored paths; Node realpath supplies the physical-path oracle while the requested link spelling supplies the logical expectation.
+ * @evidence contracts/testing.md#distinguishing-cases A source-relative request through a link differs from preserves_linked_logical_selection, which explicitly selects the linked directory; a later nested config wins over the existing ancestor for a source below it. keeps_explicit_root_separate owns the unlinked explicit-root channel. Config selection is not compilation or runtime startup certification.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolveProjectIdentity directly with a source file path relative to a linked cwd in private temp directories with a real symlink or junction; no compiler artifact, installed consumer or CLI host is prepared.
  */
 export const test_resolveprojectidentity_discovers_config_through_logical_file_path =
   (): void => {
@@ -45,4 +50,28 @@ export const test_resolveprojectidentity_discovers_config_through_logical_file_p
       identity.physicalConfigPath,
       fs.realpathSync(path.join(physicalRoot, "tsconfig.json")),
     );
+    const nested = path.join(physicalRoot, "src", "nested");
+    fs.mkdirSync(nested);
+    fs.writeFileSync(
+      path.join(nested, "tsconfig.json"),
+      '{"compilerOptions":{"noEmit":true}}\n',
+    );
+    fs.writeFileSync(path.join(nested, "main.ts"), "export {};\n");
+    const nestedIdentity = resolveProjectIdentity({
+      cwd: logicalParent,
+      file: path.join("linked-project", "src", "nested", "main.ts"),
+    });
+    assert.equal(
+      nestedIdentity.logicalConfigPath,
+      path.join(logicalRoot, "src", "nested", "tsconfig.json"),
+    );
+    assert.equal(
+      nestedIdentity.logicalProjectRoot,
+      path.join(logicalRoot, "src", "nested"),
+    );
+    assert.equal(
+      nestedIdentity.physicalConfigPath,
+      fs.realpathSync(path.join(nested, "tsconfig.json")),
+    );
+    assert.equal(nestedIdentity.physicalProjectRoot, fs.realpathSync(nested));
   };

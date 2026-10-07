@@ -4,10 +4,10 @@ import path from "node:path";
 const WARNED = new Set<string>();
 
 /**
- * Tell the user, once per record and process, that a module went to its host
- * without the project's record, because the record could be written neither
- * below the host's root nor anywhere else the host accepts it, and does not
- * exist (samchon/ttsc#1480).
+ * Attempt a process warning once per record spelling that a module went to its
+ * host without the project's record, because the record could be written
+ * neither below the host's root nor anywhere else the host accepts it, and does
+ * not exist (samchon/ttsc#1480).
  *
  * A build host watches a module and its record and nothing else, so a module
  * handed over without the record depends on its own bytes alone. The adapter
@@ -18,10 +18,10 @@ const WARNED = new Set<string>();
  *
  * @param record The record that could not be written below the host's root.
  * @param error What the write failed with.
- *
  * @evidence contracts/common.md#principled-implementation
- *   An exact record path keys one process warning; errno or the original error
- *   description identifies the real write failure and the missing dependency effect.
+ *   An exact supplied record path keys one warning attempt; errno or the supplied
+ *   error description explains the write failure reported by the caller. The
+ *   key is marked before formatting/emission, not after confirmed user receipt.
  * @evidence contracts/common.md#clear-and-simple-design
  *   This helper owns user-facing reporting while callers own cacheability and
  *   watching-session refusal.
@@ -31,6 +31,17 @@ const WARNED = new Set<string>();
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain warning deduplication, error code and remedy;
  *   separate tags and parameter prose follow documentation guidance.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The set grows with the distinct unwritable record paths of the process and is never pruned, so its size has no bound beyond that population.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One Set lookup suppresses repeated formatting; the first attempt adds the
+ *   path key, converts the error and constructs message text plus two native
+ *   dirname results. Work follows path/error/message length and delegated Node
+ *   warning processing, not just the fixed warning count.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The process-wide Set suppresses later attempts for the identical record
+ *   spelling, even after recovery or a formatting/emission failure. Native aliases
+ *   are not merged, and suppression is a reporting policy, not persistence proof.
+ * @evidence contracts/portability.md#os-neutral-implementation The remedy names the directory with path.dirname, which uses the host's native separators, so it is spelled as the user's platform spells it.
  */
 export function warnUnwritableProjectRecord(
   record: string,

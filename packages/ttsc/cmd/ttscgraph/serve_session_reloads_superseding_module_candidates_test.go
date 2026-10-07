@@ -8,18 +8,23 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
-// TestServeSessionReloadsSupersedingModuleCandidates verifies a resident
-// session reloads when an unchanged specifier gains a missing candidate that
-// outranks the file TypeScript-Go selected for the first snapshot.
+// TestServeSessionReloadsSupersedingModuleCandidates checks reported reloads
+// after preferred-target creation and automatic types-package discovery.
 //
 // A resident session cannot rely on a changed importer or tsconfig to notice a
-// resolution precedence change. Each case pins a distinct resolver family while
-// preserving both files between observations.
+// resolution precedence change. Eight table cases retain an existing fallback;
+// the ninth adds a discovered types package without an earlier selected package.
 //
-//  1. Load a project whose specifier resolves to the lower-priority target.
-//  2. Create only the absent target that precedes it in that resolver's search.
-//  3. Assert the resident snapshot reloads and the imported symbol resolves to
-//     the newly preferred file. Package internals remain external boundaries.
+//  1. Load each table fallback or the empty wildcard-types fixture.
+//  2. Add the preferred target or newly discovered types package.
+//  3. Require reload and the case's winner-name/file-suffix or diagnostic fragment;
+//     the automatic-types case requires a nonnil reload dump only. Imported
+//     binding edges, full path identity and node External flags are not asserted.
+//
+// @evidence contracts/testing.md#behavioral-verification Eight table cases require reload and a winner-name/file-suffix or diagnostic fragment after preferred-target creation. A ninth case requires reload when a package appears under automatic types [*]. Neither imported binding edges nor complete graph contents are asserted.
+// @evidence contracts/testing.md#independent-expectations Literal fixtures require reload and changed after relative .ts-over-.js, first paths substitution, direct rootDirs location, nearer-package .ts over farther .js, earlier exports-array target, active types exports/imports, direct file over index, or types [*] directory membership creation. Seven table cases require winner with the literal file suffix; the exports-array case requires a diagnostic containing first.js. The ninth requires only a nonnil reload dump. Suffix/fragment matching does not establish full path identity; the nearer-package case changes both location and extension, so it does not isolate equal-extension distance priority.
+// @evidence contracts/testing.md#distinguishing-cases Eight table subtests add an absent preferred target while retaining their initial fallback. automatic_type_directory_membership instead adds a package to types [*] discovery. Each retains its own fixture, assertion and failure name; lower-priority no-change cases belong to separate tests. The ninth does not assert the ambient node itself.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsSupersedingModuleCandidates is a Go source-unit entry; its subtests are registered by the table and by one extra t.Run in the same function. Each runs a real in-process graphSession over a temporary project through snapshotGraphState with explicit empty ignore membership, so no consumer is installed and no native binary is built or launched.
 func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
   cases := []struct {
     name           string
@@ -204,12 +209,12 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
         t.Fatal(err)
       }
       defer session.Close()
-      if _, _, _, err := session.Snapshot(); err != nil {
+      if _, _, _, err := snapshotGraphState(session); err != nil {
         t.Fatal(err)
       }
 
       test.add(t, root)
-      dump, mode, changed, err := session.Snapshot()
+      dump, mode, changed, err := snapshotGraphState(session)
       if err != nil {
         t.Fatal(err)
       }
@@ -233,12 +238,12 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
       t.Fatal(err)
     }
     defer session.Close()
-    if _, _, _, err := session.Snapshot(); err != nil {
+    if _, _, _, err := snapshotGraphState(session); err != nil {
       t.Fatal(err)
     }
 
     writeGraphFile(t, filepath.Join(root, "node_modules", "@types", "generated", "index.d.ts"), "declare const generatedAmbient: string;\n")
-    dump, mode, changed, err := session.Snapshot()
+    dump, mode, changed, err := snapshotGraphState(session)
     if err != nil {
       t.Fatal(err)
     }

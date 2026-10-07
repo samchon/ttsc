@@ -2,6 +2,7 @@ package driver_test
 
 import (
   "path/filepath"
+  "regexp"
   "strings"
   "testing"
 
@@ -12,14 +13,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerNamedReexportPreserved is an emit-contract guard:
-// a `export { x } from "./dep"` named re-export must survive a plugin transform
-// and still lower to commonjs as an `Object.defineProperty(exports, "x", ...)`
-// getter over the re-exported require binding. The plugin here rewrites an
-// unrelated sibling statement (the `0` initializer) so the SourceFile is rebuilt
-// around the re-export; a regression in parent/original wiring or in the
-// re-export's binder resolution would drop the defineProperty getter, leaving
-// `exports.x` undefined at runtime.
+// TestEmitWithPluginTransformerNamedReexportPreserved Verifies a named re-export retains its
+// CommonJS getter and dependency binding beside a rewritten sibling.
+//
+// A CommonJS named re-export needs both the defineProperty getter and the dependency
+// binding it reads. The numeric sibling change makes ancestor regeneration observable;
+// either missing structure would leave the authored re-export incomplete.
+//
+// 1. Transform the named-reexport fixture sibling initializer from 0 to 1.
+// 2. Require the x getter and dependency require alongside the changed sibling assignment.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs the actual numeric sibling transformer and requires the named export getter returning x from the ./dep require binding, plus changed exports.a assignment.
+// @evidence contracts/testing.md#independent-expectations Literal x export, ./dep target and sibling replacement one independently establish generated structures.
+// @evidence contracts/testing.md#distinguishing-cases Named re-export and unrelated real rewrite coexist, rejecting dropped module lowering or a no-op transformer.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit runs direct transformer/compiler APIs on a disposable Program and closes it after captured output; runtime getter behavior is not claimed.
 func TestEmitWithPluginTransformerNamedReexportPreserved(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -69,6 +76,14 @@ func TestEmitWithPluginTransformerNamedReexportPreserved(t *testing.T) {
   // And the require for the re-exported module must be present.
   if !strings.Contains(js, `require("./dep")`) {
     t.Fatalf("re-export require(\"./dep\") missing:\n%s", js)
+  }
+  binding := regexp.MustCompile(`(?:const|let|var) (\w+) = require\("\./dep"\);`).FindStringSubmatch(js)
+  if binding == nil {
+    t.Fatalf("named re-export dependency binding missing:\n%s", js)
+  }
+  getter := `Object.defineProperty(exports, "x", { enumerable: true, get: function () { return ` + binding[1] + `.x; } });`
+  if !strings.Contains(js, getter) {
+    t.Fatalf("named re-export getter does not return its dependency's x:\n%s", js)
   }
   // The unrelated rewrite must have still applied (proves the plugin actually
   // rebuilt this file, so the re-export survived a real transform, not a no-op).

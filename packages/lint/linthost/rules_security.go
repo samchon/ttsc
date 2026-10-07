@@ -177,9 +177,9 @@ func (securityDetectNewBuffer) Check(ctx *Context, node *shimast.Node) {
 // `Buffer.from` for a string, array, or buffer; `Buffer.alloc` for a
 // zero-filled size; `Buffer.allocUnsafe` for an uninitialized size — and this
 // rule fires precisely when the argument is not a literal, so the source
-// cannot say. Picking one automatically is how the deprecated constructor's
-// original hazard comes back: applying `Buffer.allocUnsafe` to what was really
-// a string silently allocates uninitialized heap memory.
+// cannot say. Picking one automatically can change meaning: `Buffer.allocUnsafe`
+// expects a numeric size and throws TypeError for a string, while a numeric
+// argument requests uninitialized memory rather than copying input data.
 //
 // Each edit removes `new` and replaces the callee while leaving the argument
 // list untouched. It consumes only whitespace immediately after `new`, so a
@@ -375,7 +375,7 @@ func (securityDetectPseudoRandomBytes) Check(ctx *Context, node *shimast.Node) {
   if !ok || prop != "pseudoRandomBytes" || identifierText(obj) != "crypto" {
     return
   }
-  message := "Found crypto.pseudoRandomBytes which is not cryptographically strong. Use `crypto.randomBytes` instead."
+  message := "Found the deprecated crypto.pseudoRandomBytes name. Use `crypto.randomBytes` instead."
   edits := securityRandomBytesEdits(ctx.File, node)
   if len(edits) == 0 {
     ctx.Report(node, message)

@@ -10,8 +10,9 @@ import (
 // TestHeritageEdgesCoverImplementsAndInterfaceExtends verifies that
 // collectHeritage spans both heritage-bearing declaration kinds and both clause
 // keywords: an interface `extends` and a class `implements` each yield a
-// heritage edge to the same base, while a class that only mentions the base in a
-// parameter type position yields a type-ref edge, never a heritage edge.
+// heritage edge to the same base. The authored Unrelated.greet parameter yields
+// a method-to-Base type reference, without either tested heritage edge from
+// Unrelated or Unrelated.greet.
 //
 // The negative twin pins the boundary collectHeritage must hold: heritage is an
 // `extends`/`implements` relationship, so a base reached only through a method
@@ -24,8 +25,15 @@ import (
 //     reference is the parameter type of a method.
 //  2. Build the graph.
 //  3. Assert heritage edges Derived->Base and Impl->Base exist, and that
-//     Unrelated->Base is a type-ref edge but not a heritage edge.
+//     Unrelated.greet->Base is a type-ref edge, while both Unrelated and its
+//     method have no heritage edge to Base.
+//
+// @evidence contracts/testing.md#behavioral-verification The authored interface Derived and class Impl must each have a heritage edge to Base. Unrelated.greet must have a type-ref edge to Base, while neither that method nor Unrelated has the tested heritage edge. Wire keyword projection, edge spans and other declaration forms are not asserted.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over Base, Derived, Impl and Unrelated: heritage edges Derived to Base and Impl to Base must exist, no heritage edge may leave Unrelated or Unrelated.greet to Base, and a type-ref edge must run from Unrelated.greet to Base.
+// @evidence contracts/testing.md#distinguishing-cases Interface extends and class implements clauses provide positive heritage counterparts; a method parameter referencing the same Base must produce a method-owned type-ref instead of either tested heritage edge. Shared target identity keeps the syntactic relation as the distinguishing property.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes a driver Program in-process and directly calls Build. Actual Program filenames and shared nodeID formatting select literal-name endpoints, not an independent ID-grammar oracle. A restored empty linked-plugin manifest excludes ambient hooks; no dump serialization, installed consumer or product process runs.
 func TestHeritageEdgesCoverImplementsAndInterfaceExtends(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface Base {}

@@ -10,37 +10,44 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerPrefersRunnerError pins the contract that the upstream
-// tsgo server error wins over the proxy error in the final fold. A
-// future refactor that swapped the order (or replaced the slice with
-// errors.Join without an Is-aware unwrap) would silently flip the
-// reported root cause and editors would see the wrong message.
+// failingEditorOut is an editor output whose every write fails with err.
+type failingEditorOut struct{ err error }
+
+func (w failingEditorOut) Write([]byte) (int, error) { return 0, w.err }
+
+// TestLSPServerPrefersRunnerError Verifies that RunLSPServer prefers the runner sentinel over a distinct editor-write sentinel.
 //
-// 1. Substitute an upstream runner that returns a `runnerSentinel` error.
-// 2. Force the proxy half to fail with a different sentinel.
-// 3. Assert RunLSPServer returns the runner sentinel.
+// The runner writes a valid frame before failing while editor output also fails.
+//
+// 1. Substitute an upstream runner that writes one frame upstream-to-editor and then returns a `runnerSentinel` error.
+// 2. Give the editor output a writer that fails with a different, unfolded `proxySentinel`, so the proxy half also fails.
+// 3. Assert RunLSPServer returns the runner sentinel, not the proxy sentinel.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer prefers the runner sentinel over a distinct editor-write sentinel.
+// @evidence contracts/testing.md#independent-expectations Separately authored errors identify the competing failures independently of folding.
+// @evidence contracts/testing.md#distinguishing-cases The runner writes a valid frame before failing while editor output also fails.
+// @evidence contracts/testing.md#execution-ownership An injected Go runner and failing writer exercise server orchestration without booting tsgo. Go discovers TestLSPServerPrefersRunnerError under ./test/driver.
 func TestLSPServerPrefersRunnerError(t *testing.T) {
   runnerSentinel := errors.New("synthetic upstream failure")
-  runner := func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
+  proxySentinel := errors.New("synthetic editor write failure")
+  runner := func(_ context.Context, _ io.Reader, out io.Writer, _ driver.LSPServerOptions) error {
+    // The pipe write returns after the proxy reads the frame; its subsequent
+    // editor write may occur before or after the runner returns its sentinel.
+    if err := driver.WriteFrame(out, []byte(`{"jsonrpc":"2.0","method":"window/logMessage","params":{}}`)); err != nil {
+      return err
+    }
     return runnerSentinel
   }
 
-  // Editor pipes are set up so the proxy will fail too: closing the
-  // editor reader before the proxy's pumpUpstreamToEditor writes
-  // makes that write fail with io.ErrClosedPipe, distinct from the
-  // runner sentinel.
   editorInR, editorInW := io.Pipe()
-  editorOutR, editorOutW := io.Pipe()
   defer editorInR.Close()
-  defer editorOutW.Close()
-  editorOutR.Close()
-  editorInW.Close()
+  defer editorInW.Close()
 
   done := make(chan error, 1)
   go func() {
     done <- driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
       In:  editorInR,
-      Out: editorOutW,
+      Out: failingEditorOut{err: proxySentinel},
       Err: io.Discard,
       Cwd: t.TempDir(),
       Upstream: driver.LSPUpstream{
@@ -51,6 +58,9 @@ func TestLSPServerPrefersRunnerError(t *testing.T) {
 
   select {
   case err := <-done:
+    if errors.Is(err, proxySentinel) {
+      t.Fatalf("proxy error won over the runner error: %v", err)
+    }
     if !errors.Is(err, runnerSentinel) {
       t.Fatalf("expected runner sentinel to win, got %v", err)
     }

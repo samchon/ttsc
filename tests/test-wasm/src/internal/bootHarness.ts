@@ -1,9 +1,9 @@
-// Node-side lifecycle harness for the real, built `bootTtsc`.
+// Node-side source-unit lifecycle harness for authored `bootTtsc`.
 //
 // `bootTtsc` runs in a Web Worker and reaches for `importScripts`, `fetch`,
 // `WebAssembly.instantiateStreaming`, and the `Go` constructor that
 // `wasm_exec.js` installs. None of those wasm mechanics are the subject under
-// test — the *lifecycle* (readiness settlement, retry global restore) is. This
+// test. The lifecycle (readiness settlement, retry global restore) is. This
 // harness stubs exactly those globals with a fake Go runtime whose behavior a
 // test controls, drives the real imported `bootTtsc`, and restores every
 // touched global afterward so sequential cases stay isolated.
@@ -43,7 +43,7 @@ export interface IBootStubOptions {
     call: number,
   ) => Promise<{ ok: boolean; status: number }>;
   /**
-   * Fake `go.run` body, invoked once per attempt that reaches instantiation.
+   * Fake `go.run` body, invoked once per attempt that completes instantiation.
    * Return the promise that represents the Go runtime's lifetime: a normal host
    * returns a never-settling promise after `signalReady`; an early exit returns
    * a settled promise without signaling.
@@ -58,7 +58,7 @@ export const FAKE_API = Object.freeze({ version: () => ({ version: "test" }) });
 
 /**
  * Install the boot stubs, run `body` (which calls the real `bootTtsc`), and
- * restore every touched global — even on throw. Each case gets a clean slate.
+ * restore every touched global, even on throw. Each case gets a clean slate.
  */
 export async function withBootStubs<T>(
   apiName: string,
@@ -77,7 +77,7 @@ export async function withBootStubs<T>(
     apiName + "Failed",
   ];
   // Snapshot presence + value so restore can distinguish "was absent" (delete)
-  // from "was present" (reassign) — `process` genuinely exists in Node and must
+  // from "was present" (reassign). `process` exists in Node and must
   // survive untouched.
   const snapshot = new Map<string, { had: boolean; value: unknown }>();
   for (const key of keys) snapshot.set(key, { had: key in g, value: g[key] });

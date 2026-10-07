@@ -18,37 +18,34 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  * resolved at startup. The load read the descriptors and the files they
  * resolved (`hostInputs`), and it built each binary from the Go sources of its
  * `pluginSources`; a change to any of them selects other plugins, or builds
- * another binary, which only a new session loads (samchon/ttsc#1507). The host
- * ends the session through its reload path when one changes, and the editor
- * starts the next. The shape each travels in is `ILSPPluginSelectionInputs`.
+ * another binary, which only a new session loads. The host ends the session
+ * through its reload path when one changes, and the editor starts the next. The
+ * shape each travels in is `ILSPPluginSelectionInputs`.
  *
  * What selects the plugins is among them: the project's config chain, whose
  * `compilerOptions.plugins` names them, and the manifests plugin discovery
  * reads. A change there is a selection change, as `ttsc --watch` treats it,
- * rather than only a Program refresh (samchon/ttsc#1511). Left out is a
- * plugin's `configFile` that no descriptor read, which its plugin declares
- * among its own project inputs.
+ * rather than only a Program refresh. Left out is a plugin's `configFile` that
+ * no descriptor read, which its plugin declares among its own project inputs.
  *
- * Everything is fingerprinted now, and then required to agree with what the
- * load proved: recorded content hashes and physical targets still match, and
- * every plugin source holds the state its binary was keyed on. A change after
- * the load and before the fingerprint would otherwise be recorded as the state
- * the session was selected from.
+ * Non-deferred inputs are fingerprinted, then recorded content/target proofs
+ * and plugin-source states are checked again. Only paths with a recorded proof
+ * participate in that proof comparison. These sequential observations reject
+ * detected drift; unavailable markers or changes between reads are not a proof
+ * that the complete filesystem stayed fixed throughout capture.
  *
  * @param loaded The plugin load of the session.
- *
  * @returns The inputs, or `undefined` when the load no longer describes the
  *   filesystem and the selection has to be loaded again.
- *
- * @evidence contracts/common.md#principled-implementation The native manifest groups candidate and source-file digests by directory; capture is accepted only while the loader's content, physical-target and binary-source observations still hold, so post-load drift cannot become a new baseline for old plugins.
+ * @evidence contracts/common.md#principled-implementation The manifest groups candidate/source-file digests by directory. Recorded content and physical-target proofs and all plugin-source states are compared again before return; a detected mismatch rejects capture, while sequential reads and unproven paths do not certify every post-load change.
  * @evidence contracts/common.md#clear-and-simple-design Candidate filtering, source enumeration and proof comparison remain separate; the private recorder owns basename insertion into prototype-free maps, including names such as __proto__.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source omission rules come from the binary builder's shared constants; stale proofs return undefined instead of replacing a loaded selection with guessed current evidence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain selection versus program refresh, deferred config inputs and the startup race; parameter/result documentation and separated tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path operations retain declared spellings and actual realpath observations detect symlink or junction retargeting independently of content equality; no OS name supplies filesystem case policy.
- * @evidence contracts/performance.md#efficient-algorithms Work scales with descriptor candidates, source-tree entries and bytes fingerprinted; directory-grouped output avoids repeating directory keys per file, while content and physical identity remain separate required observations.
+ * @evidence contracts/performance.md#efficient-algorithms Path normalization/filtering allocates candidate arrays and an excluded set. Each source is walked for directories and again for files; file framing is followed by separate recorded content/realpath proof reads and plugin-source state validation, including its native/toolchain costs. Maps retain path keys and digests while temporary walk/read buffers coexist; directory grouping avoids repeating directory keys per file.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This capture validates a particular completed load against current filesystem state; retained plugin/binary reuse belongs to that load's owner, and cached post-load readings would miss drift.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned maps transfer to the session builder; synchronous readers retain no open handle or historical capture.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned maps transfer to the session builder. Supported readers and source-state helpers own their native acquisition/release boundaries; this mapper stores no cross-call capture or running task, and local output has no independent population or byte ceiling.
  */
 export function captureLSPPluginSelectionInputs(loaded: {
   deferredHostInputs: readonly string[];

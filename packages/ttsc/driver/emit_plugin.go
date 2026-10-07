@@ -75,12 +75,15 @@ func (h *pluginEmitHost) IsSourceFileFromExternalLibrary(file *shimast.SourceFil
 }
 
 // PluginTransform transforms one source file in the emit phase, bound to the
-// emit EmitContext: nodes it builds with ec.Factory (and links with
-// ec.SetOriginal) are recognized and aliased by tsgo's builtin module-transform.
+// emit EmitContext. ec.Factory and ec.SetOriginal supply the identity channels
+// used by builtin transforms; they do not make every arbitrary constructed tree
+// valid. Injected bindings must use the supported generated-name policy and
+// preserve the original links needed by the particular transformation.
 // Returning nil leaves the file unchanged. This is the AST-integration contract
 // that replaces text-splice: a plugin returns AST, not text. The shape mirrors a
-// classic ts.TransformerFactory (SourceFile -> SourceFile) so an existing
-// node-based transformer plugs in by just accepting the EmitContext.
+// classic source-file transformer, with EmitContext supplied on each call;
+// adapting an existing transformer still requires the native AST and context
+// APIs rather than only changing its function signature.
 //
 // @evidence contracts/common.md#principled-implementation Generated AST identity belongs to the shared emit context, allowing builtin import and module transforms to interpret plugin nodes.
 // @evidence contracts/common.md#clear-and-simple-design A per-source callback returns an optional replacement; the host owns ordering and printing.
@@ -133,14 +136,11 @@ func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diag
 // because the emit context's update hook only records the original, it does not
 // copy `DeclarationBase.Symbol`.
 //
-// #201 added this against a real panic in the walk that
-// MarkLinkedReferencesRecursively used to run over the transformed tree. That
-// walk no longer happens here — the builtin chain is built from the parse tree
-// below — so the original trigger is gone, and no probe reproduces a panic with
-// this call stubbed out.
-//
-// Keep it anyway, because the remaining exposure is unproven rather than
-// absent. tsgo's own defense against a plugin-built node is ast.IsParseTreeNode,
+// It guards the walk MarkLinkedReferencesRecursively would run over a
+// transformed tree. That walk does not happen here, because the builtin chain
+// is built from the parse tree below, and no probe reproduces a panic with this
+// call stubbed out. The restoration stays because the remaining exposure is
+// unproven rather than absent. tsgo's own defense against a plugin-built node is ast.IsParseTreeNode,
 // which most EmitResolver reference methods test to bail out early — and a
 // REBUILT container does not trip it. The emit context stamps
 // NodeFlagsSynthesized when its factory creates a node, but ast.updateNode then
@@ -186,25 +186,28 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 // EmitTransformPlugins are chained after the caller's transforms in
 // registration order.
 //
+// With no effective transform, ordinary native emission owns bundled output,
+// declarations and build information. This entry still corrects source maps
+// for the source preamble before delivering them to its writer.
+//
 // Because the JavaScript side bypasses tsgo's own emitter, it reproduces that
 // emitter's whole printSourceFile step via PrintFileWithSourceMap: a
-// `sourceMap` / `inlineSourceMap` build emits a `.js.map` (and
-// `//# sourceMappingURL=` trailer) just like a plain build, even when a
-// transform expanded one source line into many; an `emitBOM` build still starts
-// with the byte order mark; and the caller's WriteFile still receives the
-// WriteFileData the emitter would hand it. All non-JavaScript outputs stay
-// delegated to tsgo's normal dts-only emitter so declaration files, declaration
-// maps, and any future declaration-lane outputs are not silently lost by the
-// hand-assembled JS path.
+// `sourceMap` build can emit an external `.js.map` and trailer, while
+// `inlineSourceMap` embeds its map in the trailer instead. Map production follows
+// the printer's source-kind and destination conditions, even when a transform
+// expands source lines; `emitBOM` adds its leading mark. JavaScript WriteFileData
+// carries the fields documented by writePluginEmitOutput, not every field of
+// ordinary native emit. Declarations, declaration maps and build information
+// delegate to the native dts-only pass when that pass is required.
 //
 // @evidence contracts/common.md#principled-implementation Plugin AST transforms share the builtin emit context; parse-tree identity qualifies checker resolution, while native declaration emit retains compiler-owned declaration semantics.
 // @evidence contracts/common.md#clear-and-simple-design JavaScript transformation and declaration emission are separate phases with one buffered output owner and shared diagnostic classification.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported factories, original-node ownership, and compiler transformers replace hardcoded import aliases or patched checker functions; noEmitOnError withholds writes until both phases succeed.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain ordering, context integration, maps/BOM, and declaration delegation following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Compiler output paths and native containment checks govern writes; no shell or OS-specific output directory is assumed.
-// @evidence contracts/performance.md#efficient-algorithms Original member ownership is indexed once, each eligible source is transformed once per emit, and declaration work delegates to the native emitter.
+// @evidence contracts/performance.md#efficient-algorithms Without effective transforms, native whole-program emission and authored source-map correction own output work. Otherwise one original-tree member index precedes the eligible-file loop; each file runs the ordered callback chain and builtin transforms, followed by printing/maps and any native declaration pass. AST size, callback count/work, output bytes, native path checks and declaration work govern cost; callbacks may perform additional traversals.
 // @evidence contracts/performance.md#reuse-equivalent-work Linked program hooks are latched per generation, and the existing checker/resolver serves all per-file transforms instead of constructing independent compiler programs.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Ownership indexes and pending noEmitOnError outputs are local to this invocation; success flushes once and failure releases them when the operation returns.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The invocation retains original-member references and, under noEmitOnError, all pending output text without a byte cap. Success flushes once; return ends this local ownership, not caller-held output or Program/checker lifetimes. Write failure can leave an already-written prefix; no rollback is promised.
 func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, errors.New("driver: nil program")
@@ -238,6 +241,34 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   }
   if result := shimcompiler.HandleNoEmitOnError(context.Background(), p.TSProgram, nil); result != nil {
     return p.pluginEmitDiagnostics("pre-emit checking", result.Diagnostics)
+  }
+  hasTransform := false
+  for _, transform := range transforms {
+    if transform != nil {
+      hasTransform = true
+      break
+    }
+  }
+  if !hasTransform {
+    correctSourceMap := p.NewSourceMapCorrector()
+    result, diagnostics, err := p.EmitAllRaw(func(fileName, text string, data *shimcompiler.WriteFileData) error {
+      corrected, err := correctSourceMap(fileName, text)
+      if err != nil {
+        return err
+      }
+      if writeFile != nil {
+        return writeFile(fileName, corrected, data)
+      }
+      return DefaultWriteFile(fileName, corrected)
+    })
+    if err != nil || result == nil {
+      return diagnostics, err
+    }
+    phase := "JavaScript emit"
+    if options.GetEmitDeclarations() {
+      phase = "declaration emit"
+    }
+    return p.pluginEmitDiagnostics(phase, result.Diagnostics)
   }
   // Snapshot ownership before any transformer runs, including transforms that
   // mutate their input in place or reuse a member from another source file.
@@ -302,12 +333,11 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       for _, tr := range shimcompiler.GetScriptTransformers(ec, host, sf) {
         out = tr.TransformSourceFile(out)
       }
-      // Print through the source-map-aware helper so a `sourceMap` /
-      // `inlineSourceMap` build still gets its `.js.map` and sourceMappingURL
-      // trailer, and an `emitBOM` build its leading mark: the hand-assembled
+      // Print through the source-map-aware helper for an external sourceMap or
+      // an inlineSourceMap trailer, and an emitBOM leading mark: the hand-assembled
       // emit pipeline does not run tsgo's emitter, so everything printSourceFile
       // would otherwise do around the printer has to happen here. With maps and
-      // emitBOM off this is the same bare-printer output as before.
+      // emitBOM off the output is the bare printer's.
       printed := shimcompiler.PrintFileWithSourceMap(ec, out.AsNode(), out, options, host, paths.JsFilePath(), paths.SourceMapFilePath())
       // A source-level preamble (e.g. @ttsc/banner linked into a typia host)
       // shifts the map's source coordinates; correct them here too, so the
@@ -358,9 +388,9 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   // consumer reading it can only decide to emit again, never to skip a file
   // ttsc actually transformed. Making the record exact would mean running
   // tsgo's own JavaScript emit a second time and discarding its output, paying
-  // a full emit to describe work already done. Everything else in the file —
-  // the compiler version, the resolved options, per-file versions and
-  // signatures, and the declaration state this pass does produce — is accurate.
+  // a full emit to describe work already done. Other build-information fields
+  // come from this native declaration pass; they are not a separate certificate
+  // of arbitrary plugin reads or of the hand-assembled JavaScript output.
   //
   // ttsc itself never reads build information back (see
   // `shimcompiler.EmitFreshWithBuildInfo`), so this asymmetry costs a ttsc
@@ -397,15 +427,14 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
 }
 
 // writePluginEmitOutput writes one artifact of the hand-assembled emit, passing
-// the caller's WriteFile the same WriteFileData tsgo's emitter would.
+// the caller's WriteFile the supported WriteFileData fields described below.
 //
 // What this lane can populate, and what it deliberately cannot:
 //
 //   - SourceMapUrlPos: the offset of the `//# sourceMappingURL=` trailer, or -1
 //     when none was written. PrintFileWithSourceMap records it exactly where
 //     printSourceFile does, so a consumer that relocates or rewrites the trailer
-//     works the same on both lanes. This is why a nil data was a real loss and
-//     not merely a cosmetic one.
+//     works the same on both lanes.
 //   - Diagnostics: always empty. The emitter's field carries its accumulated
 //     emitterDiagnostics, which on the JavaScript lane are its own write
 //     failures; here a write failure is returned as an `error` from

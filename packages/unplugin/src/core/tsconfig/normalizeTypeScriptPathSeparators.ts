@@ -15,6 +15,13 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   The native description identifies config-language semantics, which explains
  *   why the function is distinct from an arbitrary filesystem path conversion.
+ * @evidence contracts/portability.md#os-neutral-implementation Backslashes become slashes as TypeScript's configuration language treats them before native resolution; a path handed to the filesystem is resolved natively by the callers and never rewritten here.
+ * @evidence contracts/performance.md#efficient-algorithms One literal-character replacement scans the target in linear time and returns at most the same number of characters, without resolving directories or constructing a component collection.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This syntax conversion coordinates no completed or in-flight computation;
+ *   containing readers own reuse of normalized config observations.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function normalizeTypeScriptPathSeparators(target: string): string {
   return target.replace(/\\/g, "/");

@@ -20,15 +20,22 @@ const portableDumpTSConfig = `{
 }
 `
 
-// TestDumpCheckoutPathsAreStable verifies the whole dump-identity consequence
-// surface, not only the path helper.
+// TestDumpCheckoutPathsAreStable compares complete serialized dumps for two
+// authored checkout roots after clearing only Project, with selected literal
+// path assertions. It does not cover every path spelling or platform boundary.
 //
 //  1. Build the same project plus sibling .ts/.d.ts under two checkout roots.
 //  2. Remove only the producer-local Project locator and require byte identity.
 //  3. Assert nodes, module names, endpoints, implementation evidence,
 //     diagnostics, manifests, and universe inputs all use one `../shared`
 //     coordinate, with the .ts internal and the .d.ts an external leaf.
+//
+// @evidence contracts/testing.md#behavioral-verification Two independently loaded checkout fixtures serialize identically after clearing only Project. Literal assertions cover sibling source and declaration nodes, module naming, edge endpoint membership, injected implementation evidence, diagnostic location, provenance source and universe config/root coordinates.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: the same project built under two different checkout roots must marshal to identical JSON once only the producer-local Project field is cleared, no checkout path may appear in the JSON, and the dump must use the literal coordinate ../shared/value.ts (internal function, module node and a provenance source), ../shared/types.d.ts (external leaf) and tsconfig.json/src/main.ts roots, a TS2322 diagnostic on ../shared/value.ts, and an implementation span in ../shared/value.ts. The implementation file on the main node is injected by the test to exercise that optional path.
+// @evidence contracts/testing.md#distinguishing-cases Build the same project plus sibling .ts/.d.ts under two checkout roots; Remove only the producer-local Project locator and require byte identity; Assert nodes, module names, endpoints, implementation evidence, diagnostics, manifests, and universe inputs all use one `../shared` coordinate, with the .ts internal and the .d.ts an external leaf.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes two native project/sibling trees, constructs and closes their driver compiler Programs in-process, and directly calls Build and dump/provenance operations. A restored empty linked-plugin manifest excludes ambient hooks. Implementation coordinates are explicitly injected into the test-owned graph, not produced by an assignment transform; no consumer installation or native product command runs.
 func TestDumpCheckoutPathsAreStable(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   firstCheckout := filepath.Join(t.TempDir(), "checkout-one")
   secondCheckout := filepath.Join(t.TempDir(), "checkout-two")
   first := portableFixtureDump(t, firstCheckout)

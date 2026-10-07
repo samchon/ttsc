@@ -14,6 +14,10 @@ import { ITtscGraphDump } from "./ITtscGraphDump";
  * @evidence contracts/common.md#clear-and-simple-design One transport envelope keeps response routing and computation mode outside the content payload.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Mode is a producer report rather than a guessed interpretation of generation counters.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain hand-maintained wire synchronization, version independence and error/changed payload semantics.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphSnapshot {
   /** Echoes the request's id, so a response finds its caller. */
@@ -68,6 +72,10 @@ export namespace ITtscGraphSnapshot {
    * @evidence contracts/common.md#clear-and-simple-design Transaction metadata and three shard-change collections separate generation authority from fact storage.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A delta cannot silently substitute an unrelated generation; its claimed base is explicit.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains base and manifest semantics, and member comments distinguish versions, generation coordinates and payload populations.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface ITransaction {
     /** Shard transaction protocol version. */
@@ -120,6 +128,10 @@ export namespace ITtscGraphSnapshot {
    * @evidence contracts/common.md#clear-and-simple-design The upsert contains only the payload and its content witness.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The digest qualifies actual content rather than a filename or timestamp proxy.
    * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish content witness from the replacement payload.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IShardUpsert {
     /** Hex SHA-256 of the canonical Go JSON shard representation. */
@@ -136,6 +148,10 @@ export namespace ITtscGraphSnapshot {
    * @evidence contracts/common.md#clear-and-simple-design The manifest reference stays distinct from an upsert because unchanged entries have no payload.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A retained entry is identified by content digest rather than assumed unchanged from its key alone.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain membership key and canonical-content digest.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IShardReference {
     /** Logical shard ownership key. */
@@ -155,6 +171,10 @@ export namespace ITtscGraphSnapshot {
    * @evidence contracts/common.md#clear-and-simple-design One shard carries complete owner-local facts while the transaction controls cross-shard membership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata ownership cannot be used to hide authored declarations from source attribution checks.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains mutually exclusive source/config attribution and the separate metadata role; members identify each fact population.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IShard {
     /** Ownership coordinate shared with the generation manifest. */
@@ -190,6 +210,10 @@ export namespace ITtscGraphSnapshot {
    * @evidence contracts/common.md#clear-and-simple-design One shared union types mode reports independently of payload availability.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The client cannot rename a rebuild incremental solely to claim better performance.
    * @evidence contracts/common.md#meaningful-documentation Each mode's native bullet explains the producer event and whether a new snapshot exists.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export type Mode =
     | "initial"

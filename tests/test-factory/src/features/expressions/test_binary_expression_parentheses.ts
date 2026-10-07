@@ -1,6 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, SyntaxKind } from "@ttsc/factory";
 
+import factory, {
+  type Expression,
+  SyntaxKind,
+} from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 const bin = (
@@ -20,6 +23,11 @@ const bin = (
  * 1. Print nested binary expressions across lower and equal precedence.
  * 2. Print exponentiation and nullish/logical mixes.
  * 3. Assert parentheses preserve the original AST grouping.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Binary printing preserves lower-precedence operands, non-associative right operands, exponentiation associativity and nullish/logical mixing.
+ * @evidence contracts/testing.md#independent-expectations Explicit arithmetic/logical source expectations independently encode the intended expression tree.
+ * @evidence contracts/testing.md#distinguishing-cases Lower-left/right, equal-right subtraction, exponentiation sides, ?? with || and arrow-right rows catch contextual rather than blanket wrapping.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_binary_expression_parentheses. Calls createBinaryExpression with nested binary/arrow nodes and print in process.
  */
 export const test_binary_expression_parentheses = (): void => {
   TestValidator.equals(

@@ -8,14 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPFrameReaderRejectsInvalidContentLengthValue pins the strict
-// parsing of the Content-Length value. Non-integer and negative values
-// must look the same to Read — both invalidate the only header that
-// declares a body length, so Read surfaces the same missing-header error.
+// TestLSPFrameReaderRejectsInvalidContentLengthValue Verifies that FrameReader rejects non-integer and negative lengths with an error mentioning Content-Length.
 //
-// 1. Send a frame with a non-numeric Content-Length value.
-// 2. Send a frame with a negative Content-Length value.
-// 3. Assert both produce the missing-Content-Length error.
+// Two malformed rows are checked; the assertion does not require a particular missing-header error identity.
+//
+// 1. Read a frame with a non-numeric Content-Length.
+// 2. Read a frame with a negative Content-Length.
+// 3. Assert both fail with errors mentioning Content-Length.
+//
+// @evidence contracts/testing.md#behavioral-verification FrameReader rejects non-integer and negative lengths with an error mentioning Content-Length.
+// @evidence contracts/testing.md#independent-expectations Neither nope nor -3 is a nonnegative LSP body byte count.
+// @evidence contracts/testing.md#distinguishing-cases Two malformed rows are checked; the assertion does not require a particular missing-header error identity.
+// @evidence contracts/testing.md#execution-ownership Each table row owns its bytes.Reader and calls the public Go frame parser. Go discovers TestLSPFrameReaderRejectsInvalidContentLengthValue under ./test/driver.
 func TestLSPFrameReaderRejectsInvalidContentLengthValue(t *testing.T) {
   cases := []struct {
     name  string

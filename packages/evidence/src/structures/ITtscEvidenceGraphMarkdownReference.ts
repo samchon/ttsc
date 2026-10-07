@@ -1,5 +1,5 @@
-import type { TtscEvidenceGraphMarkdownSymbol } from "../typings/TtscEvidenceGraphMarkdownSymbol";
 import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphReferenceBase";
+import type { TtscEvidenceGraphMarkdownSymbol } from "./TtscEvidenceGraphMarkdownSymbol";
 
 /**
  * A population of documentary evidence that the owning claim must cite.

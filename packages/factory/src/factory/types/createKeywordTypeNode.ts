@@ -14,9 +14,12 @@ import { make } from "../internal/make";
  * Given the `StringKeyword` kind, the printer renders:
  *
  * ```ts
- * string
+ * string;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param kind The token kind.
+ * @returns The created {@link KeywordTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   The SyntaxKind argument is stored as the keyword field of KeywordTypeNode;
  *   its broad enum type does not establish that every supplied token is a type keyword.
@@ -32,10 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc describes keyword types and gives a string example; this
  *   acknowledgment states the broad enum's validation limit explicitly.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param kind The token kind.
- * @returns The created {@link KeywordTypeNode}.
  */
 export const createKeywordTypeNode = (kind: SyntaxKind): KeywordTypeNode =>
   make("KeywordTypeNode", { keyword: kind });

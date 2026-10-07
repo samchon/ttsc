@@ -3,17 +3,22 @@ package lspserver
 import "testing"
 
 // TestLSPProjectDiagnosticsRefreshKeepsEachProducerLastGood verifies partial
-// refreshes update only the producers that answered successfully.
+// direct stores replace only their producer's retained diagnostic codes.
 //
 // Project diagnostics are one merged config-URI publication, but their
 // sidecars fail independently. Rebuilding that publication from only the
 // current call's successes would erase a failed producer's prior findings. An
 // empty successful answer is different: it deliberately clears that producer.
 //
-//  1. Seed two producers with successful publications.
-//  2. Refresh only the first and assert the second producer's last-good remains.
-//  3. Clear the second with a successful empty publication.
-//  4. Recover the second and assert manifest-order aggregation is restored.
+//  1. Seed two retained publications through direct stores.
+//  2. Store only the first again and assert the second remains.
+//  3. Store an empty publication for the second, then another nonempty one.
+//  4. Require literal code order at every snapshot stage.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual direct stores and snapshots preserve the untouched second record, clear its codes with an empty publication, and restore its codes after a later store. The literal ordered code lists detect record loss or reordering; no producer query, failure or recovery is executed.
+// @evidence contracts/testing.md#independent-expectations Expected ordered code lists are authored separately from the source's aggregation. The assertion selects diagnostic codes only, so it does not certify URI, message or other publication fields.
+// @evidence contracts/testing.md#distinguishing-cases Initial two records, first-only replacement, second empty replacement and second nonempty replacement are the four direct-store stages. Failure is represented only by omitting a store, not by a failed native command.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly invokes NativePluginSource.storeProjectDiagnostics and projectDiagnosticsSnapshot with owned publication values. Binary names are opaque record identities: this body starts no child, installs no consumer and creates no temporary project or product host.
 func TestLSPProjectDiagnosticsRefreshKeepsEachProducerLastGood(t *testing.T) {
   first := NativeLSPPluginEntry{Binary: "first", Name: "@ttsc/first"}
   second := NativeLSPPluginEntry{Binary: "second", Name: "@ttsc/second"}

@@ -43,33 +43,37 @@ export interface IPlaygroundShellProps {
 
   /**
    * Static extra .d.ts entries to mount in Monaco (e.g. a pre-packed typia type
-   * pack). Merged with dependencies installed at runtime.
+   * pack). Merged with dependencies installed at runtime. Keep the object
+   * identity stable across renders: a new object makes the editor dispose and
+   * register every declaration again.
    */
   staticEditorLibs?: Record<string, string>;
 
   /**
    * Packages the site has already pre-mounted into the wasm. These are skipped
-   * by the runtime npm dependency installer.
+   * by the runtime npm dependency installer. Keep the array identity stable
+   * across renders: a new array restarts the pending compile debounce.
    */
   preinstalledPackages?: readonly string[];
 
   /**
    * Optional execute hook. When provided, the shell renders an "Execute"
    * button; on click it calls `service.bundle(...)` to get the JS and passes it
-   * here. The returned messages are appended to the Console pane.
+   * here. Calls the hook makes on `sandbox.console` are appended to the Console
+   * pane in order; its returned promise carries no messages.
    *
    * `sandbox.runtimeFiles` is the current runtime-file map produced by
-   * dependency installation in this session
-   * (package-rooted keys like `uuid/dist/index.js`). The site's executeBundle
-   * typically merges these on top of its own typia-runtime pack and feeds the
-   * union to `createSandboxRequire` — without this channel the in-page Execute
-   * sandbox cannot resolve any npm dependency the user installed.
+   * dependency installation in this session (package-rooted keys like
+   * `uuid/dist/index.js`). The site's executeBundle typically merges these on
+   * top of its own typia-runtime pack and feeds the union to
+   * `createSandboxRequire` — without this channel the in-page Execute sandbox
+   * cannot resolve any npm dependency the user installed.
    *
    * `sandbox.signal` aborts when source or compiler options change, a newer
-   * Execute starts, or the shell unmounts. Implementations must pass it through
-   * to cancellable setup such as runtime-pack fetches. Synchronous evaluated
-   * user code cannot be preempted and still requires an isolated executor when
-   * untrusted code is accepted.
+   * Execute starts, the compiler Worker is replaced, or the shell unmounts.
+   * Implementations must pass it through to cancellable setup such as
+   * runtime-pack fetches. Synchronous evaluated user code cannot be preempted
+   * and still requires an isolated executor when untrusted code is accepted.
    *
    * When omitted, the Execute UI is hidden.
    */
@@ -90,7 +94,8 @@ export interface IPlaygroundShellProps {
 }
 
 /**
- * Execute emitted code with session runtime files and attempt-scoped cancellation.
+ * Execute emitted code with session runtime files and attempt-scoped
+ * cancellation.
  *
  * The site owns execution isolation. The abort signal can cancel asynchronous
  * setup, but cannot preempt synchronous evaluated code.

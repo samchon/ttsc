@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "@ttsc/factory";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, print, ref } from "../../internal/helpers";
 
 /**
@@ -14,6 +14,11 @@ import { id, print, ref } from "../../internal/helpers";
  * 1. Use binary expressions as operands of tight expression contexts.
  * 2. Use an arrow function as a callable operand.
  * 3. Assert parentheses preserve the operand boundary.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Tight expression consumers preserve arithmetic, call/new, prefix, assertion and statement/body grouping.
+ * @evidence contracts/testing.md#independent-expectations The explicit contextual source literals specify the intended syntax tree without reproducing the parenthesizer implementation.
+ * @evidence contracts/testing.md#distinguishing-cases Sixteen contexts include object expression statements, function-expression calls, arrow object bodies and decorators, distinguishing consumer-specific wrappers.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_expression_context_parentheses. Calls the labeled expression consumers and TsPrinter.print directly over authored factory nodes.
  */
 export const test_expression_context_parentheses = (): void => {
   const sum = () => factory.createAdd(id("a"), id("b"));

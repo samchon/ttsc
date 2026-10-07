@@ -52,10 +52,10 @@ func (g *Graph) addEdgeAt(from, to string, kind EdgeKind, origin string, pos, en
   // `extends` and an `implements` of the same base) are both kept, while
   // repeated uses of the same form collapse to one edge.
   //
-  // The key is a struct, not a concatenation. Concatenating allocated a fresh
-  // string per *candidate* edge — including the duplicates thrown away on the
-  // next line, which on a large program are most of them — and a comparable
-  // struct of the three fields hashes just as well for nothing.
+  // The key is a struct, not a concatenation: concatenating would allocate a
+  // fresh string per *candidate* edge, including the duplicates thrown away on
+  // the next line, while a comparable struct of the three fields hashes just as
+  // well at no allocation.
   key := edgeKey{from: from, to: to, kind: wireEdgeKind(kind, origin)}
   if _, exists := g.seen[key]; exists {
     return
@@ -136,11 +136,11 @@ func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *s
 }
 
 // memberRelationEdges records the directly declared member pairs that a
-// heritage clause makes checker-valid. The TypeScript loader used to infer
-// these from equal names after the dump was built. That made an authoritative
-// edge even when the checker rejected the container relation, and a method /
-// property kind guard could not repair it: same-kind signatures can be
-// incompatible while a method can validly satisfy a function-valued property.
+// heritage clause makes checker-valid. Inferring them from equal names after the
+// dump was built would make an authoritative edge even when the checker rejects
+// the container relation, and a method / property kind guard could not repair
+// it: same-kind signatures can be incompatible while a method can validly
+// satisfy a function-valued property.
 //
 // Each pair is checked independently. A whole-container assignability gate
 // would let one broken sibling erase a valid relation in the same partially
@@ -195,9 +195,9 @@ func (g *Graph) memberRelationEdges(
       // `interface Child extends Root {}` with `class W implements Child`
       // resolves `W.execute` against `Root.execute`, and the program compiles
       // with no diagnostic — but the immediate base declares nothing, so
-      // requiring a directly declared member dropped a relation the checker
-      // had already established. Execution tracing follows these edges to
-      // reach an implementation, so the missing edge ends the trace at the
+      // requiring a directly declared member would drop a relation the checker
+      // has already established. Execution tracing follows these edges to
+      // reach an implementation, so a missing edge would end the trace at the
       // abstract declaration.
       baseMember = inheritedMemberForProperty(checker, baseProperty)
     }
@@ -401,8 +401,8 @@ func forEachContainerIn(path string, statements []*shimast.Node, fn func(string,
       // A statement that declares nothing still runs: a test suite's
       // `describe(() => it(() => schema.parse(x)))`, an entry file's
       // `bootstrap()`, a registration side effect. No declaration owns those
-      // calls, so attributing edges to owners alone dropped every one of them,
-      // and with them every test the graph could have pointed at. The module
+      // calls, so attributing edges to owners alone would drop every one of
+      // them, and with them every test the graph could point at. The module
       // runs them, so the module owns them.
       fn(moduleID(path), statement)
     }
@@ -430,7 +430,7 @@ func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
 // node. Property members are additive: their initializer/type subtree is walked
 // once for the property node, and once for the owner type node, so precise member
 // queries can land on `Class.prop` without making coarse class/interface queries
-// lose dependency edges they historically owned.
+// lose dependency edges the owner node carries.
 func forEachMember(path string, statement *shimast.Node, kind NodeKind, fn func(string, *shimast.Node)) {
   containerID := topLevelID(path, statement, kind)
   for _, member := range classMembers(statement) {
@@ -609,13 +609,12 @@ func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shi
 // …` against a `declare global { function assert(…) }`, or a patched member of
 // a dependency's `@types`, resolves to a symbol whose only declaration is in a
 // declaration file — which has no body, holds no facts, and enters the graph as
-// an external boundary leaf. Re-attributing the assigned body to it moved the
-// implementation's calls and type references onto a node that never ran them,
-// under offsets read against the wrong file: `recordImplementation` already
-// refuses an external node, so the evidence file stayed unset and the spans
-// pointed at neither the declaration nor the implementation. And the edge
-// itself was unassemblable, so every request against such a project failed at
-// shard partition.
+// an external boundary leaf. Re-attributing the assigned body to it would move
+// the implementation's calls and type references onto a node that never ran
+// them, under offsets read against the wrong file: `recordImplementation`
+// refuses an external node, so the evidence file would stay unset and the spans
+// would point at neither the declaration nor the implementation, and the edge
+// itself could not be assembled into a shard.
 func (g *Graph) assignedFunctionTarget(checker *shimchecker.Checker, from string, node *shimast.Node) string {
   binary := node.AsBinaryExpression()
   if binary == nil ||
@@ -710,12 +709,9 @@ func (g *Graph) callEdge(checker *shimchecker.Checker, from string, callee *shim
 //
 // `React.memo(ExcalidrawBase)`, `forwardRef(Impl)`, `app.use(handler)`,
 // `pipe(map(project))` — the argument is not called here and is not a property
-// read, so the collector saw neither a call nor an access and recorded nothing.
-// The wrapper became a dead end: Excalidraw's public export, `export const
-// Excalidraw = React.memo(ExcalidrawBase)`, reached zero files in the graph while
-// the component behind it reached forty-four, so a tour of the public API opened
-// on an app-level export dialog instead, and the model went looking for the real
-// component by hand.
+// read, so neither the call nor the access collector would record it, and the
+// wrapper would be a dead end: `export const Excalidraw =
+// React.memo(ExcalidrawBase)` would reach nothing of the component behind it.
 //
 // A function handed to another function is a use of it, and it is the one the
 // runtime will run. Bounded to argument position: this is the callback, the

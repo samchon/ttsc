@@ -3,9 +3,8 @@ package evidence
 import (
   "encoding/json"
   "fmt"
-  "testing"
-
   "github.com/samchon/ttsc/packages/lint/rule"
+  "testing"
 )
 
 /**
@@ -17,6 +16,11 @@ import (
  * 1. Evaluate every outer, claim, and reference severity combination.
  * 2. Leave one selected requirement uncited.
  * 3. Assert the effective level, or complete silence for a disabled population.
+ *
+ * @evidence contracts/testing.md#behavioral-verification For each outer severity (warning, error) and each of four claim-level and four reference-level settings (omitted, off, warning, error) a t.Run subtest marshals a typescript claim with a markdown reference, runs runIndexRuleAtSeverity over one uncited requirement, and requires either no message and no failure for an effective off, or exactly one finding at the effective level with the reporter failed.
+ * @evidence contracts/testing.md#independent-expectations The expected level is recomputed in the test from the contract: the innermost explicit setting wins, a claim-level `off` disables the population, and an omitted level inherits the outer severity; this inheritance logic is written independently of the rule, but it is a model of the contract rather than a table of literals.
+ * @evidence contracts/testing.md#distinguishing-cases Thirty-two named combinations, including `off` against omitted and a warning beneath an error-by-default rule, so an off that behaved like inheritance or a warning promoted to an error would fail the specific row.
+ * @evidence contracts/testing.md#execution-ownership TestGraphSeverityInheritsAndOverrides is a Go unit entry in the native test process that owns thirty-two t.Run subtests; each calls runIndexRuleAtSeverity (graph rule over a temp directory) with a captured reporter, with no consumer install or product host.
  */
 func TestGraphSeverityInheritsAndOverrides(t *testing.T) {
   levels := []string{"", "off", "warning", "error"}

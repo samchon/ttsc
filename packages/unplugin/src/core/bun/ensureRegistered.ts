@@ -24,6 +24,24 @@ import { bun } from "./bun";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain option preservation and rejection effects rather
  *   than restating branches; prose/tag separation follows documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Installs through the supplied runtime capability without native path or
+ *   executable selection. The loader's later native reads/transforms remain
+ *   its separate boundary, not a platform guarantee from registration.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   An already-registered state returns immediately. Installation constructs
+ *   the plugin/provider once and delegates to runtime.plugin, which owns setup
+ *   and host work; the fixed flag checks do not make that call constant cost.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The registered flag makes the Bun plugin register once per runtime and
+ *   skips repeat calls. The flag is set before the host call to prevent
+ *   reentrancy; only synchronous rejection resets it, not asynchronous host
+ *   failures or a first-load option lock that the host already triggered.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Registers one Bun plugin that stays for the process life, the intended
+ *   lifetime of a loader, with no teardown API here. Its provider retains the
+ *   state/options; native transform caches belong to setup. Synchronous rejection
+ *   resets the registration flag, without rolling back arbitrary host effects.
  */
 export function ensureRegistered(
   runtime: BunRuntimeGlobal,

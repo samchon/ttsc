@@ -191,7 +191,9 @@ func (a contributorAdapter) NeedsTypeChecker() bool {
 // `rule.DeclarationFileRule` marker. Same conservative-default reasoning
 // as NeedsTypeChecker: the host cannot infer a third-party rule's grammar
 // shape, and a wrong skip silently loses findings. The default-true /
-// marker-override policy is applied once in inspectContributor.
+// marker-override policy is applied once in inspectContributor. The engine's
+// declaration predicate gives a true FormatRule marker precedence over this
+// answer so formatting keeps covering declaration files.
 func (a contributorAdapter) VisitsDeclarationFiles() bool {
   return a.visitsDeclarationFiles
 }

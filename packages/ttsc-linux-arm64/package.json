@@ -2,10 +2,14 @@
   "name": "@ttsc/linux-arm64",
   "version": "0.30.4",
   "description": "Linux arm64 native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
-  "os": ["linux"],
-  "cpu": ["arm64"],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
   "scripts": {
-    "build": "node ../../scripts/build-platform-package.cjs"
+    "build": "node ../ttsc/build/platform-package.cjs"
   },
   "repository": {
     "type": "git",
@@ -13,7 +17,11 @@
   },
   "author": "Jeongho Nam",
   "license": "MIT",
-  "files": ["bin", "package.json", "README.md"],
+  "files": [
+    "bin",
+    "package.json",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public",
     "executableFiles": [
@@ -21,7 +29,15 @@
       "./bin/ttscserver",
       "./bin/ttscgraph",
       "./bin/go/bin/go",
-      "./bin/go/bin/gofmt"
+      "./bin/go/bin/gofmt",
+      "./bin/go/pkg/tool/linux_arm64/asm",
+      "./bin/go/pkg/tool/linux_arm64/cgo",
+      "./bin/go/pkg/tool/linux_arm64/compile",
+      "./bin/go/pkg/tool/linux_arm64/cover",
+      "./bin/go/pkg/tool/linux_arm64/fix",
+      "./bin/go/pkg/tool/linux_arm64/link",
+      "./bin/go/pkg/tool/linux_arm64/preprofile",
+      "./bin/go/pkg/tool/linux_arm64/vet"
     ]
   }
 }

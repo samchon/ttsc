@@ -1,0 +1,2 @@
+package dist
+const Value = 1

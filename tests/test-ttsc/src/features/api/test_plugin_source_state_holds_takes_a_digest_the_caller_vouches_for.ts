@@ -1,77 +1,75 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  collectPluginSourceFiles,
-  pluginSourceDigest,
-  pluginSourceState,
-  pluginSourceStateHolds,
-} from "ttsc/plugin-source";
+
+import { collectPluginSourceFiles } from "../../../../../packages/ttsc/src/plugin/internal/source/collectPluginSourceFiles";
+import { pluginSourceDigest } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceDigest";
+import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceState";
+import { pluginSourceStateHolds } from "../../../../../packages/ttsc/src/plugin/internal/source/pluginSourceStateHolds";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies a plugin source's state proof takes the sources' digest from a
- * caller that vouches for it, and reads the files itself otherwise.
+ * Verifies a source-state proof trusts a caller-vouched digest and otherwise
+ * reads files.
  *
- * A consumer that re-proves a plugin source on every delivery, as a dev server
- * whose watch cannot vouch for the directory does, paid a read of every source
- * file each time: 169 ms for typia's 622-file module root. It may keep the
- * digest while the metadata of exactly the files the digest reads holds still,
- * which only the consumer can judge, since it owns a clock reference, so the
- * entry exposes the file list and the digest and lets the proof take one.
+ * A supplied digest is the caller's observation authority. Editing source must
+ * refute the old state when the proof reads files, while the supplied old
+ * digest deliberately retains that state under an unchanged build environment.
  *
- * 1. Write a source, and assert the file list is the files the digest reads, in
- *    sorted order, and the state holds with or without the digest handed over.
- * 2. Edit a file, and assert the proof refutes the old state on its own read, and
- *    holds it when handed the old digest, which the proof then trusts.
- * 3. Assert it holds the new state with the new digest, and refutes it with the
- *    old one.
+ * 1. Copy the package-owned Go input bytes and verify the sorted selected files.
+ * 2. Edit main.go and contrast an own reading with the caller's old digest.
+ * 3. Prove the new state with the new digest and refute it with the old digest.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Direct collectPluginSourceFiles, pluginSourceDigest, pluginSourceState and pluginSourceStateHolds calls preserve all seven original assertions, including selected file order; a source edit must affect the proof's own reading but cannot override a supplied digest.
+ * @evidence contracts/testing.md#independent-expectations The authored selected Go paths, pruned node_modules path and explicit appended source bytes establish provenance. Literal boolean expectations follow the supported caller-trust contract; producer state readings are comparison inputs, not snapshots used as an oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Own versus supplied digest, old versus new source bytes and new-state acceptance versus old-digest refusal preserve every original assertion. Supplied-reading composition is separately owned by test_plugin_source_state_composes_supplied_build_readings.
+ * @evidence contracts/testing.md#execution-ownership This named API unit calls the actual authored source operations over an exact TestProject.copyDirectory copy of package-owned Go fixtures. The build-environment owner may synchronously query installed Go and toolchain files; no Go artifact is built, consumer installed or compiler/product host started. TestProject owns the temporary root.
  */
-export const test_plugin_source_state_holds_takes_a_digest_the_caller_vouches_for =
-  () => {
-    const source = path.join(
-      TestProject.tmpdir("ttsc-plugin-source-digest-"),
-      "plugin",
-    );
-    TestProject.writeFiles(source, {
-      "go.mod": "module example.com/plugin\n\ngo 1.26\n",
-      "internal/rules/rule.go": "package rules\n",
-      "main.go": "package main\n\nfunc main() {}\n",
-      "node_modules/x/ignored.go": "package x\n",
-    });
-
-    // 1. The file list, and the state with and without the digest.
-    assert.deepEqual(collectPluginSourceFiles(source), [
-      path.join(source, "go.mod"),
-      path.join(source, "internal", "rules", "rule.go"),
-      path.join(source, "main.go"),
-    ]);
-    const before = pluginSourceDigest(source);
-    const state = pluginSourceState(source);
-    assert.equal(pluginSourceStateHolds(source, state), true);
-    assert.equal(
-      pluginSourceStateHolds(source, state, { sourceDigest: before }),
-      true,
-    );
-
-    // 2. A digest handed over is trusted, not read again.
-    fs.appendFileSync(path.join(source, "main.go"), "// edited\n");
-    assert.equal(pluginSourceStateHolds(source, state), false, "its own read");
-    assert.equal(
-      pluginSourceStateHolds(source, state, { sourceDigest: before }),
-      true,
-      "the caller's digest",
-    );
-
-    // 3. The new state.
-    const after = pluginSourceDigest(source);
-    const moved = pluginSourceState(source);
-    assert.equal(
-      pluginSourceStateHolds(source, moved, { sourceDigest: after }),
-      true,
-    );
-    assert.equal(
-      pluginSourceStateHolds(source, moved, { sourceDigest: before }),
-      false,
-    );
-  };
+export function test_plugin_source_state_holds_takes_a_digest_the_caller_vouches_for(): void {
+  const source = path.join(
+    TestProject.tmpdir("ttsc-plugin-source-digest-"),
+    "plugin",
+  );
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages",
+      "ttsc",
+      "test",
+      "fixtures",
+      "e2e",
+      "plugin_source_state_holds_takes_a_digest_the_caller_vouches_for",
+      "inputs-1",
+    ),
+    source,
+  );
+  assert.deepEqual(collectPluginSourceFiles(source), [
+    path.join(source, "go.mod"),
+    path.join(source, "internal", "rules", "rule.go"),
+    path.join(source, "main.go"),
+  ]);
+  const before = pluginSourceDigest(source);
+  const state = pluginSourceState(source);
+  assert.equal(pluginSourceStateHolds(source, state), true);
+  assert.equal(
+    pluginSourceStateHolds(source, state, { sourceDigest: before }),
+    true,
+  );
+  fs.appendFileSync(path.join(source, "main.go"), "// edited\n");
+  assert.equal(pluginSourceStateHolds(source, state), false, "its own read");
+  assert.equal(
+    pluginSourceStateHolds(source, state, { sourceDigest: before }),
+    true,
+    "the caller's digest",
+  );
+  const after = pluginSourceDigest(source);
+  const moved = pluginSourceState(source);
+  assert.equal(
+    pluginSourceStateHolds(source, moved, { sourceDigest: after }),
+    true,
+  );
+  assert.equal(
+    pluginSourceStateHolds(source, moved, { sourceDigest: before }),
+    false,
+  );
+}

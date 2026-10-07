@@ -17,6 +17,9 @@ import { createNamedExports } from "./createNamedExports";
  * export { foo };
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param exportName The local binding to expose under its existing name.
+ * @returns The created {@link ExportDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   One unaliased value ExportSpecifier inside NamedExports with no module target
  *   represents a local export; this operation does not invent a from specifier.
@@ -31,10 +34,6 @@ import { createNamedExports } from "./createNamedExports";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose describes the unaliased local export and absent from clause,
  *   with a separate printed example and acknowledgment block.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param exportName The local binding to expose under its existing name.
- * @returns The created {@link ExportDeclaration}.
  */
 export const createExternalModuleExport = (
   exportName: string | Identifier,

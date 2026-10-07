@@ -7,15 +7,15 @@ import type { JSDocSignature } from "./JSDocSignature";
  *
  * Built by {@link factory.createJSDocCallbackTag}.
  *
- * The optional name follows the tag on its first line; the signature follows
- * on subsequent lines. Omitting the name leaves an unnamed callback annotation
+ * The optional name follows the tag on its first line; the signature follows on
+ * subsequent lines. Omitting the name leaves an unnamed callback annotation
  * without creating a callable declaration.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation A required documentation signature and optional identifier represent callback-tag payloads, retaining unnamed forms without claiming an executable callback or validated function type.
  * @evidence contracts/common.md#clear-and-simple-design The signature owns template, parameter and return tags; the callback tag adds only its heading name and optional description.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Callback structure is supplied through ordinary signature nodes rather than synthesized fixture signatures or foreign declaration replacement.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the first-line name, following signature and unnamed case, with separate member comments and paragraphs under the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocCallbackTag {
   /** Discriminant tag; always `"JSDocCallbackTag"`. */

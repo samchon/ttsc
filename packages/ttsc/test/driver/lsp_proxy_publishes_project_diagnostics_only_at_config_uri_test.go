@@ -9,16 +9,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyPublishesProjectDiagnosticsOnlyAtConfigURI verifies opening two
-// source documents never receives duplicate source-attached project findings.
+// TestLSPProxyPublishesProjectDiagnosticsOnlyAtConfigURI Verifies that two source opens publish project findings only at the unversioned config URI with zero-width ranges.
 //
-// The plugin result separates its document and project sets. Each evaluation
-// replaces the one publication at the logical config URI, with a zero-width
-// range and no document version.
+// Two source documents supply the same project finding, followed by a bounded extra-publication silence check.
 //
-//  1. Open two clean source documents whose plugin document sets are empty.
-//  2. Return the same project finding for the logical config URI both times.
-//  3. Assert both publications target only the config URI and carry no version.
+// 1. Open two clean source documents whose plugin document sets are empty.
+// 2. Return the same project finding for the logical config URI both times.
+// 3. Assert both publications target only the config URI and carry no version.
+//
+// @evidence contracts/testing.md#behavioral-verification Two source opens publish project findings only at the unversioned config URI with zero-width ranges.
+// @evidence contracts/testing.md#independent-expectations Project results belong to the config URI and config-start range rather than source URIs.
+// @evidence contracts/testing.md#distinguishing-cases Two source documents supply the same project finding, followed by a bounded extra-publication silence check.
+// @evidence contracts/testing.md#execution-ownership The fixed project stub and private Go proxy pipes exercise publication policy. Go discovers TestLSPProxyPublishesProjectDiagnosticsOnlyAtConfigURI under ./test/driver.
 func TestLSPProxyPublishesProjectDiagnosticsOnlyAtConfigURI(t *testing.T) {
   const configURI = "file:///logical/project/tsconfig.json"
   source := &stubSource{

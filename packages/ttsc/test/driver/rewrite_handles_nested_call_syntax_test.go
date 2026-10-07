@@ -10,15 +10,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteHandlesNestedCallSyntax verifies emit-time call matching
-// skips strings, template literals, comments, and regex literals inside args.
+// TestDriverRewriteHandlesNestedCallSyntax Verifies that EmitAll consumes the full nested namespace call without residual argument tokens.
 //
-// This project fixture exercises the public rewrite path rather than the
-// scanner helper directly, so source-to-output matching is included.
+// Template interpolation, regex, quoted parenthesis, and both comment forms coexist in the argument list.
 //
 // 1. Compile a plugin call with nested syntax in its argument list.
 // 2. Register a namespace-aware rewrite for that call.
 // 3. Assert the replacement succeeds without being confused by inner tokens.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll consumes the full nested namespace call without residual argument tokens.
+// @evidence contracts/testing.md#independent-expectations The complete authored exports.value replacement statement independently defines correct call extent.
+// @evidence contracts/testing.md#distinguishing-cases Template interpolation, regex, quoted parenthesis, and both comment forms coexist in the argument list.
+// @evidence contracts/testing.md#execution-ownership A Go Program and recording writer exercise the actual public rewrite pipeline directly. Go discovers TestDriverRewriteHandlesNestedCallSyntax under ./test/driver.
 func TestDriverRewriteHandlesNestedCallSyntax(t *testing.T) {
   root := t.TempDir()
 
@@ -74,7 +77,9 @@ func TestDriverRewriteHandlesNestedCallSyntax(t *testing.T) {
     t.Fatalf("unexpected emit diagnostics: %#v", emitDiags)
   }
   js := emitted["index.js"]
-  if !strings.Contains(js, `"nested"`) || strings.Contains(js, "plugin.ns.make") {
+  // The whole statement is asserted: a scanner that closed the call at any
+  // inner `)` would leave argument text behind the replacement.
+  if !strings.Contains(js, `exports.value = "nested";`) {
     t.Fatalf("nested call rewrite failed:\n%s", js)
   }
 }

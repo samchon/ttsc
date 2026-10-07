@@ -1,0 +1,25 @@
+{
+  "es-bundler": {
+    "src/js-require-consumer.cts": "declare const require: (id: string) =\u003e unknown;\nexport const loaded = require(\"@lib/legacy\");\n",
+    "src/js-targets.mts": "import { plain } from \"@lib/plain\";\nimport { native } from \"@lib/native\";\nimport { view } from \"@lib/view\";\nexport const value = plain + native + view;\n",
+    "src/main.ts": "declare const require: (id: string) =\u003e unknown;\nimport { message } from \"@lib/message\";\nimport { exact } from \"@lib/exact\";\nimport { index } from \"@pkg\";\nexport { message } from \"@lib/message\";\nexport type { MessageBox } from \"@lib/message\";\nexport type ImportedBox = import(\"@lib/message\").MessageBox;\nexport const loaded = require(\"@lib/message\");\nexport const value = message + \":\" + exact + \":\" + index;\nexport async function loadMessage(): Promise\u003cstring\u003e {\n  return (await import(\"@lib/message\")).message;\n}\ndeclare module \"@lib/message\" {\n  export const augmented: string;\n}\n",
+    "src/modules/exact.ts": "export const exact = \"exact\" as const;\n",
+    "src/modules/legacy.cjs": "exports.legacy = \"cjs\";\n",
+    "src/modules/message.ts": "export interface MessageBox { value: string }\nexport const message = \"paths\";\n",
+    "src/modules/native.mjs": "export const native = \"mjs\";\n",
+    "src/modules/plain.js": "export const plain = \"js\";\n",
+    "src/modules/view.jsx": "export const view = \"jsx\";\n",
+    "src/pkg/index.ts": "export const index = \"index\" as const;\n",
+    "src/types/native.d.ts": "declare module \"@lib/native\" { export const native: string; }\n",
+    "tsconfig.json": "{\"compilerOptions\":{\"target\":\"ES2022\",\"module\":\"ES2022\",\"moduleResolution\":\"Bundler\",\"allowJs\":true,\"checkJs\":false,\"jsx\":\"preserve\",\"declaration\":true,\"strict\":true,\"paths\":{\"@pkg\":[\"./src/pkg\"],\"@lib/exact\":[\"./src/modules/exact.ts\"],\"@lib/plain\":[\"./src/modules/plain\"],\"@lib/native\":[\"./src/modules/native\"],\"@lib/legacy\":[\"./src/modules/legacy\"],\"@lib/view\":[\"./src/modules/view\"],\"@lib/*\":[\"./src/missing/*\",\"./src/modules/*\"]},\"outDir\":\"dist\",\"rootDir\":\"src\",\"plugins\":[{\"transform\":\"@ttsc/paths\"}]},\"include\":[\"src\"]}\n"
+  },
+  "nodenext": {
+    "src/data.json": "{\n  \"answer\": 42\n}\n",
+    "src/json-main.mts": "import data from \"@data\" with { type: \"json\" };\nexport const answer: number = data.answer;\n",
+    "src/main.mts": "import { message } from \"@lib/message\";\nexport type ImportedMessage = import(\"@lib/message\").Message;\nexport const value = message;\n",
+    "src/modules/constant.cts": "export const constant = \"cjs\" as const;\n",
+    "src/modules/message.mts": "export interface Message { value: string }\nexport const message = \"esm\" as const;\n",
+    "src/require-consumer.cts": "declare const require: (id: string) =\u003e unknown;\nexport const loaded = require(\"@lib/constant\");\n",
+    "tsconfig.json": "{\"compilerOptions\":{\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"declaration\":true,\"resolveJsonModule\":true,\"strict\":true,\"paths\":{\"@data\":[\"./src/data.json\"],\"@lib/constant\":[\"./src/modules/constant.cts\"],\"@lib/message\":[\"./src/modules/message.mts\"]},\"outDir\":\"dist\",\"rootDir\":\"src\",\"plugins\":[{\"transform\":\"@ttsc/paths\"}]},\"include\":[\"src\"]}\n"
+  }
+}

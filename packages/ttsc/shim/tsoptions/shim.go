@@ -133,7 +133,7 @@ func ParseConfigFileTextToJson(fileName string, path tspath.Path, jsonText strin
 type ParseConfigHost = tsoptions.ParseConfigHost
 
 //go:linkname ParseExtendedConfig github.com/microsoft/typescript-go/internal/tsoptions.ParseExtendedConfig
-func ParseExtendedConfig(fileName string, path tspath.Path, resolutionStack []string, host tsoptions.ParseConfigHost, extendedConfigCache tsoptions.ExtendedConfigCache) *tsoptions.ExtendedConfigCacheEntry
+func ParseExtendedConfig(fileName string, path tspath.Path, resolutionStack []tspath.Path, host tsoptions.ParseConfigHost, extendedConfigCache tsoptions.ExtendedConfigCache) *tsoptions.ExtendedConfigCacheEntry
 
 //go:linkname ParseJsonConfigFileContent github.com/microsoft/typescript-go/internal/tsoptions.ParseJsonConfigFileContent
 func ParseJsonConfigFileContent(json any, host tsoptions.ParseConfigHost, basePath string, existingOptions *core.CompilerOptions, configFileName string, resolutionStack []tspath.Path, extraFileExtensions []tsoptions.FileExtensionInfo, extendedConfigCache tsoptions.ExtendedConfigCache) *tsoptions.ParsedCommandLine

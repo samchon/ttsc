@@ -12,10 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding
-// covers the dangling-alias crash through a default import, where
-// emit_plugin_ancestor_regeneration_preserves_export_resolution_test.go covers
-// it through a named one.
+// TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding Verifies a rebuilt
+// default-import reference retains its alias and dependency require.
 //
 // The two are not the same case to import elision. It does not test the
 // ImportDeclaration; it tests the clause and its bindings separately, so a named
@@ -29,6 +27,11 @@ import (
 //     nodes, SetOriginal-linked back to the parse-tree identifier.
 //  3. Assert the emitted call is aliased AND that the alias names a require
 //     binding the emitted file actually declares.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs an actual original-linked default-reference rebuild, requires visitor reconstruction and checks default.run alias paired with a ./dep require binding.
+// @evidence contracts/testing.md#independent-expectations Literal ./dep/default/run comes from authored input; regex correlation requires declaration and use of the same generated alias independently of alias spelling.
+// @evidence contracts/testing.md#distinguishing-cases Default-import clause admission differs from named and namespace imports; rebuild occurrence distinguishes reconstructed reference behavior from an untransformed source.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit executes direct emit visitor/compiler APIs with local write map and deferred Program close, without a compiled plugin host.
 func TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -51,6 +54,7 @@ func TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding(t
   // Rebuild `dep.run` into fresh nodes. The `dep` leaf is a new identifier
   // linked to the parse-tree one, which is what makes the reference resolvable
   // to the import at all; its mark, however, only exists on the parse tree.
+  rebuilt := false
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -61,6 +65,7 @@ func TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding(t
         access := node.AsPropertyAccessExpression()
         if access.Expression != nil && access.Expression.Kind == shimast.KindIdentifier &&
           access.Expression.Text() == "dep" {
+          rebuilt = true
           synDep := ec.Factory.NewIdentifier("dep")
           ec.SetOriginal(synDep, access.Expression)
           return ec.Factory.NewPropertyAccessExpression(
@@ -79,6 +84,9 @@ func TestEmitWithPluginTransformerRebuiltDefaultImportReferenceKeepsItsBinding(t
     return nil
   }); err != nil {
     t.Fatal(err)
+  }
+  if !rebuilt {
+    t.Fatal("plugin never rebuilt the authored reference")
   }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)

@@ -27,13 +27,45 @@ import { normalizeAliases } from "./normalizeAliases";
  *   not forwarded, leaving the tsconfig's own mapping in force.
  *
  * @evidence contracts/common.md#principled-implementation Ordered exact and subtree mappings preserve translatable string-alias precedence and target order; a Map represents every valid key, including __proto__, as data before conversion to ordinary own properties.
- * @evidence contracts/common.md#clear-and-simple-design One alias pass classifies root-relative, absolute and untranslatable replacements, with normalization and reporting delegated to their existing helpers.
+ * @evidence contracts/common.md#clear-and-simple-design Classification records eligible replacement targets, then a declaration-order winner pass preserves first-match ownership; normalization/reporting remain separately owned.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrepresentable regular expressions and module-relative replacements are not approximated into misleading compiler paths, and native alias keys do not mutate an object prototype.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain target anchoring and the unsupported translations; private reporting comments explain the intentionally different handling of host-injected regular expressions.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Resolves roots and replacements with node:path and passes every target
+ *   through normalizePath, so the emitted paths use forward slashes on every
+ *   OS.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Translates each alias once; the winner search rescans the declarations
+ *   per eligible key, up to A-times-T candidates for A declarations/T translations.
+ *   Native anchor/target text, normalization and RegExp construction/testing
+ *   add their real costs; no alias count or regex runtime bound is enforced.
+ *   Ordered rescanning preserves string and preceding regex shadowing without
+ *   pretending longest-key compiler lookup has the host's first-match policy.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Exact/subtree output keys reuse the selected declaration's translated
+ *   targets within this call. Diagnostic descriptions are shared across calls
+ *   by the reporting owner; compiler-output identity reuse belongs to callers.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Classification/output maps and copies are call-local, while returned own
+ *   mappings transfer to the caller. The reporting helper retains one description
+ *   per noticed find string for this loaded module's lifetime, without a count/
+ *   byte cap or reset. A description is retained even if stderr writing throws.
  */
 export function createAliasPaths(aliases: unknown): Record<string, string[]> {
   const paths = new Map<string, string[]>();
-  for (const alias of normalizeAliases(aliases)) {
+  const declarations = normalizeAliases(aliases).map((alias) =>
+    typeof alias.find === "string" &&
+    alias.find.endsWith("/") &&
+    alias.replacement.endsWith("/")
+      ? {
+          ...alias,
+          find: alias.find.slice(0, -1),
+          replacement: alias.replacement.slice(0, -1),
+        }
+      : alias,
+  );
+  const translated = new Map<(typeof declarations)[number], string[]>();
+  for (const alias of declarations) {
     if (typeof alias.find !== "string") {
       // Vite's array form accepts a `RegExp` find, and `{ find: /^~/ }` is a
       // common way to spell a prefix alias. A tsconfig `paths` map has no
@@ -45,17 +77,10 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
       // reduction becomes likely, and a mistranslated alias resolves imports to
       // the wrong file silently, which is worse than not forwarding it.
       //
-      // Not reported, unlike the wildcard below, and that asymmetry is the
-      // whole point: Vite merges two `RegExp` aliases of its own into every
-      // resolved config, `/^\/?@vite\/env/` and `/^\/?@vite\/client/`. Measured
-      // on a bare project with no user aliases at all, `resolve.alias` has
-      // exactly those two entries under both `serve` and `build`, so a report
-      // on this form would fire twice for every Vite user in every build, name
-      // aliases they never wrote, and say nothing about their configuration.
-      // A diagnostic that cannot distinguish the user's input from the host's
-      // is noise, and noise is what teaches people to stop reading the channel
-      // the out-of-program report depends on. The documentation carries this
-      // form instead, in both README and guide.
+      // Regex/non-string forms are withheld without a notice. Host configs
+      // can contain injected regex aliases, and this adapter has no reliable
+      // origin discriminator; the policy suppresses all such notices rather
+      // than claiming it can identify every user declaration.
       continue;
     }
     if (alias.find.length === 0) {
@@ -70,7 +95,7 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
       );
       continue;
     }
-    const key = alias.find.replace(/\/+$/, "");
+    const key = alias.find;
     if (key.length === 0) {
       continue;
     }
@@ -102,9 +127,34 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
       );
       continue;
     }
-    const normalized = targets.map((target) => normalizePath(target));
-    paths.set(key, normalized);
-    paths.set(`${key}/*`, normalized.map((target) => `${target}/*`));
+    translated.set(
+      alias,
+      targets.map((target) => normalizePath(target)),
+    );
+  }
+  // TypeScript selects the longest paths key; Vite selects the first matching
+  // declaration. Every more-specific key must therefore carry the first
+  // declaration's replacement, not the later declaration that supplied it.
+  for (const alias of translated.keys()) {
+    const key = alias.find as string;
+    const winner = declarations.find((entry) => {
+      if (typeof entry.find === "string")
+        return entry.find === key || key.startsWith(`${entry.find}/`);
+      if (entry.find instanceof RegExp)
+        return new RegExp(entry.find.source, entry.find.flags).test(key);
+      return false;
+    });
+    const targets = winner === undefined ? undefined : translated.get(winner);
+    if (targets === undefined || typeof winner?.find !== "string") continue;
+    const suffix = key.slice(winner.find.length);
+    const normalized = targets.map((target) => normalizePath(target + suffix));
+    // A find-only trailing slash is not a normal @x prefix. Its translatable
+    // descendants begin with another slash; the bare key is not admitted.
+    if (!key.endsWith("/")) paths.set(key, normalized);
+    paths.set(
+      `${key}/*`,
+      normalized.map((target) => `${target}/*`),
+    );
   }
   return Object.fromEntries(paths);
 }
@@ -116,7 +166,8 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
  * `resolve.alias` is resolved once and then consulted on every delivery, so
  * reporting per delivery would repeat one statement about the config for every
  * file in the bundle. Keyed by the description, so a Vite dev server that
- * reloads its config reports again only when the alias itself changed.
+ * reloads its config reports again only for a new find description, not for
+ * another replacement/reason with the same find. There is no reset or cap.
  */
 const REPORTED_UNTRANSLATABLE_ALIASES = new Set<string>();
 
@@ -129,11 +180,9 @@ const REPORTED_UNTRANSLATABLE_ALIASES = new Set<string>();
  * (samchon/ttsc#1308) — but that report names the module, not the alias, so the
  * user cannot learn from it that a configuration they wrote was ignored.
  *
- * The wildcard form and relative or bare replacements reach here. Every entry
- * it names was written by the user or the user's framework, because Vite
- * injects none of them; the `RegExp` form is left to the documentation
- * precisely because Vite does inject those, and {@link createAliasPaths} carries
- * that measurement.
+ * Wildcard, relative and bare string declarations reach this reporter. It
+ * suppresses duplicate find descriptions; it does not prove who authored an
+ * entry. Non-string finds are withheld without reaching this channel.
  */
 function reportUntranslatableAlias(description: string, reason: string): void {
   if (REPORTED_UNTRANSLATABLE_ALIASES.has(description)) {

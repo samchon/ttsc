@@ -19,6 +19,10 @@ import { make } from "../internal/make";
  * export { b } from "./b";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param sourceFiles The bundled source files.
+ * @param _prepends Ignored; kept for signature parity.
+ * @returns The created {@link Bundle}.
  * @evidence contracts/common.md#principled-implementation
  *   Bundle preserves source-file order; the outline model has no prepended
  *   emit-helper nodes, so the legacy prepends argument remains unsupported.
@@ -33,11 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes bundle grouping from helper prepending and gives a
  *   two-file example, with prose and tags separated under documentation guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param sourceFiles The bundled source files.
- * @param _prepends Ignored; kept for signature parity.
- * @returns The created {@link Bundle}.
  */
 export const createBundle = (
   sourceFiles: readonly SourceFile[],

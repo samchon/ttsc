@@ -10,27 +10,29 @@ import type { TtscWatchInput } from "./TtscWatchInput";
 import type { TtscWatchInputState } from "./TtscWatchInputState";
 
 /**
- * One compiler input as a watch input, carrying the identity the generation
- * already resolved and the exact state it already recorded for the path: the
- * compiler's predicate observation where it made one, the graph's hash and
- * realpath for a realized input, the host bytes' hash for a walk or
- * dependency-only input, or the state of a plugin source directory.
+ * One input as a watch input, carrying identity from the generation's qualified
+ * native context and the state it recorded for the path: the compiler's
+ * predicate observation where it made one, the graph's hash and realpath for a
+ * realized input, the host bytes' hash for a walk or dependency-only input, or
+ * the state of a plugin source directory.
  *
- * Both are memoized per generation, while a host deriving them itself pays
- * repeated filesystem reads and can attach a later state to an earlier
- * transform. An input the generation recorded no state for comes back with
- * `state` absent, and the caller decides what to read for it.
+ * State payloads are retained generation observations; identity queries share
+ * the generation context but a first spelling can still require native reads. A
+ * plugin source state takes precedence over other recorded codecs. An input
+ * with no recorded state returns `state` absent, leaving its caller to decide
+ * whether another observation is appropriate. No current byte read here
+ * manufactures evaluation-time state.
  *
- * @param spell The spelling the host is handed; every lookup is by the
- *   compiler's physical one.
- *
- * @evidence contracts/common.md#principled-implementation Generation observations select predicate, tree, graph or host state in provenance order, keeping physical target and availability distinct from the host's registration spelling.
+ * @param spell The registration spelling callback. Predicate lookup uses the
+ *   native absolute lexical input; hash dictionaries use physical identity or
+ *   project keys without discarding the predicate's original spelling.
+ * @evidence contracts/common.md#principled-implementation Recorded plugin tree state takes precedence, then exact lexical predicates, external graph/host state and project host bytes. Own-entry hash guards preserve absent baselines; unknown state stays absent, with physical target/availability separate from registration spelling.
  * @evidence contracts/common.md#clear-and-simple-design One derivation maps retained generation facts into the documented watch carrier while the caller supplies its spelling policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown codec state stays absent; the missing marker is a supported observation value rather than a guessed content hash.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes generation evidence and spelling ownership, followed by separated acknowledgment tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and the generation's identity context preserve actual filesystem identity separately from caller-selected lexical spelling.
- * @evidence contracts/performance.md#efficient-algorithms Map and property lookups derive one carrier without rereading file contents; path work depends on spelling length and identity lookup delegates to the shared context.
- * @evidence contracts/performance.md#reuse-equivalent-work Hashes, predicate observations and identity derivation are shared from the cached generation, whose recorded input facts are immutable for delivery.
+ * @evidence contracts/performance.md#efficient-algorithms Each call allocates one carrier and performs lexical/identity queries plus a plugin-source lookup; a first plugin lookup may parse the full declared source record. Non-tree inputs also compute the project key before selecting the recorded codec. Cost includes key/path text, any cold native path/ancestor/case observations and one caller spelling callback, while recorded byte hashes are not reread. Shared context/plugin populations remain owner costs beyond this fixed carrier allocation.
+ * @evidence contracts/performance.md#reuse-equivalent-work Recorded hashes/predicates and plugin state come from one immutable generation. Identity and project-key queries share its context under a still-valid native view and fixed root; this operation creates a fresh carrier rather than memoizing it, and cannot certify those premises independently.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This mapping stores no new persistent cache or handle; retained generation facts belong to the generation owner.
  */
 export function evidencedWatchInput(

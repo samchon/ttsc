@@ -16,13 +16,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerEmitsDeclarationOutputs pins the complete output
-// set for the plugin-transform emit lane.
+// TestEmitWithPluginTransformerEmitsDeclarationOutputs Verifies transformed JavaScript retains
+// the raw emitter's declaration artifacts and map contents.
 //
 // EmitWithPluginTransformers owns the transformed JavaScript path, but it must
 // not narrow tsgo's output set to only `.js` and `.js.map`. A declaration build
 // must still emit the same declaration artifacts as raw tsgo emit: `.d.ts` and
 // `.d.ts.map`, including the declaration map trailer inside the `.d.ts`.
+//
+// 1. Emit one declaration fixture through raw emission and numeric/standalone-member transforms.
+// 2. Compare artifact sets and declaration bytes, then check JS replacements, both v3 maps and trailers.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual EmitWithPluginTransformers with numeric and standalone-factory member replacements, compares complete artifact sets and declaration/map bytes with raw emit, and asserts generated arrow/marker, Payload/payload declarations, both populated v3 maps and trailers.
+// @evidence contracts/testing.md#independent-expectations The delegated native raw emitter independently owns declaration compatibility; authored Payload/value/payload source, before versus GO DRIVER EMIT PLUGIN, input => input.value, artifact names, src/index.ts, version three and replacement two are literal controls.
+// @evidence contracts/testing.md#distinguishing-cases Numeric and string replacements coexist with the preserved declaration API and label member; raw before versus transformed marker distinguishes actual transformation while JS/declaration maps and incremental output retain the original artifact parity controls.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit runs raw and plugin operations on the same private in-process Program and captures writes, then closes it; no native host is built and the generated JavaScript is not executed here.
 func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -44,7 +52,10 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   writeProjectFile(t, root, "src/index.ts", strings.Join([]string{
     "export interface Payload {",
     "  readonly label: string;",
+    "  readonly value: string;",
     "}",
+    "export const payload: Payload = { label: 'kept', value: 'before' };",
+    "console.log(payload.value);",
     "export const value: number = 1;",
     "",
   }, "\n"))
@@ -75,6 +86,17 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
       if node.Kind == shimast.KindNumericLiteral && node.Text() == "1" {
         return ec.Factory.NewNumericLiteral("2", 0)
       }
+      if node.Kind == shimast.KindStringLiteral && node.Text() == "before" {
+        f := ec.Factory
+        standalone := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
+        access := standalone.NewPropertyAccessExpression(f.NewIdentifier("input"), nil, standalone.NewIdentifier("value"), shimast.NodeFlagsNone)
+        parameter := f.NewParameterDeclaration(nil, nil, f.NewIdentifier("input"), nil, nil, nil)
+        arrow := f.NewArrowFunction(nil, nil, f.NewNodeList([]*shimast.Node{parameter}), nil, nil, f.NewToken(shimast.KindEqualsGreaterThanToken), access)
+        argument := f.NewObjectLiteralExpression(f.NewNodeList([]*shimast.Node{
+          f.NewPropertyAssignment(nil, f.NewIdentifier("value"), nil, nil, f.NewStringLiteral("GO DRIVER EMIT PLUGIN", 0)),
+        }), false)
+        return f.NewCallExpression(f.NewParenthesizedExpression(arrow), nil, nil, f.NewNodeList([]*shimast.Node{argument}), shimast.NodeFlagsNone)
+      }
       return visitor.VisitEachChild(node)
     }
     visitor = ec.NewNodeVisitor(visit)
@@ -82,7 +104,7 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   }
 
   plugin := map[string]string{}
-  if emitDiags, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+  if emitDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{transform}, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     plugin[filepath.Base(fileName)] = text
     return nil
   }); err != nil || len(emitDiags) != 0 {
@@ -99,6 +121,19 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   }
   if !strings.Contains(plugin["index.js"], "exports.value = 2;") {
     t.Fatalf("plugin transform did not affect JavaScript:\n%s", plugin["index.js"])
+  }
+  for _, literal := range []string{"input => input.value", "GO DRIVER EMIT PLUGIN", "console.log(exports.payload.value)", "//# sourceMappingURL=index.js.map"} {
+    if !strings.Contains(plugin["index.js"], literal) {
+      t.Fatalf("JavaScript lost %q:\n%s", literal, plugin["index.js"])
+    }
+  }
+  if !strings.Contains(raw["index.js"], "before") || strings.Contains(raw["index.js"], "GO DRIVER EMIT PLUGIN") {
+    t.Fatalf("raw JavaScript lost the untransformed control:\n%s", raw["index.js"])
+  }
+  for _, literal := range []string{"export interface Payload", "readonly label: string;", "readonly value: string;", "export declare const payload: Payload;"} {
+    if !strings.Contains(plugin["index.d.ts"], literal) {
+      t.Fatalf("declaration lost %q:\n%s", literal, plugin["index.d.ts"])
+    }
   }
   if plugin["index.d.ts"] != raw["index.d.ts"] {
     t.Fatalf("declaration output diverged from raw tsgo emit:\nplugin:\n%s\nraw:\n%s", plugin["index.d.ts"], raw["index.d.ts"])
@@ -130,12 +165,39 @@ func TestEmitWithPluginTransformerEmitsDeclarationOutputs(t *testing.T) {
   if !foundSource {
     t.Fatalf("declaration map sources do not reference src/index.ts: %v", parsed.Sources)
   }
+  parsed.Version, parsed.Sources, parsed.Mappings = 0, nil, ""
+  if err := json.Unmarshal([]byte(plugin["index.js.map"]), &parsed); err != nil {
+    t.Fatalf("index.js.map is not valid JSON: %v", err)
+  }
+  if parsed.Version != 3 || parsed.Mappings == "" {
+    t.Fatalf("index.js.map is not a populated v3 source map: %#v", parsed)
+  }
+  foundSource = false
+  for _, source := range parsed.Sources {
+    if strings.HasSuffix(filepath.ToSlash(source), "src/index.ts") {
+      foundSource = true
+    }
+  }
+  if !foundSource {
+    t.Fatalf("JavaScript map sources do not reference src/index.ts: %v", parsed.Sources)
+  }
 }
 
-// TestEmitWithPluginTransformerEmitDeclarationOnlyOutputs covers the
-// declaration-only branch: the plugin-transform lane has no JavaScript output to
-// own, but it must still pass through the declaration outputs TypeScript-Go
-// would have emitted.
+// TestEmitWithPluginTransformerEmitDeclarationOnlyOutputs Verifies declaration-only emission
+// preserves declaration artifacts without running the JavaScript transformer.
+//
+// Declaration-only output belongs to the delegated native declaration emitter. An
+// observable JavaScript callback must remain idle while nonempty declaration and
+// declaration-map artifacts match the raw output set, separating this branch
+// from a mixed JavaScript build. This entry does not compare artifact bytes.
+//
+// 1. Emit the declaration-only fixture through raw and transformed emission.
+// 2. Require matching artifact names, nonempty declarations, no JavaScript output and no JS transformer invocation.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual declaration-only emission and requires no JS transform call, no index.js, two nonempty declaration artifacts and complete output-set parity with raw emission.
+// @evidence contracts/testing.md#independent-expectations Authored emitDeclarationOnly/declarationMap options independently require declaration artifacts and exclude JavaScript; raw native emitter independently owns output-set compatibility.
+// @evidence contracts/testing.md#distinguishing-cases Observable identity-transform callback must remain idle, contrasting mixed JS/declaration emission in the sibling entry.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit uses its actual Program and emit APIs with local output maps and deferred Program close, without invoking an executable host.
 func TestEmitWithPluginTransformerEmitDeclarationOnlyOutputs(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -206,13 +268,21 @@ func TestEmitWithPluginTransformerEmitDeclarationOnlyOutputs(t *testing.T) {
   }
 }
 
-// TestEmitWithPluginTransformerDeclarationWriteCallbackSerialized locks the
-// declaration-lane WriteFile callback contract for plugin-transform emit.
+// TestEmitWithPluginTransformerDeclarationWriteCallbackSerialized Verifies repeated
+// declaration-only emission writes each source once into an unguarded callback map.
 //
-// TypeScript-Go emits one source file per goroutine. The JavaScript side of
-// EmitWithPluginTransformers is hand-assembled and serial, but the delegated dts
-// emit is still parallel. A plugin writer may be a plain output map, so ttsc
-// must serialize that callback just like EmitAllRaw does.
+// The hand-assembled JavaScript lane is serial; delegated declaration emission
+// may invoke writers concurrently under the selected native threading policy.
+// A plugin writer may be a plain output map, so ttsc serializes that callback
+// just like EmitAllRaw does. This test does not measure actual worker overlap.
+//
+// 1. Load twenty-four declaration sources and repeat declaration-only emission one hundred times.
+// 2. Require exactly one callback per source in each fresh unguarded map; no race-detector claim is made.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual declaration-only emitter one hundred times on twenty-four sources, requiring each declaration callback exactly once in a fresh unguarded map.
+// @evidence contracts/testing.md#independent-expectations Authored source-name list independently defines exact expected file count and per-file count one.
+// @evidence contracts/testing.md#distinguishing-cases Wide declaration-only emission and repeated iterations exercise callback serialization distinct from the JS funnel and its rewrite state.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit reuses one immutable Program with fresh per-iteration callback maps, captures actual compiler writes and closes its Program; no external emitter executes.
 func TestEmitWithPluginTransformerDeclarationWriteCallbackSerialized(t *testing.T) {
   root := t.TempDir()
 
@@ -271,12 +341,21 @@ func TestEmitWithPluginTransformerDeclarationWriteCallbackSerialized(t *testing.
   }
 }
 
-// TestEmitPluginTransformersDeclarationDirOutputsSurviveOutDirContainment pins
-// the declarationDir branch for the plugin-transform emit lane.
+// TestEmitPluginTransformersDeclarationDirOutputsSurviveOutDirContainment Verifies separate
+// declaration-directory outputs survive containment while all writes remain in permitted
+// roots.
 //
 // The JS output for a dependency source may be skipped by the forced-emit
 // outDir guard, but that decision must be per emitted path. A legitimate
 // project declaration written under declarationDir must still survive.
+//
+// 1. Emit the self-referenced fixture with distinct output and declaration directories.
+// 2. Require every write inside either permitted directory and all four main JS/map/declaration artifacts.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual plugin emission in the self-referenced layout and requires all writes within outDir or declarationDir plus JS/map/declaration/map for main.
+// @evidence contracts/testing.md#independent-expectations Authored project dist and types prefixes and explicit four main artifacts independently specify permitted output.
+// @evidence contracts/testing.md#distinguishing-cases A separate declarationDir distinguishes valid declaration writes from dependency source outputs forbidden outside both configured roots.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit runs actual compiler/emitter APIs with private filesystem input and captured paths and deferred Program close, without a native host.
 func TestEmitPluginTransformersDeclarationDirOutputsSurviveOutDirContainment(t *testing.T) {
   root := t.TempDir()
   project := writeSelfReferencedDependencyProject(t, root)

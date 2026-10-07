@@ -13,11 +13,15 @@ import { make } from "../internal/make";
  * `break outer`, the result is:
  *
  * ```ts
- * outer: for (; ; ) {
+ * outer: for (;;) {
  *   break outer;
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param label The label.
+ * @param statement The statement.
+ * @returns The created {@link LabeledStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   asName normalizes the label and the Statement remains its target. Correct
  *   break/continue scope and label uniqueness depend on caller context.
@@ -31,11 +35,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains targeting and typical loop use with a labeled-break example;
  *   prose, code and acknowledgments are separated as documentation requires.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param label The label.
- * @param statement The statement.
- * @returns The created {@link LabeledStatement}.
  */
 export const createLabeledStatement = (
   label: string | Identifier,

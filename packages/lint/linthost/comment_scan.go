@@ -1,6 +1,7 @@
 // Shared parser-aware comment enumeration for every rule or pass that needs
-// exact comment byte ranges (inline directives, ban-ts-comment, and switch
-// default markers).
+// exact comment byte ranges (inline directives, ban-ts-comment, clause-join
+// formatting, and the unicorn prefer-simple-condition-first and
+// prevent-abbreviations rules).
 package linthost
 
 import (

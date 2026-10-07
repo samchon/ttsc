@@ -1,22 +1,39 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const WATCH_EVENT_DEADLINE_MS = 30_000;
 
 /**
- * Verifies tsconfig noEmit gets the same resident Program fast path as
- * --noEmit.
+ * Verifies configured project-lane decisions through the owning source.
  *
- * A JSON project input can also be a resolveJsonModule Program member. Removing
- * it must cold-load the Program without escalating to an execution reload.
+ * Supplied compiler membership and observer notifications isolate the actual
+ * config, output-containment and project invalidation decisions.
+ *
+ * 1. Author the config, compiler member and declared project input.
+ * 2. Supply literal compiler membership and record the actual source adapter
+ *    subscriptions.
+ * 3. Change the declared input and require the original project transition.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology reports the removed, supplied resolveJsonModule compiler member as one project change with Program invalidation under configured noEmit, without a topology-reload callback. A resident Program or native compiler is not executed.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig noEmit/resolveJsonModule options, explicit compiler-membership arrays and declared JSON input establish this source-unit boundary. The literal expectations are one project-kind change carrying invalidate and the removed JSON path, and zero topology changes; the source import is fixture data rather than evidence of native membership discovery. Content-only and CLI-option controls belong to separate owning units.
+ * @evidence contracts/testing.md#distinguishing-cases An imported resolveJsonModule member declared as a project input is removed under configured noEmit; the emitted change must invalidate the Program without an execution reload.
+ * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology runs with authored absolute compiler members and explicitly recorded source directory operations. No compiler child or native observer executes; retained E2E owns population and physical delivery. Original event, membership and cleanup assertions remain.
  */
 export const test_watch_topology_config_no_emit_uses_program_invalidation =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-watch-config-no-emit-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-watch-config-no-emit-"),
+    );
     const source = path.join(root, "src", "main.ts");
     const json = path.join(root, "src", "member.json");
     const config = path.join(root, "tsconfig.json");
@@ -42,6 +59,8 @@ export const test_watch_topology_config_no_emit_uses_program_invalidation =
 
     const changes: WatchInputChange[] = [];
     let topologyChanges = 0;
+    let compilerInputs = [source, json];
+    const observed = recordWatchers(watchDirectoryThroughFsWatch);
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -58,6 +77,10 @@ export const test_watch_topology_config_no_emit_uses_program_invalidation =
           topologyChanges++;
         },
       },
+      observed.openDirectoryWatch,
+      observed.openFileWatch,
+      fs.readdirSync,
+      () => compilerInputs,
     );
     try {
       topology.refresh(false);
@@ -67,11 +90,17 @@ export const test_watch_topology_config_no_emit_uses_program_invalidation =
         root,
       });
       fs.rmSync(json);
+      compilerInputs = [source];
+      deliverWatchEvent(observed.watchers, json, "rename");
       await waitFor(() =>
         changes.some(
           (change) => change.kind === "project" && change.invalidate === true,
         ),
       );
+      await Promise.resolve();
+      assert.deepEqual(changes, [
+        { kind: "project", invalidate: true, path: json },
+      ]);
       assert.equal(
         topologyChanges,
         0,
@@ -80,6 +109,7 @@ export const test_watch_topology_config_no_emit_uses_program_invalidation =
     } finally {
       topology.close();
     }
+    assert.ok(observed.watchers.every((watcher) => !watcher.active));
   };
 
 async function waitFor(predicate: () => boolean): Promise<void> {

@@ -6,19 +6,21 @@ import { projectRecordDigest } from "./projectRecordDigest";
 
 /**
  * Write a project record (`projectRecordFile`) only when its bytes would
- * change, so a host comparing the file's content or time sees it move exactly
- * when the project's state did, and never for a rewrite of the same state.
+ * change. Exact current-byte comparison suppresses an unchanged rewrite;
+ * changed serialization requests a move through the host's dependency channel,
+ * without guaranteeing a host event or an atomic view for concurrent readers.
  *
  * The record is valid JSON with its keys in one order, whichever process writes
- * it, so two generations of one state produce one byte sequence.
+ * it. Equal JSON-representable records produce equal text; array order and
+ * retry signal remain part of that representation.
  *
  * The bytes go into the file the host watches rather than into a replacement of
  * it; the comment below the comparison says why, what that costs, and what
  * answers it.
  *
- * @returns The digest of the bytes the file holds for the record
- *   (`projectRecordDigest`), whether this call wrote them or found them there.
- *
+ * @returns The intended text's digest (`projectRecordDigest`) after equal-byte
+ *   observation or successful write. A concurrent writer can change the file
+ *   before return; no read-back or exclusive-writer guarantee is supplied.
  * @evidence contracts/common.md#principled-implementation
  *   Sorted JSON keys make equivalent record states byte-identical; an exact
  *   existing-byte comparison suppresses no-op writes. In-place updates preserve
@@ -33,7 +35,12 @@ import { projectRecordDigest } from "./projectRecordDigest";
  *   Native paragraphs explain idempotence, returned digest and non-atomic update
  *   consequences; descriptive prose/tag spacing follows documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native parent creation and in-place writes preserve watched file identity across Windows and POSIX host watcher differences; torn or unreadable records are rejected by readers instead of claiming atomic replacement semantics.
- * @evidence contracts/performance.md#efficient-algorithms Serialization sorts keys of each record dictionary and hashes the resulting bytes once; one existing-byte comparison avoids a native write when content is unchanged.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Serialization sorts each dictionary's K keys in O(K log K) comparisons,
+ *   traverses arrays/values and allocates sorted dictionaries and JSON text.
+ *   Hashing and current-byte read/comparison follow text bytes; a changed file
+ *   also pays native parent-component creation and write. Equal bytes avoid
+ *   that write, not serialization/hash/read costs.
  * @evidence contracts/performance.md#reuse-equivalent-work Exact persisted bytes permit sharing the existing record file across equivalent delivery states, while changed state requires a write; this does not replace filesystem validation of the recorded generation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous native operations and serialization buffers are call-local; persisted record files deliberately outlive the process under the host cache protocol, whose deletion policy is owned by project refresh.
  */
@@ -69,11 +76,12 @@ export function writeProjectRecordFile(
   // A reader can therefore catch the file mid-write, and so can a second
   // writer. Two processes holding one generation write the same bytes, since
   // the record is a function of the project's state; two holding different
-  // ones can leave a mix, which reads as no record. Both are answered where
-  // the record is read rather than here: a record that cannot be read counts
+  // ones can leave mixed bytes. A malformed mix reads as no record; a
+  // structurally readable mix still requires the recorded evidence's replay.
+  // Those checks belong where the record is read: an unreadable record counts
   // as a record whose state moved (`refreshProjectRecordFiles`), which is the
-  // answer a proof that cannot run already gives, and costs at most one
-  // rebuild the host did not need.
+  // answer a proof that cannot run already gives. Continued concurrent writes
+  // or failed deliveries can repeat invalidation; no one-rebuild bound exists.
   fs.writeFileSync(file, text);
   return digest;
 }

@@ -1,6 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { SyntaxKind } from "@ttsc/factory";
 
+import factory, { SyntaxKind } from "../../../../../packages/factory/src/index";
 import { id, print, ref } from "../../internal/helpers";
 
 /**
@@ -15,6 +15,11 @@ import { id, print, ref } from "../../internal/helpers";
  *    binaries.
  * 2. Print a binary expression under an assertion before multiplication.
  * 3. Assert the emitted parentheses preserve the assertion boundary.
+ *
+ * @evidence contracts/testing.md#behavioral-verification As/satisfies operands retain grouping under arithmetic and relational operators.
+ * @evidence contracts/testing.md#independent-expectations Exact assertion/binary source literals are independent expectations based on TypeScript operator binding.
+ * @evidence contracts/testing.md#distinguishing-cases Assertion as binary operand versus arithmetic inside an assertion, and as versus satisfies, pin separate parenthesizer directions.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_assertion_expression_parentheses. Calls createAsExpression/createSatisfiesExpression/createBinaryExpression and prints authored trees.
  */
 export const test_assertion_expression_parentheses = (): void => {
   TestValidator.equals(

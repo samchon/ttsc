@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"outDir":"dist","rootDir":"src","plugins":[{"transform":"@ttsc/this-plugin-does-not-exist"}]},"include":["src"]}

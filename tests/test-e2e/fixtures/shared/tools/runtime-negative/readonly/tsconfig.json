@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"CommonJS","strict":true,"jsx":"react-jsx","jsxImportSource":"myjsx","types":[],"lib":["esnext"],"outDir":"dist","rootDir":"src","plugins":[]},"include":["src"]}

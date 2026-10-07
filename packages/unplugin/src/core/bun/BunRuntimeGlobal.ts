@@ -18,13 +18,27 @@ import type { BunLikePlugin } from "./BunLikePlugin";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain the dependency choice and first-loader behavior,
  *   with description and checklist tags separated per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Plugin installation is an ordinary host extension boundary with no native
+ *   filename, process handle or case-policy field; loaders own native IO.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Runtime installation and the supplied descriptor's setup own their work;
+ *   this callable capability specifies no lookup/transform strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   registrationState/ensureRegistered own per-runtime installation sharing;
+ *   the callable capability alone establishes no cached installation outcome.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The runtime owns retained installed hooks and adapter setup owns loader
+ *   state; this interface grants no independent shutdown or handle ownership.
  */
 export interface BunRuntimeGlobal {
   /**
    * Install one plugin on the runtime's module loader.
    *
    * Bun uses the first matching `onLoad` hook and does not fall through, so the
-   * registration state calls this at most once per runtime.
+   * registration state avoids duplicate accepted or in-flight installation. A
+   * synchronous installation failure resets the guard and permits retry; this
+   * void boundary does not await an asynchronous installation outcome.
    *
    * @evidence contracts/common.md#principled-implementation
    *   A plugin descriptor is the value Bun consumes to install loader hooks;
@@ -36,6 +50,18 @@ export interface BunRuntimeGlobal {
    * @evidence contracts/common.md#meaningful-documentation
    *   The method explains why callers register once and preserves native JSDoc
    *   paragraphs and tag spacing required by documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of plugin is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of plugin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of plugin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of plugin is declared here; the cost belongs to its
+   *   implementation.
    */
   plugin(plugin: BunLikePlugin): void;
 }

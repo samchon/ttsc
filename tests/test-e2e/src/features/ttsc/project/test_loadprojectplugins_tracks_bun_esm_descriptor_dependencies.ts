@@ -1,0 +1,280 @@
+import { TestProject } from "@ttsc/testing";
+import nodeChildProcessForTrace from "node:child_process";
+
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+import {
+  assert,
+  fs,
+  loadProjectPlugins,
+  path,
+} from "../../../internal/ttsc/internal/project";
+import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build";
+
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
+
+/**
+ * Verifies a descriptor evaluated by Bun reports its static ESM dependencies
+ * without accepting untracked ambient runtime configuration.
+ *
+ * Bun resolves static imports outside Node's `Module._resolveFilename` path.
+ * The isolated evaluator must therefore observe Bun's resolver as well, or a
+ * persistent bundler generation can survive after an imported selection file
+ * changes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration.
+ * @evidence contracts/testing.md#independent-expectations Explicit and ambient authored tsconfigs select different modules; these fixture paths distinguish the requested config from Bun ambient discovery. This case retains its existing availability guard when Bun is absent.
+ * @evidence contracts/testing.md#distinguishing-cases Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner performs a selected Bun availability query, a workspace loader call with explicit Bun evaluator, then a real Bun parent worker importing the built loader. Scripted Go is source publication fixture input, not real compiler semantics. Original nonzero availability result returns false/no coverage.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution Node-parent and Bun-parent loads share authored sources and private cache while evaluator authority differs: explicit TTSC_NODE_BINARY versus Bun process runtime. One version query/outer parent spawn are not total nested child counts, cache-hit proof or Program reuse.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Tracked root is retained before setup. First evaluator env and worker env exclude inherited TTSC_BUN_DESCRIPTOR_SOURCE by call-local copies; actual .env.local/bunfig preload contrasts remain. Ambient env is untouched, sync success checks error/signal separately and does not establish descendant join.
+ * @evidence contracts/e2e.md#preserved-coverage Original first name/source, selected JS identity, case-folded basename plus native-parent candidate match, ambient tsconfig exclusion, explicit.ts null proof and manifest memberships remain. Worker repeats only selected/candidate memberships, not all first-load assertions. Matching helper is not independent missing-file or native case-policy proof; actual runtime/manifest/survival unverified/donor retained.
+ */
+export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
+  (): void | false => {
+    const bunBinary = process.env.TTSC_BUN_BINARY ?? "bun";
+    const bun = childProcess.spawnSync(bunBinary, ["--version"], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    if (bun.status !== 0) return false;
+    assert.equal(bun.error, undefined);
+    assert.equal(bun.signal, null);
+
+    const root = TestProject.tmpdir("ttsc-bun-esm-descriptor-input-");
+    TestProject.retainTemporaryDirectory(
+      root,
+      "Bun descriptor descendants are not joined",
+    );
+    const project = path.join(root, "project");
+    const source = path.join(root, "plugin-go");
+    const ambientSource = path.join(root, "ambient-plugin-go");
+    const selectionBase = path.join(root, "selection");
+    const selection = `${selectionBase}.js`;
+    const ambientSelection = path.join(root, "ambient-selection.js");
+    const explicitPackage = path.join(root, "external");
+    const explicitDirectory = path.join(explicitPackage, "nested");
+    const explicitManifest = path.join(explicitPackage, "package.json");
+    const nearerManifestCandidate = path.join(
+      explicitDirectory,
+      "package.json",
+    );
+    const explicitSelection = path.join(explicitDirectory, "explicit.tsx");
+    const descriptor = path.join(project, "plugin.mts");
+    fs.mkdirSync(project, { recursive: true });
+    fs.mkdirSync(source, { recursive: true });
+    fs.mkdirSync(ambientSource, { recursive: true });
+    fs.writeFileSync(
+      path.join(project, "package.json"),
+      JSON.stringify({ private: true, type: "module" }),
+      "utf8",
+    );
+    const selectedConfig = path.join(project, "tsconfig.ttsc.json");
+    fs.writeFileSync(
+      selectedConfig,
+      JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          paths: { "descriptor-selection": ["../selection.js"] },
+          plugins: [{ transform: descriptor }],
+        },
+      }),
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(project, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          paths: { "descriptor-selection": ["../ambient-selection.js"] },
+        },
+      }),
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(source, "go.mod"),
+      "module example.com/bun-esm-descriptor\n\ngo 1.26\n",
+      "utf8",
+    );
+    fs.writeFileSync(path.join(source, "main.go"), "package main\n", "utf8");
+    fs.writeFileSync(
+      path.join(ambientSource, "go.mod"),
+      "module example.com/ambient-bun-esm-descriptor\n\ngo 1.26\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(ambientSource, "main.go"),
+      "package main\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(project, ".env.local"),
+      `TTSC_BUN_DESCRIPTOR_SOURCE=${ambientSource.replace(/\\/g, "/")}\n`,
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(project, "ambient-preload.ts"),
+      `process.env.TTSC_BUN_DESCRIPTOR_SOURCE = ${JSON.stringify(ambientSource)};\n`,
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(project, "bunfig.toml"),
+      `preload = ["./ambient-preload.ts"]\n`,
+      "utf8",
+    );
+    for (const relative of [
+      "vendor/local/value.go",
+      "lib/helper.go",
+      "dist/generated.go",
+      "build/generated.go",
+    ]) {
+      const file = path.join(source, relative);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, "package generated\n", "utf8");
+    }
+    fs.writeFileSync(
+      selection,
+      `export default ${JSON.stringify(source)};\n`,
+      "utf8",
+    );
+    fs.writeFileSync(
+      ambientSelection,
+      `export default ${JSON.stringify(ambientSource)};\n`,
+      "utf8",
+    );
+    fs.mkdirSync(nearerManifestCandidate, { recursive: true });
+    fs.writeFileSync(
+      explicitManifest,
+      JSON.stringify({ private: true, type: "module" }),
+      "utf8",
+    );
+    fs.writeFileSync(explicitSelection, `export default true;\n`, "utf8");
+    fs.writeFileSync(
+      descriptor,
+      [
+        `import source from "../selection";`,
+        `import configuredSource from "descriptor-selection";`,
+        `import explicit from "../external/nested/explicit.js";`,
+        `if (configuredSource !== source) throw new Error("selected tsconfig paths were ignored");`,
+        `if (!explicit) throw new Error("explicit JavaScript substitution failed");`,
+        `export default { name: "bun-esm", source: process.env.TTSC_BUN_DESCRIPTOR_SOURCE ?? source };`,
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const fakeGo = path.join(root, "fake-go");
+    fs.mkdirSync(fakeGo, { recursive: true });
+    const evaluatorEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
+      TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
+      TTSC_NODE_BINARY: bunBinary,
+    };
+    delete evaluatorEnv.TTSC_BUN_DESCRIPTOR_SOURCE;
+    const loaded = loadProjectPlugins({
+      binary: "",
+      cacheDir: path.join(root, "cache"),
+      cwd: project,
+      env: evaluatorEnv,
+      tsconfig: selectedConfig,
+    });
+
+    assert.equal(loaded.nativePlugins[0]?.name, "bun-esm");
+    assert.equal(loaded.nativePlugins[0]?.source, source);
+    const observedSelection = loaded.hostInputs.find((input) =>
+      sameExistingFile(input, selection),
+    );
+    assert.ok(
+      observedSelection !== undefined,
+      JSON.stringify(loaded.hostInputs),
+    );
+    assert.ok(
+      loaded.hostInputs.some((input) =>
+        sameMissingFile(input, `${selectionBase}.ts`),
+      ),
+      JSON.stringify(loaded.hostInputs),
+    );
+    assert.equal(
+      loaded.hostInputs.includes(path.join(project, "tsconfig.json")),
+      false,
+    );
+    const missingExplicitTs = path.join(explicitDirectory, "explicit.ts");
+    assert.ok(
+      loaded.hostInputs.includes(missingExplicitTs),
+      JSON.stringify(loaded.hostInputs),
+    );
+    assert.equal(loaded.hostInputHashes[missingExplicitTs], null);
+    assert.ok(loaded.hostInputs.includes(nearerManifestCandidate));
+    assert.ok(loaded.hostInputs.includes(explicitManifest));
+
+    const worker = path.join(root, "bun-parent-worker.cjs");
+    fs.writeFileSync(
+      worker,
+      [
+        `const { loadProjectPlugins } = require(${JSON.stringify(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "lib", "plugin", "internal", "load", "loadProjectPlugins.js"))});`,
+        `delete process.env.TTSC_BUN_DESCRIPTOR_SOURCE;`,
+        `const loaded = loadProjectPlugins({`,
+        `  binary: "",`,
+        `  cacheDir: ${JSON.stringify(path.join(root, "cache"))},`,
+        `  cwd: ${JSON.stringify(project)},`,
+        `  tsconfig: ${JSON.stringify(selectedConfig)},`,
+        `});`,
+        `process.stdout.write(JSON.stringify(loaded.hostInputs));`,
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const workerEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      TTSC_GO_BINARY: createFakeGoBinary(fakeGo),
+      TTSC_GO_CACHE_DIR: path.join(root, "go-cache"),
+    };
+    delete workerEnv.TTSC_NODE_BINARY;
+    delete workerEnv.TTSC_BUN_DESCRIPTOR_SOURCE;
+    const fromBunParent = childProcess.spawnSync(bunBinary, [worker], {
+      cwd: project,
+      encoding: "utf8",
+      env: workerEnv,
+      windowsHide: true,
+    });
+    assert.equal(fromBunParent.error, undefined);
+    assert.equal(fromBunParent.signal, null);
+    assert.equal(fromBunParent.status, 0, fromBunParent.stderr);
+    const parentInputs = JSON.parse(fromBunParent.stdout) as string[];
+    const parentSelection = parentInputs.find((input) =>
+      sameExistingFile(input, selection),
+    );
+    assert.ok(parentSelection !== undefined);
+    assert.ok(
+      parentInputs.some((input) =>
+        sameMissingFile(input, `${selectionBase}.ts`),
+      ),
+    );
+    assert.ok(parentInputs.includes(missingExplicitTs));
+  };
+
+function sameExistingFile(left: string, right: string): boolean {
+  try {
+    const leftStats = fs.statSync(left);
+    const rightStats = fs.statSync(right);
+    return leftStats.dev === rightStats.dev && leftStats.ino === rightStats.ino;
+  } catch (error) {
+    if (
+      !["ENOENT", "ENOTDIR"].includes(
+        (error as NodeJS.ErrnoException).code ?? "",
+      )
+    )
+      throw error;
+    return false;
+  }
+}
+
+function sameMissingFile(left: string, right: string): boolean {
+  return (
+    path.basename(left).toLowerCase() === path.basename(right).toLowerCase() &&
+    sameExistingFile(path.dirname(left), path.dirname(right))
+  );
+}

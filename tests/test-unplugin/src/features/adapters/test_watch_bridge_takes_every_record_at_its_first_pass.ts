@@ -1,20 +1,20 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { membershipRecordDigest } from "../../../../../packages/unplugin/lib/core/bridge/membershipRecordDigest.js";
-import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/bridge/openHostWatchBridge.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { projectRecordWatchInputs } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordWatchInputs.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/lib/core/bridge/refreshProjectRecordFiles.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
-import { createHostPathIdentityContext } from "../../../../../packages/unplugin/lib/core/transform/filesystem/createHostPathIdentityContext.js";
-import { pathIdentityKey } from "../../../../../packages/unplugin/lib/core/transform/filesystem/pathIdentityKey.js";
-import { hostInputStateHash } from "../../../../../packages/unplugin/lib/core/transform/inputs/hostInputStateHash.js";
-import { walkProjectInputs } from "../../../../../packages/unplugin/lib/core/transform/project/walkProjectInputs.js";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.js";
+import { membershipRecordDigest } from "../../../../../packages/unplugin/src/core/bridge/membershipRecordDigest";
+import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
+import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { projectRecordWatchInputs } from "../../../../../packages/unplugin/src/core/bridge/projectRecordWatchInputs";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
+import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { createHostPathIdentityContext } from "../../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
+import { pathIdentityKey } from "../../../../../packages/unplugin/src/core/transform/filesystem/pathIdentityKey";
+import { hostInputStateHash } from "../../../../../packages/unplugin/src/core/transform/inputs/hostInputStateHash";
+import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a watching session's bridge takes every project record below the
@@ -37,6 +37,15 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  * 3. Add a root file to the current project and hand the records over again, and
  *    assert its record moves, since the bridge proves the record's membership
  *    by walking the project under the recorded policy.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Authored openHostWatchBridge and refreshProjectRecordFiles consume two actual fixture records; assertions distinguish stale versus unchanged records, repeated signals, a newly answered delivery and later membership changes.
+ * @evidence contracts/testing.md#independent-expectations
+ *   A build start must observe persisted projects even when cached modules cause no delivery. Stale proof owes a signal, current proof does not, and a current delivery must stop further scheduled moves.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers stale and current records in the same pass, repeat until answered, cessation after re-registration, and new included root membership without a changed loaded module.
+ * @evidence contracts/testing.md#execution-ownership
+ *   test_watch_bridge_takes_every_record_at_its_first_pass passes its bridge to refreshProjectRecordFiles, registers a current delivery and observes the two fixture records; this entry owns repeat/stop/membership outcomes and closes without a real host.
  */
 export async function test_watch_bridge_takes_every_record_at_its_first_pass(): Promise<void> {
   const root = fs.realpathSync.native(

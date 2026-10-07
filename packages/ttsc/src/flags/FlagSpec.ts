@@ -13,12 +13,16 @@ import type { ValueValidator } from "./ValueValidator";
  * @evidence contracts/common.md#clear-and-simple-design One schema row owns a flag's identities and routing policy, allowing parser, launcher classifications and generated native allow-lists to derive their views from the same declaration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Terminal and projectFree distinctions express real tool semantics, and internalShadow records user-visible ownership rather than matching fixture spellings or mutating the native parser.
  * @evidence contracts/common.md#meaningful-documentation Members explain absence defaults, repeated-value ordering, terminal/project-free distinctions and capability ownership. Separate member paragraphs and blank lines follow the documentation skill's association and rationale guidance without property-level checklist tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
  */
 export interface FlagSpec {
   /**
    * Canonical flag name including leading dashes (`"--singleThreaded"`). The
-   * generator uses this as the map key in the Go allow-list and as the first
-   * column of the docs table.
+   * generator normalizes canonical names and aliases to dash-free lowercase Go
+   * allow-list keys; the docs table retains this spelling in its first column.
    */
   readonly name: string;
 
@@ -58,8 +62,8 @@ export interface FlagSpec {
   /**
    * Terminal flags ask the underlying tool to print something and exit
    * (`--help`, `--version`, `--showConfig`, `--listFilesOnly`, `--all`,
-   * `--init`). ttsc must not wrap them in a pre-emit pass — that is how the
-   * `--showConfig prints twice` bug appeared (RC-2).
+   * `--init`). ttsc must not wrap them in a pre-emit pass: the wrapped pass
+   * would run the printing command twice.
    */
   readonly terminal?: boolean;
 
@@ -67,8 +71,8 @@ export interface FlagSpec {
    * `true` when a `terminal` flag's meaning does not presuppose a resolved
    * project, so ttsc must answer it before project resolution runs (`--init`
    * writes the starter tsconfig, `--all` and `-?` print tsgo's help). Without
-   * this split `ttsc --init` failed with "could not find tsconfig.json …" in
-   * the only directory where it is useful.
+   * this split `ttsc --init` would fail with "could not find tsconfig.json …"
+   * in the only directory where it is useful.
    *
    * `--showConfig` and `--listFilesOnly` are terminal but deliberately NOT
    * project-free: both describe a project, so failing without one is correct.
@@ -102,8 +106,10 @@ export interface FlagSpec {
 
   /**
    * Native sidecar capability that must be declared before ttsc sends this flag
-   * as a bare CLI argument. Everything else routes through `--tsgo-args` or
-   * stays in the JS launcher.
+   * as a bare optional compiler-control argument to a check-stage host. This
+   * does not describe the host's required subcommand/project/plugin protocol
+   * fields. Other forwarded compiler argv uses `TTSC_TSGO_ARGS`; launcher-owned
+   * options stay with their JavaScript consumer.
    */
   readonly nativeCapability?: "diagnosticsTiming" | "threadingArgs";
 

@@ -12,14 +12,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerMixedFactory proves the property that bounds the
-// typia port: a plugin may build its big expression tree with its OWN global
-// NodeFactory (typia keeps dozens of module-level factories) and only build the
-// runtime-import name with the emit ec.Factory.NewUniqueNameEx. The non-import
-// nodes are not import references, so tsgo's module-transform never touches
-// them; only the generated namespace name needs the emit context. The require
-// is still emitted and the alias still lines up, so the port can leave every
-// typia programmer's factory alone and only rewire ImportProgrammer.
+// TestEmitWithPluginTransformerMixedFactory Verifies independently constructed call nodes use
+// the emit-context namespace binding in generated output.
+//
+// The call and member nodes come from an independent NodeFactory, while the unique
+// namespace-import name belongs to the emit context. Checking the require binding and its
+// foo(123) use together tests this mixed ownership without claiming every
+// independent-factory tree is compatible.
+//
+// 1. Build the injected import and replacement call through the fixture mixed factories.
+// 2. Require the dependency binding and the exported call through that binding with argument 123.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs the actual mixed-factory transformer and requires a ./dep require binding plus exports.a call of that binding's foo with literal 123.
+// @evidence contracts/testing.md#independent-expectations Authored ./dep, foo and 123 independently specify import/call semantics; the captured generated binding only correlates its use.
+// @evidence contracts/testing.md#distinguishing-cases Standalone call/member nodes with emit-context unique import identity distinguish mixed factory use from all-emit-context creation.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit uses an actual independent NodeFactory, emit-context factory and compiler, capturing writes and closing its Program without building a plugin host.
 func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

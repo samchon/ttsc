@@ -8,17 +8,16 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLoadProgramReadsForwardedTsgoArgsFromTheEnvironment pins the delivery
-// channel for the tsgo flags the `ttsc` launcher forwards to a native sidecar.
+// TestLoadProgramReadsForwardedTsgoArgsFromTheEnvironment Verifies native decoding and precedence
+// of flags received through the environment by LoadProgram.
 //
-// The payload used to travel only as a `--tsgo-args` CLI flag, which #113 added
-// to a plugin protocol third-party hosts had already frozen: a host parsing
-// with `flag.ContinueOnError` and no such flag exits 2 before its build starts
-// (issue #1188). The launcher now publishes it in `driver.TsgoArgsEnv`, and a
-// host that never declared the flag — typia's `ttsc-typia` is exactly this
-// shape — picks the options up simply by calling LoadProgram.
+// A `--tsgo-args` CLI flag would extend a plugin protocol third-party hosts have
+// already frozen: a host parsing with `flag.ContinueOnError` and no such flag
+// gets a parse error before its build starts. The launcher therefore publishes
+// the payload in `driver.TsgoArgsEnv`, and a host that never declared the flag
+// picks the options up by calling LoadProgram. This unit exercises decoding, not launcher delivery.
 //
-// The four cases below are the whole decision table, because each wrong answer
+// The four cases below cover precedence and decode failure, because each wrong answer
 // is invisible without its twin: the env value must apply, an explicit argv
 // must win over it, an absent variable must change nothing, and a malformed
 // value must be an error rather than a silent no-op.
@@ -28,6 +27,11 @@ import (
 //  2. Load it with the environment carrying `--strict`, with an explicit
 //     conflicting argv, with nothing set, and with an unparsable value.
 //  3. Assert the resolved options and diagnostics for each.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram resolves strictness and diagnostics from the environment unless explicit TsgoArgs wins, and reports a malformed environment payload.
+// @evidence contracts/testing.md#independent-expectations The authored nullable access type-checks with strict off and fails with strict on; expected precedence comes from explicit embedder options over inherited flags.
+// @evidence contracts/testing.md#distinguishing-cases Environment strict requires literal nullable-identifier diagnostic code 18047; conflicting explicit noImplicitAny, empty environment and malformed JSON retain their separate branches without pinning diagnostic text.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver unit uses t.Setenv and direct Program loads; it exercises native option decoding, not launcher-to-sidecar delivery.
 func TestLoadProgramReadsForwardedTsgoArgsFromTheEnvironment(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -74,6 +78,15 @@ func TestLoadProgramReadsForwardedTsgoArgsFromTheEnvironment(t *testing.T) {
     }
     if len(diags) == 0 {
       t.Fatal("expected the strict-null diagnostic the forwarded flag turns on")
+    }
+    foundNullable := false
+    for _, diag := range diags {
+      if diag.Code == 18047 {
+        foundNullable = true
+      }
+    }
+    if !foundNullable {
+      t.Fatalf("expected TS18047 for x.length with nullable x, got %#v", diags)
     }
   })
 

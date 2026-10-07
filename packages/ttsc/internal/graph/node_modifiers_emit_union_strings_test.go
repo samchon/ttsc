@@ -8,23 +8,24 @@ import (
 )
 
 // TestNodeModifiersEmitUnionStrings verifies that the dump records a declaration's
-// syntactic modifiers as wire strings drawn only from the TtscGraphNodeModifier
-// union, mapping the combined modifier flags of a class, a static/readonly
-// property, an accessibility-qualified async method, and an exported const onto
-// their union members.
-//
-// The TypeScript loader runs `typia.assert<ITtscGraphDump>` over this dump, so a
-// modifier string outside the union would reject the whole graph. The assertion
-// pins both the exact strings emitted and the negative twin — a member with no
-// modifier must carry none — so an over-broad flag mapping cannot slip through.
+// selected syntactic modifiers in NewDump's returned records: class,
+// static/readonly property, private async method and exported const enum.
+// A plain method provides a negative counterpart; an authored eleven-name
+// allowlist checks only strings present in this fixture, not a live TS union.
 //
 //  1. Compile a fixture with `export abstract class`, a `static readonly`
 //     property, a `private async` method, a plain method, and `export const enum`
 //     (the `const` keyword that is a modifier, unlike a `const` variable).
-//  2. Build and marshal the dump.
+//  2. Build and construct the dump records without JSON serialization.
 //  3. Assert each node's modifiers are exactly the expected union strings, the
 //     plain method has none, and every emitted string is a union member.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Build/NewDump records must hold the four exact ordered modifier arrays, no modifiers on Service.plain, and only names in the authored allowlist across this fixture. No JSON encoding, TS validator or unexercised modifier branch is authenticated.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal wire strings in the stable emitted order: Service {export, abstract}, Service.config {static, readonly}, Service.run {async, private}, Mode {export, const}, and none for Service.plain. The final check compares every emitted modifier with an eleven-name list written into the test as a copy of the TtscGraphNodeModifier union; that copy is not read from the TypeScript definition, so drift in the TypeScript union would not be noticed here.
+// @evidence contracts/testing.md#distinguishing-cases Class, property, method and const-enum modifier combinations have independent exact arrays; the plain method must remain empty. The allowlist is a guard on emitted names, not positive coverage of all eleven allowed names.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build, NewDump and SourceTexts. Local ordered-slice and failure-ID helpers inspect returned records; a restored empty linked-plugin manifest excludes ambient hooks. No serialization, installed consumer, validator or product process runs.
 func TestNodeModifiersEmitUnionStrings(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export abstract class Service {
@@ -82,8 +83,8 @@ export const enum Mode {
     t.Fatalf("plain method modifiers = %v, want none", plain.Modifiers)
   }
 
-  // Every emitted modifier is a member of the TtscGraphNodeModifier union, since
-  // an unknown string would reject the dump under typia.assert.
+  // Every returned modifier in this fixture must belong to this authored list;
+  // no TypeScript definition or consumer validator is consulted here.
   union := map[string]bool{
     "export": true, "default": true, "declare": true, "abstract": true,
     "static": true, "readonly": true, "async": true, "const": true,

@@ -15,14 +15,18 @@ import { trackerChangedDeclaredProjectInput } from "./trackerChangedDeclaredProj
  * event authority; complete generation admission also requires the compiler
  * graph and external/host proofs in captureTransformGeneration.
  *
- * The walks before and after the compile prove bytes and metadata, and the
- * tracker opened before the compile is the independent A-B-A witness: a
- * producer can restore both bytes and timestamps before the second walk, but it
- * cannot withdraw an event already queued. So the project held still only when
+ * The walks compare recorded bytes and metadata. A healthy tracker opened
+ * before the compile can supply independent A-B-A event evidence: a producer
+ * can restore both bytes and timestamps before the second walk, but it cannot
+ * withdraw an event already recorded. This predicate accepts the records when
  * the configuration did, both walks are complete for the declared inputs, those
  * inputs kept their content and metadata, every directory that can hold a
  * program input kept its membership, and the tracker saw neither a content
- * event on a declared input nor a membership event.
+ * event on a declared input nor a membership event. It reads recorded
+ * event/overflow/membership fields, not tracker failed, unverified or coverage
+ * state; supplying a tracker does not itself prove that every native mutation
+ * was delivered. Actual backend/proof authority stays with the tracker and
+ * generation-admission owners.
  *
  * That tracker is the only one accepted. The host-input and candidate trackers
  * open after the compile returns, so they never saw what it read. A change in
@@ -41,13 +45,12 @@ import { trackerChangedDeclaredProjectInput } from "./trackerChangedDeclaredProj
  * @param props.snapshot The project walk taken after the compile.
  * @param props.tracker The project tracker opened before the compile, if one
  *   could be opened.
- *
- * @evidence contracts/common.md#principled-implementation Both complete walks must agree on declared content, metadata and relevant directory membership, while an available compile-time tracker supplies independent A-B-A event evidence; the predicate is one part of generation admission, not an atomic filesystem freeze.
+ * @evidence contracts/common.md#principled-implementation Complete walks must agree on declared content, metadata and relevant directory membership, and recorded compile-time events/overflow/membership must not refute them. Independent A-B-A authority requires a healthy, relevant backend; this predicate does not check tracker health/coverage and is not an atomic filesystem freeze or full generation proof.
  * @evidence contracts/common.md#clear-and-simple-design The verdict composes existing walk, hash, directory and event predicates without duplicating their evidence collection or tracker ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown declared scope compares the full walk, omitted tracker events remain conservative, and no bundler cache filename exception replaces the actual compile-window distinction.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the temporal witness boundary and narrower role of later trackers; props identify before/after observations and undefined declared scope.
  * @evidence contracts/portability.md#os-neutral-implementation Native identity/event overlap policy stays with trackerChangedDeclaredProjectInput and the supplied filesystem observations; this predicate introduces no OS-name or separator-based case rule.
- * @evidence contracts/performance.md#efficient-algorithms Ordered conjunction short-circuits failed proof, scans declared hashes and relevant directories through shared predicates, and inspects only the bounded tracker evidence needed for overlap.
+ * @evidence contracts/performance.md#efficient-algorithms Ordered conjunction short-circuits failed proof. Reached predicates scan unstable/declared or full hash populations and both full directory populations, allocating filtered maps and a relevant-path union. Event comparison resolves D declared paths and can perform C times D native/text/identity overlap work even though normal retained C is bounded. Text bytes and delegated temporary populations remain beyond witness-count bounds; no source bytes are reread here.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure predicate consumes an already captured pair; generation capture owns observation sharing and no cross-request cache is coordinated here.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The verdict owns no tracker, retained generation or resource lifecycle; its caller owns the compared observations.
  */

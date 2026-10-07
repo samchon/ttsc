@@ -3,8 +3,9 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
 /**
  * TanStack Query rules from `@tanstack/eslint-plugin-query`.
  *
- * Guards the ergonomic and correctness contracts of TanStack Query (`useQuery`,
- * `useMutation`, query-options factories) inside React TypeScript sources.
+ * Static import and syntax policies for query hooks, query-options factories,
+ * and client creation. These checks do not execute TanStack Query or prove its
+ * runtime behavior or inferred types.
  *
  * @reference https://github.com/TanStack/query/tree/main/packages/eslint-plugin-query
  *
@@ -15,19 +16,20 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  */
 export interface ITtscLintTanstackQueryRules {
   /**
-   * Require TanStack Query `queryKey` arrays to include every variable read by
-   * the `queryFn` body, mirroring React Hooks dependency tracking.
+   * Require direct `queryKey` arrays to include the free lexical names
+   * collected from direct `queryFn` function literals. Parameters, local
+   * declarations, imports, known stable names, and property-access names are
+   * excluded.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/exhaustive-deps
    */
   "tanstack-query/exhaustive-deps"?: TtscLintRuleSetting;
 
   /**
-   * Require `queryFn`, `getPreviousPageParam`, and `getNextPageParam` inside
-   * `useInfiniteQuery` to appear in the order TanStack Query documents.
-   *
-   * Type inference flows through these callbacks in sequence, so a reordered
-   * options object widens the page-param type to `unknown`.
+   * Require `queryFn` before either page-param callback in recognized infinite
+   * query calls and `infiniteQueryOptions`. The check does not order
+   * `getPreviousPageParam` relative to `getNextPageParam` or inspect inferred
+   * page-param types.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/infinite-query-property-order
    */
@@ -37,20 +39,17 @@ export interface ITtscLintTanstackQueryRules {
    * Require `useMutation` callbacks to declare `onMutate` before `onError` and
    * `onSettled`.
    *
-   * The options object's type inference threads the `onMutate` return value
-   * into the later callbacks' `context` parameter, which collapses to `unknown`
-   * when the order is wrong.
+   * This is a property-order policy; it does not inspect the inferred callback
+   * context type.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/mutation-property-order
    */
   "tanstack-query/mutation-property-order"?: TtscLintRuleSetting;
 
   /**
-   * Reject `...rest` destructuring on TanStack Query hook results.
-   *
-   * The result object is a tracked proxy that only re-renders for the fields
-   * you read; rest-destructuring touches every field, subscribes the component
-   * to all of them, and disables that optimization.
+   * Reject rest destructuring and object spreads of recognized query-hook
+   * results, including tracked result variables. Mutation results are outside
+   * this check. It does not observe subscriptions or component renders.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/no-rest-destructuring
    */
@@ -60,20 +59,19 @@ export interface ITtscLintTanstackQueryRules {
    * Reject passing entire TanStack Query hook results into React dependency
    * arrays.
    *
-   * The returned object is a fresh reference on every render, so `useEffect` /
-   * `useMemo` / `useCallback` would re-run unconditionally; depend on the
-   * specific fields you read instead.
+   * The check tracks recognized result variables in direct dependency arrays of
+   * syntactically named `useEffect`, `useMemo`, and `useCallback` calls.
+   * Combined `useQueries` results are exempt; render identity is not measured.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/no-unstable-deps
    */
   "tanstack-query/no-unstable-deps"?: TtscLintRuleSetting;
 
   /**
-   * Reject `queryFn` callbacks that resolve to `void`.
-   *
-   * The return value is what TanStack Query caches and exposes as `data`; a
-   * void implementation always populates the cache with `undefined` and almost
-   * always indicates a forgotten `return`.
+   * Reject direct `queryFn` function literals whose syntax has no value return,
+   * or whose concise body is `undefined` or a `void` expression.
+   * Nested-function returns do not supply the callback's return. This is not a
+   * checker-based proof of `void`, resolved values, or cache contents.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/no-void-query-fn
    */
@@ -83,17 +81,18 @@ export interface ITtscLintTanstackQueryRules {
    * Prefer wrapping query options in the `queryOptions()` helper over inline `{
    * queryKey, queryFn }` literals.
    *
-   * The helper co-locates key and fetcher, lets `queryClient.getQueryData` and
-   * `setQueryData` share the same typed key, and prevents the same key being
-   * paired with two different `queryFn`s.
+   * Recognized query hooks with direct object arguments containing `queryKey`
+   * or `queryFn` are reported. The check does not compare keys across calls or
+   * enforce one fetcher per key.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/prefer-query-options
    */
   "tanstack-query/prefer-query-options"?: TtscLintRuleSetting;
 
   /**
-   * Reject creating a `QueryClient` inside a React component or hook body — the
-   * client must be stable across renders.
+   * Reject recognized `new QueryClient` expressions whose nearest function is
+   * non-async and has an uppercase-leading or `use`-prefixed name. Async and
+   * anonymous callback boundaries are exempt; render lifetime is not measured.
    *
    * @reference https://tanstack.com/query/latest/docs/eslint/stable-query-client
    */

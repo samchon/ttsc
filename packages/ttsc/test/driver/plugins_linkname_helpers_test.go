@@ -1,8 +1,6 @@
 package driver_test
 
 import (
-  "encoding/json"
-
   "github.com/microsoft/typescript-go/shim/ast"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -11,9 +9,6 @@ import (
 
 //go:linkname driverPluginRegistry github.com/samchon/ttsc/packages/ttsc/driver.pluginRegistry
 var driverPluginRegistry []any
-
-//go:linkname driverIDKeyFromRaw github.com/samchon/ttsc/packages/ttsc/driver.idKeyFromRaw
-func driverIDKeyFromRaw(raw json.RawMessage) string
 
 //go:linkname driverConvertDiagnostics github.com/samchon/ttsc/packages/ttsc/driver.convertDiagnostics
 func driverConvertDiagnostics(in []*ast.Diagnostic) []driver.Diagnostic

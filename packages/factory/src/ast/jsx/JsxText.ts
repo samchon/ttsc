@@ -7,12 +7,11 @@
  * Text is emitted as supplied, including trailing whitespace. Callers must
  * provide valid JSX text; the trivia flag does not suppress printing.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Raw text preserves literal JSX child content and whitespace; the stored trivia flag does not validate, escape or discard that content.
  * @evidence contracts/common.md#clear-and-simple-design Text and trivia metadata are separate fields without evaluating a rendered child.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The value is caller syntax, with no fixture-specific whitespace trimming or component output substitution.
  * @evidence contracts/common.md#meaningful-documentation JSDoc explains raw emission and trivia metadata's lack of print effect; paragraphs and member separation follow the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JsxText {
   /** Discriminant tag; always `"JsxText"`. */

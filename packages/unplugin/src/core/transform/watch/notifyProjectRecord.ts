@@ -48,30 +48,31 @@ const HANDED = new WeakMap<
  *
  * The generation's inputs are read once per generation and process, and the
  * record below the root of each host the generation is delivered to is written
- * from them until a write lands. Configs consulted while routing another
- * module are added to the same generation's input set. Only that expansion
- * replaces the watching snapshot and requires another write at each host.
+ * from them until a write lands. Configs consulted while routing another module
+ * are added to the same generation's input set. Only that expansion replaces
+ * the watching snapshot and requires another write at each host.
  *
  * A fresh-only result with unavailable host observations has no complete
  * dependency closure to put in a record. It returns false without writing or
  * handing over an older record; its delivery marks the host cache volatile.
  *
- * The record's path is the host root's, while a generation is the cache's,
- * and one cache can reach hosts
- * whose roots differ: a caller of `transformTtsc` can hand one cache to hosts
- * of its own, and the adapters' process-wide cache names the root of each
- * delivery by the directory the process runs in at the time. Each host takes
- * the record below its own root, the one place it accepts one. An input the
- * generation recorded no state for, a failed compile's recovery input or a walk
- * file no graph names, is read now, so a refresh at the next build start has a
- * state to prove it against; an input that cannot be read is recorded absent,
- * which its appearance moves.
+ * The record's path is the host root's, while a generation is the cache's, and
+ * one cache can reach hosts whose roots differ: a caller of `transformTtsc` can
+ * hand one cache to hosts of its own, and the adapters' process-wide cache
+ * names the root of each delivery by the directory the process runs in at the
+ * time. Each host takes the record below its own root, the one place it accepts
+ * one. An input the generation recorded no state for, a failed compile's
+ * recovery input or a walk file no graph names, is read now, so a refresh at
+ * the next build start has a state to compare against. A failed byte read can
+ * record an observed directory kind or unavailable-content marker; that marker
+ * does not certify physical absence.
  *
- * The record is written before it is handed over, so a host that snapshots the
- * file as the delivery registers it snapshots the generation's state, and a
- * host that compares content on its next start compares against that state. A
- * host that keeps no snapshot of the file, Rollup's cache, is handed the digest
- * of the bytes written for the generation to compare against instead
+ * Persistence writes changed bytes or accepts an identical existing record
+ * before initial handoff. Later deliveries reuse that accepted revision without
+ * rechecking the file here; hosts and bridge readers own current record proof,
+ * including concurrent changes and unreadable/torn bytes. A host that keeps no
+ * snapshot of the file, Rollup's cache, is handed the digest of the bytes
+ * written for the generation to compare against instead
  * (`TtscProjectRegistration.digest`).
  *
  * A record lives below the host's tool directory, or, when that cannot be
@@ -97,15 +98,14 @@ const HANDED = new WeakMap<
  * @returns Whether the host was handed the record.
  * @throws {TtscProjectRecordUnwritableError} When a watching session's
  *   successful delivery can be handed no record.
- *
  * @evidence contracts/common.md#principled-implementation Generation observations are retained by lexical input spelling and extended with new routing inputs; each host record is reusable only for the same evidenced snapshot, and bridge registrations receive a new array when that snapshot expands.
  * @evidence contracts/common.md#clear-and-simple-design One generation-owned handoff state separates evidenced inputs, watching snapshot and per-record written version; record serialization and unrecorded host-byte capture remain private helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A fresh-only result cannot manufacture persistent proof from current bytes or an older record; fallback remains an explicit host capability, and other unwritten or missing records preserve the supported volatility or watching error path.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain snapshot expansion, host roots, write-before-registration, fallback and watching failure; parameters and separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Record paths come from host-owned directories and actual write/existence outcomes; observation identities use the shared native filesystem context without OS-wide permission or case assumptions.
- * @evidence contracts/performance.md#efficient-algorithms Generation facts are mapped once; each delivery checks O(S) selection spellings and copies O(U) inputs only when the set expands, then serializes a record only for a new snapshot or unsuccessful write.
- * @evidence contracts/performance.md#reuse-equivalent-work Completed generation evidence and per-host written digests are shared while the input-set revision agrees; selection expansion invalidates every host's prior written version without suppressing registration effects.
- * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap state follows live generations, growing with their unique inputs and reached host record paths. Written record files outlive the generation; this operation provides no historical on-disk reclamation policy.
+ * @evidence contracts/performance.md#efficient-algorithms First handoff scans/maps generation inputs and observes current host bytes/native identities for entries lacking state. Every delivery scans selection spellings, with key-text cost; expansion copies the growing union and derives membership. New/unaccepted host revisions also build records, scan membership, sort/encode nested dictionary keys, hash/compare persisted bytes and perform native path/parent/write work. Input/policy/text/query populations determine temporary storage and bytes, while registration callback work remains a delivery effect even for accepted revisions.
+ * @evidence contracts/performance.md#reuse-equivalent-work Retained generation evidence and accepted per-host snapshot digests are shared while input-set revision agrees, under fixed generation/root/policy and caller nonmutation. Selection expansion invalidates prior host versions without suppressing registration effects. An accepted version skips persistence here, so this memo does not prove current on-disk bytes; record readers and host digest/snapshot comparison own that proof.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap state retains unique lexical inputs/evidence, spelling keys and one digest/revision per reached host record path without a capacity or byte cap. Expansion replaces arrays, but registration closures and borrowers can retain earlier snapshots after replacement or generation release. Native record files also outlive the generation and this operation supplies no historical on-disk reclamation policy; no live watcher handle is owned here.
  */
 export function notifyProjectRecord(
   project: NonNullable<TtscTransformHooks["project"]>,

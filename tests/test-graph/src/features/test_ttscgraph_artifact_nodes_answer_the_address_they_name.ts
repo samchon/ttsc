@@ -1,37 +1,21 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import path from "node:path";
 
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { TtscGraphMemory } = require(
-  path.join(graphLib, "model", "TtscGraphMemory.js"),
-) as { TtscGraphMemory: { from(dump: unknown): GraphMemory } };
-const { runLookup } = require(
-  path.join(graphLib, "server", "runLookup.js"),
-) as {
-  runLookup(
-    graph: GraphMemory,
-    props: { query: string },
-  ): { result: { hits: { id: string; kind: string; name: string }[] } };
-};
-interface GraphMemory {
-  node(id: string): { id: string; kind: string; parent?: string } | undefined;
-  incoming(id: string): readonly { from: string; to: string; kind: string }[];
-}
+import { TtscGraphMemory } from "../../../../packages/graph/src/model/TtscGraphMemory";
+import { runLookup } from "../../../../packages/graph/src/server/runLookup";
+import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 
 /**
  * A dump carrying one declaration, the section it cites, and that section's
  * document.
  */
-const dump = () => ({
+const dump = (): ITtscGraphDump => ({
   project: "/fixture",
   tsconfig: "tsconfig.json",
   provenance: {
     schemaVersion: 8,
     capabilities: ["docTags", "artifactNodes"],
-    producer: { tool: "fixture", typescript: "7.0.0-dev" },
-    artifactProducer: { tool: "fixture lint" },
+    producer: { tool: "fixture", version: "", typescript: "7.0.0-dev" },
+    artifactProducer: { tool: "fixture lint", version: "", typescript: "" },
     universe: { configs: [], roots: [] },
     sources: [],
   },
@@ -101,36 +85,47 @@ const dump = () => ({
  * 2. Assert containment was synthesized from `parent`, not from a `file` node.
  * 3. Assert a lookup on the address returns the artifact and the citing
  *    declaration.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from must synthesize a contains edge from the section's parent document, and runLookup on "docs/sale.md#pricing" must return the section first, named "Pricing", with the citing declaration renderNotice also among the hits. The section body is not part of the dump and the test does not assert its absence.
+ * @evidence contracts/testing.md#independent-expectations The expected ids ("docs/sale.md", "docs/sale.md#pricing", "src/notice.ts#renderNotice:function") and the title "Pricing" are literals authored in the dump fixture, not computed by the memory or lookup indexes.
+ * @evidence contracts/testing.md#distinguishing-cases The incoming contains edges must be exactly [docs/sale.md], excluding a file-node or missing parent. Lookup returns the addressed section first and its citing renderNotice declaration while excluding the unrelated price calls target, so a code dependency cannot masquerade as a citation.
+ * @evidence contracts/testing.md#execution-ownership The named src/features entry invokes authored memory and lookup functions on deliberately synthetic index data without installed artifacts, native builds or a host.
  */
-export const test_ttscgraph_artifact_nodes_answer_the_address_they_name =
-  (): void => {
-    const graph = TtscGraphMemory.from(dump());
+export function test_ttscgraph_artifact_nodes_answer_the_address_they_name(): void {
+  const graph = TtscGraphMemory.from(dump());
 
-    const section = graph.node("docs/sale.md#pricing");
-    assert.notEqual(section, undefined, "the section is not in the memory");
-    const contains = graph
-      .incoming(section!.id)
-      .filter((edge) => edge.kind === "contains");
-    assert.deepEqual(
-      contains.map((edge) => edge.from),
-      ["docs/sale.md"],
-      "a section is contained by its document, never by a synthesized file node",
-    );
+  const section = graph.node("docs/sale.md#pricing");
+  assert.notEqual(section, undefined, "the section is not in the memory");
+  const contains = graph
+    .incoming(section!.id)
+    .filter((edge) => edge.kind === "contains");
+  assert.deepEqual(
+    contains.map((edge) => edge.from),
+    ["docs/sale.md"],
+    "a section is contained by its document, never by a synthesized file node",
+  );
 
-    const hits = runLookup(graph, { query: "docs/sale.md#pricing" }).result
-      .hits;
-    assert.equal(
-      hits[0]?.id,
-      "docs/sale.md#pricing",
-      "the artifact does not lead the answer to its own address",
-    );
-    assert.equal(
-      hits[0]?.name,
-      "Pricing",
-      "the artifact answered without the heading text it exists to carry",
-    );
-    assert.ok(
-      hits.some((hit) => hit.id === "src/notice.ts#renderNotice:function"),
-      "the declaration citing the address is missing from the answer",
-    );
-  };
+  const hits = runLookup(graph, {
+    type: "lookup",
+    query: "docs/sale.md#pricing",
+  }).result.hits;
+  assert.equal(
+    hits[0]?.id,
+    "docs/sale.md#pricing",
+    "the artifact does not lead the answer to its own address",
+  );
+  assert.equal(
+    hits[0]?.name,
+    "Pricing",
+    "the artifact answered without the heading text it exists to carry",
+  );
+  assert.ok(
+    hits.some((hit) => hit.id === "src/notice.ts#renderNotice:function"),
+    "the declaration citing the address is missing from the answer",
+  );
+  assert.equal(
+    hits.some((hit) => hit.id === "src/price.ts#price:function"),
+    false,
+    "an unrelated code dependency is not a citation to the artifact",
+  );
+}

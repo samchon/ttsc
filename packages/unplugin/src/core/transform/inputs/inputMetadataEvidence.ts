@@ -4,8 +4,8 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 import type { TtscInputMetadataEvidence } from "./TtscInputMetadataEvidence";
 
 /**
- * Observe lexical-link and target metadata together with clock separability.
- * An unavailable link target retains a missing-target signature and cannot
+ * Observe lexical-link and target metadata together with clock separability. An
+ * unavailable link target retains a missing-target signature and cannot
  * authorize notification-only or metadata-only reuse. Unavailable lexical
  * metadata returns undefined rather than representing a proven missing input.
  *
@@ -17,7 +17,10 @@ import type { TtscInputMetadataEvidence } from "./TtscInputMetadataEvidence";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Symlinks and multiply linked files cannot acquire blanket watcher authority, and broken-link state is not rewritten into a lexical-parent missing-path proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state unavailable-target behavior, unavailable metadata and clock-reference ordering; separated tags and distinct member comments follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral evidence reads actual bigint device, inode, link count and nanosecond stamps through the supplied following/nonfollowing capabilities rather than assuming OS-wide clock precision or watcher coverage.
- * @evidence contracts/performance.md#efficient-algorithms One lstat suffices for ordinary inputs; only symbolic links need a target stat, and fixed-field signatures plus device lookups avoid reading file bytes.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One lstat suffices for ordinary inputs; only symbolic links need a target
+ *   stat. Fixed-field signatures and device lookups avoid file-byte reads while
+ *   native path resolution and bigint formatting retain component/digit costs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This captures the evidence consumed by reuse coordinators; it neither stores completed content work nor decides equivalence across deliveries.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result holds primitive evidence only; device clock references belong to their filesystem owner and this function acquires no retained handle or task.
  */

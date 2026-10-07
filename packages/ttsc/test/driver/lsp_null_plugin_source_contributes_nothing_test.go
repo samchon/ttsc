@@ -7,14 +7,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPNullPluginSourceContributesNothing pins the zero-value
-// PluginSource. Every method must return an empty / not-handled answer
-// so RunLSPServer can drop in NullPluginSource when callers do not
-// supply one and the proxy still exercises its forwarding paths.
+// TestLSPNullPluginSourceContributesNothing Verifies that NullPluginSource returns empty diagnostics, nil actions and IDs, and ErrCommandNotHandled with no edit.
 //
-// 1. Call each method on a NullPluginSource value.
-// 2. Assert Diagnostics, CodeActions, and CommandIDs return nil.
-// 3. Assert ExecuteCommand reports ErrCommandNotHandled with no edit.
+// All four source operations are checked; real upstream forwarding is not exercised.
+//
+// 1. Call all four operations on NullPluginSource.
+// 2. Assert empty document/project diagnostics, nil actions and IDs, and ErrCommandNotHandled without an edit.
+//
+// @evidence contracts/testing.md#behavioral-verification NullPluginSource returns empty diagnostics, nil actions and IDs, and ErrCommandNotHandled with no edit.
+// @evidence contracts/testing.md#independent-expectations The null-source contract contributes no findings and claims no commands.
+// @evidence contracts/testing.md#distinguishing-cases All four source operations are checked; real upstream forwarding is not exercised.
+// @evidence contracts/testing.md#execution-ownership The zero-value public source is invoked directly in Go. Go discovers TestLSPNullPluginSourceContributesNothing under ./test/driver.
 func TestLSPNullPluginSourceContributesNothing(t *testing.T) {
   src := driver.NullPluginSource{}
 

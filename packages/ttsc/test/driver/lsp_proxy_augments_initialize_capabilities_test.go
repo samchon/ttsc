@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestLSPProxyAugmentsInitializeCapabilities verifies plugin LSP capabilities
+// TestLSPProxyAugmentsInitializeCapabilities Verifies plugin LSP capabilities
 // are advertised even when upstream has no codeAction provider.
 //
 // Editors gate code-action requests on the initialize result. If tsgo returns
@@ -17,6 +17,11 @@ import (
 // 2. Forward initialize to upstream.
 // 3. Reply from upstream with `codeActionProvider: false`.
 // 4. Assert the editor sees codeActionProvider true and the plugin command id.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy initialize enables actions and lists the owned executeCommand id.
+// @evidence contracts/testing.md#independent-expectations One authored ttsc.lint.fixAll command determines the one-entry command list.
+// @evidence contracts/testing.md#distinguishing-cases Upstream actions false contrasts with a contributing plugin source.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyAugmentsInitializeCapabilities in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyAugmentsInitializeCapabilities(t *testing.T) {
   h := newProxyHarness(t, &stubSource{commands: []string{"ttsc.lint.fixAll"}})
 

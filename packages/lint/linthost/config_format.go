@@ -438,7 +438,7 @@ func collectLayoutOpts(raw map[string]any) (map[string]any, error) {
   return layoutOpts, nil
 }
 
-// asBool coerces a raw config value to a bool, returning a typed error on
+// asBool coerces a raw config value to a bool, returning a field-named error on
 // failure. Used by expandFormatBlock to validate boolean format fields.
 func asBool(field string, v any) (bool, error) {
   if b, ok := v.(bool); ok {
@@ -447,7 +447,7 @@ func asBool(field string, v any) (bool, error) {
   return false, fmt.Errorf("@ttsc/lint: %s must be a boolean, got %T", field, v)
 }
 
-// asString coerces a raw config value to a string, returning a typed error on
+// asString coerces a raw config value to a string, returning a field-named error on
 // failure. Used by expandFormatBlock to validate string format fields.
 func asString(field string, v any) (string, error) {
   if s, ok := v.(string); ok {
@@ -456,8 +456,8 @@ func asString(field string, v any) (string, error) {
   return "", fmt.Errorf("@ttsc/lint: %s must be a string, got %T", field, v)
 }
 
-// asInt coerces a raw config value to an int. Accepts all integer-shaped Go
-// numeric types plus float64 (the default JSON decode type) and json.Number,
+// asInt coerces a raw config value to an int. Accepts int, int32 and int64
+// values plus integral float64 and integer json.Number values,
 // rejecting fractional float64 values since no format option takes a non-integer.
 func asInt(field string, v any) (int, error) {
   switch n := v.(type) {
@@ -481,7 +481,7 @@ func asInt(field string, v any) (int, error) {
   return 0, fmt.Errorf("@ttsc/lint: %s must be an integer, got %T", field, v)
 }
 
-// asStringSlice coerces a raw config value to a []string, returning a typed
+// asStringSlice coerces a raw config value to a []string, returning a field-named
 // error on failure. Used by expandFormatBlock to validate sortImports.order.
 func asStringSlice(field string, v any) ([]string, error) {
   arr, ok := v.([]any)

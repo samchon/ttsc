@@ -20,6 +20,19 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states which field is normalized and why omissions remain.
  *   Spaced member comments describe each choice using documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Normalization preserves the caller's native project-path spelling;
+ *   project selection resolves relative paths against process.cwd. Undefined
+ *   remains discovery, without imposing separators or filesystem case policy.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ResolvedTtscUnpluginOptions only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ResolvedTtscUnpluginOptions only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ResolvedTtscUnpluginOptions only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface ResolvedTtscUnpluginOptions {
   /** Compiler-options overlay applied on top of the discovered tsconfig. */

@@ -2,12 +2,15 @@ package evidence
 
 import (
   "encoding/json"
+  "errors"
+  "fmt"
   "os"
   "os/exec"
   "path/filepath"
   "runtime"
   "sort"
   "strings"
+  "syscall"
   "testing"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -45,10 +48,11 @@ func (reporter *capturedProjectReporter) SetState(state any) {
 // runGraphHints drives the graph rule and returns the corpus a consumer would
 // actually receive, together with whatever the rule reported.
 //
-// The gate is reproduced here rather than bypassed. `linthost/hints.go:147-149`
-// skips a rule whose snapshot is not `ProjectRulePassed` or whose state is nil,
-// and `projectReporter.Report` marks a rule failed unconditionally
-// (`linthost/project_engine.go:68-77`). Calling `Hints` directly would answer a
+// The gate is reproduced here rather than bypassed. `collectProjectHints` in
+// `linthost/hints.go` skips a rule whose snapshot is not `ProjectRulePassed` or
+// whose state is nil, and `projectReporter.ReportSeverity` in
+// `linthost/project_engine.go` marks an active rule failed on any report whose
+// severity is not off. Calling `Hints` directly would answer a
 // question no editor asks — what the rule *could* publish — while the behavior
 // under test is what an author sees, which is nothing on the cycle an
 // obligation goes unmet.
@@ -432,20 +436,49 @@ func countProblemsContaining[T string | graphDiagnostic](problems []T, expected 
   return count
 }
 
-// linkDirectory installs a directory the way a package manager does. A symlink
-// needs a privilege Windows withholds by default, which is why pnpm uses a
-// junction there; both are links a naive walker refuses to descend into, so
-// either one exercises the case under test.
-func linkDirectory(target string, link string) error {
-  if err := os.Symlink(target, link); err == nil {
-    return err
-  } else if runtime.GOOS != "windows" {
-    return err
+// windowsPrivilegeNotHeld is ERROR_PRIVILEGE_NOT_HELD, the answer Windows gives
+// when a process without SeCreateSymbolicLinkPrivilege creates a symbolic link.
+const windowsPrivilegeNotHeld = syscall.Errno(1314)
+
+// linkWindowsPopulationDirectory creates a Windows directory junction, which
+// needs no privilege. mklink is a cmd.exe builtin, so a fixed command is fed
+// over stdin and the paths travel as environment values that delayed expansion
+// substitutes after cmd has classified its metacharacters; no path is ever
+// quoted into a command string.
+func linkWindowsPopulationDirectory(target, link string) error {
+  command := exec.Command("cmd.exe", "/d", "/q", "/v:on")
+  command.Stdin = strings.NewReader("mklink /J \"!TTSC_EVIDENCE_JUNCTION_LINK!\" \"!TTSC_EVIDENCE_JUNCTION_TARGET!\"\r\nexit /b !errorlevel!\r\n")
+  command.Env = append(os.Environ(), "TTSC_EVIDENCE_JUNCTION_LINK="+link, "TTSC_EVIDENCE_JUNCTION_TARGET="+target)
+  if output, err := command.CombinedOutput(); err != nil {
+    return fmt.Errorf("junction fixture failed: %v: %s", err, string(output))
   }
-  return exec.Command(
-    "cmd", "/c", "mklink", "/J",
-    filepath.FromSlash(link), filepath.FromSlash(target),
-  ).Run()
+  return nil
+}
+
+// linkDirectory creates a directory link fixture: a symbolic link on POSIX and
+// a directory junction on Windows. The product's resolver treats a junction as
+// a link exactly as it treats a symbolic link, and a junction needs no
+// privilege, so the case runs unchanged on a developer machine.
+func linkDirectory(t *testing.T, target string, link string) error {
+  t.Helper()
+  if runtime.GOOS == "windows" {
+    return linkWindowsPopulationDirectory(target, link)
+  }
+  return os.Symlink(target, link)
+}
+
+// linkFile creates a symbolic link to a file. A junction links directories
+// only and a hard link is a regular entry that never reaches the symbolic-link
+// branch, so on a Windows host that refuses file symbolic links this ends the
+// test as skipped, and only for that exact refusal; any other error is returned
+// for the caller to fail on.
+func linkFile(t *testing.T, target string, link string) error {
+  t.Helper()
+  err := os.Symlink(target, link)
+  if err != nil && runtime.GOOS == "windows" && errors.Is(err, windowsPrivilegeNotHeld) {
+    t.Skipf("SKIPPED: this host cannot create a file symbolic link (%v) and a junction links directories only; no coverage is claimed here and the case runs where file links can be created", err)
+  }
+  return err
 }
 
 func problemMessages[T string | graphDiagnostic](problems []T) []string {

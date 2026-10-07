@@ -12,27 +12,30 @@ import (
 )
 
 // TestRunLSPUsesNativePluginManifestSource verifies the command wires the
-// launcher-provided plugin manifest into the proxy source and then owns it.
+// authored empty manifest transports to native source construction and applies
+// their environment-clearing and file-consumption rules.
 //
-// A previous implementation always passed NullPluginSource, so editor sessions
-// could never receive ttsc plugin diagnostics or commands. The manifest also
-// names every resolved plugin and its launch context, so leaving it readable
-// for the process lifetime exposes it to any sidecar this host later spawns.
-// This test pins both halves of that seam without starting tsgo.
+// These fixtures contain no plugin entries. They observe the captured source
+// class, parent environment and file presence, not plugin entry transfer,
+// sidecar inheritance, maximum-byte limits, or a second editor launch.
 //
 //  1. Set the legacy TTSC_LSP_PLUGINS_JSON fallback to a valid manifest.
 //  2. Substitute runLSPServer and capture its LSPServerOptions.
 //  3. Run `ttscserver --stdio` and assert the native source is selected, and
-//     that the legacy payload no longer reaches a spawned sidecar.
+//     that the legacy payload is cleared from this process environment.
 //  4. Put a valid manifest in TTSC_LSP_PLUGINS_FILE while making the legacy
-//     environment payload invalid, and prove the bounded file transport wins,
-//     leaves neither variable behind, and survives the read because an editor
-//     that supplies it out of band must be able to launch twice.
+//     environment payload invalid, and prove file precedence, environment
+//     clearing, and continued file presence after this one invocation.
 //  5. Pass a manifest through --lsp-plugins-file while both environment forms
 //     are invalid, and prove the flag transport takes precedence and is
 //     consumed, because the launcher created that file for this process alone.
 //  6. Point the flag at a missing manifest and prove the command fails instead
 //     of silently serving a project without its declared plugins.
+//
+// @evidence contracts/testing.md#behavioral-verification The authored empty manifests yield a captured NativePluginSource and cleared parent manifest variables. The environment file wins over invalid JSON and remains present; the flag file wins over both invalid environment forms and is removed; a missing flag file gives a nonzero result naming the flag. Actual plugin entries, sidecars, size limits, file readability, and repeat launches are not asserted.
+// @evidence contracts/testing.md#independent-expectations The expected source selection, environment state and file transport are checked against literal manifests and variables the test sets.
+// @evidence contracts/testing.md#distinguishing-cases Legacy JSON, environment file and flag file use authored empty manifests; invalid competing transports distinguish precedence, and a missing flag target distinguishes admission failure. Environment-file retention contrasts with flag-file consumption.
+// @evidence contracts/testing.md#execution-ownership This Go unit replaces the owning runLSPServer seam and captures package-owned writers. It directly creates/inspects private manifest files and restores authored environment transports through t.Setenv. Empty plugin lists select no native query, and the host seam starts no process; foreign methods and process streams are unchanged.
 func TestRunLSPUsesNativePluginManifestSource(t *testing.T) {
   t.Setenv("TTSC_LSP_PLUGINS_JSON", `{"plugins":[],"lspPlugins":[]}`)
   t.Setenv("TTSC_LSP_PLUGINS_FILE", "")

@@ -9,10 +9,10 @@ import { resolveProjectConfig } from "../../compiler/internal/project/resolvePro
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { getBoolean } from "../../flags/getBoolean";
-import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
+import { E2ETrace } from "../../internal/E2ETrace";
 import { cacheEntryExists } from "../../internal/cacheEntryExists";
 import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity/createFilesystemPathIdentityContext";
 import { isFilesystemPathIdentityWithin } from "../../internal/pathIdentity/isFilesystemPathIdentityWithin";
@@ -25,8 +25,10 @@ import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resol
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
-import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
+import type { TtscBuildMode } from "./TtscBuildMode";
 import { getCompilerVersionText } from "./getCompilerVersionText";
+import { parseTtscBuildArgs } from "./parseTtscBuildArgs";
+import { prepareTtscBuildMode } from "./prepareTtscBuildMode";
 import { resolveCacheDir } from "./resolveCacheDir";
 import { resolveSingleFileOutput } from "./resolveSingleFileOutput";
 import { resolveRuntimeCleanTargets } from "./runtime/resolveRuntimeCleanTargets";
@@ -35,29 +37,31 @@ import { type WatchInputChange } from "./watch/WatchInputChange";
 import { WatchTopology } from "./watch/WatchTopology";
 
 /**
- * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane
- * (build, check, fix, format, prepare, clean, or native-delegate) and returns
- * an exit code. Errors thrown by any lane are caught here and written to stderr
- * so the process can exit cleanly.
+ * CLI entry point for `ttsc`. Dispatches argv to the appropriate lane (build,
+ * check, fix, format, cache, prepare, clean, help or version) and returns an
+ * exit code. Synchronous lane errors are caught here and reported to stderr; an
+ * error thrown by reporting itself can still escape this entry.
  *
  * Watch setup returns before its asynchronous first build finishes. Signal
- * shutdown uses the latest completed build status; topology failure closes the
- * owned watchers and resident host. Cache cleanup validates its full target set
- * and preserves the caller's Go cache, including overlapping explicit targets.
+ * shutdown and supported Node IPC stop requests await the resident close and
+ * active cycle promises before reporting the latest completed build status.
+ * Their settlement is not a descendant-process or inherited-stdio drain proof.
+ * Topology failure initiates cleanup, whose asynchronous failure is reported
+ * separately. Cache cleanup validates its full target set against the project
+ * and caller's Go cache before removal; this is not an atomic filesystem
+ * transaction against concurrent path replacement.
  *
  * @param argv - Command-line arguments (defaults to `process.argv.slice(2)`).
- *
  * @returns The selected lane's status, or `2` for an error caught by this
  *   entry.
- *
- * @evidence contracts/common.md#principled-implementation Command and schema identities select the declared build, check, edit and cache lanes; emit tri-state and ordered passthrough values preserve compiler authority, while the whole physical cleanup transaction protects project and caller-owned Go cache state.
+ * @evidence contracts/common.md#principled-implementation Command and schema identities select the declared build, check, edit and cache lanes; emit tri-state and ordered passthrough values preserve compiler authority. Cleanup prevalidates the complete target population and protected physical identities before removals, without atomic replacement or rollback guarantees.
  * @evidence contracts/common.md#clear-and-simple-design One public entry owns dispatch and reporting; private argument, cleanup, single-file and watch operations isolate their distinct lifecycles while sharing the package's flag and build owners.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Command names and debounce timing are declared CLI policy, not consumer-specific answers; failures keep their real statuses, and source changes cannot be hidden by caching an earlier plugin binary.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Command names and debounce timing are declared CLI policy, not consumer-specific answers; completed build statuses are reported while entry exceptions map to 2 and process exit normalization remains explicit. Reuse validity belongs to maintained source-build owners rather than an assumed historical binary.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish synchronous dispatch from watch lifetime and explain cleanup authority; parameter and result descriptions are separated from acknowledgments following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution and physical identities anchor reporting, cache containment and deletion; environment lookup preserves native name identity, and process/watch behavior is delegated to supported package boundaries rather than shell commands.
- * @evidence contracts/performance.md#efficient-algorithms Argument cursors visit each token once without repeated head shifts; cleanup shares one identity context and deduplicates deletion paths. Watch work includes compiler discovery and input fingerprinting owned by its topology rather than an extra launcher transform.
+ * @evidence contracts/performance.md#efficient-algorithms Dispatch copies argv tails and delegates parsing, project/plugin discovery, compiler/process work, native identity queries and cache traversal/deletion; these have input-byte/path/dependency and delegated callback costs beyond token cursors. Cleanup deduplicates accepted paths; watch adds topology discovery, fingerprinting and serialized rebuild work, not a fixed total-work bound.
  * @evidence contracts/performance.md#reuse-equivalent-work A watch lifetime retains one resident check coordinator and forwards ordered change deltas; topology changes reset that selection, while ordinary effectful builds remain separate and source-built binaries reuse only their validated input identity.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Watch setup, failure and signal shutdown share idempotent cleanup of timer, signal listeners, topology and resident hosts; pending changes belong to the current cycle. Input-dependent topology state persists until shutdown, while cache cleanup retains no historical target population.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Watch retains uncapped input/topology/pending-change state and callbacks across cycles. Close marks closed, removes owned timers/listeners, attempts topology cleanup and awaits resident/active settlements; cleanup rejection is reported, not successful backend/descendant closure certification. Returned setup status does not end this lifetime; cache target/identity/output collections are call-local and uncapped.
  */
 export function runTtsc(
   argv: readonly string[] = process.argv.slice(2),
@@ -130,57 +134,26 @@ function isBuildAlias(command: string): boolean {
   );
 }
 
-type TtscMode = "build" | "check" | "fix" | "format";
-
-function runCompatibleBuild(argv: readonly string[], mode: TtscMode): number {
+function runCompatibleBuild(
+  argv: readonly string[],
+  mode: TtscBuildMode,
+): number {
   const checkOnly = mode !== "build";
-  const options = normalizeBuildOptions(parseBuildArgs(argv));
-  if (mode === "fix") {
-    if (options.emit === true) {
-      throw new Error("ttsc: fix and --emit are mutually exclusive");
-    }
-    options.fix = true;
-    options.emit = false;
-  }
-  if (mode === "format") {
-    if (options.emit === true) {
-      throw new Error("ttsc: format and --emit are mutually exclusive");
-    }
-    options.format = true;
-    options.emit = false;
-  }
-  if (options.watch) {
-    if (mode === "fix") {
-      throw new Error(
-        "ttsc: fix does not support watch mode; use ttsc --noEmit --watch for incremental checks",
-      );
-    }
-    if (mode === "format") {
-      throw new Error(
-        "ttsc: format does not support watch mode; use ttsc --noEmit --watch for incremental checks",
-      );
-    }
-    return runWatch(options, checkOnly);
-  }
-  const buildOptions = checkOnly ? { ...options, emit: false } : options;
-  if (buildOptions.files.length !== 0) {
-    if (mode === "fix") {
-      throw new Error("ttsc: fix requires a project, not single-file mode");
-    }
-    if (mode === "format") {
-      throw new Error("ttsc: format requires a project, not single-file mode");
-    }
-    return runSingleFile(buildOptions);
-  }
-  const result = runBuild(buildOptions);
+  const options = prepareTtscBuildMode(
+    normalizeBuildOptions(parseTtscBuildArgs(argv)),
+    mode,
+  );
+  if (options.watch) return runWatch(options, checkOnly);
+  if (options.files.length !== 0) return runSingleFile(options);
+  const result = runBuild(options);
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
 }
 
 function normalizeBuildOptions(
-  options: ReturnType<typeof parseBuildArgs>,
-): ReturnType<typeof parseBuildArgs> {
+  options: ReturnType<typeof parseTtscBuildArgs>,
+): ReturnType<typeof parseTtscBuildArgs> {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   return {
     ...options,
@@ -245,7 +218,7 @@ function runCleanWithContext(
   includeRuntime: boolean,
 ): number {
   // The runtime directories of runs no process still owns. A run that may
-  // still be in progress keeps its own, and is reported (samchon/ttsc#1579).
+  // still be in progress keeps its own, and is reported.
   const runtime =
     includeRuntime && explicitCacheDir === undefined
       ? resolveRuntimeCleanTargets(
@@ -513,9 +486,8 @@ function isOutsideRelativePath(relative: string): boolean {
 function parseProjectArgs(argv: readonly string[]) {
   // `prepare` and `clean` are project-shaped commands. They share the same
   // schema as the build lane; the engine forwards unknown flags as well as
-  // build-only flags (e.g. `--strict`) to the launcher's passthrough list
-  // so the legacy "unknown option" behaviour is no longer a separate trap
-  // (RC-3 + RC-4 prevention; see issue #125 §5 in the RCA).
+  // build-only flags (e.g. `--strict`) to the launcher's passthrough list, so
+  // an unknown option is not a separate error path.
   const result = parseFlags({
     argv,
     errorPrefix: "ttsc:",
@@ -526,81 +498,6 @@ function parseProjectArgs(argv: readonly string[]) {
     cwd: getString(result, "--cwd"),
     tsconfig: getString(result, "--tsconfig"),
   };
-}
-
-function parseBuildArgs(argv: readonly string[]) {
-  const result = parseFlags({
-    argv,
-    errorPrefix: "ttsc:",
-    // A bare token is a single-file input only when it carries a TypeScript
-    // source extension; any other bare token is the space-separated value of a
-    // preceding forwarded flag (e.g. the `es2020` in `--target es2020`). The
-    // parser routes those values into `passthrough` in place, so the forwarded
-    // flag/value pairs reach tsgo in their original order.
-    isPositional: looksLikeInputFile,
-    subcommand: "build",
-  });
-  assertNoSolutionBuild(result, "ttsc:");
-  // Defaults: pinned by the previous hand-parser. `quiet` defaults true,
-  // `--verbose` flips it to false; `emit` defaults `undefined` so the resolved
-  // project controls ordinary build mode. `runCompatibleBuild` applies the
-  // check/fix/format no-emit decision before either execution lane runs.
-  const verbose = getBoolean(result, "--verbose");
-  const quietFlag = getBoolean(result, "--quiet");
-  const quiet = verbose === true ? false : (quietFlag ?? true);
-  const explicitEmit = getBoolean(result, "--emit");
-  const explicitNoEmit = getBoolean(result, "--noEmit");
-  const emit = resolveExplicitEmit(explicitEmit, explicitNoEmit);
-
-  // `isPositional: looksLikeInputFile` guarantees every `result.positional`
-  // token is a TypeScript input file; forwarded flag values already live in
-  // `result.passthrough` in their original order, so no reconstruction is
-  // needed here (the previous `[...passthrough, ...trailingValues]` concat
-  // reordered every flag ahead of every value).
-  const files = [...result.positional];
-  const passthrough = [...result.passthrough];
-
-  return {
-    binary: getString(result, "--binary"),
-    cacheDir: getString(result, "--cache-dir"),
-    checkers: getNumber(result, "--checkers"),
-    cwd: getString(result, "--cwd"),
-    emit,
-    files,
-    fix: false,
-    format: false,
-    outDir: getString(result, "--outDir"),
-    passthrough,
-    preserveWatchOutput: getBoolean(result, "--preserveWatchOutput") === true,
-    quiet,
-    singleThreaded: getBoolean(result, "--singleThreaded") === true,
-    tsconfig: getString(result, "--tsconfig"),
-    watch: getBoolean(result, "--watch") === true,
-  };
-}
-
-/**
- * Collapse the two launcher-owned emit switches into the tri-state consumed by
- * `runBuild` and the single-file lane. A specified boolean is significant even
- * when it is `false`: `--emit=false` is analysis-only and `--noEmit=false`
- * explicitly overrides a project's `noEmit`. `--emit` retains precedence when
- * callers supply both switches, matching the legacy true-only resolution.
- */
-function resolveExplicitEmit(
-  explicitEmit: boolean | undefined,
-  explicitNoEmit: boolean | undefined,
-): boolean | undefined {
-  if (explicitEmit !== undefined) return explicitEmit;
-  return explicitNoEmit === undefined ? undefined : !explicitNoEmit;
-}
-
-/**
- * Report whether a bare CLI token is a TypeScript source file ttsc should
- * compile in single-file mode. Anything without a TypeScript source extension
- * is treated as a forwarded flag value rather than an input file.
- */
-function looksLikeInputFile(token: string): boolean {
-  return [".ts", ".tsx", ".mts", ".cts"].some((ext) => token.endsWith(ext));
 }
 
 function printHelp(): void {
@@ -678,7 +575,7 @@ function printCacheHelp(): void {
 }
 
 function runSingleFile(
-  options: ReturnType<typeof parseBuildArgs> &
+  options: ReturnType<typeof parseTtscBuildArgs> &
     Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
 ): number {
   if (options.files.length !== 1) {
@@ -728,7 +625,7 @@ function runSingleFile(
  * tree.
  */
 function singleFileShouldEmit(
-  options: ReturnType<typeof parseBuildArgs>,
+  options: ReturnType<typeof parseTtscBuildArgs>,
   cwd: string,
   file: string,
 ): boolean {
@@ -742,7 +639,7 @@ function singleFileShouldEmit(
 }
 
 function runWatch(
-  options: ReturnType<typeof parseBuildArgs>,
+  options: ReturnType<typeof parseTtscBuildArgs>,
   checkOnly: boolean,
 ): number {
   const cwd = path.resolve(options.cwd ?? process.cwd());
@@ -766,6 +663,8 @@ function runWatch(
   );
   let running = false;
   let closed = false;
+  let active: Promise<void> | undefined;
+  let closing: Promise<void> | undefined;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
   const resident =
@@ -774,11 +673,14 @@ function runWatch(
   // Tracks the most recent build's exit code so the watch session can exit
   // non-zero when its latest rebuild failed, instead of always reporting 0.
   let lastStatus = 0;
+  let completedBuild = false;
 
   const runOnce = async () => {
     if (closed) return;
     running = true;
     const change = pendingChanges.take();
+    if (process.env.TTSC_WATCH_DEBUG_INPUTS)
+      debugWatchInputs(`cycle ${JSON.stringify(change)}`);
     let completed = false;
     try {
       if (!options.preserveWatchOutput) {
@@ -815,17 +717,21 @@ function runWatch(
             if (result.stderr) process.stdout.write(result.stderr);
             return result.status;
           })());
+      if (closed) return;
       lastStatus = status;
+      completedBuild = true;
       completed = true;
       process.stdout.write(
         `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
       );
     } catch (error) {
+      if (closed) return;
       // Same ordered-stream rule as the build path: the failure text goes on
       // the stream the marker below uses, so a merged reader sees them in order
       // rather than racing two pipes.
       process.stdout.write(`${formatError(error)}\n`);
       lastStatus = lastStatus === 0 ? 2 : lastStatus;
+      completedBuild = true;
       process.stdout.write(`[ttsc] watch build failed\n`);
     } finally {
       running = false;
@@ -859,32 +765,156 @@ function runWatch(
     timer = setTimeout(startRun, 60);
   };
 
-  const close = () => {
-    if (closed) return;
+  const close = (): Promise<void> => {
+    if (closing !== undefined) return closing;
+    E2ETrace.watchShutdown("close-start", {
+      residentSelected: resident !== undefined,
+      activeSelected: active !== undefined,
+    });
     closed = true;
     if (timer) clearTimeout(timer);
     timer = null;
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
+    process.off("message", onMessage);
+    process.off("disconnect", onDisconnect);
+    let topologyError: unknown;
     try {
       topology?.close();
+    } catch (error) {
+      topologyError = error;
+    }
+    const residentClosing = resident?.close() ?? Promise.resolve();
+    const activeClosing = active ?? Promise.resolve();
+    closing = Promise.allSettled([residentClosing, activeClosing]).then(
+      (results) => {
+        const errors = results.flatMap((result) =>
+          result.status === "rejected" ? [result.reason] : [],
+        );
+        if (topologyError !== undefined) errors.push(topologyError);
+        if (errors.length !== 0)
+          throw new AggregateError(
+            errors,
+            `ttsc: watch shutdown failed: ${errors.map(formatError).join("; ")}`,
+          );
+      },
+    );
+    if (process.env.TTSC_E2E_TRACE) {
+      // Observe the original promises without substituting their settlements.
+      void residentClosing.then(
+        () =>
+          E2ETrace.watchShutdown("resident-settled", { outcome: "fulfilled" }),
+        () =>
+          E2ETrace.watchShutdown("resident-settled", { outcome: "rejected" }),
+      );
+      void activeClosing.then(
+        () =>
+          E2ETrace.watchShutdown("active-settled", { outcome: "fulfilled" }),
+        () => E2ETrace.watchShutdown("active-settled", { outcome: "rejected" }),
+      );
+      void closing.then(
+        () =>
+          E2ETrace.watchShutdown("close-promise-settled", {
+            outcome: "fulfilled",
+          }),
+        () =>
+          E2ETrace.watchShutdown("close-promise-settled", {
+            outcome: "rejected",
+          }),
+      );
+    }
+    void closing.catch(() => {});
+    return closing;
+  };
+  const finish = async (id?: string): Promise<void> => {
+    E2ETrace.watchShutdown("finish-start", { stopId: id });
+    try {
+      await close();
+      E2ETrace.watchShutdown("close-settled", {
+        stopId: id,
+        outcome: "fulfilled",
+      });
+      process.exitCode = toExitCode(lastStatus);
+      if (id !== undefined && process.connected && process.send !== undefined) {
+        E2ETrace.watchShutdown("ack-send", { stopId: id });
+        await new Promise<void>((resolve, reject) => {
+          process.send!(
+            {
+              type: "ttsc.watch.stopped",
+              id,
+              status: completedBuild ? lastStatus : null,
+            },
+            (error: Error | null) => {
+              E2ETrace.watchShutdown("ack-callback", {
+                stopId: id,
+                outcome: error === null ? "fulfilled" : "rejected",
+              });
+              error === null ? resolve() : reject(error);
+            },
+          );
+        });
+      }
+    } catch (error) {
+      E2ETrace.watchShutdown("finish-rejected", { stopId: id });
+      process.stderr.write(`${formatError(error)}\n`);
+      process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
     } finally {
-      resident?.dispose();
+      if (process.connected) {
+        E2ETrace.watchShutdown("disconnect-start", {
+          stopId: id,
+          selected: process.disconnect !== undefined,
+        });
+        try {
+          process.disconnect?.();
+          E2ETrace.watchShutdown("disconnect-return", {
+            stopId: id,
+            outcome: "fulfilled",
+          });
+        } catch (error) {
+          E2ETrace.watchShutdown("disconnect-return", {
+            stopId: id,
+            outcome: "rejected",
+          });
+          process.stderr.write(`${formatError(error)}\n`);
+          process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
+        }
+      }
+      E2ETrace.watchShutdown("finish-end", {
+        stopId: id,
+        exitCode: process.exitCode,
+      });
     }
   };
   const onInterrupt = () => {
-    close();
-    process.exit(toExitCode(lastStatus));
+    void finish();
   };
   const onTerminate = () => {
-    close();
-    process.exit(toExitCode(lastStatus));
+    void finish();
+  };
+  const onDisconnect = () => {
+    void finish();
+  };
+  const onMessage = (message: unknown) => {
+    if (
+      typeof message === "object" &&
+      message !== null &&
+      "type" in message &&
+      message.type === "ttsc.watch.stop" &&
+      "id" in message &&
+      typeof message.id === "string" &&
+      message.id.length !== 0
+    ) {
+      const id = message.id;
+      E2ETrace.watchShutdown("ipc-stop-received", { stopId: id });
+      void finish(id);
+    }
   };
   const startRun = () => {
-    void runOnce().catch((error: unknown) => {
-      close();
+    active = runOnce();
+    void active.catch((error: unknown) => {
       process.stderr.write(`${formatError(error)}\n`);
-      process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
+      lastStatus = lastStatus === 0 ? 2 : lastStatus;
+      void finish();
     });
   };
 
@@ -922,14 +952,19 @@ function runWatch(
     topology.refresh(false);
     process.on("SIGINT", onInterrupt);
     process.on("SIGTERM", onTerminate);
+    if (process.connected) {
+      process.on("message", onMessage);
+      process.on("disconnect", onDisconnect);
+    }
     process.stdout.write(`[ttsc] watching ${watchMessagePath(cwd, root)}\n`);
     startRun();
   } catch (error) {
     // Refresh may fail after acquiring only part of the watch set. Release that
     // partial ownership as well as setup's signal listeners before returning.
-    close();
+    lastStatus = lastStatus === 0 ? 2 : lastStatus;
     process.stderr.write(`${formatError(error)}\n`);
-    return toExitCode(lastStatus === 0 ? 2 : lastStatus);
+    void finish();
+    return toExitCode(lastStatus);
   }
   return toExitCode(lastStatus);
 }

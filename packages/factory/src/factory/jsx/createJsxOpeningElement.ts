@@ -22,6 +22,11 @@ import { make } from "../internal/make";
  * <Foo bar="x">
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param tagName The tag name.
+ * @param typeArguments The generic type arguments, if any.
+ * @param attributes The attributes.
+ * @returns The created {@link JsxOpeningElement}.
  * @evidence contracts/common.md#principled-implementation
  *   Tag, generic arguments and attributes retain their opening-tag roles; this
  *   node contains no children and does not pretend to close the element.
@@ -37,12 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose distinguishes the opening half from self-closing syntax and
  *   states the matching-tag context alongside all three parameter descriptions.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param tagName The tag name.
- * @param typeArguments The generic type arguments, if any.
- * @param attributes The attributes.
- * @returns The created {@link JsxOpeningElement}.
  */
 export const createJsxOpeningElement = (
   tagName: JsxTagName,

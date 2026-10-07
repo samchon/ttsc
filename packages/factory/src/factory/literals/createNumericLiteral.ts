@@ -11,9 +11,12 @@ import { make } from "../internal/make";
  * With `value` of `42`, this prints:
  *
  * ```ts
- * 42
+ * 42;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param value The literal value.
+ * @returns The created {@link NumericLiteral}.
  * @evidence contracts/common.md#principled-implementation
  *   String(value) records numeric lexical text without changing caller string
  *   spellings such as hexadecimal notation. Valid literal spelling is required.
@@ -28,10 +31,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc distinguishes number coercion from preserved string spelling
  *   and supplies an example, separated from tags under documentation guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param value The literal value.
- * @returns The created {@link NumericLiteral}.
  */
 export const createNumericLiteral = (value: string | number): NumericLiteral =>
   make("NumericLiteral", { text: String(value) });

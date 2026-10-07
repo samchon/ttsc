@@ -8,25 +8,22 @@ import (
 )
 
 // TestEnumMembersCarryTheirNamesOnTheEnumNode verifies that an enum records the
-// name and value of each member on its own node, and that nothing else does.
+// selected member pairs on enum nodes. Three authored enums cover string,
+// implicit numeric and duplicate-value declarations, with one class negative.
+// The member-node absence check is limited to two candidate IDs for Colors.Red.
 //
-// The enum's node was always in the graph and had nothing in it (#738). Its
-// signature stops at the `{`, its members are not nodes, so the outline a class
-// gets is empty for an enum — and #732 gave it only values. The code writes
-// `Colors.Red`, never `"red"`, so a caller that had already named the enum
-// still opened the file for the one fact it came for.
-//
-// The names ride on the enum rather than on member nodes on purpose. A member
-// node would be indexing what `grep -rn "Colors.Red"` answers exactly, and it
-// would put leaves into tour flows to do it. Filling in a node the graph holds
-// is indexing; minting nodes to carry detail is not.
-//
-//  1. Compile a fixture with a string enum, an implicitly numbered one, and a
-//     class beside them.
+//  1. Load a fixture with string, implicitly numbered and duplicate-value enums
+//     plus a class.
 //  2. Build the graph.
-//  3. Assert each enum node carries its members name-and-value, that no member
-//     became a node, and that a class node carries none of this.
+//  3. Assert selected pairs, duplicate names and literal count, two absent Red
+//     variable IDs, and empty enum members on the class.
+//
+// @evidence contracts/testing.md#behavioral-verification Build must retain ordered Colors string pairs and Implicit numeric pairs, all three Dup names with a two-entry literal array, no variable node at either tested Colors.Red/Red ID, and no enum members on Cls. Dup literal contents and absence of every possible member-node ID are not asserted.
+// @evidence contracts/testing.md#independent-expectations Literal fixture expectations are Red/"red", Green/"green", First/0, Second/1 in order; Dup names A/B/C and Literals length two; absence of the two Colors.Red/Red variable IDs; and empty Cls.EnumMembers. Shared ID formatting is a selection dependency, while member names, values and counts are independent literals.
+// @evidence contracts/testing.md#distinguishing-cases Ordered string and implicit numeric pairs contrast explicit and inferred values; duplicate-value names must not collapse, while their literal array has two entries. Two Red variable IDs and Cls.EnumMembers provide bounded negative counterparts; other member forms are not tested here.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes a driver Program in-process and directly calls Build. A local helper copies reported member names for literal comparisons; a restored empty linked-plugin manifest excludes ambient hooks. No emit, consumer installation or product process runs.
 func TestEnumMembersCarryTheirNamesOnTheEnumNode(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export enum Colors {
@@ -77,8 +74,8 @@ export class Cls {
     }
   }
 
-  // The values exist only in the checker here, so a scrape of the source could
-  // not produce this pairing.
+  // The expected numeric values are not written as initializers in the fixture.
+  // This result check does not prove which acquisition method produced them.
   implicit := graph.Nodes[nodeID(path, "Implicit", NodeEnum)]
   if implicit == nil ||
     len(implicit.EnumMembers) != 2 ||
@@ -87,10 +84,7 @@ export class Cls {
     t.Fatalf("implicitly numbered enum did not pair its members: %v", implicit.EnumMembers)
   }
 
-  // Two members carrying one value. The declared type folds them into a single
-  // constituent — a type is a set — so reading the list off the type reports A
-  // and C and drops B, silently, which is #732's defect from #732's instinct:
-  // taking a declaration fact from a type. The list is the declaration's.
+  // Three declared names must remain even when A and B share one value.
   dup := graph.Nodes[nodeID(path, "Dup", NodeEnum)]
   if dup == nil {
     t.Fatalf("missing Dup; nodes: %v", nodeIDSet(graph))
@@ -99,14 +93,13 @@ export class Cls {
     names[0] != "A" || names[1] != "B" || names[2] != "C" {
     t.Fatalf("a member sharing another's value was dropped: %v", names)
   }
-  // And the value set is right to say `"x"` once: two members, two names, but
-  // the values they admit really are two.
+  // The reported literal array must have two entries; their contents are not
+  // asserted by this count check.
   if len(dup.Literals) != 2 {
     t.Fatalf("the value set should hold each distinct value once: %v", dup.Literals)
   }
 
-  // The line this fix holds: the members are facts on the enum, not nodes of
-  // their own. A node per member would index what grep already answers.
+  // Reject the two candidate variable-node IDs for the authored Red member.
   for id := range graph.Nodes {
     if id == nodeID(path, "Colors.Red", NodeVariable) ||
       id == nodeID(path, "Red", NodeVariable) {

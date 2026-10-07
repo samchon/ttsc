@@ -13,8 +13,11 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 import { outputText } from "../outputText";
 import { readProjectConfig } from "../project/readProjectConfig";
+import { readEffectiveCompilerOptions } from "../readEffectiveCompilerOptions";
 import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
+import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
+import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
 import { assertSharedHostCompatibility } from "../sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "../sharedHost/clearInheritedSemanticConfigPath";
@@ -24,17 +27,15 @@ import { linkedTransformPlugins } from "../sharedHost/linkedTransformPlugins";
 import { publishLinkedTransformPlugins } from "../sharedHost/publishLinkedTransformPlugins";
 import { resolvePluginConfigDir } from "../sharedHost/resolvePluginConfigDir";
 import { selectSharedHostPlugin } from "../sharedHost/selectSharedHostPlugin";
-import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
 import { spawnNative } from "../spawnNative";
-import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
 import { BuildTiming } from "./BuildTiming";
 import { CompilerDiagnostics } from "./CompilerDiagnostics";
 import { NativePluginArguments } from "./NativePluginArguments";
 import { PassthroughFlags } from "./PassthroughFlags";
+import { PluginFailureDiagnostics } from "./PluginFailureDiagnostics";
 import type { RunBuildOptions } from "./RunBuildOptions";
 import { TsgoArguments } from "./TsgoArguments";
 import { appendBuildOutput } from "./appendBuildOutput";
-import { createProcessDiagnostic } from "./createProcessDiagnostic";
 import { isAbsoluteLocalProjectInputPath } from "./isAbsoluteLocalProjectInputPath";
 import { mergeProjectInputSnapshots } from "./mergeProjectInputSnapshots";
 import { normalizeBuildOutput } from "./normalizeBuildOutput";
@@ -42,14 +43,15 @@ import { parseProjectInputSnapshot } from "./parseProjectInputSnapshot";
 import { runExternalEmitProvenance } from "./runExternalEmitProvenance";
 
 /**
- * The engine behind every ttsc build: resolve the project and its plugins, then
+ * The shared runBuild execution engine: resolve the project and plugins, then
  * run TypeScript-Go directly or through native plugin hosts.
  *
  * {@link runBuild} runs it once per command; {@link ResidentCheckWatchSession}
  * runs the same phases per watch cycle while keeping a check host resident. The
- * phases are shared rather than duplicated so a watch cycle and a one-shot
- * build cannot disagree about which plugin runs, which flags reach the
- * compiler, or how a plugin failure falls back to a plain type-check.
+ * shared phases centralize plugin/flag and failed-plugin diagnostic policy.
+ * Watch residency and its cycle-specific preparation remain with the watch
+ * owner; sharing these operations is not a guarantee of identical invocation
+ * inputs or outputs across watch and one-shot runs.
  *
  * @evidence contracts/common.md#principled-implementation Resolution, preparation and ordered execution share selected project/plugin semantics, with independent failed-plugin diagnostic recovery preserving the original failure.
  * @evidence contracts/common.md#clear-and-simple-design The grouping owns build phase policy while native argv, flag classification, diagnostic normalization and watch lifetime remain separate responsibilities.
@@ -64,8 +66,9 @@ import { runExternalEmitProvenance } from "./runExternalEmitProvenance";
 export namespace BuildExecution {
   /**
    * Merge extra environment variables over `process.env`, always injecting
-   * `TTSC_NODE_BINARY` so child processes can re-invoke the same Node.js binary
-   * without searching `PATH`.
+   * `TTSC_NODE_BINARY` selected by the runtime capability owner. Explicit
+   * compatible overrides can select a different Node executable; this is not
+   * necessarily the current process binary.
    */
   function mergeEnv(
     extra?: NodeJS.ProcessEnv,
@@ -93,14 +96,14 @@ export namespace BuildExecution {
    * remove stale inherited state rather than leaking an ancestor's project.
    *
    * @evidence contracts/common.md#principled-implementation Environment layering preserves caller overrides while the resolved compiler wins last; per-run compiler/config/link payloads are published or cleared according to invocation ownership.
-   * @evidence contracts/common.md#clear-and-simple-design Shared environment helpers own merging and key access, and dedicated publishers own semantic, compiler and linked-plugin payload lifetimes.
+   * @evidence contracts/common.md#clear-and-simple-design Shared environment helpers own merging and key access; runtime discovery precedes the pure composer that owns invocation payload publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported environment channels convey compiler/plugin context without patching strict sidecar parsers; clearing inherited payloads corrects ownership rather than compensating for a stale ancestor selection.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain config anchoring, linked sources, precedence and absent-payload effects without mixing prose into tags.
    * @evidence contracts/portability.md#os-neutral-implementation Native environment helpers normalize Windows key aliases while retaining POSIX case distinctions; node:path builds the default launcher path and binary values remain native executable selections.
-   * @evidence contracts/performance.md#efficient-algorithms Environment copying scales with inherited/caller key count and linked payload bytes; field publishers update selected protocol keys rather than launching extra processes.
+   * @evidence contracts/performance.md#efficient-algorithms Environment layering copies inherited/caller fields, and Windows channel reads/writes repeatedly scan native-equivalent key names with key-text normalization costs. Linked selection/projection/JSON adds plugin count and payload work. Ordered runtime-candidate probes are delegated before publication and remain native process costs of this call.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Fresh environment composition depends on current invocation and mutable process environment, and coordinates no persistent producer.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The fresh environment object is transferred to the spawn owner; this composer retains no child process or global payload.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The fresh environment and intermediate linked payload have invocation-local ownership and transfer to the spawn caller. Runtime probe acquisition/timeout/cleanup belongs to the capability owner, not a native-release guarantee made here; this function stores no child handle or global payload.
    */
   export function nativePluginEnv(
     extra: NodeJS.ProcessEnv | undefined,
@@ -122,6 +125,42 @@ export namespace BuildExecution {
       // The invocation's resolved compiler owns the final environment layer.
       { TTSC_TSGO_BINARY: execution.tsgo.binary },
     );
+    return composeNativePluginEnv(
+      env,
+      extra,
+      execution,
+      SidecarEnvironment.read(env, "TTSC_NODE_BINARY"),
+      plugin,
+      tsgoArgs,
+    );
+  }
+
+  /**
+   * Publish this invocation's payloads into its already layered environment.
+   *
+   * The caller owns the fresh environment and the selected Node executable.
+   * Executable capability discovery remains at the native spawn boundary; this
+   * composer only writes protocol values and removes stale payloads.
+   *
+   * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, forwarded arguments and linked transforms are published or cleared according to this invocation and explicit caller ownership.
+   * @evidence contracts/common.md#clear-and-simple-design A synchronous payload composer consumes the existing merged environment, keeping native executable discovery in nativePluginEnv without copying environment layers again.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Supplied executable selections are preserved without guessing capabilities, launching a substitute producer or mutating the global environment.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the required fresh layered environment, caller ownership and the separation of runtime discovery from protocol publication.
+   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment preserves native Windows name identity and POSIX spelling; executable values are supplied native paths rather than shell commands.
+   * @evidence contracts/performance.md#efficient-algorithms Protocol channel reads/writes include Windows environment-name scans and key-text costs. Transform-stage publication also filters P native plugins and projects/JSON-serializes linked config/name/stage values with ordinary JSON conversion/error semantics. No capability subprocess or extra environment-layer merge is performed by this composer.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Invocation-owned writes apply to current mutable caller state rather than a reusable producer computation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The supplied environment remains caller-owned and is returned without retaining it or acquiring a child process.
+   */
+  export function composeNativePluginEnv(
+    env: NodeJS.ProcessEnv,
+    extra: NodeJS.ProcessEnv | undefined,
+    execution: ReturnType<typeof resolveExecutionContext>,
+    nodeBinary: string | undefined,
+    plugin?: ITtscLoadedNativePlugin,
+    tsgoArgs?: string,
+  ): NodeJS.ProcessEnv {
+    SidecarEnvironment.write(env, "TTSC_NODE_BINARY", nodeBinary);
+    SidecarEnvironment.write(env, "TTSC_TSGO_BINARY", execution.tsgo.binary);
     // Forwarded tsgo argv is per-invocation state this host owns, exactly like
     // the config anchor below: publish this run's payload, or drop whatever an
     // ancestor ttsc process left behind when this lane forwards nothing.
@@ -159,13 +198,15 @@ export namespace BuildExecution {
    * Returns a finished `result` alongside effective options when plugin setup
    * failed, so plugin compilation/emission is skipped. An independent no-emit
    * compiler pass may still collect TypeScript diagnostics alongside it.
+   * Input-discovery, recovery and caller callback exceptions propagate rather
+   * than being converted to another completed setup result.
    *
    * @evidence contracts/common.md#principled-implementation Project noEmit is applied before dispatch; setup failure remains the result while independent diagnostic recovery may supplement it, and successful watch setup reports real dependency snapshots.
    * @evidence contracts/common.md#clear-and-simple-design Preparation separates setup timing, effective options and dependency reporting from compile execution, returning an explicit finished-result alternative.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Setup failure prevents plugin execution instead of retrying a malformed setup; independent type checking preserves the original failure rather than replacing it.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish skipped plugin emission from permitted independent diagnostics and explain watch-input reporting.
    * @evidence contracts/portability.md#os-neutral-implementation Native input discovery delegates spawning and identity reconciliation to the established process/filesystem boundaries; selected execution paths are preserved.
-   * @evidence contracts/performance.md#efficient-algorithms Preparation performs constant orchestration plus optional actual input discovery or failure type checking; those operations run only in their applicable branches.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation records one optional timing line and applies options, potentially shallow-copying their fields. Applicable recovery/discovery adds argument/env projection, native child/runtime, snapshot or diagnostic text processing; supplied callback work is also part of this call and can throw. Fixed orchestration branches do not bound those inputs or duration.
    * @evidence contracts/performance.md#reuse-equivalent-work The resolved execution and setup result are reused by the build phase instead of reloading plugins or the project.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Preparation returns build-local state and uses synchronous discovery/check operations; retained watch state belongs to its caller.
@@ -211,21 +252,23 @@ export namespace BuildExecution {
    * not report them); transform-stage hosts then emit through one shared host.
    * Without plugins, TypeScript-Go runs directly.
    *
-   * Format mode only performs configured formatting and never adds an unrelated
-   * type-check or transform pass. Launch and compatibility errors may throw.
-   * Required emit provenance keeps the selected producer: an opted-in native
-   * host reports its captured generation, while the direct compiler adapter
-   * admits only a stable observed selection and supported output layout.
-   * Unknown ownership remains explicit for consumers rather than guessed.
+   * The supported format lane supplies emit:false and returns after configured
+   * checks without a later type-check or transform pass; conflicting internal
+   * emit/format selections are not validated here. Launch and compatibility
+   * errors may throw. Required emit provenance keeps the selected producer: an
+   * opted-in native host reports its captured generation, while the direct
+   * compiler adapter admits only a stable observed selection and supported
+   * output layout. Unknown ownership remains explicit for consumers rather than
+   * guessed.
    *
-   * @evidence contracts/common.md#principled-implementation Ordered checks block emit on failure and retain negotiated same-generation input observations; transforms use one compatible host. Normally completed native partial emission and supported stable external emission can retain actual-write provenance alongside unchanged nonzero status, while interrupted or unknown generations establish no proof.
+   * @evidence contracts/common.md#principled-implementation Ordered checks block emit on failure and retain negotiated same-generation input observations for the actual check verb; effectful fix/format results keep their distinct command contract without fabricated reusable check metadata; transforms use one compatible host. Normally completed native partial emission and supported stable external emission can retain actual-write provenance alongside unchanged nonzero status, while interrupted or unknown generations establish no proof.
    * @evidence contracts/common.md#clear-and-simple-design This dispatcher owns phase policy while argv, spawning, normalization and fallback comparison remain shared helpers used by one-shot and watch lanes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Format bypass follows its write-only contract; capability-based diagnostics/provenance and failure fallback preserve supported producer semantics without plugin-name shortcuts, foreign mutation or filename-based ownership guesses.
    * @evidence contracts/common.md#meaningful-documentation Native prose states ordering, format effects and thrown boundary failures; branch comments explain nonobvious emission and display policies.
    * @evidence contracts/portability.md#os-neutral-implementation Commands preserve native executable/argv/cwd boundaries; provenance uses a canonical unique temporary directory and absolute native wire paths without post-compile realpath reconstruction or OS-derived case folding.
-   * @evidence contracts/performance.md#efficient-algorithms Plugin selection scans the configured population; required external proof adds read-only compiler probes and linear source/executable-byte observations, while phase output accumulation may recopy earlier report bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Plugin/stage selection scans the configured population; each command includes argv/env publication and native runtime probes under its helpers. Required proof adds artifact or external inspection/JSON/source-executable observation work, plus association/path processing. Accumulating phase reports can recopy earlier bytes; there is no supplied bound on total reports, proof bytes or child duration.
    * @evidence contracts/performance.md#reuse-equivalent-work A check host declaring TypeScript diagnostics avoids an equivalent extra successful check, while compatible transform plugins share one host; effectful configured checks still execute in order.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Command/proof bytes grow with reports and output-source associations, but remain build-local; native proof owns one private file/directory released with directory-identity checks in finally on success, nonzero or throw. Replaced directories stay untouched and cleanup failure preserves the primary outcome; no history or resident sidecar is retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Phase results and command/proof records stay build-local and returned data transfer to the caller, with uncapped report/association bytes. Native proof setup observes ownership before finally, so setup failure can leave allocation unclaimed; accepted artifacts reach identity-checked cleanup attempts. Replaced parents remain untouched. Cleanup aggregates an earlier throw or nonzero result; other cleanup errors propagate without certifying release. Delegated capture/descendant release remains with its owner; no resident history is retained here.
    */
   export function runPreparedBuild(
     options: RunBuildOptions,
@@ -367,10 +410,10 @@ export namespace BuildExecution {
    * project can be resolved.
    *
    * `ttsc --init` exists to write the starter `tsconfig.json`, and `ttsc --all`
-   * / `ttsc -?` only print tsgo's help — none of them needs a project, yet all
-   * three died in project resolution because that layer ran first and
-   * unconditionally. The classification is `FLAG_SCHEMA`'s (`terminal` +
-   * `projectFree`), so marking a further flag project-free needs no edit here.
+   * / `ttsc -?` only print tsgo's help: none of them needs a project, so a
+   * project-resolution failure must not stop them. The classification is
+   * `FLAG_SCHEMA`'s (`terminal` + `projectFree`), so marking a further flag
+   * project-free needs no edit here.
    *
    * A resolvable project keeps the established lane untouched: the build path
    * still forwards the flag with `-p <tsconfig>` from the project root, so
@@ -383,11 +426,11 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The caught resolution failure is legitimate only for commands not requiring a project; ordinary compilation failures do not enter this bypass.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-independent commands, existing-project behavior and null applicability; the catch comment states its deliberate broad premise.
    * @evidence contracts/portability.md#os-neutral-implementation Invocation cwd is resolved natively and spawnNative receives executable/argv separately with platform-aware environment merging.
-   * @evidence contracts/performance.md#efficient-algorithms Nonapplicable flag selection exits before config IO; an applicable lane performs one project probe and one selected compiler command.
+   * @evidence contracts/performance.md#efficient-algorithms Flag selection scans forwarded argument/name text before config IO. An applicable lane includes native cwd/config resolution, binary and runtime capability lookup, argv/env composition, complete captured output and diagnostic normalization; one requested command does not bound its native duration or output bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A project probe and effectful terminal invocation establish no retained or shared cross-request result.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous terminal process completes before normalization and no process or project probe state is retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Returned output and diagnostics transfer to the caller without retaining a child handle or config history here. No timeout or output ceiling is supplied; delegated native capture/probe cleanup may be best effort and does not certify descendant release.
    */
   export function runProjectFreeTerminalFlag(
     options: RunBuildOptions,
@@ -459,10 +502,12 @@ export namespace BuildExecution {
   }
 
   /**
-   * Whether a check-stage host already reports TypeScript's own diagnostics, in
-   * which case a separate type-check pass would print each error twice.
+   * Whether a check-stage host declares reporting TypeScript's diagnostics, in
+   * which case another pass can duplicate already-reported diagnostics. This
+   * trusts an explicit descriptor contract; it does not independently measure
+   * the completed host's diagnostic completeness or success.
    *
-   * @evidence contracts/common.md#principled-implementation Only check-stage descriptors explicitly declaring TypeScript diagnostic reporting satisfy the predicate; transform metadata cannot grant this check-stage guarantee.
+   * @evidence contracts/common.md#principled-implementation Only check-stage descriptors explicitly declaring TypeScript diagnostic reporting satisfy the predicate; transform metadata cannot supply that declaration. The dispatcher owns when it may trust this contract rather than treating a true predicate as observed runtime completeness.
    * @evidence contracts/common.md#clear-and-simple-design One capability query is shared by both analysis and emission orchestration rather than duplicating plugin classifications.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor semantics drive diagnostic policy without recognizing particular plugin names or trusting a previous passing example.
    * @evidence contracts/common.md#meaningful-documentation Native prose gives the declared reporting premise and why a redundant type check should be avoided.
@@ -493,27 +538,26 @@ export namespace BuildExecution {
    * must still block emit, but it must not hide unrelated errors in the user's
    * TypeScript source. The fallback runs only after a plugin failure, skips
    * modes whose contract intentionally omits diagnostics, and avoids appending
-   * a batch the plugin already reported itself.
+   * a batch the plugin already reported itself. A returned recovery preserves
+   * the original status; secondary compiler/environment/normalization errors
+   * can propagate before that result merge. NoEmit prevents compiler emission,
+   * not unrelated native/cache effects or incremental metadata writes.
    *
    * @evidence contracts/common.md#principled-implementation An independent no-emit pass adds only unreported diagnostics, seeds an otherwise unstructured plugin failure when needed and restores the original failure status after output merging.
    * @evidence contracts/common.md#clear-and-simple-design Recovery policy, compiler execution and diagnostic identity comparison are separate shared operations, with one result merge preserving the failed producer's ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The second pass addresses a supported failed-sidecar reporting gap; it never retries emission or converts the plugin failure into a successful build.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain independent diagnostics, blocked emission, excluded modes and duplicate suppression; the seeding comment explains structured-consumer visibility.
    * @evidence contracts/portability.md#os-neutral-implementation Compiler execution uses the selected native binary/cwd; diagnostic filenames normalize against the same project root through the shared parser.
-   * @evidence contracts/performance.md#efficient-algorithms Excluded modes exit immediately; applicable recovery runs one compiler check and indexed diagnostic selection, with text work proportional to reports.
+   * @evidence contracts/performance.md#efficient-algorithms Excluded modes use scalar checks and the delegated forwarded-frame terminal selector. Applicable recovery adds option copy/pretty filtering, one native compiler check, indexed diagnostic/text selection and output merging; argument/environment/path/report bytes and child runtime remain inputs to the work.
    * @evidence contracts/performance.md#reuse-equivalent-work Existing reported diagnostics suppress equivalent fallback reports, while failed plugin execution cannot guarantee a complete Program check and therefore cannot replace this independent pass.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The fallback compiler runs synchronously; combined outputs are returned and no failed sidecar or historical diagnostic cache is retained here.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The fallback runs synchronously without a timeout supplied here. Intermediate failure/check/selected records and text remain live through merge; returned records transfer to the caller and no historical cache is retained. Delegated capture release is best effort, not a certificate that native descendants or failed cleanup resources were released.
    */
   export function appendTypeScriptDiagnosticsAfterPluginFailure(
     failure: TtscBuildResult,
     options: RunBuildOptions,
     execution: ReturnType<typeof resolveExecutionContext>,
   ): TtscBuildResult {
-    if (
-      options.format === true ||
-      options.skipDiagnosticsCheck === true ||
-      PassthroughFlags.forwardsTerminalTsgoFlag(options)
-    ) {
+    if (!PluginFailureDiagnostics.shouldCollect(options)) {
       return failure;
     }
     const typechecked = runTsgo(
@@ -526,23 +570,12 @@ export namespace BuildExecution {
       typechecked,
       execution.projectRoot,
     );
-    if (fallback === null) {
-      return failure;
-    }
     // Structured consumers (the public API's `IFailure.diagnostics`) never see
     // stdout/stderr, so a plugin failure that reported no parsable diagnostics
     // must be seeded as one before recovered TypeScript diagnostics are appended
     // — otherwise the recovery would replace the plugin error with unrelated
     // type errors instead of surfacing both.
-    const seeded =
-      failure.diagnostics.length === 0
-        ? { ...failure, diagnostics: [createProcessDiagnostic(failure)] }
-        : failure;
-    const status = failure.status;
-    return {
-      ...appendBuildOutput(seeded, fallback),
-      status,
-    };
+    return PluginFailureDiagnostics.append(failure, fallback);
   }
 
   /**
@@ -736,11 +769,11 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported compiler options express the check contract without intercepting writes or replacing compiler APIs; spawn errors remain errors.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the no-emit use and load-bearing argument precedence.
    * @evidence contracts/portability.md#os-neutral-implementation spawnNative uses the selected executable, separate argv and project cwd; environment composition handles native variable aliases and output text decoding is explicit UTF-8.
-   * @evidence contracts/performance.md#efficient-algorithms Argv is composed once, one compiler process runs and output is normalized once; cost is dominated by compiler work and captured text.
+   * @evidence contracts/performance.md#efficient-algorithms One argv composition includes delegated option-presence classification, threading/isolation text and argument copies. Environment composition can perform native runtime capability probes before the compiler launch; complete capture/decoding and diagnostic normalization follow. Work/storage depend on argument/env/path/report bytes and native child work, without an asserted measured cost ranking.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This executes the requested compiler pass; equivalence with other phases must be established by orchestration rather than caching a result here.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous spawn completion bounds process ownership to this invocation; captured outputs are transferred in the returned result.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous compiler call has no timeout or output-byte ceiling supplied here. Output/diagnostic records transfer to the caller; delegated file capture attempts cleanup with suppressed errors, so native release and inherited descendants are not certified by returning.
    */
   export function runTsgo(
     execution: ReturnType<typeof resolveExecutionContext>,
@@ -795,6 +828,13 @@ export namespace BuildExecution {
     args: readonly string[],
   ): TtscBuildResult {
     const env = mergeEnv(options.env, execution.projectRoot);
+    const userOptions = readEffectiveCompilerOptions(
+      execution.project,
+      options.passthrough,
+      execution.tsgo.binary,
+      env,
+    );
+    const userListedEmitted = userOptions?.("listEmittedFiles") === true;
     const run = (
       commandArgs: readonly string[],
     ): { result: TtscBuildResult; completedNormally: boolean } => {
@@ -837,28 +877,50 @@ export namespace BuildExecution {
             run,
           })
         : run(args).result;
-    const emittedFiles = parseEmittedFiles(result.stdout);
-    // The `TSFILE:` lines are tsgo's `--listEmittedFiles` output. ttsc adds that
-    // flag internally to learn the emitted paths and strips the lines back out
-    // as noise — but when the user themselves forwarded `--listEmittedFiles`,
-    // the listing is what they asked for, so it must survive to stdout.
-    // The lookup is schema-driven (FLAG_SCHEMA marks `--listEmittedFiles` with
-    // `internalShadow: true`); see `forwardsInternalShadowFlag` for the RC-2
-    // background.
-    const userListedEmitted = PassthroughFlags.forwardsInternalShadowFlag(
-      options,
-      "--listEmittedFiles",
-    );
-    if (emittedFiles.length !== 0 && !userListedEmitted) {
-      result.stdout = stripEmittedFileLines(result.stdout);
-    }
+    const displayed = applyEmittedFileListing(result, userListedEmitted);
+    const emittedFiles = displayed.emittedFiles ?? [];
     if (options.quiet === false) {
-      result.stdout += verboseBuildSummary(execution, options, emittedFiles);
+      // A producer's last stdout line (the tsgo statistics block ends without a
+      // newline) must not swallow the summary's first marker.
+      if (displayed.stdout.length !== 0 && !displayed.stdout.endsWith("\n")) {
+        displayed.stdout += "\n";
+      }
+      displayed.stdout += verboseBuildSummary(execution, options, emittedFiles);
     }
-    return normalizeBuildOutput(
-      { ...result, emittedFiles },
-      execution.projectRoot,
-    );
+    return normalizeBuildOutput(displayed, execution.projectRoot);
+  }
+
+  /**
+   * Retain emitted-file metadata while displaying only user-selected listing.
+   * The caller supplies the original effective option before internally added
+   * reporting flags. Status, diagnostics and other producer facts are
+   * preserved. The supported tsgo producer reports absolute emitted paths. When
+   * listing is hidden, remaining stdout uses LF separators and loses trailing
+   * newlines; this transformation does not preserve every original output
+   * byte.
+   *
+   * @evidence contracts/common.md#principled-implementation TSFILE lines establish reported emitted files, while the original effective boolean alone owns their user-visible display; internal reporting does not enable the user's option.
+   * @evidence contracts/common.md#clear-and-simple-design One pure operation separates metadata collection from display and is shared by the actual direct compiler build path.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No producer status or diagnostic is replaced, and option presence is not substituted for the effective config and ordered assignment value.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains original option ownership, internally added reporting and retained producer facts.
+   * @evidence contracts/portability.md#os-neutral-implementation Reported paths are interpreted with native path.resolve, not URL or inode identity. The supported tsgo TSFILE producer supplies normalized absolute paths from its Program cwd; relative malformed reports would instead use this process cwd and are not certified by that protocol. No filesystem capability or existence is queried here.
+   * @evidence contracts/performance.md#efficient-algorithms Parsing and optional stripping each scan complete captured output, with native path normalization for matched records, result property copying and intermediate line/path arrays. Processing and transient text/path storage follow output and reported path bytes; there is no output-size ceiling here.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each completed producer result has its own bytes and requested display value; no history or shared computation is retained.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The copied result and emitted-file array transfer to the caller without retaining a process or handle.
+   */
+  export function applyEmittedFileListing(
+    result: TtscBuildResult,
+    displayListing: boolean,
+  ): TtscBuildResult {
+    const emittedFiles = parseEmittedFiles(result.stdout);
+    return {
+      ...result,
+      emittedFiles,
+      stdout:
+        displayListing || emittedFiles.length === 0
+          ? result.stdout
+          : stripEmittedFileLines(result.stdout),
+    };
   }
 
   /**
@@ -894,8 +956,11 @@ export namespace BuildExecution {
   /**
    * Run every check-stage plugin in order, short-circuiting on the first
    * non-zero exit. Aggregates diagnostics and output across all check plugins.
-   * Opted-in observations come from that same check generation; undeclared
-   * transport leaves the host's original argv and input contract intact.
+   * Only the actual check verb negotiates its same-generation sidecar. Fix and
+   * format are effectful native verbs even though their descriptor has check
+   * stage; they keep their original streams/status without a check graph.
+   * Undeclared transport leaves the host's original argv and input contract
+   * intact.
    */
   function runNativeCheckPlugins(
     options: TtscBuildOptions,
@@ -916,17 +981,20 @@ export namespace BuildExecution {
         options,
         plugin,
       );
-      const result = runNativeCheckWithObservations(plugin, (extraArgs) =>
-        runNativePluginCommand(
-          plugin,
-          [...args, ...extraArgs],
-          options,
-          execution,
-          "ttsc.check",
-          timing,
-          `ttsc check plugin ${plugin.name} time`,
-          TsgoArguments.createNativeTsgoArgs(options),
-        ),
+      const result = runNativeCheckWithObservations(
+        plugin,
+        (extraArgs) =>
+          runNativePluginCommand(
+            plugin,
+            [...args, ...extraArgs],
+            options,
+            execution,
+            "ttsc.check",
+            timing,
+            `ttsc check plugin ${plugin.name} time`,
+            TsgoArguments.createNativeTsgoArgs(options),
+          ),
+        args[0],
       );
       out = appendBuildOutput(out, result);
       if (result.status !== 0) {
@@ -951,9 +1019,9 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported hosts are not probed by guessed names, and invalid query output is rejected instead of silently dropping declared dependencies.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain dependency purpose, thrown query/validation failures and shared-root enforcement.
    * @evidence contracts/portability.md#os-neutral-implementation Native spawning preserves cwd/argv and the path classifier plus identity resolver distinguish valid native spelling from physical filesystem equality.
-   * @evidence contracts/performance.md#efficient-algorithms Selection is linear in plugins; each capable host runs once, and merging uses indexed identity/alias membership plus canonical sorting of contributed paths.
+   * @evidence contracts/performance.md#efficient-algorithms Selection scans P plugins; each capable check host runs once after argv/env publication and delegated runtime probes. Complete output read/JSON/path validation and identity resolution include native capability/ancestor lookup and path-text costs. Merging indexes identities/aliases and sorts unique plus declared spellings; native duration and report bytes are not capped here.
    * @evidence contracts/performance.md#reuse-equivalent-work A single merge identity context reuses repeated path resolution across hosts; each host query remains necessary because its rules may contribute distinct effect-dependent inputs.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Query processes complete synchronously; snapshots and identity memoization are scoped to discovery and the merged result transfers to the watch/cache owner.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Snapshots and identity memoization grow with contributed path/alias bytes during synchronous discovery; the result transfers to the watch/cache caller. No process timeout or report ceiling is supplied here. Native capture/probe cleanup remains delegated and may be best effort; returning a snapshot does not certify descendant release.
    */
   export function discoverNativeProjectInputs(
     options: TtscBuildOptions,
@@ -998,18 +1066,21 @@ export namespace BuildExecution {
    * caller's context (e.g. `"ttsc.check"` or `"ttsc.build"`) is preserved.
    *
    * Nonzero exits are results; launch failures throw. Timing records the
-   * completed native invocation before launch failure is reported.
+   * returned spawn result before its launch error is reported. Environment,
+   * capture/read or other thrown failures can occur before timing is recorded;
+   * the elapsed interval also includes environment preparation, not only
+   * execution of the selected plugin.
    *
    * @evidence contracts/common.md#principled-implementation The selected plugin receives the composed invocation context, and actual exit status/output become a normalized result while native launch errors remain thrown failures.
    * @evidence contracts/common.md#clear-and-simple-design One command boundary owns environment publication, timing and output normalization for native build and check phases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Execution uses the loaded binary and supported protocol rather than patching its implementation or manufacturing success on launch failure.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes result failures, thrown launch failures and error/timing label attribution.
    * @evidence contracts/portability.md#os-neutral-implementation spawnNative receives executable and argv separately with native project cwd; platform-aware environment helpers publish compiler/context payloads without shell interpolation.
-   * @evidence contracts/performance.md#efficient-algorithms One synchronous native invocation and one normalization pass are performed, with captured-output storage proportional to produced bytes.
+   * @evidence contracts/performance.md#efficient-algorithms The interval includes environment key scans, linked payload serialization and delegated runtime capability probes before plugin launch. Argv/native work, complete capture/decode, timing label formatting and diagnostic normalization follow their actual text/record sizes; one wrapper call does not bound native duration or output bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A requested effectful plugin command cannot be reused merely because argv matches; scheduling and shared-host compatibility belong to orchestration.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous child completes before return; timing/result data transfer to the build owner without retaining a process.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Timing lines stay in the build-owned ledger and returned diagnostic/output records transfer to the caller. No timeout or output ceiling is supplied here; delegated capture cleanup is best effort and does not certify native descendant release. This wrapper stores no child handle or historical result.
    */
   export function runNativePluginCommand(
     plugin: ITtscLoadedNativePlugin,
@@ -1050,16 +1121,18 @@ export namespace BuildExecution {
    * here so every code path in `runBuild` shares the same resolution logic.
    *
    * A supplied resolvedProject preserves the caller's lexical project identity.
-   * Plugin-load errors become setup-failure results; project/compiler/config
-   * resolution failures outside that load boundary may throw.
+   * Plugin admission, loading and watch-input callbacks inside the guarded
+   * acquisition branch become setup-failure results on error. Initial project/
+   * compiler resolution and final config-anchor resolution outside it may
+   * throw.
    *
-   * @evidence contracts/common.md#principled-implementation One selected project supplies root, config and compiler policy; explicit resolvedProject preserves prior selection, and only plugin loading is converted to a setup failure.
+   * @evidence contracts/common.md#principled-implementation One selected project supplies root, config and compiler policy; explicit resolvedProject preserves prior selection, and the guarded plugin admission/loading/watch-input callback branch is converted to a setup failure.
    * @evidence contracts/common.md#clear-and-simple-design A single context carries compiler/project/plugin selection to all phases, with plugin acquisition isolated from project and executable resolution.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Loader failures remain explicit setup failures rather than empty successful plugin selection; preserving lexical project identity avoids mixed alias assumptions without patching filesystem APIs.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe selected context, supplied-project meaning and the exact returned-versus-thrown failure boundary.
    * @evidence contracts/portability.md#os-neutral-implementation Native path and binary resolvers select cwd/project/executables; TTSC_CACHE_DIR uses platform-aware environment lookup and already-selected project spelling is not independently canonicalized again.
-   * @evidence contracts/performance.md#efficient-algorithms Config and compiler selection occur once per context; plugin loading is skipped when no entries exist, avoiding unnecessary acquisition work.
-   * @evidence contracts/performance.md#reuse-equivalent-work A supplied resolvedProject is reused, and the returned context lets all build phases reuse one plugin/project selection; loader-owned source caching follows its own validity contract.
+   * @evidence contracts/performance.md#efficient-algorithms Initial project resolution (unless supplied) and compiler selection precede plugin admission. Admission and loading can separately resolve entries; config bytes, module/native search, environment-name/path text and delegated source builds/capability probes remain call costs. The no-entry branch avoids loading but can invoke the supplied callback.
+   * @evidence contracts/performance.md#reuse-equivalent-work The supplied project reference and returned selection records serve multiple phases without a second top-level context acquisition. They are not a frozen filesystem or deep immutable snapshot; the build/session owns their continued authority, while source-artifact reuse follows loader validity.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This returns selection metadata rather than resident child handles; persistent plugin build caches are owned by the loader, while context lifetime belongs to the build/session.
    */

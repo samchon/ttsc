@@ -6,8 +6,9 @@ import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
 import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
-import { type TtscGraphReadonly, copyGraphSnapshot } from "./TtscGraphReadonly";
+import { type TtscGraphReadonly } from "./TtscGraphReadonly";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
+import { copyGraphSnapshot } from "./copyGraphSnapshot";
 
 type SnapshotNode = TtscGraphReadonly<ITtscGraphNode>;
 type SnapshotEdge = TtscGraphReadonly<ITtscGraphEdge>;
@@ -34,6 +35,7 @@ type SnapshotEdge = TtscGraphReadonly<ITtscGraphEdge>;
  * @evidenceExclude contracts/performance.md#efficient-algorithms from owns index construction and its private synthesis/constructor helpers; this class declaration describes the resulting representation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work from establishes one shared generation; the declaration does not independently coordinate requests.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources from transfers generation storage to its caller; session/caller release owns its duration rather than this declaration.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation an in-memory index over parsed facts; the source reader it owns is the only file reader.
  */
 export class TtscGraphMemory {
   private readonly byId: Map<string, SnapshotNode>;
@@ -112,13 +114,14 @@ export class TtscGraphMemory {
    * The parsed dump must describe one valid generation. Node records are copied
    * before member-kind refinement so the caller's dump is unchanged.
    *
-   * @evidence contracts/common.md#principled-implementation Synthesis reanchors native module exports and derives containment from owner facts before constructing the indexes for that generation.
+   * @evidence contracts/common.md#principled-implementation Synthesis reanchors native module exports and derives containment from exact owner handles and disambiguating declaration ranges before constructing the indexes for that generation.
    * @evidence contracts/common.md#clear-and-simple-design Synthesis owns representation changes; the private constructor owns index construction.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No export edges are guessed from flags, and artifact ownership follows its producer rather than TypeScript id heuristics.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the valid-generation precondition and caller-dump preservation.
-   * @evidence contracts/performance.md#efficient-algorithms Synthesis, owned snapshot copying and index construction scan nodes, edges and facets; per-node target sets make citation deduplication linear in tag population without repeatedly scanning carrier buckets.
+   * @evidence contracts/performance.md#efficient-algorithms Synthesis indexes nodes by file and handle, scanning only colliding owner buckets once per member; owned snapshot copying and index construction scan nodes, edges and facets; per-node target sets make citation deduplication linear in tag population without repeatedly scanning carrier buckets.
    * @evidence contracts/performance.md#reuse-equivalent-work One model builds all indexes once over owned frozen facts and buckets, so external mutation cannot invalidate shared generation identity.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The model retains node/edge arrays, lookup indexes and source cache proportional to its generation; the session or direct caller releases the whole model when no longer needed.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation builds indexes from a parsed dump object and reads no file; source text goes through TtscGraphSourceReader.
    */
   static from(dump: ITtscGraphDump): TtscGraphMemory {
     const { nodes, edges } = copyGraphSnapshot(synthesize(dump));
@@ -135,6 +138,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Exact identity requires one construction-time map lookup and no node scan.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor borrows a completed id index; from owns shared construction.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returning an existing node acquires no handle or independent retained entry.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   node(id: string): SnapshotNode | undefined {
     return this.byId.get(id);
@@ -150,6 +154,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms A map lookup returns the outgoing bucket without traversing unrelated edges.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work from owns the reused adjacency computation; the accessor only borrows its result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Existing buckets remain generation-owned; the accessor acquires no separate resource.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory edges.
    */
   outgoing(id: string): readonly SnapshotEdge[] {
     return this.outEdges.get(id) ?? [];
@@ -165,6 +170,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms A map lookup returns the incoming bucket without scanning graph edges.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor borrows the index already shared by from rather than coordinating another producer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains no state beyond the generation's existing edge bucket.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory edges.
    */
   incoming(id: string): readonly SnapshotEdge[] {
     return this.inEdges.get(id) ?? [];
@@ -180,6 +186,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Exact-name lookup performs one map access instead of filtering all nodes.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Name-index construction and validity belong to from, not this borrowed bucket lookup.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned bucket remains generation-owned with no separately retained cache or handle.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   named(name: string): readonly SnapshotNode[] {
     return this.byNameIndex.get(name) ?? [];
@@ -198,6 +205,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Both simple and qualified handles use the construction-time symbol index, so this accessor performs one map lookup without scanning candidates.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This borrows one already-built symbol bucket; model construction owns shared work.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Existing candidates remain frozen generation-owned records in a borrowed bucket; the accessor acquires no separate resource or retained entry.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   symbols(handle: string): readonly SnapshotNode[] {
     return this.bySymbolIndex.get(handle) ?? [];
@@ -216,6 +224,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms One O(V) filter over generation nodes selects exported nonexternal declarations; no separate export-flag index is built.
    * @evidence contracts/performance.md#reuse-equivalent-work Completed exported-list memoization is not implemented; every call returns a new mutable array over the shared generation nodes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The projected array belongs to its caller; this method retains no separate state.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation filters the in-memory node array; no file, path or process.
    */
   exported(): SnapshotNode[] {
     return this.nodes.filter((n) => n.exported && !n.external);
@@ -244,6 +253,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Reverse citation lookup uses the constructed target index instead of scanning all tags per request.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor borrows the shared citation index; from owns synthesis and its validity key.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It returns an existing readonly carrier list and acquires no resource or historical cache.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   citing(target: string): readonly SnapshotNode[] {
     return this.byDocTagTarget.get(target) ?? [];
@@ -299,6 +309,7 @@ function docTagTargetsOf(node: SnapshotNode): string[] {
  * @evidence contracts/performance.md#efficient-algorithms Leading-token extraction and address classification scan only the tag text, with no graph-wide lookup.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure token classifier has no completed-work coordinator; from builds the reusable citation index.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The optional returned string owns no native resource or retained history.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation tokenizes a tag string; the address it returns is text that is never resolved or opened.
  */
 export function documentationTarget(
   text: string | undefined,
@@ -328,6 +339,7 @@ export function documentationTarget(
  * @evidence contracts/performance.md#efficient-algorithms A single bounded text scan finds the token boundary without constructing a parser or scanning unrelated tags.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure per-string extraction does not coordinate reusable producer work.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned token survives the call; no retained map or handle is acquired.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation splits a string at whitespace or a brace group; the token is never resolved or opened.
  */
 export function leadingToken(text: string | undefined): string | undefined {
   const trimmed = text?.trim();
@@ -349,8 +361,8 @@ function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
 
 /**
  * The within-file identity of a node: its owner-qualified name when it has one
- * (`Class.method`), else its simple name. Two nodes in one file never share a
- * key, so it is the handle the ownership synthesis looks owners up by.
+ * (`Class.method`), else its simple name. Merged declarations can share this
+ * handle; declaration ranges disambiguate their member ownership.
  */
 function keyOf(node: ITtscGraphNode): string {
   return node.qualifiedName ?? node.name;
@@ -370,6 +382,34 @@ function ownerKey(node: ITtscGraphNode): string | undefined {
   if (!node.qualifiedName.endsWith(suffix)) return undefined;
   const owner = node.qualifiedName.slice(0, -suffix.length);
   return owner === "" ? undefined : owner;
+}
+
+/** Prove lexical ownership using complete same-file declaration coordinates. */
+function enclosesDeclaration(
+  owner: ITtscGraphNode,
+  member: ITtscGraphNode,
+): boolean {
+  const outer = owner.evidence;
+  const inner = member.evidence;
+  if (
+    outer === undefined ||
+    inner === undefined ||
+    outer.file !== inner.file ||
+    outer.startCol === undefined ||
+    outer.endLine === undefined ||
+    outer.endCol === undefined ||
+    inner.startCol === undefined ||
+    inner.endLine === undefined ||
+    inner.endCol === undefined
+  )
+    return false;
+  return (
+    (outer.startLine < inner.startLine ||
+      (outer.startLine === inner.startLine &&
+        outer.startCol <= inner.startCol)) &&
+    (outer.endLine > inner.endLine ||
+      (outer.endLine === inner.endLine && outer.endCol >= inner.endCol))
+  );
 }
 
 /** A file's id and node name from its dump path coordinate. */
@@ -456,14 +496,31 @@ function synthesize(dump: ITtscGraphDump): {
 
   // Index workspace nodes by (file, within-file key) so ownership can resolve a
   // member to its declaring class/namespace.
-  const byFileKey = new Map<string, ITtscGraphNode>();
+  const byFileKey = new Map<string, ITtscGraphNode[]>();
   for (const node of nodes) {
-    if (!node.external) byFileKey.set(node.file + "\0" + keyOf(node), node);
+    if (!node.external) push(byFileKey, node.file + "\0" + keyOf(node), node);
   }
+  const owners = new Map<ITtscGraphNode, ITtscGraphNode | undefined>();
   const owner = (node: ITtscGraphNode): ITtscGraphNode | undefined => {
+    if (owners.has(node)) return owners.get(node);
     const parent = ownerKey(node);
-    if (parent === undefined) return undefined;
-    return byFileKey.get(node.file + "\0" + parent);
+    const candidates =
+      parent === undefined
+        ? undefined
+        : byFileKey.get(node.file + "\0" + parent);
+    // A unique checker handle also owns merged namespace members outside its
+    // primary declaration span. Only a colliding handle needs lexical evidence.
+    // Ambiguous or incomplete ranges prove no declaration owner; retain file
+    // containment rather than assigning an arbitrary merged declaration.
+    const enclosing =
+      candidates?.length === 1
+        ? candidates
+        : candidates?.filter((candidate) =>
+            enclosesDeclaration(candidate, node),
+          );
+    const selected = enclosing?.length === 1 ? enclosing[0] : undefined;
+    owners.set(node, selected);
+    return selected;
   };
 
   // Refine: a `variable` whose owner is a class or interface is a property.

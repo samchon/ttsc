@@ -7,16 +7,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsMalformedCodeActionResult covers the
-// appendCodeActions safety branch: when the upstream response body
-// matches a remembered codeAction request id but its result is not a
-// JSON array of actions, ttsc must forward the upstream response
-// verbatim instead of erroring or silently dropping it.
+// TestLSPProxyForwardsMalformedCodeActionResult Verifies that an action result of 42 forwards unchanged rather than being augmented.
+//
+// A valid remembered request is paired with a wrong-shaped result.
 //
 // 1. Configure a source that would contribute an action.
 // 2. Send a codeAction request, forward it upstream.
-// 3. Reply from upstream with `"result": 42` (decode fails on append).
+// 3. Reply from upstream with a scalar `"result": 42` that cannot be an action array.
 // 4. Assert the editor sees the original (non-augmented) response.
+//
+// @evidence contracts/testing.md#behavioral-verification An action result of 42 forwards unchanged rather than being augmented.
+// @evidence contracts/testing.md#independent-expectations A scalar is not an LSP action array; the authored response bytes define safe forwarding.
+// @evidence contracts/testing.md#distinguishing-cases A valid remembered request is paired with a wrong-shaped result.
+// @evidence contracts/testing.md#execution-ownership The Go pipe proxy receives authored frames and a source that would add an action if augmentation ran. Go discovers TestLSPProxyForwardsMalformedCodeActionResult under ./test/driver.
 func TestLSPProxyForwardsMalformedCodeActionResult(t *testing.T) {
   source := &stubSource{
     actions: []driver.LSPCodeAction{{Title: "should-not-appear"}},

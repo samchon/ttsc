@@ -13,9 +13,13 @@ import { make } from "../internal/make";
  * Given the name `Red` and a numeric initializer of `1`, the printed member is:
  *
  * ```ts
- * Red = 1
+ * Red = 1;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param name The name.
+ * @param initializer The initializer, if any.
+ * @returns The created {@link EnumMember}.
  * @evidence contracts/common.md#principled-implementation
  *   Property-name normalization retains the member key. An omitted initializer
  *   leaves implicit enum evaluation to TypeScript instead of guessing its value.
@@ -29,11 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes explicit and implicit values; the bare-member example
  *   omits declaration punctuation and tags follow separated prose paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param name The name.
- * @param initializer The initializer, if any.
- * @returns The created {@link EnumMember}.
  */
 export const createEnumMember = (
   name: string | PropertyName,

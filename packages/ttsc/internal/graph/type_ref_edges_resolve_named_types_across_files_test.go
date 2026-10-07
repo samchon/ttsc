@@ -9,15 +9,20 @@ import (
 
 // TestTypeRefEdgesResolveNamedTypesAcrossFiles verifies that a type-position
 // reference to a named type in another file is recorded as a type-ref edge to
-// that type's real declaration, and is kept distinct from a value-call. Treating
-// type references as first-class edges lets an impact query separate "uses this
-// at runtime" from "depends on this type", which fits the ttsc thesis.
+// that authored declaration, and is kept distinct from a value-call. This checks
+// one parameter annotation; no downstream impact query or runtime use executes.
 //
 //  1. Compile a fixture where use(c: Config) annotates a parameter with an
 //     interface declared in another file.
 //  2. Build the graph.
 //  3. Assert a use -> Config type-ref edge exists and is not a value-call.
+//
+// @evidence contracts/testing.md#behavioral-verification Requires the selected use-to-Config type-ref triple and rejects a value-call triple between the same endpoints. It does not assert exact edge counts, spans, all cross-file type forms, independent physical identity, or downstream impact-query behavior.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: for use(c: Config) in main.ts with Config declared in types.ts, a type-ref edge must run from the use function to the Config interface node of types.ts and no value-call edge may run between the same two nodes.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where use(c: Config) annotates a parameter with an interface declared in another file; Build the graph; Assert a use -> Config type-ref edge exists and is not a value-call.
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config and two source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build and both edge observations run in this process; selected endpoints share its actual filenames and the nodeID encoder. No product CLI, installation, emitted function evaluation, or downstream impact query runs.
 func TestTypeRefEdgesResolveNamedTypesAcrossFiles(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "types.ts"), `export interface Config {

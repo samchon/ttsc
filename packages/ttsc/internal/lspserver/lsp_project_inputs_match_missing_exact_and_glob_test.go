@@ -10,17 +10,21 @@ import (
 // TestProjectInputsMatchMissingExactAndGlob verifies URI matching consumes the
 // declaration snapshot rather than the set of files that happened to exist.
 //
-// Exact missing paths and zero-match glob populations must match future
-// create/change/delete notifications. Unrelated files and remote URIs remain
-// outside the filesystem contract.
+// Supplied URI spellings for absent exact and globbed paths exercise direct
+// matching before those files exist. Actual create/change/delete delivery is
+// not executed. Unrelated files and remote URIs must not match.
 //
-//  1. Normalize one missing exact path and two zero-match globs as a producer
-//     publishes them, plus executable reload paths, then install that snapshot
-//     in a source.
+//  1. Normalize one missing exact path, two zero-match globs and executable
+//     reload paths, then assign that owned snapshot directly to a source.
 //  2. Match URI spellings for future files without creating them.
 //  3. Match only exact files, directory identity, or immediate topology
 //     entries as executable-selection input scope.
 //  4. Reject an unrelated Markdown file and an HTTPS resource.
+//
+// @evidence contracts/testing.md#behavioral-verification URI matching consumes the declaration snapshot: future files match a missing exact path and zero-match globs, reload scope matches only exact files, directory identity and immediate entries, and unrelated Markdown or an HTTPS resource do not match.
+// @evidence contracts/testing.md#independent-expectations Expected matches are literal booleans per URI.
+// @evidence contracts/testing.md#distinguishing-cases Six dependency rows separate exact, direct/nested JSON globs, literal bracket/brace segments, wildcard-looking nonliteral siblings and unrelated Markdown. Six legacy reload rows separate exact files, directory identity/immediate children, deeper descendants and sibling prefixes. HTTPS is rejected by both methods; digest-aware event routing and actual notification delivery are not exercised.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit calls actual normalization and URI membership operations against an owned empty temporary root and directly assigned source snapshot. It generates candidate URIs with net/url, creates none of the candidate files, and uses no substitute operation, native child, sidecar, installed consumer or product host.
 func TestProjectInputsMatchMissingExactAndGlob(t *testing.T) {
   root := t.TempDir()
   publishedPath := func(location string) string {

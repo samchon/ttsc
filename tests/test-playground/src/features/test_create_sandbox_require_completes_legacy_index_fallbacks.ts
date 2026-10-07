@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
+import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
  * Verifies packages without exports retain Node-style legacy fallbacks.
@@ -13,6 +13,11 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * 2. Resolve relative and bare subdirectories through their own manifests.
  * 3. Assert a root main target ignores a nested manifest and falls back to the
  *    root index.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createSandboxRequire loads missing-main fallback, root/directory JSON indexes and relative/bare nested manifests, while the main-boundary package returns root-fallback rather than recursively executing nested.cjs.
+ * @evidence contracts/testing.md#independent-expectations Independent in-memory manifests and distinct literal module values specify Node-style CommonJS legacy file/index precedence; wrong-nested-main is a populated negative control, not an absent file.
+ * @evidence contracts/testing.md#distinguishing-cases Six fixture packages distinguish missing main, JSON root, main directory, relative directory, bare subpath and nonrecursive selected main; exact objects/arrays preserve each returned value.
+ * @evidence contracts/testing.md#execution-ownership This named unit invokes the authored resolver and evaluates its own CommonJS/JSON strings in one source-unit process; no package installation, external filesystem or Node child host is used.
  */
 export const test_create_sandbox_require_completes_legacy_index_fallbacks =
   () => {

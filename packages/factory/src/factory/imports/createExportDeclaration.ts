@@ -25,6 +25,12 @@ import { createStringLiteral } from "../literals/createStringLiteral";
  * export { a } from "./mod";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param isTypeOnly Whether this is a type-only import/export.
+ * @param exportClause The export clause; omitted for `export *`.
+ * @param moduleSpecifier The module specifier (the `from` target).
+ * @returns The created {@link ExportDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Named, namespace and omitted clauses distinguish brace exports, namespace
  *   re-exports and export-star. An optional string module target is normalized
@@ -40,13 +46,6 @@ import { createStringLiteral } from "../literals/createStringLiteral";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains three clause forms, type-only state and module-target absence
  *   in its native paragraph, followed by a separate example and tag block.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param isTypeOnly Whether this is a type-only import/export.
- * @param exportClause The export clause; omitted for `export *`.
- * @param moduleSpecifier The module specifier (the `from` target).
- * @returns The created {@link ExportDeclaration}.
  */
 export const createExportDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

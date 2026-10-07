@@ -14,14 +14,14 @@ import { createIdentifier } from "../names/createIdentifier";
  * @readonly
  * ```
  *
- * @evidence contracts/common.md#principled-implementation The readonly kind and supplied or defaulted identifier record a documentation marker; retaining comment text does not freeze values or enforce language mutability.
- * @evidence contracts/common.md#clear-and-simple-design The adapter contains only name defaulting and description storage, with no target object or mutation policy.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The readonly default is tag syntax, and construction never replaces foreign setters or freezes caller-owned values.
- * @evidence contracts/common.md#meaningful-documentation Native prose and parameters explain the default spelling and optional description with a bare-tag example; separate paragraphs follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `readonly`.
  * @param comment The trailing comment, if any.
  * @returns The created {@link JSDocReadonlyTag}.
+ * @evidence contracts/common.md#principled-implementation The readonly kind and supplied or defaulted identifier record a documentation marker; retaining comment text does not freeze values or enforce language mutability.
+ * @evidence contracts/common.md#clear-and-simple-design The adapter contains only name defaulting and description storage, with no target object or mutation policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The readonly default is tag syntax, and construction never replaces foreign setters or freezes caller-owned values.
+ * @evidence contracts/common.md#meaningful-documentation Native prose and parameters explain the default spelling and optional description with a bare-tag example; separate paragraphs follow the documentation guidance.
  */
 export const createJSDocReadonlyTag = (
   tagName: Identifier | undefined,

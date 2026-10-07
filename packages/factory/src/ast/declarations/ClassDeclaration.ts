@@ -9,15 +9,14 @@ import type { ClassElement } from "./ClassElement";
  *
  * Built by {@link factory.createClassDeclaration}.
  *
- * A missing name represents an anonymous declaration, meaningful for a
- * default export. The shape does not enforce that surrounding modifier.
+ * A missing name represents an anonymous declaration, meaningful for a default
+ * export. The shape does not enforce that surrounding modifier.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Optional name, generics and heritage with ordered members preserve class declaration clauses; anonymous-name legality and member compatibility remain unchecked.
  * @evidence contracts/common.md#clear-and-simple-design Each class-header clause and member sequence has one field, with member details owned by ClassElement.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Class names and bases are caller data rather than special consumer classes or patched runtime constructors.
  * @evidence contracts/common.md#meaningful-documentation JSDoc explains anonymous-name context and optional clauses; member separation follows the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface ClassDeclaration {
   /** Discriminant tag; always `"ClassDeclaration"`. */

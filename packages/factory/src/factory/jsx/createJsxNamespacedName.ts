@@ -12,9 +12,13 @@ import { make } from "../internal/make";
  * Given the namespace `ns` and the name `name`, the printer emits:
  *
  * ```tsx
- * ns:name
+ * ns: name;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param namespace The namespace.
+ * @param name The name.
+ * @returns The created {@link JsxNamespacedName}.
  * @evidence contracts/common.md#principled-implementation
  *   Namespace and local name remain distinct identifiers, producing JSX's
  *   colon-name form rather than a JavaScript property-access expression.
@@ -30,11 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains tag/attribute use and the corrected example renders the
  *   colon with no invented space or statement terminator.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param namespace The namespace.
- * @param name The name.
- * @returns The created {@link JsxNamespacedName}.
  */
 export const createJsxNamespacedName = (
   namespace: Identifier,

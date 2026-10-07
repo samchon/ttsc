@@ -31,6 +31,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses installed package contracts rather than guessing binary paths from repository layouts.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and the ordered list explain peer placement, override precedence and target-project anchoring.
  * @evidence contracts/portability.md#os-neutral-implementation Native path checks and module resolution select the platform/architecture package; only Windows's required executable suffix differs explicitly.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a path string and opens no handle.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms performs a constant number of module resolutions (ttsc, then its platform package).
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolves on every call and caches nothing, so a reinstall between calls is honored.
  */
 export function resolveGraphBinary(
   env: NodeJS.ProcessEnv = process.env,
@@ -43,9 +46,10 @@ export function resolveGraphBinary(
   try {
     // Anchor package lookup at the absolute project root so a relative `--cwd`
     // resolves the same way the native process interprets it.
-    const ttscPackageJson = require.resolve("ttsc/package.json", {
-      paths: [path.resolve(cwd)],
-    });
+    const fromProject = createRequire(
+      path.join(path.resolve(cwd), "package.json"),
+    );
+    const ttscPackageJson = fromProject.resolve("ttsc/package.json");
     const fromTtsc = createRequire(ttscPackageJson);
     return fromTtsc.resolve(
       `@ttsc/${process.platform}-${process.arch}/bin/${exe}`,

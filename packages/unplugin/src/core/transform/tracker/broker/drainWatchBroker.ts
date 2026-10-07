@@ -4,7 +4,7 @@ import type { WatchBroker } from "./WatchBroker";
 /**
  * Ask the watch broker to acknowledge, and resolve with whether it did.
  *
- * The child answers after a turn of its own loop, so a watch callback it had
+ * The child answers after two turns of its own loop, so a watch callback it had
  * already queued has run, and the ordered IPC channel puts every message it
  * sent before the reply ahead of the reply. That is the same proof an
  * in-process watcher gets from a macrotask turn, rather than the fixed wait
@@ -13,9 +13,10 @@ import type { WatchBroker } from "./WatchBroker";
  * takes the service's latency (samchon/ttsc#1453).
  *
  * A broker that never answers must not hold a delivery, so the wait gives up
- * after twice the probe timeout: the child itself gives up on a stream that
- * does not deliver within one, and answers then, so only a child that is stuck
- * or gone runs out the second. It resolves `false` then, and when the broker
+ * after a threshold of twice the probe timeout: the child itself gives up on a
+ * stream that does not deliver within one. Scheduling or IPC delay can also
+ * exhaust the parent's wait; timeout does not establish a dead child or a
+ * permanently incapable backend. It resolves `false` then, and when the broker
  * dies, since an event may still be in flight: the caller must not read the
  * trackers' silence as proof (samchon/ttsc#1428). It used to give up after 10
  * ms and resolve as if answered, so a busy host or a child forwarding a burst
@@ -25,7 +26,12 @@ import type { WatchBroker } from "./WatchBroker";
  * reached it, which are those registered before the request was sent. A
  * registration opened after an in-flight drain was sent therefore does not
  * share it: its watches were never probed by that drain, so it starts one that
- * covers it (samchon/ttsc#1546).
+ * covers it (samchon/ttsc#1546). A caller without a registration id can join
+ * the current drain without this coverage check. Sharing keeps that request's
+ * original timeout; a later override does not reset it. Timer thresholds
+ * require event-loop progress and are not global wall-time guarantees.
+ * Exceptional native/ref/send work can reject the request rather than supplying
+ * an acknowledgment.
  *
  * @param timeout How long to wait for the reply; the default is what the child
  *   is given plus the same again, and a test of the wait itself passes less.
@@ -47,24 +53,33 @@ import type { WatchBroker } from "./WatchBroker";
  *   OS-neutral host delivery delegates Windows loop ordering and macOS stream
  *   probing to the native broker rather than applying one universal timing guess.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Reusing a covering barrier is constant lookup work; a new scope scans n
- *   registrations once and retains O(n) ids, independent of project file count.
+ *   A covering memo query uses fixed identity/id lookup. New requests copy all N
+ *   registration pairs before filtering draining ids into a scope, then create
+ *   timer/promise/IPC state. The child still scans its registration streams and
+ *   writes shared namespace probes; reply routing scans unproven entries and
+ *   live registrations. Native/IPC/callback and total scope populations remain
+ *   delegated work beyond parent-map lookup; no project file walk occurs here.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Concurrent callers share a current drain only if its snapshot contains the
- *   requesting registration; finally clears only the promise it still owns.
+ *   Scoped callers share a current request only when its snapshot contains their
+ *   id; unscoped callers join without that check. The original request's timeout
+ *   governs all sharers. Ordered IPC and child proof own the acknowledgment;
+ *   finally clears only its still-current promise, preserving a newer request.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Each outstanding drain owns an id, scope, timer and child reference; reply,
- *   deadline and broker exit release them. Concurrent uncovered registrations
- *   can create additional requests, bounded by current outstanding demand.
+ *   Each request retains an id/scope/timer/release closure and increments shared
+ *   pending demand; refs are flags, not independently counted native handles.
+ *   Completed reply/timeout/exit release clears scope/timer and permits unref
+ *   when all requests/openings finish. Uncovered calls can create uncapped
+ *   outstanding requests with storage driven by the sum of their scope sizes.
+ *   Scheduling/native or callback exceptions can delay/interrupt settlement;
+ *   there is no caller cancellation or hard wall-time guarantee here.
  */
 export function drainWatchBroker(
   broker: WatchBroker,
   timeout: number = 2 * WATCH_PROBE_TIMEOUT_MS,
   registration?: number,
 ): Promise<boolean> {
-  // Every tracker of a generation lives in one broker, so one acknowledgement
-  // answers for all of them. Sharing the in-flight round-trip keeps a settle to
-  // a single crossing.
+  // A covering registration shares the current round-trip. A later uncovered
+  // registration needs its own request rather than inheriting that proof.
   if (
     broker.draining !== undefined &&
     (registration === undefined ||

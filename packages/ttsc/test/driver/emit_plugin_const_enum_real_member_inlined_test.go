@@ -12,15 +12,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerConstEnumRealMemberInlined is the emit-contract
-// guard for const-enum inlining under a plugin transform. A REAL `const enum`
-// member access (`Color.Green`, not a synthetic one) must still be inlined to
-// its constant value by tsgo's emit even though the plugin ran a visitor over
-// the SourceFile first. The const-enum inliner asks the emit resolver for the
-// member's constant value; if the plugin's reconstruction of ancestor nodes
-// detached the access from the binder symbol, GetConstantValue would return nil
-// and the member access would leak into output as `Color.Green` (a reference to
-// an enum object that const enums never materialize -> runtime ReferenceError).
+// TestEmitWithPluginTransformerConstEnumRealMemberInlined Verifies a genuine const-enum member
+// remains inlined beside a transformed runtime value.
+//
+// The enum inliner consults the emit resolver for genuine parse-tree member accesses. The
+// changed flag confirms the plugin ran, while literal Green = 1 and the absence of a
+// runtime enum object distinguish preserved inlining from a leaked member reference.
+//
+// 1. Emit the const-enum fixture after rewriting its sibling control literal to 99.
+// 2. Require the control replacement and Green value 1 while rejecting a live member assignment or enum object.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual plugin-transform emission and requires rewritten control flag 99, const enum member assignment to 1 and no live Color.Green assignment or runtime enum object.
+// @evidence contracts/testing.md#independent-expectations Explicit Green = 1 and unrelated flag replacement 99 are authored independent values; absent live enum references follows const enum erasure.
+// @evidence contracts/testing.md#distinguishing-cases Plugin rewrite control prevents a passing plain emitter; member inlining contrasts retained provenance comments with forbidden live references and objects.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes its actual synthetic visitor/compiler and captures output with Program cleanup; no child host or JavaScript evaluation is required for these emitted-structure assertions.
 func TestEmitWithPluginTransformerConstEnumRealMemberInlined(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -28,9 +33,9 @@ func TestEmitWithPluginTransformerConstEnumRealMemberInlined(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-  // Color.Green must inline to 1; Color.Red to 0. We keep an unrelated `0`
-  // literal that the plugin rewrites, forcing the visitor to walk (and rebuild
-  // ancestors of) the whole file, including the statement holding `Color.Green`.
+  // Color.Green must inline to 1. Rewriting the zero-valued initializers makes
+  // the visitor walk the file and rebuild changed ancestors; the unchanged
+  // statement holding Color.Green remains an original-member control.
   writeProjectFile(t, root, "index.ts",
     "const enum Color { Red = 0, Green = 1, Blue = 2 }\n"+
       "export const picked: Color = Color.Green;\n"+
@@ -44,8 +49,8 @@ func TestEmitWithPluginTransformerConstEnumRealMemberInlined(t *testing.T) {
   }
   defer prog.Close()
 
-  // Rewrite the unrelated `0` (the `flag` initializer) to `99`; leave the const
-  // enum access alone so emit's inliner is the thing under test.
+  // Rewrite both zero initializers to 99, including flag and Color.Red. Leave
+  // the explicit Green value and its member access unchanged for the inliner.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -76,6 +81,10 @@ func TestEmitWithPluginTransformerConstEnumRealMemberInlined(t *testing.T) {
     t.Fatalf("index.js was not emitted: %#v", emitted)
   }
   t.Logf("index.js:\n%s", js)
+
+  if !strings.Contains(js, "exports.flag = 99") {
+    t.Fatalf("the plugin transform did not rewrite the control flag:\n%s", js)
+  }
 
   // The const-enum member access must be inlined to its constant value. tsgo
   // emits the literal with a trailing `/* Color.Green */` provenance comment, so

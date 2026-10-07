@@ -12,7 +12,8 @@ import type { LinuxWatchHelperSubscription } from "./LinuxWatchHelperSubscriptio
  *
  * @evidence contracts/common.md#principled-implementation
  *   Shared request ids distinguish subscriptions from syncs while answered
- *   records protocol availability independently of any directory's readiness.
+ *   records receipt of parsed object output independently of any directory's
+ *   readiness or successful sync acknowledgment.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One helper state container supports routing and lifecycle owners; observer
  *   scope and compiler validity do not enter transport state.
@@ -25,9 +26,20 @@ import type { LinuxWatchHelperSubscription } from "./LinuxWatchHelperSubscriptio
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral owners see subscription callbacks; Linux process and stdio state
  *   remain behind the explicit native helper boundary.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   LinuxWatchHelper only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   LinuxWatchHelper only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   LinuxWatchHelper only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface LinuxWatchHelper {
-  /** Whether the helper has answered anything, proving it speaks the protocol. */
+  /**
+   * Whether the line decoder received parsed object output, used by startup
+   * refusal policy. This does not validate a live id or prove watch readiness.
+   */
   answered: boolean;
 
   /** The helper process. */

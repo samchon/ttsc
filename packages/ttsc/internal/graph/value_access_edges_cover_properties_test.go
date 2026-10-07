@@ -10,16 +10,24 @@ import (
 // TestValueAccessEdgesCoverPropertiesAndAccessors verifies property and
 // accessor reads/writes become value-access edges, not value-call edges.
 //
-// Lazy getters and state properties are part of the runtime flow an agent
-// needs, but they are not invocations. The graph must expose them without
-// corrupting call-flow semantics.
+// The mixed dotted/bracket fixture observes five selected access triples and
+// one initializer-call triple, with two negative accessor-call controls.
+// Dotted and bracket uses share endpoints, and getter/setter share one node,
+// so these deduplicated edges do not independently authenticate each syntax or
+// accessor body. No runtime flow or downstream agent query executes.
 //
 //  1. Compile a class with a property initializer, getter, setter, dotted access,
 //     and string-literal bracket access.
 //  2. Build the graph.
 //  3. Assert property/getter/setter uses are value-access edges while the
 //     property initializer's real function call stays a value-call edge.
+//
+// @evidence contracts/testing.md#behavioral-verification Requires five selected value-access triples and the Store.items-to-seed value-call, and rejects read/write-to-count value-calls. Shared endpoints limit independent dotted-versus-bracket and getter-versus-setter attribution; no exact counts, spans, runtime effects, or downstream consumer are asserted.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over class Store: value-access edges must exist from Store.read to Store.count and Store.items, from Store.count to Store.items, and from Store.write to Store.count and Store.items (dotted and string-literal bracket forms, getter and setter); a value-call edge must run from Store.items to seed; and no value-call edge may run from Store.read or Store.write to Store.count.
+// @evidence contracts/testing.md#distinguishing-cases Compile a class with a property initializer, getter, setter, dotted access, and string-literal bracket access; Build the graph; Assert property/getter/setter uses are value-access edges while the property initializer's real function call stays a value-call edge.
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config/source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build and literal edge-presence observations run in this process using its actual filename and shared nodeID encoder. No independent identity oracle, product CLI, installation, emitted getter/setter evaluation, or agent query runs.
 func TestValueAccessEdgesCoverPropertiesAndAccessors(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export function seed(): string[] {

@@ -6,16 +6,18 @@ import { openBrokeredWatch } from "./openBrokeredWatch";
 
 /**
  * Register a generation's tracker with the isolated watch process, and resolve
- * once its watches hear.
+ * when the broker registration's opening wait ends.
  *
  * The watches report to the tracker's own sink (`brokeredTrackerSink`), which
- * applies the tracker's event decision, so a brokered tracker records exactly
- * what the in-process listener would for the same event (samchon/ttsc#1384).
- * The tracker drains through the broker's barrier, which on macOS proves each
- * probed stream delivered (samchon/ttsc#1453), and closing it removes its
- * watches. A read made after this resolves can never race the watches' start;
- * watches that report nothing within the probe timeout fail the tracker, as a
- * watch that could not be opened does.
+ * applies the tracker's shared exact-input classifier or project membership and
+ * content filters (samchon/ttsc#1384). Authority withdrawal is distinct from
+ * recording a structural or content witness. The registration transfers its
+ * drain and closer to the tracker before this awaits readiness. Probe-dependent
+ * streams need a delivered probe for drain authority (samchon/ttsc#1453); the
+ * sink keeps unproven scopes separately. The opening wait can also end after
+ * failure, timeout or explicit closure, so resolution alone does not certify
+ * coverage. Closing first fails the tracker and then attempts broker
+ * retirement; cleanup failure can still escape.
  *
  * @param tracker The tracker the watches serve.
  * @param locations The directories to watch, in the tracker's spelling.
@@ -24,16 +26,19 @@ import { openBrokeredWatch } from "./openBrokeredWatch";
  * @param options.filters The tracker's event decision (`brokeredTrackerSink`).
  * @param options.probeRoot The project root, below whose tool cache a probe may
  *   prove a location's stream delivered; a location outside it cannot be, and
- *   every drain names it in the tracker's unproven set.
+ *   probe-dependent streams without an eligible probe remain unproven.
  * @evidence contracts/common.md#principled-implementation
- *   The shared broker opening contract supplies readiness and drain authority;
- *   owner filters retain the same event meaning across brokered and local paths.
+ *   One sink transfers broker verdicts into the tracker, and the returned drain
+ *   and closer transfer registration ownership before awaiting opening. Normal
+ *   completion includes failed/closed openings; the caller must use tracker
+ *   authority fields rather than treat Promise resolution as successful coverage.
  * @evidence contracts/common.md#clear-and-simple-design
  *   This adapter wires one registration into the tracker lifecycle; canonical
  *   paths, child process and timeout state remain owned by openBrokeredWatch.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Closure marks coverage failed before native cleanup, and opening failure
- *   stays a sink verdict rather than fabricated readiness success.
+ *   Closure marks coverage failed before native cleanup. Routed opening failure
+ *   remains a sink verdict rather than fabricated coverage, while synchronous
+ *   setup exceptions propagate without a successful handle transfer.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and parameter comments explain readiness, filtering and
  *   probe scope under the documentation skill.
@@ -41,14 +46,22 @@ import { openBrokeredWatch } from "./openBrokeredWatch";
  *   OS-neutral tracker ownership delegates native isolation, stream probing and
  *   canonical spelling translation to the broker boundary.
  * @evidence contracts/performance.md#efficient-algorithms
- *   One sink and registration are created; per-location preparation and child
- *   opening cost are delegated once to the shared broker registration path.
+ *   One sink and closer are allocated, but opening still processes all location
+ *   spellings and delegates native identity/probe preparation, namespace scans,
+ *   IPC and child stream work. Location/name bytes, native scope and outstanding
+ *   broker population drive cost, not this adapter's statement count.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   A process-wide broker and scope-aware in-flight drains are shared by the
- *   opening owner; independent tracker sinks remain separate event consumers.
+ *   The loaded broker owner shares its child and eligible covering in-flight
+ *   drains; this tracker receives a drain bound to its registration ID. Each
+ *   registration's sink and opening effects remain independent, and shared
+ *   holder/address state is not a fresh coverage or access certificate.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The tracker receives the registration closer before awaiting readiness;
- *   retirement withdraws authority and releases the owned broker registration.
+ *   After opening returns a handle, the tracker owns its sink, drain and closer
+ *   before readiness is awaited. Close withdraws authority before attempting
+ *   removal and last-child retirement. Synchronous opening failure can precede
+ *   that transfer; caller cancellation is not implemented. Broker registration,
+ *   pending scope and namespace populations have no count/byte cap, and native
+ *   cleanup or callback failure does not guarantee successful release.
  */
 export async function registerBrokeredMutationTracker(
   tracker: TtscProjectMutationTracker,

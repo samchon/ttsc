@@ -10,15 +10,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRunReturnsUpstreamWriteError exercises the non-ErrFrameClosed
-// branch in Proxy.Run: when the editor pump fails to forward to upstream
-// (because the upstream consumer closed its read end), the error must
-// propagate so RunLSPServer can shut the host down instead of looping.
+// TestLSPProxyRunReturnsUpstreamWriteError Verifies that Proxy.Run returns wrapped io.ErrClosedPipe when forwarding writes to a closed upstream consumer.
+//
+// The opposite upstream producer closes too, allowing its pump to end cleanly.
 //
 // 1. Build a proxy whose UpstreamIn reader is closed before any traffic.
-// 2. Send a valid editor frame that the proxy will try to forward.
-// 3. Close the upstream-to-editor side so the second pump returns cleanly.
+// 2. Close the upstream-to-editor side so the second pump returns cleanly.
+// 3. Send a valid editor frame that the proxy will try to forward.
 // 4. Assert Proxy.Run returns a non-nil error wrapping io.ErrClosedPipe.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns wrapped io.ErrClosedPipe when forwarding writes to a closed upstream consumer.
+// @evidence contracts/testing.md#independent-expectations The deliberately closed reader establishes the standard pipe failure independently of dispatch.
+// @evidence contracts/testing.md#distinguishing-cases The opposite upstream producer closes too, allowing its pump to end cleanly.
+// @evidence contracts/testing.md#execution-ownership The test's private pipes and direct Go proxy invocation exercise forwarding failure without a child. Go discovers TestLSPProxyRunReturnsUpstreamWriteError under ./test/driver.
 func TestLSPProxyRunReturnsUpstreamWriteError(t *testing.T) {
   edInR, edInW := io.Pipe()
   edOutR, edOutW := io.Pipe()

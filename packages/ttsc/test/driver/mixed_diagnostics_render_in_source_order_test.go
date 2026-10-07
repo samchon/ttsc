@@ -9,14 +9,22 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestMixedDiagnosticsRenderInSourceOrder verifies the public driver keeps
+// TestMixedDiagnosticsRenderInSourceOrder Verifies the public driver keeps
 // a plugin finding ahead of a later compiler error after it separates the
 // rich diagnostics into tsgo and lint slices for the shared renderer.
+//
+// Authored source positions ground order; compiler-produced wording is used only to locate its diagnostic.
 //
 // 1. Load a program with a second-line type error.
 // 2. Add a first-line lint diagnostic to the returned compiler diagnostics.
 // 3. Assert pretty output follows source order across both producers.
+//
+// @evidence contracts/testing.md#behavioral-verification WritePrettyDiagnostics orders earlier lint before later compiler findings.
+// @evidence contracts/testing.md#independent-expectations Authored source positions ground order; compiler-produced wording is used only to locate its diagnostic.
+// @evidence contracts/testing.md#distinguishing-cases Different producers and source lines contrast; full diagnostic formatting is not independently checked.
+// @evidence contracts/testing.md#execution-ownership Go unit TestMixedDiagnosticsRenderInSourceOrder is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestMixedDiagnosticsRenderInSourceOrder(t *testing.T) {
+  t.Setenv(driver.TsgoArgsEnv, "")
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": { "module": "commonjs", "target": "es2020" },
@@ -36,6 +44,17 @@ func TestMixedDiagnosticsRenderInSourceOrder(t *testing.T) {
   if len(compilerDiags) == 0 {
     t.Fatal("type error did not produce a compiler diagnostic")
   }
+  compilerMessage := ""
+  for _, diag := range compilerDiags {
+    if diag.Code == 2322 && diag.Line == 2 &&
+      filepath.Clean(filepath.FromSlash(diag.File)) == filepath.Join(root, "index.ts") {
+      compilerMessage = diag.Message
+      break
+    }
+  }
+  if compilerMessage == "" {
+    t.Fatalf("missing independently expected index.ts line 2 TS2322: %#v", compilerDiags)
+  }
   source := prog.SourceFile(filepath.Join(root, "index.ts"))
   if source == nil {
     t.Fatal("source file not found")
@@ -46,7 +65,7 @@ func TestMixedDiagnosticsRenderInSourceOrder(t *testing.T) {
   driver.WritePrettyDiagnostics(&rendered, diagnostics, root)
   output := rendered.String()
   lintIndex := strings.Index(output, "lint finding on the first line")
-  compilerIndex := strings.Index(output, compilerDiags[0].Message)
+  compilerIndex := strings.Index(output, compilerMessage)
   if lintIndex < 0 || compilerIndex < 0 {
     t.Fatalf("pretty render omitted a diagnostic:\n%s", output)
   }

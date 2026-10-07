@@ -21,6 +21,12 @@ import { make } from "../internal/make";
  * new (x: number) => Foo
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers, if any.
+ * @param typeParameters The generic type parameters, if any.
+ * @param parameters The parameters.
+ * @param type The return type.
+ * @returns The created {@link ConstructorTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   ConstructorTypeNode retains leading modifiers, generics, parameters and the
  *   required result type, distinguishing new => syntax from a construct member.
@@ -36,13 +42,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc distinguishes constructor types from construct signatures and
  *   explains each parameter with a concrete new-arrow example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers, if any.
- * @param typeParameters The generic type parameters, if any.
- * @param parameters The parameters.
- * @param type The return type.
- * @returns The created {@link ConstructorTypeNode}.
  */
 export const createConstructorTypeNode = (
   modifiers: readonly Modifier[] | undefined,

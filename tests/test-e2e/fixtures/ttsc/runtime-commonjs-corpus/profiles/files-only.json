@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"rootDir":".","outDir":"dist","types":[]},"files":["entry/index.ts"]}

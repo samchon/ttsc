@@ -11,10 +11,19 @@ import (
 // single-level namespace test does not: `namespace A.B.C { … }` is parsed as a
 // ModuleDeclaration whose body is another ModuleDeclaration, so moduleStatements
 // must descend through the chain and qualifiedName must build the full dotted
-// prefix. A regression in either would silently drop every declaration in a
-// dotted (or deeply nested) namespace — the idiom of .d.ts-heavy and
-// proto-generated codebases.
+// prefix. This entry asserts one authored three-level dotted function ID and
+// incoming call, not every nested namespace form or declaration payload.
+//
+// 1. Load dotted namespace A.B.C with deep and a caller.
+// 2. Build qualified namespace declarations and calls.
+// 3. Require A.B.C.deep and the caller value-call edge to that qualified declaration.
+//
+// @evidence contracts/testing.md#behavioral-verification Require A.B.C.deep and the caller value-call edge to that qualified declaration.
+// @evidence contracts/testing.md#independent-expectations Literal A.B.C.deep and caller names select a present function-keyed node and a caller-to-deep value-call triple in the authored fixture. Expected ID selection shares nodeID and the actual Program filename; node Name payload, exact edge count and an independent ID grammar are not asserted.
+// @evidence contracts/testing.md#distinguishing-cases Load dotted namespace A.B.C with deep and a caller. Build qualified namespace declarations and calls. Require A.B.C.deep and the caller value-call edge to that qualified declaration.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly calls Build and presence-only hasEdge. A restored empty linked-plugin manifest excludes ambient hooks; no namespace code execution, dump serialization, installed consumer or product process runs.
 func TestNamespaceDottedFormQualifiesDeeply(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {

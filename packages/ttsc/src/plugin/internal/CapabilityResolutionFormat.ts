@@ -14,12 +14,12 @@ import { resolveSourceBuildCachePaths } from "./source/resolveSourceBuildCachePa
  * describes the project is the host inputs' states and the plugin sources'
  * states, each by the rule its producer applies.
  *
- * @evidence contracts/common.md#principled-implementation Reader and writer share the exact format/key and source-metadata witness rules; only ended clock ticks on the same device can accelerate the authoritative source-state proof.
+ * @evidence contracts/common.md#principled-implementation Reader and writer share format/key and source-metadata witness rules. Metadata acceleration requires a matching device and older reported mtime, relying on native metadata/clock semantics rather than certifying arbitrary timestamp restoration or content mutation.
  * @evidence contracts/common.md#clear-and-simple-design The namespace owns format identity and witness construction, while entry acceptance and answer production stay with their reader/writer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Version tags and NUL delimiters encode the persistence contract; unavailable clock/device evidence causes full content proof rather than guessed reuse.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains format evolution, unforgeable path separation and clock proof premises in separate paragraphs; function/tag spacing follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins, cache-root resolution and bigint stat device identities preserve OS-neutral filesystem behavior; clock witnesses are matched per device rather than assumed from platform names.
- * @evidence contracts/performance.md#efficient-algorithms Key construction orders environment data and streams actual runtime bytes through the shared fixed-buffer proof; each source witness needs one metadata read and source-content proof remains with its owner.
+ * @evidence contracts/performance.md#efficient-algorithms Key construction orders and serializes environment/name bytes, streams runtime content and delegates native ancestor/manifest/cache-layout selection. Clock witnesses create/query/remove a probe, and each source witness queries native metadata and formats numeric text; path/native/text costs remain distinct from source-content proof owned by the reader.
  * @evidence contracts/performance.md#reuse-equivalent-work Project/version keys share one answer across requested capabilities; digest reuse additionally requires matching signature and device-clock separation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Clock probes are call-owned and removed in finally; cache entries belong to the source-cache pruning owner rather than a process-global answer collection. Failed probe removal can leave a small file and is best effort.
  */
@@ -28,16 +28,15 @@ export namespace CapabilityResolutionFormat {
    * Cache format tag.
    *
    * Moves when the entry shape or the validation rule changes, so an older
-   * entry is discarded rather than read under new rules. The second format
-   * proves the directories the binaries were keyed on by the build's own rule,
-   * where the first fingerprinted each plugin's `source` alone
-   * (samchon/ttsc#1492). The third records only the answer of a load whose
-   * descriptors declared every file they read (samchon/ttsc#1561). The fourth
-   * includes the complete descriptor environment and runtime content identity
-   * in the key, since either can change a factory's capability declarations.
-   * The fifth additionally requires an explicit completed runtime observation
-   * envelope; a partial side channel cannot authorize an answer for reuse. The
-   * sixth also requires the shared module recorder's independent completion
+   * entry is discarded rather than read under new rules. The current format
+   * proves the directories the binaries were keyed on by the build's own rule
+   * and records only the answer of a load whose descriptors supplied the
+   * explicit external-read declaration. This is a producer premise, not
+   * detection of every omitted read. Its key includes the complete descriptor
+   * environment and runtime content identity, since either can change a
+   * factory's capability declarations. It requires an explicit completed
+   * runtime observation envelope, so a partial side channel cannot authorize an
+   * answer for reuse, and the shared module recorder's independent completion
    * proof, including its public require.resolve hook capability.
    */
   const FORMAT = "ttsc-capability-resolution-v6";
@@ -81,19 +80,20 @@ export namespace CapabilityResolutionFormat {
    *
    * Keyed on the project rather than on the capability: the walk it replaces
    * discovers every configured plugin, so one entry answers for all of them and
-   * a second consumer asking about a different capability costs nothing. The
-   * complete environment and runtime content proof distinguish evaluation
-   * authorities even when project file content stays unchanged.
+   * a second consumer can reuse that entry for another capability, while still
+   * paying its authority and freshness checks. The complete environment and
+   * runtime content proof distinguish evaluation authorities even when project
+   * file content stays unchanged.
    *
    * @evidence contracts/common.md#principled-implementation SHA-256 over project/config identity, canonical descriptor environment and actual executable content/lexical/physical proof selects an authority-specific entry; unproved runtime/storage returns null rather than trusting restored metadata.
    * @evidence contracts/common.md#clear-and-simple-design Cache-root policy is delegated once and this function adds only the capability-entry key and layout.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The NUL separator prevents ambiguous path-field concatenation; fallback means uncached resolution rather than a guessed answer.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains null storage and project-wide reuse across capabilities; descriptive/tag separation follows the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation path.resolve/path.join and the source cache owner implement OS-neutral native path construction; runtime selection reads the supplied environment with Windows case-insensitive name semantics.
-   * @evidence contracts/performance.md#efficient-algorithms Environment ordering costs O(e log e), while current executable content is streamed in O(B) time with fixed-buffer space; the key needs no plugin-source directory scan.
+   * @evidence contracts/performance.md#efficient-algorithms Environment ordering has O(e log e) comparisons whose name bytes matter; full environment/path/identity text is serialized and hashed. Executable content uses a fixed read buffer, but native metadata/path and escaping identity text remain. Delegated root selection can walk ancestors/read manifests/inspect cache layout; no plugin-source directory scan is performed here.
    * @evidence contracts/performance.md#reuse-equivalent-work All capabilities for the same project identity use one entry because discovery computes their complete plugin set together.
    *
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The locator retains no handle or cache entry; its shared executable-proof owner releases the transient descriptor before return, while persistence/pruning retain their own storage responsibilities.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The locator retains no handle or cache entry; its executable-proof owner attempts transient descriptor closure and refuses unproved observations on failure. Environment/serialized identity text is call-owned and the returned path does not pin future authority; persistence/pruning own stored lifetime.
    */
   export function resolutionFile(options: {
     /** Invocation directory included in the project-entry key. */
@@ -156,22 +156,22 @@ export namespace CapabilityResolutionFormat {
    * cache's own beside the entry: the modification stamp a fresh probe file got
    * there, by the device that reported it.
    *
-   * A stamp strictly older than its device's reference lies in a clock tick
-   * that has provably ended, so any later write to that file mints a newer one
-   * and moves the signature; git's rule for an index entry that is not racily
-   * clean. The probe is the cache's own file, named for this call, and removed
-   * at once, so concurrent readers never lend each other a reference. A failed
-   * write, or a plugin source on another device, leaves nothing separable, and
-   * the proof reads the files.
+   * A stamp strictly older than the same device's fresh reference satisfies
+   * this cache's separation policy. Reuse still assumes the filesystem's
+   * reported metadata reflects writes; the comparison cannot certify arbitrary
+   * timestamp restoration or future clock behavior. The probe is the cache's
+   * own file, named for this call, and removal is attempted at once, so
+   * concurrent readers never lend each other a reference. A failed write, or a
+   * plugin source on another device, leaves nothing separable, and the proof
+   * reads the files.
    *
    * @param entry The entry file, whose directory the probe is written in.
-   *
-   * @evidence contracts/common.md#principled-implementation A unique freshly-written file supplies its device's completed clock reference; failure clears the witness so later metadata proof cannot claim separation.
+   * @evidence contracts/common.md#principled-implementation A unique freshly-written file supplies its native device/mtime reference; acquisition failure clears the witness, and the source observer requires a matching device and strictly older reported stamp under the metadata policy.
    * @evidence contracts/common.md#clear-and-simple-design The function returns only device-to-stamp evidence and owns its transient probe from creation through cleanup.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Random probe identity avoids borrowing a concurrent call's witness; failed acquisition does not substitute wall-clock guesses for device evidence.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains ended ticks, cross-device refusal and probe lifetime in separate paragraphs; tag separation follows the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native joins and bigint lstat use the actual filesystem's device/stamp values; no fixed timestamp precision or OS-specific temp path is assumed.
-   * @evidence contracts/performance.md#efficient-algorithms One small write and metadata query produce a witness independent of plugin source size.
+   * @evidence contracts/performance.md#efficient-algorithms Probe path/UUID/hrtime text construction and mkdir/write/lstat/removal queries produce a witness without reading plugin source bytes; native path/directory work remains and is not bounded by source count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each proof needs a fresh clock reference; sharing an earlier probe would defeat the rollback/separation premise.
    *
@@ -194,7 +194,7 @@ export namespace CapabilityResolutionFormat {
       try {
         fs.rmSync(probe, { force: true });
       } catch {
-        // A probe left behind is an empty file of the cache's own.
+        // A leftover probe contains this call's hrtime text, not source data.
       }
     }
     return references;
@@ -205,20 +205,19 @@ export namespace CapabilityResolutionFormat {
    * separable from `reference`, for `pluginSourceFilesSignature`.
    *
    * The files the digest reads are regular files (`collectPluginSourceFiles`),
-   * so the file's own metadata is its whole state: a write, a replacement, or a
-   * write through another hard link moves the size, the stamps, or the file
-   * id.
+   * so these fields are the observer's metadata signature. Native metadata
+   * reflecting a write/replacement is a reuse premise; the signature is not
+   * itself a content hash or proof against arbitrary timestamp restoration.
    *
    * @param reference The clock reference minted for this proof.
-   *
-   * @evidence contracts/common.md#principled-implementation lstat device/inode/link/mode/size/timestamps distinguish a regular source file's metadata state, and strict mtime-before-reference establishes its tick ended before this proof.
+   * @evidence contracts/common.md#principled-implementation lstat device/inode/link/mode/size/timestamps form the regular-file metadata signature; strict mtime-before-reference marks separation for a matching device under the cache's native metadata policy, without observing content.
    * @evidence contracts/common.md#clear-and-simple-design A closure carries one proof's device references and maps each requested file to signature/separation together.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable files return no witness, and unmatched device or same/newer stamps cannot authorize digest reuse.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states the regular-file premise and reference origin, with separate acknowledgment prose following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Metadata comes from native bigint lstat and actual device IDs; separators join numeric fields only and no host path is manually parsed.
-   * @evidence contracts/performance.md#efficient-algorithms Each invocation performs one metadata query and formats a fixed field count rather than reading content bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Each invocation performs native path/lstat work and formats seven bigint fields without reading content; fixed field count does not remove native lookup or numeric-text costs.
    * @evidence contracts/performance.md#reuse-equivalent-work The closure reuses one reference map across files in the same proof, while each file's current metadata is read anew.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned closure retains only the caller's bounded reference map; no file handle or global source population is retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The closure retains the supplied reference map until its consumer releases it; clockReference supplies at most one entry, but arbitrary callers can supply larger or mutable maps. No file handle/global source population is retained and reference immutability is a caller premise.
    */
   export function sourceEvidence(
     reference: ReadonlyMap<bigint, bigint>,

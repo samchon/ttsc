@@ -5,7 +5,18 @@ experimental/test-unplugin/.tmp/
 lib/
 node_modules/
 out/
-tests/test-lint/src/cases/**
+packages/lint/test/testdata/corpus/**
+
+# Authored E2E inputs are the bytes under test: some are deliberately invalid
+# syntax or unusual layout (decorator auto-accessors, malformed configuration),
+# and a formatter would either reject them or change the input a scenario exists
+# to observe.
+tests/test-e2e/fixtures/
+
+# The lint rule corpus: each file is the input a rule must flag or accept, so it
+# contains deliberately invalid or duplicate-binding source (82 of them do not
+# parse as formatted output requires).
+packages/lint/test/testdata/
 
 # The protected Graph contract. `ITtscGraphApplication.ts` and every public
 # subordinate type here, JSDoc included, are immutable by owner instruction, and
@@ -51,3 +62,7 @@ benchmarks/evidence/instructions/
 # repository's code, and a sweep over it also walks tens of thousands of files
 # for nothing.
 benchmarks/evidence/output/
+
+# Authored fixture bytes and coordinates are test inputs, including invalid syntax.
+**/fixtures/**
+**/testdata/**

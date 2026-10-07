@@ -9,8 +9,8 @@ import (
 
 // TestNodeIdentityIsPositionInvariant verifies that a declaration keeps the same
 // node id after lines are inserted above it. A byte-offset or line-number key
-// would re-key every declaration below an edit, forcing a future incremental
-// layer to churn the whole graph; the realpath + name + kind key does not.
+// would change the reported ID set for this fixture. The test does not exercise
+// an incremental host or independently authenticate physical path identity.
 //
 // The probe rewrites the same file with a comment and blank lines prepended,
 // shifting every offset below, and asserts (a) the reload actually changed the
@@ -20,7 +20,13 @@ import (
 //  1. Compile a fixture, capture its node ids and source text.
 //  2. Rewrite the same file with leading lines that shift every offset.
 //  3. Assert the text changed but the node-id set did not.
+//
+// @evidence contracts/testing.md#behavioral-verification Two fresh native Program loads around the authored comment/blank-line edit must report changed source text and equal graph ID sets, with three IDs initially. Exact source text, specific ID spellings, evidence-span movement and incremental host churn are not asserted.
+// @evidence contracts/testing.md#independent-expectations Three initial IDs, differing source text and unchanged reported ID membership are the expected effects of this nonsemantic edit. The ID baseline comes from the first Build, so equality cannot authenticate structural completeness or the identities' exact spellings. The source-change check rejects an identical stale read but does not compare the complete edited text to a literal.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture, capture its node ids and source text; Rewrite the same file with leading lines that shift every offset; Assert the text changed but the node-id set did not.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes and edits one native file, constructs/closes two fresh driver Programs through buildSnapshot, and directly calls Build with a local key-set comparison. A restored empty linked-plugin manifest excludes ambient hooks; no resident update protocol, installed consumer or product process runs.
 func TestNodeIdentityIsPositionInvariant(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   main := filepath.Join(root, "src", "main.ts")

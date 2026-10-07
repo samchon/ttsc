@@ -5,17 +5,24 @@ import (
   "testing"
 )
 
-// TestLSPProxyRoundTripsServerInitiatedApplyEdit pins the contract for
+// TestLSPProxyRoundTripsServerInitiatedApplyEdit Verifies the contract for
 // upstream-initiated requests (tsgo issues workspace/applyEdit during
 // refactor flows). The proxy must forward both the server→editor
 // request and the editor→server response byte-for-byte; any future
 // intercept that filters editor→server responses must not swallow the
 // applyEdit reply tsgo is waiting on.
 //
+// Two authored frame bodies establish independent expected values.
+//
 // 1. Send a workspace/applyEdit request from upstream.
 // 2. Assert it arrives at the editor verbatim.
 // 3. Send the editor's response.
 // 4. Assert it arrives upstream verbatim.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run preserves upstream applyEdit and editor reply bytes in both directions.
+// @evidence contracts/testing.md#independent-expectations Two authored frame bodies establish independent expected values.
+// @evidence contracts/testing.md#distinguishing-cases Server request and editor response are covered; no editor actually applies an edit.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyRoundTripsServerInitiatedApplyEdit in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyRoundTripsServerInitiatedApplyEdit(t *testing.T) {
   h := newProxyHarness(t, nil)
 

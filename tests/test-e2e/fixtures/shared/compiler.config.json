@@ -1,0 +1,1 @@
+﻿{"extends":"./tsconfig.json","compilerOptions":{"rootDir":".","outDir":"native-out","noEmitOnError":false,"plugins":[]},"include":["src","native-errors"]}

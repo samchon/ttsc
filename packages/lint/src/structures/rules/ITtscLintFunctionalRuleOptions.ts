@@ -12,16 +12,16 @@
 /**
  * Shared pattern option accepted by several `functional/*` rules.
  *
- * @evidence contracts/common.md#principled-implementation Separate regex inputs select identifier spelling and source text, preserving the native ignore helper's distinction between names and code.
+ * @evidence contracts/common.md#principled-implementation Separate pattern inputs select identifier spelling and trimmed source text; each accepts an exact text match before supported regex matching.
  * @evidence contracts/common.md#clear-and-simple-design A shared base keeps identical ignore policy fields in one place while individual rules own their additional switches.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exemptions are caller-supplied patterns rather than fixture names or mutations of the AST walker.
- * @evidence contracts/common.md#meaningful-documentation Each member identifies what its regex matches; comments and properties are separated, and the owning prose names the shared role.
+ * @evidence contracts/common.md#meaningful-documentation Each member identifies which text its pattern matches; comments and properties are separated, and the owning prose names the shared role.
  */
 export interface ITtscLintFunctionalPatternOptions {
-  /** Identifier regex string(s) the rule should skip. */
+  /** Identifier pattern string(s), matched exactly or as a supported regex. */
   ignoreIdentifierPattern?: string | readonly string[];
 
-  /** Source-code regex string(s) the rule should skip. */
+  /** Trimmed source-code pattern string(s), matched exactly or as a regex. */
   ignoreCodePattern?: string | readonly string[];
 }
 
@@ -53,15 +53,16 @@ export interface ITtscLintFunctionalParametersRuleOptions extends ITtscLintFunct
 /**
  * `functional/immutable-data` rule options.
  *
- * @evidence contracts/common.md#principled-implementation The collection exemption distinguishes Map/Set mutation methods from array and property mutations under the native mutation analysis.
+ * @evidence contracts/common.md#principled-implementation The collection exemption skips add, clear, delete and set method spellings while array-method and property mutation checks remain independent; receiver collection types are not resolved.
  * @evidence contracts/common.md#clear-and-simple-design One collection switch extends the existing pattern base because all remaining mutation selection is shared.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Collection allowance is documented configuration, not mutation of Map or Set methods to conceal writes.
- * @evidence contracts/common.md#meaningful-documentation The member states both the exempt collections and mutations still checked, so its scope is visible without reading the decoder.
+ * @evidence contracts/common.md#meaningful-documentation The member states the exempt method names and mutations still checked, so its scope is visible without reading the decoder.
  */
 export interface ITtscLintFunctionalImmutableDataRuleOptions extends ITtscLintFunctionalPatternOptions {
   /**
-   * Skip mutating `Map` and `Set` methods while still checking arrays and
-   * property assignment.
+   * Skip the collection-style method names `add`, `clear`, `delete`, and `set`
+   * while still checking array-style method names and property assignments. The
+   * check does not verify the receiver is actually a `Map` or `Set`.
    */
   ignoreMapsAndSets?: boolean;
 }
@@ -244,7 +245,9 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscL
   checkImplicit?: boolean;
 
   /**
-   * Skip array / tuple / `Map` / `Set` types.
+   * Skip array and tuple syntax, and references named `Array`, `Map`, `Set`,
+   * `WeakMap`, or `WeakSet`. The rule does not resolve these names to
+   * bindings.
    *
    * @default false
    */
@@ -273,7 +276,7 @@ export interface ITtscLintFunctionalPreferReadonlyTypeRuleOptions extends ITtscL
  *
  * @evidence contracts/common.md#principled-implementation The optional boolean selects member-expression callees independently of bare identifiers, matching the native forwarding-arrow analysis.
  * @evidence contracts/common.md#clear-and-simple-design A single field exposes the one choice instead of adding separate wrappers for each callee form.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The allowance is a syntax-kind policy, without accepted callback names hardcoded for consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The allowance gates dotted callee text in the native forwarding-arrow recognizer; it does not certify the resolved callable or its runtime binding.
  * @evidence contracts/common.md#meaningful-documentation The member supplies a service.map forwarding example, the false behavior and true default in separated native prose.
  */
 export interface ITtscLintFunctionalPreferTacitRuleOptions {

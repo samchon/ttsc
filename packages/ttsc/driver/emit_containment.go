@@ -5,7 +5,7 @@
 // (`--emit`, a plugin host's runBuild) intentionally proceed past that guard,
 // and tsgo then computes the output path of an out-of-rootDir source relative
 // to the common source directory — which resolves to a `.js` right next to the
-// dependency's own source (issue #293). The classic trigger is package
+// dependency's own source. The classic trigger is package
 // self-reference: a project nested inside a dependency's directory resolves
 // the dependency's name without a node_modules hop, so its sources are not
 // classified as external-library files and stay in the emit set.

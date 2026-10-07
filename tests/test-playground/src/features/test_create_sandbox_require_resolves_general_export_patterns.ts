@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
+import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
  * Verifies playground: sandbox require resolves general exports patterns.
@@ -12,6 +12,11 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * 1. Define exact, overlapping, suffix, repeated-target, empty, and null cases.
  * 2. Require matching package subpaths through the sandbox.
  * 3. Assert the selected exports and rejected boundaries.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createSandboxRequire selects exact, suffix and longer-prefix patterns, replaces every target star and rejects empty-star/null-private requests despite populated neighboring files.
+ * @evidence contracts/testing.md#independent-expectations Node one-star specificity and nonempty matching define selection independently; every candidate module exports a distinct literal value so lexical-order or broad-pattern selection cannot pass.
+ * @evidence contracts/testing.md#distinguishing-cases Exact key, suffix overlap, special prefix, nonsuffix CSS, repeated target substitution, empty wildcard and explicit null each retain separate assertions.
+ * @evidence contracts/testing.md#execution-ownership This entry owns its seven requests and their literal CommonJS pack modules, directly executing the authored resolver in one unit process with no package producer or host.
  */
 export const test_create_sandbox_require_resolves_general_export_patterns =
   () => {

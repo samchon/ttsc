@@ -1,0 +1,45 @@
+package main
+
+import (
+  "bufio"
+  "encoding/json"
+  "fmt"
+  "os"
+)
+
+type request struct {
+  Verb string `json:"verb"`
+}
+
+func logCall(message string) {
+  path := os.Getenv("TTSC_PROJECT_DIAGNOSTICS_FALLBACK_LOG")
+  file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+  if err == nil {
+    _, _ = fmt.Fprintln(file, message)
+    _ = file.Close()
+  }
+}
+
+func main() {
+  if len(os.Args) < 2 {
+    os.Exit(2)
+  }
+  if os.Args[1] == "lsp-serve" {
+    scanner := bufio.NewScanner(os.Stdin)
+    for scanner.Scan() {
+      var req request
+      if json.Unmarshal(scanner.Bytes(), &req) != nil {
+        os.Exit(2)
+      }
+      logCall("resident " + req.Verb)
+      fmt.Println(`{"result":null,"code":2}`)
+    }
+    return
+  }
+  if os.Args[1] == "lsp-project-diagnostics" {
+    logCall("direct lsp-project-diagnostics")
+    fmt.Println(`{"uri":"file:///project/tsconfig.json","diagnostics":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"code":"direct","message":"direct"}]}`)
+    return
+  }
+  os.Exit(2)
+}

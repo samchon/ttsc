@@ -41,22 +41,23 @@ func watchedFilesEnvelope(t *testing.T, params string) Envelope {
 }
 
 // TestLSPWatchedFileChangesReachCompilerCaches verifies that a
-// workspace/didChangeWatchedFiles batch refreshes both compiler-backed caches,
-// and that only a plain edit to a plain source file is refreshed incrementally.
+// direct workspace/didChangeWatchedFiles dispatch selects invalidation calls.
 //
-// The repository's VS Code client watches `**/{tsconfig,jsconfig}*.json`, which
-// its documentSelector excludes, so a config edit can reach ttsc through no other
-// notification; before this the proxy had no arm for the method at all and the
-// sidecar's documented full-reload fallback was unreachable. A created or deleted
-// file and a config edit each reshape the root set or the compiler options, which
-// tsgo's per-file UpdateProgram cannot express, so they must drop the warm
-// Program rather than update it.
+// Owned optional source/provider implementations record invalidation arguments
+// and counts. No actual compiler cache, Program, editor watch registration or
+// upstream forwarding runs here; empty URI calls represent full invalidation
+// requests rather than an observed Program being dropped.
 //
 //  1. Send a `changed` event for one ordinary source file and assert the resident
 //     refresh carries exactly that URI.
 //  2. Send a tsconfig edit, a created file, and a deleted file, and assert each
-//     drops the whole Program instead.
+//     requests invalidation with an empty URI list instead.
 //  3. Send an undecodable batch (full reload) and an empty batch (no-op).
+//
+// @evidence contracts/testing.md#behavioral-verification Direct dispatch over eleven authored batches records symbol-provider invalidation counts and exact source invalidation URI lists: ordinary edits are localized, config/topology/unlocalizable batches request an empty list, and an empty batch makes neither call. handled=false permits forwarding but does not execute it.
+// @evidence contracts/testing.md#independent-expectations Expected refresh payloads are literal URIs and drop decisions.
+// @evidence contracts/testing.md#distinguishing-cases Single/multiple source edits, tsconfig/scoped-tsconfig/jsconfig, creation/deletion, mixed config-source, absent type, undecodable changes and empty changes are individually named cases. The expected localized/empty/no-call requests differ; actual downstream cache transitions are outside this unit.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit's named subtests call actual Proxy dispatch with owned optional invalidator/provider recorders and io.Discard streams. It uses no foreign-method replacement, native process, temporary project, installed consumer or running product host.
 func TestLSPWatchedFileChangesReachCompilerCaches(t *testing.T) {
   cases := []struct {
     name    string

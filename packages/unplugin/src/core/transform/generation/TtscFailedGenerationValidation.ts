@@ -10,6 +10,16 @@ import type { TtscFailedGenerationInputState } from "./TtscFailedGenerationInput
  * @evidence contracts/common.md#clear-and-simple-design This carrier groups project-walk and external-input baselines without owning re-probing or cache lifecycle decisions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retry premises preserve observed state rather than substituting a module request count or arbitrary timeout for environmental change.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes retained comparison data from released live resources, and separated member comments identify each witness and undefined declared-scope meaning.
+ * @evidence contracts/portability.md#os-neutral-implementation Exact input-state keys retain native absolute paths, while declared project keys and project hashes use the captured compiler-key protocol; cached supplies the original native identity and membership context rather than reinterpreting either representation here.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscFailedGenerationValidation only declares a shape; it has no
+ *   computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscFailedGenerationValidation only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscFailedGenerationValidation only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscFailedGenerationValidation {
   /** Last attempted generation, retained only as a comparison baseline. */

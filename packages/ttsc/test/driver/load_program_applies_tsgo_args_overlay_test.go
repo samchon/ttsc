@@ -6,18 +6,23 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLoadProgramAppliesTsgoArgsOverlay verifies forwarded tsgo CLI flags
+// TestDriverLoadProgramAppliesTsgoArgsOverlay Verifies forwarded tsgo CLI flags
 // override the tsconfig for an in-process program.
 //
 // A plugin build constructs its Program through driver.LoadProgram instead of
 // shelling out to `tsgo`, so a `ttsc --strict` the launcher could not satisfy
 // on the tsgo lane arrives as LoadProgramOptions.TsgoArgs. The driver replays
 // the flag through TypeScript-Go's own option parser and merges it over the
-// tsconfig with the CLI winning — this pins that merge.
+// tsconfig with the CLI winning. this pins that merge.
 //
 // 1. Build a project whose tsconfig sets `strict: false`.
 // 2. Load it with TsgoArgs ["--strict"].
 // 3. Assert the resolved CompilerOptions report strict mode on.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram resolves Strict=true over strict:false with --strict.
+// @evidence contracts/testing.md#independent-expectations Explicit CLI flags override authored config settings.
+// @evidence contracts/testing.md#distinguishing-cases One opposing boolean option is covered, not the whole CLI parser matrix.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverLoadProgramAppliesTsgoArgsOverlay is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverLoadProgramAppliesTsgoArgsOverlay(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

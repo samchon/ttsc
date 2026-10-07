@@ -1,13 +1,13 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pluginSourceDigest } from "ttsc/plugin-source";
 
-import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/lib/core/transform/clock/refreshFilesystemClockReference.mjs";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.mjs";
-import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceFilesDigest.mjs";
+import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/refreshFilesystemClockReference";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
+import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceFilesDigest";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a plugin source's files are read again only when their metadata
@@ -40,6 +40,11 @@ import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/lib/co
  *    failed refresh does, and assert the unchanged signature is not reused: a
  *    reference minted now is what rules out a write that a clock rollback put
  *    into a recorded stamp's tick.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls pluginSourceFilesDigest against controlled lstat and compares current digests with ttsc pluginSourceDigest; checks retained old bytes, rereads after edits, nonseparable stamps, refreshed clock, file addition/removal and absent clock reference.
+ * @evidence contracts/testing.md#independent-expectations ttsc pluginSourceDigest reads current file content independently of the adapter metadata memo; changed bytes must disagree with a retained old digest. Shared upstream source discovery remains an oracle limitation for omissions common to both digest providers.
+ * @evidence contracts/testing.md#distinguishing-cases Owns old/separable versus current/nonseparable stamps, metadata-held byte changes, a newer reference, changed file set and reference removal. Explicit old/new digest disagreement distinguishes reread from accidental identical content.
+ * @evidence contracts/testing.md#execution-ownership The test-unplugin feature runner calls authored pluginSourceFilesDigest and refreshFilesystemClockReference directly. Native fixture enumeration and byte hashing are portable filesystem operations; neither pluginSourceDigest nor its selector starts Go, compiles a binary, installs a consumer or starts a product host.
  */
 export async function test_plugin_source_files_are_read_again_only_when_their_metadata_moves(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -48,11 +53,13 @@ export async function test_plugin_source_files_are_read_again_only_when_their_me
   const source = path.join(root, "plugin");
   const reference = path.join(root, "clock");
   fs.mkdirSync(reference);
-  TestProject.writeFiles(source, {
-    "go.mod": "module example.com/plugin\n\ngo 1.26\n",
-    "internal/rules/rule.go": "package rules\n",
-    "main.go": "package main\n\nfunc main() {}\n",
-  });
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/unplugin/test/fixtures/plugin-source-baseline",
+    ),
+    source,
+  );
   const main = path.join(source, "main.go");
   const files = () =>
     fs

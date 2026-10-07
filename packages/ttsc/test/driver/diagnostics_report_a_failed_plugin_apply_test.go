@@ -17,29 +17,25 @@ func (diagnosticsApplyErrorPlugin) ApplyProgram(*driver.Program, driver.PluginCo
 // TestDriverDiagnosticsReportAFailedPluginApply verifies a linked plugin that
 // fails to apply reaches a read-only consumer.
 //
-// `ApplyLinkedPlugins` caches its outcome, and the emit path checks it — so
-// `ttsc build` fails on such a project. The read-only paths did not: `SourceFile`,
-// `SourceFiles`, and the graph builder all ran the apply and discarded the
-// error, having no channel of their own. `ttscgraph` therefore described the
-// untransformed program and said nothing, while the compiler on the same
-// project reported the failure. Two halves of one toolchain disagreeing about
-// whether the project is broken, with the quiet half the one an agent reads.
+// `SourceFiles` runs the registered hook and retains its failure in the Program.
+// `Diagnostics` reads that latched result alongside the compiler findings, so
+// the fixture's semantic error remains visible beside the plugin failure.
+// This unit does not invoke the build command or a graph consumer.
 //
-// `Diagnostics` is where it belongs: it already emits a driver-level entry with
-// no file or code (`driver: nil program`), and every read-only consumer of a
-// program's findings goes through it.
-//
-// The cached outcome is read, never forced. Forcing it here would move when the
-// apply happens, and diagnostics computed against a mutated tree carry positions
-// that need not map into the original source text — the diagnostic writer walks
-// that text to render context and panics on the mismatch. Every real consumer
-// reads source files before asking for diagnostics, so the cache is warm by
-// then; `SourceFiles` below is that step, not a contrivance.
+// `Diagnostics` does not initiate application. This case explicitly reads
+// source files first; callers that have not triggered the hook cannot use this
+// test as evidence that diagnostics forces it or that every consumer follows
+// the same ordering.
 //
 //  1. Register a linked plugin whose ApplyProgram fails.
-//  2. Read the program's source files, as every consumer of this does.
+//  2. Read the program's source files to perform the registered hook.
 //  3. Ask for diagnostics, and assert the failure is among them as an error,
 //     with the compiler's own findings still beside it.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls SourceFiles to perform the actual failing registered plugin application, then Diagnostics must expose apply boom as an error alongside at least one compiler diagnostic.
+// @evidence contracts/testing.md#independent-expectations The authored plugin returns apply boom, while a literal string-to-number assignment independently owes a compiler error; neither expectation comes from the returned diagnostic list.
+// @evidence contracts/testing.md#distinguishing-cases Plugin failure and a separate semantic error coexist, rejecting replacement of compiler findings by the plugin error; the adjacent clean-plugin entry is the negative control.
+// @evidence contracts/testing.md#execution-ownership This owning driver Go unit runs an in-process registered plugin and Program, closes its Program and uses a test-scoped environment with a freshly reset registry; no built plugin or compiler host executes.
 func TestDriverDiagnosticsReportAFailedPluginApply(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"diagnostics-apply-error","stage":"transform","config":{}}]`)
@@ -90,10 +86,20 @@ func TestDriverDiagnosticsReportAFailedPluginApply(t *testing.T) {
   }
 }
 
-// TestDriverDiagnosticsStaySilentWhenPluginsApply is the negative twin: a
-// project whose linked plugin applies cleanly reports exactly what the compiler
-// found and nothing else, so the entry above is driven by the failure rather
-// than by a plugin being linked at all.
+// TestDriverDiagnosticsStaySilentWhenPluginsApply Verifies clean linked-plugin application
+// adds no plugin diagnostic to compiler results.
+//
+// The failure-reporting companion registers a plugin that rejects application. This clean
+// no-op plugin separates that failure from registration itself: an otherwise valid project
+// must not acquire a diagnostic merely because its linked plugin ran.
+//
+// 1. Load the clean fixture and register the no-op plugin.
+// 2. Call SourceFiles to apply it, then require the complete Diagnostics list to stay empty.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls SourceFiles to apply a real registered no-op plugin and requires the complete Diagnostics list to be empty for the clean authored project.
+// @evidence contracts/testing.md#independent-expectations A no-op ApplyProgram and valid exported numeric declaration independently owe no plugin or compiler diagnostic.
+// @evidence contracts/testing.md#distinguishing-cases Clean application contrasts the adjacent failing plugin plus compiler-error entry; the complete empty-list assertion rejects any spurious diagnostic, not only one error-message spelling.
+// @evidence contracts/testing.md#execution-ownership This owning driver Go unit runs the actual in-process plugin and Program with test-scoped environment and a fresh registry, and closes its Program without a product process or installed plugin.
 func TestDriverDiagnosticsStaySilentWhenPluginsApply(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"diagnostics-apply-ok","stage":"transform","config":{}}]`)
@@ -115,10 +121,8 @@ func TestDriverDiagnosticsStaySilentWhenPluginsApply(t *testing.T) {
   defer prog.Close()
 
   _ = prog.SourceFiles()
-  for _, diagnostic := range prog.Diagnostics() {
-    if strings.Contains(diagnostic.Message, "linked plugins failed to apply") {
-      t.Fatalf("a clean apply must report nothing: %s", diagnostic.Message)
-    }
+  if diagnostics := prog.Diagnostics(); len(diagnostics) != 0 {
+    t.Fatalf("a clean project and plugin must report no diagnostics: %#v", diagnostics)
   }
 }
 

@@ -7,6 +7,8 @@ import (
   "os"
   "os/exec"
   "strings"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 const (
@@ -23,6 +25,9 @@ const (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Path data is not interpolated into cmd syntax or escaped through guessed quoting rules.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the platform precondition and junction purpose following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Required Windows behavior is isolated in the windowsjunction package; fixed cmd arguments and delayed environment expansion preserve path metacharacters as data, while callers select this boundary explicitly.
+// @evidence contracts/performance.md#bound-retention-and-release-resources This invocation owns one cmd child and its captured output until CombinedOutput joins it; returned errors retain only trimmed output text. Captured bytes grow with command output and there is no explicit timeout or output cap.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One cmd.exe invocation with a constant command; there is no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each junction is a distinct filesystem effect, so nothing is reusable between calls.
 func Create(link, target string) error {
   // mklink is a cmd.exe builtin. Feed a constant command over stdin and use
   // delayed environment expansion so Go never has to quote a command string
@@ -37,7 +42,10 @@ func Create(link, target string) error {
     linkEnvironment+"="+link,
     targetEnvironment+"="+target,
   )
-  if out, err := cmd.CombinedOutput(); err != nil {
+  observation := e2etrace.BeginCommand(cmd, "CombinedOutput")
+  out, err := cmd.CombinedOutput()
+  observation.Result(err)
+  if err != nil {
     return fmt.Errorf(
       "mklink /J failed: %v: %s",
       err,

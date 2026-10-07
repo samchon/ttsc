@@ -10,9 +10,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyHardErrorClosesSiblingStreams verifies hard proxy errors drain both pumps.
+// TestLSPProxyHardErrorClosesSiblingStreams Verifies hard proxy errors drain both pumps.
 //
-// A write failure in one proxy pump used to require the test to pre-close the
+// A write failure in one proxy pump must not depend on the test pre-closing the
 // opposite stream. The proxy itself must close the sibling closeable endpoints
 // so production pipe pairs cannot leave Run blocked forever after the first
 // hard transport error.
@@ -20,6 +20,11 @@ import (
 // 1. Build a proxy whose upstream input reader is already closed.
 // 2. Send one valid editor frame and leave the upstream-output writer open.
 // 3. Assert Run returns the write error instead of waiting on the sibling pump.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns wrapped io.ErrClosedPipe within three seconds with the opposite stream open.
+// @evidence contracts/testing.md#independent-expectations Closing the actual io.Pipe reader independently establishes a broken write.
+// @evidence contracts/testing.md#distinguishing-cases Hard upstream write failure must unblock the sibling pump; clean EOF is separate.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyHardErrorClosesSiblingStreams in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyHardErrorClosesSiblingStreams(t *testing.T) {
   edInR, edInW := io.Pipe()
   edOutR, edOutW := io.Pipe()

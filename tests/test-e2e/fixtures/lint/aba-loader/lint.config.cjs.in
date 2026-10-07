@@ -1,0 +1,16 @@
+const fs = require("node:fs");
+const { registerHooks } = require("node:module");
+const { pathToFileURL } = require("node:url");
+const dependency = __TTSC_ABA_DEPENDENCY__;
+const dependencyURL = pathToFileURL(fs.realpathSync(dependency)).href;
+const before = "module.exports = { rules: { \"before/rule\": \"off\" } };\n";
+const during = "module.exports = { rules: { \"during/rule\": \"off\" } };\n";
+registerHooks({
+  load(url, context, nextLoad) {
+    if (url !== dependencyURL) return nextLoad(url, context);
+    fs.writeFileSync(dependency, during, "utf8");
+    try { return nextLoad(url, context); }
+    finally { fs.writeFileSync(dependency, before, "utf8"); }
+  },
+});
+module.exports = () => require(dependency);

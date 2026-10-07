@@ -1,14 +1,14 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { openHostWatchBridge } from "../../../../../packages/unplugin/lib/core/bridge/openHostWatchBridge.js";
-import { projectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/projectRecordFile.js";
-import { readProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/readProjectRecordFile.js";
-import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/lib/core/bridge/refreshProjectRecordFiles.js";
-import { signalProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/signalProjectRecordFile.js";
-import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/core/bridge/writeProjectRecordFile.js";
+import { openHostWatchBridge } from "../../../../../packages/unplugin/src/core/bridge/openHostWatchBridge";
+import { projectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/projectRecordFile";
+import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
+import { refreshProjectRecordFiles } from "../../../../../packages/unplugin/src/core/bridge/refreshProjectRecordFiles";
+import { signalProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/signalProjectRecordFile";
+import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/writeProjectRecordFile";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies a build start moves a project record it cannot read, with a watching
@@ -30,6 +30,15 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/lib/cor
  *    again, which still read as no record.
  * 3. Remove the file and signal it, as a start that listed it before another
  *    process removed it does, and assert it stays removed.
+ * 4. Signal readable records starting at zero and two finite values whose binary64
+ *    successor cannot be obtained by adding one. Each of two requests must move
+ *    bytes and preserve readable finite signal/project evidence; no particular
+ *    counter encoding or concurrent-writer uniqueness is required.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls record writing, signaling and refresh with and without openHostWatchBridge; asserts truncated records become bare signals, both refresh paths change those bytes while remaining unreadable, and signaling a removed file does not recreate it. Readable signal 0, 9007199254740992 and Number.MAX_VALUE each receive two requests; bytes must move each time while the record stays finite/readable with unchanged project proof.
+ * @evidence contracts/testing.md#independent-expectations An unreadable record cannot establish cache validity, so the watched signal must move at the next build start. Distinct raw bytes and undefined decoded records express that requirement without reconstructing the signal algorithm. Every finite signal is accepted by the disk schema, so large finite values cannot silently suppress invalidation; immediate before/after raw-byte inequality is the oracle, not a computed successor.
+ * @evidence contracts/testing.md#distinguishing-cases Owns half-written, bare-signal, bridge/no-bridge and removed-record states, plus ordinary zero, the first unsupported unit-increment magnitude and the maximum finite signal. Sequential byte movement does not certify cross-process receipt or atomic uniqueness. Quiet watch/poll seams retain no native handles and the bridge closes in finally; no host cache replay is exercised.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real writeProjectRecordFile, signalProjectRecordFile, readProjectRecordFile and refreshProjectRecordFiles (without and then with an openHostWatchBridge built on quiet seams) over a record file in a real temporary directory. No host cache or build is run.
  */
 export async function test_project_record_that_cannot_be_read_moves_at_a_build_start(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -42,6 +51,36 @@ export async function test_project_record_that_cannot_be_read_moves_at_a_build_s
   });
   const tool = path.join(root, ".ttsc");
   const record = projectRecordFile(tool, tsconfig);
+  for (const signal of [0, 9007199254740992, Number.MAX_VALUE]) {
+    writeProjectRecordFile(record, {
+      inputs: {},
+      membership: null,
+      root,
+      signal,
+      tsconfig,
+    });
+    const accepted = readProjectRecordFile(record);
+    assert.ok(accepted, "finite native JSON signals are supported records");
+    assert.equal(accepted.signal, signal);
+    let priorBytes = fs.readFileSync(record, "utf8");
+    for (let request = 0; request < 2; request++) {
+      signalProjectRecordFile(record);
+      const bytes = fs.readFileSync(record, "utf8");
+      assert.notEqual(
+        bytes,
+        priorBytes,
+        `signal ${signal}, request ${request}: each request moves observed bytes`,
+      );
+      const readable = readProjectRecordFile(record);
+      assert.ok(readable, "signaling preserves a readable record");
+      assert.equal(Number.isFinite(readable.signal), true);
+      assert.deepEqual(readable.inputs, {});
+      assert.equal(readable.membership, null);
+      assert.equal(readable.root, root);
+      assert.equal(readable.tsconfig, tsconfig);
+      priorBytes = bytes;
+    }
+  }
   writeProjectRecordFile(record, {
     inputs: {},
     membership: null,
@@ -76,6 +115,7 @@ export async function test_project_record_that_cannot_be_read_moves_at_a_build_s
       moved,
       "and so does a watching session's first pass",
     );
+    assert.equal(readProjectRecordFile(record), undefined);
   } finally {
     await bridge.close();
   }

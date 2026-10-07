@@ -10,16 +10,22 @@ import (
 // TestPropertyMemberEdgesRemainOwnerVisible verifies property-member nodes are
 // additive rather than replacing class/interface owner-level edges.
 //
-// Property nodes give MCP precise evidence for state/property flows, but broad
-// architecture questions still need `Service -> Dep` and `Service -> makeDep`
-// without already knowing `Service.dep`.
+// This authored class and interface require both property-level and owner-level
+// dependency triples. No MCP consumer or architecture-query result is observed,
+// and the assertions do not compare source spans or exact edge counts.
 //
 //  1. Compile a class property with both a type reference and initializer call,
 //     plus an interface property signature.
 //  2. Build the graph.
 //  3. Assert both the owner node and the property node expose the same
 //     dependency evidence.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies property-member nodes are additive rather than replacing class/interface owner-level edges.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over Service.dep and Contract.dep: the property nodes must exist and carry type-ref edges to Dep (and Service.dep a value-call edge to makeDep), and the owners Service and Contract must carry the same type-ref edges and Service the value-call edge, so adding property nodes does not remove owner-level edges.
+// @evidence contracts/testing.md#distinguishing-cases Compile a class property with both a type reference and initializer call, plus an interface property signature; Build the graph; Assert both the owner node and the property node expose the same dependency evidence.
+// @evidence contracts/testing.md#execution-ownership Owns temporary native config/source files and a directly loaded library Program, closes it, and restores an empty linked-plugin manifest. Build and six edge-presence observations run in this process; node selection shares the actual Program filename and nodeID encoder. No independent identity oracle, consumer installation, product CLI, MCP query, or emitted initializer execution runs.
 func TestPropertyMemberEdgesRemainOwnerVisible(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface Dep {

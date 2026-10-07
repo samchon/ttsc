@@ -5,6 +5,10 @@
  * @evidence contracts/common.md#clear-and-simple-design The envelope separates totals from layers, dependency hotspots and public API projections.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Facets carry graph observations rather than repository-name-based architecture guesses.
  * @evidence contracts/common.md#meaningful-documentation Native member comments describe each facet's ordering and the absolute project locator.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphOverview {
   /** Discriminator for source-free project overview. */
@@ -33,6 +37,10 @@ export namespace ITtscGraphOverview {
    * @evidence contracts/common.md#clear-and-simple-design One optional selector replaces independent flags for the same mutually selectable facets.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The request explicitly selects orientation; it does not rewrite a runtime-flow question into an overview.
    * @evidence contracts/common.md#meaningful-documentation The aspect comment states default behavior and explains which questions need other operations.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IRequest {
     /** Discriminator for source-free project overview. */
@@ -61,6 +69,10 @@ export namespace ITtscGraphOverview {
    * @evidence contracts/common.md#clear-and-simple-design Four aggregate fields carry counts without retaining the counted graph entries.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Counts include their documented structural populations rather than selected fixture totals.
    * @evidence contracts/common.md#meaningful-documentation Comments explain which containers and structural edges contribute to each total.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface ICounts {
     /** Number of source file container nodes. */
@@ -83,6 +95,10 @@ export namespace ITtscGraphOverview {
    * @evidence contracts/common.md#clear-and-simple-design Only the directory and its two aggregate populations are retained.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Folder names are coordinates, not hardcoded semantic layer classifications.
    * @evidence contracts/common.md#meaningful-documentation Comments state project-relative directory spelling and what each count includes.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface ILayer {
     /** Directory, project-relative. */
@@ -102,6 +118,10 @@ export namespace ITtscGraphOverview {
    * @evidence contracts/common.md#clear-and-simple-design The common coordinate is reused by hotspots and public API entries without embedded implementation text.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The record keeps stable identity instead of guessing a symbol from its display name.
    * @evidence contracts/common.md#meaningful-documentation Member comments identify stable follow-up handles, qualified names and one-based lines.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface INode {
     /** Stable handle for `details` or `trace`. */
@@ -127,6 +147,10 @@ export namespace ITtscGraphOverview {
    * @evidence contracts/common.md#clear-and-simple-design Extending the common node adds only incoming and outgoing counts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Connectivity is reported as graph structure, not a fixture-specific importance verdict.
    * @evidence contracts/common.md#meaningful-documentation The type and member comments explicitly distinguish non-structural fan-in and fan-out.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IHotspot extends INode {
     /** Non-structural edges pointing at this symbol. */
@@ -144,6 +168,10 @@ export namespace ITtscGraphOverview {
    * @evidence contracts/common.md#clear-and-simple-design A type alias avoids duplicating the identical INode record.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Selection exclusions concern source provenance, not named downstream projects.
    * @evidence contracts/common.md#meaningful-documentation The native paragraph explains ranking and excluded populations rather than restating the alias.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export type IPublicApi = INode;
 }

@@ -1,13 +1,10 @@
-import {
-  TtscCompiler,
-  assert,
-  createProject,
-  tsgo,
-  writeMalformedAdvisoryTransformPlugin,
-} from "../../internal/compiler";
+import assert from "node:assert/strict";
+
+import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/compiler/internal/parseNativeTransformOutput";
+import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEnvelopeFixture";
 
 /**
- * Verifies TtscCompiler.transform tolerates malformed `graph` and `volatile`
+ * Verifies native transform decoding tolerates malformed `graph` and `volatile`
  * envelope fields: invalid members are dropped, well-formed adjacency keys and
  * proof-failure reasons survive, and the transform itself never fails.
  *
@@ -17,23 +14,26 @@ import {
  * Whole-field validation would also be wrong — one malformed edge must not
  * discard the sound remainder of the graph.
  *
- * 1. Create a project whose fixture plugin prints an envelope mixing valid and
- *    malformed graph members plus an object-shaped volatile field.
- * 2. Call `transform()` via the programmatic API.
- * 3. Assert success, the surviving graph members, and no volatile list.
+ * 1. Serialize the shared malformedAdvisory envelope, whose graph carries empty
+ *    keys, non-list edges, a non-list globals, a non-string config and
+ *    malformed hash, observation, proof-failure and realpath entries, and whose
+ *    volatile is not a list.
+ * 2. Decode it with parseNativeTransformOutput, which must not throw.
+ * 3. Assert the retained graph deep-equals the literal expected value and volatile
+ *    is undefined.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Decodes mixed graph observations and checks the complete literal retained graph, malformed/conflicting proof-failure reasons and absent malformed volatile section.
+ * @evidence contracts/testing.md#independent-expectations Independently authored valid source edges, config path, SHA256-shaped content and missing-state observations define retained values; invalid booleans and mutually true file/directory observations define exact failure reasons.
+ * @evidence contracts/testing.md#distinguishing-cases One valid edge survives beside an invalid list and an all-invalid leaf that remains a node. Empty keys, malformed hash/realpath/reason entries and malformed volatile are filtered while valid missing-state/null witnesses remain.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput on in-memory JSON; graph metadata is only decoded here, not compared with the disk, and no native producer or host runs.
  */
 export const test_ttsccompiler_transform_drops_malformed_graph_members_and_volatile =
   () => {
-    const root = createProject({
-      plugins: [{ transform: "./plugin.cjs" }],
-      source: 'export const value = goUpper("plugin");\nconsole.log(value);\n',
-    });
-    writeMalformedAdvisoryTransformPlugin(root);
-    const compiler = new TtscCompiler({ binary: tsgo, cwd: root });
+    const result = parseNativeTransformOutput(
+      JSON.stringify(NativeTransformEnvelopeFixture.malformedAdvisory),
+      "",
+    );
 
-    const result = compiler.transform();
-
-    assert.equal(result.type, "success");
     assert.deepEqual(result.graph, {
       configs: ["tsconfig.json"],
       edges: {

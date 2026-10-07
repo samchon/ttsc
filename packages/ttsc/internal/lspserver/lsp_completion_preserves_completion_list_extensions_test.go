@@ -6,15 +6,23 @@ import (
   "testing"
 )
 
-// TestLSPCompletionPreservesCompletionListExtensions verifies lossless merging.
+// TestLSPCompletionPreservesCompletionListExtensions checks selected JSON members.
 //
-// TypeScript-Go uses CompletionList.itemDefaults, and newer protocol versions
-// may add more list-level fields. Decoding into a closed local struct silently
-// removed those fields whenever a plugin contributed even one completion.
+// An authored CompletionList supplies defaults, merge apply kinds and an
+// extension field. Assertions compare decoded JSON values, not verbatim bytes
+// or every item field. No TypeScript-Go response producer runs here.
 //
 //  1. Build an upstream CompletionList with itemDefaults, applyKind, and a future field.
 //  2. Merge one plugin completion.
-//  3. Assert every upstream list field and both items survive.
+//  3. Assert itemDefaults, the future field, and isIncomplete retain their values,
+//     the upstream item receives the defaults it relied on, and applyKind is
+//     rewritten to replace (1) because those defaults are now materialized into
+//     each item and must not merge a second time.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual mergeCompletionResponse retains the decoded values of itemDefaults, x-future and isIncomplete, rewrites the two applyKind members to replace (1), and returns two items. Literal checks distinguish upstream commit-character union and item-over-default data from the plugin's empty commit characters and private data marker. Other item fields and serialized byte identity are not asserted.
+// @evidence contracts/testing.md#independent-expectations The expected JSON members are literals written from the upstream CompletionList body.
+// @evidence contracts/testing.md#distinguishing-cases A closed local struct would drop the future field; the defaults-materialization and applyKind rewrite are separate assertions.
+// @evidence contracts/testing.md#execution-ownership This Go unit directly invokes the actual package-local merge function with authored JSON bytes and a supplied item, then compares selected decoded members to independent literal JSON. It substitutes no operation and creates no directory or sidecar; no compiler, process, installed consumer or product host runs.
 func TestLSPCompletionPreservesCompletionListExtensions(t *testing.T) {
   body := []byte(`{
     "jsonrpc":"2.0",

@@ -10,20 +10,19 @@ import { make } from "../internal/make";
  * Given operand `promise`, the printer emits:
  *
  * ```ts
- * await promise
+ * await promise;
  * ```
  *
  * Callers establish that await is allowed in the enclosing function or module.
  * Constructing the outline neither waits nor checks that context.
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param expression The awaited expression.
+ * @returns The created {@link AwaitExpression}.
  * @evidence contracts/common.md#principled-implementation The await kind and unchanged operand record awaiting syntax; enclosing-context legality remains a caller premise and no scheduling occurs during construction.
  * @evidence contracts/common.md#clear-and-simple-design One operand feeds make without promise state, scheduling helpers or duplicate keyword tokens.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The builder does not monkey-patch a promise or substitute a known fulfilled value for its operand.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains emission and enclosing-context ownership, with parameter, example and tag separation following documentation guidance.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param expression The awaited expression.
- * @returns The created {@link AwaitExpression}.
  */
 export const createAwaitExpression = (
   expression: Expression,

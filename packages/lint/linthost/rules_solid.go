@@ -14,22 +14,10 @@ type solidRule struct {
 
 func (r solidRule) Name() string { return "solid/" + r.name }
 
-// DiagnosticTags marks `solid/no-react-deps` findings as unnecessary code so an
-// editor greys the dependency array out.
-//
-// The rule reports the dependency-array literal and nothing around it, and
-// Solid tracks dependencies automatically, so the array is inert: deleting
-// exactly the reported range is the whole resolution, which is what greying
-// tells the author to do.
-//
-// The marker is rule-level, so a rule whose findings do not all mean "delete
-// this" cannot take it. `solid/no-react-specific-props` is the near miss — its
-// `key` arm does mean deletion, but its `className` and `htmlFor` arms mean
-// "rename this", and one tag cannot say both.
+// DiagnosticTags leaves these findings untagged. Evaluating a dependency array
+// can call functions, read getters or throw. The rule does not prove those
+// effects are absent, so its rule-wide tag cannot promise safe deletion.
 func (r solidRule) DiagnosticTags() []publicrule.DiagnosticTag {
-  if r.name == "no-react-deps" {
-    return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
-  }
   return nil
 }
 func (r solidRule) NeedsTypeChecker() bool {
@@ -752,15 +740,15 @@ func (s *solidState) reportReactSpecificProps(ctx *Context) {
 
 // solidAttrRenameEdits rewrites a JSX attribute's name token and nothing else.
 //
-// `className` and `class` mean the same thing to a Solid DOM element, as do
-// `htmlFor` and `for`, so the rename is a pure 1:1 substitution and safe to
-// impose. Leaving the value untouched is what makes it safe for every value
-// shape at once: a string, an expression container, and a shorthand boolean
-// attribute all keep whatever follows the name.
+// Solid's DOM aliases map `className` to `class` and `htmlFor` to `for`.
+// The edit preserves the source following the name, including string,
+// expression-container and shorthand-boolean attribute shapes. This helper
+// does not evaluate the attribute or establish rendered equivalence for every
+// possible value and surrounding prop combination.
 //
-// The `key` arm has no counterpart here on purpose. Solid DOM elements do not
-// consume `key` at all, so the resolution is deletion, not a rename, and the
-// deletion has to take the surrounding whitespace with it to leave valid JSX.
+// The `key` arm has no counterpart here: the caller reports React-style `key`
+// without offering a rename or deletion. It does not prove that the DOM cannot
+// expose a `key` attribute.
 //
 // Returns nil when the name token cannot be located, which downgrades the
 // caller to a plain diagnostic.
@@ -813,9 +801,9 @@ func (s *solidState) reportReactDeps(ctx *Context) {
 }
 
 // solidTrackedCallName returns the canonical Solid name only when the call is
-// proven to come from a Solid module binding. The rule carries an
-// `Unnecessary` tag, so a same-named local helper cannot be treated as a Solid
-// primitive merely because the file imports some other Solid symbol.
+// proven to come from a Solid module binding. A same-named local helper cannot
+// be treated as a Solid primitive merely because the file imports another Solid
+// symbol. Findings remain untagged because argument evaluation can have effects.
 func (s *solidState) solidTrackedCallName(ctx *Context, call *shimast.CallExpression) string {
   if ctx == nil || call == nil {
     return ""

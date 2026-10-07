@@ -1,5 +1,5 @@
-import type { TtscEvidenceGraphMarkdownSymbol } from "../typings/TtscEvidenceGraphMarkdownSymbol";
 import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase";
+import type { TtscEvidenceGraphMarkdownSymbol } from "./TtscEvidenceGraphMarkdownSymbol";
 
 /**
  * A population of Markdown documents claiming its referenced evidence.

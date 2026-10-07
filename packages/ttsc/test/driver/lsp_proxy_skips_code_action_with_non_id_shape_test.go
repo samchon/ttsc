@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySkipsCodeActionWithNonIDShape verifies invalid JSON-RPC ids are
+// TestLSPProxySkipsCodeActionWithNonIDShape Verifies invalid JSON-RPC ids are
 // not remembered for augmentation.
 //
 // LSP request ids may be strings or numbers. If an editor sends a non-id shape,
@@ -18,6 +18,11 @@ import (
 // 2. Send a codeAction request with a boolean id.
 // 3. Send the matching upstream response.
 // 4. Assert the response is forwarded unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run preserves a boolean-id action response without augmentation.
+// @evidence contracts/testing.md#independent-expectations JSON-RPC ids must be strings or numbers; authored bytes establish pass-through equality.
+// @evidence contracts/testing.md#distinguishing-cases A boolean id with an available plugin action is covered; other invalid shapes are separate.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxySkipsCodeActionWithNonIDShape in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxySkipsCodeActionWithNonIDShape(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions: []driver.LSPCodeAction{{Title: "should-not-appear"}},

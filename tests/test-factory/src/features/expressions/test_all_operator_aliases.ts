@@ -1,17 +1,29 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression } from "@ttsc/factory";
 
+import factory, {
+  type Expression,
+} from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
 
 const a = () => id("a");
 const b = () => id("b");
 
 /**
- * Exhaustively print every convenience operator alias.
+ * Verifies Exhaustively print every convenience operator alias.
  *
  * Each binary / prefix / postfix helper is exercised once, confirming it
  * delegates to the right operator token — full structural coverage of the alias
  * surface.
+ *
+ * 1. All binary, prefix and postfix convenience aliases emit the operator assigned
+ *    to that alias while retaining a/b operands.
+ * 2. The explicit alias-to-source table specifies operator tokens independently;
+ *    no expected text is obtained by printing a generic binary node.
+ *
+ * @evidence contracts/testing.md#behavioral-verification All binary, prefix and postfix convenience aliases emit the operator assigned to that alias while retaining a/b operands.
+ * @evidence contracts/testing.md#independent-expectations The explicit alias-to-source table specifies operator tokens independently; no expected text is obtained by printing a generic binary node.
+ * @evidence contracts/testing.md#distinguishing-cases Arithmetic, equality, logical, bitwise, shift, assignment, prefix and postfix rows distinguish wrong alias wiring; comma spacing has a separate case.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_all_operator_aliases. Calls each of the 24 binary, 6 prefix and 2 postfix factory aliases on fresh identifiers a and b and prints the result; each row is its own TestValidator.equals whose title is the expected source text, so a failing row is identified by that text.
  */
 export const test_all_operator_aliases = (): void => {
   const binary: [(l: Expression, r: Expression) => Expression, string][] = [

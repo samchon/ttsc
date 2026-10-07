@@ -17,6 +17,9 @@ import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit filename/dirname fields are the supported descriptor boundary for both module modes; they avoid substituting globals or consumer-specific path repairs.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains each path's origin, generated-wrapper overrides and the descriptor factory's limited responsibility; member spacing, paragraphs and separation before tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Explicit native descriptor and project path anchors support OS-neutral path resolution without deriving them from URL text, POSIX separator splitting or CommonJS-only globals. Invocation cwd, project root and config origin keep their separate identities across generated wrappers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
   /**

@@ -13,8 +13,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerRebuiltDecoratorReferenceKeepsItsBinding covers
-// the dangling-alias crash on the shape ttsc's own plugin lane was built for.
+// TestEmitWithPluginTransformerRebuiltDecoratorReferenceKeepsItsBinding Verifies a rebuilt
+// decorator reference retains its dependency binding after decorator lowering.
 //
 // Rewriting a decorator call on a controller method is the canonical ttsc
 // transform, named as the example in restoreOriginalDeclarationSymbols itself,
@@ -36,6 +36,11 @@ import (
 //     fresh `Route` identifier to the parse-tree one.
 //  3. Assert the decorator is aliased AND that the alias names a require
 //     binding the emitted file actually declares.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs an actual original-linked decorator-reference rebuild, requires that rebuild occurred and a legacy decorator helper application remains, and checks Route alias plus its matching ./dep require declaration.
+// @evidence contracts/testing.md#independent-expectations Authored Route and ./dep independently define the binding/use relationship; extracted generated alias only correlates the same declared binding.
+// @evidence contracts/testing.md#distinguishing-cases Legacy decorator reference moves into a helper application, contrasting a normal imported expression; rebuild occurrence prevents plain emission from passing.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes an actual emit visitor/compiler and captures output with private Program cleanup; it inspects linkage without executing generated JavaScript.
 func TestEmitWithPluginTransformerRebuiltDecoratorReferenceKeepsItsBinding(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -62,6 +67,7 @@ func TestEmitWithPluginTransformerRebuiltDecoratorReferenceKeepsItsBinding(t *te
   }
   defer prog.Close()
 
+  rebuilt := false
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -72,6 +78,7 @@ func TestEmitWithPluginTransformerRebuiltDecoratorReferenceKeepsItsBinding(t *te
         call := node.AsCallExpression()
         if call.Expression != nil && call.Expression.Kind == shimast.KindIdentifier &&
           call.Expression.Text() == "Route" {
+          rebuilt = true
           synRoute := ec.Factory.NewIdentifier("Route")
           ec.SetOriginal(synRoute, call.Expression)
           return ec.Factory.NewCallExpression(
@@ -91,8 +98,14 @@ func TestEmitWithPluginTransformerRebuiltDecoratorReferenceKeepsItsBinding(t *te
   }); err != nil {
     t.Fatal(err)
   }
+  if !rebuilt {
+    t.Fatal("plugin never rebuilt the authored reference")
+  }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)
+  if !strings.Contains(js, "__decorate([") {
+    t.Fatalf("legacy decorator helper application missing:\n%s", js)
+  }
 
   // The legacy decorator lowering emits the aliased callee through a comma
   // expression, `(0, dep_1.Route)()`, so match the alias itself rather than a

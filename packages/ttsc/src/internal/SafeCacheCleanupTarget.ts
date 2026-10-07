@@ -13,6 +13,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Terminal links retain their own deletion spelling rather than pretending removal follows their target; absence remains an observed boolean and does not bypass the resolver's project/root protection.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the producing validation, plan-versus-snapshot limitation and each field's use, with documented-member and tag spacing following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The representation carries physically pinned native paths and distinguishes terminal symlink/junction deletion from requested lexical reporting; the shared resolver, not platform-name string rules in this DTO, owns alias and case interpretation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface SafeCacheCleanupTarget {
   /**

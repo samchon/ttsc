@@ -9,14 +9,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerFoldsContextCanceledRunner pins the context.Canceled
-// continue branch in RunLSPServer's error fold. A runner that returns
-// context.Canceled must not surface as an error — editor shutdown should
-// look like clean nil to the caller.
+// TestLSPServerFoldsContextCanceledRunner Verifies that RunLSPServer folds context.Canceled from its runner into nil.
+//
+// Immediate editor EOF and cancelled-runner completion exercise the fold.
 //
 // 1. Substitute an upstream runner that returns context.Canceled.
 // 2. Drive editor pipes that close immediately.
 // 3. Assert RunLSPServer returns nil.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer folds context.Canceled from its runner into nil.
+// @evidence contracts/testing.md#independent-expectations The injected runner returns the standard cancellation sentinel independently of orchestration.
+// @evidence contracts/testing.md#distinguishing-cases Immediate editor EOF and cancelled-runner completion exercise the fold.
+// @evidence contracts/testing.md#execution-ownership The public Go server uses an injected runner and private pipes and joins its done result. Go discovers TestLSPServerFoldsContextCanceledRunner under ./test/driver.
 func TestLSPServerFoldsContextCanceledRunner(t *testing.T) {
   runner := func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
     return context.Canceled

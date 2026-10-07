@@ -11,7 +11,9 @@ import { realPath } from "./realPath";
  *
  * A direct ttsx child inherits one manifest through `TTSX_RUNTIME_MANIFEST`;
  * `ttsc/register` adds one per root it prepares. The inherited manifest is read
- * lazily, once per process.
+ * lazily within this registry module instance. Successful or ordinary absent
+ * decoding is memoized; recognizable invalid-provenance errors are not cached
+ * and a later call repeats the read.
  *
  * An inherited manifest without actual emit provenance cannot be recovered from
  * this process's unknown preparation inputs and is rejected explicitly.
@@ -24,9 +26,9 @@ import { realPath } from "./realPath";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ownership follows recorded builds and filesystem identity, not basename guesses or a fallback to unchecked source execution.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain inherited versus discovered roots, caller-independent admission, lookup precedence and immutable-build index reuse; members remain separately documented without property tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native fs reads and the shared real-path resolver feed EmitOwnershipIndex's filesystem identity boundary; protocol output separators remain manifest data rather than native case assumptions.
- * @evidence contracts/performance.md#efficient-algorithms Lookup scans M manifests in ownership order and delegates each output lookup to its per-build index; environment JSON is decoded once rather than per import.
+ * @evidence contracts/performance.md#efficient-algorithms Admission copies and validates output/provenance/refusal entries and path text; inherited decoding reads uncapped JSON bytes and snapshots metadata. Lookup scans M manifests and delegates first-use index construction and native query work. Successful/ordinary absent environment decoding is memoized, while invalid-provenance throws can repeat those costs.
  * @evidence contracts/performance.md#reuse-equivalent-work Each admitted build has an owned frozen metadata snapshot and one WeakMap index; the ordered manifest view is shared until another admission invalidates it, while newly prepared roots receive distinct snapshots and indexes.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The process retains its inherited snapshot and every registered root until exit; registered roots and their lookup state grow with discovered projects, with no eviction while imports may still need their checked emits.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This registry instance retains its inherited snapshot, every registered root and ordered view without eviction; metadata/provenance/refusal bytes and index state grow with preparations while the instance remains reachable. It owns no directory handle or artifact deletion policy.
  */
 export namespace RuntimeManifestRegistry {
   let environmentManifestCache: RuntimeManifest | null | undefined;
@@ -54,9 +56,9 @@ export namespace RuntimeManifestRegistry {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Only owned copies are frozen; neither a foreign object mutation nor a filename-based fallback supplies missing build provenance.
    * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain copying, order, caller mutation, validation failure and the distinction between representation and trustworthy producer observations.
    * @evidence contracts/portability.md#os-neutral-implementation Admission preserves validated native path strings exactly; absolute filename grammar is delegated to RuntimeEmitProvenance without case folding or separator conversion.
-   * @evidence contracts/performance.md#efficient-algorithms One copy visits output names and provenance associations once in O(O + S) entries; one new snapshot is appended without rescanning older builds.
+   * @evidence contracts/performance.md#efficient-algorithms Snapshot copying and validation visit output, provenance/source and refusal entries, with path/text processing and temporary entry-pair/array allocations. One snapshot is appended without rescanning older builds; fixed top-level field count does not bound association bytes.
    * @evidence contracts/performance.md#reuse-equivalent-work An admitted snapshot supplies one stable identity to every ownership lookup; admission invalidates only the combined manifest view, and never reuses a previous build's callback result as a new preparation.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The registry retains one owned metadata snapshot per preparation until exit, growing with the recorded builds and associations; caller arrays are not retained and no native handle is acquired.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources This registry instance retains one owned metadata snapshot per preparation without eviction, growing with output/provenance/refusal entries and text while reachable. Supported caller arrays are copied rather than retained, and no native handle is acquired.
    */
   export function registerManifest(manifest: RuntimeManifest): void {
     const captured = snapshotManifest(manifest);
@@ -114,10 +116,10 @@ export namespace RuntimeManifestRegistry {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The accessor supplies only the supported inherited and registered lanes and does not invent an unchecked fallback manifest.
    * @evidence contracts/common.md#meaningful-documentation Native prose defines ordering, unreadable/malformed absence, explicit missing-provenance failure and frozen-view lifetime rather than merely repeating the return type.
    * @evidence contracts/portability.md#os-neutral-implementation The inherited path is read through Node fs; returned manifests retain native build paths and protocol output spelling without separator or case conversion here.
-   * @evidence contracts/performance.md#efficient-algorithms Constructing the ordered view costs O(M) only after registration invalidates it; repeated access returns the same view without decoding JSON, rescanning directories or copying the list again.
-   * @evidence contracts/performance.md#reuse-equivalent-work Lazy decoding shares the inherited owned snapshot for the process; registration invalidates the ordered view so subsequent calls include each new preparation without changing earlier build metadata.
+   * @evidence contracts/performance.md#efficient-algorithms View construction copies M manifest references on first access or after registration invalidates it. First inherited decoding also reads uncapped JSON and validates/copies entry/path text; successful or ordinary absent decoding is memoized, but recognizable invalid-provenance throws repeat the read on later calls.
+   * @evidence contracts/performance.md#reuse-equivalent-work Lazy decoding shares successful or ordinary absent inherited state within this module instance, not a process-wide registry singleton. Registration invalidates the ordered view without changing earlier snapshots; rejected provenance is not memoized.
    *
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This accessor returns the registry-owned manifests and owns no separate retained index, descriptor or task; the namespace defines their process lifetime.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources First access acquires the instance-owned inherited snapshot/absence and frozen ordered view; registration replaces the view while callers may retain older returned arrays. Current metadata stays registry-owned without eviction, and this accessor opens no retained descriptor or running task.
    */
   export function runtimeManifests(): readonly RuntimeManifest[] {
     const inherited = environmentManifest();
@@ -137,16 +139,18 @@ export namespace RuntimeManifestRegistry {
    * root, requires the ownership index's actual compiler output-to-source
    * observations and physical source identity. A file no manifest compiled gets
    * `null` and belongs to another lane, however many emitted files share its
-   * name (samchon/ttsc#1382).
+   * name. Producer observations and immutable emit are trusted preparation
+   * premises, not authenticated current contents; unavailable or ambiguous
+   * provenance and native identity failures can throw rather than return null.
    *
    * @evidence contracts/common.md#principled-implementation A prepared entry gets first ownership lookup, but every match must come from actual emitted-source observations in its build index; neither recorded entry filenames nor matching output stems prove source membership.
    * @evidence contracts/common.md#clear-and-simple-design Two explicit passes separate entry precedence from general build ownership, with one index helper owning memoized reverse mapping.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No basename fallback or unchecked-file substitution stands in for proof that a selected manifest compiled the requested source.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states prepared-entry precedence, required actual emit provenance and the null lane decision, separated from tags following the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states prepared-entry precedence, trusted preparation premises, null lane selection and possible provenance/native identity exceptions without certifying current contents.
    * @evidence contracts/portability.md#os-neutral-implementation realPath selects prepared-entry precedence and EmitOwnershipIndex establishes native source identity from the compiler observation; filename existence and OS-name case folding cannot certify ownership.
-   * @evidence contracts/performance.md#efficient-algorithms Two O(M) manifest passes enforce precedence without sorting; each lookup resolves current native source identity and uses the shared build's preindexed source associations.
+   * @evidence contracts/performance.md#efficient-algorithms Two manifest passes enforce precedence without sorting, adding entry realpath and native source-query/text work. First use constructs each index from output/provenance/refusal entries with native output identity observations; inherited read/snapshot costs also apply before the passes. Later queries reuse that association index, not its native alias observations.
    * @evidence contracts/performance.md#reuse-equivalent-work Immutable prepared emit permits one preindexed association record per manifest across import specifiers; query aliases remain fresh and a newly prepared build supplies a distinct manifest identity.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The WeakMap stores indexes for retained manifest objects; registered roots keep their captured source associations until exit, with population proportional to prepared builds and their provenance rather than queried spelling history.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources WeakMap indexes follow retained manifest objects; this registry instance keeps registered snapshots and their association/refusal text without eviction while reachable. Current alias observations are call-local rather than a queried-spelling history; artifact storage and immutable-retention policy belong to preparation owners.
    */
   export function findEntryEmit(real: string): {
     /** Proven owning output; a later missing file remains an output read error. */
@@ -179,9 +183,10 @@ export namespace RuntimeManifestRegistry {
 
   /**
    * The ownership index of one manifest's build, created on first use. The
-   * entry emit is written once before the run starts and never changes under
-   * it, so preindexed output-to-source associations can serve every import
-   * specifier. Query aliases are still resolved afresh by the index.
+   * association record and immutable emit are trusted preparation premises, so
+   * one index can serve multiple import specifiers; this cache does not
+   * authenticate external artifact mutation. Query aliases are still resolved
+   * afresh by the index.
    */
   function ownershipIndex(manifest: RuntimeManifest): EmitOwnershipIndex {
     let index = ownershipIndexes.get(manifest);

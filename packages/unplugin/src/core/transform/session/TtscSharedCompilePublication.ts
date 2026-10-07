@@ -11,8 +11,23 @@ import type { ITtscCompilerTransformation } from "ttsc";
  *
  * @evidence contracts/common.md#principled-implementation A publication carries compiler output plus the publisher's external-input hashes and physical identities, allowing an adopter to prove the original compile rather than its later reading alone.
  * @evidence contracts/common.md#clear-and-simple-design The envelope and scratch-path context are retained together; the shape does not duplicate the compiler transformation schema.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Publication does not certify an unproven result or substitute a transient exception for stable compiler diagnostics; callers own proof before adoption.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   The carrier alone certifies no reusable result. Publication producers omit
+ *   transient exceptions, store readers reject them, and adopters own proof.
  * @evidence contracts/common.md#meaningful-documentation Member comments explain external-input proof and why vanished publisher scratch paths remain semantically relevant.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Carries the publisher's native external identity witnesses and scratch/config
+ *   spellings across workers. Adopters preserve those exclusions and validate
+ *   their current filesystem; vanished scratch paths are not live local handles.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscSharedCompilePublication only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscSharedCompilePublication only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscSharedCompilePublication only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscSharedCompilePublication {
   /**

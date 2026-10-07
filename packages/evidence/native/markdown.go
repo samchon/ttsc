@@ -1,16 +1,18 @@
 package evidence
 
 import (
-  "io/fs"
-  "os"
-  "path/filepath"
-  "regexp"
-  "strings"
-  "unicode"
+	"io/fs"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"unicode"
 )
 
-var markdownCommentPattern = regexp.MustCompile(`(?s)<!--(.*?)-->`)
 var explicitAnchorPattern = regexp.MustCompile(`\s*\{#([A-Za-z0-9][A-Za-z0-9._:-]*)\}\s*$`)
+
+// preElementPattern matches an opening `<pre` tag on a lowered line, whose name
+// ends at whitespace, `>`, or the end of the line.
+var preElementPattern = regexp.MustCompile(`<pre(?:[\s>]|$)`)
 
 // loadMarkdownInventories reads every configured Markdown population, once per
 // distinct base.
@@ -21,362 +23,478 @@ var explicitAnchorPattern = regexp.MustCompile(`\s*\{#([A-Za-z0-9][A-Za-z0-9._:-
 // between them. Two populations sharing a base share one walk, so the cost
 // tracks the roots an author declared rather than the populations they wrote.
 func loadMarkdownInventories(
-  root string,
-  config graphConfig,
+	root string,
+	config graphConfig,
 ) (map[string]*artifactInventory, graphDiagnostics) {
-  inventories := map[string]*artifactInventory{}
-  problems := graphDiagnostics{}
-  for _, base := range configuredBases(config, artifactMarkdown) {
-    problems = append(
-      problems,
-      loadMarkdownBase(base, config, inventories)...,
-    )
-  }
-  return inventories, problems
+	inventories := map[string]*artifactInventory{}
+	problems := graphDiagnostics{}
+	for _, base := range configuredBases(config, artifactMarkdown) {
+		problems = append(
+			problems,
+			loadMarkdownBase(base, config, inventories)...,
+		)
+	}
+	return inventories, problems
 }
 
 func loadMarkdownBase(
-  base populationBase,
-  config graphConfig,
-  inventories map[string]*artifactInventory,
+	base populationBase,
+	config graphConfig,
+	inventories map[string]*artifactInventory,
 ) graphDiagnostics {
-  problems := graphDiagnostics{}
-  severity := populationSeverity(config, artifactMarkdown, base, "", "*", false)
-  if problem := baseDirectoryProblem(base, artifactMarkdown); problem != "" {
-    recordPopulationFailure(inventories, artifactMarkdown, base)
-    return problems.add(severity, problem)
-  }
-  from, resolved := resolvedBaseDirectory(base)
-  if !resolved {
-    recordPopulationFailure(inventories, artifactMarkdown, base)
-    return problems.add(severity, unresolvedBaseProblem(base, artifactMarkdown))
-  }
-  err := filepath.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
-    if walkErr != nil {
-      // The walk root belongs to its population by construction, so a failure
-      // to list it is a failure of the population and is never decided by what
-      // the globs happen to select. The relevance test below answers for an
-      // entry inside the base, and it answers for the base itself only by
-      // accident: its base-relative path is ".", which `couldMatchDescendant`
-      // calls true under a pattern opening with `**` and false under one
-      // opening with a segment. So the one failure that empties the whole
-      // population was reported or discarded by the shape of the globs. The
-      // success branch already exempts the base; this is that exemption on the
-      // error side.
-      //
-      // Returning the error ends the walk and carries the failure to the
-      // handler below, which is where a population-level finding belongs and
-      // where the population is recorded failed rather than healthy and empty.
-      if current == from {
-        return walkErr
-      }
-      problem, relevant := unreadableEntryProblem(
-        base,
-        from,
-        "Markdown",
-        current,
-        walkErr,
-        func(relative string) bool {
-          return matchesConfiguredMarkdownFile(config, base, relative) ||
-            couldContainConfiguredMarkdown(config, base, relative)
-        },
-      )
-      if relevant {
-        recordPopulationFailure(inventories, artifactMarkdown, base)
-        relative, _ := relativeProjectPath(from, current)
-        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, "*", true), problem)
-      }
-      // `WalkDir` passes a nil entry only for its root, which the guard above
-      // answers, so this error belongs to a directory whose listing failed and
-      // the walk continues with its siblings.
-      return filepath.SkipDir
-    }
-    if entry.IsDir() {
-      if current != from {
-        relative, ok := relativeProjectPath(from, current)
-        if !ok || !couldContainConfiguredMarkdown(config, base, relative) {
-          return filepath.SkipDir
-        }
-      }
-      return nil
-    }
-    relative, ok := relativeProjectPath(from, current)
-    if !ok {
-      return nil
-    }
-    if !matchesConfiguredMarkdownFile(config, base, relative) {
-      return nil
-    }
-    severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
-    address := base.addressOf(relative)
-    content, readErr := os.ReadFile(current)
-    if readErr != nil {
-      inventories[address.Key] = &artifactInventory{
-        Path:       address.Display,
-        Type:       artifactMarkdown,
-        LoadFailed: true,
-      }
-      problems = problems.add(
-        severity,
-        "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.",
-      )
-      return nil
-    }
-    inventory, _ := scanMarkdownInventory(address, string(content))
-    inventories[address.Key] = inventory
-    for _, inventoryProblem := range inventory.Problems {
-      if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
-        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, inventoryProblem.Symbol, false), inventoryProblem.Message)
-      }
-    }
-    // An unreadable tag is not a health question and not a symbol question
-    // either: the file loaded, its units are complete, and the tag reaches no
-    // host whichever symbol a reference selects. The walk already refuses a
-    // path no configured glob takes, so reaching here is enough to report.
-    problems = problems.add(severity, inventory.Unreadable...)
-    return nil
-  })
-  if err != nil {
-    recordPopulationFailure(inventories, artifactMarkdown, base)
-    problems = problems.add(severity, unlistableBaseProblem(base, "Markdown", err))
-  }
-  return problems
+	problems := graphDiagnostics{}
+	severity := populationSeverity(config, artifactMarkdown, base, "", "*", false)
+	if problem := baseDirectoryProblem(base, artifactMarkdown); problem != "" {
+		recordPopulationFailure(inventories, artifactMarkdown, base)
+		return problems.add(severity, problem)
+	}
+	from, resolved := resolvedBaseDirectory(base)
+	if !resolved {
+		recordPopulationFailure(inventories, artifactMarkdown, base)
+		return problems.add(severity, unresolvedBaseProblem(base, artifactMarkdown))
+	}
+	err := base.inputs.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			// The walk root belongs to its population by construction, so a failure
+			// to list it is a failure of the population and is never decided by what
+			// the globs happen to select. The relevance test below answers for an
+			// entry inside the base, and it answers for the base itself only by
+			// accident: its base-relative path is ".", which `couldMatchDescendant`
+			// calls true under a pattern opening with `**` and false under one
+			// opening with a segment. So the one failure that empties the whole
+			// population was reported or discarded by the shape of the globs. The
+			// success branch already exempts the base; this is that exemption on the
+			// error side.
+			//
+			// Returning the error ends the walk and carries the failure to the
+			// handler below, which is where a population-level finding belongs and
+			// where the population is recorded failed rather than healthy and empty.
+			if current == from {
+				return walkErr
+			}
+			problem, relevant := unreadableEntryProblem(
+				base,
+				from,
+				"Markdown",
+				current,
+				walkErr,
+				func(relative string) bool {
+					return matchesConfiguredMarkdownFile(config, base, relative) ||
+						couldContainConfiguredMarkdown(config, base, relative)
+				},
+			)
+			if relevant {
+				recordPopulationFailure(inventories, artifactMarkdown, base)
+				relative, _ := relativeProjectPath(from, current)
+				problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, "*", true), problem)
+			}
+			// `WalkDir` passes a nil entry only for its root, which the guard above
+			// answers, so this error belongs to a directory whose listing failed and
+			// the walk continues with its siblings.
+			return filepath.SkipDir
+		}
+		if entry.IsDir() {
+			if current != from {
+				relative, ok := relativeProjectPath(from, current)
+				if !ok || !couldContainConfiguredMarkdown(config, base, relative) {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		relative, ok := relativeProjectPath(from, current)
+		if !ok {
+			return nil
+		}
+		if !matchesConfiguredMarkdownFile(config, base, relative) {
+			return nil
+		}
+		severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
+		address := base.addressOf(relative)
+		content, readErr := base.inputs.ReadFile(current)
+		if readErr != nil {
+			inventories[address.Key] = &artifactInventory{
+				Path:       address.Display,
+				Type:       artifactMarkdown,
+				LoadFailed: true,
+			}
+			problems = problems.add(
+				severity,
+				"Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.",
+			)
+			return nil
+		}
+		inventory, _ := scanMarkdownInventory(address, string(content))
+		inventories[address.Key] = inventory
+		for _, inventoryProblem := range inventory.Problems {
+			if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
+				problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, inventoryProblem.Symbol, false), inventoryProblem.Message)
+			}
+		}
+		// An unreadable tag is not a health question and not a symbol question
+		// either: the file loaded, its units are complete, and the tag reaches no
+		// host whichever symbol a reference selects. The walk already refuses a
+		// path no configured glob takes, so reaching here is enough to report.
+		problems = problems.add(severity, inventory.Unreadable...)
+		return nil
+	})
+	if err != nil {
+		recordPopulationFailure(inventories, artifactMarkdown, base)
+		problems = problems.add(severity, unlistableBaseProblem(base, "Markdown", err))
+	}
+	return problems
 }
 
 func scanMarkdownInventory(
-  address artifactAddress,
-  content string,
+	address artifactAddress,
+	content string,
 ) (*artifactInventory, []string) {
-  // The target is the path inside the population's base, while the location is
-  // the path a reader opens. They are the same string for a project-rooted
-  // population and deliberately differ for a rooted one: a citation that keeps
-  // working when the document set is adopted by a sibling package cannot carry
-  // that package's distance from the documents.
-  path := address.Relative
-  inventory := &artifactInventory{
-    Path: address.Display,
-    Type: artifactMarkdown,
-  }
-  problems := []string{}
-  targetablePath := !containsWhitespace(path)
-  fileUnitID := ""
-  if targetablePath {
-    fileUnitID = "markdown:" + address.Key + ":file"
-    inventory.Units = append(inventory.Units, &evidenceUnit{
-      ID:       fileUnitID,
-      Target:   path,
-      Type:     artifactMarkdown,
-      Symbol:   "file",
-      Path:     address.Display,
-      Line:     1,
-      Readable: "Markdown file",
-    })
-  } else {
-    problem := "Markdown file '" + address.Display + "' cannot form an evidence target because its path contains whitespace. Rename the file so '@evidence <target> <reason>' can represent its path as one target token."
-    problems = append(problems, problem)
-    inventory.Problems = append(inventory.Problems, inventoryProblem{
-      Symbol:  "*",
-      Message: problem,
-    })
-  }
+	// The target is the path inside the population's base, while the location is
+	// the path a reader opens. They are the same string for a project-rooted
+	// population and deliberately differ for a rooted one: a citation that keeps
+	// working when the document set is adopted by a sibling package cannot carry
+	// that package's distance from the documents.
+	path := address.Relative
+	inventory := &artifactInventory{
+		Path: address.Display,
+		Type: artifactMarkdown,
+	}
+	problems := []string{}
+	targetablePath := !containsWhitespace(path)
+	fileUnitID := ""
+	if targetablePath {
+		fileUnitID = "markdown:" + address.Key + ":file"
+		inventory.Units = append(inventory.Units, &evidenceUnit{
+			ID:       fileUnitID,
+			Target:   path,
+			Type:     artifactMarkdown,
+			Symbol:   "file",
+			Path:     address.Display,
+			Line:     1,
+			Readable: "Markdown file",
+		})
+	} else {
+		problem := "Markdown file '" + address.Display + "' cannot form an evidence target because its path contains whitespace. Rename the file so '@evidence <target> <reason>' can represent its path as one target token."
+		problems = append(problems, problem)
+		inventory.Problems = append(inventory.Problems, inventoryProblem{
+			Symbol:  "*",
+			Message: problem,
+		})
+	}
 
-  lines := strings.Split(content, "\n")
-  hostAtLine := make([]string, len(lines))
-  hostIDAtLine := make([]string, len(lines))
-  fencedAtLine := make([]bool, len(lines))
-  // commentAtLine marks the lines a citation or a review can live on, so the
-  // content digest can leave them out. A fenced block is not marked: an
-  // `<!-- -->` inside one hosts no tag, and its text is content of the section.
-  commentAtLine := make([]bool, len(lines))
-  // The nearest heading *unit* enclosing each line, which is not the same as its
-  // host: a heading may open a region without materializing a unit. Kept apart
-  // from hostIDAtLine because that value decides where a declaration sits, and
-  // widening it would move citations rather than only digests.
-  digestHostIDAtLine := make([]string, len(lines))
-  currentDigestHostID := fileUnitID
-  currentHost := "file"
-  currentHostID := fileUnitID
-  fenceMarker := rune(0)
-  fenceLength := 0
-  inHTMLComment := false
-  headingUnitIDs := [5]string{}
-  for index, rawLine := range lines {
-    line := strings.TrimSuffix(rawLine, "\r")
-    trimmed := strings.TrimLeft(line, " \t")
-    if marker, length, remainder, ok := markdownFence(line); ok {
-      fencedAtLine[index] = true
-      hostIDAtLine[index] = currentHostID
-      // Fenced content is content. It hosts no tag, so it is never excluded as a
-      // tag position, and leaving it unattributed would drop every code block out
-      // of its section's digest: rewriting the example in a cited section would
-      // then expire nothing.
-      digestHostIDAtLine[index] = currentDigestHostID
-      if fenceMarker == 0 {
-        fenceMarker = marker
-        fenceLength = length
-      } else if marker == fenceMarker &&
-        length >= fenceLength &&
-        strings.TrimSpace(remainder) == "" {
-        fenceMarker = 0
-        fenceLength = 0
-      }
-      hostAtLine[index] = currentHost
-      continue
-    }
-    if fenceMarker != 0 {
-      fencedAtLine[index] = true
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      continue
-    }
-    if inHTMLComment {
-      if strings.Contains(trimmed, "-->") {
-        inHTMLComment = false
-      }
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      commentAtLine[index] = true
-      continue
-    }
-    if strings.HasPrefix(trimmed, "<!--") {
-      remainder := strings.TrimPrefix(trimmed, "<!--")
-      if !strings.Contains(remainder, "-->") {
-        inHTMLComment = true
-      }
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      commentAtLine[index] = true
-      continue
-    }
-    level, title, ok := markdownHeading(line)
-    if ok {
-      currentHost = "h" + decimal(level)
-      currentHostID = "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1)
-      if level <= 4 {
-        for descendantLevel := level; descendantLevel <= 4; descendantLevel++ {
-          headingUnitIDs[descendantLevel] = ""
-        }
-      }
-      // A heading that materializes no unit still opens a region, and that
-      // region's content belongs to the nearest heading unit enclosing it. An
-      // H5 or deeper, and an H2 whose title yields no anchor, are both such
-      // headings.
-      // Carrying the previous unit forward instead would attribute the region to
-      // whatever unit the walk happened to see last, which is a sibling rather
-      // than an ancestor when the skipped heading is shallower: editing text
-      // under an anchorless H2 would then expire a review of the H3 above it,
-      // which does not contain that text.
-      currentDigestHostID = fileUnitID
-      // Start at the deepest level the array holds rather than at this
-      // heading's own. Only H1 through H4 ever write a slot, so a deeper
-      // heading's first candidate ancestor is H4, and reading from its own
-      // level indexed past the end: an H6 walked from 5 into a five-slot array
-      // and took the whole rule down before it materialized anything. An H5
-      // survived that only because it starts at the last valid slot.
-      //
-      // Clamp rather than widen the array. Widening would also seal it, since
-      // `markdownHeading` refuses a level past 6, so this is a choice about
-      // what the type says rather than about safety: the array is indexed by
-      // heading level and sized to hold every materializable one, so its length
-      // is the model. A wider array would carry slots nothing writes and stop
-      // saying so. It is not indexed by ordinal, so slot zero is unused.
-      for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
-        if headingUnitIDs[ancestorLevel] != "" {
-          currentDigestHostID = headingUnitIDs[ancestorLevel]
-          break
-        }
-      }
-      if level <= 4 && targetablePath {
-        title, anchor := markdownHeadingIdentity(title)
-        if anchor == "" {
-          problems = append(
-            problems,
-            "Markdown evidence unit at "+address.Display+":"+decimal(index+1)+" has no resolvable anchor. Add a non-empty heading title or an explicit '{#anchor}' suffix.",
-          )
-          inventory.Problems = append(inventory.Problems, inventoryProblem{
-            Symbol:  currentHost,
-            Message: problems[len(problems)-1],
-          })
-        } else {
-          // Clamped like the digest walk above, though the `level <= 4` around
-          // this block already bounds it. Both walks read the same array, so
-          // both state the same bound rather than one of them depending on a
-          // condition someone could move.
-          parentID := fileUnitID
-          for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
-            if headingUnitIDs[ancestorLevel] != "" {
-              parentID = headingUnitIDs[ancestorLevel]
-              break
-            }
-          }
-          unit := &evidenceUnit{
-            ID:       "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1),
-            ParentID: parentID,
-            Target:   path + "#" + anchor,
-            Type:     artifactMarkdown,
-            Symbol:   currentHost,
-            Path:     address.Display,
-            Line:     index + 1,
-            Readable: "Markdown " + strings.ToUpper(currentHost) + " '" + title + "'",
-          }
-          inventory.Units = append(inventory.Units, unit)
-          headingUnitIDs[level] = unit.ID
-          currentDigestHostID = unit.ID
-        }
-      }
-    }
-    hostAtLine[index] = currentHost
-    hostIDAtLine[index] = currentHostID
-    digestHostIDAtLine[index] = currentDigestHostID
-  }
+	// A byte order mark is encoding, not content. A document that opens with one
+	// renders its first heading, but the mark would sit in front of the `#` and
+	// hide that heading from the scan, so its unit and every obligation it owes
+	// would vanish without a word.
+	content = strings.TrimPrefix(content, "\xef\xbb\xbf")
+	lines := strings.Split(content, "\n")
+	hostAtLine := make([]string, len(lines))
+	hostIDAtLine := make([]string, len(lines))
+	fencedAtLine := make([]bool, len(lines))
+	// commentAtLine marks the lines that open or sit inside a line-leading HTML
+	// comment, which only the unreadable-tag report reads. The content digest
+	// does not: it cuts the exact spans the declaration scan matches, because a
+	// comment may open after prose or close before it. A fenced block is not
+	// marked: an `<!-- -->` inside one hosts no tag. Neither is an inline code span,
+	// where a comment marker is read as the example it is. A fence is recognized
+	// only at the start of a line, so one inside a list item or a quote is not
+	// seen. An indented code block is not seen either, so a line of one that opens
+	// with `<!--` is read as a comment.
+	commentAtLine := make([]bool, len(lines))
+	// The nearest heading *unit* enclosing each line, which is not the same as its
+	// host: a heading may open a region without materializing a unit. Kept apart
+	// from hostIDAtLine because that value decides where a declaration sits, and
+	// widening it would move citations rather than only digests.
+	digestHostIDAtLine := make([]string, len(lines))
+	currentDigestHostID := fileUnitID
+	currentHost := "file"
+	currentHostID := fileUnitID
+	fenceMarker := rune(0)
+	fenceLength := 0
+	commentStart := -1
+	commentSpans := [][2]int{}
+	lineOffset := 0
+	headingUnitIDs := [5]string{}
+	for index, rawLine := range lines {
+		offset := lineOffset
+		lineOffset += len(rawLine) + 1
+		line := strings.TrimSuffix(rawLine, "\r")
+		trimmed := strings.TrimLeft(line, " \t")
+		// Comment syntax takes precedence over fences inside the comment, while
+		// real fenced content never opens a comment. Keep the same closed spans
+		// for declaration extraction and digest removal so those views agree. A
+		// comment that opens after prose is found further down, by the same scan
+		// that masks the visible text for heading recognition.
+		if fenceMarker == 0 && (commentStart >= 0 || strings.HasPrefix(trimmed, "<!--")) {
+			markdownCommentContent(line, offset, &commentStart, &commentSpans)
+			hostAtLine[index] = currentHost
+			hostIDAtLine[index] = currentHostID
+			digestHostIDAtLine[index] = currentDigestHostID
+			commentAtLine[index] = true
+			continue
+		}
+		if marker, length, remainder, ok := markdownFence(line); ok {
+			fencedAtLine[index] = true
+			hostIDAtLine[index] = currentHostID
+			// Fenced content is content. It hosts no tag, so it is never excluded as a
+			// tag position, and leaving it unattributed would drop every code block out
+			// of its section's digest: rewriting the example in a cited section would
+			// then expire nothing.
+			digestHostIDAtLine[index] = currentDigestHostID
+			if fenceMarker == 0 {
+				fenceMarker = marker
+				fenceLength = length
+			} else if marker == fenceMarker &&
+				length >= fenceLength &&
+				strings.TrimSpace(remainder) == "" {
+				fenceMarker = 0
+				fenceLength = 0
+			}
+			hostAtLine[index] = currentHost
+			continue
+		}
+		if fenceMarker != 0 {
+			fencedAtLine[index] = true
+			hostAtLine[index] = currentHost
+			hostIDAtLine[index] = currentHostID
+			digestHostIDAtLine[index] = currentDigestHostID
+			continue
+		}
+		visible := markdownCommentContent(line, offset, &commentStart, &commentSpans)
+		level, title, ok := markdownHeading(visible)
+		if ok {
+			currentHost = "h" + decimal(level)
+			currentHostID = "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1)
+			if level <= 4 {
+				for descendantLevel := level; descendantLevel <= 4; descendantLevel++ {
+					headingUnitIDs[descendantLevel] = ""
+				}
+			}
+			// A heading that materializes no unit still opens a region, and that
+			// region's content belongs to the nearest heading unit enclosing it. An
+			// H5 or deeper, and an H2 whose title yields no anchor, are both such
+			// headings.
+			// Carrying the previous unit forward instead would attribute the region to
+			// whatever unit the walk happened to see last, which is a sibling rather
+			// than an ancestor when the skipped heading is shallower: editing text
+			// under an anchorless H2 would then expire a review of the H3 above it,
+			// which does not contain that text.
+			currentDigestHostID = fileUnitID
+			// Start at the deepest level the array holds rather than at this
+			// heading's own. Only H1 through H4 ever write a slot, so a deeper
+			// heading's first candidate ancestor is H4, and reading from its own
+			// level indexed past the end: an H6 walked from 5 into a five-slot array
+			// and took the whole rule down before it materialized anything. An H5
+			// survived that only because it starts at the last valid slot.
+			//
+			// Clamp rather than widen the array. Widening would also seal it, since
+			// `markdownHeading` refuses a level past 6, so this is a choice about
+			// what the type says rather than about safety: the array is indexed by
+			// heading level and sized to hold every materializable one, so its length
+			// is the model. A wider array would carry slots nothing writes and stop
+			// saying so. It is not indexed by ordinal, so slot zero is unused.
+			for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
+				if headingUnitIDs[ancestorLevel] != "" {
+					currentDigestHostID = headingUnitIDs[ancestorLevel]
+					break
+				}
+			}
+			if level <= 4 && targetablePath {
+				title, anchor := markdownHeadingIdentity(title)
+				if anchor == "" {
+					problems = append(
+						problems,
+						"Markdown evidence unit at "+address.Display+":"+decimal(index+1)+" has no resolvable anchor. Add a non-empty heading title or an explicit '{#anchor}' suffix.",
+					)
+					inventory.Problems = append(inventory.Problems, inventoryProblem{
+						Symbol:  currentHost,
+						Message: problems[len(problems)-1],
+					})
+				} else {
+					// Clamped like the digest walk above, though the `level <= 4` around
+					// this block already bounds it. Both walks read the same array, so
+					// both state the same bound rather than one of them depending on a
+					// condition someone could move.
+					parentID := fileUnitID
+					for ancestorLevel := min(level-1, len(headingUnitIDs)-1); ancestorLevel >= 1; ancestorLevel-- {
+						if headingUnitIDs[ancestorLevel] != "" {
+							parentID = headingUnitIDs[ancestorLevel]
+							break
+						}
+					}
+					unit := &evidenceUnit{
+						ID:       "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1),
+						ParentID: parentID,
+						Target:   path + "#" + anchor,
+						Type:     artifactMarkdown,
+						Symbol:   currentHost,
+						Path:     address.Display,
+						Line:     index + 1,
+						Readable: "Markdown " + strings.ToUpper(currentHost) + " '" + title + "'",
+					}
+					inventory.Units = append(inventory.Units, unit)
+					headingUnitIDs[level] = unit.ID
+					currentDigestHostID = unit.ID
+				}
+			}
+		}
+		hostAtLine[index] = currentHost
+		hostIDAtLine[index] = currentHostID
+		digestHostIDAtLine[index] = currentDigestHostID
+	}
 
-  reportUnreadableMarkdownTags(inventory, address.Display, lines, fencedAtLine, commentAtLine)
+	reportUnreadableMarkdownTags(inventory, address.Display, lines, fencedAtLine, commentAtLine)
 
-  sequence := 0
-  for _, match := range markdownCommentPattern.FindAllStringSubmatchIndex(content, -1) {
-    if len(match) < 4 {
-      continue
-    }
-    commentStart := match[0]
-    line := lineAt(content, commentStart)
-    if line <= 0 || line > len(lines) || fencedAtLine[line-1] {
-      continue
-    }
-    comment := content[match[2]:match[3]]
-    for _, parsed := range parseDeclarations(comment) {
-      sequence++
-      inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
-        ID:              "markdown:" + address.Key + ":" + decimal(line+parsed.LineOffset) + ":" + decimal(sequence),
-        HostID:          hostIDAtLine[line-1],
-        SemanticHostIDs: []string{hostIDAtLine[line-1]},
-        Type:            artifactMarkdown,
-        Tag:             parsed.Tag,
-        Target:          parsed.Target,
-        Reason:          parsed.Reason,
-        Hosts:           symbolSet{hostAtLine[line-1]: true},
-        Path:            address.Display,
-        Line:            line + parsed.LineOffset,
-        Sequence:        sequence,
-      })
-    }
-    for _, review := range parseReviews(comment) {
-      inventory.Reviews = append(inventory.Reviews, &evidenceReview{
-        SemanticHostIDs: []string{hostIDAtLine[line-1]},
-        Reviews:         review.Reviews,
-        Type:            artifactMarkdown,
-        Target:          review.Target,
-        Fingerprint:     review.Fingerprint,
-        Description:     review.Description,
-        Path:            address.Display,
-        Line:            line + review.LineOffset,
-      })
-    }
-  }
-  assignMarkdownDigests(inventory, lines, digestHostIDAtLine, commentAtLine)
-  return inventory, problems
+	sequence := 0
+	for _, match := range commentSpans {
+		commentStart := match[0]
+		line := lineAt(content, commentStart)
+		if line <= 0 || line > len(lines) || fencedAtLine[line-1] {
+			continue
+		}
+		// `<!-->` and `<!--->` are complete comments with no body, so their closing
+		// marker overlaps their opening one and there is nothing to parse.
+		bodyStart, bodyEnd := match[0]+4, match[1]-3
+		if bodyEnd < bodyStart {
+			continue
+		}
+		comment := content[bodyStart:bodyEnd]
+		for _, parsed := range parseDeclarations(comment) {
+			sequence++
+			inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
+				ID:              "markdown:" + address.Key + ":" + decimal(line+parsed.LineOffset) + ":" + decimal(sequence),
+				HostID:          hostIDAtLine[line-1],
+				SemanticHostIDs: []string{hostIDAtLine[line-1]},
+				Type:            artifactMarkdown,
+				Tag:             parsed.Tag,
+				Target:          parsed.Target,
+				Reason:          parsed.Reason,
+				Hosts:           symbolSet{hostAtLine[line-1]: true},
+				Path:            address.Display,
+				Line:            line + parsed.LineOffset,
+				Sequence:        sequence,
+			})
+		}
+		for _, review := range parseReviews(comment) {
+			inventory.Reviews = append(inventory.Reviews, &evidenceReview{
+				SemanticHostIDs: []string{hostIDAtLine[line-1]},
+				Reviews:         review.Reviews,
+				Type:            artifactMarkdown,
+				Target:          review.Target,
+				Fingerprint:     review.Fingerprint,
+				Description:     review.Description,
+				Path:            address.Display,
+				Line:            line + review.LineOffset,
+			})
+		}
+	}
+	assignMarkdownDigests(inventory, content, lines, digestHostIDAtLine, commentSpans)
+	return inventory, problems
+}
+
+// markdownCommentContent records closed metadata spans and masks their text for
+// heading recognition. An unclosed comment suppresses syntax but stays content
+// in the digest, because no declaration can be extracted from it.
+//
+// A comment that opens on this line looks for its closing marker after its own
+// opening one, so the dashes of `<!--` are never counted twice. The two forms
+// HTML allows to close at once, `<!-->` and `<!--->`, are complete comments with
+// no body.
+func markdownCommentContent(line string, offset int, start *int, spans *[][2]int) string {
+	visible := []byte(line)
+	cursor := 0
+	for cursor < len(line) {
+		searchFrom := cursor
+		immediate := 0
+		if *start < 0 {
+			opening := markdownCommentOpening(line, cursor)
+			if opening < 0 {
+				break
+			}
+			cursor = opening
+			*start = offset + cursor
+			searchFrom = cursor + len("<!--")
+			if strings.HasPrefix(line[searchFrom:], ">") {
+				immediate = 1
+			} else if strings.HasPrefix(line[searchFrom:], "->") {
+				immediate = 2
+			}
+		}
+		end := len(line)
+		closed := true
+		if immediate != 0 {
+			end = searchFrom + immediate
+		} else if closing := strings.Index(line[searchFrom:], "-->"); closing >= 0 {
+			end = searchFrom + closing + 3
+		} else {
+			closed = false
+		}
+		for index := cursor; index < end; index++ {
+			visible[index] = ' '
+		}
+		cursor = end
+		if !closed {
+			break
+		}
+		*spans = append(*spans, [2]int{*start, offset + end})
+		*start = -1
+	}
+	return string(visible)
+}
+
+// markdownCommentOpening finds the first `<!--` at or after `from` that is not
+// inside an inline code span, or returns -1.
+//
+// A code span is a run of backticks closed by the next run of the same length,
+// and it shows its text literally, so a comment marker inside one is an example
+// of a comment rather than a comment. A run with no closing partner is literal
+// text and a backslash-escaped backtick opens nothing. The search stays on one
+// line, so a span that wraps across lines is read as prose.
+func markdownCommentOpening(line string, from int) int {
+	for cursor := from; cursor < len(line); {
+		switch line[cursor] {
+		case '\\':
+			if cursor+1 < len(line) && line[cursor+1] == '`' {
+				cursor += 2
+			} else {
+				cursor++
+			}
+		case '`':
+			width := 0
+			for cursor+width < len(line) && line[cursor+width] == '`' {
+				width++
+			}
+			closing := -1
+			for probe := cursor + width; probe < len(line); {
+				if line[probe] != '`' {
+					probe++
+					continue
+				}
+				run := 0
+				for probe+run < len(line) && line[probe+run] == '`' {
+					run++
+				}
+				if run == width {
+					closing = probe
+					break
+				}
+				probe += run
+			}
+			if closing < 0 {
+				cursor += width
+			} else {
+				cursor = closing + width
+			}
+		case '<':
+			if strings.HasPrefix(line[cursor:], "<!--") {
+				return cursor
+			}
+			cursor++
+		default:
+			cursor++
+		}
+	}
+	return -1
 }
 
 // assignMarkdownDigests gives every unit the text it alone owns.
@@ -395,38 +513,76 @@ func scanMarkdownInventory(
 // `evidenceUnit.Digest` records the consequence; do not carry the Markdown
 // intuition across.
 //
-// HTML comment lines are dropped because that is where a Markdown citation and
-// its review live. Leaving them in would make writing the review change the
-// digest the review's own fingerprint is checked against.
+// The text cut out of every digest is exactly what the declaration scan reads
+// as a tag position: each `<!-- ... -->` span that opens outside a fence and
+// outside an inline code span. That scan records exact spans while walking
+// outside fences, so a span may open after prose, close before prose, or run
+// across lines, and it may not be a whole line. Cutting spans rather than lines
+// keeps the prose beside a comment in the digest, so a content change there
+// still expires a review, while writing the review changes nothing it is
+// checked against. A `<!--` that never closes matches no span, is read as no
+// tag, and so stays content.
+//
+// A line left holding nothing but comment spans is dropped, and so is the one
+// blank line after it when a blank line stood before it. A comment written as a
+// paragraph of its own is set off by blank lines on both sides, and keeping
+// both would let adding or removing the comment add or remove a blank line of
+// the unit it sits in, which is the tag position changing the digest after all.
 func assignMarkdownDigests(
-  inventory *artifactInventory,
-  lines []string,
-  digestHostIDAtLine []string,
-  commentAtLine []bool,
+	inventory *artifactInventory,
+	content string,
+	lines []string,
+	digestHostIDAtLine []string,
+	spans [][2]int,
 ) {
-  owned := map[string][]string{}
-  for index := range lines {
-    id := digestHostIDAtLine[index]
-    if index < len(commentAtLine) && commentAtLine[index] {
-      continue
-    }
-    if id == "" {
-      continue
-    }
-    // A comment opening after prose on the same line is still a tag position:
-    // the declaration scan runs over the whole document, so it finds a citation
-    // or a review there. Only the comment span comes out, never the line, or the
-    // prose beside it would vanish from the digest and a real content change
-    // would stop expiring anything.
-    content := markdownCommentPattern.ReplaceAllString(
-      strings.TrimSuffix(lines[index], "\r"),
-      "",
-    )
-    owned[id] = append(owned[id], content)
-  }
-  for _, unit := range inventory.Units {
-    unit.Digest = contentDigest(strings.Join(owned[unit.ID], "\n"))
-  }
+	owned := map[string][]string{}
+	next := 0
+	lineStart := 0
+	// Whether the last line kept was blank, and whether the blank line that
+	// follows a dropped comment paragraph is the second of its pair.
+	keptBlank := false
+	dropBlank := false
+	for index, rawLine := range lines {
+		lineEnd := lineStart + len(rawLine)
+		id := digestHostIDAtLine[index]
+		for next < len(spans) && spans[next][1] <= lineStart {
+			next++
+		}
+		remainder := strings.Builder{}
+		cursor := lineStart
+		cut := false
+		for k := next; k < len(spans) && spans[k][0] < lineEnd; k++ {
+			cut = true
+			if spans[k][0] > cursor {
+				remainder.WriteString(content[cursor:spans[k][0]])
+			}
+			cursor = max(cursor, min(spans[k][1], lineEnd))
+		}
+		if cursor < lineEnd {
+			remainder.WriteString(content[cursor:lineEnd])
+		}
+		lineStart = lineEnd + 1
+		text := strings.TrimSuffix(remainder.String(), "\r")
+		if id == "" {
+			continue
+		}
+		blank := strings.TrimSpace(text) == ""
+		// A line holding nothing but comment spans is a tag position, not content.
+		if cut && blank {
+			dropBlank = keptBlank
+			continue
+		}
+		if blank && dropBlank {
+			dropBlank = false
+			continue
+		}
+		dropBlank = false
+		keptBlank = blank
+		owned[id] = append(owned[id], text)
+	}
+	for _, unit := range inventory.Units {
+		unit.Digest = contentDigest(strings.Join(owned[unit.ID], "\n"))
+	}
 }
 
 // matchesConfiguredMarkdownFile reports whether a population rooted at this base
@@ -437,47 +593,47 @@ func assignMarkdownDigests(
 // Without that comparison a project-rooted `docs/**` would sweep in the
 // `docs` directory of every declared root.
 func matchesConfiguredMarkdownFile(
-  config graphConfig,
-  base populationBase,
-  path string,
+	config graphConfig,
+	base populationBase,
+	path string,
 ) bool {
-  for _, claim := range config.Claims {
-    if claim.Type == artifactMarkdown &&
-      claim.Base.Absolute == base.Absolute &&
-      claim.Files.matches(path) {
-      return true
-    }
-    for _, reference := range claim.References {
-      if reference.Type == artifactMarkdown &&
-        reference.Base.Absolute == base.Absolute &&
-        reference.Files.matches(path) {
-        return true
-      }
-    }
-  }
-  return false
+	for _, claim := range config.Claims {
+		if claim.Type == artifactMarkdown &&
+			claim.Base.Absolute == base.Absolute &&
+			claim.Files.matches(path) {
+			return true
+		}
+		for _, reference := range claim.References {
+			if reference.Type == artifactMarkdown &&
+				reference.Base.Absolute == base.Absolute &&
+				reference.Files.matches(path) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func couldContainConfiguredMarkdown(
-  config graphConfig,
-  base populationBase,
-  directory string,
+	config graphConfig,
+	base populationBase,
+	directory string,
 ) bool {
-  for _, claim := range config.Claims {
-    if claim.Type == artifactMarkdown &&
-      claim.Base.Absolute == base.Absolute &&
-      claim.Files.couldMatchDescendant(directory) {
-      return true
-    }
-    for _, reference := range claim.References {
-      if reference.Type == artifactMarkdown &&
-        reference.Base.Absolute == base.Absolute &&
-        reference.Files.couldMatchDescendant(directory) {
-        return true
-      }
-    }
-  }
-  return false
+	for _, claim := range config.Claims {
+		if claim.Type == artifactMarkdown &&
+			claim.Base.Absolute == base.Absolute &&
+			claim.Files.couldMatchDescendant(directory) {
+			return true
+		}
+		for _, reference := range claim.References {
+			if reference.Type == artifactMarkdown &&
+				reference.Base.Absolute == base.Absolute &&
+				reference.Files.couldMatchDescendant(directory) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // selectedByMarkdownPopulation reports whether any configured population reads
@@ -496,107 +652,107 @@ func couldContainConfiguredMarkdown(
 // wildcard symbol still reaches both, which is what carries the unaddressable
 // path, since that one is about the file rather than about any heading kind.
 func selectedByMarkdownPopulation(
-  config graphConfig,
-  base populationBase,
-  path string,
-  symbol string,
+	config graphConfig,
+	base populationBase,
+	path string,
+	symbol string,
 ) bool {
-  for _, claim := range config.Claims {
-    if claim.Type == artifactMarkdown &&
-      claim.Base.Absolute == base.Absolute &&
-      claim.Files.matches(path) &&
-      (symbol == "*" || claim.Symbols.contains(symbol)) {
-      return true
-    }
-    for _, reference := range claim.References {
-      if reference.Type == artifactMarkdown &&
-        reference.Base.Absolute == base.Absolute &&
-        reference.Files.matches(path) &&
-        (symbol == "*" || reference.Symbols.contains(symbol)) {
-        return true
-      }
-    }
-  }
-  return false
+	for _, claim := range config.Claims {
+		if claim.Type == artifactMarkdown &&
+			claim.Base.Absolute == base.Absolute &&
+			claim.Files.matches(path) &&
+			(symbol == "*" || claim.Symbols.contains(symbol)) {
+			return true
+		}
+		for _, reference := range claim.References {
+			if reference.Type == artifactMarkdown &&
+				reference.Base.Absolute == base.Absolute &&
+				reference.Files.matches(path) &&
+				(symbol == "*" || reference.Symbols.contains(symbol)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func markdownFence(line string) (rune, int, string, bool) {
-  indent := 0
-  for indent < len(line) && line[indent] == ' ' {
-    indent++
-  }
-  if indent > 3 {
-    return 0, 0, "", false
-  }
-  runes := []rune(line[indent:])
-  if len(runes) < 3 || (runes[0] != '`' && runes[0] != '~') {
-    return 0, 0, "", false
-  }
-  count := 1
-  for count < len(runes) && runes[count] == runes[0] {
-    count++
-  }
-  if count < 3 {
-    return 0, 0, "", false
-  }
-  remainder := string(runes[count:])
-  if runes[0] == '`' && strings.Contains(remainder, "`") {
-    return 0, 0, "", false
-  }
-  return runes[0], count, remainder, true
+	indent := 0
+	for indent < len(line) && line[indent] == ' ' {
+		indent++
+	}
+	if indent > 3 {
+		return 0, 0, "", false
+	}
+	runes := []rune(line[indent:])
+	if len(runes) < 3 || (runes[0] != '`' && runes[0] != '~') {
+		return 0, 0, "", false
+	}
+	count := 1
+	for count < len(runes) && runes[count] == runes[0] {
+		count++
+	}
+	if count < 3 {
+		return 0, 0, "", false
+	}
+	remainder := string(runes[count:])
+	if runes[0] == '`' && strings.Contains(remainder, "`") {
+		return 0, 0, "", false
+	}
+	return runes[0], count, remainder, true
 }
 
 func markdownHeading(line string) (int, string, bool) {
-  space := 0
-  for space < len(line) && line[space] == ' ' && space < 4 {
-    space++
-  }
-  if space > 3 || space >= len(line) || line[space] != '#' {
-    return 0, "", false
-  }
-  level := 0
-  for space+level < len(line) && line[space+level] == '#' {
-    level++
-  }
-  if level == 0 || level > 6 {
-    return 0, "", false
-  }
-  next := space + level
-  if next < len(line) && line[next] != ' ' && line[next] != '\t' {
-    return 0, "", false
-  }
-  title := strings.TrimSpace(line[next:])
-  trimmedHashes := strings.TrimRight(title, "#")
-  if trimmedHashes != title && (trimmedHashes == "" || strings.HasSuffix(trimmedHashes, " ") || strings.HasSuffix(trimmedHashes, "\t")) {
-    title = strings.TrimSpace(trimmedHashes)
-  }
-  return level, title, true
+	space := 0
+	for space < len(line) && line[space] == ' ' && space < 4 {
+		space++
+	}
+	if space > 3 || space >= len(line) || line[space] != '#' {
+		return 0, "", false
+	}
+	level := 0
+	for space+level < len(line) && line[space+level] == '#' {
+		level++
+	}
+	if level == 0 || level > 6 {
+		return 0, "", false
+	}
+	next := space + level
+	if next < len(line) && line[next] != ' ' && line[next] != '\t' {
+		return 0, "", false
+	}
+	title := strings.TrimSpace(line[next:])
+	trimmedHashes := strings.TrimRight(title, "#")
+	if trimmedHashes != title && (trimmedHashes == "" || strings.HasSuffix(trimmedHashes, " ") || strings.HasSuffix(trimmedHashes, "\t")) {
+		title = strings.TrimSpace(trimmedHashes)
+	}
+	return level, title, true
 }
 
 func markdownHeadingIdentity(title string) (string, string) {
-  if match := explicitAnchorPattern.FindStringSubmatch(title); len(match) == 2 {
-    cleanTitle := strings.TrimSpace(explicitAnchorPattern.ReplaceAllString(title, ""))
-    return cleanTitle, match[1]
-  }
-  return title, markdownSlug(title)
+	if match := explicitAnchorPattern.FindStringSubmatch(title); len(match) == 2 {
+		cleanTitle := strings.TrimSpace(explicitAnchorPattern.ReplaceAllString(title, ""))
+		return cleanTitle, match[1]
+	}
+	return title, markdownSlug(title)
 }
 
 func markdownSlug(title string) string {
-  var builder strings.Builder
-  lastHyphen := false
-  for _, char := range strings.ToLower(title) {
-    switch {
-    case unicode.IsLetter(char), unicode.IsNumber(char), char == '_':
-      builder.WriteRune(char)
-      lastHyphen = false
-    case char == '-' || unicode.IsSpace(char):
-      if builder.Len() > 0 && !lastHyphen {
-        builder.WriteRune('-')
-        lastHyphen = true
-      }
-    }
-  }
-  return strings.Trim(builder.String(), "-")
+	var builder strings.Builder
+	lastHyphen := false
+	for _, char := range strings.ToLower(title) {
+		switch {
+		case unicode.IsLetter(char), unicode.IsNumber(char), char == '_':
+			builder.WriteRune(char)
+			lastHyphen = false
+		case char == '-' || unicode.IsSpace(char):
+			if builder.Len() > 0 && !lastHyphen {
+				builder.WriteRune('-')
+				lastHyphen = true
+			}
+		}
+	}
+	return strings.Trim(builder.String(), "-")
 }
 
 // reportUnreadableMarkdownTags records every tag written where this artifact
@@ -612,56 +768,57 @@ func markdownSlug(title string) string {
 // A fenced block is an example rather than a citation and stays silent, which
 // is not a concession: this product's own documentation shows tags inside
 // fences, and reporting them would fail its build. An indented code block is
-// the same case in another spelling, so four leading spaces are read as code
-// rather than as prose.
+// the same case in another spelling, so four leading spaces or a leading tab are
+// read as code rather than as prose. A line indented by less is prose, which is
+// what a nested list item is.
 //
 // The tag has to open its line, which is the discrimination every reader in
 // this package performs, so a sentence mentioning one describes it rather than
 // declaring it.
 func reportUnreadableMarkdownTags(
-  inventory *artifactInventory,
-  location string,
-  lines []string,
-  fencedAtLine []bool,
-  commentAtLine []bool,
+	inventory *artifactInventory,
+	location string,
+	lines []string,
+	fencedAtLine []bool,
+	commentAtLine []bool,
 ) {
-  if inventory == nil {
-    return
-  }
-  rendered := false
-  for index, rawLine := range lines {
-    line := strings.TrimSuffix(rawLine, "\r")
-    if opens, closes := renderedCodeEdges(line); opens || closes {
-      rendered = opens
-      continue
-    }
-    if rendered {
-      continue
-    }
-    if index < len(fencedAtLine) && fencedAtLine[index] {
-      continue
-    }
-    if index < len(commentAtLine) && commentAtLine[index] {
-      continue
-    }
-    if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "  ") {
-      continue
-    }
-    trimmed := markdownLineContent(line)
-    if tag, _, found := declarationLine(trimmed); found {
-      inventory.Unreadable = append(
-        inventory.Unreadable,
-        unreadableMarkdownProblem("@"+string(tag), location, index+1),
-      )
-      continue
-    }
-    if reviews, _, opened := reviewLine(trimmed); opened {
-      inventory.Unreadable = append(
-        inventory.Unreadable,
-        unreadableMarkdownProblem(reviewMarkerFor(reviews), location, index+1),
-      )
-    }
-  }
+	if inventory == nil {
+		return
+	}
+	rendered := false
+	for index, rawLine := range lines {
+		line := strings.TrimSuffix(rawLine, "\r")
+		if opens, closes := renderedCodeEdges(line); opens || closes {
+			rendered = opens
+			continue
+		}
+		if rendered {
+			continue
+		}
+		if index < len(fencedAtLine) && fencedAtLine[index] {
+			continue
+		}
+		if index < len(commentAtLine) && commentAtLine[index] {
+			continue
+		}
+		if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
+			continue
+		}
+		trimmed := markdownLineContent(line)
+		if tag, _, found := declarationLine(trimmed); found {
+			inventory.Unreadable = append(
+				inventory.Unreadable,
+				unreadableMarkdownProblem("@"+string(tag), location, index+1),
+			)
+			continue
+		}
+		if reviews, _, opened := reviewLine(trimmed); opened {
+			inventory.Unreadable = append(
+				inventory.Unreadable,
+				unreadableMarkdownProblem(reviewMarkerFor(reviews), location, index+1),
+			)
+		}
+	}
 }
 
 // markdownLineContent drops the markers that carry a line rather than say
@@ -673,42 +830,42 @@ func reportUnreadableMarkdownTags(
 // what lets the report name them, while the tag still has to be the first
 // content on the line, so a sentence mentioning one goes on describing it.
 func markdownLineContent(line string) string {
-  content := strings.TrimSpace(line)
-  for {
-    stripped := strings.TrimSpace(strings.TrimPrefix(content, ">"))
-    if stripped != content {
-      content = stripped
-      continue
-    }
-    if marker := markdownListMarker(content); marker != 0 {
-      content = strings.TrimSpace(content[marker:])
-      continue
-    }
-    return content
-  }
+	content := strings.TrimSpace(line)
+	for {
+		stripped := strings.TrimSpace(strings.TrimPrefix(content, ">"))
+		if stripped != content {
+			content = stripped
+			continue
+		}
+		if marker := markdownListMarker(content); marker != 0 {
+			content = strings.TrimSpace(content[marker:])
+			continue
+		}
+		return content
+	}
 }
 
 // markdownListMarker reports the length of a leading list marker, or zero.
 func markdownListMarker(content string) int {
-  for _, bullet := range []string{"- ", "* ", "+ "} {
-    if strings.HasPrefix(content, bullet) {
-      return len(bullet)
-    }
-  }
-  digits := 0
-  for digits < len(content) && content[digits] >= '0' && content[digits] <= '9' {
-    digits++
-  }
-  if digits == 0 || digits+1 >= len(content) {
-    return 0
-  }
-  if punctuation := content[digits]; punctuation != '.' && punctuation != ')' {
-    return 0
-  }
-  if content[digits+1] != ' ' {
-    return 0
-  }
-  return digits + 2
+	for _, bullet := range []string{"- ", "* ", "+ "} {
+		if strings.HasPrefix(content, bullet) {
+			return len(bullet)
+		}
+	}
+	digits := 0
+	for digits < len(content) && content[digits] >= '0' && content[digits] <= '9' {
+		digits++
+	}
+	if digits == 0 || digits+1 >= len(content) {
+		return 0
+	}
+	if punctuation := content[digits]; punctuation != '.' && punctuation != ')' {
+		return 0
+	}
+	if content[digits+1] != ' ' {
+		return 0
+	}
+	return digits + 2
 }
 
 // renderedCodeEdges reports whether a line opens or closes a block that renders
@@ -719,27 +876,30 @@ func markdownListMarker(content string) int {
 // render as code, so both are examples in the sense a fence is, and the repair
 // this diagnostic names would delete the example from the rendered page rather
 // than fix anything. Only the two edges are recognized, because a page that
-// opens one and never closes it is a page whose own build fails first.
+// opens one and never closes it is a page whose own build fails first. The
+// element name has to end at the tag, so `<preview>` or `<prefix>` is some other
+// element and opens nothing; reading it as `<pre>` would leave every tag after
+// it unreported.
 func renderedCodeEdges(line string) (bool, bool) {
-  lowered := strings.ToLower(line)
-  switch {
-  case strings.Contains(lowered, "<pre"):
-    return !strings.Contains(lowered, "</pre>"), strings.Contains(lowered, "</pre>")
-  case strings.Contains(lowered, "</pre>"):
-    return false, true
-  case strings.Contains(line, "={`"):
-    return !strings.Contains(line, "`}"), strings.Contains(line, "`}")
-  case strings.Contains(line, "`}"):
-    return false, true
-  }
-  return false, false
+	lowered := strings.ToLower(line)
+	switch {
+	case preElementPattern.MatchString(lowered):
+		return !strings.Contains(lowered, "</pre>"), strings.Contains(lowered, "</pre>")
+	case strings.Contains(lowered, "</pre>"):
+		return false, true
+	case strings.Contains(line, "={`"):
+		return !strings.Contains(line, "`}"), strings.Contains(line, "`}")
+	case strings.Contains(line, "`}"):
+		return false, true
+	}
+	return false, false
 }
 
 // unreadableMarkdownProblem names the position and the move that fixes it.
 func unreadableMarkdownProblem(tag string, location string, line int) string {
-  return "Unreadable " + tag + " at " + location + ":" + decimal(line) +
-    ": a Markdown declaration is read from an HTML comment, and this line is prose, so nothing reads the tag." +
-    " Wrap it as '<!-- " + tag + " <target> " + unreadableMarkdownField(tag) + " -->'."
+	return "Unreadable " + tag + " at " + location + ":" + decimal(line) +
+		": a Markdown declaration is read from an HTML comment, and this line is prose, so nothing reads the tag." +
+		" Wrap it as '<!-- " + tag + " <target> " + unreadableMarkdownField(tag) + " -->'."
 }
 
 // unreadableMarkdownField names what follows a target for this tag.
@@ -748,8 +908,8 @@ func unreadableMarkdownProblem(tag string, location string, line int) string {
 // every other review diagnostic in this package says so. One template for both
 // families would tell an author to write the wrong field.
 func unreadableMarkdownField(tag string) string {
-  if strings.HasSuffix(tag, "Review") {
-    return "<what you checked>"
-  }
-  return "<reason>"
+	if strings.HasSuffix(tag, "Review") {
+		return "<what you checked>"
+	}
+	return "<reason>"
 }

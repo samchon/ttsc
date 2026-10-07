@@ -14,6 +14,11 @@
  * generation hit. Cross-file invalidation also rides the project fingerprint
  * {@link getCacheKey} folds into Metro's static transformer key (see
  * `core/fingerprint.ts`).
+ *
+ * The adapter passes no `watching` declaration in its hooks, so a project whose
+ * plugin observations are unavailable (a generation the core can only serve
+ * fresh) fails the transform with an explicit error instead of caching it: the
+ * core refuses fresh-only output unless the host states it is not watching.
  */
 import {
   createTtscTransformCache,
@@ -27,13 +32,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import type { ResolvedTtscMetroOptions } from "./core/TtscMetroOptions";
 import {
   computeProjectFingerprint,
   createSnapshotRecorder,
   resolveProjectView,
   stableStringify,
 } from "./core/fingerprint";
-import type { ResolvedTtscMetroOptions } from "./core/options";
 import { resolveOptionsFromEnv } from "./core/options";
 import { remapAstLocations } from "./core/remapAstLocations";
 import { resolveUpstreamTransformer } from "./core/upstream";
@@ -301,8 +306,8 @@ export async function transform(params: {
  * project-level granularity, forced by Metro's single static key, replacing the
  * former manual `--reset-cache` step. Resolving the upstream is deliberately
  * non-fatal here: a missing peer must not crash cache-key computation, but a
- * failed upstream key withdraws reuse with a nonce. See the
- * README "Caveats" and samchon/ttsc#721.
+ * failed upstream key withdraws reuse with a nonce. See the README "Caveats"
+ * and samchon/ttsc#721.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node sha256 combines package identity, stable resolved options, forwarded
@@ -403,9 +408,9 @@ function cacheKeyProjectRoot(args: unknown[]): string | undefined {
  * Fold the upstream transformer's cache key in, defensively. Forwards Metro's
  * own `getCacheKey` arguments so the upstream's babelrc-derived key is
  * preserved, and never throws: a missing peer or a throwing upstream
- * `getCacheKey` yields `undefined`, withdrawing cross-run reuse without
- * failing the whole build's cache keying. An absent optional callback still
- * contributes the empty string.
+ * `getCacheKey` yields `undefined`, withdrawing cross-run reuse without failing
+ * the whole build's cache keying. An absent optional callback still contributes
+ * the empty string.
  */
 function upstreamCacheKey(
   upstreamTransformer: string | undefined,
@@ -430,14 +435,18 @@ function upstreamCacheKey(
 /**
  * Decide whether a file should run through the ttsc pass. Only TypeScript
  * sources (`.ts`/`.tsx`/`.mts`/`.cts`, excluding every declaration form)
- * qualify; `exclude` substrings win over `include`, and an empty `include`
- * means "all TypeScript". Patterns use the supplied project-relative filename
- * literally; this operation does not normalize separators or filesystem case.
+ * qualify, and a file below a `node_modules` directory never does, whatever
+ * `include` says, because the shared `isTransformTarget` predicate rejects it
+ * first. `exclude` substrings win over `include`, and an empty `include` means
+ * "all eligible TypeScript". Patterns use the supplied project-relative
+ * filename literally; this operation does not normalize separators or
+ * filesystem case.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared isTransformTarget predicate owns supported TypeScript
- *   extensions and declaration exclusions. Literal substring filters apply to
- *   Metro's project-relative filename, with exclusion taking precedence.
+ *   extensions, declaration exclusions, virtual-module and node_modules
+ *   exclusions. Literal substring filters apply to Metro's project-relative
+ *   filename, with exclusion taking precedence.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   This predicate orders extension eligibility, exclusion and inclusion as
@@ -465,10 +474,11 @@ function upstreamCacheKey(
  *   normalization contract.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   The native JSDoc explains eligible extensions, declaration exclusion,
- *   empty include and exclusion precedence. Checked against the documentation
- *   skill: separate paragraphs state the contract and why its nonobvious
- *   boundary matters; field comments retain their own useful facts.
+ *   The native JSDoc explains eligible extensions, declaration and
+ *   node_modules exclusion, empty include and exclusion precedence. Checked
+ *   against the documentation skill: separate paragraphs state the contract
+ *   and why its nonobvious boundary matters; field comments retain their own
+ *   useful facts.
  */
 export function shouldTransform(
   filename: string,

@@ -1,33 +1,67 @@
 package lspserver
 
 import (
+  "crypto/sha256"
+  "errors"
+  "fmt"
   "net/url"
   "os"
   "path/filepath"
+  "runtime"
+  "syscall"
   "testing"
 )
 
 // TestLSPReloadDirectoriesCompareImmediateTopology verifies reload-directory
-// notifications restart only when the declared non-recursive topology changes.
+// direct reload-policy results distinguish the authored native mutations.
 //
 // A directory fingerprint represents resolution identity, not the contents of
-// every child. Treating every descendant event as a restart turns ordinary
-// edits into crashes, while ignoring directory identity or symlink targets
-// leaves contributor selection stale.
+// every child. This test observes policy booleans after real mutations, not an
+// actual notification, server restart, crash or contributor-selection reload.
 //
-//  1. Record a directory with one file and one nested directory.
-//  2. Prove child-content and nested-descendant edits leave its digest stable.
-//  3. Prove immediate creation and deletion change the digest.
-//  4. Prove deleting the watched directory itself changes the digest.
-//  5. Where supported, retarget a symlink without renaming it and prove the raw
-//     link target participates in the digest.
-//  6. Replace an empty directory with the same topology and prove its identity
-//     event still restarts selection.
-//  7. Nest one reload directory in another and prove the unchanged parent
-//     cannot hide an immediate topology change in the child.
-//  8. Rediscover project inputs after topology drift and prove refresh retains
-//     the selection-time baseline until the server restarts.
+//  1. Require no match for child-content and undeclared nested-descendant edits.
+//  2. Require matches for immediate create/delete and directory delete/replace.
+//  3. Require a declared nested child and preserved older baseline to match drift.
+//  4. Where privilege permits, require a symlink retarget to match.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct ProjectInputReloadMatchesChange calls return false for two content edits and true for immediate create/delete, directory delete/replace, a declared nested child's creation, drift after explicit baseline preservation and the conditional symlink retarget. Directory-self matches are identity policy, not assertions that its digest changed.
+// @evidence contracts/testing.md#independent-expectations Each mutation has an authored literal true/false expectation. Empty and missing directory topology and directory framing are independently hashed; the physical path key is an observed input to that framing, not an independent identity oracle. No client event/restart or JavaScript interoperability is certified.
+// @evidence contracts/testing.md#distinguishing-cases Content versus immediate topology, undeclared versus declared nested territory, same-topology directory replacement and retained versus recomputed baseline are distinguished by supplied operations. The symlink subtest reports Windows privilege-only unavailability explicitly instead of silently omitting it.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit runs actual normalizer, fingerprint preservation and reload matcher over owned temporary native files/directories. It starts no child, installs no consumer or host and substitutes no operation. The symlink lane skips only Windows privilege-not-held; other fixture errors fail.
 func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
+  t.Run("empty_and_missing_directory_protocol_frames", func(t *testing.T) {
+    root := t.TempDir()
+    existing := filepath.Join(root, "ExistingDirectory")
+    if err := os.Mkdir(existing, 0o755); err != nil {
+      t.Fatal(err)
+    }
+    for _, row := range []struct {
+      directory     string
+      topologyInput string
+    }{
+      {existing, ""},
+      {filepath.Join(root, "MissingDirectory"), "missing\x00"},
+    } {
+      topology := sha256.Sum256([]byte(row.topologyInput))
+      frame := "directory\x00" + projectInputPhysicalPathKey(row.directory) + "\x00" + fmt.Sprintf("%x", topology)
+      expected := sha256.Sum256([]byte(frame))
+      digest := fmt.Sprintf("%x", expected)
+      if got := projectInputReloadDirectoryDigest(row.directory); got != digest {
+        t.Fatalf("directory %q frame = %s, want %s", row.directory, got, digest)
+      }
+      snapshot, err := normalizeLSPProjectInputSnapshot(LSPProjectInputSnapshot{
+        Root:                   root,
+        ReloadDirectories:      []string{row.directory},
+        ReloadDirectoryDigests: map[string]string{row.directory: digest},
+      }, root)
+      if err != nil {
+        t.Fatal(err)
+      }
+      if !projectInputReloadFingerprintsAreCurrent(snapshot) {
+        t.Fatalf("unchanged directory %q began stale", row.directory)
+      }
+    }
+  })
   root := t.TempDir()
   reloadDirectory := filepath.Join(root, "config-deps")
   nested := filepath.Join(reloadDirectory, "nested")
@@ -173,8 +207,21 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
     }
   }
   link := filepath.Join(reloadDirectory, "selection-link")
-  if err := os.Symlink(firstTarget, link); err == nil {
-    source.projectInputs = snapshot(reloadDirectory)
+  t.Run("symlink retarget", func(t *testing.T) {
+    if err := os.Symlink(firstTarget, link); err != nil {
+      if runtime.GOOS == "windows" && errors.Is(err, syscall.Errno(1314)) {
+        t.Skipf("Windows symlink privilege is unavailable: %v", err)
+      }
+      t.Fatalf("create owned symlink: %v", err)
+    }
+    linkSnapshot, err := normalizeLSPProjectInputSnapshot(LSPProjectInputSnapshot{
+      Root:              root,
+      ReloadDirectories: []string{reloadDirectory},
+    }, root)
+    if err != nil {
+      t.Fatalf("normalize symlink reload directory: %v", err)
+    }
+    source.projectInputs = linkSnapshot
     if err := os.Remove(link); err != nil {
       t.Fatal(err)
     }
@@ -184,5 +231,5 @@ func TestLSPReloadDirectoriesCompareImmediateTopology(t *testing.T) {
     if !source.ProjectInputReloadMatchesChange(uri(link), &changed) {
       t.Fatal("symlink retarget did not change directory topology")
     }
-  }
+  })
 }

@@ -71,16 +71,21 @@ func (s *externalProjectDiagnosticsSource) InvalidateResidentProgramsForWatchedC
 }
 
 // TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument
-// verifies a declared watched-file event immediately replaces project
+// Verifies a declared watched-file event schedules replacement project
 // diagnostics without borrowing a source-document URI.
 //
-// External events are debounced, tagged for resident Program retention, and
-// generation-guarded. An unrelated broad-watcher event must not run project
-// contributors or publish another frame.
+// The authored created/deleted burst is debounced. Recorded invalidation
+// entries carry the external URI, but their count and retained Program effects
+// are not asserted. Unrelated events remain quiet within 150ms.
 //
 //  1. Send one declared external event with no open document and observe it.
 //  2. Send a created/deleted burst and assert one empty replacement publication.
 //  3. Send unrelated local and remote events and keep contributors quiet.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run publishes then clears project findings and ignores unrelated watched events.
+// @evidence contracts/testing.md#independent-expectations A stub first-call finding and exact total count two ground replacement and debounce expectations.
+// @evidence contracts/testing.md#distinguishing-cases No open document, created/deleted burst, local and remote unrelated events differ; silence lasts 150ms and invalidation-list count is not asserted.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument(t *testing.T) {
   const externalURI = "file:///project/docs/spec.md"
   source := &externalProjectDiagnosticsSource{externalURI: externalURI}
@@ -92,12 +97,24 @@ func TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument(t *
     len(first.Diagnostics) != 1 {
     t.Fatalf("first project publication = %#v", first)
   }
+  var finding struct {
+    Code    string `json:"code"`
+    Source  string `json:"source"`
+    Message string `json:"message"`
+  }
+  if err := json.Unmarshal(first.Diagnostics[0], &finding); err != nil {
+    t.Fatalf("decode project finding: %v", err)
+  }
+  if finding.Code != "demo/external" || finding.Source != "@ttsc/lint" ||
+    finding.Message != "external input changed" {
+    t.Fatalf("unexpected first project finding: %#v", finding)
+  }
 
   sendWatchedFileChangeOfType(t, h, externalURI, 1)
   sendWatchedFileChangeOfType(t, h, externalURI, 3)
   cleared := decodeProjectPublication(t, h.recvEditor())
   if cleared.URI != "file:///project/tsconfig.json" ||
-    len(cleared.Diagnostics) != 0 {
+    cleared.Diagnostics == nil || len(cleared.Diagnostics) != 0 {
     t.Fatalf("clearing project publication = %#v", cleared)
   }
 

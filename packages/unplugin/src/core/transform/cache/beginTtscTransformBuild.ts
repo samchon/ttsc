@@ -2,8 +2,12 @@ import { TRANSFORM_CACHE_EPOCHS } from "./TRANSFORM_CACHE_EPOCHS";
 import type { TtscTransformCache } from "./TtscTransformCache";
 
 /**
- * Open a new delivery pass, enabling constant-time first delivery for every
- * module this pass asks for.
+ * Open a delivery pass that can share a retained generation's complete proof.
+ *
+ * The counter update is fixed work. The pass's first delivery still proves the
+ * recorded snapshot; later first deliveries reaching source comparison hash
+ * their text and may compare disk bytes before sharing that proof. Repeated
+ * module deliveries retain their existing validation path.
  *
  * This deliberately retains the cached generation. The pass boundary is a
  * statement about _deliveries_ — each module is requested at most once inside
@@ -22,8 +26,16 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/common.md#clear-and-simple-design One cache-owned counter declares the pass; validation and disposal remain separate operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A pass boundary does not fabricate freshness or clear valid work to hide an invalidation error.
  * @evidence contracts/common.md#meaningful-documentation The paragraphs distinguish delivery epochs from generation validity and identify hosts that lack a guaranteed pass boundary.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The epoch is one number per cache in a WeakMap and is released with the cache; the generations' own resources are released by resetTtscTransformCache.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One counter increment.
+ * @evidence contracts/performance.md#reuse-equivalent-work Advancing the epoch instead of discarding the generation is what lets a repeating buildStart reuse its compile after the pass's first delivery proves it.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
-export function beginTtscTransformBuild(cache: TtscTransformCache): void {
+export function beginTtscTransformBuild(
+  /** Cache whose next deliveries belong to a newly declared host pass. */
+  cache: TtscTransformCache,
+): void {
   TRANSFORM_CACHE_EPOCHS.set(
     cache,
     (TRANSFORM_CACHE_EPOCHS.get(cache) ?? 0) + 1,

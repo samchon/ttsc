@@ -18,6 +18,11 @@ import (
 // 1. Create a valid project with an outDir.
 // 2. Run utility build with `--noEmit`.
 // 3. Assert the command succeeds without writing JavaScript output.
+//
+// @evidence contracts/testing.md#behavioral-verification RunBuild with --noEmit succeeds and leaves the independently named bin/index.js absent; other possible output files are not enumerated.
+// @evidence contracts/testing.md#independent-expectations Authored index.ts and outDir bin establish the expected JavaScript destination; its native ENOENT absence is asserted, not inferred from empty stdout.
+// @evidence contracts/testing.md#distinguishing-cases This fresh project owns the suppressed-output side; sibling builds establish positive emission on their separate inputs, not a same-project toggle here.
+// @evidence contracts/testing.md#execution-ownership TestUtilityNoEmitSuppressesOutput is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityNoEmitSuppressesOutput(t *testing.T) {
   root := t.TempDir()
 

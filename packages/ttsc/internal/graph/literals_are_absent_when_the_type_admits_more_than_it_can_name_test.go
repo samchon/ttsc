@@ -8,8 +8,8 @@ import (
 )
 
 // TestLiteralsAreAbsentWhenTheTypeAdmitsMoreThanItCanName verifies the negative
-// twin of every literal case: a type whose members cannot all be named reports
-// none of them rather than the subset that can.
+// counterparts for four authored non-enumerable shapes: each reports no
+// literals, while a four-member control union has a four-entry result.
 //
 // This is what lets a present `literals` mean the whole type. `Widened` admits
 // four literals and every other string besides, and a caller cannot tell a
@@ -22,7 +22,13 @@ import (
 //  1. Compile a fixture holding each non-enumerable shape.
 //  2. Build the graph.
 //  3. Assert none of them recorded a value set.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual Build nodes for Widened, Generic, Primitive and Computed must have zero literals; the Narrow control must have four entries. The helper requires each queried node to exist. Other type shapes and control literal contents are not asserted here.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: the control union Narrow must report four values, and Widened (union with string), Generic (type parameter), Primitive (string alias) and Computed (enum with a computed member) must each report no values at all rather than a subset.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture holding each non-enumerable shape; Build the graph; Assert none of them recorded a value set.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes a driver Program in-process and directly calls Build. Actual Program filename/shared ID formatting and literalsOf select existing nodes and their reported arrays; a restored empty linked-plugin manifest excludes ambient hooks. No compute() execution, emit, installed consumer or product process runs.
 func TestLiteralsAreAbsentWhenTheTypeAdmitsMoreThanItCanName(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `declare const compute: () => number;
@@ -50,9 +56,8 @@ export enum Computed {
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
 
-  // The control: the shapes below differ from this one by exactly the property
-  // that makes them unnameable, so an empty result there is the rule acting and
-  // not the pass failing to run on this fixture at all.
+  // A nonempty control detects omission of the entire literal pass; this count
+  // does not independently check the control's four values.
   if got := literalsOf(t, graph, nodeID(path, "Narrow", NodeTypeAlias)); len(got) != 4 {
     t.Fatalf("control union did not report its four members: got %v", got)
   }

@@ -9,9 +9,9 @@ import (
 
 // TestRunHelpVersionAndBadFlagsExitCodes verifies the top-level run dispatcher
 // returns the documented exit codes for the command surface: help and version
-// short-circuit to 0, an unknown command prints usage and exits 2, and dump or
-// serve invocations that cannot parse flags or resolve their working directory
-// exit 2 with an explanation.
+// short-circuit to 0, an unknown command prints usage and returns 2, and dump or
+// serve flag failures return 2. Working-directory failures additionally require
+// the literal explanatory phrase; bad-flag output is not asserted.
 //
 // These are the non-load paths a user hits with a typo or `--help`; each must
 // resolve to a code without building a Program. The getwd seam stands in for an
@@ -22,6 +22,11 @@ import (
 //  2. run --bogus (unknown command) exits 2 and prints usage.
 //  3. run dump --nope and run serve --nope exit 2 (flag parse failure).
 //  4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls the actual top-level dispatcher in-process. Help and version require status zero and their named text, unknown command requires status two and Usage:, dump/serve bad flags require status two only, and both failing cwd branches require status two plus could not resolve working directory. These are returned statuses, not OS exit transport assertions.
+// @evidence contracts/testing.md#independent-expectations The expected exit codes (0 for help and version, 2 for an unknown command, a bad dump or serve flag, and a failed working-directory lookup) and message fragments (ttscgraph, Usage:, could not resolve working directory) are literals from the documented command surface, written independently of run. The version check compares with the package's own version variable, so it only proves the version string is printed.
+// @evidence contracts/testing.md#distinguishing-cases run --help and run --version exit 0, printing the command name / version; run --bogus (unknown command) exits 2 and prints usage; run dump --nope and run serve --nope exit 2 (flag parse failure). 4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
+// @evidence contracts/testing.md#execution-ownership TestRunHelpVersionAndBadFlagsExitCodes is a Go source-unit entry. It calls the package's top-level run dispatcher in-process with stdout, stderr and the getwd seam replaced; every case returns before a Program is loaded or a serve session starts, so nothing is installed, built or launched.
 func TestRunHelpVersionAndBadFlagsExitCodes(t *testing.T) {
   oldStdout, oldStderr, oldGetwd := stdout, stderr, getwd
   defer func() { stdout, stderr, getwd = oldStdout, oldStderr, oldGetwd }()

@@ -12,17 +12,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerSetParentUnsetPreservesOriginalParents pins
-// regression 6: SetParentInChildrenUnset must wire parents only on the
-// synthetic nodes the plugin produced, leaving the parents of untouched parse
-// nodes intact. The earlier bug ran SetParentInChildren over the whole
-// rewritten tree, overwriting an `export namespace`'s original parents so the
-// emit resolver lost its binder symbols and dropped the CommonJS namespace
-// writeback (`exports.NS = NS = {}` plus the inner member assignment).
+// TestEmitWithPluginTransformerSetParentUnsetPreservesOriginalParents Verifies rewriting a
+// sibling preserves the untouched namespace's export writeback and members.
 //
 // This plugin rewrites ONLY one sibling statement's initializer and leaves the
-// `export namespace` completely alone. If original parents are clobbered the
-// namespace export lowering breaks; the assertions below catch that.
+// `export namespace` completely alone. The assertions observe retained
+// namespace lowering beside the sibling rewrite, not individual Parent
+// pointers or every possible consequence of overwriting them.
+//
+// 1. Replace the sibling literal without descending into the original namespace.
+// 2. Require namespace writeback, tag and wrap exports and the changed seed.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual sibling replacement while intentionally not descending into the namespace, requiring namespace writeback, tag/wrap member exports and rewritten seed.
+// @evidence contracts/testing.md#independent-expectations Literal Domain/tag/wrap and replacement 42 independently specify retained namespace output and plugin control.
+// @evidence contracts/testing.md#distinguishing-cases Untouched original namespace plus changed sibling distinguishes retained output through the nil-parent wiring path from rebuilt namespace cases; seed replacement rejects a skipped transform without certifying every Parent pointer.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit directly executes visitor/compiler APIs with private Program and local write map and deferred close; no runtime or built-plugin process runs.
 func TestEmitWithPluginTransformerSetParentUnsetPreservesOriginalParents(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"module":"commonjs","target":"es2020","outDir":"bin","strict":true},"files":["index.ts"]}`)

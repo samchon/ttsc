@@ -37,14 +37,23 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/common.md#clear-and-simple-design One input-proof boundary chooses notification, predicate and scalar-signature authority while matchesRecordedInput owns the fallback comparison.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing content cannot earn a readable-content signature, and failed or unproven watcher silence supplies no proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain sibling reuse, same-tick rewrite prevention and physical link-target qualification before tags.
- * @evidence contracts/performance.md#efficient-algorithms Valid exact notification or metadata proof avoids content reads; otherwise one owning-codec comparison costs the consulted bytes or predicate listing.
- * @evidence contracts/performance.md#reuse-equivalent-work Successful comparison refreshes only this generation's exact spelling signature, permitting sibling consumers to reuse it while metadata and clock ordering hold.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Signatures remain in the generation's recorded input population and invalid witnesses are deleted; no per-delivery history or native handle is retained.
  * @evidence contracts/portability.md#os-neutral-implementation Lexical spellings qualify metadata and watcher coverage while physical content keys come from the generation's actual filesystem identity context.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Signatures remain in the generation's recorded input population and invalid witnesses are deleted; no per-delivery history or native handle is retained.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Notification queries scan unproven scopes and recorded events with native
+ *   path/identity comparisons. Slot selection also pays path text and uncached
+ *   identity observations; metadata proof reads nonfollowing and, for links,
+ *   following stats and formats bigint fields. Failed shortcuts replay the
+ *   required codec/predicates, costing selected bytes/listings and realpath
+ *   checks, followed by metadata recapture after successful replay.
+ * @evidence contracts/performance.md#reuse-equivalent-work Successful comparison refreshes only this generation's exact spelling signature, permitting sibling consumers to reuse it while metadata and clock ordering hold.
  */
 export function matchesProvenInput(
+  /** Generation supplying recorded predicates/content and live proof owners. */
   cached: TtscCachedProjectTransform,
+  /** Shared immutable-envelope identity derivation for this generation. */
   state: TtscEnvelopeDerivation,
+  /** Exact input spelling whose recorded state is being validated. */
   input: string,
 ): boolean {
   if (
@@ -89,9 +98,9 @@ export function matchesProvenInput(
   if (slot.recorded === MISSING_INPUT_STATE && notifiesAbsence(cached, input)) {
     // The generation's watcher holds this exact name, and the caller already
     // established that neither tracker failed and neither reported a change.
-    // The path is therefore still absent, proven by the same channel that
-    // proves project membership, and probing it again would only repeat what
-    // the notification already answered.
+    // Candidate selection established an unavailable-file state, not always
+    // physical absence: fileExists:false can also describe a directory. The
+    // qualified exact candidate observer preserves that recorded state.
     return true;
   }
   const filesystem = resultFilesystem(cached.result);
@@ -106,8 +115,7 @@ export function matchesProvenInput(
   if (!matchesRecordedInput(cached, input)) {
     return false;
   }
-  // A recorded `missing` state is the one comparison that succeeds without
-  // reading anything: an unreadable path still reports `missing`, so its
+  // A recorded `missing` state can compare equal after a read fails: its
   // metadata can hold still while the bytes behind it appear. Only content a
   // read produced may be stood for.
   const after =

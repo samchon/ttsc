@@ -57,19 +57,18 @@ func (*savedExternalProjectDiagnosticsRaceSource) InvalidateResidentProgramsForW
 ) {
 }
 
-// TestLSPProxyResumesSavedExternalProjectDiagnosticsAfterGenerationRejection
-// verifies didSave resumes a dirty-deferred direct project refresh and a newer
-// document generation cannot strand its previous publication.
+// TestLSPProxyResumesSavedExternalProjectDiagnosticsAfterGenerationRejection Verifies that a generation-rejected project clear is retried after save, clears the publication, and makes exactly three direct calls.
 //
-// A document diagnostics response may omit its project result when the saved
-// Program has parse diagnostics. If that newer generation rejects an in-flight
-// direct clear, the proxy must retain and rerun the pending refresh instead of
-// treating the rejected write as completion.
+// Dirty deferral, blocked resumed refresh, newer publication, and retry form one transition chain.
 //
-//  1. Publish one project finding, dirty a document, and defer an external refresh.
-//  2. Save, block the resumed direct clear, and advance the document generation
-//     with a project-omitting diagnostics response.
-//  3. Release the rejected clear and observe a fresh direct run clear the finding.
+// 1. Publish one project finding, dirty a document, and defer an external refresh.
+// 2. Save, block the resumed direct clear, and advance the document generation with a project-omitting diagnostics response.
+// 3. Release the rejected clear and observe a fresh direct run clear the finding.
+//
+// @evidence contracts/testing.md#behavioral-verification A generation-rejected project clear is retried after save, clears the publication, and makes exactly three direct calls.
+// @evidence contracts/testing.md#independent-expectations The authored finding and later empty sets define replacement semantics; channels establish generation ordering.
+// @evidence contracts/testing.md#distinguishing-cases Dirty deferral, blocked resumed refresh, newer publication, and retry form one transition chain.
+// @evidence contracts/testing.md#execution-ownership A specialized Go stub and pipe proxy use mutex counters and channel-controlled release without a native producer. Go discovers TestLSPProxyResumesSavedExternalProjectDiagnosticsAfterGenerationRejection under ./test/driver.
 func TestLSPProxyResumesSavedExternalProjectDiagnosticsAfterGenerationRejection(t *testing.T) {
   const externalURI = "file:///project/docs/spec.md"
   const documentURI = "file:///project/src/dirty.ts"
@@ -78,6 +77,10 @@ func TestLSPProxyResumesSavedExternalProjectDiagnosticsAfterGenerationRejection(
     started:     make(chan struct{}),
     release:     make(chan struct{}),
   }
+  var releaseOnce sync.Once
+  releaseCallback := func() { releaseOnce.Do(func() { close(source.release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   source.diagnosticsResultFor = func(driver.LSPDocumentVersion) driver.LSPDiagnosticsResult {
     // This is the shape lsp-diagnostics returns when parse diagnostics prevent
     // the project-rule cycle from running: document diagnostics exist, but the
@@ -114,10 +117,11 @@ func TestLSPProxyResumesSavedExternalProjectDiagnosticsAfterGenerationRejection(
 
   h.sendUpstream([]byte(`{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///project/src/dirty.ts","version":2,"diagnostics":[]}}`))
   _ = h.recvEditor()
-  close(source.release)
+  releaseCallback()
 
   cleared := decodeProjectPublication(t, h.recvEditor())
   if cleared.URI != "file:///project/tsconfig.json" ||
+    cleared.Diagnostics == nil ||
     len(cleared.Diagnostics) != 0 {
     t.Fatalf("retried project publication = %#v", cleared)
   }

@@ -22,13 +22,17 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
   if node.AsVariableDeclarationList() == nil || !shimast.IsVar(node) {
     return
   }
-  if ctx.File != nil && ctx.File.IsDeclarationFile {
+  if node.Flags&shimast.NodeFlagsAmbient != 0 ||
+    (ctx.File != nil && ctx.File.IsDeclarationFile) {
     return
   }
   owner := node.Parent
   ownedByStatement := owner != nil && owner.Kind == shimast.KindVariableStatement
   // `declare var x` describes an existing binding instead of creating one;
-  // like ESLint, the rule leaves ambient declarations alone. Only a
+  // the native rule leaves ambient declarations alone. The parser context flag
+  // above includes inherited declare-global, namespace and module ambientness.
+  // The direct statement modifier also preserves explicitly declared AST input.
+  // Only a
   // VariableStatement can carry the modifier — loop headers cannot be
   // ambient outside declaration files, which returned above.
   if ownedByStatement && owner.ModifierFlags()&shimast.ModifierFlagsAmbient != 0 {
@@ -71,7 +75,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 // Five corruption holes were patched piecemeal here before (var-vs-var,
 // for-header var, function/class redeclaration, mixed destructuring sibling,
 // object-literal shorthand, use-before-declaration). That whack-a-mole is
-// replaced by one conservative rule with five preconditions; the fix is
+// replaced by one conservative rule with six preconditions; the fix is
 // emitted only if ALL hold:
 //
 //  1. Single binding in the whole file. The declared name is introduced by
@@ -83,11 +87,13 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     redeclaration arm (var-vs-var, var-vs-param, var-vs-function, mixed
 //     destructure siblings, for-header var, …). It over-declines harmless
 //     cross-scope same-name bindings, which never corrupts.
+//
 //  2. No use-before-declaration / TDZ. The declared name is not referenced as
 //     a VALUE before the list's Pos(). A non-reference occurrence of the
 //     same text — a member name (`o.x`), an object-literal key (`{x:1}`), a
 //     statement label (`x:`), or a type reference (`: x`) — binds no value and
 //     must not force a decline; isValueReferenceIdentifier classifies these.
+//
 //  3. No block-scope escape. `var` is function/global-scoped while `let` is
 //     block-scoped, so a `var` declared inside a block and read after the
 //     block (`if (c) { var x = 1; } log(x);`) would stop compiling under
@@ -109,6 +115,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     references, which under `let` would flip from `undefined` reads to
 //     runtime TDZ throws — declining is the safe side. Mirrors ESLint
 //     no-var's isUsedFromOutsideOf.
+//
 //  4. No loop-closure capture. When the declaration sits inside a loop — a
 //     statement in a loop body OR the loop's own header — and the name is
 //     referenced from a function or arrow nested within that loop
@@ -117,6 +124,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     shares ONE `var` binding but would capture a FRESH per-iteration `let`
 //     binding — the rewrite silently changes runtime results. Mirrors ESLint
 //     no-var's isReferencedInClosure loop check.
+//
 //  5. Not declared under a `with` statement. `var` hoists PAST the with body
 //     to the function scope, so references inside the body resolve through
 //     the with object first (`o.x` shadows the var when present); `let`
@@ -124,6 +132,17 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     instead. The rewrite can flip which binding every reference hits, so
 //     any var with a WithStatement ancestor below the nearest function
 //     boundary declines.
+//
+//  6. No global-object or direct-eval observation. A script-global var creates
+//     a property that let does not. A direct eval in the variable environment,
+//     including a nested closure, can read hoisted or escaping bindings through
+//     string source. Parentheses and erased TypeScript assertions preserve
+//     direct eval; optional, member and comma-expression calls do not.
+//
+//  7. No uninitialized repeated binding. A loop-body var without an
+//     initializer retains its value when the body re-enters, while let resets
+//     to undefined. An uninitialized for-header inside an outer loop has the
+//     same retention hazard. For-in/of headers assign on each iteration.
 //
 // Two loop-header-only grammar/TDZ hazards also decline:
 //   - a `for...in` / `for...of` declarator with an initializer (Annex B
@@ -208,6 +227,12 @@ func isNoVarAutoFixSafe(ctx *Context, listNode *shimast.Node) bool {
   if isDeclaredInsideWithStatement(listNode) {
     return false
   }
+  // Direct eval can observe a hoisted binding through string source that the
+  // identifier census cannot see, including from a nested closure. Do not
+  // assume a shadowed eval identifier is harmless: it can hold the intrinsic.
+  if noVarBindingScopeHasDynamicObservation(listNode) {
+    return false
+  }
 
   // Precondition 4 setup: the outermost loop enclosing the declaration
   // without an intervening function boundary. A loop-header list's first
@@ -215,6 +240,13 @@ func isNoVarAutoFixSafe(ctx *Context, listNode *shimast.Node) bool {
   // closure-capture check. nil when the declaration is not loop-local,
   // which disables the check.
   enclosingLoop := enclosingLoopWithinFunction(listNode)
+  // A body declaration without an initializer does not reset a var binding
+  // on each iteration. Let initializes a fresh binding to undefined instead.
+  // For-in/of headers assign a value each iteration and are not body declarations.
+  if enclosingLoop != nil && decl.Initializer == nil &&
+    (owner.Kind == shimast.KindVariableStatement || owner.Kind == shimast.KindForStatement && enclosingLoop != owner) {
+    return false
+  }
 
   declPos := listNode.Pos()
   // The single declarator's initializer subtree. A value reference to `target`
@@ -290,6 +322,38 @@ func isNoVarAutoFixSafe(ctx *Context, listNode *shimast.Node) bool {
     return false
   }
   return bindingCount == 1
+}
+
+// noVarBindingScopeHasDynamicObservation inspects the binding's variable environment,
+// including nested closures that can read it, but not unrelated sibling scopes.
+// Parentheses and erased TypeScript assertions preserve a direct eval callee.
+// Optional, member and comma-expression eval calls are indirect ECMAScript calls.
+// Script-global var also creates a global-object property that let cannot preserve.
+func noVarBindingScopeHasDynamicObservation(listNode *shimast.Node) bool {
+  var scope *shimast.Node
+  for parent := listNode.Parent; parent != nil; parent = parent.Parent {
+    if isFunctionCaptureBoundary(parent) || parent.Kind == shimast.KindModuleBlock || parent.Kind == shimast.KindSourceFile {
+      scope = parent
+      break
+    }
+  }
+  if scope == nil {
+    return true
+  }
+  if scope.Kind == shimast.KindSourceFile && scope.AsSourceFile().ExternalModuleIndicator == nil {
+    return true
+  }
+  found := false
+  walkDescendants(scope, func(child *shimast.Node) {
+    if child.Kind != shimast.KindCallExpression {
+      return
+    }
+    call := child.AsCallExpression()
+    if call != nil && call.QuestionDotToken == nil && identifierText(unwrapReferenceExpression(call.Expression)) == "eval" {
+      found = true
+    }
+  })
+  return found
 }
 
 // isBlockScopeContainer reports whether a node kind is a legal parent for a
@@ -1120,6 +1184,12 @@ func (noUndefInit) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindV
 func (noUndefInit) Check(ctx *Context, node *shimast.Node) {
   decl := node.AsVariableDeclaration()
   if decl == nil || decl.Initializer == nil {
+    return
+  }
+  // `const` and `using` declarations must be initialized, so only `let` and
+  // `var` have the redundant form.
+  if list := node.Parent; list == nil || list.Kind != shimast.KindVariableDeclarationList ||
+    (!shimast.IsVar(list) && !shimast.IsLet(list)) {
     return
   }
   if identifierText(decl.Initializer) == "undefined" {

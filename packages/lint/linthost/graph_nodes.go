@@ -24,6 +24,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design CLI parsing and serialization surround one shared graph computation usable by resident hosts.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Published artifacts come from checked contributor state rather than fabricated graph nodes or coverage results; empty projects remain valid outcomes.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains whole-Program scope, input-sensitive caller caching and empty-set success; paragraphs and tags follow documentation guidance.
+// @evidence contracts/portability.md#os-neutral-implementation RunGraphNodes resolves native cwd/config/project paths through shared LSP parsing and acquisition helpers before serializing the graph DTO. Graph addresses and protocol strings are distinct from native source-file identity; the dispatcher constructs no shell text or case-folded filesystem identity. Process standard streams remain the JSON/error channels.
+// @evidence contracts/performance.md#efficient-algorithms Flags/config and active-publisher metadata are processed before the conditional Program acquisition and project evaluation. Each passed stateful publisher's projection adds its own work; filtering visits g returned nodes, checks the fixed kind vocabulary and hashes addresses/parents, retaining O(g) map/slice entries plus payload backing. JSON serialization adds all output bytes. The empty-publisher gate avoids Program work but not parsing/config checks; no fixed complete-command cost is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work Acquisition uses dependency-validated config reuse and, when installed by the resident host, its warm Program policy. Project evaluation uses the current Program cycle, with resident updates/request setup owning invalidation; the command adds no separate artifact-response cache. Caller result reuse requires unchanged project/rule inputs and valid published state, not merely equal addresses or a quiet watcher.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The acquisition callback drops one-shot checker state on all later returns; a resident acquisition preserves the warm Program under its host owner instead. Graph records and JSON buffers are temporary for this invocation, with nested field backing potentially shared with publisher state. The latest project cycle and config/Program caches can outlive the command under their separate owners; this entry sets no node/payload-byte cap, cache eviction or caller deadline.
 func RunGraphNodes(args []string) int {
   opts, ok := parseLSPCommandOptions("graph-nodes", args)
   if !ok {
@@ -54,8 +58,8 @@ func computeGraphNodes(opts *lspCommandOptions) ([]publicrule.GraphNode, int) {
   publishes, needsChecker := engine.hasGraphPublisher()
   if !publishes {
     // Nothing the config declared can publish artifacts, so there is no
-    // projection to take and the Program is never built. This is what keeps a
-    // project that does not use the convention paying nothing for the verb.
+    // projection to take, so this branch skips Program acquisition. Rule/config
+    // resolution above has still run; this is not a zero-cost invocation.
     return []publicrule.GraphNode{}, 0
   }
   prog, parseDiags, closeProgram, err := acquireProgram(opts, needsChecker)

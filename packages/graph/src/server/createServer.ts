@@ -12,8 +12,8 @@ import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
  * input and output schemas and its argument validator, with no hand-written
  * schema: the interface's JSDoc becomes the handshake instructions, the
  * method's becomes the tool description, and every property's becomes the
- * description of that field — including `audit`, whose JSDoc is how a caller
- * learns what the server checked before it answered.
+ * description of that field — including `audit`, whose JSDoc explains fact
+ * provenance and coverage without claiming a second compiler check.
  *
  * The library owns registration and sends structured results once by default.
  * Its version option identifies this graph server in the handshake without
@@ -23,6 +23,10 @@ import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
  * @evidence contracts/common.md#clear-and-simple-design The integration delegates registration and result serialization to the library instead of maintaining another transport implementation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Handshake version uses the public createMcpServer option; no SDK private field or foreign method is patched.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain schema/JSDoc reflection, structured-result ownership and public version configuration.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a server whose transport lifetime startServer owns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms builds the MCP server once from the typia controller, with no loop of its own.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work called once per process; the schema reflection happens at compile time.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation creates an in-memory MCP server object; startServer attaches the stdio transport.
  */
 export function createServer(
   graph: TtscGraphSource,

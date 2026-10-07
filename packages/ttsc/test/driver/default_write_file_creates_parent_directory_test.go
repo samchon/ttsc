@@ -17,6 +17,10 @@ import (
 // 1. Pick a nested output file path in a temporary directory.
 // 2. Write through the public DefaultWriteFile helper.
 // 3. Assert parent directories and file contents were created.
+// @evidence contracts/testing.md#behavioral-verification Calls DefaultWriteFile for an absent nested output directory and independently reads back exact emitted bytes.
+// @evidence contracts/testing.md#independent-expectations The literal exports.value = 1 source is supplied before the writer executes, then compared with an OS file read.
+// @evidence contracts/testing.md#distinguishing-cases Absent parent directories exercise materialization; the sibling blocked-parent case owns the error boundary.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit uses its disposable t.TempDir and the direct writer API without a compiler, installed consumer or CLI child.
 func TestDriverDefaultWriteFileCreatesParentDirectory(t *testing.T) {
   root := t.TempDir()
 

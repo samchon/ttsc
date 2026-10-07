@@ -1,0 +1,1 @@
+{"compilerOptions":{"jsx":"preserve","module":"commonjs","rootDir":"src","strict":true,"target":"ES2022"},"files":["src/view.tsx"]}

@@ -19,6 +19,16 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Null states, arrays masquerading as dictionaries and malformed policy lists cannot become apparently valid evidence that crashes or misdirects a later observer.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain absent or unreadable records, nested validation and the next-delivery replacement policy; private helper comments state each consumed schema boundary.
  * @evidence contracts/portability.md#os-neutral-implementation Native UTF-8 reading observes the host record file; absence, access denial and partial in-place writes all produce unavailable evidence without guessing a platform-specific missing-file cause.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readFileSync returns before the function does, so no handle outlives the call, and the parsed record belongs to the caller.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One native read/JSON parse processes record bytes. Input values, policy
+ *   lists and predicate lists are checked linearly, including delegated native
+ *   realpath-spelling normalization and temporary normalized predicate arrays;
+ *   Object.values also allocates the full input-value array before early refusal.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Every call observes current file bytes and owns its decoded result; this
+ *   reader coordinates no cross-call cache. Reusing a parse would require fresh
+ *   byte equivalence rather than assuming that a prior record still holds.
  */
 export function readProjectRecordFile(
   file: string,
@@ -57,7 +67,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** A complete string list, rather than a list with some readable members. */
 function isStrings(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+  return (
+    Array.isArray(value) && value.every((entry) => typeof entry === "string")
+  );
 }
 
 /** The membership fields consumed by root-pattern and exclusion replay. */
@@ -69,32 +81,50 @@ function isPolicy(value: unknown): boolean {
     !isStrings(value.sources) ||
     (value.useCaseSensitiveFileNames !== undefined &&
       typeof value.useCaseSensitiveFileNames !== "boolean")
-  ) return false;
+  )
+    return false;
   const specs = value.rootFileSpecs;
   if (specs !== undefined) {
-    if (!isRecord(specs) || !isStrings(specs.files) || !isStrings(specs.include))
+    if (
+      !isRecord(specs) ||
+      !isStrings(specs.files) ||
+      !isStrings(specs.include)
+    )
       return false;
     const root = specs.root;
-    if (root !== undefined &&
-      (!isRecord(root) || typeof root.path !== "string" ||
+    if (
+      root !== undefined &&
+      (!isRecord(root) ||
+        typeof root.path !== "string" ||
         typeof root.realpath !== "string" ||
-        (root.nativepath !== undefined && typeof root.nativepath !== "string")))
+        (root.nativepath !== undefined && typeof root.nativepath !== "string"))
+    )
       return false;
   }
   const origins = value.directoryExclusionOrigins;
-  return origins === undefined ||
-    (isRecord(origins) && isStrings(origins.exclude) &&
-      (origins.declarationDir === undefined || typeof origins.declarationDir === "string") &&
+  return (
+    origins === undefined ||
+    (isRecord(origins) &&
+      isStrings(origins.exclude) &&
+      (origins.declarationDir === undefined ||
+        typeof origins.declarationDir === "string") &&
       (origins.outDir === undefined || typeof origins.outDir === "string") &&
       (origins.useImplicitOutputExclusions === undefined ||
-        typeof origins.useImplicitOutputExclusions === "boolean"));
+        typeof origins.useImplicitOutputExclusions === "boolean"))
+  );
 }
 
 /** The optional walk proof paired with its exact replay policy. */
-function isMembership(value: unknown): value is TtscProjectRecord["membership"] {
-  return value === null ||
-    (isRecord(value) && typeof value.digest === "string" &&
-      isStrings(value.directories) && isPolicy(value.policy));
+function isMembership(
+  value: unknown,
+): value is TtscProjectRecord["membership"] {
+  return (
+    value === null ||
+    (isRecord(value) &&
+      typeof value.digest === "string" &&
+      isStrings(value.directories) &&
+      isPolicy(value.policy))
+  );
 }
 
 /** Every state codec the observer and detached record proof consume. */
@@ -104,8 +134,10 @@ function isInputState(value: unknown): boolean {
     case "host":
       return typeof value.hash === "string";
     case "graph":
-      return typeof value.hash === "string" &&
-        (value.realpath === null || typeof value.realpath === "string");
+      return (
+        typeof value.hash === "string" &&
+        (value.realpath === null || typeof value.realpath === "string")
+      );
     case "predicates":
       return normalizeGraphInputObservation(value.observation) !== undefined;
     case "tree":
@@ -121,11 +153,15 @@ function isInputState(value: unknown): boolean {
 function isInputEvidence(
   value: unknown,
 ): value is TtscProjectRecord["inputs"][string] {
-  return isRecord(value) && typeof value.identity === "string" &&
+  return (
+    isRecord(value) &&
+    typeof value.identity === "string" &&
     typeof value.missing === "boolean" &&
-    (value.unavailable === undefined || value.unavailable === "missing" ||
+    (value.unavailable === undefined ||
+      value.unavailable === "missing" ||
       value.unavailable === "not-file") &&
-    (value.state === undefined || isInputState(value.state));
+    (value.state === undefined || isInputState(value.state))
+  );
 }
 
 /** All own input entries must be interpretable before any are handed off. */

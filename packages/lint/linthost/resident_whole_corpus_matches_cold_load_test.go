@@ -1,0 +1,167 @@
+package linthost
+
+import (
+  "path/filepath"
+  "sort"
+  "strconv"
+  "testing"
+)
+
+// TestResidentWholeCorpusMatchesColdLoad enables every registered rule and
+// compares the observed finding fingerprints after an incremental edit and a
+// cold load of the edited project.
+//
+// The two paths share rule implementations. Their nonempty and changed-result
+// guards distinguish an ignored edit, while differential equality checks rule,
+// file basename, positions and message. Configuring the registry on these two
+// TypeScript files does not exercise every rule branch or certify shared rule
+// correctness, severity, fixes or suggestions.
+//
+//  1. Enable every registered rule and lint a two-file project cold.
+//  2. Edit one file on disk, applyChange only that file, and re-lint the warm
+//     Program.
+//  3. Assert the findings equal a cold load of the edited project, and that the
+//     edit changed the findings at all (so the comparison cannot pass vacuously).
+//
+// @evidence contracts/testing.md#behavioral-verification Every registered rule is enabled before and after the authored source edit; the observed incremental and cold finding fingerprints must agree and differ from the original nonempty result.
+// @evidence contracts/testing.md#independent-expectations Cold loading provides a differential oracle independent of the incremental update mechanism but shares rule implementations, so shared rule defects remain indistinguishable. The original nonempty set and changed-result assertion reject vacuous reuse.
+// @evidence contracts/testing.md#distinguishing-cases One source edit turns var into const, loose into strict equality and adds a declaration; the incremental fingerprint (rule, file basename, positions and message of each nonnil observed finding) must differ from the pre-edit fingerprint, which also requires that the seed produced findings, and must equal the fingerprint of a freshly loaded Program. Only this one edit shape is covered.
+// @evidence contracts/testing.md#execution-ownership Loads Programs with loadProgram, applies applyChange and configures every registered rule in an Engine for runLintCycle on temporary files in one process; because both paths share the rule implementations, a defect common to both would not be detected.
+func TestResidentWholeCorpusMatchesColdLoad(t *testing.T) {
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), `{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "files": ["a.ts", "b.ts"]
+}
+`)
+  // The authored source must produce a nonempty finding set; comparing two empty
+  // sets would not distinguish an ignored edit.
+  writeFile(t, filepath.Join(root, "a.ts"), `export const a = 1;
+export function keep(value: string): string {
+  return value;
+}
+`)
+  const bBefore = `export var b = 2;
+export function twice(n: number) {
+  if (n == 2) {
+    return n;
+  }
+  return n;
+}
+`
+  writeFile(t, filepath.Join(root, "b.ts"), bBefore)
+
+  every := AllRuleNames()
+  if len(every) == 0 {
+    t.Fatal("no rules registered; the corpus comparison would be vacuous")
+  }
+  newEngine := func() *Engine {
+    rules := make(RuleConfig, len(every))
+    for _, name := range every {
+      rules[name] = SeverityWarn
+    }
+    engine := NewEngineWithResolver(InlineRuleResolver{Rules: rules})
+    if err := engine.ConfigError(); err != nil {
+      t.Fatalf("enabling the whole corpus failed config validation: %v", err)
+    }
+    engine.SetCurrentDirectory(root)
+    return engine
+  }
+
+  load := func(label string) *program {
+    t.Helper()
+    engine := newEngine()
+    prog, diags, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
+      forceNoEmit:      true,
+      needsRuleChecker: engine.NeedsTypeChecker(),
+    })
+    if err != nil {
+      t.Fatalf("%s loadProgram: %v", label, err)
+    }
+    if len(diags) != 0 {
+      t.Fatalf("%s loadProgram diagnostics: %+v", label, diags)
+    }
+    return prog
+  }
+
+  warm := load("cold")
+  defer warm.close()
+  before := fingerprintFindings(warm.runLintCycle(newEngine()))
+  if len(before) == 0 {
+    t.Fatal("the corpus produced no findings on the seed source; the fixture cannot detect drift")
+  }
+
+  // Edit b.ts on disk: `var` becomes `const`, the loose `==` becomes `===`, and
+  // a statement is added. a.ts is untouched and its AST must be reused.
+  writeFile(t, filepath.Join(root, "b.ts"), `export const b = 2;
+export function twice(n: number) {
+  if (n === 2) {
+    return n;
+  }
+  const doubled = n * 2;
+  return doubled;
+}
+`)
+  warm.applyChange(filepath.Join(root, "b.ts"))
+  incremental := fingerprintFindings(warm.runLintCycle(newEngine()))
+
+  cold := load("edited cold")
+  defer cold.close()
+  want := fingerprintFindings(cold.runLintCycle(newEngine()))
+
+  if equalFingerprints(incremental, before) {
+    t.Fatal("the edit did not change any finding; the comparison would pass even if applyChange did nothing")
+  }
+  if !equalFingerprints(incremental, want) {
+    t.Fatalf(
+      "incremental findings differ from a cold load of the same source\nincremental (%d):\n%s\ncold (%d):\n%s",
+      len(incremental), joinLines(incremental), len(want), joinLines(want),
+    )
+  }
+}
+
+// fingerprintFindings renders findings into a sorted, comparable form. Order is
+// not part of the contract — the file walk is parallel — so the fingerprint is
+// sorted; rule, position and message are, because a drifted incremental result
+// would differ in exactly those.
+func fingerprintFindings(findings []*Finding) []string {
+  out := make([]string, 0, len(findings))
+  for _, finding := range findings {
+    if finding == nil {
+      continue
+    }
+    name := ""
+    if finding.File != nil {
+      name = filepath.Base(finding.File.FileName())
+    }
+    out = append(out, finding.Rule+"|"+name+"|"+
+      strconv.Itoa(finding.Pos)+"|"+strconv.Itoa(finding.End)+"|"+finding.Message)
+  }
+  sort.Strings(out)
+  return out
+}
+
+func equalFingerprints(a, b []string) bool {
+  if len(a) != len(b) {
+    return false
+  }
+  for i := range a {
+    if a[i] != b[i] {
+      return false
+    }
+  }
+  return true
+}
+
+func joinLines(values []string) string {
+  out := ""
+  for _, value := range values {
+    out += "  " + value + "\n"
+  }
+  return out
+}

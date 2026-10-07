@@ -18,6 +18,10 @@ import (
 // 1. Resolve an explicit override without calling the host getwd function.
 // 2. Resolve an empty override through a successful getwd function.
 // 3. Assert getwd failures return a diagnostic error instead of a directory.
+// @evidence contracts/testing.md#behavioral-verification Calls cwdutil.Resolve and asserts exact explicit/default cwd, override callback suppression and returned diagnostic for an injected getwd failure.
+// @evidence contracts/testing.md#independent-expectations Literal /project, /current, empty failure directory and missing cwd message are authored independently of the resolver.
+// @evidence contracts/testing.md#distinguishing-cases Explicit override, successful ambient cwd and failed ambient cwd distinguish all three public decisions.
+// @evidence contracts/testing.md#execution-ownership Direct injected callbacks execute in this Go test process; no OS cwd dependency or CLI process is invoked.
 func TestCLIResolveWorkingDirectory(t *testing.T) {
   called := false
   wd, err := cwdutil.Resolve("/project", func() (string, error) {

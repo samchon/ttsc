@@ -12,11 +12,11 @@ import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSepa
  * list is read. A reference is resolved by its spelling alone, as
  * TypeScript-Go's `ResolveConfigFileNameOfProjectReference` resolves it: a path
  * ending in `.json` names that file, and any other path names the
- * `tsconfig.json` inside it. The filesystem is never consulted, so a referenced
- * config that does not exist yet already has the spelling it will have, and a
- * watcher registered on it sees it appear. An unreadable config or a malformed
- * entry contributes nothing, since the compiler owns the diagnostic for a
- * broken solution.
+ * `tsconfig.json` inside it. Reference-target existence is never probed, so a
+ * referenced config that does not exist yet already has the spelling it will
+ * have, and a watcher registered on it sees it appear. An unreadable config or
+ * a malformed entry contributes nothing, since the compiler owns the diagnostic
+ * for a broken solution.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Only the config's own references are read. String paths preserve declaration
@@ -39,6 +39,15 @@ import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSepa
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain non-inheritance, suffix naming and missing-target
  *   watchability, separating path spelling from actual filesystem membership.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Reads/parses the source config once and visits its N references in order.
+ *   Config bytes, native source lookup and accepted target/anchor spelling
+ *   lengths drive work and temporary strings; no target existence scan occurs.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This single-source extraction coordinates no cross-call work. Selection
+ *   entries own validated reuse and retain the returned reference list.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function readTsconfigReferences(tsconfig: string): string[] {
   let parsed: unknown;

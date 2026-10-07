@@ -1,43 +1,82 @@
+import assert from "node:assert/strict";
+
 import {
-  createNativeSessionFixture,
-  processIsAlive,
-  readPids,
-  waitFor,
-} from "../internal/nativeSession";
-import { assert } from "../internal/ttsgraph";
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
+import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies a duplicate manifest key cannot hide another committed shard.
+ * Verifies a delta with a duplicated manifest key retires the peer and resets
+ * the shard store.
  *
- * Locks the restart boundary after an already committed native generation. A
- * missing store reset would make the replacement child's sequence-one
- * transaction look stale even though it is the only trustworthy new base.
+ * The first graph is committed from a valid initial transaction. A second,
+ * incremental transaction then lists the same shard key twice in its manifest.
+ * The session must reject it, retire the peer, and accept a sequence-one
+ * initial transaction on the next peer, which is only possible if the committed
+ * coordinates were discarded with the old peer.
  *
- * 1. Commit one valid shard generation, then hide a second upsert behind a
- *    duplicate manifest key in the next delta.
- * 2. Reject the non-strict manifest and wait for the first child to exit.
- * 3. Start a clean child and accept its complete sequence-one shard generation.
+ * 1. Commit a valid initial transaction and require an empty node list.
+ * 2. Deliver the "duplicateManifest" delta (sequence 2 on the committed base) and
+ *    require the rejection "manifest must be strictly key-sorted" and the port
+ *    to be retired (reader detached, then stdio joined).
+ * 3. Request again, answer the second port with a sequence-one initial
+ *    transaction, and require an empty node list and exactly two opened ports.
+ *
+ * @evidence contracts/testing.md#behavioral-verification After a committed initial graph, TtscGraphSessionState.receive of the duplicateManifest delta must reject graph() with "manifest must be strictly key-sorted", retire the port as close(false) then close(true), and a second graph() must accept a sequence-one initial transaction on a second port and resolve to a model with no nodes.
+ * @evidence contracts/testing.md#independent-expectations The duplicated manifest entries, base sequence 1 and the base generation taken from the baseline fixture, the pinned digest literals in sessionTransactions, the expected error pattern, the retirement sequence [false, true], the empty node list and the port count of two are authored literals. The duplicateManifest generation literal is not reached because the sort check fails first.
+ * @evidence contracts/testing.md#distinguishing-cases The delta is coordinate-valid and its upsert digests match, so only manifest ordering fails. Accepting a sequence-one initial transaction after a committed sequence-one generation distinguishes a reset shard store from retained stale coordinates. The duplicate-config case is covered by a separate test.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState and TtscGraphShardStore directly in the test process against the recorded line ports of internal/sessionState. The test calls receive with typed envelopes, so TtscGraphProtocol.decode, generated schema validation and a native process are not executed.
  */
-export const test_ttscgraph_duplicate_native_shard_manifest_restarts_session =
-  async () => {
-    const { root, session } = createNativeSessionFixture({
-      mode: "duplicate-shard-manifest-once",
+export async function test_ttscgraph_duplicate_native_shard_manifest_restarts_session(): Promise<void> {
+  const { session, ports } = sessionState();
+  try {
+    const initial = session.graph();
+    void initial.catch(() => undefined);
+    const first = await admitted(ports);
+    const baseline = sessionTransaction();
+    session.receive(first.peer, {
+      id: Number(first.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot: baseline,
     });
-    try {
-      assert.deepEqual((await session.graph()).nodes, []);
-      await assert.rejects(
-        session.graph(),
-        /manifest must be strictly key-sorted/,
-      );
-      const firstPid = readPids(root)[0]!;
-      await waitFor(
-        () => !processIsAlive(firstPid),
-        "duplicate-manifest child exit",
-      );
-      const graph = await session.graph();
-      assert.deepEqual(graph.nodes, []);
-      assert.equal(readPids(root).length, 2);
-    } finally {
-      session.close();
-    }
-  };
+    assert.deepEqual((await initial).nodes, []);
+    const active = session.graph();
+    void active.catch(() => undefined);
+    const port = await admitted(ports, 2);
+    const snapshot = sessionTransaction("duplicateManifest");
+    snapshot.sequence = 2;
+    snapshot.baseSequence = 1;
+    snapshot.baseGeneration = baseline.generation;
+    session.receive(port.peer, {
+      id: Number(port.writes.at(-1)!.id),
+      protocolVersion: 1,
+      mode: "incremental",
+      changed: true,
+      capabilities: [],
+      snapshot,
+    });
+    await assert.rejects(active, /manifest must be strictly key-sorted/);
+    assertRetired(port);
+    const recovered = session.graph();
+    void recovered.catch(() => undefined);
+    const next = await admitted(ports);
+    session.receive(next.peer, {
+      id: Number(next.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "initial",
+      changed: true,
+      capabilities: [],
+      snapshot: sessionTransaction(),
+    });
+    assert.deepEqual((await recovered).nodes, []);
+    assert.equal(ports.length, 2);
+  } finally {
+    await session.close();
+  }
+}

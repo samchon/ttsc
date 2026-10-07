@@ -1,0 +1,1 @@
+export const answer: number = 42; export function optional(value?: { answer: number }) { return value?.answer; }

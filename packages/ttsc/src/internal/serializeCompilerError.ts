@@ -3,22 +3,25 @@
  *
  * Error name, message and stack are explicit because they are not enumerable.
  * Plain outcome objects and arrays retain enumerable string-keyed data.
- * Repeated objects use a JSON-pointer reference marker, making cycles finite
- * without duplicating shared outcome trees. Values JSON cannot express use a
- * tagged description. Accessor properties are not evaluated. Failed reflective
- * inspection, such as a revoked Proxy, is marked rather than replacing the
- * compiler's exception. Internal slots of foreign classes are not projected
- * into ordinary data.
+ * Repeated objects use a JSON-pointer reference marker, making cycles in a
+ * finite observed graph finite without duplicating shared outcome trees. Values
+ * JSON cannot express use a tagged description. Accessor descriptors are not
+ * invoked to read their values. Reflection can execute Proxy traps and expose
+ * changing objects, so arbitrary reflective behavior has no deadline or fixed
+ * graph-size guarantee. Failed reflective inspection, such as a revoked Proxy,
+ * is marked rather than replacing the compiler's exception. Internal slots of
+ * foreign classes are not projected into ordinary data.
  *
  * @evidence contracts/common.md#principled-implementation Explicit Error fields preserve exception meaning while recursively retaining cause, aggregate errors and ordinary outcome data; pointer markers distinguish repeated references and tagged values distinguish JSON-inexpressible primitives from lost fields.
  * @evidence contracts/common.md#clear-and-simple-design One traversal owns API and worker failure transport, with private property and scalar helpers; compiler status classification remains separate from serialization.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Real causal data is preserved rather than replaced with the outer message; traversal does not call foreign getters or patch Error serialization, and unsupported primitive forms are explicitly described.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Available causal data is preserved rather than replaced with only the outer message; traversal marks accessor descriptors instead of invoking their getters and does not patch Error serialization. Proxy reflection may execute traps or fail, with inspection failures explicitly marked rather than inventing outcome data.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the retained Error/outcome fields, finite reference representation, exceptional scalars and accessor policy with separate acknowledgments.
- * @evidence contracts/performance.md#efficient-algorithms An explicit stack visits V distinct objects and E owned fields once, with P prototype observations for inherited Error text and property/path spelling costs; O(V+E+P) structural work does not recursively expand shared subtrees or consume the JavaScript call stack.
+ * @evidence contracts/performance.md#efficient-algorithms For a finite observed graph, an explicit stack visits V distinct objects and E reflected owned fields once, with P prototype observations for inherited Error text, scalar/text conversion and pointer spelling costs. O(V+E+P) structural work excludes arbitrary Proxy-trap execution; shared subtrees are not expanded again and traversal does not recurse on the JavaScript call stack. Descriptor collections and pending outputs scale with the observed graph and text.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each failure graph belongs to one outcome; sharing an earlier serialization would require immutable graph inputs that arbitrary thrown values do not guarantee.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Seen-object and work-stack state belongs to one traversal and scales with its graph; only the finite returned description escapes, and no global exception history is retained.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Seen-object and work-stack state belongs to one traversal and scales with distinct observed objects, fields and pointer text. On completion it becomes reclaimable while the caller owns the returned description; no global exception history is retained. Arbitrary reflective behavior can prevent completion or keep exposing new objects, and this traversal imposes no deadline or population cap.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation serializeCompilerError computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function serializeCompilerError(error: unknown): unknown {
   const seen = new WeakMap<object, string>();

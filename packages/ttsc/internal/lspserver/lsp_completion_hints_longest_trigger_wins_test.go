@@ -7,7 +7,9 @@ import "testing"
 //
 // A plugin publishes broad and narrow triggers at once — `@`, `@evidence `,
 // `@evidence docs/spec.md#` — because it cannot ask a question per keystroke and
-// so must describe every position up front. Only the longest match may answer.
+// so describes the selected positions up front. These nested matches begin at
+// the same occurrence, where the longest wins; different occurrences also have
+// a nearest-trigger policy that this fixture does not exercise.
 // Without that, typing `@evidence docs/spec.md#pri` would offer tag names,
 // document paths, and anchors together, and the narrow corpus the user actually
 // wants would be buried under the broad one that also matches.
@@ -16,6 +18,11 @@ import "testing"
 //  2. Ask at a cursor inside the narrowest.
 //  3. Assert only the narrowest answers, and that the filter is the text after
 //     it rather than the whole line.
+//
+// @evidence contracts/testing.md#behavioral-verification At a cursor inside the narrowest of three nested triggers only the narrowest hint answers, and its filter is the text after that trigger.
+// @evidence contracts/testing.md#independent-expectations The expected items and filter are literals for the published nested triggers.
+// @evidence contracts/testing.md#distinguishing-cases Broad, middle and narrow triggers all match the same line, so a matcher that merged them would offer all three.
+// @evidence contracts/testing.md#execution-ownership Directly supplies an authored hint corpus and four line prefixes to matchCompletionHints with inJSDoc=true in this process. Literal ordered Insert strings and filters are observed; other item fields, native scope classification, and request publication are not asserted. It substitutes no seam, creates no directory, resolves no sidecar, and starts no Program, process, consumer, or editor connection.
 func TestLSPCompletionHintsLongestTriggerWins(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "evidence"}}},
@@ -61,9 +68,17 @@ func TestLSPCompletionHintsLongestTriggerWins(t *testing.T) {
 //  1. Ask the same line outside a JSDoc block.
 //  2. Ask with a scope this host does not know.
 //  3. Assert silence in both.
+//
+// @evidence contracts/testing.md#behavioral-verification The same supplied @Inj line and hint yields evidence with inJSDoc=true but no items with false; an authored unknown scope and empty-trigger/nil-item corpus also yield no items. This observes admission booleans, not actual decorator/JSDoc lexical classification or completion publication.
+// @evidence contracts/testing.md#independent-expectations The correct-scope control requires the literal evidence Insert; wrong/unknown scope and degenerate hint inputs require empty item lists. Filters and other item fields are not asserted.
+// @evidence contracts/testing.md#distinguishing-cases The first positive/negative pair differs only in supplied inJSDoc; unknown-scope and degenerate corpora are separate inputs. The positive control rejects blanket empty output, without authenticating scope parsing.
+// @evidence contracts/testing.md#execution-ownership Directly supplies strings, hint records, and inJSDoc booleans to matchCompletionHints in this process. It substitutes no seam, creates no directory, resolves no sidecar, loads no Program, and starts no product process, consumer, or editor connection.
 func TestLSPCompletionHintsRefuseOutsideScope(t *testing.T) {
   hints := []LSPCompletionHint{
     {Scope: "jsdoc", After: "@", Items: []LSPCompletionItem{{Insert: "evidence"}}},
+  }
+  if items, _ := matchCompletionHints(hints, "@Inj", true); !equalStrings(inserts(items), []string{"evidence"}) {
+    t.Errorf("correct-scope control offered %v, want evidence", inserts(items))
   }
   if items, _ := matchCompletionHints(hints, "@Inj", false); len(items) != 0 {
     t.Errorf("a decorator position was offered %v, want nothing", inserts(items))
@@ -87,13 +102,18 @@ func TestLSPCompletionHintsRefuseOutsideScope(t *testing.T) {
 
 // TestCursorInJSDocTracksTheBlock pins the scope test itself.
 //
-// It is a backward scan rather than a parse, so the cases that matter are the
-// ones where a naive "is there a /** before me" would be wrong: after the block
-// closed, and inside a line comment that only looks like one.
+// Six authored end cursors distinguish open and closed JSDoc, a second open
+// block, a line comment, and code. The maintained helper scans forward; this
+// test observes booleans, not its algorithm, all comment forms, or a request.
 //
 //  1. A cursor inside an open block is in scope.
 //  2. A cursor after the block closed is not.
-//  3. A line comment is never a doc comment.
+//  3. The authored line-comment and ordinary-code cursors are not in JSDoc.
+//
+// @evidence contracts/testing.md#behavioral-verification cursorInJSDoc is true inside an open doc block, including a second block after a closed one, and false after the block closed, in a line comment and in ordinary code.
+// @evidence contracts/testing.md#independent-expectations Each source string carries its expected boolean written literally.
+// @evidence contracts/testing.md#distinguishing-cases Cases where a naive search for '/**' would be wrong, a closed block and a line comment, sit beside the open blocks.
+// @evidence contracts/testing.md#execution-ownership Directly calls cursorInJSDoc on six authored strings and literal booleans in this process. It substitutes no seam, creates no directory, resolves no sidecar, loads no Program, and starts no consumer, child process, or LSP connection.
 func TestCursorInJSDocTracksTheBlock(t *testing.T) {
   cases := []struct {
     text string
@@ -118,6 +138,11 @@ func TestCursorInJSDocTracksTheBlock(t *testing.T) {
 //
 // A trigger matched against the whole document would let a `@evidence` three
 // lines up offer anchors on an unrelated line.
+//
+// @evidence contracts/testing.md#behavioral-verification Direct linePrefixAt calls return the literal last-line prefix at one multiline end offset and no at byte offset two of no newline. This checks text only up to the supplied cursor, not the entire single-line document or actual trigger matching.
+// @evidence contracts/testing.md#independent-expectations The expected prefixes are literal strings.
+// @evidence contracts/testing.md#distinguishing-cases A multi-line text and a single line distinguish line-local from document-wide matching.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual linePrefixAt with two authored strings and offsets. It uses no substitute operation, native process, temporary directory, installed consumer or product host; CR boundaries and invalid offsets are outside its two cases.
 func TestLinePrefixStopsAtTheLine(t *testing.T) {
   text := "/**\n * @evidence docs/spec.md#pri"
   if got, want := linePrefixAt(text, len(text)), " * @evidence docs/spec.md#pri"; got != want {

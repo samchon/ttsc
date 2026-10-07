@@ -1,10 +1,10 @@
-import { COMPILER_OPTION_KINDS } from "./COMPILER_OPTION_KINDS";
 import type { AnySubcommand } from "./AnySubcommand";
 import type { FlagSpec } from "./FlagSpec";
 import type { ParseOptions } from "./ParseOptions";
 import type { ParseResult } from "./ParseResult";
 import { flagsForSubcommand } from "./flagsForSubcommand";
 import { normalizeFlagToken } from "./normalizeFlagToken";
+import { readCompilerOptionOccurrence } from "./readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "./resolveFlagSpec";
 
 /**
@@ -17,9 +17,10 @@ import { resolveFlagSpec } from "./resolveFlagSpec";
  * @evidence contracts/common.md#clear-and-simple-design One parsing loop owns the argv partition while small helpers own value reading, boolean grammar and forwarding arity; all spelling policy comes from normalizeFlagToken instead of parallel case-specific parsers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown options remain native compiler inputs rather than being guessed from particular files. The positional predicate is explicit caller policy, and response-file forwarding follows the compiler's argv contract.
  * @evidence contracts/common.md#meaningful-documentation The native comment distinguishes local errors from native diagnostics; ParseOptions and ParseResult document separator interaction and argument ownership in separate member paragraphs following the documentation skill.
- * @evidence contracts/performance.md#efficient-algorithms A monotonically advancing cursor processes N tokens without repeated array shifts; scanning and result storage are O(N) plus token text and the caller's positional predicate cost. The schema index costs O(F plus aliases) once per command, not on every parse.
+ * @evidence contracts/performance.md#efficient-algorithms A monotonically advancing cursor processes N tokens without repeated array shifts; scanning and result storage are O(N) plus visited token/lookahead text and the caller's positional predicate cost. Head and separated remainder each need one invocation snapshot rather than a slice followed by another clone. Building a command's acceptance index scans fixed schema rows and their canonical/alias text once; subsequent invocations reuse it.
  * @evidence contracts/performance.md#reuse-equivalent-work Launcher acceptance indexes are shared by command identity because module-owned schema rows and normalization policy remain fixed for the loaded module; invocation argv, prefix and classifier stay local and never enter the cached computation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains at most one acceptance index per finite command identity, containing references to fixed schema rows. Each cursor and result collection is invocation-owned and grows with argv size; returning transfers only the result, not the cursor or input copy.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The token-partitioning body reads metadata and argv without directly opening files, resolving paths or calling process APIs. Any native behavior in a supplied positional classifier belongs to that provider; the parser does not certify an arbitrary callback as pure.
  */
 export function parseFlags(opts: ParseOptions): ParseResult {
   const accepted = launcherFlagsForSubcommand(opts.subcommand);
@@ -35,7 +36,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   // hold it. Everything after the entry belongs to the program, which gets
   // its own `--` tokens exactly as `node` would hand them over; the one
   // separator directly after the entry is still consumed, so the documented
-  // `ttsx entry.ts -- --port 3000` passes `--port 3000` (samchon/ttsc#1401).
+  // `ttsx entry.ts -- --port 3000` passes `--port 3000`.
   const separatorInOrder =
     opts.honorDoubleDashSeparator === true &&
     opts.forwardAfterFirstPositional === true;
@@ -44,9 +45,9 @@ export function parseFlags(opts: ParseOptions): ParseResult {
       ? opts.argv.indexOf("--")
       : -1;
   let remainder: string[] | null =
-    separator === -1 ? null : [...opts.argv.slice(separator + 1)];
+    separator === -1 ? null : opts.argv.slice(separator + 1);
   const head: ArgvCursor = {
-    tokens: [...(separator === -1 ? opts.argv : opts.argv.slice(0, separator))],
+    tokens: separator === -1 ? [...opts.argv] : opts.argv.slice(0, separator),
     index: 0,
   };
 
@@ -75,7 +76,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 
     // Only a `-`-prefixed token can name a flag. Bare tokens are input files
     // and flag values; resolving one against the schema would let the `all` of
-    // `--target all` masquerade as `--all` now that the lookup is dash- and
+    // `--target all` masquerade as `--all`, because the lookup is dash- and
     // case-insensitive.
     if (current.startsWith("-")) {
       const equalsIndex = current.indexOf("=");
@@ -112,20 +113,20 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 
       // The compiler's table owns arity for options the launcher does not own.
       passthrough.push(current);
-      const kind = COMPILER_OPTION_KINDS.get(normalizeFlagToken(token));
       if (
-        kind !== undefined &&
-        inlineValue === undefined &&
-        head.index < head.tokens.length &&
-        !head.tokens[head.index]!.startsWith("-") &&
-        (kind === "value" ||
-          parseBooleanLiteral(head.tokens[head.index]!) !== undefined)
+        readCompilerOptionOccurrence(head.tokens, head.index - 1).width === 2
       ) {
         passthrough.push(head.tokens[head.index++]!);
       }
       continue;
     }
 
+    // Native ignores empty positional tokens; after the entry they remain
+    // program arguments through forwardingTail above.
+    if (current === "") {
+      passthrough.push(current);
+      continue;
+    }
     if (opts.isPositional !== undefined && !opts.isPositional(current)) {
       passthrough.push(current);
       continue;
@@ -177,10 +178,9 @@ function launcherFlagsForSubcommand(
     // or by native sidecars (e.g. `--showConfig`, `--listFilesOnly`)
     // must fall through to `forwardKnownButUnaccepted` so the launcher
     // forwards them verbatim instead of storing them in `values` where
-    // no consumer reads them back out. The previous shape — filter on
-    // `subcommands` only — silently dropped every tsgo-only terminal
-    // flag at the launcher boundary (the RC-1 / RC-2 class the schema
-    // is meant to make impossible).
+    // no consumer reads them back out. Filtering on `subcommands` alone
+    // would silently drop every tsgo-only terminal flag at the launcher
+    // boundary.
     if (!flag.consumedBy.includes("launcher")) continue;
     accepted.set(normalizeFlagToken(flag.name), flag);
     for (const alias of flag.aliases ?? []) {
@@ -217,8 +217,7 @@ function consumeFlag(
     if (inlineValue !== undefined) {
       // `--flag=false` / `--flag=true` inline form. Anything other than
       // a recognised literal stays loud: `--singleThreaded=yes` silently
-      // becoming `true` is the kind of footgun the RCA's RC-4 class
-      // covers. Mirrors `validatePositiveInt`'s style.
+      // becoming `true` would be a footgun. Mirrors `validatePositiveInt`'s style.
       const literal = parseBooleanLiteral(inlineValue);
       if (literal === undefined) {
         throw new Error(
@@ -263,9 +262,9 @@ function consumeFlag(
  * next token looks like another flag (`-` prefix). Without the "looks like a
  * flag" guard `ttsc --cwd --strict src/main.ts` would silently consume
  * `--strict` as the value of `--cwd`, leaving `--strict` lost and `cwd` set to
- * a junk path. Mirrors the symmetric guard already in
- * `forwardKnownButUnaccepted` (RC-1 fairness — the two value-resolution paths
- * must agree on what counts as "a missing value").
+ * a junk path. This is the launcher's own missing-value policy; native scalar
+ * options instead consume a following dash token through the occurrence
+ * reader.
  */
 function takeValueToken(
   flag: string,
@@ -324,14 +323,15 @@ function validatePositiveInt(
 
 /**
  * Forward a flag the schema knows about but the current subcommand does not
- * accept. The launcher will hand it to tsgo (or to native sidecars via
- * `--tsgo-args`); without this branch the parser would lose the value token of
- * a `--flag value` pair.
+ * accept. The launcher will hand it to tsgo (or to native sidecars through the
+ * `TTSC_TSGO_ARGS` environment payload); without this branch it would lose the
+ * value token of a `--flag value` pair.
  *
- * A value option owned by tsgo always consumes its next bare token, even when
- * it ends in `.ts`; `--rootDir src.ts main.ts` has one option value and one
- * source. Schema rows belonging only to another ttsc layer still consult
- * `isPositional`, because tsgo does not own their arity.
+ * Native metadata owns whether a following token is consumed. Scalar operands
+ * can include dash prefixes or `.ts` suffixes; `--rootDir src.ts main.ts` has
+ * one option value and one source. List and configuration-only operands retain
+ * their distinct native widths. Schema rows belonging only to another ttsc
+ * layer still consult `isPositional`, because tsgo does not own their arity.
  */
 function forwardKnownButUnaccepted(
   passthrough: string[],
@@ -342,6 +342,11 @@ function forwardKnownButUnaccepted(
   isPositional: ((token: string) => boolean) | undefined,
 ): void {
   passthrough.push(original);
+  const native = readCompilerOptionOccurrence(rest.tokens, rest.index - 1);
+  if (native.option !== undefined) {
+    if (native.width === 2) passthrough.push(rest.tokens[rest.index++]!);
+    return;
+  }
   // Boolean flags carry no required value. `--foo=value` is already one token.
   if (flag.kind === "boolean" || inlineValue !== undefined) {
     return;

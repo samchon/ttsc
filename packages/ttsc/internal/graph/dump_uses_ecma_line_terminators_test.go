@@ -4,20 +4,26 @@ import (
   "encoding/json"
   "path/filepath"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDumpUsesECMALineTerminators verifies graph dump evidence and compact
-// source display use the compiler's complete ECMAScript line model.
-//
-// The graph used to split only on LF, so a CR, LS, or PS file placed every
-// declaration on line one and let a leading // comment consume the rest of the
-// file. Each fixture drives a real compiler program and checks the independent
-// dump coordinates, comment compaction, and regular-expression boundary.
+// source helpers at five authored ECMAScript line terminators. Each fixture
+// uses a real compiler Program and literal evidence coordinates, comment-text
+// preservation and a directly supplied cross-line regular-expression boundary.
+// It does not independently validate every compiler lexical context.
 //
 // 1. Compile the same two-function project with each ECMAScript terminator.
 // 2. Marshal its graph and find both declarations and the call edge.
 // 3. Assert their evidence and source helpers agree on the three logical lines.
+//
+// @evidence contracts/testing.md#behavioral-verification Five named terminator cases load actual Programs and decode MarshalDump results: alpha and beta declaration starts and a calls edge from alpha must occupy their literal lines. Direct source helpers must count three lines, preserve the authored line comment plus following member text, and reject the supplied cross-line regular-expression literal.
+// @evidence contracts/testing.md#independent-expectations Literal expectations for LF, CRLF, CR, U+2028 and U+2029 are alpha line 2 column 1, beta line 3 column 1, a calls edge from alpha at line 2, three line starts, unchanged // lead plus terminator plus value: 1, and regularExpressionEnd returning zero. The edge target, end coordinates and other lexical contexts are not asserted.
+// @evidence contracts/testing.md#distinguishing-cases Compile the same two-function project with each ECMAScript terminator; Marshal its graph and find both declarations and the call edge; Assert their evidence and source helpers agree on the three logical lines.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit entry registers five named cases, each writing a native project and loading/closing a driver Program through dumpBytes before decoding actual graph JSON. Source helpers execute directly on authored strings. A restored empty linked-plugin manifest excludes ambient hooks; no consumer installation, artifact build or product process runs.
 func TestDumpUsesECMALineTerminators(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   cases := []struct {
     name       string
     terminator string

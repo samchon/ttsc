@@ -2,6 +2,7 @@ package lspserver
 
 import (
   "bytes"
+  "os/exec"
   "path/filepath"
   "strings"
   "testing"
@@ -10,16 +11,20 @@ import (
 // TestLSPProjectDiagnosticsProgramInputOverlapRefreshesAllProducers verifies a
 // declared input that can also belong to the Program widens diagnostic scope.
 //
-// Only the first producer declares the path, but both project-rule producers
-// observe the shared Program. TypeScript and resolveJsonModule JSON edits must
-// therefore refresh both, while a path that can only be data keeps the
-// owner-scoped behavior pinned by
+// Only the first supplied snapshot declares each tested path. The direct scope
+// policy widens .ts and .json inputs; neither an actual Program nor a filesystem
+// edit runs here. Non-Program data scoping is separately exercised by
 // lsp_project_diagnostics_refreshes_only_input_owners_test.go.
 //
 //  1. Declare one shared-Program path for the first producer only.
 //  2. Resolve its owner scope and widen it as a watched Program input.
 //  3. Assert the scope became all-producer.
 //  4. Refresh and assert both producers were invoked.
+//
+// @evidence contracts/testing.md#behavioral-verification Supplied .ts and .json URIs initially match one retained owner, then the direct watched-input scope policy marks all. A separate explicit nil-owner refresh selects two descriptors, is incomplete and logs both failed producers; this is not an end-to-end scope-to-refresh dispatch or actual Program membership check.
+// @evidence contracts/testing.md#independent-expectations One matched owner, all=true, selected=2, complete=false and both descriptor-name errors are literal observations. Checked absent binaries establish the failed native-start premise; expected values are not derived from scope-policy output.
+// @evidence contracts/testing.md#distinguishing-cases Only the first producer declares the path, so owner-only scoping would invoke one.
+// @evidence contracts/testing.md#execution-ownership Named .ts and .json Go subtests directly seed NativePluginSource snapshots, query Proxy owner scope, widen it and explicitly request an all-owner refresh. Owned native temporary roots supply URI identity, while missing binaries reach failed resident/direct start attempts; no consumer or product host is installed and no Program is constructed.
 func TestLSPProjectDiagnosticsProgramInputOverlapRefreshesAllProducers(
   t *testing.T,
 ) {
@@ -37,6 +42,11 @@ func TestLSPProjectDiagnosticsProgramInputOverlapRefreshesAllProducers(
         Name:               "@ttsc/second-program",
         ProjectDiagnostics: true,
         ProjectInputs:      true,
+      }
+      for _, plugin := range []NativeLSPPluginEntry{first, second} {
+        if path, err := exec.LookPath(plugin.Binary); err == nil {
+          t.Fatalf("missing-binary premise is false: %s", path)
+        }
       }
       var log bytes.Buffer
       source := &NativePluginSource{

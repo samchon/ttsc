@@ -15,6 +15,11 @@ import { callMutation, expectFsError, openFd } from "../../internal/callbackFs";
  * 1. Seed `/t.txt`="abcdef", then shrink its descriptor to 3 and grow it to 5.
  * 2. Read the bytes and reject unknown, stdout, and negative-length calls.
  * 3. Assert shrink, zero-filled growth, and each rejection code.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.ftruncate shrinks and zero-extends a writable opened file, rejects unknown/stdout descriptors and negative length. Literal bytes distinguish a successful no-op from real resizing.
+ * @evidence contracts/testing.md#independent-expectations POSIX truncation retains the prefix and fills growth with zero bytes. Authored abc and [97,98,99,0,0] plus EBADF/EINVAL are independent expectations for valid, non-file and malformed operations.
+ * @evidence contracts/testing.md#distinguishing-cases Shrink from six to three, grow to five, unknown fd 987654, reserved stdout and negative length cover size and descriptor validation. Read-only rejection is owned by the access-mode test.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_ftruncate_resizes_via_descriptor invokes createMemFS and openFd, then fs.ftruncate through callMutation/expectFsError and reads actual bytes. Its discoverable unit entry owns all five outcomes with no installed artifact.
  */
 export const test_memfs_ftruncate_resizes_via_descriptor =
   async (): Promise<void> => {

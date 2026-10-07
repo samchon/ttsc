@@ -11,15 +11,14 @@ import type { TypeParameterDeclaration } from "../types/TypeParameterDeclaration
  *
  * Built by {@link factory.createFunctionDeclaration}.
  *
- * A missing name represents an anonymous default-export declaration. A
- * missing body represents a signature; legality depends on its context.
+ * A missing name represents an anonymous default-export declaration. A missing
+ * body represents a signature; legality depends on its context.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation Generator presence, optional name/generics/annotation/body and ordered parameters preserve declaration clauses without claiming legal contextual combinations.
  * @evidence contracts/common.md#clear-and-simple-design One field owns each header or body part using shared parameter, type and block nodes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The generator marker and omitted body are syntax distinctions, not runtime function patches or test-specific execution paths.
  * @evidence contracts/common.md#meaningful-documentation JSDoc explains anonymous declarations and absent bodies, with separately documented return and parameter roles following the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface FunctionDeclaration {
   /** Discriminant tag; always `"FunctionDeclaration"`. */

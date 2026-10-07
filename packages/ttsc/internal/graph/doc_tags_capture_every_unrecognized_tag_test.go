@@ -8,8 +8,9 @@ import (
 )
 
 // TestDocTagsCaptureEveryUnrecognizedTag verifies that the build pass records a
-// DocTag for each documentation tag TypeScript does not recognize, on every
-// declaration form, and records nothing for the tags it does.
+// ten authored unknown-tag/host pairs, including a bare tag and multiline text.
+// It rejects the fixture's param and returns tags and any tag on the untagged
+// function; it does not enumerate every parser-known tag or declaration form.
 //
 // The population boundary is the whole design: naming particular tags would make
 // the compiler host know one convention, so the pass collects exactly what the
@@ -24,7 +25,13 @@ import (
 //  2. Assert every unrecognized tag is recorded on its own declaration's node.
 //  3. Assert no known tag is recorded, and that an untagged declaration
 //     contributes nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Build returns exactly one matching fact for each of the ten authored tag/target pairs with its literal text, including multiline joining and the empty bare text. No param or returns fact is present, and the untagged function carries none.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: each unrecognized tag (evidence, evidenceExclude, reference, spec and a bare tag) must be recorded exactly once on its own declaration's node with its written text (a multi-line reason joined into one line, empty for the bare tag), param and returns must never be recorded, and the untagged declaration must carry none.
+// @evidence contracts/testing.md#distinguishing-cases Build a fixture whose declarations carry convention tags, known tags, a tag with no text, and a multi-line reason, across a function, a class, a class member, an interface member, a variable, a namespace member, and a closure; Assert every unrecognized tag is recorded on its own declaration's node; Assert no known tag is recorded, and that an untagged declaration contributes nothing.
+// @evidence contracts/testing.md#execution-ownership This graph Go source-unit writes its native temporary project, constructs and closes a driver compiler Program in-process, and calls Build directly. A restored empty linked-plugin manifest excludes ambient hooks; no installed consumer or native product command runs. Literal target-ID suffixes distinguish attribution without computing expectations from Build.
 func TestDocTagsCaptureEveryUnrecognizedTag(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `/**

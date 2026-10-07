@@ -1,16 +1,22 @@
 import type { ITtscCompilerDiagnostic } from "../ITtscCompilerDiagnostic";
+import type { ITtscCompilerTransformation } from "../ITtscCompilerTransformation";
 
 /**
  * Internal result captured from TypeScript-Go or native plugin sidecars.
  *
  * @evidence contracts/common.md#principled-implementation Exit status, actual normal completion, diagnostics, streams, check-generation witnesses and optional emitted-source provenance remain separate. Absent provenance, an unknown output's empty source list and a complete empty output map differ; null input witnesses record absence while missing keys establish no reusable proof.
  * @evidence contracts/common.md#clear-and-simple-design One result record carries process facts and separately requested emitted-file/provenance data without making display-text parsing responsible for source ownership.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Captured streams and process status are actual host results, not reconstructed expected output or diagnostic-text guesses at success.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Streams derive from actual host output, though failure normalization can move stdout into stderr and phase composition can concatenate them. Numeric status remains separate from normal-completion proof; neither diagnostic text nor normalization invents successful execution or source ownership.
  * @evidence contracts/common.md#meaningful-documentation Native comments state status versus actual completion, emitted-list availability, generation ownership, null versus missing witnesses and unknown/ambiguous provenance states; member and tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Provenance distinguishes actual absolute native output spelling from physical source identity captured by the producer or stable external observations; neither path is case-folded or reconstructed from a URL, and each producer owns its resolution premise.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface TtscBuildResult {
-  /** Structured diagnostics collected from compiler output. */
+  /** Compiler-time graph of the same check generation, when transported. */
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
+  /** Structured compiler/plugin diagnostics, supplied or parsed from output. */
   diagnostics: ITtscCompilerDiagnostic[];
 
   /** Files written by the build when emitted-file listing was requested. */
@@ -71,9 +77,9 @@ export interface TtscBuildResult {
   /** Process-style exit status. `0` means success. */
   status: number;
 
-  /** Captured stdout from TypeScript-Go or native plugin sidecars. */
+  /** Host stdout text after any failure normalization or phase composition. */
   stdout: string;
 
-  /** Captured stderr from TypeScript-Go or native plugin sidecars. */
+  /** Host stderr text after any failure normalization or phase composition. */
   stderr: string;
 }

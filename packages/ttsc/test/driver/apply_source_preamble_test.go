@@ -15,6 +15,10 @@ import (
 // 1. Apply a preamble to plain source, BOM-prefixed source, and hashbang source.
 // 2. Assert BOM/hashbang ordering remains intact.
 // 3. Assert an empty preamble leaves text unchanged.
+// @evidence contracts/testing.md#behavioral-verification Calls ApplySourcePreamble for plain source, BOM, terminated and unterminated hashbang, then verifies empty preamble identity.
+// @evidence contracts/testing.md#independent-expectations The authored complete output strings pin leader ordering and required newline independently of the implementation.
+// @evidence contracts/testing.md#distinguishing-cases Plain, BOM, two hashbang terminations and empty preamble distinguish each insertion decision; combined BOM/hashbang has a separate case.
+// @evidence contracts/testing.md#execution-ownership All authored string rows run directly in the owning Go process; this test does not execute emitted scripts.
 func TestDriverApplySourcePreamble(t *testing.T) {
   preamble := "/* generated */\n"
 

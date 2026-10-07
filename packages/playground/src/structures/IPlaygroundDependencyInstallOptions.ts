@@ -10,9 +10,7 @@ import type { IPlaygroundInstalledDependency } from "./IPlaygroundInstalledDepen
  * @evidence contracts/common.md#meaningful-documentation Member prose documents legacy limitations, byte units and streaming enforcement, with separate paragraphs and member spacing under the documentation skill.
  */
 export interface IPlaygroundDependencyInstallOptions {
-  /**
-   * Defaults to `globalThis.fetch`; inject a transport for offline runs.
-   */
+  /** Defaults to `globalThis.fetch`; inject a transport for offline runs. */
   fetch?: PlaygroundFetch;
 
   /**
@@ -33,7 +31,14 @@ export interface IPlaygroundDependencyInstallOptions {
   /** Package names to never install (preinstalled / built-in). */
   ignoredPackages?: Iterable<string>;
 
-  /** Safety cap: error out after installing this many packages. */
+  /**
+   * Maximum distinct package names completed in one install call (default: 48).
+   *
+   * Must be a nonnegative safe integer. Mounted packages revalidated and
+   * optional packages omitted count toward the cap; unrequested mounted state
+   * does not. Zero allows only calls with no queued packages. Invalid values
+   * reject before input iteration, progress callbacks or network requests.
+   */
   maxPackages?: number;
 
   /**
@@ -55,7 +60,8 @@ export interface IPlaygroundDependencyInstallOptions {
   signal?: AbortSignal;
 
   /**
-   * Fires synchronously for phase transitions; callback failures reject the install.
+   * Fires synchronously for phase transitions; callback failures reject the
+   * install.
    */
   onProgress?: PlaygroundDependencyProgressHandler;
 }

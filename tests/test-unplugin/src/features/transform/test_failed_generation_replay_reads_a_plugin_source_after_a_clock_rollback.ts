@@ -1,46 +1,38 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/lib/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM.mjs";
-import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/lib/core/transform/cache/TtscCachedProjectTransform.mjs";
-import { envelopeDerivation } from "../../../../../packages/unplugin/lib/core/transform/envelope/envelopeDerivation.mjs";
-import type { TtscFailedGenerationValidation } from "../../../../../packages/unplugin/lib/core/transform/generation/TtscFailedGenerationValidation.mjs";
-import { failedGenerationEnvironmentChanged } from "../../../../../packages/unplugin/lib/core/transform/generation/failedGenerationEnvironmentChanged.mjs";
-import { projectWalkFailureFingerprint } from "../../../../../packages/unplugin/lib/core/transform/generation/projectWalkFailureFingerprint.mjs";
-import { pluginSourceState } from "../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceState.mjs";
-import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/lib/core/transform/project/collectProjectInputSnapshot.mjs";
-import { walkSnapshotComplete } from "../../../../../packages/unplugin/lib/core/transform/validation/walkSnapshotComplete.mjs";
-import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/unplugin/lib/core/tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY.mjs";
-import { createClockRollbackFixture } from "../../internal/clock-rollback/createClockRollbackFixture";
+import { TRANSFORM_RESULT_FILESYSTEM } from "../../../../../packages/unplugin/src/core/transform/cache/TRANSFORM_RESULT_FILESYSTEM";
+import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
+import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
+import type { TtscFailedGenerationValidation } from "../../../../../packages/unplugin/src/core/transform/generation/TtscFailedGenerationValidation";
+import { failedGenerationEnvironmentChanged } from "../../../../../packages/unplugin/src/core/transform/generation/failedGenerationEnvironmentChanged";
+import { projectWalkFailureFingerprint } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkFailureFingerprint";
+import { pluginSourceState } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
+import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
+import { walkSnapshotComplete } from "../../../../../packages/unplugin/src/core/transform/validation/walkSnapshotComplete";
+import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/unplugin/src/core/tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY";
+import { createClockRollbackUnitFixture } from "../../internal/transform-project-cache/createClockRollbackUnitFixture";
 
 /**
- * Verifies a failed generation's replay reads a plugin source's files again
- * once the filesystem's clock stepped back, rather than trusting their metadata
- * against a reference minted before the rollback.
+ * Verifies failedGenerationEnvironmentChanged stops reusing held plugin-source
+ * metadata when the current filesystem clock reference falls behind those
+ * stamps.
  *
- * A terminal verdict is confirmed once per event-loop turn by metadata first
- * (samchon/ttsc#1398): a file whose separable signature still matches keeps its
- * recorded state, and a plugin source keeps its digest while its files'
- * metadata holds (`pluginSourceFilesDigest`). Separable is decided against the
- * current clock reference. The replay used to take whatever reference a
- * delivery had last minted, since the failed generation's own probe directory
- * is released with it, so after a clock rollback put a write into a recorded
- * stamp's tick, the old reference still called the stamp finished, and the
- * replay kept serving the old failure. The confirmation now mints its own
- * reference first, in the probe directory its process keeps, as a delivery
- * does.
+ * The bytes change while the supported filesystem view holds source metadata. A
+ * newly minted probe under the authored rollback must withdraw the old
+ * separability premise. Real Go environment inputs are preserved, not mocked.
  *
- * 1. Record a failed generation whose recorded inputs hold a plugin source, after
- *    an earlier proof minted a reference, and assert the confirmation finds
- *    nothing changed.
- * 2. Hold the source's file metadata, change a file's bytes, and assert the
- *    confirmation still finds nothing changed: its metadata stands for the
- *    bytes while the clock is where it was.
- * 3. Step the filesystem's clock back, and assert the confirmation now reads the
- *    files and finds the change.
+ * 1. Record real source state and require the unchanged proof's first verdict.
+ * 2. Hold real source stamps and edit bytes; require the recorded digest to hold.
+ * 3. Apply the outside probe's two-hour timestamp step and require rereading.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls actual failedGenerationEnvironmentChanged through its existing recorded-input boundary and requires false/false/true, with each confirmation in a separate event-loop turn. The rollback row detects reuse of a digest whose metadata is no longer separable from the current clock.
+ * @evidence contracts/testing.md#independent-expectations Actual appended bytes, held pre-edit BigIntStats and literal -7200000000000n probe offset independently establish the changed validity premise. Literal three-state verdicts follow that premise; the recorded pluginSourceState is setup rather than an independent digest-encoding oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged source contrasts with edited bytes under retained metadata, then the same edit under a current rolled-back probe. The other two direct entries own the other proof consumers. Authored record/generation/tracker fields are supported comparator inputs, not claims that native capture produced them.
+ * @evidence contracts/testing.md#execution-ownership This discoverable unit owns its three verdicts using a suite-owned helper and the original package-owned fixture bytes. Real source and Go env/version/GOROOT observations remain owning input capabilities; no compiler/plugin build, native notification backend, installed consumer or host runs. Controlled rollback does not assert an actual host-clock rollback or transported native coverage.
  */
 export async function test_failed_generation_replay_reads_a_plugin_source_after_a_clock_rollback(): Promise<void> {
-  const fixture = createClockRollbackFixture();
+  const fixture = createClockRollbackUnitFixture();
   const result = { type: "success", typescript: {} };
   TRANSFORM_RESULT_FILESYSTEM.set(result as never, fixture.filesystem);
   const cached = {
@@ -59,14 +51,16 @@ export async function test_failed_generation_replay_reads_a_plugin_source_after_
   cached.projectDirectories = snapshot.projectDirectories;
   fixture.settle();
   fixture.mintEarlier();
+  const recordedState = pluginSourceState(fixture.source);
+  assert.ok(
+    recordedState,
+    "actual source and native environment must be readable",
+  );
   const validation: TtscFailedGenerationValidation = {
     cached,
     declaredInputs: undefined,
     inputStates: new Map([
-      [
-        fixture.source,
-        { state: pluginSourceState(fixture.source)!, tree: true },
-      ],
+      [fixture.source, { state: recordedState, tree: true }],
     ]),
     projectInputHashes: snapshot.hashes,
     projectWalkComplete: walkSnapshotComplete(snapshot, undefined),

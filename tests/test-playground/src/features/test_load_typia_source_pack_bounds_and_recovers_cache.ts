@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { loadTypiaSourcePack } from "../../../../packages/playground/lib/src/compiler/loadTypiaSourcePack.js";
+import { loadTypiaSourcePack } from "../../../../packages/playground/src/compiler/loadTypiaSourcePack";
 
 /**
  * Verifies source-pack fetch and JSON reads are caller-cancellable, retryable,
@@ -16,6 +16,11 @@ import { loadTypiaSourcePack } from "../../../../packages/playground/lib/src/com
  * 1. Abort a stalled JSON body, then retry that URL successfully.
  * 2. Abort two callers sharing a stalled fetch, then retry from a fresh fetch.
  * 3. Resolve two healthy callers through one fetch and one shared promise.
+ *
+ * @evidence contracts/testing.md#behavioral-verification loadTypiaSourcePack aborts stalled JSON/fetch, evicts failed attempts, shares a healthy load and preserves fulfilled promise/record identity only within the same URL and fetch transport.
+ * @evidence contracts/testing.md#independent-expectations Independent source-text records, captured AbortSignals and fetch counters determine retries and reuse; a second transport returns distinct literal bytes for the same URL, excluding URL-only cache contamination.
+ * @evidence contracts/testing.md#distinguishing-cases JSON cancellation, shared-fetch joiner cancellation, successful retry, concurrent healthy callers, fulfilled reuse and same-URL different-transport isolation each retain a concrete assertion.
+ * @evidence contracts/testing.md#execution-ownership This source-unit entry owns its local injected fetch implementations, controlled response promises and every cache row; it calls loadTypiaSourcePack directly without network access, WASM boot or a Worker.
  */
 export const test_load_typia_source_pack_bounds_and_recovers_cache =
   async (): Promise<void> => {
@@ -133,4 +138,37 @@ export const test_load_typia_source_pack_bounds_and_recovers_cache =
     } as Response);
     assert.deepEqual(await healthyFirst, { "typia/package.json": "{}" });
     assert.deepEqual(await healthySecond, { "typia/package.json": "{}" });
+    const cached = loadTypiaSourcePack({
+      url: healthyUrl,
+      fetch: healthyFetch,
+    });
+    assert.equal(
+      cached,
+      healthyFirst,
+      "fulfilled source loads retain promise identity",
+    );
+    assert.equal(await cached, await healthyFirst);
+    assert.equal(
+      healthyCalls,
+      1,
+      "fulfilled source loads must not fetch again",
+    );
+    let independentCalls = 0;
+    const independent = await loadTypiaSourcePack({
+      url: healthyUrl,
+      fetch: async () => {
+        independentCalls++;
+        return Response.json({
+          "typia/package.json": '{"transport":"second"}',
+        });
+      },
+    });
+    assert.deepEqual(independent, {
+      "typia/package.json": '{"transport":"second"}',
+    });
+    assert.equal(
+      independentCalls,
+      1,
+      "another transport must own its own same-URL load",
+    );
   };

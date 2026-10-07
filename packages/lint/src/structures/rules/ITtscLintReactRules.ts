@@ -31,9 +31,10 @@ export interface ITtscLintReactRules {
   "react/button-has-type"?: TtscLintRuleSetting;
 
   /**
-   * Require components wrapped in `React.memo(...)` or `React.forwardRef(...)`
-   * to be named — either by passing a named function, assigning the call to a
-   * named binding, or setting an explicit `displayName`.
+   * Report anonymous function arguments to calls named `memo` or `forwardRef`
+   * unless the call has a named declaration/property host or default export.
+   * Named function arguments are accepted; a later `displayName` assignment is
+   * not resolved by this source policy.
    *
    * Anonymous wrappers leave the resulting component nameless in React DevTools
    * and runtime stack frames.
@@ -52,8 +53,8 @@ export interface ITtscLintReactRules {
   "react/exhaustive-deps"?: TtscLintRuleSetting;
 
   /**
-   * Reject declaring a component or custom Hook inside another component or
-   * Hook body.
+   * Report a source-recognized component or Hook nested inside another such
+   * function when the nested function contains a recognized Hook call.
    *
    * Each render rebuilds the inner function, giving it a new identity that
    * discards its state and breaks memoization.
@@ -71,8 +72,9 @@ export interface ITtscLintReactRules {
   "react/iframe-missing-sandbox"?: TtscLintRuleSetting;
 
   /**
-   * Reject mutating props, state, or Hook return values inside a component or
-   * Hook.
+   * Report assignment and increment/decrement writes through member accesses
+   * rooted in source-recognized props or state bindings inside a component or
+   * Hook. Other Hook return values and mutator calls are not inferred.
    *
    * React treats these as read-only; mutating a memoized value can desync
    * renders from the dependencies React tracked it under.
@@ -90,8 +92,8 @@ export interface ITtscLintReactRules {
   "react/jsx-key"?: TtscLintRuleSetting;
 
   /**
-   * Reject duplicate JSX prop names on the same element — later occurrences
-   * silently overwrite earlier ones.
+   * Reject case-folded duplicate JSX prop names on the same element. This is a
+   * source naming policy rather than a runtime overwrite analysis.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-react/blob/master/docs/rules/jsx-no-duplicate-props.md
    */
@@ -108,12 +110,9 @@ export interface ITtscLintReactRules {
   "react/jsx-no-script-url"?: TtscLintRuleSetting;
 
   /**
-   * Reject `<a target="_blank">` (or any JSX element with `target="_blank"`)
-   * that does not also carry `rel="noreferrer"` (or `rel="noopener
-   * noreferrer"`).
-   *
-   * Without those tokens the opened page can navigate the originating window
-   * through `window.opener`, a phishing and tab-nabbing vector.
+   * Report statically known `target="_blank"` JSX attributes without a known
+   * `rel` value containing the substring `noreferrer`. The native check does
+   * not validate a complete relationship-token set or browser behavior.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-react/blob/master/docs/rules/jsx-no-target-blank.md
    */
@@ -199,7 +198,8 @@ export interface ITtscLintReactRules {
   "react/no-find-dom-node"?: TtscLintRuleSetting;
 
   /**
-   * Reject `this.isMounted()` calls on class components.
+   * Reject calls with the source callee name `isMounted`, including
+   * `this.isMounted()`; receiver types and class ownership are not resolved.
    *
    * The API is deprecated, and anti-patterns around it usually hide a memory
    * leak in async callbacks; cancel the work in `componentWillUnmount`
@@ -229,9 +229,9 @@ export interface ITtscLintReactRules {
   "react/no-unescaped-entities"?: TtscLintRuleSetting;
 
   /**
-   * Keep React Fast Refresh component modules from exporting non-component
-   * values. Mixing a component export with a constant or hook in the same file
-   * invalidates HMR.
+   * Apply the native source-name/export policy to component-like modules,
+   * subject to the declared exemptions. This does not execute Fast Refresh or
+   * certify whether a runtime HMR boundary is valid.
    *
    * @reference https://github.com/ArnaudBarre/eslint-plugin-react-refresh/blob/main/README.md
    */
@@ -257,11 +257,9 @@ export interface ITtscLintReactRules {
   "react/rules-of-hooks"?: TtscLintRuleSetting;
 
   /**
-   * Reject unconditional `setState` calls in `useEffect` bodies.
-   *
-   * The state update schedules another render and re-runs the effect, which
-   * usually loops forever; the value almost always belongs in `useMemo` or
-   * derived state instead.
+   * Report calls to recognized state-setter bindings whose nearest function is
+   * a recognized effect callback. Conditional branches are not exempted; the
+   * check does not prove that an effect loops at runtime.
    *
    * @reference https://react.dev/learn/you-might-not-need-an-effect
    */
@@ -282,15 +280,18 @@ export interface ITtscLintReactRules {
    * Reject string-form `style` values such as `style="color: red"` or
    * `style={\`...`}`.
    *
-   * React expects a `{ camelCaseProp: value }` object, not the HTML-style CSS
-   * string, and the latter is silently coerced and never applied.
+   * The native check reports statically known nonempty values and skips unknown
+   * expressions; it does not infer an expression's object type or execute
+   * React's runtime validation.
    *
    * @reference https://github.com/jsx-eslint/eslint-plugin-react/blob/master/docs/rules/style-prop-object.md
    */
   "react/style-prop-object"?: TtscLintRuleSetting;
 
   /**
-   * Reject `useMemo` calculation callbacks that do not return a value.
+   * Report block-bodied `useMemo` callbacks with no own return statement. A
+   * bare `return` satisfies this syntax check; returned types are not
+   * inferred.
    *
    * A block-bodied callback without `return` memoizes `undefined`, silently
    * discarding the intended computation — a common mistake when wrapping an

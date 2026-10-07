@@ -3,8 +3,9 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
 /**
  * Structured payload inside `ITtscResult.result` for `transform`.
  *
- * `typescript` maps source paths to post-transform TypeScript text for a preview
- * before emit. Paths inside `cwd` are relative; outside sources remain absolute.
+ * `typescript` maps source paths to post-transform TypeScript text for a
+ * preview before emit. Paths inside `cwd` are relative; outside sources remain
+ * absolute.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A path-keyed string record matches the native transform payload, keeping
@@ -18,6 +19,9 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
  * @evidence contracts/common.md#meaningful-documentation
  *   Separate paragraphs identify the envelope and source stage; members explain
  *   optional diagnostics, following the documentation skill's clarity guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscTransformResult is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscTransformResult is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscTransformResult is a data interface and coordinates no shared or repeated computation.
  */
 export interface ITtscTransformResult {
   /** Present when the native transform includes diagnostic messages. */

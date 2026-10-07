@@ -14,5 +14,8 @@ import type { FilesystemPathIdentityContext } from "./FilesystemPathIdentityCont
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A type alias neither patches foreign methods nor adds test-specific native behavior.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs name the alias, shared identity rule and inherited non-atomic freshness limit, with separated acknowledgment tags following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The shared boundary exposes native case judgment and physical identity rather than deriving policy from the project domain or its filename.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type ProjectInputPathIdentityContext = FilesystemPathIdentityContext;

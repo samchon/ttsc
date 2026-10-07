@@ -22,9 +22,9 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Public shape is not guessed from syntax or patched to match expected invalidation examples.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains public versus private movement and resident invalidation purpose following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Diagnostic filenames use compiler path-relative operations; the digest has no guessed OS case policy or native separator serialization.
-// @evidence contracts/performance.md#efficient-algorithms Only the selected source is force-emitted, and signature text is accumulated with a builder before hashing.
+// @evidence contracts/performance.md#efficient-algorithms Generation-latched linked hooks precede selected-source forced declaration emit, whose compiler/checker/transform work is delegated. Output and recursive diagnostic text accumulate in a builder before a byte conversion and SHA256 scan; native diagnostic path/text work and output size/depth have no wrapper cap or deadline.
 // @evidence contracts/performance.md#reuse-equivalent-work The method reuses the loaded program and latched linked-hook outcome; declaration-shape reuse across generations is owned by the resident consumer.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The temporary signature and digest are returned without acquiring a lease or storing another resident cache.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The builder, emitted text and digest conversion are call-local without a payload cap; the digest transfers to its consumer. Borrowed Program/checker/latched-hook state remains with its generation owner; this method acquires no file descriptor or lease, and context.Background supplies no caller cancellation.
 func (p *Program) DeclarationShapeDigest(file *ast.SourceFile) (string, error) {
   if p == nil || p.TSProgram == nil || file == nil {
     return "", fmt.Errorf("driver: declaration shape requires a loaded source file")

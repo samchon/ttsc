@@ -20,6 +20,10 @@ import { createVariableDeclaration } from "./createVariableDeclaration";
  * }
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param variableDeclaration The catch binding, or undefined to omit it.
+ * @param block The handler body.
+ * @returns The created {@link CatchClause}.
  * @evidence contracts/common.md#principled-implementation
  *   String catch bindings become bare VariableDeclaration; omitted bindings
  *   remain absent and supplied declaration patterns are retained with the Block.
@@ -35,11 +39,6 @@ import { createVariableDeclaration } from "./createVariableDeclaration";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains omitted, string and declaration bindings and handler ownership,
  *   with a catch example separated from acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param variableDeclaration The catch binding, or undefined to omit it.
- * @param block The handler body.
- * @returns The created {@link CatchClause}.
  */
 export const createCatchClause = (
   variableDeclaration: string | VariableDeclaration | undefined,

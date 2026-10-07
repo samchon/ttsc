@@ -1,30 +1,39 @@
 package lspserver
 
 import (
+  "errors"
   "os"
   "path/filepath"
+  "runtime"
+  "syscall"
   "testing"
 )
 
 // TestLSPProjectInputOwnershipResolvesDeclaredSpellings verifies a declaration
 // is matched against an event through one filesystem identity.
 //
-// The candidate always arrives from an editor URI and is resolved physically,
-// so comparing it against a declaration that was only cleaned lexically can
-// never match wherever the two spellings differ. A Windows short (8.3)
-// component, which the system temporary directory routinely carries, and a
-// symlinked ancestor such as macOS `/var` both produce exactly that, and the
-// contributor that declared the file then receives no refresh at all.
+// An owned directory symlink supplies a spelling distinct from the physical
+// candidate URI. Exact-file and glob ownership must bridge that alias without
+// accepting two adjacent unowned paths. This does not exercise Windows short
+// names, a system macOS alias or an actual contributor refresh.
 //
 //  1. Declare an exact file and a glob through a directory alias.
 //  2. Ask for the owners of the same paths spelled physically.
 //  3. Assert the declaring producer owns both.
 //  4. Assert two adjacent paths one property away are owned by nobody.
+//
+// @evidence contracts/testing.md#behavioral-verification An exact file and a glob declared through a directory alias are owned by the declaring producer when the same paths are spelled physically, and adjacent paths one property away are owned by nobody.
+// @evidence contracts/testing.md#independent-expectations A single literal producer key is required for each positive and zero owners for each negative, independently of pluginKey. The fixture creates the actual alias and files; expected membership does not come from the matcher.
+// @evidence contracts/testing.md#distinguishing-cases Alias and physical spellings must match while near-miss paths must not.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly stores a snapshot and calls NativePluginSource.ProjectInputOwnersForURI over owned native temporary files and a real directory symlink. Only Windows privilege-not-held skips this alias case; other creation errors fail. No native sidecar starts and no consumer or product host is installed, though Windows identity uses native directory queries.
 func TestLSPProjectInputOwnershipResolvesDeclaredSpellings(t *testing.T) {
   physical := t.TempDir()
   alias := filepath.Join(t.TempDir(), "project")
   if err := os.Symlink(physical, alias); err != nil {
-    t.Skipf("filesystem cannot express a directory alias: %v", err)
+    if runtime.GOOS == "windows" && errors.Is(err, syscall.Errno(1314)) {
+      t.Skipf("Windows symlink privilege is unavailable: %v", err)
+    }
+    t.Fatalf("create owned directory alias: %v", err)
   }
   for _, directory := range []string{
     filepath.Join(physical, "docs"),
@@ -65,7 +74,7 @@ func TestLSPProjectInputOwnershipResolvesDeclaredSpellings(t *testing.T) {
     {label: "glob member", location: matched},
   } {
     owners := source.ProjectInputOwnersForURI(testFileURI(owned.location))
-    if len(owners) != 1 || owners[0] != pluginKey(plugin) {
+    if len(owners) != 1 || owners[0] != "ttsc-no-such-alias-sidecar\x000" {
       t.Fatalf("%s owners = %#v", owned.label, owners)
     }
   }

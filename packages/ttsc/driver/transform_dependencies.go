@@ -9,26 +9,29 @@ import (
 // the per-file input lists a producer reports and the subset of files whose
 // list is complete.
 //
-// A producer that declares nothing leaves both fields empty, so its envelope is
-// byte-identical to what it was before this existed. The lane with no linked
-// plugin at all is the deliberate exception: nothing there can contribute to a
-// file, so every file is listed.
+// A producer that declares nothing leaves both fields empty, so its envelope
+// carries neither. The lane with no linked
+// contributor at all is the deliberate exception: the completeness test has
+// no contributor declarations to require, so every transformed file is listed.
+// This side channel does not independently certify resolver, host or plugin
+// source inputs reported through other envelope fields.
 //
 // @evidence contracts/common.md#principled-implementation Reported dependencies and explicit completeness are distinct; an empty contributor set is complete without pretending silent contributors proved anything.
 // @evidence contracts/common.md#clear-and-simple-design One per-file adjacency map and one complete-file list carry separate facts.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing declarations remain incomplete rather than becoming complete because a transform succeeded.
 // @evidence contracts/common.md#meaningful-documentation Native field prose defines completeness, input scope, and the no-contributor case following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation This value carries normalized envelope keys; producers own native path conversion.
+// @evidence contracts/portability.md#os-neutral-implementation Dependencies and Complete use producer cwd-relative slash keys, with slash-normalized absolute coordinates outside cwd or across volumes. These protocol spellings do not certify physical identity or native case policy; native conversion belongs to TransformOutputKey, while this type preserves the reported dependency coordinate system.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Aggregation owns traversal; this type is the result schema.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The schema does not coordinate cached transform work.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned value owns no resident cache or external resource.
 type TransformDependencies struct {
-  // Complete lists the files whose Dependencies entry is the whole input set
-  // beyond the file itself and the universal compiler-option chain.
+  // Complete lists files declared by every applicable preamble/program
+  // contributor (including the empty-contributor case), not independent proof
+  // that no resolver, host or plugin-source input remains.
   Complete []string
 
-  // Dependencies maps a transformed file to the files whose content influenced
-  // its output, keyed and valued like every other envelope section.
+  // Dependencies maps a transformed file to contributor-reported inputs,
+  // keyed and valued like every other envelope section.
   Dependencies map[string][]string
 }
 
@@ -58,8 +61,7 @@ type TransformDependencies struct {
 // With no linked plugin at all the contributor set is empty and every file is
 // complete with an empty list, which is the rule above stated for the lane that
 // has nothing but the host in it. A contributor that declares nothing leaves
-// every file unlisted, which is exactly the behaviour of every producer written
-// before this existed.
+// every file unlisted, the same as a producer that predates the declaration.
 //
 // An embedder that supplies LoadProgramOptions.SourcePreamble itself, rather
 // than obtaining it from a linked plugin, makes the same claim about that text
@@ -67,14 +69,20 @@ type TransformDependencies struct {
 // reports elsewhere, the way a plugin's preamble is a function of the config
 // files it reports as host inputs.
 //
+// This call can apply linked program hooks for the first time; later calls
+// reuse the latched outcome but recompute dependency aggregation. It ignores
+// the hook error locally, so callers must separately admit successful output.
+// Completeness records contributor declarations, not independently verified
+// coverage of arbitrary plugin reads or an atomic declaration snapshot.
+//
 // @evidence contracts/common.md#principled-implementation Syntactic host output excludes type-driven emit lowering; completeness requires every actual preamble/program contributor to declare its own consumed inputs.
 // @evidence contracts/common.md#clear-and-simple-design The method enumerates transformed-file keys then delegates contributor classification and declaration folding to their owners.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A silent contributor remains incomplete; emit-only plugins are excluded because this envelope lane does not execute their transforms.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain syntactic output, contributors, and the embedder's preamble responsibility following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation All file keys pass through TransformOutputKey with the supplied project cwd instead of native-separator assumptions.
-// @evidence contracts/performance.md#efficient-algorithms Per-file dependency sets deduplicate contributor inputs, sorting only final output lists.
-// @evidence contracts/performance.md#reuse-equivalent-work The generation's latched hooks and recorded declarations are reused rather than executing plugins again to discover dependencies.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Aggregation returns caller-owned data without retaining a separate resident cache.
+// @evidence contracts/performance.md#efficient-algorithms Source filtering/key conversion visits resident files and path text. Contributor classification visits registered entries; each transformed file visits applicable contributors, copies their reported dependency lists under locks, hashes/deduplicates input strings and sorts final distinct lists/completeness keys. Initial hook work can be arbitrary; repeated aggregation is not memoized or bounded by a configured work/byte ceiling.
+// @evidence contracts/performance.md#reuse-equivalent-work First use can execute linked program hooks, whose success/error is latched for the current Program generation; subsequent calls do not rerun them. Recorded declarations are read again to derive current per-file completeness, while key conversion and aggregation repeat. No equivalence across changed Program generations is established here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Temporary keys, per-file input sets and copied declaration lists grow with sources/contributors/dependency path bytes; result maps/arrays transfer to the caller. Linked hooks/declarations and their latched outcome remain with the caller-owned Program, without a separate historical result cache in this method. No dependency population/byte cap or caller-result disposal policy is supplied.
 func (p *Program) TransformDependenciesFor(cwd string) TransformDependencies {
   if p == nil {
     return TransformDependencies{}

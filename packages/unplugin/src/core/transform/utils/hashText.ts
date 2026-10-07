@@ -16,6 +16,16 @@ import crypto from "node:crypto";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose names algorithm, encoding and shared validation purpose with
  *   a blank acknowledgment separator following documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Hashes bytes with node:crypto; no path or OS-specific behaviour.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One native SHA-256 update scans the supplied UTF-8 text or bytes once;
+ *   the digest has fixed size. No intermediate byte copy is required for a
+ *   Buffer, and no historical content is retained by this helper.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function hashText(input: string | Buffer): string {
   return crypto.createHash("sha256").update(input).digest("hex");

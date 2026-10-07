@@ -1,4 +1,3 @@
-import path from "node:path";
 import {
   type NativeBuildContext,
   type UnpluginFactory,
@@ -7,6 +6,11 @@ import {
 } from "unplugin";
 
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import {
+  resolveConfiguredHostRoot,
+  selectBuildHostRoot,
+} from "./bridge/buildHostRoot";
+import { createBuildWatchFile } from "./bridge/createBuildWatchFile";
 import { fallbackToolDirectory } from "./bridge/fallbackToolDirectory";
 import { hostToolDirectory } from "./bridge/hostToolDirectory";
 import { openHostWatchBridge } from "./bridge/openHostWatchBridge";
@@ -21,10 +25,10 @@ import { resolveOptions } from "./options/resolveOptions";
 import type { TtscRollupDelivery } from "./rollup/TtscRollupDelivery";
 import { createRollupCachedModuleProof } from "./rollup/createRollupCachedModuleProof";
 import { rollupDeliveryOptions } from "./rollup/rollupDeliveryOptions";
+import { selectRollupCachedModuleTransform } from "./rollup/selectRollupCachedModuleTransform";
 import type { TtscTransformResult } from "./transform/TtscTransformResult";
 import { createAliasPaths } from "./transform/alias/createAliasPaths";
 import { beginTtscTransformBuild } from "./transform/cache/beginTtscTransformBuild";
-import { createTransformCacheLease } from "./transform/cache/createTransformCacheLease";
 import { createTtscTransformCache } from "./transform/cache/createTtscTransformCache";
 import { declareTtscTransformPolling } from "./transform/cache/declareTtscTransformPolling";
 import { resetTtscTransformCache } from "./transform/cache/resetTtscTransformCache";
@@ -33,7 +37,10 @@ import { hostDeclaresPolling } from "./transform/tracker/hostDeclaresPolling";
 import { transformTtsc } from "./transform/transformTtsc";
 import { isHostWrapperQuery } from "./transform/utils/isHostWrapperQuery";
 import { stripQuery } from "./transform/utils/stripQuery";
+import type { TtscProjectRegistration } from "./transform/watch/TtscProjectRegistration";
+import { createViteBuildLifecycle } from "./vite/createViteBuildLifecycle";
 import { createViteServeInputWatch } from "./vite/createViteServeInputWatch";
+import { createViteServeWatchHooks } from "./vite/createViteServeWatchHooks";
 import { TTSC_SOURCE_MAP_STASH } from "./webpack/TTSC_SOURCE_MAP_STASH";
 import { registerTtscSourceMapLoader } from "./webpack/registerTtscSourceMapLoader";
 import { reportCompiledProjectRecords } from "./webpack/reportCompiledProjectRecords";
@@ -75,22 +82,9 @@ const unpluginFactory: UnpluginFactory<
   const transformCache = shared?.cache ?? createTtscTransformCache();
   // A non-watching Vite build keeps its generation from one environment's
   // build to the next instead of compiling the program again for each.
-  const viteBuildLease = createTransformCacheLease(transformCache);
+  const viteLifecycle = createViteBuildLifecycle(transformCache);
   const serveInputs = createViteServeInputWatch();
   let aliases: unknown;
-  let viteCommand: string | undefined;
-  let viteWatching = true;
-  // Whether a build-mode session is driven by Rollup's watcher. `build.watch`
-  // is `null` for an ordinary build and an object under `--watch`, which is the
-  // axis the disposal boundary actually turns on: only a watching build repeats
-  // its build phase, and only a watching build ends at `closeWatcher`.
-  let viteBuildWatching = false;
-  // A restart can start the replacement plugin container before closing the
-  // old one, and Vite calls buildEnd even for a container that never started.
-  // Track the stable per-container PluginContext identity so that unstarted
-  // old containers cannot dispose a replacement's freshly initialized cache.
-  let viteBuildOwners = new WeakSet<object>();
-  let viteBuildLifecycles = 0;
   // The observer a watching build gets for the compiler predicates its own
   // channel cannot observe, opened by the session's first watching delivery
   // and closed where the session ends (samchon/ttsc#1388).
@@ -113,7 +107,7 @@ const unpluginFactory: UnpluginFactory<
   // host this factory serves takes any path, and its record lives below the
   // directory it runs in.
   let farmRoot: string | undefined;
-  const hostRoot = (): string => farmRoot ?? process.cwd();
+  const hostRoot = (): string => selectBuildHostRoot(farmRoot);
   // Where a host that cannot write below its root keeps its records
   // (samchon/ttsc#1480): below this user's temporary directory, which every
   // host this factory serves accepts but Farm on another drive.
@@ -143,7 +137,7 @@ const unpluginFactory: UnpluginFactory<
     getNativeBuildContext?: () => NativeBuildContext | undefined;
     meta?: { watchMode?: boolean };
   }): boolean => {
-    if (viteCommand === "serve") return false;
+    if (viteLifecycle.command === "serve") return false;
     const native = context.getNativeBuildContext?.();
     return native?.framework === "webpack" || native?.framework === "rspack"
       ? (native.compiler as { watchMode?: boolean }).watchMode === true
@@ -171,7 +165,7 @@ const unpluginFactory: UnpluginFactory<
     getNativeBuildContext?: () => NativeBuildContext | undefined;
     meta?: { rollupVersion?: string };
   }): boolean =>
-    viteCommand !== "serve" &&
+    viteLifecycle.command !== "serve" &&
     (context.getNativeBuildContext?.() !== undefined ||
       context.meta?.rollupVersion === undefined);
   // The options a delivery to Rollup is compiled under, read again once the
@@ -199,7 +193,7 @@ const unpluginFactory: UnpluginFactory<
     getNativeBuildContext?: () => NativeBuildContext | undefined;
     meta?: { rolldownVersion?: string; rollupVersion?: string };
   }): boolean =>
-    viteCommand !== "serve" &&
+    viteLifecycle.command !== "serve" &&
     context.getNativeBuildContext?.() === undefined &&
     context.meta?.rollupVersion !== undefined &&
     context.meta.rolldownVersion === undefined;
@@ -210,7 +204,7 @@ const unpluginFactory: UnpluginFactory<
     id: string;
     meta?: Record<string, unknown>;
   }): true | null =>
-    bridge?.owes() === true || cachedModules.moved(module) ? true : null;
+    selectRollupCachedModuleTransform(bridge, cachedModules, module);
 
   return {
     name,
@@ -231,7 +225,6 @@ const unpluginFactory: UnpluginFactory<
         // serve and a later build must stop routing missing inputs to the
         // serve-time poll, even though the closed server stays attached
         // (see the dispose note in vite/createViteServeInputWatch.ts).
-        viteCommand = config.command;
         // `server.watch: null` disables Vite's watcher outright, which is how
         // a one-shot consumer (a `vitest --run` suite above all) configures the
         // dev server. Nothing can then deliver a change event, so every watch
@@ -240,15 +233,12 @@ const unpluginFactory: UnpluginFactory<
         // the transformed module, once per module, which is the dominant cost
         // of a delivered module in a project with a real dependency graph
         // (samchon/ttsc#1246).
-        viteWatching =
-          (config as { server?: { watch?: unknown } }).server?.watch !== null;
         // Read on the same principle as the line above, from the half of the
         // config that governs a build rather than a server. The comparison is
         // loose where the server's is strict because the two defaults differ:
         // `server.watch` is an object unless explicitly `null`, while
         // `build.watch` is absent or `null` unless `--watch` supplies one.
-        viteBuildWatching =
-          (config as { build?: { watch?: unknown } }).build?.watch != null;
+        viteLifecycle.configure(config);
         // A server told to poll has said native notifications do not work on
         // its filesystem, so no generation may take a watcher's silence as
         // proof there (samchon/ttsc#1395). Vite's chokidar reads the same
@@ -290,17 +280,7 @@ const unpluginFactory: UnpluginFactory<
       // project per edit (samchon/ttsc#1301). The watching build hands its
       // teardown to `closeWatcher` below instead.
       async buildEnd() {
-        if (viteBuildOwners.delete(this)) {
-          viteBuildLifecycles -= 1;
-        }
-        if (viteBuildLifecycles === 0) {
-          if (viteCommand === "serve") {
-            resetTtscTransformCache(transformCache);
-          } else if (!viteBuildWatching) {
-            // The next environment's build of the same app, if any, starts
-            // within the lease's grace and proves the generation first.
-            viteBuildLease.release();
-          }
+        if (viteLifecycle.end(this)) {
           await serveInputs.dispose();
         }
       },
@@ -319,9 +299,7 @@ const unpluginFactory: UnpluginFactory<
       // strand it below zero, after which the disposal above could never fire
       // again for this plugin instance.
       async closeWatcher() {
-        viteBuildOwners = new WeakSet<object>();
-        viteBuildLifecycles = 0;
-        resetTtscTransformCache(transformCache);
+        viteLifecycle.close();
         await serveInputs.dispose();
         await closeBridge();
       },
@@ -427,8 +405,7 @@ const unpluginFactory: UnpluginFactory<
         farmWatching =
           config.compilation?.mode === "development" ||
           (config.compilation?.watch ?? false) !== false;
-        farmRoot =
-          config.root === undefined ? undefined : path.resolve(config.root);
+        farmRoot = resolveConfiguredHostRoot(config.root);
       },
       // Farm calls buildStart only for the initial compilation. Every update
       // opens a new pass so a failed verdict can recover, while an unchanged
@@ -442,17 +419,7 @@ const unpluginFactory: UnpluginFactory<
     },
     buildStart() {
       cachedModules.begin();
-      if (viteCommand !== undefined && !viteBuildOwners.has(this as object)) {
-        viteBuildOwners.add(this as object);
-        viteBuildLifecycles += 1;
-        if (
-          viteBuildLifecycles === 1 &&
-          viteCommand === "build" &&
-          !viteBuildWatching
-        ) {
-          viteBuildLease.acquire();
-        }
-      }
+      viteLifecycle.start(this);
       // Persistent validation exists for a session that spans edits it can
       // observe, and a dev server told to open no watcher is not one:
       // `server.watch: null` leaves Vite with no change channel at all, so no
@@ -472,7 +439,7 @@ const unpluginFactory: UnpluginFactory<
       // Opening a pass no longer discards the generation, so the `else` branch
       // is what every host with a repeating `buildStart` takes without paying a
       // whole-project transform per rebuild (samchon/ttsc#1300).
-      if (viteCommand === "serve" && viteWatching) {
+      if (viteLifecycle.command === "serve" && viteLifecycle.watching) {
         resetTtscTransformCache(transformCache);
       } else {
         beginTtscTransformBuild(transformCache);
@@ -512,7 +479,7 @@ const unpluginFactory: UnpluginFactory<
       // could have changed during compilation, instead of synchronously
       // re-reading every input in a large compiler graph.
       const serveStartedAt =
-        viteCommand === "serve" && viteWatching
+        viteLifecycle.command === "serve" && viteLifecycle.watching
           ? serveInputs.begin()
           : undefined;
       const native = this.getNativeBuildContext?.();
@@ -528,28 +495,23 @@ const unpluginFactory: UnpluginFactory<
       // contexts hold the module-level channel (a compilation-level one
       // schedules a pass without invalidating the module), and every other
       // host has one `addWatchFile`.
-      const loaderContext =
-        native?.framework === "webpack" || native?.framework === "rspack"
-          ? native.loaderContext
-          : undefined;
+      const { addWatchFile, loaderContext } = createBuildWatchFile(
+        this,
+        native,
+        file,
+      );
       // Lifecycle admission needs an actual host declaration, rather than the
       // ordinary bridge helper's default when no watch capability is reported.
       const watching =
-        viteCommand === "serve"
+        viteLifecycle.command === "serve"
           ? true
-          : viteCommand === "build"
-            ? viteBuildWatching
+          : viteLifecycle.command === "build"
+            ? viteLifecycle.buildWatching
             : native?.framework === "webpack" || native?.framework === "rspack"
               ? (native.compiler as { watchMode?: boolean }).watchMode
               : native?.framework === "farm"
                 ? farmWatching
                 : (this as { meta?: { watchMode?: boolean } }).meta?.watchMode;
-      const addWatchFile: (input: string) => void =
-        native?.framework === "farm"
-          ? (input) => native.context.addWatchFile(file, input)
-          : loaderContext !== undefined
-            ? (input) => loaderContext.addDependency(input)
-            : (input) => this.addWatchFile(input);
       // What the delivery was handed, for Rollup's cache to be answered by:
       // the record, or that no cache may serve the module.
       const handed: {
@@ -567,42 +529,39 @@ const unpluginFactory: UnpluginFactory<
           // A dev server keys each importer on its own inputs through its
           // module graph; a watcherless one has no invalidation channel and
           // needs no derivation.
-          ...(viteCommand === "serve"
-            ? viteWatching
-              ? {
-                  addWatchFiles: (inputs, failed) =>
-                    serveInputs.replace(file, inputs, failed, serveStartedAt),
-                  membership: true,
-                }
-              : {}
-            : {
-                project: {
-                  register: (registration) => {
-                    registerProjectRecord({
-                      addWatchFile,
-                      ...(bridge !== undefined && bridgeStartedAt !== undefined
-                        ? {
-                            bridge: {
-                              instance: bridge,
-                              startedAt: bridgeStartedAt,
-                            },
-                          }
-                        : {}),
-                      registration,
-                    });
-                    if (registration.digest === undefined)
-                      handed.unprovable = true;
-                    else
-                      handed.record = {
-                        digest: registration.digest,
-                        file: registration.record,
-                      };
-                  },
-                  toolDirectory: hostToolDirectory(hostRoot()),
-                  ...recordFallback(),
-                  watching: bridge !== undefined,
-                },
-              }),
+          ...(createViteServeWatchHooks(
+            viteLifecycle.command,
+            viteLifecycle.watching,
+            serveInputs,
+            file,
+            serveStartedAt,
+          ) ?? {
+            project: {
+              register: (registration: TtscProjectRegistration) => {
+                registerProjectRecord({
+                  addWatchFile,
+                  ...(bridge !== undefined && bridgeStartedAt !== undefined
+                    ? {
+                        bridge: {
+                          instance: bridge,
+                          startedAt: bridgeStartedAt,
+                        },
+                      }
+                    : {}),
+                  registration,
+                });
+                if (registration.digest === undefined) handed.unprovable = true;
+                else
+                  handed.record = {
+                    digest: registration.digest,
+                    file: registration.record,
+                  };
+              },
+              toolDirectory: hostToolDirectory(hostRoot()),
+              ...recordFallback(),
+              watching: bridge !== undefined,
+            },
+          }),
           // A module the plugin declared volatile depends on non-file inputs,
           // which no file-dependency snapshot can represent; mark it
           // uncacheable where the bundler exposes that control.

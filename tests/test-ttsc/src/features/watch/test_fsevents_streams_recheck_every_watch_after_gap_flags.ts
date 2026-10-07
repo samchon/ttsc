@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { FseventsStreams } from "../../../../../packages/ttsc/lib/launcher/internal/watch/FseventsStreams.js";
+import { FseventsStreams } from "../../../../../packages/ttsc/src/launcher/internal/watch/FseventsStreams";
 import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
 
 /**
@@ -15,6 +15,11 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  * 1. Open recursive and nonrecursive watches served by one stream.
  * 2. Deliver each loss flag, then an ordinary named modification.
  * 3. Assert every loss reaches both watches unnamed and the edit stays named.
+ *
+ * @evidence contracts/testing.md#behavioral-verification FseventsStreams.open callbacks fan each of seven loss flags out to recursive and nonrecursive subscribers as unnamed gap rechecks, then preserve ordinary named modification delivery.
+ * @evidence contracts/testing.md#independent-expectations The supported loss flags 0x1, 0x2, 0x4, 0x8, 0x20, 0x40 and 0x80 require reinspection. Literal seven rename/null/true tuples and subsequent change names independently specify the protocol.
+ * @evidence contracts/testing.md#distinguishing-cases The loop owns each enumerated loss flag on the same shared stream; both recursion modes must recheck. Modification 0x1000 is the negative gap control and must retain its relative name with no gap value.
+ * @evidence contracts/testing.md#execution-ownership This one exported source-unit entry owns all seven flag inputs and the ordinary control, using injected FakeFseventsBinding.emit. It executes registry dispatch only, without native loading or OS event production.
  */
 export const test_fsevents_streams_recheck_every_watch_after_gap_flags =
   (): void => {

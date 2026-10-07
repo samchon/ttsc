@@ -8,19 +8,22 @@ import (
 )
 
 // TestLSPDeletedWatchedFileWithdrawsPluginDiagnostics verifies that deleting a
-// file on disk removes the findings ttsc last published for it, while leaving
-// the compiler's own diagnostics for the same document alone.
+// reported watched-file URI withdraws its supplied cached plugin finding while
+// retaining a supplied cached upstream message in the emitted frame.
 //
-// Dropping the warm Program is not enough on its own. An open document's content
-// belongs to the client rather than to disk, so the compiler has no reason to
-// republish for a URI whose file was deleted underneath it, and without that
-// republish nothing triggers the merge that would replace ttsc's cached set. The
-// user would keep looking at lint findings for a file that no longer exists.
+// This unit supplies deletion/change notifications without creating or deleting
+// a physical file. It observes the buffered notification and handler return,
+// not a compiler Program, actual upstream forwarding or editor presentation.
 //
 //  1. Seed one upstream and one plugin diagnostic for a document.
 //  2. Send a watched-file deletion for that document.
 //  3. Assert the republished set keeps the upstream diagnostic and drops the
 //     plugin one, and that a plain change publishes nothing by itself.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual handleEditorEnvelope on a supplied deletion notification returns handled=false and emits a publishDiagnostics frame for the expected URI containing only the literal cached upstream message. A subsequent supplied change notification emits no editor bytes; that branch does not inspect retained plugin-cache contents or recomputation.
+// @evidence contracts/testing.md#independent-expectations The expected published diagnostic sets are literals for the deleted document.
+// @evidence contracts/testing.md#distinguishing-cases Plugin findings and compiler diagnostics for one URI are separate sets, and only the plugin set is cleared.
+// @evidence contracts/testing.md#execution-ownership This Go unit creates an actual Proxy with supported bytes.Buffer editor output, io.Discard upstream input and NullPluginSource, seeds its caches through their owning methods and invokes the actual notification handler. The emitted frame is decoded through actual frame/envelope readers and compared to literal URI/message expectations. No physical file, sidecar, compiler, process or product host runs; handled=false does not itself observe upstream forwarding.
 func TestLSPDeletedWatchedFileWithdrawsPluginDiagnostics(t *testing.T) {
   const uri = "file:///project/src/gone.ts"
   var editor bytes.Buffer
@@ -64,9 +67,7 @@ func TestLSPDeletedWatchedFileWithdrawsPluginDiagnostics(t *testing.T) {
     t.Errorf("republished diagnostic = %q, want the compiler's", published.Diagnostics[0].Message)
   }
 
-  // Negative twin: an ordinary edit withdraws nothing. Its findings are still
-  // valid until the sidecar recomputes them, and the ordinary republish path
-  // owns that replacement.
+  // Negative twin: a supplied ordinary change emits no notification here.
   editor.Reset()
   proxy.rememberPluginDiagnostics(uri, nil, []LSPDiagnostic{{Message: "from the rule"}})
   change, _ := json.Marshal(map[string]any{

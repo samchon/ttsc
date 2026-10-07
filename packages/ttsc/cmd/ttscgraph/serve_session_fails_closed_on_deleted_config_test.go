@@ -12,14 +12,19 @@ import (
 // The boundary twin of the invalid-config case: deletion takes the
 // hashesChanged ErrNotExist branch and its forced reload fails at session
 // construction rather than config parsing. A byte-identical restore must then
-// report unchanged — the resident graph still matches the disk exactly — and
-// the compiler session must keep serving incremental edits, proving the
-// failed reload episode left no partial state behind.
+// report unchanged, and a later source rename must report incremental with
+// AfterEdit present. These selected recovery outcomes do not certify every
+// internal state field or every graph fact after the failed reload.
 //
 //  1. Build a valid initial graph, then delete tsconfig.json.
 //  2. Assert the snapshot fails with no dump.
 //  3. Restore the identical config and assert the snapshot is unchanged.
 //  4. Edit the source and assert an incremental refresh still works.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies removing the project config fails the snapshot without poisoning the resident session.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal session outcomes over a fixture whose config is deleted and then restored byte-identical: the failing snapshot must return an error with no dump and changed false, the restored config must yield mode unchanged with no dump, and a following source rename must yield mode incremental with the AfterEdit node. A session that served the cached graph, or stayed broken after the failed reload, fails.
+// @evidence contracts/testing.md#distinguishing-cases Build a valid initial graph, delete tsconfig.json and require an error with no dump; restore the identical bytes and require unchanged; edit the source and require an incremental refresh. The deleted-config case is the ErrNotExist twin of the invalid-config case, which is owned by another test.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionFailsClosedOnDeletedConfig is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionFailsClosedOnDeletedConfig(t *testing.T) {
   root := graphSessionFixture(t)
   session, err := newGraphSession(root, "tsconfig.json")
@@ -27,7 +32,7 @@ func TestServeSessionFailsClosedOnDeletedConfig(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -39,7 +44,7 @@ func TestServeSessionFailsClosedOnDeletedConfig(t *testing.T) {
   if err := os.Remove(config); err != nil {
     t.Fatal(err)
   }
-  dump, _, changed, err := session.Snapshot()
+  dump, _, changed, err := snapshotGraphState(session)
   if err == nil || dump != nil || changed {
     t.Fatalf("deleted config must fail closed: dump:%v changed:%v err:%v", dump != nil, changed, err)
   }
@@ -47,7 +52,7 @@ func TestServeSessionFailsClosedOnDeletedConfig(t *testing.T) {
   if err := os.WriteFile(config, saved, 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -58,7 +63,7 @@ func TestServeSessionFailsClosedOnDeletedConfig(t *testing.T) {
   if err := os.WriteFile(filepath.Join(root, "src", "index.ts"), []byte("export class AfterEdit {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err = session.Snapshot()
+  dump, mode, changed, err = snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

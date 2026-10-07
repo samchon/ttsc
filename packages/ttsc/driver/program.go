@@ -16,6 +16,7 @@ import (
   "github.com/microsoft/typescript-go/shim/tsoptions"
   "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs"
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // SemanticConfigPathEnv carries the user-authored config path when an embedder
@@ -23,8 +24,8 @@ import (
 // Program's semantic project root.
 const SemanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 
-// Diagnostic is the compilation diagnostic shape ttsc passes around. Kept
-// dependency-free (no shim types) so callers can render or inspect freely.
+// Diagnostic is the compilation diagnostic shape ttsc passes around. Its public
+// data members use plain values; private native anchors support richer rendering.
 //
 // `raw` carries the original tsgo diagnostic for full color/context
 // rendering. `lint` carries a plugin-emitted lint diagnostic when the
@@ -62,7 +63,8 @@ type Diagnostic struct {
   // Message is the producer's readable explanation.
   Message string
 
-  // Severity selects the build outcome and rendered severity.
+  // Severity is the public classification. A native lint anchor remains
+  // authoritative for IsError and rich rendering if callers change this field.
   Severity Severity
   raw      *ast.Diagnostic
   lint     *shimdiagnosticwriter.LintDiagnostic
@@ -96,7 +98,7 @@ const (
 //
 // @evidence contracts/common.md#principled-implementation Native lint findings use their recorded category; other diagnostics count as errors unless explicitly marked warning, matching build totals.
 // @evidence contracts/common.md#clear-and-simple-design This predicate owns the build-blocking decision shared by CountErrors and plugin callers.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts An unknown severity does not silently become a successful build, and native lint category is not replaced by a fixture answer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Without a native lint anchor, an unknown public severity counts as an error; with one, its recorded category remains authoritative rather than a fixture answer or later public-field mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the build-total predicate and plugin gating purpose following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This diagnostic-category decision crosses no native boundary.
 // @evidenceExclude contracts/performance.md#efficient-algorithms One category predicate does not choose an input-processing algorithm.
@@ -114,13 +116,17 @@ func (d Diagnostic) IsError() bool {
 // offsets into the source file; `code` is a stable rule identifier (e.g. the
 // rule's enum index). Severity controls both the rendered banner color and
 // the exit-code outcome.
+// The native lint constructor clamps endpoints to the supplied text and expands
+// a nonpositive span to one byte when room remains. With no source, the public
+// location and span stay absent; the retained source text must remain the version
+// described by the resulting diagnostic.
 //
 // @evidence contracts/common.md#principled-implementation The native lint anchor uses byte spans and category while the plain fields retain the same source and one-based byte location for structured consumers.
 // @evidence contracts/common.md#clear-and-simple-design One constructor associates native rendering and public diagnostic data instead of a separate plugin rendering path.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing source context remains unlocated and supplied rule identifiers are preserved without fixture-based rewriting.
 // @evidence contracts/common.md#meaningful-documentation Native prose states byte units, rule identifier and severity effects following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation A supplied compiler source is inspected without resolving native filesystem identity or launching a process.
-// @evidenceExclude contracts/performance.md#efficient-algorithms This adapter delegates span and line mapping to native diagnostic/scanner APIs.
+// @evidence contracts/performance.md#efficient-algorithms Range normalization is bounded scalar work; mapping the start can build the source-owned ECMAScript line map by scanning text, then binary-searches its line starts. Source bytes, line count and native line-map locks govern delegated work, not only the constructor's fixed field assignments.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Constructing one finding does not coordinate repeated diagnostic requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result transfers its rendering anchor to the consumer without constructor-owned historical storage.
 func NewLintDiagnostic(
@@ -160,15 +166,17 @@ func NewLintDiagnostic(
 // as a whole-project walk.
 // Paths are resolved against the compiler's project directory and canonicalized
 // with its actual case policy through the compiler's resident file index.
+// The first access can run plugin callbacks. Their latched error is not returned
+// by this accessor, so a returned mutable tree is not a successful-hook receipt.
 //
 // @evidence contracts/common.md#principled-implementation The compiler's indexed lookup applies its project anchor and case policy, while the latched plugin pass keeps single-file reads consistent with whole-program consumers.
 // @evidence contracts/common.md#clear-and-simple-design Lookup delegates source identity to the compiler instead of maintaining a second driver index.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing sources remain nil; no relative-name exception or repeated linear fallback guesses a match.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes canonical lookup, plugin ordering and the accessor's no-error channel under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation GetSourceFile canonicalizes against the current compiler's actual filesystem case policy and project directory.
-// @evidence contracts/performance.md#efficient-algorithms Path normalization depends on filename length, followed by the upstream map lookup instead of scanning every resident source.
+// @evidence contracts/performance.md#efficient-algorithms After any first-entry linked-plugin dispatch, filename text normalization precedes the upstream map lookup instead of a resident-source scan. That first dispatch includes entry/context work and arbitrary plugin callbacks; later latched access avoids repeating it.
 // @evidence contracts/performance.md#reuse-equivalent-work The current TSProgram owns an existing file index; an incremental replacement automatically supplies its updated index without a duplicate cache.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This borrowed-source accessor acquires no resource and adds no historical retained state.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The lookup returns a borrowed mutable AST reference and first dispatch can populate Program-owned plugin/input ledgers without a cap here. The accessor owns no separate disposal boundary; caller-held trees and callbacks can remain reachable after the checker lease is closed.
 func (p *Program) SourceFile(filename string) *ast.SourceFile {
   if p == nil || p.TSProgram == nil {
     return nil
@@ -180,14 +188,17 @@ func (p *Program) SourceFile(filename string) *ast.SourceFile {
   return p.TSProgram.GetSourceFile(filename)
 }
 
-// String returns a `path:line:col: message` formatted string.
+// String returns message alone without File, file/message without a positive
+// Line, or file/line/column/message otherwise. In that last form Column is printed
+// as supplied, including zero or a negative value; this is a display, not source
+// position validation.
 //
-// @evidence contracts/common.md#principled-implementation Located diagnostics include available line and column; unlocated findings retain just their message rather than invented coordinates.
+// @evidence contracts/common.md#principled-implementation The three field-presence branches preserve supplied values: missing file yields message alone, nonpositive line omits coordinates, and positive line includes the supplied column without inventing or validating one.
 // @evidence contracts/common.md#clear-and-simple-design One formatter handles the three available-location shapes without a renderer dependency.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Formatting uses supplied location fields and introduces no fixture-specific text.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the displayed shape following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This formatter displays an existing source name and performs no native path resolution.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Ordinary diagnostic formatting selects no input-processing algorithm.
+// @evidence contracts/performance.md#efficient-algorithms Missing-file output reuses Message directly; the two fixed format strings otherwise produce output proportional to filename/message bytes and decimal coordinates, with no source scan or filesystem lookup.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Formatting one value does not coordinate shared computation requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string transfers to its caller without formatter-owned state or handles.
 func (d Diagnostic) String() string {
@@ -201,17 +212,17 @@ func (d Diagnostic) String() string {
 }
 
 // WritePrettyDiagnostics renders diagnostics with TypeScript-style colors,
-// source snippets and the trailing error summary when raw tsgo or lint
-// diagnostic objects are available. Mixed batches (e.g. typecheck + lint)
-// are rendered through the same color/context pipeline; entries without
-// either anchor fall back to the legacy `path:line:col: message` form.
+// available source snippets for native tsgo/lint anchors. That rich subset is
+// sorted and gets its own native summary; plain findings are written afterward
+// and are not included in that summary. Missing anchors and native findings
+// without an authored position use the plain supplied-field display.
 //
 // @evidence contracts/common.md#principled-implementation Rich anchors go through the native mixed diagnostic writer; unlocated generated findings stay on the plain path with an explicit missing-authored-location explanation.
-// @evidence contracts/common.md#clear-and-simple-design One boundary classifies the batch and delegates native context rendering, preserving a plain fallback only for absent rendering anchors.
+// @evidence contracts/common.md#clear-and-simple-design One boundary separates rich anchors from plain or missing-authored-position findings, delegates rich rendering and then writes the plain subset.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The plain path serves real unlocated diagnostics rather than masking a native source-position failure with a guessed range.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes mixed rich rendering and location-free output under documentation-skill guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Supplied streams and diagnostic source names are rendered without native filesystem or process access.
-// @evidence contracts/performance.md#efficient-algorithms One O(N) classification pass and one rich-batch collection pass feed the native writer; temporary references grow linearly with batch size.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The caller supplies the writer and owns its native destination/capabilities; this renderer presents supplied source names and coordinates without its own filesystem identity query or process selection.
+// @evidence contracts/performance.md#efficient-algorithms Linear partition/collection passes allocate batch references; rich rendering additionally sorts diagnostics by source/position and formats context, messages and summary before plain formatting. Finding count, compared filenames and rendered/source-context bytes govern work, plus the supplied writer's cost.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation writes observable output and does not coordinate equivalent requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns w; this renderer never closes it or retains the batch after returning.
 func WritePrettyDiagnostics(w io.Writer, diagnostics []Diagnostic, cwd string) {
@@ -259,8 +270,9 @@ func WritePrettyDiagnostics(w io.Writer, diagnostics []Diagnostic, cwd string) {
 }
 
 // CountErrors returns the number of diagnostics that should fail the build.
-// tsgo diagnostics carry their own `Error` category; lint diagnostics carry a
-// caller-set Severity. Anything that isn't an explicit warning counts.
+// IsError uses a native lint anchor's category when present, otherwise the
+// public Severity field. Ordinary converted compiler findings default to Error;
+// a non-lint finding counts unless its public severity is explicitly Warning.
 //
 // @evidence contracts/common.md#principled-implementation Counting uses IsError for each element, so aggregate build status and individual plugin gating share the same native lint and warning policy.
 // @evidence contracts/common.md#clear-and-simple-design One reduction delegates classification to its owning predicate rather than duplicating category rules.
@@ -333,7 +345,8 @@ type LoadProgramOptions struct {
   // ForceEmit clears noEmit and emitDeclarationOnly for this load.
   ForceEmit bool
 
-  // ForceNoEmit enables analysis without file writes.
+  // ForceNoEmit sets noEmit for analysis; incremental build-information policy
+  // remains with the emitter. ForceEmit wins if both overrides are true.
   ForceNoEmit bool
 
   // OutDir overrides the output directory after resolution against cwd.
@@ -351,8 +364,9 @@ type LoadProgramOptions struct {
   // serial parse/check/emit), mirroring `tsgo --singleThreaded`.
   SingleThreaded bool
 
-  // Checkers overrides the type-checker pool size, mirroring `tsgo --checkers`.
-  // Zero leaves TypeScript-Go's default; ignored when SingleThreaded is set.
+  // Checkers supplies the requested pool-size option before Program creation.
+  // CreateProgramFromConfig pins the effective pool to one checker; zero skips
+  // this requested override, and SingleThreaded also selects one checker.
   Checkers int
 
   // TsgoArgs carries tsgo CLI flags the `ttsc` launcher did not recognize as
@@ -405,7 +419,7 @@ func (p *Program) Close() error {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Native parse diagnostics are returned instead of accepting a partial config or special-casing project files.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state JSONC support, path anchoring and the struct-overlay reset limitation under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation tspath resolves the config against cwd; the supplied FS and host own native file access and case behavior.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The adapter selects the supported native parser rather than implementing a separate parsing algorithm.
+// @evidence contracts/performance.md#efficient-algorithms Native path resolution and the existence check precede delegated config reads/parsing, extends processing and include/exclude directory matching; config bytes, inherited configs, spec/path text and visited entries govern cost. Diagnostic conversion also copies and formats the reported findings rather than making this a constant-time wrapper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This parse invocation coordinates no completed or in-flight config cache.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The supplied filesystem and host are borrowed; returned config and diagnostics become caller-owned values.
 func ParseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.CompilerHost, cliOptions *core.CompilerOptions) (*tsoptions.ParsedCommandLine, []Diagnostic, error) {
@@ -430,7 +444,12 @@ func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
     cliOptions = &core.CompilerOptions{}
   }
   parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, tsoptions.CommandLineRawOptions(commandLine), host, nil)
-  allDiags := append(diags, parsed.Errors...)
+  allDiags := diags
+  if parsed != nil {
+    // Read failures are returned separately; recoverable JSON syntax errors
+    // belong to the parsed source before its option-conversion diagnostics.
+    allDiags = append(allDiags, parsed.GetConfigFileParsingDiagnostics()...)
+  }
   if len(allDiags) > 0 {
     return nil, convertDiagnostics(allDiags), nil
   }
@@ -446,7 +465,7 @@ func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
 // embedder that deliberately passes an empty argv is not overridden by an
 // environment variable an ancestor ttsc process happened to set. The fallback
 // is what carries the payload into a third-party sidecar whose flag set does
-// not declare `--tsgo-args` at all — see TsgoArgsEnv and issue #1188.
+// not declare `--tsgo-args` at all — see TsgoArgsEnv.
 func resolveTsgoArgs(explicit []string) ([]string, error) {
   if explicit != nil {
     return explicit, nil
@@ -476,8 +495,9 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.Pa
 
 // CreateProgramFromConfig builds a tsgo Program from the parsed config.
 //
-// SingleThreaded is intentionally left unset so the program keeps
-// TypeScript-Go's parallel source parsing and parallel emit. The checker
+// ProgramOptions.SingleThreaded is left unset, preserving the parsed option:
+// parallel source parsing and emit remain available unless the caller selected
+// single-threaded operation. The checker
 // pool, however, is pinned to a single checker (see forceSingleChecker):
 // every phase ttsc layers on top — plugin transforms and the output
 // rewriter — walks the program serially against the one checker returned by
@@ -487,18 +507,18 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.Pa
 // across them; a circular type whose declarations span files on different
 // checkers resolves to `any` on the borrowed checker. Pinning the pool to
 // one checker keeps prog.Checker consistent with how every file was checked
-// while leaving parse and emit parallel. Both EmitAll and EmitAllRaw
+// without independently forcing serial parse or emit. Both EmitAll and EmitAllRaw
 // serialize the WriteFile callback under a mutex so the emit-stage rewriter
 // never observes the parallel emit either.
 //
 // @evidence contracts/common.md#principled-implementation Native Program construction uses parsed config and source project references; one checker keeps cross-file type queries in the same checker affinity.
 // @evidence contracts/common.md#clear-and-simple-design The adapter owns only Program options and checker-affinity policy while upstream owns parsing and compiler construction.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The checker count is a stated cross-file correctness constraint, not a benchmark-only cap or consumer-specific workaround.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs explain preserved parallel parsing/emit and the single-checker reason under documentation-skill guidance.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the parsed threading choice from the single-checker affinity policy under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation The supplied CompilerHost provides native filesystem capabilities and project anchoring without an OS-name-derived policy.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Program construction delegates to the compiler's native algorithm; this adapter imposes the checker affinity required by its consumers.
+// @evidence contracts/performance.md#efficient-algorithms The adapter forces one checker but preserves the parsed threading choice; native NewProgram processes the complete program inputs, initializes the checker pool and verifies options. Source text, file/reference population and native resolution work govern delegated construction cost; this is not a constant-time options wrapper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction creates a new compiler generation and does not coordinate reuse across callers.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The returned native Program transfers to its caller; acquiring a checker lease is a later LoadProgram responsibility.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned native Program transfers parsed trees, resolution state and checker-pool ownership to its caller without a byte cap here; acquiring a checker lease is a later LoadProgram responsibility, and releasing that lease does not reclaim all caller-reachable Program state.
 func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompiler.CompilerHost) (*shimcompiler.Program, []Diagnostic, error) {
   if parsed == nil {
     return nil, nil, fmt.Errorf("driver: nil parsed command line")
@@ -510,6 +530,9 @@ func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompi
     UseSourceOfProjectReference: true,
   }
   p := shimcompiler.NewProgram(opts)
+  if p != nil {
+    e2etrace.Program("program-construction", "driver-create", "constructor-returned", false, p)
+  }
   return p, nil, nil
 }
 
@@ -535,16 +558,17 @@ func forceSingleChecker(parsed *tsoptions.ParsedCommandLine) {
 // It parses the tsconfig, creates a program and a type-checker, and returns
 // the wrapped facade.
 //
-// cwd must be absolute; tsconfigPath may be relative to cwd.
+// Relative cwd is resolved against the process cwd when filepath.Abs succeeds;
+// callers should provide an absolute anchor. tsconfigPath may be relative to it.
 //
-// @evidence contracts/common.md#principled-implementation Plugin preambles enter before parsing, native CLI/config merging resolves options before Program creation, and the facade records the exact filesystem observations and checker for that generation.
+// @evidence contracts/common.md#principled-implementation Plugin preambles enter before parsing, native CLI/config merging resolves options before Program creation, and the facade associates the observing VFS and borrowed checker with that generation; this is not a certificate of every filesystem access by plugins or their host.
 // @evidence contracts/common.md#clear-and-simple-design One loader orders plugin config, filesystem layers, config overrides and checker acquisition; private helpers each own one policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid configuration or CLI input returns before construction; an explicitly empty argument list does not fall through to an ancestor's flags.
 // @evidence contracts/common.md#meaningful-documentation Native prose and options document one-shot load, path anchoring, force overrides and checker ownership under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Native cwd resolution uses filepath/tspath and the chosen VFS provides actual case and path capabilities; semantic wrapper ownership uses an explicit config path.
-// @evidence contracts/performance.md#efficient-algorithms One load composes filesystem observation with native parsing/checker creation; byte hashing covers read content once per observation rather than a post-load project scan.
+// @evidence contracts/performance.md#efficient-algorithms One load composes plugin/preamble work, config/CLI parsing, native Program processing and checker acquisition with VFS observation. Read-text hashing runs on each observed read, including repeated reads; config/source bytes, native resolution and directory work, plugin callbacks and retained observation maps govern cost rather than only facade construction.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This one-shot factory does not coordinate callers; Session and resident hosts own cross-request compiler reuse.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before acquisition return no lease; success transfers the acquired checker lease and generation state to Program, whose Close releases it.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Errors before checker acquisition return no lease. Success transfers the lease, generation trees and input/plugin ledgers to Program without a byte cap; Close releases only the checker callback, while caller reachability controls facade state and separately retained plugin callbacks.
 func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program, []Diagnostic, error) {
   if !filepath.IsAbs(cwd) {
     if abs, err := filepath.Abs(cwd); err == nil {
@@ -624,6 +648,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     SourcePreamble: options.SourcePreamble,
   }
   prog.plugins = pluginState
+  e2etrace.Program("program-load-outcome", "driver-create", "facade-installed", false, tsProgram)
   return prog, nil, nil
 }
 
@@ -714,15 +739,17 @@ func isSourcePreambleTarget(filePath string) bool {
   return false
 }
 
-// ApplySourcePreambleToFile applies a generated preamble only when filePath is
-// a non-declaration TypeScript or JavaScript source, matching sourcePreambleFS.
+// ApplySourcePreambleToFile uses a case-insensitive supported filename-suffix
+// check, excluding .d.ts/.d.mts/.d.cts, to admit preamble insertion exactly as
+// sourcePreambleFS does. This classifier does not inspect a file's physical kind
+// or independently certify the compiler's source admission.
 //
 // @evidence contracts/common.md#principled-implementation The shared eligibility predicate makes direct insertion match the parsing filesystem wrapper.
 // @evidence contracts/common.md#clear-and-simple-design One predicate delegates to the byte-preserving insertion operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler source extensions replace fixture filenames or parser mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies declaration exclusion and wrapper correspondence following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.ToSlash normalizes native separators without assuming a host separator.
-// @evidence contracts/performance.md#efficient-algorithms A fixed extension set is checked before allocating inserted text.
+// @evidence contracts/performance.md#efficient-algorithms Native separator conversion and lowercasing scan filename text before fixed suffix comparisons; admitted input then incurs the source/preamble scan and output allocation of ApplySourcePreamble. Filename and returned text bytes govern total work despite the fixed extension set.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work One source operation owns no repeated-work coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string is caller-owned without a resident collection or resource.
 func ApplySourcePreambleToFile(filePath string, text string, preamble string) string {
@@ -732,15 +759,17 @@ func ApplySourcePreambleToFile(filePath string, text string, preamble string) st
   return ApplySourcePreamble(text, preamble)
 }
 
-// ApplySourcePreamble inserts a generated source preamble without moving the
-// file's BOM or hashbang away from the first bytes of the physical output.
+// ApplySourcePreamble inserts a generated preamble into supplied source text,
+// preserving a represented UTF-8 BOM and hashbang as leading string prefixes.
+// It does not write a file or reconstruct an on-disk encoding/BOM already
+// removed by the caller's text decoder.
 //
 // @evidence contracts/common.md#principled-implementation BOM and hashbang positions remain lexical prefixes ahead of injected bytes.
 // @evidence contracts/common.md#clear-and-simple-design Empty, BOM, and hashbang branches construct the resulting text directly.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Source markers replace hardcoded filenames or compiler-internal mutation.
-// @evidence contracts/common.md#meaningful-documentation Native prose states the physical-byte guarantee following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose states supplied-text prefix preservation separately from disk encoding or output writes following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Source-byte insertion performs no native operation.
-// @evidence contracts/performance.md#efficient-algorithms Prefix checks and one newline search precede direct concatenation without reparsing the source.
+// @evidence contracts/performance.md#efficient-algorithms Fixed prefix checks and any hashbang newline scan precede one direct concatenation; scanned prefix and total source/preamble bytes govern work and output allocation, without parsing the source or an intermediate line array.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each requested source value has no shared-work ownership.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned string is retained by its caller.
 func ApplySourcePreamble(text string, preamble string) string {
@@ -767,15 +796,19 @@ func ApplySourcePreamble(text string, preamble string) string {
 // Imported implementation files from source-distributed dependencies can be
 // present; consumers that need project-owned files must apply their own root
 // predicate.
+// First use can dispatch linked program hooks; this accessor ignores their
+// latched error and returns the currently resident AST references, so obtaining
+// a list does not certify successful transformation. A nil or unloaded Program
+// yields an empty slice, and the returned slice does not clone the ASTs.
 //
 // @evidence contracts/common.md#principled-implementation Resident dependency sources remain distinct from project-owned files.
 // @evidence contracts/common.md#clear-and-simple-design One hook owner runs before one declaration-file filter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler files replace guessed directory exclusions or fabricated entries.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains declaration filtering and caller ownership following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Resident AST enumeration performs no native operation.
-// @evidence contracts/performance.md#efficient-algorithms One pass collects non-declaration sources.
-// @evidence contracts/performance.md#reuse-equivalent-work The generation-wide hook latch prevents repeated transformation during enumeration.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result borrows program ASTs without another cache or resource.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This accessor filters resident AST flags without interpreting native paths or platform capabilities; any effects of initial plugin dispatch belong to the hooks rather than to an encoded filesystem policy in this filter.
+// @evidence contracts/performance.md#efficient-algorithms After any initial delegated hook work, one resident-file pass filters declarations into a new reference slice, with storage proportional to returned files. AST nodes are not traversed or cloned, and hook callback work remains part of first-use cost rather than constant enumeration overhead.
+// @evidence contracts/performance.md#reuse-equivalent-work The Program's serial hook latch prevents repeated dispatch; resident filtering and reference-slice allocation repeat on each call rather than sharing a cached list or claiming equivalence across generations.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The new slice transfers to its caller and retains borrowed mutable AST references while reachable. It owns no historical result cache or native handle; discarding the Program reference does not release trees still held by the caller, and this accessor supplies no file/AST-byte cap or explicit disposal operation.
 func (p *Program) SourceFiles() []*ast.SourceFile {
   // Discarded on purpose; see SourceFile. `Diagnostics` carries the failure.
   _ = p.ApplyLinkedPlugins()
@@ -798,20 +831,24 @@ func (p *Program) sourceFilesRaw() []*ast.SourceFile {
   return out
 }
 
-// ApplyLinkedPlugins runs registered linked ProgramPlugin hooks exactly once.
-// A hook failure is latched and returned on every subsequent call: SourceFiles
+// ApplyLinkedPlugins attempts registered linked ProgramPlugin hooks in order,
+// stopping at the first missing registration or hook error. Serial calls do
+// not repeat dispatch: the applied bit is set before hooks run. Reentrant calls
+// return the current stored error, which can still be nil during dispatch;
+// this bit/error pair supplies no concurrent-call synchronization.
+// A returned hook failure is latched for later calls: SourceFiles
 // swallows the error by contract, so without the latch a lookup that happened
 // to run first would consume the only report and let a later emit proceed over
 // the half-applied program as if nothing failed.
 //
-// @evidence contracts/common.md#principled-implementation Success and failure are generation-wide outcomes shared by all later consumers.
+// @evidence contracts/common.md#principled-implementation Completed dispatch success or failure is latched for later serial consumers of that Program; setting applied before callbacks prevents reentrant redispatch without pretending reentry waits for the final outcome.
 // @evidence contracts/common.md#clear-and-simple-design One applied bit and stored error define the once-only transition.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Failure is neither retried through compensating mutations nor converted to later success.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains latching and lookup/emit consequences following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Hook scheduling performs no native path operation.
-// @evidence contracts/performance.md#efficient-algorithms Subsequent calls return the stored result in constant time.
+// @evidence contracts/performance.md#efficient-algorithms Nil/already-applied calls return the stored outcome without entry traversal. First dispatch scans linked entries until failure, performs registry/interface checks and creates per-hook input/declaration contexts; callbacks can do arbitrary work. Context metadata/report bytes and plugin effects have no processing ceiling supplied by this scheduler.
 // @evidence contracts/performance.md#reuse-equivalent-work Setting the bit before dispatch prevents reentrant or later repeated mutation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The stored outcome expires with its Program generation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Applied/error state remains on the caller-owned Program; per-hook input scopes/declarations created by dispatch join that generation's ledger and can grow with reported inputs. Separately retained returned errors or plugin-held context callbacks can outlive the Program reference. This scheduler imposes no report-byte/population cap or automatic caller-lifetime reclamation policy.
 func (p *Program) ApplyLinkedPlugins() error {
   if p == nil {
     return nil
@@ -833,22 +870,24 @@ func (p *Program) ApplyLinkedPlugins() error {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Actual interfaces replace package-name or test-case classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the fresh-generation requirement following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Registry inspection performs no native boundary operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Registry classification owns iteration; this function forwards the result.
+// @evidence contracts/performance.md#efficient-algorithms A nil Program short-circuits. Otherwise delegated classification scans linked entries with bounds/registration/interface checks until the first ProgramPlugin match; delegation does not remove the O(entry-count) worst-case scan. It allocates no output collection or AST traversal.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate owns no shared-work coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or resource is created.
 func (p *Program) HasLinkedProgramPlugins() bool {
   return p != nil && p.plugins.hasProgramPlugins()
 }
 
-// PluginHostInputs returns the generation-wide native configuration files
-// reported by linked plugins while this Program was loaded or transformed.
+// PluginHostInputs returns the union of native file paths reported by linked
+// hooks while this Program was loaded or transformed. Each scope is copied
+// separately; this is not an atomic snapshot across concurrently reporting hooks
+// and it does not run a pending ProgramPlugin hook.
 //
 // @evidence contracts/common.md#principled-implementation Hook observations form a generation-wide union even when multiple hooks report one file.
 // @evidence contracts/common.md#clear-and-simple-design The ledger owns union and ordering rather than a second dependency collection.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Recorded inputs replace guessed plugin files or weakened unknown observations.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies input scope and lifetime following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Already recorded paths are returned without new native resolution.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The delegated ledger owns union and ordering.
+// @evidence contracts/performance.md#efficient-algorithms The ledger copies the scope list and each scope's file/hash/realpath maps under their locks, unions file membership and sorts distinct paths. Cost includes all recorded metadata copied by the shared snapshot helper, path hashing/comparison bytes and distinct-path sort work, not only the returned slice length.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor has no independent shared-work coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The snapshot is caller-owned without another retained cache.
 func (p *Program) PluginHostInputs() []string {
@@ -858,15 +897,16 @@ func (p *Program) PluginHostInputs() []string {
   return p.plugins.hostInputs()
 }
 
-// PluginHostInputHashes returns evaluation-time fingerprints for the subset of
-// native host inputs whose exact state plugins reported without conflict.
+// PluginHostInputHashes returns supplied content-hash or nil-absence reports
+// that agree across every scope reporting the file. It does not independently
+// authenticate when a plugin consumed that state or read the file here.
 //
 // @evidence contracts/common.md#principled-implementation Unknown and conflicting observations remain absent from reusable content proof.
 // @evidence contracts/common.md#clear-and-simple-design One ledger projection retains one proof-merging owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Later filesystem reads cannot replace evaluation-time observations.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes proven and complete input sets following the documentation skill.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes consistent supplied hash/absence reports from the full declared input set and independent read authentication following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Observation exposure performs no native path resolution or filesystem access.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The ledger owns proof merging and snapshot allocation.
+// @evidence contracts/performance.md#efficient-algorithms Per-scope snapshots copy file/hash/realpath metadata under locks; file membership then drives sticky unknown/conflict merging and a copied result map. Scope entries, path hashing and compared hash text govern work, including unrelated metadata copied by the shared helper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor exposes proof without deciding reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Copied results create no additional resident collection.
 func (p *Program) PluginHostInputHashes() map[string]*string {
@@ -876,16 +916,17 @@ func (p *Program) PluginHostInputHashes() map[string]*string {
   return p.plugins.hostInputHashes()
 }
 
-// PluginHostInputRealpaths returns evaluation-time physical identities for the
-// subset of native host inputs whose symlink or junction target was observed
-// without conflict.
+// PluginHostInputRealpaths returns consistent supplied physical-path or
+// nil-absence reports across the scopes that reported each file. The accessor
+// does not resolve symlinks/junctions or authenticate the supplied observation's
+// timing; a syntactically accepted absolute spelling alone is not that proof.
 //
-// @evidence contracts/common.md#principled-implementation Physical identity requires consistent observations from every reporting scope.
+// @evidence contracts/common.md#principled-implementation Exposed physical-path reports require consistent supplied values from every reporting scope; missing and conflicting reports remain unavailable.
 // @evidence contracts/common.md#clear-and-simple-design The ledger owns identity merging without accessor path reinterpretation.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Lexical guesses or later observations cannot fill missing identity proof.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains evaluation-time symlink/junction identity following the documentation skill.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts This accessor adds no lexical guess or later filesystem query to fill missing reported identity.
+// @evidence contracts/common.md#meaningful-documentation Native prose separates supplied identity/absence agreement from independently authenticated symlink/junction observation following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor exposes the ledger's existing native observations.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The ledger owns merging and copied results.
+// @evidence contracts/performance.md#efficient-algorithms Per-scope snapshots copy file/hash/realpath metadata under locks, then membership drives sticky unknown/conflict merging and copied result pointers. Scope entries and filename/realpath text hashing and comparison govern work, including all metadata copied by the shared helper.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Identity exposure does not coordinate artifact work.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or independent cache is acquired.
 func (p *Program) PluginHostInputRealpaths() map[string]*string {
@@ -908,7 +949,7 @@ func (p *Program) PluginHostInputRealpaths() map[string]*string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Neither absent declarations nor a successful fresh transform establish completeness, and the accessor does not remove actual conflict evidence.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs define the explicit signal, false-state meaning and fresh-output versus reuse distinction following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The accessor reads recorded hook state and performs no native path operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The hook ledger owns bounded per-scope aggregation.
+// @evidence contracts/performance.md#efficient-algorithms The ledger first copies the scope list, then reads each sticky flag under its mutex until a true value is found; work and temporary references grow with recorded scope count, which is not capped by this accessor.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor reports a reuse limitation without owning artifact reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resource or independent retained cache is created.
 func (p *Program) PluginObservationsIncomplete() bool {
@@ -920,30 +961,32 @@ func (p *Program) PluginObservationsIncomplete() bool {
 //
 // @evidence contracts/common.md#principled-implementation Full diagnostics include latched failures without moving mutation hooks into the diagnostic query.
 // @evidence contracts/common.md#clear-and-simple-design Nil file selection delegates to the shared aggregation owner.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No fabricated success, retried transform, or extra mutation precedes diagnostics.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The query neither fabricates success nor retries a plugin transform; native checker queries may populate their normal diagnostic state.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the pre-execution boundary following the documentation skill.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Resident diagnostic queries perform no native filesystem operation.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The shared pipeline owns queries, filtering, and deduplication.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This entry selects resident compiler diagnostics without a native filename or filesystem policy of its own; any plugin-supplied error formatting remains that implementation's responsibility.
+// @evidence contracts/performance.md#efficient-algorithms The native staged whole-program query can bind/check resident sources, followed by AST-position filtering, diagnostic sorting/deduplication and message/location conversion. Source/checker work, finding count and compared/rendered text govern cost; the nil selection wrapper does not make delegated work constant-time.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Compiler checker state owns semantic reuse without an independent accessor cache.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the caller-owned result is created.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Native checker state remains with Program, while converted diagnostics and their raw source references transfer to the caller without a result-byte cap here; no separate diagnostic cache or lease is acquired by this entry.
 func (p *Program) Diagnostics() []Diagnostic {
   return p.diagnostics(nil)
 }
 
-// DiagnosticsForFiles returns diagnostics whose semantic work is restricted to
-// selected source files, plus the program/global diagnostics that qualify the
-// same immutable Program generation. The resident graph shard producer uses it
+// DiagnosticsForFiles selects native diagnostic queries for the supplied files,
+// including program/global findings when the native syntax/options stages reach
+// them. Type resolution can still inspect dependencies outside that selection.
+// A nil slice requests the whole program; an empty non-nil slice performs no
+// compiler query but still reports any latched plugin failure. The resident graph shard producer uses it
 // for the compiler-invalidated closure; callers that need the complete project
 // continue to use Diagnostics.
 //
-// @evidence contracts/common.md#principled-implementation Selected semantic work remains qualified by globals from the same generation.
+// @evidence contracts/common.md#principled-implementation Selected-file queries preserve the native staged global/program qualification when applicable, and nil versus empty selection remains explicit.
 // @evidence contracts/common.md#clear-and-simple-design Selection delegates to the existing aggregation policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Global findings and current-generation diagnostics are not replaced by narrower cached success.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains selection and complete-project alternatives following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Resident AST selection performs no native path resolution.
-// @evidenceExclude contracts/performance.md#efficient-algorithms The shared pipeline owns queries and deduplication.
+// @evidence contracts/performance.md#efficient-algorithms Each selected file invokes the native staged query, which can repeat global/config work and inspect dependent types; combined findings then undergo AST filtering, sorting/deduplication and message/location conversion. Selected-file count, checker/source work and accumulated finding/text size govern cost.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The caller owns invalidated-closure selection; this method owns no cache validity decision.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller-owned result acquires no retained resource.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Native checker state remains with Program; copied diagnostics and raw source references transfer to the caller without a byte cap here. This selection entry acquires no separate cache or checker lease.
 func (p *Program) DiagnosticsForFiles(files []*ast.SourceFile) []Diagnostic {
   return p.diagnostics(files)
 }
@@ -954,14 +997,15 @@ func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
   }
   // A linked ProgramPlugin that failed to apply is reported here, ahead of the
   // compiler's own findings, because every other consumer of this program is
-  // then looking at a tree the plugin did not transform.
+  // then looking at a possibly partially transformed tree, not a successfully
+  // completed plugin pass.
   //
   // `SourceFile`, `SourceFiles`, and the graph builder all run the apply and
   // discard its error — they have no channel of their own and are not the place
   // to grow one. The emit path checks it directly and fails the build, so this
-  // is the read-only half of the same fact: `ttscgraph` used to describe the
-  // untransformed program with nothing to say about it, while `ttsc build` on
-  // the same project reported the failure.
+  // is the read-only half of the same fact: graph consumers read the program
+  // through this method, and without it they could describe that partial
+  // tree while `ttsc build` on the same project reported the failure.
   //
   // The cached outcome is read, never forced. Calling `ApplyLinkedPlugins`
   // here would move WHEN the apply happens: diagnostics would then be computed
@@ -969,8 +1013,8 @@ func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
   // into the original source text, and the diagnostic writer walks that text to
   // render context. It panics on the mismatch.
   //
-  // Reading the cache costs nothing and is enough for the consumers this is
-  // for: `SourceTexts` and `SourceFiles` run the apply, and both graph entry
+  // Reading the cached outcome does not repeat plugin execution and is enough
+  // for these consumers: `SourceTexts` and `SourceFiles` run the apply, and both graph entry
   // points call them before asking for diagnostics. A caller that has not
   // applied yet has nothing to report, which is correct — the plugins have not
   // failed, they have not run.
@@ -1056,8 +1100,8 @@ func isUnusedOverloadSignatureTypeParameterDiagnostic(d *ast.Diagnostic) bool {
 }
 
 // convertDiagnostics translates shim-specific diagnostics into the plain
-// Diagnostic struct with line/column populated via tsgo's ECMALineMap (the
-// same helper tsc uses for its "file:line:col: message" banner).
+// Diagnostic struct with line/column populated from tsgo's ECMA line model
+// (shimscanner.GetECMALineAndByteOffsetOfPosition).
 //
 // Diagnostics produced by a Program go through convertProgramDiagnostics
 // instead, which undoes a source preamble's position shift first.

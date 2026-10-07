@@ -28,6 +28,14 @@ import { make } from "../internal/make";
  * public readonly id: string = "x";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers and decorators, if any.
+ * @param name The name.
+ * @param questionOrExclamationToken The optional (`?`) or definite-assignment
+ *   (`!`) marker, if any.
+ * @param type The type.
+ * @param initializer The initializer, if any.
+ * @returns The created {@link PropertyDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Property-name normalization keeps computed/literal keys. Optional or
  *   definite-assignment token, type and initializer remain independent grammar
@@ -43,15 +51,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains marker distinctions, decorators, typing and defaults
  *   in separated paragraphs with an example before acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers and decorators, if any.
- * @param name The name.
- * @param questionOrExclamationToken The optional (`?`) or definite-assignment
- *   (`!`) marker, if any.
- * @param type The type.
- * @param initializer The initializer, if any.
- * @returns The created {@link PropertyDeclaration}.
  */
 export const createPropertyDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

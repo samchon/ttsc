@@ -25,7 +25,6 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
  * another drive, does not take it (`hostToolDirectory`).
  *
  * @param root The host's root, as `hostToolDirectory` names it.
- *
  * @evidence contracts/common.md#principled-implementation
  *   A resolved-root digest gives each host a stable directory beneath the
  *   validated user state root; absence remains explicit when no safe root exists.
@@ -39,15 +38,21 @@ import { userStateDirectory } from "../transform/filesystem/userStateDirectory";
  *   Native paragraphs explain stable paths, Windows long spelling and hosts
  *   that cannot accept the fallback, following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation The validated user state boundary obtains a private native directory and long Windows spelling; native root resolution determines naming, while adapters separately reject fallback locations their host cannot watch.
- * @evidence contracts/performance.md#efficient-algorithms Root resolution and SHA-256 naming cost O(R) in root spelling length; a process map avoids repeated trust lookup and hashing for an already named root.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Every call resolves and hashes the root's map key text. A cold name also
+ *   obtains the native temporary-root realpath, recursive state-directory
+ *   creation and directory-kind/available-uid checks, then hashes and joins
+ *   the fallback spelling. A warm name avoids those delegated checks and the
+ *   naming digest, not root resolution or map-key work.
  * @evidence contracts/performance.md#reuse-equivalent-work A resolved host root shares its stable fallback naming within the process; actual write capability is checked by writers rather than certified by the cached name, and an unavailable initial user root remains unavailable here.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module map retains one optional naming result per distinct resolved root for the process lifetime, without an eviction bound; no native handle is retained, and record-directory persistence belongs to the host cache protocol.
  */
 export function fallbackToolDirectory(root: string): string | undefined {
   const key = path.resolve(root);
   if (!FALLBACKS.has(key)) {
-    // The user's own root is checked, and nothing below it is reachable by
-    // anyone else; the directories below are created by the first write.
+    // The provider checks directory kind and available uid/mode authority;
+    // other platforms rely on native temporary-directory access policy.
+    // The directories below are created by the first write.
     const state = userStateDirectory();
     FALLBACKS.set(
       key,

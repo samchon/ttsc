@@ -34,15 +34,15 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
+import type { TtscMetroOptions } from "./core/TtscMetroOptions";
 import { prepareSnapshot } from "./core/fingerprint";
-import type { TtscMetroOptions } from "./core/options";
 import { ENV_KEY, serializeOptions } from "./core/options";
 import { locateProjectUpstreamTransformer } from "./core/upstream";
 
 export type {
   ResolvedTtscMetroOptions,
   TtscMetroOptions,
-} from "./core/options";
+} from "./core/TtscMetroOptions";
 
 /**
  * Minimal structural type for a Metro config object, avoids a hard dependency
@@ -78,6 +78,14 @@ interface MetroConfigLike {
  * succeeding (samchon/ttsc#1321). An explicit `upstreamTransformer` option
  * still wins, since that is the caller saying it outright.
  *
+ * The call also has side effects beyond the returned config, all before Metro
+ * forks its workers. It prepares the cache-key snapshot under
+ * `<projectRoot>/node_modules/.cache/ttsc-metro` (creating it, merging the
+ * previous workers' records into it under a lock, and sweeping stale files),
+ * and it opens the shared compile session whose path the workers inherit
+ * through the environment. A snapshot that cannot be prepared never fails the
+ * call: the run takes a private token that makes its cache key non-reusable.
+ *
  * @evidence contracts/common.md#principled-implementation
  *   Metro's supported babelTransformerPath boundary installs this adapter by
  *   cloning the config. Node project resolution preserves an existing upstream
@@ -108,6 +116,15 @@ interface MetroConfigLike {
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The compaction lock it takes is released in prepareSnapshot's finally block and the session store is owned by its opener; withTtsc retains no handle itself.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Constant work per call besides the snapshot preparation that prepareSnapshot owns.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Runs once per Metro config load; the snapshot and compile session it opens are what the workers share.
  */
 export function withTtsc<T extends MetroConfigLike>(
   config: T,

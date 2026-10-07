@@ -13,6 +13,7 @@ import { createTransformCacheKey } from "./cache/createTransformCacheKey";
 import { disposeCachedTransform } from "./cache/disposeCachedTransform";
 import { evictGeneration } from "./cache/evictGeneration";
 import { replaysTerminalGeneration } from "./cache/replaysTerminalGeneration";
+import { selectCachedGenerationAction } from "./cache/selectCachedGenerationAction";
 import { selectOrEvict } from "./cache/selectOrEvict";
 import { transformCacheEpoch } from "./cache/transformCacheEpoch";
 import { transformCacheTrustsNotifications } from "./cache/transformCacheTrustsNotifications";
@@ -21,10 +22,11 @@ import { withdrawGenerationNotifications } from "./cache/withdrawGenerationNotif
 import { reportMissingProgramOutput } from "./diagnostics/reportMissingProgramOutput";
 import { reportSuccessDiagnostics } from "./diagnostics/reportSuccessDiagnostics";
 import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
-import { envelopeDerivation } from "./envelope/envelopeDerivation";
-import { isVolatileFile } from "./envelope/isVolatileFile";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
+import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { transformProject } from "./generation/transformProject";
+import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDirectories";
+import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
 import { resolveProjectSelection } from "./tsconfig/resolveProjectSelection";
@@ -34,11 +36,11 @@ import { isHostWrapperQuery } from "./utils/isHostWrapperQuery";
 import { pluginsAreDisabled } from "./utils/pluginsAreDisabled";
 import { stripQuery } from "./utils/stripQuery";
 import { markCachedSourceServed } from "./validation/markCachedSourceServed";
-import { matchesCachedSource } from "./validation/matchesCachedSource";
 import type { TtscTransformHooks } from "./watch/TtscTransformHooks";
 import type { TtscWatchSelection } from "./watch/TtscWatchSelection";
 import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInputs";
 import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
+import { notifyVolatileDelivery } from "./watch/notifyVolatileDelivery";
 import { notifyWatchInputs } from "./watch/notifyWatchInputs";
 
 /**
@@ -62,7 +64,9 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  *
- * @param id - Bundler module id (may carry a query string or virtual prefix).
+ * @param id - Bundler module id (may carry a query string or virtual prefix),
+ *   or, with `hooks.exactPath`, a bare filesystem path that keeps every `?` and
+ *   `#` as part of its name.
  * @param source - Current file content supplied by the bundler.
  * @param options - Resolved plugin options.
  * @param aliases - Raw Vite alias configuration (object or array).
@@ -72,14 +76,26 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
  *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
- *
  * @evidence contracts/common.md#principled-implementation Project selection and generation-qualified cache admission preserve compiler disk authority; fresh-only success additionally needs an explicit nonwatching lifecycle, coherent project declaration and actual host-cache withdrawal, because incomplete observation cannot support watch invalidation.
  * @evidence contracts/common.md#clear-and-simple-design One delivery coordinator composes project selection, cache admission, compilation, output selection and host notifications; dedicated owners handle proof and lifetime internals.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines and incomplete generations cannot authorize reuse; a separately admitted fresh-only result is evicted before capability checks, unknown or watching lifecycles fail explicitly, and unsupported withdrawal cannot be replaced by a fake record or guessed dependency closure.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and argument tags explain project scope, no-transform outcomes, cache epochs and per-build notification responsibilities with links to maintained reference context.
- * @evidence contracts/performance.md#efficient-algorithms Each admission iteration selects or validates one project generation; in-flight or valid completed reuse avoids repeated compilation, while validation cost follows the actual required input population.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Selection/key construction pays ancestor/config/alias/option/path text work.
+ *   Each iteration may prepare toolchain state, settle native notifications and
+ *   replay source/project/external/universal proofs before selecting output.
+ *   In-flight/valid completed reuse avoids compilation, not those checks or
+ *   output/map/notification/record work. Capture misses pay whole native compile
+ *   and input populations; concurrent supersession can repeat the outer loop
+ *   without a delivery-level retry/time bound here.
  * @evidence contracts/performance.md#reuse-equivalent-work Cache identity covers config/options/plugins/aliases; current generations, pass-qualified terminal verdicts and in-flight Promises are shared only while their source and dependency proof remains valid.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The cache owns current generations and workers; fresh-only delivery evicts and releases its generation even when a callback later throws, untrusted notifications are withdrawn, and other eviction/attempt cleanup stays with generation owners.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Optional cache state retains current generation Promises/results and
+ *   per-key dependency/case facts without a byte/key cap here. Native tasks
+ *   belong to compiler/capture owners; uncached captures retain no notification
+ *   or persistent clock probe. Fresh-only delivery detaches its generation
+ *   before host callbacks; eviction/disposal attempt independent resource release
+ *   and native failures need not close every handle or remove every probe.
  * @evidence contracts/portability.md#os-neutral-implementation Native module paths and project coordinates use supported path/filesystem abstractions, while actual case policy and watcher capability come from generation proof rather than OS-name assumptions.
  */
 export async function transformTtsc(
@@ -91,7 +107,8 @@ export async function transformTtsc(
   hooks?: TtscTransformHooks,
 ): Promise<TtscTransformResult | undefined> {
   const filesystem = transformFilesystem(cache);
-  const clean = stripQuery(id);
+  const exact = hooks?.exactPath === true;
+  const clean = exact ? id : stripQuery(id);
   if (clean.includes("\0")) {
     return undefined;
   }
@@ -99,7 +116,7 @@ export async function transformTtsc(
   // file's program: substituting the compiled program would change what the
   // import yields, and its text would poison the generation's baseline
   // (samchon/ttsc#1394).
-  if (isHostWrapperQuery(id)) {
+  if (!exact && isHostWrapperQuery(id)) {
     return undefined;
   }
   const file = path.resolve(clean);
@@ -110,9 +127,14 @@ export async function transformTtsc(
     return undefined;
   }
 
+  // Acquire host-owned storage before any generation observes directory inputs.
+  // Writing the delivered record must not create a new member of that proof.
+  prepareProjectRecordDirectories(hooks?.project);
+
   const selection = resolveProjectSelection(file, options.project, filesystem);
   const tsconfig = selection.tsconfig;
-  // Every config the selection read is a watch input too: editing a solution's
+  // Reported config reads and failed discovery candidates are watch inputs:
+  // editing a solution's
   // `references`, or the `include` of a project searched before the selected
   // one, can move the file (samchon/ttsc#1397). Each notification hands them
   // beside its own inputs, under the same spelling, so a config both name is
@@ -141,6 +163,13 @@ export async function transformTtsc(
     if (transformed !== undefined) {
       const terminal = TERMINAL_TRANSFORM_GENERATIONS.get(transformed);
       if (terminal !== undefined) {
+        if (terminal instanceof TtscUnstableGenerationError) {
+          await preparePluginBuildEnvironments(
+            terminal.validation.cached.result,
+            filesystem,
+          );
+          if (cache?.get(key) !== transformed) continue;
+        }
         // A terminal verdict is an answer about one observed environment, not an
         // invitation for every later module to repeat the whole compile.
         if (
@@ -185,23 +214,27 @@ export async function transformTtsc(
       if (!transformCacheTrustsNotifications(cache)) {
         withdrawGenerationNotifications(cached);
       }
+      await preparePluginBuildEnvironments(cached.result, filesystem);
+      if (cache?.get(key) !== transformed) continue;
       if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
         if (cache?.get(key) !== transformed) {
           continue;
         }
       }
-      if (
-        // A file the plugin declared volatile must never be served from the
-        // cache: its output depends on non-file inputs, so the input-hash
-        // snapshot cannot prove freshness. Fall through to a fresh transform.
-        !isVolatileFile(envelopeDerivation(cached), {
-          file,
-          projectRoot: cached.projectRoot,
-          result: cached.result,
-        }) &&
-        matchesCachedSource(cached, file, source, epoch)
-      ) {
+      const action = selectCachedGenerationAction({
+        cache,
+        cached,
+        epoch,
+        file,
+        generation: transformed,
+        key,
+        source,
+      });
+      if (action === "retry") {
+        continue;
+      }
+      if (action === "serve") {
         reportSuccessDiagnostics(cached, epoch);
         // A resolved `"exception"` / `"failure"` envelope makes this throw;
         // that is a failed generation too, so it is retained for this pass or
@@ -233,13 +266,6 @@ export async function transformTtsc(
         markCachedSourceServed(cached, file);
         return createTransformResult(file, source, output);
       }
-      evictGeneration(cache, key, transformed);
-      // Another caller may have replaced the generation while this caller was
-      // awaiting or validating the old one. Retry that authoritative entry
-      // instead of deleting it or starting a redundant third compilation.
-      if (cache?.get(key) !== undefined) {
-        continue;
-      }
       transformed = undefined;
     }
 
@@ -257,8 +283,8 @@ export async function transformTtsc(
         plugins: options.plugins,
         // One bounded recursive project observer witnesses content restored
         // during the compile itself. Build-scoped adapters close it with the
-        // attempt; persistent adapters retain it to make later validations
-        // constant-cost while the generation remains live.
+        // attempt; persistent adapters can retain qualified notification proof
+        // to avoid repeated walks, without eliminating other delivery checks.
         retainProjectMembership: cache !== undefined && epoch === undefined,
         // Under declared polling, silence from a native watcher proves nothing.
         retainNotifications: transformCacheTrustsNotifications(cache),
@@ -348,11 +374,7 @@ export async function transformTtsc(
     }
     notifyWatchInputs(hooks, cached, file, watchSelection);
     markCachedSourceServed(cached, file);
-    if (
-      isVolatileFile(envelopeDerivation(cached), { file, projectRoot, result })
-    ) {
-      hooks?.markVolatile?.();
-    }
+    notifyVolatileDelivery(hooks, cached, file);
     return createTransformResult(file, source, output);
   }
 }

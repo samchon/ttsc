@@ -2,8 +2,9 @@ package lspserver
 
 import "testing"
 
-// TestExternalWatchedChangeRetainsProgram verifies external data events preserve
-// the warm Program without hiding TypeScript root-set changes.
+// TestExternalWatchedChangeRetainsProgram checks the retain-or-reload admission
+// predicate on fifteen authored URI/change-kind pairs. No Program is constructed,
+// retained, reloaded, or incrementally updated in this direct predicate unit.
 //
 // Project-input globs may overlap source files even though Markdown and
 // OpenAPI are the common case, but a JSON path may also be a resolveJsonModule
@@ -14,6 +15,11 @@ import "testing"
 //  1. Retain changed Markdown and Swagger inputs.
 //  2. Retain an in-place TypeScript edit for incremental Program update.
 //  3. Reload package metadata, created/deleted modules, and project configs.
+//
+// @evidence contracts/testing.md#behavioral-verification Compares fifteen direct predicate results with literal booleans for selected data/source/JSON/package/config changes and invalid URI/type premises. The results select retain-or-reload policy; actual Program lifetime, root population, event delivery, and incremental refresh are not observed.
+// @evidence contracts/testing.md#independent-expectations The expected retain-or-reload decision is a literal per event kind.
+// @evidence contracts/testing.md#distinguishing-cases A JSON path that can be a resolveJsonModule source is the boundary between data and Program topology.
+// @evidence contracts/testing.md#execution-ownership Directly supplies URI strings and optional integer kinds to externalWatchedChangeRetainsProgram in this process. It substitutes no seam, creates no native fixture, loads no Program, resolves no sidecar, and starts no product process or editor connection.
 func TestExternalWatchedChangeRetainsProgram(t *testing.T) {
   changed := fileChangeTypeChanged
   created := fileChangeTypeCreated

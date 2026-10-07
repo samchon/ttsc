@@ -2,6 +2,7 @@ package driver_test
 
 import (
   "encoding/json"
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -9,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDropsAugmentedCodeActionAfterDocumentClose verifies forwarded
+// TestLSPProxyDropsAugmentedCodeActionAfterDocumentClose Verifies forwarded
 // codeAction augmentation is invalidated by didClose.
 //
 // Normal codeAction requests wait for tsgo's response and then append plugin
@@ -21,9 +22,18 @@ import (
 // 2. Reply from upstream while plugin CodeActions is blocked.
 // 3. Send didClose for the same URI.
 // 4. Release the plugin and assert only the upstream action is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run retains only Add import after delayed plugin augmentation crosses didClose.
+// @evidence contracts/testing.md#independent-expectations The upstream action is authored independently and closure occurs before release.
+// @evidence contracts/testing.md#distinguishing-cases Closed-document plugin contribution contrasts with retained upstream action.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyDropsAugmentedCodeActionAfterDocumentClose in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyDropsAugmentedCodeActionAfterDocumentClose(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   var called atomic.Bool
   source := &stubSource{
     actionsWithContext: func(uri string, ctx driver.LSPCodeActionContext) []driver.LSPCodeAction {
@@ -49,7 +59,7 @@ func TestLSPProxyDropsAugmentedCodeActionAfterDocumentClose(t *testing.T) {
 
   h.sendEditor([]byte(`{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"file:///a.ts"}}}`))
   _ = h.recvUpstream()
-  close(release)
+  releaseCallback()
 
   body := h.recvEditor()
   var decoded struct {

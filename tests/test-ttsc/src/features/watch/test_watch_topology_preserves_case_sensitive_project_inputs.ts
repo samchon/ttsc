@@ -1,27 +1,37 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  type IRecordedWatcher,
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const subscriptions = new WeakMap<WatchTopology, readonly IRecordedWatcher[]>();
 
 /**
- * Verifies watch topology preserves case-sensitive project inputs.
+ * Verifies authored case-sensitive project declarations with actual identities.
  *
- * Lowercasing Windows paths can collapse two physical roots before watcher
- * pruning and can make a glob match its case-distinct sibling. Both exact and
- * glob inputs must retain the identities reported by the filesystem.
+ * 1. Establish the required native case-distinct physical paths.
+ * 2. Preserve exact and glob input roles and assert their live observer roots.
+ * 3. Deliver authored byte changes through the actual source directory adapter.
  *
- * 1. Create case-distinct external roots and glob roots.
- * 2. Assert both recursive watcher handles remain live.
- * 3. Observe each exact and glob input, then remove one glob and keep it quiet.
+ * @evidence contracts/testing.md#behavioral-verification Actual source topology retains the original exact/glob registration and project callback assertions using supplied notifications.
+ * @evidence contracts/testing.md#independent-expectations Authored case-distinct paths, independently checked filesystem identities and literal compiler membership establish the exact and glob input expectations independently.
+ * @evidence contracts/testing.md#distinguishing-cases Case-distinct roots and nested glob roots must not collapse. Both exact inputs and both glob members report, then removing only the lower glob makes its next edit quiet. Native preparation must establish distinct identities; unavailable preparation fails explicitly and is not a product observation or successful coverage.
+ * @evidence contracts/testing.md#execution-ownership This source unit owns manually supplied project declarations and actual path/content decisions through recorded observers. No compiler process or native observer runs; the original platform capability operation remains actual.
  */
 export const test_watch_topology_preserves_case_sensitive_project_inputs =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-project-input-case-project-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-project-input-case-project-"),
+    );
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
@@ -37,23 +47,28 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       "utf8",
     );
 
-    const external = TestProject.tmpdir("ttsc-project-input-case-external-");
-    if (enableWindowsCaseSensitivity(external) === false) return;
+    const external = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-project-input-case-external-"),
+    );
+    enableWindowsCaseSensitivity(external);
     const upperRoot = path.join(external, "Project");
     const lowerRoot = path.join(external, "project");
     fs.mkdirSync(upperRoot);
-    if (createCaseDistinctDirectory(lowerRoot) === false) return;
+    createCaseDistinctDirectory(lowerRoot);
     assert.notEqual(realpath(upperRoot), realpath(lowerRoot));
     const upperApi = path.join(upperRoot, "Api");
     const lowerApi = path.join(upperRoot, "api");
     fs.mkdirSync(upperApi);
-    if (createCaseDistinctDirectory(lowerApi) === false) return;
+    createCaseDistinctDirectory(lowerApi);
     assert.notEqual(realpath(upperApi), realpath(lowerApi));
 
     const upperExact = path.join(upperRoot, "nested", "evidence.md");
     const lowerExact = path.join(lowerRoot, "nested", "evidence.md");
     const upperGlob = path.join(upperApi, "**", "*.json");
     const lowerGlob = path.join(lowerApi, "**", "*.json");
+    const { openDirectoryWatch, openFileWatch, watchers } = recordWatchers(
+      watchDirectoryThroughFsWatch,
+    );
     const changes: WatchInputChange[] = [];
     let liveRoots: readonly string[] = [];
     const topology = new WatchTopology(
@@ -75,7 +90,14 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
           throw new Error("external inputs must not alter compiler membership");
         },
       },
+      openDirectoryWatch,
+      openFileWatch,
+      fs.readdirSync,
+      () => {
+        assert.fail("positional inputs must not query compiler membership");
+      },
     );
+    subscriptions.set(topology, watchers);
     try {
       topology.refresh(false);
       topology.setProjectInputs({
@@ -88,12 +110,12 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
         [realpath(upperRoot), realpath(lowerRoot)].sort(),
       );
 
-      await writeAndWait(changes, upperExact, "upper\n");
-      await writeAndWait(changes, lowerExact, "lower\n");
+      await writeAndWait(topology, changes, upperExact, "upper\n");
+      await writeAndWait(topology, changes, lowerExact, "lower\n");
       const upperJson = path.join(upperApi, "openapi.json");
       const lowerJson = path.join(lowerApi, "openapi.json");
-      await writeAndWait(changes, upperJson, "{}\n");
-      await writeAndWait(changes, lowerJson, "{}\n");
+      await writeAndWait(topology, changes, upperJson, "{}\n");
+      await writeAndWait(topology, changes, lowerJson, "{}\n");
 
       topology.setProjectInputs({
         root,
@@ -102,14 +124,17 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       });
       const count = changes.length;
       fs.writeFileSync(lowerJson, '{"removed":true}\n', "utf8");
+      notify(topology, lowerJson, false);
       await delay();
       assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
   };
 
 async function writeAndWait(
+  topology: WatchTopology,
   changes: readonly WatchInputChange[],
   location: string,
   content: string,
@@ -117,7 +142,8 @@ async function writeAndWait(
   const count = changes.length;
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
+  notify(topology, location);
+  const deadline = Date.now() + 30_000;
   while (
     changes
       .slice(count)
@@ -149,8 +175,8 @@ function pathMatchesOrContains(changed: string, target: string): boolean {
   );
 }
 
-function enableWindowsCaseSensitivity(directory: string): boolean {
-  if (process.platform !== "win32") return true;
+function enableWindowsCaseSensitivity(directory: string): void {
+  if (process.platform !== "win32") return;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -159,16 +185,22 @@ function enableWindowsCaseSensitivity(directory: string): boolean {
       windowsHide: true,
     },
   );
-  return result.status === 0;
+  assert.equal(
+    result.status,
+    0,
+    `native case-sensitive fixture preparation failed: ${result.error?.message ?? result.stderr}`,
+  );
 }
 
-function createCaseDistinctDirectory(directory: string): boolean {
+function createCaseDistinctDirectory(directory: string): void {
   try {
     fs.mkdirSync(directory);
-    return true;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "EEXIST") {
-      return false;
+      throw new Error(
+        `native case-distinct fixture preparation failed: ${directory}`,
+        { cause: error },
+      );
     }
     throw error;
   }
@@ -180,4 +212,39 @@ function realpath(location: string): string {
 
 function delay(milliseconds = 250): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function notify(
+  topology: WatchTopology,
+  changed: string,
+  requireSubscription = true,
+): void {
+  const watchers = subscriptions.get(topology);
+  assert.ok(watchers);
+  let entry = TestProject.physicalPath(changed);
+  while (
+    !watchers.some((watcher) => {
+      if (!watcher.active) return false;
+      const relative = path.relative(watcher.location, entry);
+      return (
+        relative === "" ||
+        relative === path.basename(entry) ||
+        (watcher.recursive &&
+          !relative.startsWith("..") &&
+          !path.isAbsolute(relative))
+      );
+    })
+  ) {
+    const parent = path.dirname(entry);
+    if (parent === entry) {
+      assert.equal(
+        requireSubscription,
+        false,
+        `no subscription covers ${changed}`,
+      );
+      return;
+    }
+    entry = parent;
+  }
+  deliverWatchEvent(watchers, entry, "rename");
 }

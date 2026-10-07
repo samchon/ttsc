@@ -518,8 +518,8 @@ func (q *regexQuantifierNode) hasFrom() bool {
   return strings.ContainsRune(q.FieldOrder, 'f')
 }
 
-// regexExtractFromTo mirrors the upstream extractFromTo, including the
-// JavaScript falsiness of a zero `to` (treated as absent).
+// regexExtractFromTo preserves upper-bound presence independently of its value.
+// SAFETY: unlike upstream's truthiness check, an explicit zero is a finite bound.
 func regexExtractFromTo(q *regexQuantifierNode) (int, int, bool) {
   switch q.Kind {
   case "*":
@@ -529,7 +529,7 @@ func regexExtractFromTo(q *regexQuantifierNode) (int, int, bool) {
   case "?":
     return 0, 1, true
   }
-  if q.HasTo && q.To != 0 {
+  if q.HasTo {
     return q.From, q.To, true
   }
   return q.From, 0, false
@@ -538,7 +538,7 @@ func regexExtractFromTo(q *regexQuantifierNode) (int, int, bool) {
 func regexIsGreedyOpenRange(q *regexQuantifierNode) bool {
   return q.Greedy &&
     (q.Kind == "+" || q.Kind == "*" ||
-      (q.Kind == "Range" && (!q.HasTo || q.To == 0)))
+      (q.Kind == "Range" && !q.HasTo))
 }
 
 // regexIncreaseQuantifierByOne mirrors transform/utils.js.
@@ -556,7 +556,7 @@ func regexIncreaseQuantifierByOne(q *regexQuantifierNode) {
     q.setTo(2)
   case "Range":
     q.From++
-    if q.HasTo && q.To != 0 {
+    if q.HasTo {
       q.To++
     }
   }
@@ -577,15 +577,14 @@ func regexTransformQuantifierRangeToSymbol(re *regexRegExpNode) {
       return
     }
     q := rep.Quantifier
-    truthyTo := q.HasTo && q.To != 0
     // a{0,} -> a*
-    if q.hasFrom() && q.From == 0 && !truthyTo {
+    if q.hasFrom() && q.From == 0 && !q.HasTo {
       q.Kind = "*"
       q.deleteFrom()
       return
     }
     // a{1,} -> a+
-    if q.hasFrom() && q.From == 1 && !truthyTo {
+    if q.hasFrom() && q.From == 1 && !q.HasTo {
       q.Kind = "+"
       q.deleteFrom()
       return
@@ -1123,7 +1122,31 @@ func regexFitsInMetas(n regexNode, metas []string, hasIUFlags bool) bool {
 
 func regexFitsInMeta(n regexNode, meta string, hasIUFlags bool) bool {
   if cr, ok := n.(*regexClassRangeNode); ok {
-    return regexFitsInMeta(cr.From, meta, hasIUFlags) && regexFitsInMeta(cr.To, meta, hasIUFlags)
+    // SAFETY: endpoint membership proves containment only for convex sets.
+    // Word, whitespace and complement sets have gaps, so compare the entire
+    // interval with their constituent ranges rather than dropping its interior.
+    if cr.From.codePointIsNaN() || cr.To.codePointIsNaN() {
+      return false
+    }
+    from, to := cr.From.CodePoint, cr.To.CodePoint
+    if from > to {
+      return false
+    }
+    ranges := regexMetaIntervals(meta, hasIUFlags)
+    if len(ranges) == 0 {
+      return false
+    }
+    complement := meta == "\\D" || meta == "\\W" || meta == "\\S"
+    for _, interval := range ranges {
+      if complement {
+        if from <= interval[1] && to >= interval[0] {
+          return false
+        }
+      } else if from >= interval[0] && to <= interval[1] {
+        return true
+      }
+    }
+    return complement
   }
   // Special containments between meta chars.
   if meta == "\\S" && (regexIsMergeMeta(n, "\\w") || regexIsMergeMeta(n, "\\d")) {
@@ -1159,6 +1182,27 @@ func regexFitsInMeta(n regexNode, meta string, hasIUFlags bool) bool {
   return false
 }
 
+// regexMetaIntervals describes the disjoint positive code-point intervals for
+// an ECMAScript predefined class. Uppercase classes complement the same set;
+// Unicode case folding adds the two non-ASCII word characters only under iu.
+func regexMetaIntervals(meta string, hasIUFlags bool) [][2]int {
+  switch meta {
+  case "\\d", "\\D":
+    return [][2]int{{0x30, 0x39}}
+  case "\\w", "\\W":
+    intervals := [][2]int{{0x30, 0x39}, {0x41, 0x5a}, {0x5f, 0x5f}, {0x61, 0x7a}}
+    if hasIUFlags {
+      intervals = append(intervals, [2]int{0x017f, 0x017f}, [2]int{0x212a, 0x212a})
+    }
+    return intervals
+  case "\\s", "\\S":
+    return [][2]int{{0x9, 0xd}, {0x20, 0x20}, {0xa0, 0xa0}, {0x1680, 0x1680},
+      {0x2000, 0x200a}, {0x2028, 0x2029}, {0x202f, 0x202f}, {0x205f, 0x205f},
+      {0x3000, 0x3000}, {0xfeff, 0xfeff}}
+  }
+  return nil
+}
+
 func regexFitsInMetaS(ch *regexCharNode) bool {
   cp := ch.CodePoint
   return cp == 0x0009 || cp == 0x000a || cp == 0x000b || cp == 0x000c ||
@@ -1176,7 +1220,7 @@ func regexFitsInMetaW(ch *regexCharNode, hasIUFlags bool) bool {
   cp := ch.CodePoint
   return regexFitsInMetaD(ch) ||
     (cp >= 0x41 && cp <= 0x5a) || (cp >= 0x61 && cp <= 0x7a) ||
-    ch.Value == "_" ||
+    cp == 0x5f ||
     (hasIUFlags && (cp == 0x017f || cp == 0x212a))
 }
 

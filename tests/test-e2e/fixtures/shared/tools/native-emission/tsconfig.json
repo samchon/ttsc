@@ -1,0 +1,1 @@
+{"extends":"../../runtime-base.json","compilerOptions":{"module":"ESNext","moduleResolution":"bundler","target":"ES2022","rootDir":"src","outDir":"dist","paths":{"@native/*":["./src/lib/*"]}},"include":["src"]}

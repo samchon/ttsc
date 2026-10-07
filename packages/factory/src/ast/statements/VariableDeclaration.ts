@@ -8,12 +8,11 @@ import type { TypeNode } from "../types/TypeNode";
  *
  * Built by {@link factory.createVariableDeclaration}.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation BindingName permits identifiers and destructuring with optional assignment marker, type and initializer; those broad combinations are not semantic declaration validation.
  * @evidence contracts/common.md#clear-and-simple-design Name, marker, annotation and initializer each have one field using shared syntax nodes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Bindings and values come from callers, without fixture-specific variable substitutions.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies a declaration-list binding and documents destructuring and omitted clauses; member spacing follows the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export interface VariableDeclaration {
   /** Discriminant tag; always `"VariableDeclaration"`. */

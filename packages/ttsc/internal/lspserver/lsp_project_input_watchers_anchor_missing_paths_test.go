@@ -8,13 +8,18 @@ import (
 // TestProjectInputWatchersAnchorMissingPaths verifies dynamic registrations use
 // an existing ancestor while retaining the missing path in the glob.
 //
-// Editors cannot reliably root a RelativePattern at a directory that does not
-// exist yet. Anchoring at the physical project lets the registration observe
-// later directory creation without broadening beyond the declared pattern.
+// The owned root exists while neither nested directory has been created. The
+// descriptors preserve the declared suffixes under that root; this test does
+// not install them in an editor or observe later directory creation.
 //
 //  1. Declare one exact file and one glob under missing nested directories.
 //  2. Build the client watcher registrations before either directory exists.
 //  3. Assert both use the project URI and preserve their missing path segments.
+//
+// @evidence contracts/testing.md#behavioral-verification Registrations for an exact file and a glob under missing nested directories use the project URI as base and preserve the missing path segments in the pattern.
+// @evidence contracts/testing.md#independent-expectations Count two and both full pattern strings are authored literals. Expected base URI is produced by the same projectInputFileURI helper used by the watcher implementation, so this equality checks root selection without independently certifying URI encoding.
+// @evidence contracts/testing.md#distinguishing-cases An exact file and a wildcard population have distinct missing nested suffixes under an existing owned root. Existing nested anchors, future creation delivery and editor matching are outside this test.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual projectInputFileWatchers against an owned fresh temporary root and absent nested path data. No substitute operation, sidecar, native child, installed consumer, editor or product host runs.
 func TestProjectInputWatchersAnchorMissingPaths(t *testing.T) {
   root := t.TempDir()
   watchers := projectInputFileWatchers(LSPProjectInputSnapshot{

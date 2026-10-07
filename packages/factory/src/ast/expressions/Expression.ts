@@ -48,15 +48,14 @@ import type { YieldExpression } from "./YieldExpression";
  *
  * This construction union includes tokens, spread elements and array holes
  * whose legality depends on the enclosing grammar. Membership alone does not
- * establish a valid standalone expression or assignment target. Nodes must
- * form an acyclic outline for recursive printing.
+ * establish a valid standalone expression or assignment target. Nodes must form
+ * an acyclic outline for recursive printing.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The union retains concrete discriminated expression forms, including context-specific syntax; its broad Token and hole members require grammar validity from the caller rather than certifying arbitrary members as standalone expressions.
  * @evidence contracts/common.md#clear-and-simple-design Concrete node types supply their own constituents while one shared union enables recursive operands without a base object carrying unrelated optional fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Named variants preserve real outline structure rather than replacing unknown expressions with a consumer-specific catch-all payload.
  * @evidence contracts/common.md#meaningful-documentation Native prose states context sensitivity, assignment-target limits and acyclic ownership; the tag block is distinct under the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export type Expression =
   | ArrayLiteralExpression

@@ -5,16 +5,20 @@ import { make } from "../internal/make";
  * Create an {@link IndexedAccessTypeNode}: a `T[K]` indexed access type.
  *
  * The object type is emitted in postfix-operand position, so a lower-precedence
- * form (union, intersection, function, constructor, conditional, infer, or
- * type-operator) gets wrapped in parentheses before the `[...]`. The index type
- * prints bare inside the brackets.
+ * form (union, intersection, function, constructor, conditional, infer,
+ * type-operator, or type-query) gets wrapped in parentheses before the `[...]`.
+ * The index type prints bare inside the brackets.
  *
  * Given a `T` object type and a `"key"` index, the printer renders:
  *
  * ```ts
- * T["key"]
+ * T["key"];
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param objectType The object type being indexed.
+ * @param indexType The index type.
+ * @returns The created {@link IndexedAccessTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Object and index types occupy different fields, preserving a type-level
  *   lookup; postfix operand grouping belongs to the printer.
@@ -30,11 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes object and index roles and explains why grouping is
  *   needed, using a standalone lookup type in its example.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param objectType The object type being indexed.
- * @param indexType The index type.
- * @returns The created {@link IndexedAccessTypeNode}.
  */
 export const createIndexedAccessTypeNode = (
   objectType: TypeNode,

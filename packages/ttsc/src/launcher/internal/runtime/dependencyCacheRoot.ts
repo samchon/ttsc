@@ -18,22 +18,25 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
  * Without any manifest there is no run to share with: a child whose environment
  * dropped `TTSX_RUNTIME_MANIFEST`, or one that loads its first TypeScript after
  * the launcher removed the manifest. Its builds go to a directory private to
- * this process and removed when it exits. A shared, persistent directory used
- * to serve that case, keyed only by the tsconfig path, so an edited dependency
- * kept running its first build until the temp directory was cleared
- * (samchon/ttsc#1405). A process that could not remove its directory (it was
- * killed) is swept by the next one that starts.
+ * this process with removal attempted by one exit callback. A shared directory
+ * keyed only by the tsconfig path would let an edited dependency keep running
+ * its first build until the temp directory was cleared. A later manifest-less
+ * acquisition attempts to sweep recognized abandoned process directories;
+ * unknown, unowned or non-gone records and native failures can remain
+ * indefinitely. Canonical spellings protect against retargeting the original
+ * alias, not replacement of the observed physical namespace. Descriptor/run
+ * root cleanup is the selecting caller's responsibility, not an outcome
+ * certified here.
  *
  * @param env Environment to read the descriptor-evaluation variables from.
- *
  * @evidence contracts/common.md#principled-implementation Descriptor-owned output, a checked run's depCacheDir and a manifest-less process directory are distinct lifetime authorities; selecting in that order keeps dependency emit with the owner that removes it.
  * @evidence contracts/common.md#clear-and-simple-design One root selector owns the three supported execution contexts, with process-directory acquisition isolated in a private helper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing manifest selects a genuinely process-owned cache rather than persistent path-only reuse; descriptor channels are explicit host inputs, not fixture-specific names.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain descriptor, run and process ownership and cleanup after forced termination, with the injected environment documented following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Plain environment reads use native Windows alias rules; path and fs operations create a canonical temporary child so retargeting a temp alias cannot redirect exit cleanup.
- * @evidence contracts/performance.md#efficient-algorithms Root selection visits registered manifests until one supplies a cache; first manifest-less acquisition sweeps sibling owner records once, and later requests return the stored root directly.
+ * @evidence contracts/portability.md#os-neutral-implementation Environment selection follows native Windows alias rules. Native realpath/mkdtemp postflight selects a physical temp child; preserving that namespace and distinct host-label ownership remain premises, not path-handle guarantees.
+ * @evidence contracts/performance.md#efficient-algorithms Environment/path selection processes its key/text inputs. Registry access may first read/decode/snapshot inherited manifest bytes or rebuild its M-entry view, then selection scans until a cache is found. First manifest-less acquisition pays sibling names/records/native probes and canonical-child IO; later orphan requests reuse the stored root but still perform context selection.
  * @evidence contracts/performance.md#reuse-equivalent-work All manifest-less dependency builds in one process share its lazily acquired root; descriptor and run roots share only their explicit owning evaluation or run, avoiding cross-run stale path-only cache reuse.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The process owns one private directory and one exit callback; failed admission rolls back the canonical child, exit removes it best-effort, and a later process sweeps provably abandoned roots after a killed owner.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The process retains one private directory and exit callback. Failed admission attempts rollback and can report combined admission/removal failure; canonical acquisition can fail before this rollback scope. Exit cleanup and later admitted sweeping are best effort, with no historical quota or guaranteed reclamation time; descriptor/run roots transfer cleanup to their owners.
  */
 export function dependencyCacheRoot(
   env: NodeJS.ProcessEnv = process.env,

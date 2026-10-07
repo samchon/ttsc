@@ -1,0 +1,31 @@
+package linthost
+
+import "testing"
+
+// TestFormatSemiPreferNeverKeepsSameLineElseSeparator verifies the `;`
+// between `if (a) b();` and a same-line `else` is kept under semi:false.
+//
+// ASI only fires at a line terminator, end of input, or before `}`.
+// With `else` on the same line nothing can re-terminate the then-branch
+// once the `;` is gone, so `if (a) b() else c()` is a SyntaxError. The
+// fixture pins the current sawNewline discipline in
+// nextStatementHasASIHazard: same-line `else` prevents removal.
+//
+//  1. Parse `if (a) b(); else c();` (single line).
+//  2. Apply format/semi with prefer:"never".
+//  3. Assert only the trailing EOF-adjacent `;` is stripped and the
+//     required separator before `else` survives.
+//
+// @evidence contracts/testing.md#behavioral-verification format/semi must retain the then-branch call terminator before same-line else while removing only the final branch EOF terminator.
+// @evidence contracts/testing.md#independent-expectations The independently authored literal output keeps valid if/else separation and identical condition/calls; no line break exists to replace the semicolon before else.
+// @evidence contracts/testing.md#distinguishing-cases The required internal and safe final semicolons form a changed/retained pair, contrasting with closing-brace removal and ordinary newline-separated stripping.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsSameLineElseSeparator is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
+func TestFormatSemiPreferNeverKeepsSameLineElseSeparator(t *testing.T) {
+  assertFixSnapshotWithOptions(
+    t,
+    "format/semi",
+    "if (a) b(); else c();\n",
+    `{"prefer":"never"}`,
+    "if (a) b(); else c()\n",
+  )
+}

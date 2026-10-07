@@ -6,7 +6,7 @@ import { createProjectInputPathIdentityContext } from "../../../internal/pathIde
 import { isFilesystemPathIdentityWithin } from "../../../internal/pathIdentity/isFilesystemPathIdentityWithin";
 
 /**
- * Cheap path helpers the watch topology calls per event.
+ * Path helpers the watch topology calls per event.
  *
  * Containment and membership preserve lexical declarations rather than merge
  * symlink aliases. Their supplied transaction shares native parent-directory
@@ -33,7 +33,7 @@ export namespace WatchPaths {
    * @evidence contracts/common.md#meaningful-documentation Native prose states existence, kind and followed-link semantics following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Node stat owns native link following and directory semantics without an OS-name-derived file-kind rule.
    *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms The standard native stat owns one path query; this adapter selects no collection algorithm.
+   * @evidence contracts/performance.md#efficient-algorithms One synchronous native stat plus kind inspection performs no collection traversal here. Work includes supplied path processing and native metadata/target lookup; a single boolean result does not cap those costs.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A fresh stat serves the event's current native state rather than a historical result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The stat result is local with no retained handle or history.
    */
@@ -46,15 +46,16 @@ export namespace WatchPaths {
   }
 
   /**
-   * The closest existing directory at or above `location`, or `undefined` when
-   * not even the volume root exists. Watching a missing input starts here.
+   * The nearest lexical ancestor at or above `location` successfully observed
+   * as a directory, or undefined when none is admitted, including the volume
+   * root. Native query failure is not proof that an ancestor does not exist.
    *
-   * @evidence contracts/common.md#principled-implementation Walking native parents finds the deepest existing directory, and root equality proves termination when none exists.
+   * @evidence contracts/common.md#principled-implementation Walking native parents finds the deepest directory admitted by stat; root equality ends an unsuccessful search without equating query failure with proven absence.
    * @evidence contracts/common.md#clear-and-simple-design One ancestor loop reuses the directory predicate without a second search policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The answer derives from actual ancestor state instead of assumed temporary or project layouts.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the missing-input anchor and undefined result following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Node resolve/dirname preserve native volume roots and stat provides actual accessibility/kind.
-   * @evidence contracts/performance.md#efficient-algorithms At most D ancestors require D native stats; only the current path is retained, without enumerating descendant contents.
+   * @evidence contracts/performance.md#efficient-algorithms At most D lexical ancestors each require a native stat, while repeated resolve/dirname and native lookup process their spelling lengths. Current-path storage is local; ancestor depth/path text are not capped here and descendant contents are not enumerated.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Event-time ancestor state may change; this helper owns no cross-request cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources One current path remains local and no watcher or resident index is acquired.
@@ -81,7 +82,7 @@ export namespace WatchPaths {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This comparison borrows already keyed maps and performs no native path operation.
    *
-   * @evidence contracts/performance.md#efficient-algorithms N entries need at most N indexed lookups and constant auxiliary space, without materializing an intermediate entry array.
+   * @evidence contracts/performance.md#efficient-algorithms A size mismatch returns immediately; otherwise at most N borrowed entries require indexed key lookup and string-value equality. Work includes key/value spelling comparisons as well as map indexing; auxiliary iteration state is constant without an intermediate population array, and N/text lengths are not capped here.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Map comparison owns no completed/in-flight computation sharing.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Both maps are borrowed and no entries survive the call in helper-owned state.
@@ -105,7 +106,7 @@ export namespace WatchPaths {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A sibling whose name begins with the root is not accepted by a prefix shortcut.
    * @evidence contracts/common.md#meaningful-documentation Native prose limits this predicate to lexical containment following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native lexical keys fold only proved insensitive components, preserve unknown spelling and retain drive/UNC/POSIX grammar without Windows relative-path case folding.
-   * @evidence contracts/performance.md#efficient-algorithms Two component-key constructions and one separator-prefix comparison scale with path depth and spelling length without enumerating descendants.
+   * @evidence contracts/performance.md#efficient-algorithms Two delegated component-key constructions precede one separator-prefix comparison. Work includes spelling/ancestor/entry observations and possible synchronous case-query processes, plus key text comparison; no descendant corpus is enumerated and those populations are not capped here.
    * @evidence contracts/performance.md#reuse-equivalent-work The supplied transaction shares parent-directory capability observations with sibling key and containment requests; standalone calls create fresh observations.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate borrows the transaction or creates invocation-local caches and acquires no watcher or persistent history.
@@ -124,10 +125,11 @@ export namespace WatchPaths {
   }
 
   /**
-   * The lexical watch key for `location`, preserving declaration aliases. Only
-   * ASCII components under proved insensitive parents are folded. Sensitive,
-   * unknown or native Unicode names retain their spelling rather than merge
-   * inputs through an unproved identity relation.
+   * The lexical watch key for `location`, preserving declaration aliases. Under
+   * proved insensitive parents, ASCII letters in each component are folded;
+   * non-ASCII component characters remain unchanged. Sensitive or unknown
+   * parents preserve component spelling. Native volume-root formatting remains
+   * the shared resolver's separate rule.
    *
    * @evidence contracts/common.md#principled-implementation The shared component key folds only native evidence of insensitive parents, so sensitive and unknown names remain distinct while lexical symlink ownership is preserved.
    * @evidence contracts/common.md#clear-and-simple-design One delegation uses the transaction's lexical policy without duplicating physical resolution or native probing.
@@ -135,7 +137,7 @@ export namespace WatchPaths {
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes lexical ownership, proved folding and unknown spelling following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation The shared resolver applies native root grammar and actual parent-directory capability; Windows sensitive directories and POSIX insensitive volumes follow their measured policy.
    *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms The owning lexical resolver selects component traversal; this wrapper only delegates.
+   * @evidence contracts/performance.md#efficient-algorithms The delegated lexical resolver walks path components and observes parent identities/case authority, potentially including native ancestor/entry work and synchronous Windows queries. Path/name/output text and visited populations are uncapped here; returning one key does not make delegation constant-cost.
    *
    * @evidence contracts/performance.md#reuse-equivalent-work Callers share one transaction across reconciliation keys; omitted contexts start fresh capability observations rather than reuse historical generations.
    *

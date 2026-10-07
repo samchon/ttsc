@@ -8,19 +8,23 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsUnownedCommand verifies that the proxy does not
-// intercept commands the plugin source does not claim. tsgo's own
-// workspace commands (refactors, code-action commands) must continue to
-// reach the upstream server unmodified.
+// TestLSPProxyForwardsUnownedCommand Verifies that an unowned executeCommand forwards unchanged without invoking the source.
+//
+// The callback fails if called, exposing accidental interception.
 //
 // 1. Configure a source that owns one command id but not another.
 // 2. Send a request for the unowned command.
 // 3. Assert the request reaches upstream verbatim.
+//
+// @evidence contracts/testing.md#behavioral-verification An unowned executeCommand forwards unchanged without invoking the source.
+// @evidence contracts/testing.md#independent-expectations A different advertised command leaves the authored request under upstream ownership.
+// @evidence contracts/testing.md#distinguishing-cases The callback fails if called, exposing accidental interception.
+// @evidence contracts/testing.md#execution-ownership The Go pipe proxy dispatches a literal request with no external command process. Go discovers TestLSPProxyForwardsUnownedCommand under ./test/driver.
 func TestLSPProxyForwardsUnownedCommand(t *testing.T) {
   source := &stubSource{
     commands: []string{"ttsc.lint.fix"},
     execute: func(string, []json.RawMessage) (*driver.LSPWorkspaceEdit, error) {
-      t.Fatal("execute should not be called for unowned command")
+      t.Error("execute should not be called for unowned command")
       return nil, nil
     },
   }

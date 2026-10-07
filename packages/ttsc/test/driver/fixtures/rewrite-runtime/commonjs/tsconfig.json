@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "outDir": "bin",
+    "strict": true
+  },
+  "files": [
+    "suffix_0_bare_root/index.ts",
+    "suffix_0_bare_root/plugin.ts",
+    "suffix_1/index.ts",
+    "suffix_1/plugin.ts",
+    "suffix_2/index.ts",
+    "suffix_2/plugin.ts",
+    "suffix_3/index.ts",
+    "suffix_3/plugin.ts",
+    "suffix_16/index.ts",
+    "suffix_16/plugin.ts",
+    "namespace/index.ts",
+    "namespace/plugin.ts",
+    "owned-require/index.ts",
+    "owned-require/plugin.ts",
+    "helper-decoy/index.ts",
+    "helper-decoy/plugin.ts"
+  ]
+}

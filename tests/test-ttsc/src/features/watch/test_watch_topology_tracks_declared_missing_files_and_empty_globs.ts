@@ -1,31 +1,46 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
-import { WatchTopology } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { literalGlobRoot } from "../../../../../packages/ttsc/lib/launcher/internal/watch/literalGlobRoot.js";
-import { projectInputActiveWatchDirectories } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputActiveWatchDirectories.js";
-import { projectInputEventShouldNotify } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputEventShouldNotify.js";
-import { projectInputWatchDirectories } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputWatchDirectories.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
+import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
+import { literalGlobRoot } from "../../../../../packages/ttsc/src/launcher/internal/watch/literalGlobRoot";
+import { projectInputActiveWatchDirectories } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputActiveWatchDirectories";
+import { projectInputEventShouldNotify } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputEventShouldNotify";
+import { projectInputWatchDirectories } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputWatchDirectories";
+import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
+import {
+  deliverWatchEvent,
+  recordWatchers,
+} from "../../../../utils/src/RecordedWatchers";
+import { TestProject } from "../../../../utils/src/TestProject";
+
+const WATCH_EVENT_DEADLINE_MS = 30_000;
 
 /**
- * Verifies declared project inputs stay live before any matching file exists.
+ * Verifies missing project members and ancestor subscriptions stay semantically
+ * live.
  *
- * Project rules commonly derive exact Markdown paths and Swagger glob
- * populations from config. The watch topology must observe later creates and
- * edits without rebuilding for unrelated files or compiler outputs.
+ * Recorded source-adapter events drive actual config, glob, fingerprint and
+ * subscription ownership decisions. The positional compiler source uses no
+ * native reader; existing physical E2E boundaries own uncontrolled delivery.
  *
- * 1. Stage nested external roots and prove only their ancestor stays active.
- * 2. Remove the ancestor declaration and prove the retained child is promoted.
- * 3. Create and edit missing exact and glob inputs.
- * 4. Replace the snapshot and prove removed and unrelated paths stay quiet.
+ * 1. Stage ancestor/descendant declarations and require promotion after removal.
+ * 2. Create, edit and replace missing exact/glob inputs and reject unrelated
+ *    products.
+ * 3. Replace declarations and require removed inputs and retired paths to stay
+ *    quiet.
+ *
+ * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: declared project inputs stay live before any matching file exists. 1. Stage nested external roots and prove only their ancestor stays active. 2. Remove the ancestor declaration and prove the retained child is promoted. 3. Create and edit missing exact and glob inputs. 4. Replace the snapshot and prove removed and unrelated paths stay quiet.
+ * @evidence contracts/testing.md#independent-expectations Authored declared input paths, glob roots and file lifecycle steps establish which events must be reported and which must stay quiet; literal project-lane counts, independently expected watcher-root paths and quiet negative twins (removed declarations, unrelated products, retired paths) enforce those roles rather than snapshotting topology output. Exact notification-path attribution is owned by the separate reconciled-project-change unit.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts: a covered descendant stays under its ancestor watcher until the ancestor declaration is removed, then is promoted; a missing exact file and an empty glob wake only once a matching file appears, while README.md, an unrelated .tmp file and the declared path under the compiler outDir stay quiet; a same-bytes event stays quiet while changed declared content wakes; after the declaration is replaced, the removed missing.md and the renamed directory's retired watcher stay quiet while the new next.md wakes.
+ * @evidence contracts/testing.md#execution-ownership Actual source topology, literal-glob roots, active directory planning and event predicates execute with recorded source subscriptions. The positional compiler-input provider throws if reached. Every original root, lifecycle, quiet, event-lane and cleanup assertion remains; no compiler or native observer runs.
  */
 export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
   async (): Promise<void> => {
-    const root = TestProject.tmpdir("ttsc-project-input-watch-");
+    const root = TestProject.physicalPath(
+      TestProject.tmpdir("ttsc-project-input-watch-"),
+    );
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
@@ -46,6 +61,20 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
 
     const changes: WatchInputChange[] = [];
     let projectInputWatchRoots: readonly string[] = [];
+    const observed = recordWatchers(watchDirectoryThroughFsWatch);
+    const write = (
+      location: string,
+      bytes: string,
+      encoding?: BufferEncoding,
+    ): void => {
+      fs.writeFileSync(location, bytes, encoding);
+      deliverWatchEvent(observed.watchers, location, "rename");
+    };
+    const rename = async (source: string, target: string): Promise<void> => {
+      await TestProject.rename(source, target);
+      deliverWatchEvent(observed.watchers, source, "rename");
+      deliverWatchEvent(observed.watchers, target, "rename");
+    };
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -66,11 +95,19 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
           throw new Error("external inputs must not alter compiler membership");
         },
       },
+      observed.openDirectoryWatch,
+      observed.openFileWatch,
+      fs.readdirSync,
+      () => {
+        throw new Error(
+          "positional input units must not list compiler members",
+        );
+      },
     );
     try {
       topology.refresh(false);
-      const stagedRoot = TestProject.tmpdir(
-        "ttsc-project-input-staged-anchor-",
+      const stagedRoot = TestProject.physicalPath(
+        TestProject.tmpdir("ttsc-project-input-staged-anchor-"),
       );
       const stagedAncestorFile = path.join(stagedRoot, "a", "one.md");
       const stagedDescendantFile = path.join(stagedRoot, "a", "b", "two.md");
@@ -80,7 +117,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
         globs: [],
       });
       fs.mkdirSync(path.dirname(stagedDescendantFile), { recursive: true });
-      fs.writeFileSync(stagedDescendantFile, "initial\n", "utf8");
+      write(stagedDescendantFile, "initial\n", "utf8");
       await delay();
       topology.setProjectInputs({
         root,
@@ -110,7 +147,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
       await delay();
       let previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(stagedDescendantFile, "covered edit\n", "utf8");
+      write(stagedDescendantFile, "covered edit\n", "utf8");
       await waitForNextProjectChange(changes, previousProjectChanges);
       topology.setProjectInputs({
         root,
@@ -129,10 +166,12 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
       await delay();
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(stagedDescendantFile, "promoted edit\n", "utf8");
+      write(stagedDescendantFile, "promoted edit\n", "utf8");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
-      const externalRoot = TestProject.tmpdir("ttsc-project-input-anchor-");
+      const externalRoot = TestProject.physicalPath(
+        TestProject.tmpdir("ttsc-project-input-anchor-"),
+      );
       const externalFile = path.join(
         externalRoot,
         "missing",
@@ -175,11 +214,12 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       }
       previousProjectChanges = projectChangeCount(changes);
       fs.mkdirSync(path.dirname(externalFile), { recursive: true });
-      fs.writeFileSync(externalFile, "external\n", "utf8");
+      write(externalFile, "external\n", "utf8");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
-      fs.writeFileSync(path.join(root, "README.md"), "unrelated\n", "utf8");
-      await waitForQuiet(changes);
+      const beforeReadme = changes.length;
+      write(path.join(root, "README.md"), "unrelated\n", "utf8");
+      await waitForQuiet(changes, beforeReadme);
 
       assert.equal(
         projectInputEventShouldNotify({
@@ -212,7 +252,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       fs.mkdirSync(path.join(root, "docs", "nested"), { recursive: true });
       await delay();
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(
+      write(
         path.join(root, "docs", "nested", "missing.md"),
         "declared\n",
         "utf8",
@@ -222,32 +262,32 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
       await delay();
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(path.join(root, "api", "v1", "openapi.json"), "{}\n");
+      write(path.join(root, "api", "v1", "openapi.json"), "{}\n");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
+      const beforeUnrelated = changes.length;
+      write(path.join(root, "unrelated.tmp"), "unrelated\n");
+      await waitForQuiet(changes, beforeUnrelated);
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(path.join(root, "unrelated.tmp"), "unrelated\n");
-      fs.writeFileSync(
-        path.join(root, "api", "v1", "openapi.json"),
-        '{"changed":true}\n',
-      );
+      write(path.join(root, "api", "v1", "openapi.json"), '{"changed":true}\n');
       await waitForNextProjectChange(changes, previousProjectChanges);
 
       const movedDocs = path.join(root, "docs-old");
       const replacementDocs = path.join(root, "docs-new");
       fs.mkdirSync(path.join(replacementDocs, "nested"), { recursive: true });
-      fs.writeFileSync(
+      const beforeReplacementPreparation = changes.length;
+      write(
         path.join(replacementDocs, "nested", "missing.md"),
         "replacement\n",
         "utf8",
       );
-      await waitForQuiet(changes);
+      await waitForQuiet(changes, beforeReplacementPreparation);
       previousProjectChanges = projectChangeCount(changes);
-      await TestProject.rename(path.join(root, "docs"), movedDocs);
-      await TestProject.rename(replacementDocs, path.join(root, "docs"));
+      await rename(path.join(root, "docs"), movedDocs);
+      await rename(replacementDocs, path.join(root, "docs"));
       await waitForNextProjectChange(changes, previousProjectChanges);
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(
+      write(
         path.join(root, "docs", "nested", "missing.md"),
         "replacement edit\n",
         "utf8",
@@ -255,7 +295,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await waitForNextProjectChange(changes, previousProjectChanges);
       await delay();
       const afterReplacement = projectChangeCount(changes);
-      fs.writeFileSync(
+      write(
         path.join(movedDocs, "nested", "missing.md"),
         "orphaned watcher\n",
         "utf8",
@@ -269,41 +309,33 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
 
       const movedApi = path.join(root, "api-old");
       previousProjectChanges = projectChangeCount(changes);
-      await TestProject.rename(path.join(root, "api"), movedApi);
+      await rename(path.join(root, "api"), movedApi);
       await waitForNextProjectChange(changes, previousProjectChanges);
       fs.mkdirSync(path.join(root, "api", "v1"), { recursive: true });
       await delay();
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(
-        path.join(root, "api", "v1", "replacement.json"),
-        "{}\n",
-      );
+      write(path.join(root, "api", "v1", "replacement.json"), "{}\n");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
       fs.mkdirSync(path.join(root, "dist", "src"), { recursive: true });
-      fs.writeFileSync(
-        path.join(root, "dist", "src", "main.js"),
-        "export {};\n",
-      );
-      await waitForQuiet(changes);
+      const beforeProduct = changes.length;
+      write(path.join(root, "dist", "src", "main.js"), "export {};\n");
+      await waitForQuiet(changes, beforeProduct);
 
       topology.setProjectInputs({
         root,
         files: [path.join(root, "docs", "nested", "next.md")],
         globs: [],
       });
-      fs.writeFileSync(
+      const beforeRemoved = changes.length;
+      write(
         path.join(root, "docs", "nested", "missing.md"),
         "removed\n",
         "utf8",
       );
-      await waitForQuiet(changes);
+      await waitForQuiet(changes, beforeRemoved);
       previousProjectChanges = projectChangeCount(changes);
-      fs.writeFileSync(
-        path.join(root, "docs", "nested", "next.md"),
-        "next\n",
-        "utf8",
-      );
+      write(path.join(root, "docs", "nested", "next.md"), "next\n", "utf8");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
       const foreign = changes.filter((change) => change.kind !== "project");
@@ -314,6 +346,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
     } finally {
       topology.close();
+      assert.ok(observed.watchers.every((watcher) => watcher.active === false));
     }
   };
 
@@ -337,10 +370,16 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
 
 async function waitForQuiet(
   changes: readonly WatchInputChange[],
+  previous: number,
 ): Promise<void> {
   const count = changes.length;
   await delay();
   assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
+  assert.equal(
+    changes.length,
+    previous,
+    JSON.stringify(changes.slice(previous)),
+  );
 }
 
 function delay(milliseconds = 250): Promise<void> {

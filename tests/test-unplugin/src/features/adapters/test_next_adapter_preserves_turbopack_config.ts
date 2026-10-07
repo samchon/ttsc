@@ -1,16 +1,16 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { AUTOMATIC_RULE_GLOBS } from "../../internal/adapter-next/AUTOMATIC_RULE_GLOBS";
-import { LOADER } from "../../internal/adapter-next/LOADER";
-import { LOADER_FORMS } from "../../internal/adapter-next/LOADER_FORMS";
-import { LOADER_IDENTITIES } from "../../internal/adapter-next/LOADER_IDENTITIES";
-import { isTtscLoader } from "../../internal/adapter-next/isTtscLoader";
-import { loadNext } from "../../internal/adapter-next/loadNext";
-import { loadersOf } from "../../internal/adapter-next/loadersOf";
+import { TestProject } from "../../../../utils/src/TestProject";
+import { AUTOMATIC_RULE_GLOBS } from "../internal/adapter-next/AUTOMATIC_RULE_GLOBS";
+import { LOADER } from "../internal/adapter-next/LOADER";
+import { LOADER_FORMS } from "../internal/adapter-next/LOADER_FORMS";
+import { LOADER_IDENTITIES } from "../internal/adapter-next/LOADER_IDENTITIES";
+import { isTtscLoader } from "../internal/adapter-next/isTtscLoader";
+import { loadNext } from "../internal/adapter-next/loadNext";
+import { loadersOf } from "../internal/adapter-next/loadersOf";
 
 /**
  * Verifies the wrapper is additive: it preserves a caller's Turbopack
@@ -24,11 +24,22 @@ import { loadersOf } from "../../internal/adapter-next/loadersOf";
  * 1. Wrap configs carrying unrelated Turbopack settings, the README's manual
  *    rules, and other loaders on the same glob in object, array, empty,
  *    conditional, and mixed forms.
- * 2. Assert unrelated settings and rules survive, and ttsc runs last in every
- *    shared chain, where it sees the original source.
+ * 2. Assert unrelated settings and rules survive, ttsc is appended last to a
+ *    shared loader list or array (where it sees the original source), and a
+ *    conditional or mixed rule collection keeps every caller item behind a new
+ *    unconditional ttsc rule.
  * 3. Assert a spelling of ttsc's own loader (package name, path, file URL, or case
  *    variant) suppresses a second registration only while the filesystem proves
  *    the path is this package's regular loader file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Calls authored next across object, array and conditional rules and actual fixture package ownership; checks caller settings, loader ordering and duplicate suppression after manifest replacement and link retarget.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The additive configuration contract requires exact preservation and one loader, with right-to-left loader execution fixing its position. Regular-file fixtures and independent manifest contents establish ownership without a compiled artifact.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers empty and mixed rule lists, conditions, options, physical paths and file URLs, foreign packages, missing and directory loaders, ownership transitions and filesystem case sensitivity; adjacent negatives must append the actual loader.
+ * @evidence contracts/testing.md#execution-ownership
+ *   one sequential test function, test_next_adapter_preserves_turbopack_config, calls the real next() through loadNext for each rule or loader shape listed above and builds its own temporary manifest, symlink or junction, and file fixtures. Nothing is shared with another test and no Turbopack build or consumer install runs; individual assertions carry their own messages.
  */
 export async function test_next_adapter_preserves_turbopack_config(): Promise<void> {
   const next = await loadNext();

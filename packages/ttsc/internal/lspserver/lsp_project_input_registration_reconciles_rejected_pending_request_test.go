@@ -30,6 +30,11 @@ func (s *mutableProjectInputRegistrationSource) ProjectInputs() LSPProjectInputS
 //  3. Register D, leave cleanup of C pending, then publish E and reject cleanup.
 //  4. Assert E registers while the rejected cleanup remains deferred.
 //  5. Publish F and assert retained cleanup completes once before F replaces E.
+//
+// @evidence contracts/testing.md#behavioral-verification The supplied A-through-F response sequence preserves active A after rejecting B, advances desired C, defers rejected cleanup of C, drains retained C then D before accepting F, and ends with no pending or stale IDs. The registration sequence counter must equal six; actual editor watcher installation and exact wire-send counts are not observed.
+// @evidence contracts/testing.md#independent-expectations Pending booleans, ordered stale-ID membership, captured active-ID preservation and literal registration count six follow from the authored sequence. Desired signature expectations reuse projectInputWatchRegistrationForSnapshot, so independent correctness of signature construction is not certified.
+// @evidence contracts/testing.md#distinguishing-cases Rejected replacement retains the last active registration, whereas rejected cleanup retains stale work and allows a newer registration. Later desired-state change releases blocked cleanup before replacement; accepted responses remove each recorded stale ID. Native failures, concurrent editor events and notification payload contents are outside these assertions.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go unit executes actual Proxy reconciliation and pending-response callbacks with an owned mutable source, bytes buffer and temporary root used as path data. The helper requires exactly one pending request and submits its actual ID; no native child, sidecar, installed consumer, product host or real editor runs and no foreign method is replaced.
 func TestProjectInputRegistrationReconcilesRejectedPendingRequest(
   t *testing.T,
 ) {

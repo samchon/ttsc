@@ -8,22 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestAdjustSourceMapForPreambleStripsInlineSourcesContent verifies that, under
-// `inlineSources`, the embedded source text is corrected together with the
-// mappings.
+// TestAdjustSourceMapForPreambleStripsInlineSourcesContent Verifies that AdjustSourceMapForPreamble strips TypeScript preamble text, preserves JSON text, and shifts mapping to line 2.
 //
-// `inlineSources` embeds the parsed source into `sourcesContent`, and that text
-// is the preamble-injected source. If only `mappings` were corrected, the
-// embedded text would still carry the banner and every line would be off by the
-// preamble's line count — a debugger using sourcesContent would jump wrong. This
-// pins that the leading preamble lines are stripped from preamble-injected
-// sources (and that non-preamble sources are left intact).
+// Preamble-bearing .ts and non-preamble .json sources distinguish which embedded text changes.
 //
-//  1. Build a map with sourcesContent for a `.ts` (preamble-injected) and a
-//     `.json` (not) source, mappings shifted by a 3-line preamble.
-//  2. Run AdjustSourceMapForPreamble.
-//  3. Assert the `.ts` content lost its 3 banner lines, the `.json` content is
-//     untouched, and the mapping shifted to source line 2.
+// 1. Build a map with sourcesContent for a `.ts` (preamble-injected) and a `.json` (not) source, mappings shifted by a 3-line preamble.
+// 2. Run AdjustSourceMapForPreamble.
+// 3. Assert the `.ts` content lost its 3 banner lines, the `.json` content is untouched, and the mapping shifted to source line 2.
+//
+// @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble strips TypeScript preamble text, preserves JSON text, and shifts mapping to line 2.
+// @evidence contracts/testing.md#independent-expectations Literal stripped text and 5 minus 3 independently establish content and mapping expectations.
+// @evidence contracts/testing.md#distinguishing-cases Preamble-bearing .ts and non-preamble .json sources distinguish which embedded text changes.
+// @evidence contracts/testing.md#execution-ownership The Go map transformer is called on authored JSON and inspected by test mapping helpers. Go discovers TestAdjustSourceMapForPreambleStripsInlineSourcesContent under ./test/driver.
 func TestAdjustSourceMapForPreambleStripsInlineSourcesContent(t *testing.T) {
   const dropLines = 3
   tsContent := "// banner 1\n// banner 2\n// banner 3\nexport const a = 0;\n"

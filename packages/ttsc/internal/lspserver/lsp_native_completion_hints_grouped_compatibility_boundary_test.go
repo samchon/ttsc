@@ -15,6 +15,11 @@ import (
 //  1. Decode a grouped response containing valid and empty entries.
 //  2. Assert the valid group's item order survives and empty entries are dropped.
 //  3. Assert a field with the wrong JSON type rejects the response.
+//
+// @evidence contracts/testing.md#behavioral-verification A grouped hint response keeps valid groups in item order, drops empty items and empty triggers, and a field of the wrong JSON type rejects the response.
+// @evidence contracts/testing.md#independent-expectations The expected corpus and the rejection are literal.
+// @evidence contracts/testing.md#distinguishing-cases One valid grouped hint with an empty middle item is interleaved with grouped/flat empty scope, trigger or item cases and an empty object; a separate numeric flat insert must return an error. This does not execute a third-party publisher or certify every malformed JSON shape.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual decodeNativeCompletionHints on two authored JSON payloads. Complete literal grouped/item expectations and an error-presence assertion own the observations; it creates no filesystem, child, substitute operation, installed consumer or product host.
 func TestNativeCompletionHintsKeepGroupedWireAndRejectInvalidEntries(t *testing.T) {
   body := []byte(`[
     {

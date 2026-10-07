@@ -9,13 +9,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPFrameReaderPropagatesBodyReadError verifies that a truncated
+// TestLSPFrameReaderPropagatesBodyReadError Verifies that a truncated
 // body (Content-Length larger than the remaining stream) surfaces a
 // wrapped io.ErrUnexpectedEOF instead of returning a short body or
 // silently looping.
 //
+// Advertised fifty bytes exceed the authored four-byte payload.
+//
 // 1. Announce a 50-byte body but only send 4 bytes.
 // 2. Assert Read errors with a wrapped unexpected EOF.
+//
+// @evidence contracts/testing.md#behavioral-verification FrameReader.Read wraps io.ErrUnexpectedEOF for a truncated body.
+// @evidence contracts/testing.md#independent-expectations Advertised fifty bytes exceed the authored four-byte payload.
+// @evidence contracts/testing.md#distinguishing-cases Complete header with incomplete body differs from header truncation.
+// @evidence contracts/testing.md#execution-ownership Go test/driver reads authored framing bytes through a bytes.Reader and checks the wrapped read error, without filesystem inputs, shim operations or a product transport.
 func TestLSPFrameReaderPropagatesBodyReadError(t *testing.T) {
   frame := []byte("Content-Length: 50\r\n\r\nabcd")
   fr := driver.NewFrameReader(bytes.NewReader(frame))

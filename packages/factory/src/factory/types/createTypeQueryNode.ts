@@ -11,9 +11,12 @@ import { make } from "../internal/make";
  * Given the entity name `foo`, the printer renders:
  *
  * ```ts
- * typeof foo
+ * typeof foo;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param exprName The queried entity name.
+ * @returns The created {@link TypeQueryNode}.
  * @evidence contracts/common.md#principled-implementation
  *   The EntityName child identifies the value being queried in a type position;
  *   TypeQueryNode preserves this meaning separately from a prefix type operator.
@@ -29,10 +32,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc describes the queried value name and typeof type syntax, showing the
  *   bare query rather than adding a statement terminator.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param exprName The queried entity name.
- * @returns The created {@link TypeQueryNode}.
  */
 export const createTypeQueryNode = (exprName: EntityName): TypeQueryNode =>
   make("TypeQueryNode", { exprName });

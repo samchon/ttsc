@@ -7,14 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsMalformedPublishDiagnostics verifies the merge
-// path's safety net: a publishDiagnostics notification whose params
-// cannot be decoded must still reach the editor verbatim. Without this
-// guard, a tsgo schema change would silently swallow upstream diagnostics.
+// TestLSPProxyForwardsMalformedPublishDiagnostics Verifies that malformed publishDiagnostics params reach the editor byte for byte.
+//
+// Non-object params contrast with augmentable diagnostics in separate entries.
 //
 // 1. Configure a source that would contribute a diagnostic.
 // 2. Send upstream a publishDiagnostics with non-object params.
 // 3. Assert the editor sees the same bytes.
+//
+// @evidence contracts/testing.md#behavioral-verification Malformed publishDiagnostics params reach the editor byte for byte.
+// @evidence contracts/testing.md#independent-expectations The authored payload defines safe forwarding when params cannot be interpreted.
+// @evidence contracts/testing.md#distinguishing-cases Non-object params contrast with augmentable diagnostics in separate entries.
+// @evidence contracts/testing.md#execution-ownership A stub source and Go proxy pipes exercise the malformed notification path. Go discovers TestLSPProxyForwardsMalformedPublishDiagnostics under ./test/driver.
 func TestLSPProxyForwardsMalformedPublishDiagnostics(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{

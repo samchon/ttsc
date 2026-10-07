@@ -17,9 +17,6 @@ import type { ICreateCompilerClientOptions } from "../structures/ICreateCompiler
  * @evidence contracts/common.md#clear-and-simple-design A factory closure exposes only connect and reset while keeping transport state private; close sharing prevents duplicate disposal.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Worker replacement uses tgrid's connector API; ordinary connection rejection remains failure rather than a synthetic driver.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs define promise ownership and stale-settlement behavior under the documentation skill; reset may wait for an underlying connection that tgrid does not expose cancellation for.
- * @evidence contracts/performance.md#efficient-algorithms Connection state and identity checks use constant space and work independent of request count; transport startup is delegated to one connector per generation.
- * @evidence contracts/performance.md#reuse-equivalent-work Calls in one client generation share its connection promise and driver; reset invalidates that identity before waiting, and failed current connections are evicted. A new client URL belongs to a separate factory instance.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The connection record owns its connector and memoized close promise; reset clears current ownership then awaits settlement and closes once. Concurrent explicit resets can have outstanding old generations, and tgrid exposes no cancellation for a still-pending connection, so disposal can wait for its settlement.
  */
 export function createCompilerClient(options: ICreateCompilerClientOptions): {
   connect(): Promise<ICompilerService>;

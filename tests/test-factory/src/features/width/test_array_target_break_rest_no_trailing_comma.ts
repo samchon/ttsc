@@ -1,8 +1,12 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression, type Node, TsPrinter } from "@ttsc/factory";
 
+import factory, {
+  type Expression,
+  type Node,
+  TsPrinter,
+} from "../../../../../packages/factory/src/index";
 import { id } from "../../internal/helpers";
-import { syntaxErrorOf } from "../../internal/oracle";
+import { structure, syntaxErrorOf } from "../../internal/oracle";
 
 const wide = new TsPrinter({ printWidth: 200 });
 const tiny = new TsPrinter({ printWidth: 20 });
@@ -36,6 +40,11 @@ const target = (multiLine?: boolean): Expression =>
  * 2. Assert every layout compiles in V8, which is what rejects the comma.
  * 3. Assert the broken layout of the plain (non-rest) twin still gains its
  *    trailing comma, so the suppression is scoped to the rest element.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Destructuring assignment targets ending in rest compile in V8 at every layout without an illegal final rest comma.
+ * @evidence contracts/testing.md#independent-expectations V8 compilation is independent grammar authority; authored complete source strings independently fix binding names, assignment nesting and for-of grammar. The plain-last-element expected comma is an explicit negative control.
+ * @evidence contracts/testing.md#distinguishing-cases Assignment/for-of/nested/default/forced-multiline targets run flat and broken; plain final element must retain its legal comma.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_array_target_break_rest_no_trailing_comma. Runs all labeled target cases through wide/tiny TsPrinter.print and syntaxErrorOf in process, without executing external consumers.
  */
 export const test_array_target_break_rest_no_trailing_comma = (): void => {
   const cases: [string, Node][] = [
@@ -84,9 +93,26 @@ export const test_array_target_break_rest_no_trailing_comma = (): void => {
       ),
     ],
   ];
-  for (const [title, node] of cases) {
+  const expected = [
+    "[firstDestructuredBinding, secondDestructuredBinding, ...remainingDestructuredBindings] = sourceCollectionValue;",
+    "for ([firstDestructuredBinding, secondDestructuredBinding, ...remainingDestructuredBindings] of sourceCollectionValues) {}",
+    "[outerBindingName, [firstDestructuredBinding, secondDestructuredBinding, ...remainingDestructuredBindings]] = sourceCollectionValue;",
+    "[[firstDestructuredBinding, secondDestructuredBinding, ...remainingDestructuredBindings] = fallbackCollectionValue] = sourceCollectionValue;",
+    "[firstDestructuredBinding, secondDestructuredBinding, ...remainingDestructuredBindings] = sourceCollectionValue;",
+  ];
+  for (const [index, [title, node]] of cases.entries()) {
     const flat: string = wide.print(node);
     const broken: string = tiny.print(node);
+    TestValidator.equals(
+      `${title} flat preserves target`,
+      structure(flat),
+      structure(expected[index]!),
+    );
+    TestValidator.equals(
+      `${title} broken preserves target`,
+      structure(broken),
+      structure(expected[index]!),
+    );
     TestValidator.equals(
       `${title} flat compiles`,
       syntaxErrorOf(flat),
@@ -134,4 +160,11 @@ export const test_array_target_break_rest_no_trailing_comma = (): void => {
     true,
   );
   TestValidator.equals("plain twin compiles", syntaxErrorOf(plain), undefined);
+  TestValidator.equals(
+    "plain twin preserves target",
+    structure(plain),
+    structure(
+      "[firstDestructuredBinding, secondDestructuredBinding, thirdDestructuredBinding] = sourceCollectionValue;",
+    ),
+  );
 };

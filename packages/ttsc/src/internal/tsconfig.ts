@@ -5,10 +5,9 @@
  * the resolution of an `extends` specifier by TypeScript-Go's rule, and whether
  * a plugin entry's path is relative, as ttsc's plugin loader reads it.
  * `@ttsc/unplugin` reads the same configs to build its membership policy, its
- * alias overlay, and the snapshot of the config chain, and used to carry its
- * own copy of each of these rules (samchon/ttsc#1489). This barrel is the one
- * module path such a reader imports, so the implementation keeps one
- * declaration per file.
+ * alias overlay, and the snapshot of the config chain, so it imports these
+ * rules rather than copying them. This barrel is the one module path such a
+ * reader imports, so the implementation keeps one declaration per file.
  */
 export * from "../compiler/internal/project/compilerUsesCaseSensitiveFileNames";
 export * from "../compiler/internal/project/parseJsonc";

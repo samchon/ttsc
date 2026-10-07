@@ -34,17 +34,17 @@ import type { UnionTypeNode } from "./UnionTypeNode";
 /**
  * The supported printable TypeScript and JSDoc type forms.
  *
- * This union describes syntax data. It does not establish assignability,
- * name resolution or legal placement of each variant in a containing type.
+ * This union describes syntax data. It does not establish assignability, name
+ * resolution or legal placement of each variant in a containing type.
  * JSDoc-specific forms compose through this union but are not ordinary
- * TypeScript type syntax; tuple element wrappers also require their own context.
+ * TypeScript type syntax; tuple element wrappers also require their own
+ * context.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The union groups supported type forms by their literal kinds, including JSDoc forms consumed by braced types and wrappers and named/optional/rest tuple forms; membership does not certify legal placement or semantic validity.
  * @evidence contracts/common.md#clear-and-simple-design One shared alias owns type alternatives while concrete variants own their operands and fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Variants represent syntax forms rather than consumer-specific or precomputed type results.
  * @evidence contracts/common.md#meaningful-documentation JSDoc distinguishes supported syntax from semantic checking and explains contextual restrictions on JSDoc and tuple variants; separate paragraphs follow the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export type TypeNode =
   | ArrayTypeNode

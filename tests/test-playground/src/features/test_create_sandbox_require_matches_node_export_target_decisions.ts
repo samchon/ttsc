@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
+import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
  * Verifies the sandbox follows Node's target-selection boundaries for exports.
@@ -13,6 +13,11 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * 1. Exercise missing, invalid, nested-condition, mixed-map, and numeric cases.
  * 2. Require each package through the same public sandbox entry point.
  * 3. Assert selection fallback occurs only where Node permits it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createSandboxRequire distinguishes target selection from file loading: selected missing target rejects, invalid array member falls back, inactive nested condition yields outer default and bare/mixed/numeric declarations reject.
+ * @evidence contracts/testing.md#independent-expectations Node CommonJS package-target semantics determine valid-selection versus invalid-selection fallback; independent populated fallback/main modules carry distinct literal values so accidental private loading fails.
+ * @evidence contracts/testing.md#distinguishing-cases Six packages separate selected-but-missing, invalid-then-valid, inactive nested condition, invalid bare target, mixed condition/subpath map and numeric condition key.
+ * @evidence contracts/testing.md#execution-ownership This discoverable entry calls the authored sandbox resolver/evaluator on six in-memory fixture manifests; its CommonJS module strings run directly without a browser, installation or external process.
  */
 export const test_create_sandbox_require_matches_node_export_target_decisions =
   () => {

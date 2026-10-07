@@ -16,22 +16,22 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
  * @evidence contracts/common.md#principled-implementation Optional testing-library keys use severity-only settings except consistent-data-testid, whose tuple retains the typed attribute and pattern policy.
  * @evidence contracts/common.md#clear-and-simple-design One family groups Testing Library source policies and delegates its sole object-option schema to a dedicated interface rather than duplicating it in the map.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public Testing Library policy identities remain explicit, with no local test fixture exception or arbitrary options escape in the map.
- * @evidence contracts/common.md#meaningful-documentation Native comments explain query variants, waiting, cleanup and interaction semantics; paragraph, member and tag separation follow documentation guidance.
+ * @evidence contracts/common.md#meaningful-documentation Comments distinguish import/name-based syntax policies from runtime DOM, Promise and lifecycle guarantees; member and tag separation keeps the supported scope visible.
  */
 export interface ITtscLintTestingLibraryRules {
   /**
-   * Require awaiting async user-event methods (`userEvent.click`,
+   * Require handling async user-event methods (`userEvent.click`,
    * `userEvent.type`, ...) under the v14+ Promise-returning API.
    *
-   * Without `await` the next assertion runs against the pre-interaction DOM,
-   * which masks effects the user action was meant to trigger.
+   * The native source recognizer accepts its supported Promise-handling forms;
+   * it does not inspect the installed version or execute the interaction.
    *
    * @reference https://github.com/testing-library/eslint-plugin-testing-library/blob/main/docs/rules/await-async-events.md
    */
   "testing-library/await-async-events"?: TtscLintRuleSetting;
 
   /**
-   * Require awaiting `findBy*` and `findAllBy*` queries.
+   * Require a supported Promise-handling form for `findBy*` and `findAllBy*`.
    *
    * They return a Promise that resolves once the element appears; an unawaited
    * query yields a pending Promise that no matcher can assert against
@@ -42,7 +42,7 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/await-async-queries"?: TtscLintRuleSetting;
 
   /**
-   * Require awaiting `waitFor`, `waitForElementToBeRemoved`, and the other
+   * Require handling `waitFor`, `waitForElementToBeRemoved`, and the other
    * async Testing Library utilities.
    *
    * Skipping the `await` means the test moves on before the predicate settles,
@@ -66,8 +66,8 @@ export interface ITtscLintTestingLibraryRules {
    * Reject unnecessary `await` before synchronous event helpers
    * (`fireEvent.click(...)`).
    *
-   * The helpers return `boolean` rather than a Promise, so the `await` is a
-   * no-op that misleads readers into thinking the helper is async.
+   * The check recognizes the imported helper names and direct await syntax; it
+   * does not prove a return type or treat await as having no timing effect.
    *
    * @reference https://github.com/testing-library/eslint-plugin-testing-library/blob/main/docs/rules/no-await-sync-events.md
    */
@@ -108,8 +108,8 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/no-debugging-utils"?: TtscLintRuleSetting;
 
   /**
-   * Reject direct `@testing-library/dom` imports when a framework-specific
-   * package is installed.
+   * Reject direct `@testing-library/dom` imports. The native check does not
+   * inspect whether a framework-specific package is installed.
    *
    * Framework packages (`@testing-library/react`, ...) re-export the same
    * surface plus a `render` that wires the framework's lifecycle — importing
@@ -153,8 +153,8 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/no-node-access"?: TtscLintRuleSetting;
 
   /**
-   * Reject Promise-producing expressions passed to `fireEvent`, since
-   * `fireEvent` is synchronous and the Promise is dropped.
+   * Reject arguments containing await or recognized async Testing Library calls
+   * passed to `fireEvent`; arbitrary Promise types are not resolved.
    *
    * @reference https://github.com/testing-library/eslint-plugin-testing-library/blob/main/docs/rules/no-promise-in-fire-event.md
    */
@@ -273,8 +273,8 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/prefer-query-by-disappearance"?: TtscLintRuleSetting;
 
   /**
-   * Prefer jest-dom document matchers (`toBeVisible`, `toHaveTextContent`, ...)
-   * over generic equality checks on Testing Library queries.
+   * Prefer jest-dom document matchers over `toBeNull`, `toBeTruthy`, and
+   * `toBeFalsy` checks directly on recognized Testing Library queries.
    *
    * The dedicated matchers explain failures in terms of the DOM property they
    * assert on, not a structural diff of nodes.
@@ -317,8 +317,8 @@ export interface ITtscLintTestingLibraryRules {
   "testing-library/prefer-user-event-setup"?: TtscLintRuleSetting;
 
   /**
-   * Require the variable assigned from `render(...)` to use one of the
-   * conventional names (`view`, `result`, ...).
+   * Require the variable assigned from `render(...)` to use one of the accepted
+   * names (`view`, `utils`, or `renderResult`), or destructure it.
    *
    * The name is a reading cue: a non-conventional one usually signals that the
    * destructured queries are being treated as a component surface instead of a

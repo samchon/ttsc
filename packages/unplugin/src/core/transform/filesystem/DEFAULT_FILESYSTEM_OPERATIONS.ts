@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesystemOperations";
 
@@ -9,11 +10,16 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
  * and nothing may interleave between them on the same turn. `lstat` and
  * `statBigInt` read `bigint` stats for nanosecond precision, while `stat` keeps
  * the ordinary form for classification only. `realpath` uses the native form so
- * Windows short names expand to what native watchers report.
+ * Windows short names expand to observed physical spelling. Watch events may
+ * still report a short or long name, so that expansion alone cannot qualify an
+ * event-name filter.
  */
 export const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
   Object.freeze({
     exists: fs.existsSync,
+    readlink: (location: string | Buffer) =>
+      fs.readlinkSync(location, { encoding: "buffer" }),
+    readdirRaw: readRawDirectory,
     lstat: (location: string) => fs.lstatSync(location, { bigint: true }),
     readFile: (location: string) => fs.readFileSync(location),
     readdir: (location: string) =>
@@ -22,3 +28,31 @@ export const DEFAULT_FILESYSTEM_OPERATIONS: TtscTransformFilesystemOperations =
     stat: fs.statSync,
     statBigInt: (location: string) => fs.statSync(location, { bigint: true }),
   });
+
+/**
+ * Read names as native bytes and classify each entry without following links.
+ * The raw-name and withFileTypes combination is not a common Dirent contract
+ * across supported runtimes. Separate byte listing and lstat keep that boundary
+ * explicit; errors still refuse the caller's generation proof.
+ */
+function readRawDirectory(location: string): fs.Dirent<Buffer>[] {
+  const directory = path.resolve(location);
+  const prefix = Buffer.from(
+    directory.endsWith(path.sep) ? directory : directory + path.sep,
+  );
+  return fs.readdirSync(location, { encoding: "buffer" }).map((name) => {
+    const stats = fs.lstatSync(Buffer.concat([prefix, name]));
+    return {
+      name,
+      parentPath: location,
+      path: location,
+      isFile: () => stats.isFile(),
+      isDirectory: () => stats.isDirectory(),
+      isSymbolicLink: () => stats.isSymbolicLink(),
+      isBlockDevice: () => stats.isBlockDevice(),
+      isCharacterDevice: () => stats.isCharacterDevice(),
+      isFIFO: () => stats.isFIFO(),
+      isSocket: () => stats.isSocket(),
+    };
+  });
+}

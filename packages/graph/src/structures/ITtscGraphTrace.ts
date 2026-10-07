@@ -7,6 +7,10 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
  * @evidence contracts/common.md#clear-and-simple-design Optional path and junction facets extend one trace result without disguising a shared junction as a path.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreachable paths remain empty and ambiguity retains candidates rather than invented execution edges.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain breadth-first order, truncation, unreachable paths and the difference between a junction and a call path.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphTrace {
   /** Discriminator for dependency tracing. */
@@ -21,7 +25,7 @@ export interface ITtscGraphTrace {
   /** Edges traversed, in breadth-first order. */
   hops: ITtscGraphTrace.IHop[];
 
-  /** Unique nodes reached (excluding the start), each with its depth and roles. */
+  /** Unique nodes reached (excluding the start), each with its depth, and its roles on an impact trace. */
   reached: ITtscGraphTrace.INode[];
 
   /** In an open trace, true when a bound omitted an eligible node or hop. */
@@ -66,6 +70,10 @@ export namespace ITtscGraphTrace {
    * @evidence contracts/common.md#clear-and-simple-design The record pairs each endpoint's relationship with one common symbol coordinate.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Shared references do not become guessed callbacks or synthetic calls.
    * @evidence contracts/common.md#meaningful-documentation Native members explain stable follow-up identity and which endpoint each edge describes.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IJunction {
     /** Stable node id: trace or inspect this symbol to cross the seam. */
@@ -97,6 +105,10 @@ export namespace ITtscGraphTrace {
    * @evidence contracts/common.md#clear-and-simple-design Three fields retain the direction and cause needed beside an already identified junction.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The relation is the graph edge's kind, not a guessed event-flow label.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain the directional boolean and evidence coordinates beside separate members.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IJunctionEdge {
     /** `calls`, `accesses`, `instantiates`, `type_ref`, ... */
@@ -116,6 +128,10 @@ export namespace ITtscGraphTrace {
    * @evidence contracts/common.md#clear-and-simple-design Optional target selects path mode within the same traversal request; orthogonal options govern the inspected population.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts External inclusion and bounds are supported request choices, not agent-specific throttles.
    * @evidence contracts/common.md#meaningful-documentation Separate member paragraphs explain ambiguity, path preference, direction/focus unions, bounds and defaults.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IRequest {
     /** Discriminator for dependency tracing. */
@@ -165,6 +181,7 @@ export namespace ITtscGraphTrace {
     /**
      * Hops deep to follow (open forward/reverse cap at 8, impact at 4, path
      * mode at 12). Raise it to follow a runtime chain to its end in one call.
+     * Path mode searches to its cap of 12 when this is omitted.
      *
      * @default 3
      */
@@ -193,6 +210,10 @@ export namespace ITtscGraphTrace {
    * @evidence contracts/common.md#clear-and-simple-design A hop adds depth and optional coordinates without embedding endpoint nodes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Source evidence refers to the actual edge rather than a generated path explanation.
    * @evidence contracts/common.md#meaningful-documentation Member comments identify depth units and distinguish source and target ids.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IHop {
     /** Source node id for this traversed edge. */
@@ -218,6 +239,10 @@ export namespace ITtscGraphTrace {
    * @evidence contracts/common.md#clear-and-simple-design One coordinate record serves starts, candidates and reached nodes instead of duplicating nearly identical shapes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Candidate identities remain distinct; role text describes graph selection rather than certainty about a user's question.
    * @evidence contracts/common.md#meaningful-documentation Native comments specify optional facts' contexts and one-based source coordinates with separated member documentation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface INode {
     /** Stable node id for subsequent graph calls. */
@@ -244,7 +269,7 @@ export namespace ITtscGraphTrace {
     /** The node's signature, carried on path nodes so the path explains itself. */
     signature?: string;
 
-    /** Why this node matters to an impact trace: `exported`, `test`. */
+    /** Why this node matters to an impact trace: `exported` (a compiler fact) or `test` (assigned by the server from a conventional test path, not by the compiler). */
     roles?: string[];
   }
 }

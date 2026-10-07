@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2022",
+    "rootDir": ".",
+    "outDir": "bin",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "files": ["index.ts", "src/main.ts", "src/helpers.ts", "src/nested/model.ts", "src/isolated.ts", "src/decorated/main.ts", "src/decorated/types.ts"]
+}

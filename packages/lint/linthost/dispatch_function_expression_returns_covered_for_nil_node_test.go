@@ -1,0 +1,36 @@
+package linthost
+
+import (
+  "testing"
+)
+
+// TestDispatchFunctionExpressionReturnsCoveredForNilNode verifies that
+// printFunctionExpression returns an empty Doc and covered==true when called
+// with a nil node.
+//
+// Mirrors the nil guard in printArrowFunction: the function-expression printer
+// must handle a nil node without panicking. covered==true is returned because
+// an empty Doc contributes no multi-line verbatim content. A regression that
+// panicked or returned covered==false would violate this direct-call contract.
+// Normal PrintNode dispatch returns at its own nil guard first.
+//
+//  1. Build a PrintContext from any valid parsed file.
+//  2. Call printFunctionExpression(ctx, nil) directly.
+//  3. Assert the returned Doc is empty and covered is true.
+//
+// @evidence contracts/testing.md#behavioral-verification printFunctionExpression must produce empty output and covered true for nil.
+// @evidence contracts/testing.md#independent-expectations The missing-subtree identity has no tokens or unsafe multiline verbatim slice.
+// @evidence contracts/testing.md#distinguishing-cases Nil node complements a valid parsed function expression and a factory expression with no body.
+// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionReturnsCoveredForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printFunctionExpression directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
+func TestDispatchFunctionExpressionReturnsCoveredForNilNode(t *testing.T) {
+  file := parseTS(t, "const x = 1;\n")
+  ctx := NewPrintContext(file, DefaultPrintOptions())
+  doc, covered := printFunctionExpression(ctx, nil)
+  if !covered {
+    t.Fatalf("printFunctionExpression(nil) should return covered=true, got false")
+  }
+  got := Print(doc, ctx.Opts)
+  if got != "" {
+    t.Fatalf("printFunctionExpression(nil) should produce empty output, got %q", got)
+  }
+}

@@ -12,13 +12,8 @@ import { make } from "../internal/make";
  * Given condition `cond` and branches `a` and `b`, the printer emits:
  *
  * ```ts
- * cond ? a : b
+ * cond ? a : b;
  * ```
- *
- * @evidence contracts/common.md#principled-implementation Separate condition and branches preserve ternary roles without evaluation; ignored punctuation tokens carry no payload because ? and : follow from the conditional kind.
- * @evidence contracts/common.md#clear-and-simple-design One make call stores the three expressions, with branch layout and punctuation remaining in the printer.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Ignored compatibility tokens support the documented legacy signature rather than adding fixture-driven branch behavior or patched compiler tokens.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains ignored parameters and width-based branch layout, with the example and parameter roles separated from tags.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param condition The condition.
@@ -27,6 +22,10 @@ import { make } from "../internal/make";
  * @param _colonToken Ignored; present only to mirror the legacy signature.
  * @param whenFalse The value otherwise.
  * @returns The created {@link ConditionalExpression}.
+ * @evidence contracts/common.md#principled-implementation Separate condition and branches preserve ternary roles without evaluation; ignored punctuation tokens carry no payload because ? and : follow from the conditional kind.
+ * @evidence contracts/common.md#clear-and-simple-design One make call stores the three expressions, with branch layout and punctuation remaining in the printer.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Ignored compatibility tokens support the documented legacy signature rather than adding fixture-driven branch behavior or patched compiler tokens.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains ignored parameters and width-based branch layout, with the example and parameter roles separated from tags.
  */
 export const createConditionalExpression = (
   condition: Expression,

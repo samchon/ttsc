@@ -20,6 +20,9 @@ import { make } from "../internal/make";
  * continue outer;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param label The label.
+ * @returns The created {@link ContinueStatement}.
  * @evidence contracts/common.md#principled-implementation
  *   Optional normalized label preserves labeled versus unlabeled continue;
  *   enclosing loop validity cannot be established by this standalone node.
@@ -33,10 +36,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc distinguishes plain continue from an enclosing-loop label, with
  *   separated examples and blank comment lines before acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param label The label.
- * @returns The created {@link ContinueStatement}.
  */
 export const createContinueStatement = (
   label?: string | Identifier,

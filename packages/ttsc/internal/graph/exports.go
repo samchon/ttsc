@@ -59,11 +59,9 @@ func (g *Graph) markExports(checker *shimchecker.Checker, file *shimast.SourceFi
 // Every source file gets one, exporting or not, because a module is also what
 // runs a file's top-level statements — and those statements are where a test
 // file keeps everything it does. `describe(() => it(() => schema.parse(x)))` is
-// a call the checker resolves and the graph used to drop on the floor: it sits
-// inside a callback, no declaration owns it, and edges are attributed to owners.
-// A whole test suite left no trace, which is why a tour that promised the tests
-// to read next could name two of zod's and none of NestJS's, and why the model
-// went off to glob for them.
+// a call the checker resolves and that no declaration owns: it sits inside a
+// callback, and edges are attributed to owners. Without a module node a whole
+// test suite would leave no trace in the graph.
 func (g *Graph) putModuleNode(file *shimast.SourceFile) *Node {
   path := file.FileName()
   id := nodeID(path, path, NodeModule)

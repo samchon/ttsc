@@ -829,6 +829,8 @@ func jsxAutocompletePurpose(value string) (string, bool) {
   }
   index := 0
   if index < len(tokens) && strings.HasPrefix(tokens[index], "section-") {
+    // Match jsx-a11y's axe-core validator, which requires a section-name
+    // suffix. This is stricter than HTML's section-prefix wording.
     if len(tokens[index]) == len("section-") {
       return "", false
     }

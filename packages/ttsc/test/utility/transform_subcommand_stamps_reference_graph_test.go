@@ -26,11 +26,12 @@ type utilityTransformResultWithGraph struct {
 // TestTransformSubcommandStampsReferenceGraph verifies the linked-plugin
 // generic host's transform envelope carries the host-owned reference graph.
 //
-// Implements samchon/ttsc#716: producing the `graph` section must not be
+// Producing the `graph` section must not be
 // per-plugin work — every plugin that routes its envelope through the driver
-// SDK host emits it automatically, so the stale-bundler-cache bug class is
-// closed by default. The section's keys must match the typescript map's keys
-// so consumers can join the sections.
+// SDK host captures it before transformation. This case does not run a
+// persistent bundler cache. The section's source keys must match the typescript map's keys
+// for implementation files. Ambient declarations remain graph inputs while
+// SourceFiles intentionally omits them from the transformed TypeScript map.
 //
 //  1. Run the utility transform subcommand over a project with a type-only
 //     import edge and an ambient declaration file.
@@ -38,6 +39,11 @@ type utilityTransformResultWithGraph struct {
 //  3. Assert graph.edges carries the type-only edge, graph.globals the
 //     ambient file, and graph.configs the tsconfig, all keyed like the
 //     typescript map.
+//
+// @evidence contracts/testing.md#behavioral-verification The transform envelope's graph carries the type-only edge, ambient global and tsconfig. Implementation keys occur in the transformed map, while the resident declaration input occurs only in the graph.
+// @evidence contracts/testing.md#independent-expectations The edges, globals and configs are the authored project's actual relationships written literally.
+// @evidence contracts/testing.md#distinguishing-cases Type-only and ambient inputs distinguish the authored graph relationships from a runtime-import-only result; completeness for other language constructs is not certified.
+// @evidence contracts/testing.md#execution-ownership TestTransformSubcommandStampsReferenceGraph is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestTransformSubcommandStampsReferenceGraph(t *testing.T) {
   resetLinkedPluginRegistry()
   root := t.TempDir()
@@ -66,8 +72,13 @@ export const shape: Shape = { id: 1 };
   if result.Graph == nil {
     t.Fatalf("envelope has no graph section: %q", out)
   }
-  if _, ok := result.TypeScript["main.ts"]; !ok {
-    t.Fatalf("typescript map missing main.ts: %v", keysOf(result.TypeScript))
+  for _, key := range []string{"main.ts", "types.ts"} {
+    if _, ok := result.TypeScript[key]; !ok {
+      t.Fatalf("typescript map missing %s: %v", key, keysOf(result.TypeScript))
+    }
+  }
+  if _, ok := result.TypeScript["ambient.d.ts"]; ok {
+    t.Fatal("declaration source must not be published as transformed implementation")
   }
   if !slices.Contains(result.Graph.Edges["main.ts"], "types.ts") {
     t.Fatalf("graph edge main.ts -> types.ts missing: %v", result.Graph.Edges)

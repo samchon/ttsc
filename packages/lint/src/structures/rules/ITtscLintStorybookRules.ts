@@ -20,12 +20,10 @@ import type { ITtscLintStorybookNoUninstalledAddonsRuleOptions } from "./ITtscLi
  */
 export interface ITtscLintStorybookRules {
   /**
-   * Require `await` on Storybook interaction helpers (`userEvent`, `expect`,
-   * `waitFor`, ...) inside a `play` function.
-   *
-   * The interactions addon intercepts the awaited promises to record steps, so
-   * a missing `await` skips that frame in the debugger and races the next
-   * assertion.
+   * Require recognized interaction call names and `expect(...).matcher()` calls
+   * to be directly awaited or returned. Recognition is syntactic and is not
+   * restricted to a resolved `play` function or imported interaction helper;
+   * debugger frames and asynchronous execution are not observed.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/await-interactions.md
    */
@@ -35,9 +33,9 @@ export interface ITtscLintStorybookRules {
    * Require forwarding the play-function `context` argument when invoking
    * another story's `play` function.
    *
-   * Storybook hangs the canvas, step tracker, and interactions addon off
-   * `context`; omitting it leaves the nested call without the runtime hooks it
-   * needs to drive the canvas.
+   * The check recognizes `.play` calls and the nearest function's first
+   * parameter, accepting that context name or an object spreading it. It does
+   * not execute the nested play function or inspect runtime hooks.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/context-in-play-function.md
    */
@@ -46,19 +44,17 @@ export interface ITtscLintStorybookRules {
   /**
    * Require the CSF default meta object to declare a `component`.
    *
-   * The reference unlocks Storybook's auto-generated controls, prop-table docs,
-   * and CSF3 default render — without it those features silently no-op.
+   * Only a recognized default metadata object is checked; the component's
+   * runtime value, controls, documentation, and rendering are not validated.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/csf-component.md
    */
   "storybook/csf-component"?: TtscLintRuleSetting;
 
   /**
-   * Require every story file to provide the CSF default export.
-   *
-   * Storybook keys all per-file configuration (title, decorators, parameters,
-   * component) off that default; files without it are skipped at indexing
-   * time.
+   * Require a default export unless the source has a recognized `storiesOf`
+   * import or CSF4 meta call. This is a source convention, not an observation
+   * of Storybook indexing.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/default-exports.md
    */
@@ -71,8 +67,8 @@ export interface ITtscLintStorybookRules {
    * character, so the title collapses into a single sidebar entry instead of
    * nested folders.
    *
-   * Tagged `Deprecated`: the separator is superseded rather than broken, and
-   * the story still renders, so an editor strikes that separator through.
+   * Findings have no `Deprecated` tag: the check does not establish a runtime
+   * version in which the separator still performs hierarchy separation.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/hierarchy-separator.md
    */
@@ -82,19 +78,18 @@ export interface ITtscLintStorybookRules {
    * Require `title` and `args` in CSF meta to be inline literals, not
    * references to outside variables or function calls.
    *
-   * Storybook's indexer and upgrade codemods read these via static analysis and
-   * skip stories where the value is not literal.
+   * The native check accepts its supported literal AST kinds, including object
+   * and array literals. It does not recursively prove every nested value is
+   * static or run an indexer or codemod.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/meta-inline-properties.md
    */
   "storybook/meta-inline-properties"?: TtscLintRuleSetting;
 
   /**
-   * Require CSF meta objects to type-check with `satisfies Meta<…>` rather than
-   * a `: Meta<…>` annotation or `as` cast.
-   *
-   * `satisfies` preserves the narrowed literal types so dependent `StoryObj`
-   * declarations can infer the component's args precisely.
+   * Require recognized CSF metadata to use a `satisfies` expression rather than
+   * an annotation or cast alone. The check recognizes the expression's syntax;
+   * it does not validate the referenced type or inferred story arguments.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/meta-satisfies-type.md
    */
@@ -107,10 +102,10 @@ export interface ITtscLintStorybookRules {
    * The explicit value adds boilerplate and drifts from the export when one
    * side is renamed without the other.
    *
-   * Tagged `Unnecessary`: both reported shapes — the `name` / `storyName`
-   * property and a standalone `Story.storyName = ...` assignment — span the
-   * complete removable annotation, including its trailing comma or semicolon,
-   * so an editor greys out a range whose deletion leaves valid syntax.
+   * Object-property reports include a trailing comma when located; assignment
+   * reports are restricted to standalone top-level statements. Findings have no
+   * `Unnecessary` tag because matching text does not prove deletion has no
+   * observable effect.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-redundant-story-name.md
    */
@@ -130,37 +125,32 @@ export interface ITtscLintStorybookRules {
   "storybook/no-renderer-packages"?: TtscLintRuleSetting;
 
   /**
-   * Reject the legacy `storiesOf(...)` builder API.
+   * Reject recognized Storybook imports of the legacy `storiesOf` builder,
+   * removed in Storybook 8. Calls alone do not establish such an import.
    *
-   * Storybook 7 removed it in favour of CSF default-export metadata; remaining
-   * uses block the migration to CSF3 and the modern indexer.
-   *
-   * Tagged `Deprecated`: an editor strikes the import specifier through, since
-   * the instruction is to migrate off the builder rather than to delete the
-   * import and leave the calls below it unresolved.
+   * Findings have no `Deprecated` tag because the import predicate does not
+   * establish an earlier working runtime version.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-stories-of.md
    */
   "storybook/no-stories-of"?: TtscLintRuleSetting;
 
   /**
-   * Reject the `title` property in CSF meta when the project uses Storybook's
-   * auto-title generation.
+   * Reject an explicit `title` property in recognized CSF metadata. The check
+   * does not inspect whether the project enables automatic titles.
    *
-   * CSF3 derives the title from the file path, so an explicit `title` is
-   * redundant and drifts from the on-disk layout when files are moved.
-   *
-   * Tagged `Unnecessary`: the reported range is the complete removable
-   * property, including a trailing comma when present, so deleting the faded
-   * range is the resolution and leaves valid object syntax.
+   * Reports include a trailing comma when located, but have no `Unnecessary`
+   * tag: this policy does not prove the title's value or evaluation removable.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-title-property-in-meta.md
    */
   "storybook/no-title-property-in-meta"?: TtscLintRuleSetting;
 
   /**
-   * Validate Storybook addon names against the project's dependencies, so
-   * misspelled addon ids surface at lint time.
+   * Compare normalized nonlocal addon names against package dependencies and
+   * devDependencies, with exact configured ignore entries. Missing, unreadable,
+   * invalid, or empty dependency manifests suppress this check; an installed
+   * package's runtime availability is not verified.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-uninstalled-addons.md
    */
@@ -169,40 +159,35 @@ export interface ITtscLintStorybookRules {
   /**
    * Require named story exports to use PascalCase.
    *
-   * Storybook derives the displayed story name from the export identifier and
-   * inserts spaces at case boundaries, so non-PascalCase exports render with
-   * awkward or merged labels in the sidebar.
+   * Recognized story filters, underscore-prefixed exports, and `storiesOf`
+   * imports affect eligibility. Sidebar rendering is not observed.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/prefer-pascal-case.md
    */
   "storybook/prefer-pascal-case"?: TtscLintRuleSetting;
 
   /**
-   * Require every story file to export at least one named story alongside the
-   * default meta.
-   *
-   * A file with only the default export contributes nothing to the sidebar and
-   * usually means a story was deleted but the file was not.
+   * Require at least one eligible named story when default metadata is
+   * recognized, respecting include/exclude filters and the `storiesOf` import
+   * exemption. Sources without recognized metadata are outside this check.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/story-exports.md
    */
   "storybook/story-exports"?: TtscLintRuleSetting;
 
   /**
-   * Require `expect` to be imported from `@storybook/test` in play functions,
-   * not from Jest.
-   *
-   * The Storybook re-export is built for the browser interactions runner;
-   * Jest's `expect` ships only Node-only matchers and throws when the play
-   * function executes in a browser preview.
+   * Report directly named `expect` calls unless a named import exists from
+   * `@storybook/test`, `storybook/test`, or legacy `@storybook/jest`. The check
+   * does not resolve each call's binding or execute browser matchers.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/use-storybook-expect.md
    */
   "storybook/use-storybook-expect"?: TtscLintRuleSetting;
 
   /**
-   * Reject direct Testing Library imports inside story files; use the
-   * Storybook-bundled re-exports.
+   * Reject import module strings containing `@testing-library`; use the
+   * Storybook-bundled re-exports. This is a module-string policy, not a runtime
+   * package-compatibility check.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/use-storybook-testing-library.md
    */

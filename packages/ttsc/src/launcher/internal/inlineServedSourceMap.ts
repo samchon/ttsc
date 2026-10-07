@@ -4,27 +4,23 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
- * Replace a served emit's trailing external `//# sourceMappingURL=<relative>`
- * comment with an inline `data:` URL whose `sources` are absolute `file://`
- * URLs of the true on-disk source files.
+ * Rewrite a recognized trailing source-map line comment to inline metadata,
+ * anchoring native source paths to file URLs while preserving qualified URLs. A
+ * supplied single-source anchor overrides its map entry; this is lexical
+ * attribution rather than a check that the referenced source exists.
  *
  * Ttsx runs tsgo-built JavaScript under the ORIGINAL `.ts` source URL. When the
- * owning tsconfig emits external maps, the served text ends with a relative
- * `sourceMappingURL` that Node resolves against the `.ts` script URL — where no
- * `.js.map` exists — and that the per-run emit directory deletes at process
- * exit anyway. Node's V8 coverage then caches the script with `data: null` and
- * c8 misattributes lines (false 100%, issue #353); `--enable-source-maps`
- * cannot map stack frames. Inlining the map into the served text (which V8
- * captures at compile time) survives both the wrong resolution base and the
- * post-exit cleanup, and absolutizing `sources` fixes the mis-rooted paths that
- * mapped stack frames, debuggers, and IDE links would otherwise print.
+ * owning tsconfig emits external maps, their relative URL belongs to the emit
+ * directory rather than the served source URL. Reading and embedding metadata
+ * avoids that relative lookup after temporary emits are removed. Actual Node,
+ * coverage-tool, debugger and editor interpretation remains their boundary.
  *
- * Idempotent: re-running it on already-inlined text (whose `sources` are
- * already absolute `file://` URLs) reproduces the same bytes, which keeps the
- * shared cross-process dependency cache deterministic.
+ * Re-inlining supported normalized string-source maps under the same source
+ * anchor preserves the rewritten bytes. This adapter does not validate every
+ * source-map semantic shape or authenticate a cross-process cache population.
  *
  * Reuse requires unchanged served text, source anchor and actual map bytes. The
- * process retains at most 128 recent entries; individual map sizes are not
+ * module cache retains at most 128 recent entries; individual map sizes are not
  * capped. Only actual trailing line comments are rewritten. Strings, templates
  * and regular-expression contents cannot supply a directive; unsupported
  * lexical input is left for the runtime loader to diagnose.
@@ -32,13 +28,12 @@ import { pathToFileURL } from "node:url";
  * @param source - The emitted JavaScript text served under the source URL.
  * @param emittedFile - On-disk path of the emitted `.js`, beside its `.map`.
  * @param sourceFile - Real path of the `.ts` source the emit was built from.
- *
- * @evidence contracts/common.md#principled-implementation Acorn lexical comment boundaries distinguish a real trailing directive from strings/templates/regex contents; map metadata is anchored to the emitted directory or known original file without deleting executable text. Malformed objects and unsupported lexical input are not rewritten.
+ * @evidence contracts/common.md#principled-implementation Acorn comment boundaries distinguish a real trailing directive from literal contents. Metadata uses supplied lexical anchors; parse failures, non-object maps, invalid index sections and unsupported lexical input retain the source. This is not complete source-map schema validation.
  * @evidence contracts/common.md#clear-and-simple-design The serve boundary coordinates input-equivalent reuse, while helpers separate URL decoding, file reading and source anchoring; external map validity is checked before returning cached JavaScript.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Canonical sibling-map fallback follows compiler emit layout and missing-map removal addresses a dangling reference; no cached filename alone substitutes for current source or map contents.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain source-URL execution, idempotence, cache equivalence and retention limits; parameters distinguish emitted and original-source paths.
  * @evidence contracts/portability.md#os-neutral-implementation Node path resolution reads native emitted files and pathToFileURL encodes source paths; already-qualified map URLs remain protocol identifiers rather than being case-folded as filesystem paths.
- * @evidence contracts/performance.md#efficient-algorithms Source/map processing is linear in their text and source-entry population; lexical validation allocates tokens rather than an AST and is shared for identical source text. A matching entry avoids lexing, JSON parse/encode and source normalization after required byte validation.
+ * @evidence contracts/performance.md#efficient-algorithms Work includes regex matching, optional full-source Acorn lexing, native map reads, JSON/base64 conversion and recursive section/source normalization with path-text costs. No universal linear-time or depth bound is asserted. An equal-source entry at the same emitted key reuses lexical recognition; a fully matching entry avoids rewrite processing after current map-data validation.
  * @evidence contracts/performance.md#reuse-equivalent-work Absolute native locations capture cwd-sensitive emitted/source anchors, while exact source text shares lexical recognition and freshly read map JSON validates the rewrite; changed bytes or anchors rebuild rather than serving an old generation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module owns a 128-entry insertion-ordered LRU and evicts its oldest entry after a miss; retained bytes still depend on individual source/map sizes, and process exit releases the remaining cache.
  */
@@ -213,17 +208,38 @@ function inlineComment(
     return null;
   }
   try {
-    map.sources = absolutizeSources(map, path.dirname(emittedFile), sourceFile);
+    absolutizeMap(map, path.dirname(emittedFile), sourceFile);
   } catch {
     // A URL root that cannot resolve its relative entries must retain the
     // original metadata rather than silently become a native path.
     return null;
   }
-  // `sources` are now absolute `file://` URLs, so any `sourceRoot` prefix would
-  // corrupt them — drop it.
-  delete map.sourceRoot;
   const encoded = Buffer.from(JSON.stringify(map), "utf8").toString("base64");
   return `//# sourceMappingURL=data:application/json;charset=utf-8;base64,${encoded}`;
+}
+
+/**
+ * Normalize each embedded map without inventing root-level sources for an
+ * index.
+ */
+function absolutizeMap(
+  map: { sources?: unknown; sourceRoot?: unknown; [key: string]: unknown },
+  mapDir: string,
+  sourceFile: string | undefined,
+): void {
+  if (Array.isArray(map.sections)) {
+    for (const section of map.sections) {
+      const child: unknown = section?.map;
+      if (child === null || typeof child !== "object" || Array.isArray(child))
+        throw new Error("unsupported external source-map section");
+      // Sections can describe different originals; use each map's own anchor.
+      absolutizeMap(child as typeof map, mapDir, undefined);
+    }
+  } else {
+    map.sources = absolutizeSources(map, mapDir, sourceFile);
+    // Absolute source URLs no longer use their former relative root.
+    delete map.sourceRoot;
+  }
 }
 
 /**

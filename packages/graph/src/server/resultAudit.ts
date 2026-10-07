@@ -1,3 +1,31 @@
+import { TTSC_GRAPH_ARTIFACT_NODE_KINDS } from "../structures/TtscGraphArtifactNodeKind";
+
+/**
+ * What the audits say about facts the compiler did not resolve.
+ *
+ * The graph holds two kinds of fact that no compiler pass resolved, and an
+ * audit that called every fact compiler-resolved claimed more than this layer
+ * checked. The memory layer derives structure from compiler-owned declarations:
+ * `file` containers, `contains` ownership, a class member's `property` kind, a
+ * `test` role or `tests` anchor chosen by path convention, and, in a trace,
+ * `dispatches` hops built from `overrides` and `implements`. And an artifact
+ * node is published by a lint plugin that parsed a document, a data model, or
+ * an API description in a process of its own, which is exactly what the dump's
+ * `artifactProducer` records. The text names both, and lists the artifact kinds
+ * from the one vocabulary the memory layer classifies by, so a kind added there
+ * cannot be left out of what the audit disclaims.
+ */
+const NOT_COMPILER_RESOLVED: string = [
+  "The server adds only structure derived from those facts: `file` nodes, `contains` ownership,",
+  "`dispatches` hops, a class member's `property` kind, and the `test` role and `tests` anchors,",
+  "which it assigns from a file's conventional test location rather than from the compiler. A node whose kind is one of",
+  TTSC_GRAPH_ARTIFACT_NODE_KINDS.map((kind) => `\`${kind}\``).join(", ") +
+    " is not",
+  "the compiler's: a lint plugin parsed that artifact in its own process, and the graph returns its",
+  "address, kind, name, and line as that plugin reported them. Nothing else is the server's own,",
+  "so for this snapshot a compiler-resolved fact here cannot disagree with the program.",
+].join("\n");
+
 /**
  * The audit stamped as the first property of every
  * {@link ITtscGraphApplication.IOutput}. Because it serializes before `result`,
@@ -37,25 +65,28 @@
  * layer holds no `Program` and no checker, it runs one pure projection over an
  * in-memory `TtscGraphMemory`, and it selects a constant by request type
  * (#818). What is true is stronger than it sounds and is what the text now
- * says: the compiler resolved these facts when the snapshot was built, the
- * graph holds what it resolved, and this result is a projection of exactly
- * those facts that adds none of its own. A reader who checks that claim finds
- * it holds; a reader who checked the old one found a promise the code could not
- * have kept.
+ * says: the compiler resolved these declaration facts when the snapshot was
+ * built, the graph holds what it resolved, and this result is a projection of
+ * them. The text then names what is not the compiler's, because "adds none of
+ * its own" was itself too strong: the memory layer derives `file` nodes,
+ * `contains` ownership and a member's `property` kind, a trace emits
+ * `dispatches` hops, and an artifact node arrives from a lint plugin's parser.
+ * A reader who checks the claim as now written finds it holds; a reader who
+ * checked the old ones found promises the code could not have kept.
  *
  * ## Two guarantees, not one
  *
  * A returned fact and the set it was chosen from are not audited to the same
  * standard, and one audit that conflated them was dishonest. Every operation
- * resolves each fact it returns — a name, a span, an edge, a signature — to the
- * type-checked program, so a returned fact cannot be wrong for the snapshot.
- * But `lookup`, `entrypoints`, and `tour` do not answer with the structure at a
- * handle you named; they match your natural-language question, score and rank
- * the graph against it, cap hits per file, and cut to a limit. Their `score`
- * and `truncated` fields say so, while the single old audit — "matched, ranked,
- * guessed, or inferred: none" — told the reader the opposite in the same
- * payload, and told it to stop where the shortlist's coverage was exactly what
- * needed judging.
+ * resolves each declaration fact it returns — a name, a span, an edge, a
+ * signature — to the type-checked program, so a returned compiler fact cannot
+ * be wrong for the snapshot. But `lookup`, `entrypoints`, and `tour` do not
+ * answer with the structure at a handle you named; they match your
+ * natural-language question, score and rank the graph against it, cap hits per
+ * file, and cut to a limit. Their `score` and `truncated` fields say so, while
+ * the single old audit — "matched, ranked, guessed, or inferred: none" — told
+ * the reader the opposite in the same payload, and told it to stop where the
+ * shortlist's coverage was exactly what needed judging.
  *
  * So the audits split by what the reader must judge. {@link RESULT_AUDIT} covers
  * the walks from an explicit handle or structure (`trace`, `overview`): the
@@ -79,10 +110,10 @@
 export const RESULT_AUDIT: string = `
 AUDITED BEFORE RETURNING. READ FIRST.
 
-Every fact in this \`result\` — each name, span, edge, signature, and step — was resolved by
-the TypeScript compiler against the program for the snapshot this call synced to, and the
-graph holds what it resolved. This \`result\` is a projection of exactly those facts and adds
-none of its own, so for this snapshot a fact here cannot disagree with the program.
+Every declaration fact in this \`result\` — each name, span, edge, signature, and step — was
+resolved by the TypeScript compiler against the program for the snapshot this call synced to,
+and the graph holds what it resolved. This \`result\` is a projection of those facts.
+${NOT_COMPILER_RESOLVED}
 
 This is the structure the graph holds for the handles you named, not a shortlist matched
 against a natural-language question. Trust every fact it gives and re-verify none: a returned
@@ -102,11 +133,11 @@ after you edit the source.
 export const RESULT_AUDIT_SELECTION: string = `
 AUDITED BEFORE RETURNING. READ FIRST.
 
-Each fact in this \`result\` — every name, span, edge, and signature — was resolved by the
-TypeScript compiler against the program for the snapshot this call synced to, and the graph
-holds what it resolved. This \`result\` is a projection of exactly those facts and adds none of
-its own, so for this snapshot a fact here cannot disagree with the program: a returned span
-is the citation, not a cue to open the file to confirm it.
+Each declaration fact in this \`result\` — every name, span, edge, and signature — was resolved
+by the TypeScript compiler against the program for the snapshot this call synced to, and the
+graph holds what it resolved. This \`result\` is a projection of those facts.
+${NOT_COMPILER_RESOLVED}
+A returned span is the citation, not a cue to open the file to confirm it.
 
 What was selected is heuristic, not exhaustive. This result was matched against your
 natural-language question, scored and ranked, held to a few hits per file, and cut to a
@@ -137,10 +168,10 @@ Follow \`next\` for where that leaves the question.
 export const RESULT_AUDIT_DETAILS: string = `
 AUDITED BEFORE RETURNING. READ FIRST.
 
-Every fact in this \`result\` — each name, span, edge, signature, member, and value — was
-resolved by the TypeScript compiler against the program for the snapshot this call synced to,
-and the graph holds what it resolved. This \`result\` is a projection of exactly those facts
-and adds none of its own, so for this snapshot a fact here cannot disagree with the program.
+Every declaration fact in this \`result\` — each name, span, edge, signature, member, and value —
+was resolved by the TypeScript compiler against the program for the snapshot this call synced
+to, and the graph holds what it resolved. This \`result\` is a projection of those facts.
+${NOT_COMPILER_RESOLVED}
 
 This is the structure the graph holds for the handles you named. What a symbol is — its
 members, its values, its signature — is complete: trust it and do not open the file to read

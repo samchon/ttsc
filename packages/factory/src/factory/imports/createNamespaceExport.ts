@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * * as ns
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param name The name.
+ * @returns The created {@link NamespaceExport}.
  * @evidence contracts/common.md#principled-implementation
  *   The normalized identifier is the exported namespace name; the node models
  *   * as name and requires an enclosing export with a module target.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc states the required enclosing from clause and string-name convenience,
  *   with an example and blank comment lines before acknowledgment tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param name The name.
- * @returns The created {@link NamespaceExport}.
  */
 export const createNamespaceExport = (
   name: string | Identifier,

@@ -6,17 +6,21 @@ import (
   "testing"
 )
 
-// TestLSPCompletionMergesIntoUpstreamResponse pins the response merge.
+// TestLSPCompletionMergesIntoUpstreamResponse checks three authored response shapes.
 //
-// tsgo answers completion in three shapes — a bare item array, a CompletionList,
-// or null — and picks per request. Each has to be handled rather than assumed,
-// because guessing wrong does not error: it silently drops either the plugin's
-// items or the compiler's, and the user simply sees a shorter list than they
-// should. That is the failure this whole channel is most likely to ship with.
+// A bare item array, a CompletionList and null must accept the supplied hint.
+// This unit checks ordered labels and isIncomplete, then checks the label
+// fallback and insertText in a null-result merge. It does not run tsgo or an
+// editor, or assert preservation of every upstream item or envelope field.
 //
 //  1. Merge into each of the three shapes.
-//  2. Assert upstream's items survive alongside the plugin's in every one.
-//  3. Assert isIncomplete stays upstream's answer, not ours.
+//  2. Assert the literal upstream and plugin label order for each shape.
+//  3. Assert the supplied list's true flag and array/null false flags.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual mergeCompletionResponse calls produce the literal ordered labels for an authored bare array, CompletionList and null result; the list's true isIncomplete survives and array/null yield false. A separate null-result call asserts the supplied Insert becomes label and insertText. Other item and envelope fields are not compared.
+// @evidence contracts/testing.md#independent-expectations The expected label lists and incompleteness are literals per response shape.
+// @evidence contracts/testing.md#distinguishing-cases Each of the three upstream shapes takes a different decode path, so a merge that handled only one drops items in the others.
+// @evidence contracts/testing.md#execution-ownership This Go unit calls the actual package-local merge function with authored JSON bytes and one supplied item, then decodes the returned bytes. It creates no filesystem fixture, substitutes no operation and starts no compiler, process or product host; upstream response production and editor handling are outside its observations.
 func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
   items := []LSPCompletionItem{{Insert: "pricing", Detail: "Pricing"}}
 
@@ -38,8 +42,7 @@ func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
       incomplete: true,
     },
     {
-      // Not an edge case: tsgo returns null for completion in JSDoc prose,
-      // which is exactly where these hints live. This is the common shape.
+      // A null response has no upstream item to retain.
       name:       "null result",
       body:       `{"jsonrpc":"2.0","id":1,"result":null}`,
       wantLabels: []string{"pricing"},
@@ -91,6 +94,11 @@ func TestLSPCompletionMergesIntoUpstreamResponse(t *testing.T) {
 // An upstream error is upstream's to report. Appending completions to it would
 // turn a failure into a half-answer that looks like it worked, which is worse
 // than the error the user was supposed to see.
+//
+// @evidence contracts/testing.md#behavioral-verification An upstream error response is returned byte for byte, and merging no items leaves the body unchanged.
+// @evidence contracts/testing.md#independent-expectations The expected output is the input body itself.
+// @evidence contracts/testing.md#distinguishing-cases An error body and an empty contribution are the two cases that must not be rewritten.
+// @evidence contracts/testing.md#execution-ownership This Go unit invokes the actual package-local merge function on two authored JSON bodies and compares returned bytes to each original. It substitutes no seam and creates no directory or sidecar; no upstream compiler, editor, process or product host runs. The changing merge cases are owned by TestLSPCompletionMergesIntoUpstreamResponse.
 func TestLSPCompletionLeavesUpstreamErrorsAlone(t *testing.T) {
   body := `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"boom"}}`
   if got := string(mergeCompletionResponse([]byte(body), []LSPCompletionItem{{Insert: "x"}})); got != body {
@@ -115,6 +123,11 @@ func TestLSPCompletionLeavesUpstreamErrorsAlone(t *testing.T) {
 //  1. Convert an ASCII position.
 //  2. Convert past CJK text, which is one UTF-16 unit but three bytes.
 //  3. Convert past an emoji, which is a surrogate pair — two units, four bytes.
+//
+// @evidence contracts/testing.md#behavioral-verification offsetForPosition counts an LSP character in UTF-16 units: ASCII, CJK text (one unit, three bytes) and an emoji (two units, four bytes) all yield the right text prefix.
+// @evidence contracts/testing.md#independent-expectations The expected prefixes are literal strings derived from the UTF-16 definition in the LSP specification.
+// @evidence contracts/testing.md#distinguishing-cases Four positive rows cover ASCII, a second LF-separated line, two BMP CJK characters and an astral emoji; a separate line-five request on one line must fail. Surrogate-interior columns and malformed text are not exercised.
+// @evidence contracts/testing.md#execution-ownership The discoverable Go unit directly calls actual offsetForPosition and compares string slices with authored literal prefixes. Its delegating lspPositionToByteOffset runs in the same process; no substitute operation, native child, temporary project, installed consumer or product host is used.
 func TestOffsetForPositionCountsUTF16(t *testing.T) {
   cases := []struct {
     text      string

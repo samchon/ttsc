@@ -2,9 +2,18 @@ packages:
   - "config"
   - "benchmarks/*"
   - "packages/*"
+  - "packages/lint/test/lint-contributor-demo"
   - "tests/*"
   - "website"
+patchedDependencies:
+  typia@15.1.0: .github/workflows/patches/typia-15.1.0-emit-provenance.patch
 overrides:
+  # Patch releases retain each installed major's API while clearing the
+  # severe advisories reported by the locked dependency graph.
+  "undici@7.29.0": 7.29.1
+  "brace-expansion@2.1.4": 2.1.6
+  "brace-expansion@5.0.9": 5.0.11
+  "next@16.3.4": 16.3.6
   # mathjax-full pins speech-rule-engine 4, which pins this vulnerable exact
   # version; Marp and Nextra do not yet have released upgrade paths to v5.
   "@xmldom/xmldom": 0.9.12
@@ -25,7 +34,7 @@ catalogs:
     "@nestia/core": *nestia
     "@nestia/fetcher": *nestia
     "@nestia/sdk": *nestia
-    typia: &typia ^15.0.0
+    typia: &typia ^15.1.0
     "@typia/interface": *typia
     "@typia/mcp": *typia
     "@typia/utils": *typia

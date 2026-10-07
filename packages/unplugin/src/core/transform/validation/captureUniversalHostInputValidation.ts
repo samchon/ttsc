@@ -1,11 +1,13 @@
 import path from "node:path";
-import { processPluginBuildEnvironment } from "ttsc/plugin-source";
+import {
+  PluginBuildEnvironmentReadings,
+  processPluginBuildEnvironment,
+} from "ttsc/plugin-source";
 
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { resultFilesystem } from "../cache/resultFilesystem";
 import { envelopeDerivation } from "../envelope/envelopeDerivation";
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
-import { normalizeHostInputName } from "../filesystem/normalizeHostInputName";
 import type { TtscGenerationProofFailures } from "../generation/TtscGenerationProofFailures";
 import { createGenerationProofFailures } from "../generation/createGenerationProofFailures";
 import { recordGenerationProofFailure } from "../generation/recordGenerationProofFailure";
@@ -16,6 +18,7 @@ import { inputMetadataEvidence } from "../inputs/inputMetadataEvidence";
 import { inputMetadataSignature } from "../inputs/inputMetadataSignature";
 import { missingPathProbe } from "../inputs/missingPathProbe";
 import { pluginSourceHolds } from "../inputs/pluginSourceHolds";
+import { usesPreparedPluginBuildEnvironments } from "../inputs/preparePluginBuildEnvironments";
 import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
 import type { TtscHostInputValidation } from "./TtscHostInputValidation";
 import { matchesRecordedInput } from "./matchesRecordedInput";
@@ -26,16 +29,21 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * Missing or changed publication proof returns failures without adopting a
  * manifest. Every universal input is examined so an unavailable observation
  * cannot hide another input's actual change. Success attaches entries, absence
- * probes and plugin-tree witnesses to this generation for later reuse decisions.
+ * probes and plugin-tree witnesses to this generation for later reuse
+ * decisions. The async generation owner prepares native plugin environments
+ * beforehand; an unavailable or stale prepared reading declines admission
+ * without a cold native probe on the host's thread. Standalone synchronous
+ * callers retain the original native observation API; result identity records
+ * async execution ownership even when preparation fails.
  *
  * @evidence contracts/common.md#principled-implementation Evaluation-time content and physical-target witnesses must agree with the generation snapshot before reuse; explicit producer observation unavailability remains distinct from changed, contradictory or unexplained missing proof, and every input is checked before classifying the attempt.
- * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, absence and tree validators own its subsequent checks.
+ * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, grouped or exact-native absence and tree validators own its subsequent checks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
- * @evidence contracts/performance.md#efficient-algorithms Capture scans universal inputs and plugin trees with map/set insertion; first validation costs their read bytes and tree enumeration rather than repeating per-module capture.
+ * @evidence contracts/portability.md#os-neutral-implementation The generation's filesystem view qualifies metadata and exact native absence. Grouped candidates retain original spelling because directory case policy alone does not define Unicode or short-name equivalence; their joined path follows that view's platform dialect. Physical targets and aliases remain distinct from content identity, and native plugin environment authority is not established by arbitrary filesystem injection.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains manifest entries, lexical coverage, raw missing candidates and tree environments proportional to admitted inputs and their path/state text, without a total byte cap or native handle here. Failed attempt records are call-local and diagnostic witness counts are bounded by their owner; replacing or releasing the generation ends manifest ownership.
+ * @evidence contracts/performance.md#efficient-algorithms Input selection materializes the union of producer lists/proof keys and scans U universal inputs and T plugin source trees. Comparisons include content bytes, physical identity/ancestor/case queries, paired metadata and exact candidate stat; source proof includes tree population/bytes and environment validation. These delegated costs and temporary input/manifest populations are not constant-time map insertion work.
  * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains one manifest proportional to universal inputs and missing-probe groups; releasing it releases those records, with no native handles acquired here.
- * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations and measured generation case policy qualify native metadata and missing-name spelling; an unknown directory case policy cannot admit a listing-only absence proof, while physical targets and aliases remain distinct from content identity.
  */
 export function captureUniversalHostInputValidation(
   cached: TtscCachedProjectTransform,
@@ -54,6 +62,7 @@ export function captureUniversalHostInputValidation(
     entries: new Map(),
     covered: new Set(),
     missing: new Map(),
+    directMissing: new Set(),
     trees: new Map(),
   };
   const result = cached.result;
@@ -234,23 +243,54 @@ export function captureUniversalHostInputValidation(
     }
     const caseSensitive = state.identityContext.caseSensitive(probe.directory);
     if (caseSensitive === undefined) {
+      // Unknown case policy retains a full exact candidate rather than inferring
+      // name equivalence. The native filesystem still owns its existence answer.
+      let absent = false;
+      try {
+        filesystem.stat(input);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        absent = code === "ENOENT" || code === "ENOTDIR";
+      }
+      if (absent) validation.directMissing!.add(absoluteInput);
+      else {
+        recordGenerationProofFailure(failures, {
+          domain: "host",
+          kind: "case-policy-unavailable",
+          path: probe.directory,
+        });
+      }
+      continue;
+    }
+    // Unavailable lexical metadata does not mean this candidate is absent.
+    // Prove the selected child itself: skipped inaccessible ancestors can make
+    // it differ from the complete input whose content was compared above.
+    const pathApi =
+      (filesystem.platform ?? process.platform) === "win32"
+        ? path.win32
+        : path.posix;
+    let absent = false;
+    try {
+      filesystem.stat(pathApi.join(probe.directory, probe.name));
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      absent = code === "ENOENT" || code === "ENOTDIR";
+    }
+    if (!absent) {
       recordGenerationProofFailure(failures, {
         domain: "host",
-        kind: "case-policy-unavailable",
-        path: probe.directory,
+        kind: "absence-proof-unavailable",
+        path: input,
       });
       continue;
     }
-    // The probe below proves this exact spelling absent, so the per-module loop
-    // need not re-derive it either.
     let names = validation.missing.get(probe.directory);
     if (names === undefined) {
       names = new Set<string>();
       validation.missing.set(probe.directory, names);
     }
-    names.add(
-      normalizeHostInputName(probe.name, caseSensitive),
-    );
+    // Native probes need the requested spelling, not a normalized listing key.
+    names.add(probe.name);
   }
   // A plugin binary keyed on a source other than the disk's now, whether it
   // was built here or adopted from another worker, is output for a state
@@ -259,8 +299,19 @@ export function captureUniversalHostInputValidation(
     // The environment is recorded as read before the proof, so it is never a
     // reading the proof did not see; one that moved meanwhile only makes the
     // next delivery prove the tree again.
-    const environment = processPluginBuildEnvironment(directory);
-    if (!pluginSourceHolds(directory, digest, filesystem)) {
+    const prepared = usesPreparedPluginBuildEnvironments(cached.result);
+    const environment = prepared
+      ? PluginBuildEnvironmentReadings.cached(directory)
+      : processPluginBuildEnvironment(directory);
+    if (
+      environment === undefined ||
+      !pluginSourceHolds(
+        directory,
+        digest,
+        filesystem,
+        prepared ? { environment } : undefined,
+      )
+    ) {
       recordGenerationProofFailure(failures, {
         domain: "host",
         kind: "content-changed",

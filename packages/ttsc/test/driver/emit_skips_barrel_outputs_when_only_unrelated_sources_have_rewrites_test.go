@@ -11,22 +11,28 @@ import (
 )
 
 // TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites
-// verifies barrel files whose source carries no rewrites are emitted unchanged
-// even when other sources share their basename.
+// Verifies a sibling barrel output whose source has no registered rewrite is
+// emitted without the supplied replacement or sentinel while the rewritten
+// source in the same directory is patched. Full barrel byte identity is not checked.
 //
-// shopping-backend hit this: nestia-generated barrel `index.ts` files only
-// `export * from ...` neighbouring modules, while sibling `index.ts` files
-// (e.g. `customers/sales/index.ts`) hold real `typia.random` calls. The
-// rewriter formerly suffix-matched the barrel output to one of those rewriting
-// sources and failed with `driver: could not locate typia.random(…) call`.
-// The fix anchors the source→output mapping on the registered sources' shared
-// directory so a basename-only suffix collision no longer wins.
+// The motivating report (nestia-generated barrel `index.ts` files next to
+// modules holding `typia.random` calls) involved a basename-only suffix match
+// between a barrel output and a rewriting source's output. This fixture has one
+// `index.ts` and one rewritten `target.ts` in the same directory, so it covers
+// the barrel-beside-rewritten-source layout but does not build a second source
+// sharing the barrel's basename; the cross-directory collision is not
+// exercised here.
 //
 //  1. Compile a project with `target.ts` (has the plugin call) and a sibling
 //     barrel `index.ts` that re-exports it.
 //  2. Register a single rewrite on `target.ts`.
 //  3. Assert the emit succeeds, `target.js` gets the replacement, and the
-//     barrel `index.js` is emitted as-is without a `could not locate` error.
+//     barrel `index.js` is emitted without the replacement or the sentinel.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll rewrites target.js while index.js has neither replacement nor marker.
+// @evidence contracts/testing.md#independent-expectations Only target owns a registered replacement; the barrel only re-exports.
+// @evidence contracts/testing.md#distinguishing-cases Rewritten source and untouched sibling barrel contrast; equal basenames in different directories are not exercised.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -87,7 +93,7 @@ export const value = plugin.make("input");
     t.Fatalf("target rewrite not applied:\n%s", emitted["target.js"])
   }
   indexJs, ok := emitted["index.js"]
-  if !ok {
+  if !ok || indexJs == "" {
     t.Fatal("barrel index.js was not emitted")
   }
   if strings.Contains(indexJs, `"replaced"`) {

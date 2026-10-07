@@ -14,23 +14,43 @@ import { walkProjectInputs } from "./walkProjectInputs";
  * Hash project files and snapshot directory topology in one walk.
  *
  * Reuse a recorded hash only when separable metadata still matches its proven
- * signature. Reads are bracketed by metadata observations so changing files
- * cannot authorize a coherent generation. A validating caller may restrict
- * hashing to its declared keys while retaining the whole membership walk.
+ * signature. Reads are bracketed by metadata observations; unavailable or
+ * changed signatures mark the snapshot incomplete instead of hiding that
+ * observed instability. A validating caller may restrict hashing to its
+ * declared keys while retaining the whole membership walk. The caller owns the
+ * identity observation lifetime and refreshes native clock references before
+ * relying on separability; this collector does not mint them.
  *
  * @evidence contracts/common.md#principled-implementation The snapshot separates directory completeness, file-read stability and attributable failures; only matching separable metadata substitutes for the content read that established a prior hash.
  * @evidence contracts/common.md#clear-and-simple-design One walk feeds one file pass, with shared metadata and key helpers owning their respective boundaries; returned sets preserve which proof obligations failed.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable or changing files mark incompleteness rather than yielding successful partial hashes, and declared-key filtering does not suppress directory membership proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain metadata-authorized reuse and declared-key restriction; inline comments justify clock separation and failure attribution without mirroring trivial assignments.
  * @evidence contracts/portability.md#os-neutral-implementation Enumeration and reads use the supplied native filesystem view; identity keys share its case/link policy, and bigint metadata plus filesystem clock separation avoid assuming one timestamp precision on every platform.
- * @evidence contracts/performance.md#efficient-algorithms One membership walk and one admitted-file pass bound observation work; declared-key validation skips unused content reads, and output memory grows with observed directories, selected files and failures.
- * @evidence contracts/performance.md#reuse-equivalent-work Proven hashes replace content reads only when the same key retains a matching separable metadata signature; absent or nonseparable evidence forces a fresh bracketed read and clock authority is rechecked.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation returns caller-owned proof collections and opens no retained handle; generation retention belongs to the consuming cache owner.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The full membership walk precedes one admitted-file pass. Native project-key
+ *   resolution is required even for a file later excluded by declared keys;
+ *   selected files add metadata/path/bigint formatting and uncached identity
+ *   observations. Qualified hashes skip byte reads; other inputs read/hash B
+ *   bytes and recapture metadata. Walk sorting, directory/entry storage, digest
+ *   text, file proof records and copied failures contribute their populations;
+ *   declared filtering bounds selected reads, not the full walk or its outputs.
+ * @evidence contracts/performance.md#reuse-equivalent-work Proven hashes replace content reads only when the same key retains a matching separable metadata signature; absent or nonseparable evidence forces a fresh bracketed read and clock authority is rechecked.
  */
 export function collectProjectInputSnapshot(
+  /** Lexical root whose native membership is fully enumerated. */
   projectRoot: string,
+  /**
+   * Caller-owned identity context with an appropriate current observation
+   * lifetime.
+   */
   identities: FilesystemPathIdentityContext,
+  /** Coherent native read/metadata/listing view used by the entire snapshot. */
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
+  /**
+   * Prior readable hashes and witnesses qualified against the caller-refreshed
+   * clock.
+   */
   proven?: {
     hashes: Record<string, string>;
     signatures: Record<string, string>;

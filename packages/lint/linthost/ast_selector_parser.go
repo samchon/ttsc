@@ -61,6 +61,11 @@ type astSelectorValue struct {
 // matcher runs over TypeScript-Go's AST rather than ESTree, but the grammar is
 // intentionally the same: node types, attributes, fields, combinators,
 // :not/:is/:matches/:has, child-position pseudos, classes, and subjects.
+//
+// One departure from esquery: a regular-expression attribute value is compiled
+// with Go's RE2 syntax, so JavaScript-only constructs such as lookahead and
+// backreferences are rejected as invalid regular expressions, and the `u` flag
+// is accepted but has no effect.
 func parseASTSelector(source string) (*astSelector, error) {
   parser := &astSelectorParser{source: source}
   parser.skipSpace()

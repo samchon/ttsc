@@ -8,13 +8,28 @@ import type { TtscProjectInputHashSnapshot } from "./TtscProjectInputHashSnapsho
 import { collectProjectInputSnapshot } from "./collectProjectInputSnapshot";
 
 /**
- * Hash the project walk and retain whether every attempted directory and file
- * was observed coherently. Cache-key hosts must reject an incomplete set.
+ * Hash admitted regular files and retain whether every attempted directory and
+ * selected file was observed coherently. Cache-key hosts must reject an
+ * incomplete set; this walk does not replace separate out-of-walk input proof.
  *
  * @evidence contracts/common.md#principled-implementation File-read and directory-enumeration completeness are jointly required before the hashes represent a reusable snapshot.
  * @evidence contracts/common.md#clear-and-simple-design The wrapper projects the detailed snapshot into the hash-plus-completeness shape needed by cache-key consumers rather than implementing another walk.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A readable subset cannot count as a complete program when enumeration or attribution failed.
  * @evidence contracts/common.md#meaningful-documentation The native comment explicitly requires cache-key hosts to reject incomplete observations, distinguishing this API from the hash-only convenience wrapper.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The selected root, membership policy, observing operations and native
+ *   identity context pass unchanged to the snapshot producer. Omitted context
+ *   uses host defaults; projection does not invent case/alias/backend policy.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Projection is fixed work after the required walk: directory enumeration,
+ *   admitted file reads/hashes and native identity/metadata observations scale
+ *   with selected entries, path text and content bytes. The producer's full
+ *   snapshot/witness storage is allocated even though this API returns two
+ *   fields; delegation does not make that computation constant.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function collectProjectInputHashSnapshot(
   projectRoot: string,

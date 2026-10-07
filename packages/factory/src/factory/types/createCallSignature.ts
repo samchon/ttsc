@@ -20,6 +20,11 @@ import { make } from "../internal/make";
  * (x: number): string
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param typeParameters The generic type parameters, if any.
+ * @param parameters The parameters.
+ * @param type The return type, if any.
+ * @returns The created {@link CallSignatureDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered type parameters and parameters populate a CallSignature, with an
  *   optional return type. Its member role does not introduce a function name or body.
@@ -35,12 +40,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc identifies the member context and optional generics/return type, with
  *   a standalone signature example and the actual declaration type linked.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param typeParameters The generic type parameters, if any.
- * @param parameters The parameters.
- * @param type The return type, if any.
- * @returns The created {@link CallSignatureDeclaration}.
  */
 export const createCallSignature = (
   typeParameters: readonly TypeParameterDeclaration[] | undefined,

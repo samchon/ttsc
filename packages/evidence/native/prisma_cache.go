@@ -1,13 +1,12 @@
 package evidence
 
 import (
-  "crypto/sha256"
-  "encoding/hex"
-  "os"
-  "strings"
-  "sync"
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
+	"sync"
 
-  "github.com/samchon/ttsc/packages/lint/rule"
+	"github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // prismaCacheLimit bounds the cache so a resident host cannot grow without end.
@@ -39,53 +38,53 @@ var prismaSchemas = newPrismaCache()
 // failure into zero models and no diagnostic — a rejected schema that reads
 // exactly like an empty but passing one.
 type prismaSetOutcome struct {
-  Models   []prismaModel
-  Rejected bool
-  Problem  string
-  // digest is the loader's own, carried out of the bridge answer so the
-  // caller stores under the bytes the loader read rather than the ones this
-  // process read beforehand.
-  digest string
+	Models   []prismaModel
+	Rejected bool
+	Problem  string
+	// digest is the loader's own, carried out of the bridge answer so the
+	// caller stores under the bytes the loader read rather than the ones this
+	// process read beforehand.
+	digest string
 }
 
 func newPrismaCache() *prismaCache {
-  return &prismaCache{entries: map[string]prismaSetOutcome{}}
+	return &prismaCache{entries: map[string]prismaSetOutcome{}}
 }
 
 type prismaCache struct {
-  mutex   sync.Mutex
-  entries map[string]prismaSetOutcome
-  order   []string
+	mutex   sync.Mutex
+	entries map[string]prismaSetOutcome
+	order   []string
 }
 
 func (cache *prismaCache) lookup(digest string) (prismaSetOutcome, bool) {
-  if digest == "" {
-    return prismaSetOutcome{}, false
-  }
-  cache.mutex.Lock()
-  defer cache.mutex.Unlock()
-  outcome, hit := cache.entries[digest]
-  if !hit {
-    return prismaSetOutcome{}, false
-  }
-  return copyPrismaOutcome(outcome), true
+	if digest == "" {
+		return prismaSetOutcome{}, false
+	}
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	outcome, hit := cache.entries[digest]
+	if !hit {
+		return prismaSetOutcome{}, false
+	}
+	return copyPrismaOutcome(outcome), true
 }
 
 func (cache *prismaCache) store(digest string, outcome prismaSetOutcome) {
-  if digest == "" {
-    return
-  }
-  cache.mutex.Lock()
-  defer cache.mutex.Unlock()
-  if _, exists := cache.entries[digest]; exists {
-    return
-  }
-  if len(cache.order) >= prismaCacheLimit {
-    delete(cache.entries, cache.order[0])
-    cache.order = cache.order[1:]
-  }
-  cache.entries[digest] = copyPrismaOutcome(outcome)
-  cache.order = append(cache.order, digest)
+	if digest == "" {
+		return
+	}
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	if _, exists := cache.entries[digest]; exists {
+		return
+	}
+	if len(cache.order) >= prismaCacheLimit {
+		delete(cache.entries, cache.order[0])
+		cache.order = cache.order[1:]
+	}
+	cache.entries[digest] = copyPrismaOutcome(outcome)
+	cache.order = append(cache.order, digest)
 }
 
 // copyPrismaOutcome deep-copies the models, because a caller builds units from
@@ -97,55 +96,60 @@ func (cache *prismaCache) store(digest string, outcome prismaSetOutcome) {
 // resident host asked for one model fingerprint on its first cycle and a
 // different one on every cycle after, which no edit could repair.
 func copyPrismaOutcome(outcome prismaSetOutcome) prismaSetOutcome {
-  models := make([]prismaModel, 0, len(outcome.Models))
-  for _, model := range outcome.Models {
-    models = append(models, prismaModel{
-      Name:          model.Name,
-      Documentation: model.Documentation,
-      Digest:        model.Digest,
-      Fields:        append([]prismaField(nil), model.Fields...),
-    })
-  }
-  return prismaSetOutcome{
-    Models:   models,
-    Rejected: outcome.Rejected,
-    Problem:  outcome.Problem,
-    digest:   outcome.digest,
-  }
+	models := make([]prismaModel, 0, len(outcome.Models))
+	for _, model := range outcome.Models {
+		models = append(models, prismaModel{
+			Name:          model.Name,
+			Documentation: model.Documentation,
+			Digest:        model.Digest,
+			Fields:        append([]prismaField(nil), model.Fields...),
+		})
+	}
+	return prismaSetOutcome{
+		Models:   models,
+		Rejected: outcome.Rejected,
+		Problem:  outcome.Problem,
+		digest:   outcome.digest,
+	}
 }
 
 // prismaContentDigest composes one key from every file of the ordered set.
 //
 // The composition is the whole cache key, which is what makes staleness
 // structural rather than improbable: identical bytes in identical order parse
-// to identical models, so a hit can only return what the current schema means.
-// The path is folded in beside each file's own hash, so moving a model between
-// two files of one set — which changes nothing about the bytes as a whole —
-// still changes the key, and so does adding or removing a file.
+// to identical models, so a hit returns what the current schema means to the
+// parser that first read it. The key names no project root and no parser
+// installation, deliberately, so equal schemas share one entry across roots; a
+// resident host serving two projects that resolve different parser builds
+// shares the entry between them. The path is folded in beside each file's own
+// hash, so moving a model between two files of one set — which changes nothing
+// about the bytes as a whole — still changes the key, and so does adding or
+// removing a file. That is the key only: a per-unit digest folds in no path.
 //
 // An unreadable file yields no digest at all, which keeps the set out of the
 // cache and leaves the loader's own diagnostic for it.
-func prismaContentDigest(root string, sources []string) string {
-  composite := sha256.New()
-  for _, source := range sources {
-    content, err := os.ReadFile(resolveProjectPath(root, source))
-    if err != nil {
-      return ""
-    }
-    file := sha256.Sum256(content)
-    composite.Write([]byte(source))
-    // NUL, matching `SEPARATOR` in the bridge. A path may contain a space
-    // while a hex digest contains nothing outside `[0-9a-f]`, so an
-    // ambiguous separator would let two different sets compose one key.
-    // Spelled as a byte rather than as a literal character for the reason
-    // the bridge records: this separator was once an invisible control
-    // character in one source and a space in the other, and the two hashed
-    // differently with every result still correct.
-    composite.Write([]byte{0})
-    composite.Write([]byte(hex.EncodeToString(file[:])))
-    composite.Write([]byte("\n"))
-  }
-  return hex.EncodeToString(composite.Sum(nil))
+func prismaContentDigest(root string, sources []string, readers ...evidenceInputReader) string {
+	inputs := inputReader(readers)
+	composite := sha256.New()
+	for _, source := range sources {
+		content, err := inputs.ReadFile(resolveProjectPath(root, source))
+		if err != nil {
+			return ""
+		}
+		file := sha256.Sum256(content)
+		composite.Write([]byte(source))
+		// NUL, matching `SEPARATOR` in the bridge. A path may contain a space
+		// while a hex digest contains nothing outside `[0-9a-f]`, so an
+		// ambiguous separator would let two different sets compose one key.
+		// Spelled as a byte rather than as a literal character for the reason
+		// the bridge records: this separator was once an invisible control
+		// character in one source and a space in the other, and the two hashed
+		// differently with every result still correct.
+		composite.Write([]byte{0})
+		composite.Write([]byte(hex.EncodeToString(file[:])))
+		composite.Write([]byte("\n"))
+	}
+	return hex.EncodeToString(composite.Sum(nil))
 }
 
 // rememberPrismaSchema records an outcome under the bytes it was produced from,
@@ -157,7 +161,7 @@ func prismaContentDigest(root string, sources []string) string {
 // window bind one schema's models to another schema's bytes, and that entry
 // would answer every later cycle with the wrong schema.
 func rememberPrismaSchema(digest string, outcome prismaSetOutcome) {
-  prismaSchemas.store(digest, outcome)
+	prismaSchemas.store(digest, outcome)
 }
 
 // prismaUnitsFromOutcome rebuilds the set's units and files them into every
@@ -174,75 +178,75 @@ func rememberPrismaSchema(digest string, outcome prismaSetOutcome) {
 // location a copy would exist to restate is the set's spelling of the file,
 // which is a path that opens.
 func prismaUnitsFromOutcome(
-  root string,
-  set prismaSourceSet,
-  inventories map[string]*artifactInventory,
-  outcome prismaSetOutcome,
-  config graphConfig,
+	root string,
+	set prismaSourceSet,
+	inventories map[string]*artifactInventory,
+	outcome prismaSetOutcome,
+	config graphConfig,
 ) graphDiagnostics {
-  if outcome.Rejected {
-    return graphDiagnostics{}.add(prismaSetSeverity(config, inventories), failPrismaSet(
-      inventories,
-      set,
-      prismaNormalizationFailure(outcome.Problem),
-    ))
-  }
-  locations, comments := locatePrismaDeclarations(root, set.Sources)
-  fallback := ""
-  if len(set.Sources) != 0 {
-    fallback = set.Sources[0]
-  }
-  indexed := prismaInventoriesBySource(inventories, set)
-  // Every inventory of the set, for the unit whose file the scan could not
-  // name. Each inventory belongs to exactly one source, so this is a union
-  // rather than a merge.
-  everywhere := []*artifactInventory{}
-  for _, source := range set.Sources {
-    everywhere = append(everywhere, indexed[source]...)
-  }
-  hosts := map[string]*evidenceUnit{}
-  for _, model := range outcome.Models {
-    for _, unit := range prismaModelUnits(model) {
-      key := joinPrismaIdentity(unit.Identity)
-      location, found := locations[key]
-      var hosted []*artifactInventory
-      if found {
-        unit.Path = location.Path
-        unit.Line = location.Line
-        hosted = indexed[unit.Path]
-      } else {
-        // Locating is subordinate: a name the scan did not find keeps a
-        // file-level location and its full participation in coverage. A
-        // missing line costs precision, never an obligation — which is why
-        // it is filed into every inventory of the set rather than into the
-        // ones that happen to spell the location it was handed. The set spans
-        // populations whose roots name its files differently and every one of
-        // them selected files of this set, so charging the unit to the first
-        // source's populations alone would drop it from the rest with nothing
-        // said. That state is reached whenever a file the digest read a moment
-        // earlier cannot be read again, which a Windows lock is enough to do.
-        unit.Path = fallback
-        hosted = everywhere
-      }
-      hosts[key] = unit
-      for _, inventory := range hosted {
-        inventory.Units = append(inventory.Units, unit)
-      }
-    }
-  }
-  for _, inventory := range inventories {
-    sortUnits(inventory.Units)
-  }
-  levels := map[string]rule.Severity{}
-  for key, inventory := range inventories {
-    levels[inventory.Path] = max(levels[inventory.Path], inventorySeverity(config, artifactPrisma, key, "*"))
-  }
-  for _, source := range set.Sources {
-    for _, spelling := range set.Spellings[source] {
-      levels[source] = max(levels[source], levels[spelling])
-    }
-  }
-  return prismaDeclarationsFromComments(comments, hosts, indexed, levels)
+	if outcome.Rejected {
+		return graphDiagnostics{}.add(prismaSetSeverity(config, inventories), failPrismaSet(
+			inventories,
+			set,
+			prismaNormalizationFailure(outcome.Problem),
+		))
+	}
+	locations, comments := locatePrismaDeclarations(root, set.Sources, config.inputs)
+	fallback := ""
+	if len(set.Sources) != 0 {
+		fallback = set.Sources[0]
+	}
+	indexed := prismaInventoriesBySource(inventories, set)
+	// Every inventory of the set, for the unit whose file the scan could not
+	// name. Each inventory belongs to exactly one source, so this is a union
+	// rather than a merge.
+	everywhere := []*artifactInventory{}
+	for _, source := range set.Sources {
+		everywhere = append(everywhere, indexed[source]...)
+	}
+	hosts := map[string]*evidenceUnit{}
+	for _, model := range outcome.Models {
+		for _, unit := range prismaModelUnits(model) {
+			key := joinPrismaIdentity(unit.Identity)
+			location, found := locations[key]
+			var hosted []*artifactInventory
+			if found {
+				unit.Path = location.Path
+				unit.Line = location.Line
+				hosted = indexed[unit.Path]
+			} else {
+				// Locating is subordinate: a name the scan did not find keeps a
+				// file-level location and its full participation in coverage. A
+				// missing line costs precision, never an obligation — which is why
+				// it is filed into every inventory of the set rather than into the
+				// ones that happen to spell the location it was handed. The set spans
+				// populations whose roots name its files differently and every one of
+				// them selected files of this set, so charging the unit to the first
+				// source's populations alone would drop it from the rest with nothing
+				// said. That state is reached whenever a file the digest read a moment
+				// earlier cannot be read again, which a Windows lock is enough to do.
+				unit.Path = fallback
+				hosted = everywhere
+			}
+			hosts[key] = unit
+			for _, inventory := range hosted {
+				inventory.Units = append(inventory.Units, unit)
+			}
+		}
+	}
+	for _, inventory := range inventories {
+		sortUnits(inventory.Units)
+	}
+	levels := map[string]rule.Severity{}
+	for key, inventory := range inventories {
+		levels[inventory.Path] = max(levels[inventory.Path], inventorySeverity(config, artifactPrisma, key, "*"))
+	}
+	for _, source := range set.Sources {
+		for _, spelling := range set.Spellings[source] {
+			levels[source] = max(levels[source], levels[spelling])
+		}
+	}
+	return prismaDeclarationsFromComments(comments, hosts, indexed, levels)
 }
 
 // joinPrismaIdentity renders a unit's identity the way the locator keys one.
@@ -252,5 +256,5 @@ func prismaUnitsFromOutcome(
 // is lossless here — the ambiguity that forces a TypeScript identity to stay
 // segmented does not exist in this grammar.
 func joinPrismaIdentity(identity []string) string {
-  return strings.Join(identity, ".")
+	return strings.Join(identity, ".")
 }

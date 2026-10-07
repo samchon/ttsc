@@ -4,10 +4,12 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 // noExtendNative forbids extending a native builtin's prototype, which mutates a
 // shared global and leaks across the entire realm. Mirroring ESLint's
-// no-extend-native, it flags every shape that adds to `<Builtin>.prototype`:
-// direct member assignment (`X.prototype.y = …` and `X.prototype["y"] = …`) and
+// no-extend-native, it flags assignments to `<Builtin>.prototype` members,
+// including compound assignments and computed member keys, and
 // `Object.defineProperty` / `Object.defineProperties` calls whose target is a
-// native prototype. The `exceptions` option removes builtins from the set.
+// native prototype. Checker binding identity exempts lexical constructors
+// sharing a builtin's spelling. The `exceptions` option removes builtins from
+// the protected set.
 // https://eslint.org/docs/latest/rules/no-extend-native
 type noExtendNative struct{ optionsRule }
 
@@ -15,7 +17,8 @@ type noExtendNativeOptions struct {
   Exceptions []string `json:"exceptions"`
 }
 
-func (noExtendNative) Name() string { return "no-extend-native" }
+func (noExtendNative) Name() string           { return "no-extend-native" }
+func (noExtendNative) NeedsTypeChecker() bool { return true }
 func (noExtendNative) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindBinaryExpression, shimast.KindCallExpression}
 }
@@ -34,7 +37,7 @@ func (noExtendNative) Check(ctx *Context, node *shimast.Node) {
 // prototype extends it.
 func checkExtendNativeAssignment(ctx *Context, node *shimast.Node) {
   expr := node.AsBinaryExpression()
-  if expr == nil || expr.OperatorToken == nil || expr.OperatorToken.Kind != shimast.KindEqualsToken {
+  if expr == nil || expr.OperatorToken == nil || !isAssignmentOperator(expr.OperatorToken.Kind) {
     return
   }
   target := stripParens(expr.Left)
@@ -69,8 +72,20 @@ func checkExtendNativeDefineProperty(ctx *Context, node *shimast.Node) {
     return
   }
   callee := stripParens(call.Expression)
-  if !isMatchingPropertyAccess(callee, "Object", "defineProperty") &&
-    !isMatchingPropertyAccess(callee, "Object", "defineProperties") {
+  var receiver *shimast.Node
+  var method string
+  if callee != nil {
+    switch callee.Kind {
+    case shimast.KindPropertyAccessExpression:
+      access := callee.AsPropertyAccessExpression()
+      receiver, method = access.Expression, identifierText(access.Name())
+    case shimast.KindElementAccessExpression:
+      access := callee.AsElementAccessExpression()
+      receiver, method = access.Expression, stringLiteralText(stripParens(access.ArgumentExpression))
+    }
+  }
+  if identifierText(stripParens(receiver)) != "Object" ||
+    (method != "defineProperty" && method != "defineProperties") {
     return
   }
   if builtin := extendNativePrototypeBuiltin(ctx, call.Arguments.Nodes[0]); builtin != "" {
@@ -79,8 +94,8 @@ func checkExtendNativeDefineProperty(ctx *Context, node *shimast.Node) {
 }
 
 // extendNativePrototypeBuiltin returns the native builtin name when `node` reads
-// `<Builtin>.prototype` — through `.prototype` property access or a static
-// `["prototype"]` element access — and the builtin is protected (a known native
+// `<Builtin>.prototype` through `.prototype` property access or a static
+// `["prototype"]` element access, and the builtin is protected (a known native
 // not listed in the rule's `exceptions` option). Otherwise it returns "".
 // Mirrors upstream's isPrototypePropertyAccessed, which resolves the accessed
 // key with getStaticPropertyName, combined with the exceptions filter.
@@ -105,18 +120,37 @@ func extendNativePrototypeBuiltin(ctx *Context, node *shimast.Node) string {
       return ""
     }
     object = access.Expression
-    key = stringLiteralText(access.ArgumentExpression)
+    key = stringLiteralText(stripParens(access.ArgumentExpression))
   default:
     return ""
   }
   if key != "prototype" {
     return ""
   }
-  builtin := identifierText(stripParens(object))
-  if !isExtendNativeBuiltin(builtin) || extendNativeExcepted(ctx, builtin) {
+  object = stripParens(object)
+  builtin := identifierText(object)
+  if !isExtendNativeBuiltin(builtin) || extendNativeExcepted(ctx, builtin) ||
+    !extendNativeResolvesGlobal(ctx, object, builtin) {
     return ""
   }
   return builtin
+}
+
+// extendNativeResolvesGlobal distinguishes lexical constructor bindings from
+// references to the global constructor. A known native name absent from the
+// selected TypeScript library remains a global reference when unresolved;
+// choosing an older type library does not disable the runtime prototype policy.
+func extendNativeResolvesGlobal(ctx *Context, identifier *shimast.Node, name string) bool {
+  if ctx == nil || ctx.Checker == nil {
+    return false
+  }
+  resolved := ctx.Checker.GetSymbolAtLocation(identifier)
+  if resolved == nil {
+    return true
+  }
+  global := ctx.Checker.GetGlobalSymbol(name, shimast.SymbolFlagsValue, nil)
+  return global != nil &&
+    ctx.Checker.GetMergedSymbol(resolved) == ctx.Checker.GetMergedSymbol(global)
 }
 
 // extendNativeExcepted reports whether the rule's `exceptions` option opts the
@@ -136,7 +170,12 @@ func isExtendNativeBuiltin(name string) bool {
   switch name {
   case "Object", "Array", "String", "Number", "Boolean", "Function",
     "Date", "RegExp", "Error", "Map", "Set", "WeakMap", "WeakSet",
-    "Promise", "Symbol":
+    "Promise", "Symbol", "BigInt", "AggregateError", "EvalError",
+    "RangeError", "ReferenceError", "SyntaxError", "TypeError", "URIError",
+    "ArrayBuffer", "SharedArrayBuffer", "DataView", "Int8Array", "Uint8Array",
+    "Uint8ClampedArray", "Int16Array", "Uint16Array", "Int32Array",
+    "Uint32Array", "Float16Array", "Float32Array", "Float64Array", "BigInt64Array",
+    "BigUint64Array", "WeakRef", "FinalizationRegistry", "Iterator":
     return true
   }
   return false

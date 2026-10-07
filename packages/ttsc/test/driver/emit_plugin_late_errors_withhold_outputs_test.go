@@ -12,7 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// Verifies a plugin's direct checker error cannot publish buffered outputs.
+// TestEmitPluginLateErrorsWithholdOutputs Verifies a late plugin checker error withholds all
+// buffered JavaScript and declaration outputs.
 //
 // A plugin can query the checker itself after the pre-emit gate. An error from
 // that query must fail both JS-only and declaration builds without writing a
@@ -21,6 +22,11 @@ import (
 // 1. Load two clean source files under noEmitOnError.
 // 2. Let the second transform query a generated unresolved member expression.
 // 3. Assert TS2304, generated-code context and zero output callbacks.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual late checker query from the second transform and requires TS2304, exactly two transform calls, zero writes, unanchored location and generated-code failure context.
+// @evidence contracts/testing.md#independent-expectations Authored generated unresolved identifier independently owes a missing-name error; literal TS2304, zero output and no authored coordinates define expected failure.
+// @evidence contracts/testing.md#distinguishing-cases JS-only and declaration modes both reject late errors after an earlier clean source; zero callbacks distinguishes complete withholding from successful-prefix leakage.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit executes actual in-process compiler/checker/transformer APIs on private input and closes its Program; no error output is replaced with a canned diagnostic.
 func TestEmitPluginLateErrorsWithholdOutputs(t *testing.T) {
   for _, declarations := range []bool{false, true} {
     t.Run(fmt.Sprint(declarations), func(t *testing.T) {
@@ -56,7 +62,10 @@ func TestEmitPluginLateErrorsWithholdOutputs(t *testing.T) {
       if d.Line != 0 || d.Column != 0 || d.Start != nil || d.Length != nil {
         t.Fatalf("invented authored location: %+v", d)
       }
-      for _, text := range []string{"error TS2304", "generatedInput", "generated code", "no authored source location", "native plugin"} {
+      // The pinned checker names a synthesized identifier "(Missing)" (its
+      // DeclarationNameToString reports any zero-width node that way), so the
+      // generated name itself is not part of the rendered contract.
+      for _, text := range []string{"error TS2304", "generated code", "no authored source location", "native plugin"} {
         if !strings.Contains(err.Error(), text) {
           t.Fatalf("missing %q: %v", text, err)
         }

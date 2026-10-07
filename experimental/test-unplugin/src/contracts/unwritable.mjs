@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { fixture } from "./common.mjs";
-import { restartContract, restartCycle } from "./restarts.mjs";
+import { restartCycle } from "./restarts.mjs";
+import { test_host_persistent_cache_restart } from "./scenarios/test_host_persistent_cache_restart.mjs";
 
 /**
  * The restart contract where the host's record directory cannot be written: a
@@ -61,5 +62,5 @@ export async function unwritableContract(host) {
     });
     return;
   }
-  await restartContract(project, host);
+  await test_host_persistent_cache_restart({ project, host });
 }

@@ -6,9 +6,9 @@ import { make } from "../internal/make";
  * clause of a conditional type.
  *
  * The `infer ` keyword prints in front of the type parameter, including a
- * supplied constraint such as `R extends string`. In postfix
- * and array positions the surrounding printer wraps the infer type in
- * parentheses so `infer R[]` does not read as an array.
+ * supplied constraint such as `R extends string`. In postfix and array
+ * positions the surrounding printer wraps the infer type in parentheses so
+ * `infer R[]` does not read as an array.
  *
  * Given a type parameter named `R`, the printer renders:
  *
@@ -16,6 +16,9 @@ import { make } from "../internal/make";
  * infer R
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param typeParameter The type parameter to infer.
+ * @returns The created {@link InferTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   InferTypeNode retains its type parameter, including a supplied constraint;
  *   the caller places it in a context where infer is grammatically permitted.
@@ -31,10 +34,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the inferred parameter and illustrates infer syntax, with
  *   the node argument separated from the acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param typeParameter The type parameter to infer.
- * @returns The created {@link InferTypeNode}.
  */
 export const createInferTypeNode = (
   typeParameter: TypeParameterDeclaration,

@@ -8,17 +8,21 @@ import { make } from "../internal/make";
  * printer wraps it in double quotes; pass `isSingleQuote` as `true` to wrap it
  * in single quotes instead.
  *
- * The printer escapes the active quote character inside the content. With
- * double quotes, an embedded `"` is emitted as `\"`; with single quotes, an
- * embedded `'` is emitted as `\'`. The other quote character is left
- * untouched.
+ * In a JavaScript expression, the printer escapes the active quote character
+ * with a backslash: `\"` inside double quotes or `\'` inside single quotes. The
+ * other quote character is left untouched. In a quoted JSX attribute, entities
+ * preserve the cooked value instead; backslashes stay literal.
  *
  * With `text` of `he said "hi"` and the default quoting, this prints:
  *
  * ```ts
- * "he said \"hi\""
+ * "he said \"hi\"";
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param text The textual content.
+ * @param isSingleQuote When `true`, use single quotes instead of double.
+ * @returns The created {@link StringLiteral}.
  * @evidence contracts/common.md#principled-implementation
  *   StringLiteral keeps unescaped text and quote preference separately so the
  *   printer can escape the chosen delimiter without altering content here.
@@ -33,11 +37,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains unescaped input, quote selection and active-delimiter
  *   escaping in separate paragraphs with an example and a blank before tags.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param text The textual content.
- * @param isSingleQuote When `true`, use single quotes instead of double.
- * @returns The created {@link StringLiteral}.
  */
 export const createStringLiteral = (
   text: string,

@@ -53,5 +53,5 @@ Change `AGENTS.md` only for a repository-contract change: a new, renamed, merged
 
 1. Search `AGENTS.md` and `.agents/skills` for every mention of the changed subject, and leave one owner with links elsewhere.
 2. Check the mechanics: each `SKILL.md` `name` matches its path below `.agents/skills/`, every relative link and anchor resolves, and `AGENTS.md` stays under 200 lines.
-3. When the change is part of a pull request, use the [development skill's formatting point](../development/SKILL.md#work-rules); do not run a formatter during this instruction check.
+3. When the change is part of a pull request, use the development skill's [final formatting](../development/implementation.md#final-formatting); do not run a formatter during this instruction check.
 4. Watch a fresh session, one with no history of the change, do a real task the change targets. Note whether it finds the rule through the index or description, opens the right sibling document, and follows the rule. ttsc has no evaluation suite for its instructions, so this observation is the test.

@@ -8,12 +8,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEdgeSpansPointToResolvedUsage verifies each checker-resolved edge keeps
-// the source expression that produced it. The edge is still deduped by
-// from/to/kind, but MCP needs the first concrete use span so a truncated
-// declaration can reopen the right line without string-searching for a target
-// name that may appear elsewhere.
+// TestEdgeSpansPointToResolvedUsage checks the selected caller-to-helper and
+// Box.read-to-Box.value spans against literal fixture text. Repeated-use
+// deduplication, first-use selection and consumer reopening are not exercised.
+//
+// 1. Load adjacent helper and helperShadow declarations plus Box.value and Box.read.
+// 2. Resolve the caller-to-helper call and the read-to-value access edges.
+// 3. Require the call slice to equal helper and the access slice to contain this.value, rather than a nearby declaration name.
+//
+// @evidence contracts/testing.md#behavioral-verification Require the call slice to equal helper and the access slice to contain this.value, rather than a nearby declaration name.
+// @evidence contracts/testing.md#independent-expectations The selected call's actual source slice, after TrimSpace, must equal literal helper rather than helperShadow; the selected read-to-value slice must contain literal this.value. The offsets come from the graph under test, so these text checks do not authenticate exact whitespace boundaries or independently derive byte coordinates.
+// @evidence contracts/testing.md#distinguishing-cases Load adjacent helper and helperShadow declarations plus Box.value and Box.read. Resolve the caller-to-helper call and the read-to-value access edges. Require the call slice to equal helper and the access slice to contain this.value, rather than a nearby declaration name.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project, constructs/closes its driver Program in-process and directly builds its graph. Local name/kind helpers select actual graph nodes and edge triples before slicing actual Program text. A restored empty linked-plugin manifest excludes ambient hooks; no dump serialization, installed consumer or product process runs.
 func TestEdgeSpansPointToResolvedUsage(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   path := filepath.Join(root, "src", "main.ts")

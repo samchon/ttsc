@@ -21,6 +21,11 @@ const O_WRONLY = 1;
  * 2. Write through fd 1 and fd 2.
  * 3. Assert the bad descriptors return `EBADF` with zero bytes and leave both
  *    capture buffers untouched, while fd 1 and fd 2 still capture.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.write rejects unknown/closed fds with EBADF and zero bytes instead of contaminating stderr, while writeSync throws and reserved stdio still captures. Exact buffers and file text reject false success or lost stream routing.
+ * @evidence contracts/testing.md#independent-expectations A nonexistent descriptor grants no write target; EBADF and zero byte count follow callback semantics. Independently authored BAD leaves abc intact, X then YZ yields XYZ at the ordinary descriptor cursor, and OUT/ERR/SYNC yield literal stdout OUTSYNC and stderr ERR only for reserved handles.
+ * @evidence contracts/testing.md#distinguishing-cases Never-opened and closed descriptor failures, synchronous unknown-fd throw, two sequential synchronous ordinary-file writes and successful fd1/fd2 writes cover both APIs. The original ordinary file remains unchanged across rejected writes before the granted synchronous writes.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_write_rejects_unknown_descriptors_without_touching_stdio calls createMemFS, fs.close via callMutation, writeFdText and direct fs.writeSync. This unit owns exact returned errors/counts and captured buffers; the expected [wasm] ERR console line is real MemFS stream behavior, not a product process.
  */
 export const test_memfs_write_rejects_unknown_descriptors_without_touching_stdio =
   async (): Promise<void> => {
@@ -56,6 +61,18 @@ export const test_memfs_write_rejects_unknown_descriptors_without_touching_stdio
       syncCode = (err as { code?: string }).code ?? "UNKNOWN";
     }
     TestValidator.equals("writeSync throws EBADF", syncCode, "EBADF");
+    const writable = await openFd(host.fs, "/f.txt", O_WRONLY);
+    TestValidator.equals(
+      "writeSync writes an ordinary file at its own cursor",
+      host.fs.writeSync(writable, new TextEncoder().encode("X")),
+      1,
+    );
+    host.fs.writeSync(writable, new TextEncoder().encode("YZ"));
+    TestValidator.equals(
+      "writeSync advances the ordinary cursor",
+      host.readFileText("/f.txt"),
+      "XYZ",
+    );
 
     // Positive twin: the reserved stdio descriptors are unchanged.
     await writeFdText(host.fs, 1, "OUT", null);

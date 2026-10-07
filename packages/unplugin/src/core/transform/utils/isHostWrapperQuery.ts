@@ -1,6 +1,6 @@
 /**
  * The query keys whose module is a host-generated wrapper around a source file,
- * not the file's program text (samchon/ttsc#1394).
+ * not the file's program text.
  *
  * Vite answers `?raw` with the file's text as a string, `?url` with an asset
  * URL, `?inline` and `?no-inline` with an inlined or emitted asset, and
@@ -37,6 +37,16 @@ const HOST_WRAPPER_QUERY_KEYS: ReadonlySet<string> = new Set([
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose defines wrapper-versus-program ownership and the nearby key
  *   documentation explains the reason, following paragraph/tag guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Parses URL query syntax rather than native paths or filesystem identity.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Delimiter searches and one query parse take linear time in identifier
+ *   length and space in query length. Each decoded key uses the fixed wrapper
+ *   Set, and the scan stops at the first recognized wrapper key.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function isHostWrapperQuery(id: string): boolean {
   const start = id.indexOf("?");

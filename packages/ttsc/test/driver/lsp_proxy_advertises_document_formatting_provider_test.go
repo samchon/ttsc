@@ -5,14 +5,21 @@ import (
   "testing"
 )
 
-// TestLSPProxyAdvertisesDocumentFormattingProvider verifies the initialize
-// augmentation advertises documentFormattingProvider when ttsc owns
-// ttsc.format.document, so editors send textDocument/formatting (formatOnSave)
-// that the proxy intercepts and routes through the buffer formatter.
+// TestLSPProxyAdvertisesDocumentFormattingProvider verifies that initialize
+// augmentation advertises documentFormattingProvider when the injected source
+// owns ttsc.format.document. The case observes the returned capability, not an
+// editor request, buffer formatter execution or format-on-save effect.
+//
+// The configured ttsc.format.document command requires exposing formatting to the editor.
 //
 // 1. Configure a source that owns ttsc.format.document.
 // 2. Reply from upstream with capabilities that omit documentFormattingProvider.
 // 3. Assert the editor sees documentFormattingProvider true.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy initialize advertises documentFormattingProvider for the owned formatting command.
+// @evidence contracts/testing.md#independent-expectations The configured ttsc.format.document command requires exposing formatting to the editor.
+// @evidence contracts/testing.md#distinguishing-cases Owned command contrasts with upstream omission; no formatter executes here.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyAdvertisesDocumentFormattingProvider in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyAdvertisesDocumentFormattingProvider(t *testing.T) {
   h := newProxyHarness(t, &stubSource{commands: []string{"ttsc.format.document"}})
 

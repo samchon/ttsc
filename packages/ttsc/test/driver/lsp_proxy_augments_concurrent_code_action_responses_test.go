@@ -8,21 +8,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyAugmentsConcurrentCodeActionResponses verifies the proxy
-// correlates concurrent codeAction round-trips by id. Real editors
-// routinely have multiple in-flight requests during keystroke-driven
-// activity; pendingActions must key on the id alone and survive the
-// upstream returning responses in reverse order from the requests.
+// TestLSPProxyAugmentsConcurrentCodeActionResponses Verifies that the proxy associates reverse-order action responses with each response ID's URI-tagged local action.
 //
-// Locks the per-id keying in pendingActions and the lock contract in
-// rememberCodeActionRequest / augmentUpstream. A future refactor that
-// moved the delete outside the critical section would silently swap
-// the uri/range/ctx of two interleaved requests without this test.
+// Two outstanding requests receive reversed responses; the assertions do not separately require both distinct IDs exactly once.
 //
 // 1. Configure a source whose CodeActions returns a uri-tagged action.
 // 2. Send codeAction requests id=1 (/a.ts) and id=2 (/b.ts).
 // 3. Reply from upstream with id=2 first, then id=1.
 // 4. Assert each editor response carries the action tagged with the matching uri.
+//
+// @evidence contracts/testing.md#behavioral-verification The proxy associates reverse-order action responses with each response ID's URI-tagged local action.
+// @evidence contracts/testing.md#independent-expectations An authored ID-to-URI table defines expected titles independently of pendingActions.
+// @evidence contracts/testing.md#distinguishing-cases Two outstanding requests receive reversed responses; the assertions do not separately require both distinct IDs exactly once.
+// @evidence contracts/testing.md#execution-ownership Proxy.Run and synthetic upstream frames execute in the private Go pipe harness. Go discovers TestLSPProxyAugmentsConcurrentCodeActionResponses under ./test/driver.
 func TestLSPProxyAugmentsConcurrentCodeActionResponses(t *testing.T) {
   source := &stubSource{
     actionsFor: func(uri string) []driver.LSPCodeAction {
@@ -73,6 +71,15 @@ func TestLSPProxyAugmentsConcurrentCodeActionResponses(t *testing.T) {
     }
     if !strings.Contains(string(env.Result[0]), expect[env.ID]) {
       t.Fatalf("response id=%d expected tagged %q, got %s", env.ID, expect[env.ID], env.Result[0])
+    }
+    var action struct {
+      Title string `json:"title"`
+    }
+    if err := json.Unmarshal(env.Result[0], &action); err != nil {
+      t.Fatalf("response id=%d action is not JSON: %v", env.ID, err)
+    }
+    if action.Title != expect[env.ID] {
+      t.Fatalf("response id=%d expected exact title %q, got %q", env.ID, expect[env.ID], action.Title)
     }
   }
 }

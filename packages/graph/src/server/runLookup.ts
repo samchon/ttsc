@@ -24,9 +24,10 @@ const MAX_LIMIT = 6;
 /**
  * Rank the graph's symbols against a natural query. Scoring blends exact and
  * dotted-name matches, CamelCase/subword coverage, file-path terms, a prefix
- * bonus, and dependency centrality, then dampens external, generated, and test
- * nodes and caps per file so the result is a diverse, relevant shortlist rather
- * than one file's roster.
+ * bonus, and dependency centrality, then dampens git-ignored, test,
+ * support-path and internal-looking nodes and caps per file so the result is a
+ * diverse, relevant shortlist rather than one file's roster.
+ * Dependency-boundary nodes are left out unless the request includes them.
  *
  * @evidence contracts/common.md#principled-implementation Exact citation matches precede heuristic name scoring; token, kind, path and graph-centrality signals rank real nodes without certifying question coverage.
  * @evidence contracts/common.md#clear-and-simple-design Citation selection, tokenization and scoring have helper owners; final diversity and signature projection assemble one shortlist.
@@ -35,6 +36,7 @@ const MAX_LIMIT = 6;
  * @evidence contracts/performance.md#efficient-algorithms Scoring scans candidate nodes and their indexed incident edges, then sorts positive matches in O(M log M); signatures are attached only to the bounded shortlist.
  * @evidence contracts/performance.md#reuse-equivalent-work Name, citation and adjacency indexes are shared across lookups through the graph generation. Identical query result memoization is not implemented; each call produces a caller-owned mutable DTO.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Scored candidates and diversity maps are request-local; the returned shortlist is bounded by the request cap and no historical queries are retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation scores in-memory nodes; no file, path or process.
  */
 export function runLookup(
   graph: TtscGraphMemory,
@@ -107,9 +109,12 @@ export function runLookup(
   // not a better fuzzy match than the name hits, it is a different and certain
   // kind of answer, and name scoring cannot rank the two against each other.
   const citedIds = new Set(cited.map((hit) => hit.id));
-  const ranked = scored.filter((hit) => !citedIds.has(hit.id));
-  ranked.sort((a, b) => b.score - a.score);
-  ranked.unshift(...cited);
+  const ranked = [
+    ...cited,
+    ...scored
+      .filter((hit) => !citedIds.has(hit.id))
+      .sort((a, b) => b.score - a.score),
+  ];
 
   // Diversity: keep at most PER_FILE hits per file while filling up to the limit.
   //

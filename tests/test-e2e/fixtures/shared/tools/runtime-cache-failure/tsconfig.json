@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"rootDir":"src","outDir":"dist","plugins":[{"transform":"./plugin.cjs"}]},"include":["src"]}

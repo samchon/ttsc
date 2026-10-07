@@ -16,6 +16,11 @@ import (
  * 1. Disable a claim and one reference of an enabled claim.
  * 2. Assert only the enabled reference is watched.
  * 3. Assert an invalid severity in an off claim is still rejected.
+ *
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig and graphProjectInputs are called on a configuration with an `off` Markdown claim (whose reference is `error`), a reference with severity 0 and a live warning reference; the problems must be empty and the inputs exactly one pattern, `live/**`; a second configuration with an `off` claim whose reference has `severity: null` must yield exactly one problem naming `claims[0].reference.severity`.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the staging contract: an off population must not be watched, but its options must still be validated so that re-enabling it is safe.
+ * @evidence contracts/testing.md#distinguishing-cases An off claim and an off reference (both dropped from inputs) beside a live reference (kept), and a malformed severity inside an off claim (still rejected).
+ * @evidence contracts/testing.md#execution-ownership TestGraphSeverityOffOmitsInputs is a Go unit entry in the native test process; it calls decodeGraphConfig and graphProjectInputs on in-memory JSON with no filesystem, consumer install or product host.
  */
 func TestGraphSeverityOffOmitsInputs(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[

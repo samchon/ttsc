@@ -1,7 +1,9 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { type Expression } from "@ttsc/factory";
 import ts from "ts-legacy";
 
+import factory, {
+  type Expression,
+} from "../../../../../packages/factory/src/index";
 import { id, print, reparse } from "../../internal/helpers";
 
 const construct = (target: Expression): Expression =>
@@ -31,6 +33,11 @@ const argumentlessNew = (): Expression =>
  * 2. Assert both print parenthesized: `new (new F())()` and `new (new F().bar)()`.
  * 3. Re-parse each output with the legacy compiler and assert the top-level
  *    expression is still a `NewExpression`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification An argumentless inner new target is wrapped so the outer new keeps its own construction meaning.
+ * @evidence contracts/testing.md#independent-expectations Exact source plus independent TypeScript reparse NewExpression checks detect argument stealing.
+ * @evidence contracts/testing.md#distinguishing-cases Direct and deeper inner-new targets cover propagation; inner new with explicit arguments is covered by the unwrapped negative family.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_new_expression_target_argumentless_new_parentheses. Calls createNewExpression for nested targets, TsPrinter.print and the independent reparse helper.
  */
 export const test_new_expression_target_argumentless_new_parentheses =
   (): void => {

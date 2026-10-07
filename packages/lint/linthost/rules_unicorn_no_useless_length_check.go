@@ -1,23 +1,11 @@
-// unicorn/no-useless-length-check: `arr.length > 0 && arr.some(…)`
-// short-circuits on an empty array, but `arr.some(…)` already returns
-// `false` for the empty case, so the leading length check is redundant.
-// The same goes for `forEach` (returns `undefined` either way). The
-// rule prunes the dead check so the call shape is the only thing the
-// reader has to track.
+// unicorn/no-useless-length-check reports a repeated array receiver's
+// length > 0 or length != 0 guard before some/forEach. With ordinary array
+// methods, some already yields false for empty input. For forEach, false and
+// undefined differ as values, so the guard is redundant only when the result
+// is discarded or consumed for truthiness. Every/map/filter are excluded.
 //
-// `every`, `map`, and `filter` are deliberately excluded from the `&&`
-// set: `every` returns `true` on an empty array (so the length check
-// IS load-bearing); `map` and `filter` return `[]` which is truthy
-// (the length check changes the truthiness of the whole expression).
-// Upstream covers those under the complementary `||` pattern
-// (`array.length === 0 || array.every(…)`), which this MVP does not
-// implement yet.
-//
-// AST-only MVP: visit each `BinaryExpression`, match operator `&&`,
-// require LHS to be `PropertyAccess(X, length) > 0` or `!== 0`, and
-// require RHS to be `CallExpression(PropertyAccess(X, name), …)` where
-// `name` is one of `some` / `forEach` and the textual form of the two
-// `X` expressions matches. Fire on the binary expression.
+// AST-only: matching receiver text identifies the intended array idiom;
+// this rule does not prove that custom methods or getters have array semantics.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-length-check.md
 package linthost
 
@@ -60,7 +48,19 @@ func (unicornNoUselessLengthCheck) Check(ctx *Context, node *shimast.Node) {
   if lengthReceiver != callReceiver {
     return
   }
+  if method == "forEach" && !unicornExpressionHasBooleanConsumer(node) && !unicornLengthCheckResultIsDiscarded(node) {
+    return
+  }
   ctx.Report(node, fmt.Sprintf("Useless `.length` check — `%s` already handles empty arrays correctly.", method))
+}
+
+// unicornLengthCheckResultIsDiscarded follows parentheses to an expression
+// statement; assignments, returns and arguments retain the false/undefined value.
+func unicornLengthCheckResultIsDiscarded(node *shimast.Node) bool {
+  for node.Parent != nil && node.Parent.Kind == shimast.KindParenthesizedExpression {
+    node = node.Parent
+  }
+  return node.Parent != nil && node.Parent.Kind == shimast.KindExpressionStatement
 }
 
 // unicornUselessLengthCheckLHSReceiver returns the textual form of `X`

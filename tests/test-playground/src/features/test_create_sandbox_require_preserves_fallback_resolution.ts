@@ -1,18 +1,25 @@
 import assert from "node:assert/strict";
 
-import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
+import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
- * Verifies root exports changes preserve every fallback resolver branch.
+ * Verifies the sandbox require resolves legacy, exports, scoped, relative and
+ * JSON packages from an in-memory pack.
  *
  * `main` and `index` fallbacks, exact and wildcard subpath exports, scoped
- * names, relative requires, and JSON modules all share the changed package
- * entry and specifier owners.
+ * names, relative requires, and JSON modules all pass through the same package
+ * entry and specifier resolution.
  *
  * 1. Mount legacy, exact, pattern, array, condition, scoped, relative, and JSON
  *    package shapes.
- * 2. Require every available entry and the blocked negative twin.
- * 3. Assert each shared resolver branch retains its prior observable result.
+ * 2. Require each available entry and compare the returned module value.
+ * 3. Require an absent package and a package whose exports declare null for the
+ *    requested subpath, and assert both are reported as unavailable.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the returned createSandboxRequire loader for main and index fallbacks, an exact subpath export, two overlapping wildcard exports, an array with an invalid first target, node/import/default conditions, a scoped package, a relative sibling require and a JSON main; each result is compared with its literal value, and an absent package and a null-exported subpath must throw "is not available".
+ * @evidence contracts/testing.md#independent-expectations Each fixture module exports a distinct literal (wild versus deep-wild, default versus node/import, a b.js exporting 41 so the caller must yield 42, a private file that must stay hidden), so the expected value follows from Node package-resolution rules rather than from resolver output.
+ * @evidence contracts/testing.md#distinguishing-cases Legacy packages contrast with declared exports; the longer wildcard prefix must beat the shorter one, an invalid array member falls through to the valid one, node and import conditions stay inactive so default is chosen, and a null export must hide a file that exists in the pack. Deeper exports error cases are owned by the neighboring array, target-decision and URL-target tests.
+ * @evidence contracts/testing.md#execution-ownership Unit-layer entry that calls createSandboxRequire over one local in-memory pack and evaluates its CommonJS strings in the test process; no installation, filesystem, native build or host starts.
  */
 export const test_create_sandbox_require_preserves_fallback_resolution = () => {
   const require = createSandboxRequire(

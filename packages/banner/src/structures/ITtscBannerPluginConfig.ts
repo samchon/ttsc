@@ -1,9 +1,9 @@
 /**
  * Host registration and config-file selection for `@ttsc/banner`.
  *
- * This entry belongs in `compilerOptions.plugins[]`. Banner text belongs in
- * the separate `ITtscBannerConfig` value so discovery and config evaluation
- * have one supported home instead of an additional inline option surface.
+ * This entry belongs in `compilerOptions.plugins[]`. Banner text belongs in the
+ * separate `ITtscBannerConfig` value so discovery and config evaluation have
+ * one supported home instead of an additional inline option surface.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Optional enabled distinguishes omission from an explicit false host switch;
@@ -23,12 +23,6 @@
  *   contract. Banner text has one typed config-file home, preventing a second
  *   inline option shape from bypassing that loader's validation.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Registration stores a module specifier and optional filesystem path; the
- *   host resolves the module and native filepath operations resolve
- *   configFile, rather than this data type imposing separators or process
- *   commands.
- *
  * @evidence contracts/common.md#meaningful-documentation
  *   Interface and member JSDoc distinguish host registration from banner
  *   text, disabled and omitted enabled states, module specifiers from config
@@ -36,18 +30,6 @@
  *   failure behavior. Separate paragraphs explain why generated wrapper
  *   directories cannot become the discovery base, applying the documentation
  *   skill's clear prose and rationale guidance to the complete type contract.
- *
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   The registration type defines host switches and a config path. The
- *   factory and native loader choose the discovery algorithm.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   The host and factory own descriptor identity and evaluation reuse;
- *   this type defines the inputs they consume.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Registration is a value contract. The host owns cached descriptors and
- *   the native loader owns subprocess and temporary-directory lifetimes.
  */
 export interface ITtscBannerPluginConfig {
   /**
@@ -61,8 +43,8 @@ export interface ITtscBannerPluginConfig {
   /**
    * Module specifier the host resolves to the plugin factory.
    *
-   * Use `@ttsc/banner` to register this package through the transform key.
-   * This names the factory module, not the banner config file or Go binary.
+   * Use `@ttsc/banner` to register this package through the transform key. This
+   * names the factory module, not the banner config file or Go binary.
    */
   transform?: string;
 

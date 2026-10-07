@@ -16,9 +16,9 @@ import type {
 import {
   type IWorkerCompilerDeps,
   createWorkerCompilerService,
-} from "../../../../packages/playground/lib/src/compiler/internal/createWorkerCompilerService.js";
-import type { ICompilerService } from "../../../../packages/playground/lib/src/structures/ICompilerService.js";
-import type { ICreateWorkerCompilerOptions } from "../../../../packages/playground/lib/src/structures/ICreateWorkerCompilerOptions.js";
+} from "../../../../packages/playground/src/compiler/internal/createWorkerCompilerService";
+import type { ICompilerService } from "../../../../packages/playground/src/structures/ICompilerService";
+import type { ICreateWorkerCompilerOptions } from "../../../../packages/playground/src/structures/ICreateWorkerCompilerOptions";
 
 /**
  * Required-field defaults for `ICreateWorkerCompilerOptions`. The fake boot

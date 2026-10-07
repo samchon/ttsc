@@ -13,14 +13,14 @@ import { make } from "../internal/make";
  * Foo#bar
  * ```
  *
- * @evidence contracts/common.md#principled-implementation The owner or preceding member reference and final identifier are retained as separate operands, preserving a recursive hash-separated name without resolving it.
- * @evidence contracts/common.md#clear-and-simple-design A direct two-operand adapter composes existing names instead of storing a second flattened reference or lookup state.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Hash selection is the represented syntax, with caller names unchanged rather than known-member substitutions or patched symbol tables.
- * @evidence contracts/common.md#meaningful-documentation Native prose identifies owner, member and hash separator with an output example; separate paragraphs before native tags follow the documentation guidance.
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand side.
  * @param right The right-hand side.
  * @returns The created {@link JSDocMemberName}.
+ * @evidence contracts/common.md#principled-implementation The owner or preceding member reference and final identifier are retained as separate operands, preserving a recursive hash-separated name without resolving it.
+ * @evidence contracts/common.md#clear-and-simple-design A direct two-operand adapter composes existing names instead of storing a second flattened reference or lookup state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Hash selection is the represented syntax, with caller names unchanged rather than known-member substitutions or patched symbol tables.
+ * @evidence contracts/common.md#meaningful-documentation Native prose identifies owner, member and hash separator with an output example; separate paragraphs before native tags follow the documentation guidance.
  */
 export const createJSDocMemberName = (
   left: EntityName | JSDocMemberName,

@@ -1,0 +1,68 @@
+package linthost
+
+import "testing"
+
+// TestUnicornThrowNewErrorSkipsNonMatchingCallees verifies the negative twin of
+// every branch the widened callee predicate opened.
+//
+// Matching any `*Error` name instead of eight built-ins is only safe with the
+// counter-examples pinned: the name pattern is anchored and case-sensitive
+// (`fooError`, `ERROR`, `Errors` must stay silent), computed member access is
+// opaque (`lib["Error"]()`), and a direct optional chain must not be rewritten
+// as `new lib?.Error()`, which is a syntax error. Grouped optional callees
+// remain excluded by the rule's conservative policy too; not every grouped
+// construction would be syntactically invalid.
+// `Data.TaggedError()` is upstream's Effect-library carve-out; it builds an
+// error class, so `new` would be wrong.
+//
+//  1. Lint each source with only unicorn/throw-new-error enabled.
+//  2. Assert the engine emits no finding at all.
+//
+// @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource executes the actual engine for each named source and requires no findings, exposing widened names or unsafe new fixes.
+// @evidence contracts/testing.md#independent-expectations The supported anchored Error-name policy and exact Effect Data exception establish the literal exclusions. JavaScript forbids a direct optional chain in a new callee; the rule additionally preserves grouped or assertion-wrapped optional callees conservatively rather than asserting every grouped form is a syntax error.
+// @evidence contracts/testing.md#distinguishing-cases Constructed values, wrong names/cases, noncalls, computed final keys, optional chains at every object/call link and Data.TaggedError remain clean; ReportsCustomAndMemberCallees owns reportable twins.
+// @evidence contracts/testing.md#execution-ownership TestUnicornThrowNewErrorSkipsNonMatchingCallees is the named Go unit owner of these authored sources and any named t.Run variants. The lint engine reads authored fixtures in the shared Go process; no installation, native build or real product child runs.
+func TestUnicornThrowNewErrorSkipsNonMatchingCallees(t *testing.T) {
+  for _, source := range []string{
+    // Already constructed with `new`.
+    "throw new Error(\"oops\");\n",
+    "throw new ValidationError(\"bad\");\n",
+    "throw new ns.FooError();\n",
+    "throw new (getGlobalThis().Error)();\n",
+    // Not an `*Error` name.
+    "throw getError();\n",
+    "throw lib.getError();\n",
+    "throw ns.notAnError();\n",
+    "throw Error2();\n",
+    // The name pattern is anchored, case-sensitive, and word-shaped.
+    "throw fooError();\n",
+    "throw ERROR();\n",
+    "throw Errors();\n",
+    "throw My_Error();\n",
+    "throw $Error();\n",
+    "throw _Error();\n",
+    // Not a call expression.
+    "throw ValidationError;\n",
+    "throw FooError`x`;\n",
+    // The callee is neither an Identifier nor a member access.
+    "throw getErrorConstructor()();\n",
+    // Computed member access.
+    "throw lib[\"Error\"]();\n",
+    "throw lib[Error]();\n",
+    // Optional chains: `new` cannot be applied to one.
+    "throw Error?.();\n",
+    "throw lib.Error?.();\n",
+    "throw lib?.Error();\n",
+    "throw lib?.foo.Error();\n",
+    "throw lib?.[key].Error();\n",
+    "throw lib?.foo!.Error();\n",
+    "throw getGlobalThis?.().Error();\n",
+    "throw (lib?.Error)();\n",
+    // Upstream's Effect-library carve-out.
+    "throw Data.TaggedError(\"x\");\n",
+  } {
+    t.Run(source, func(t *testing.T) {
+      assertRuleSkipsSource(t, "unicorn/throw-new-error", source)
+    })
+  }
+}

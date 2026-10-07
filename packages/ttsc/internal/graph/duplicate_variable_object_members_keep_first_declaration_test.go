@@ -7,18 +7,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDuplicateVariableObjectMembersKeepFirstDeclaration verifies that a legal
-// repeated var declaration cannot attach its initializer to the first node.
-//
-// Variable symbols merge across declarations, while graph node identity keeps
-// the first declaration. Collecting object members after every add used to
-// combine the first declaration's span with the second declaration's members,
-// producing a node that never existed in the compiler snapshot.
+// TestDuplicateVariableObjectMembersKeepFirstDeclaration checks the first
+// object's member survives two authored var declarations of one name, both
+// in the built graph and in the dump. Declaration spans and complete semantic
+// diagnostic legality are not asserted by this entry.
 //
 //  1. Compile two var declarations with the same symbol and different objects.
-//  2. Assert the graph keeps the first declaration and its direct member.
+//  2. Assert the graph keeps exactly the first object's direct member.
 //  3. Dump the graph and assert the same member remains on the wire.
+//
+// @evidence contracts/testing.md#behavioral-verification Build must retain exactly the member first on the repeated variable node; NewDump must retain that one member with literal signature first: 1 rather than second. Node declaration spans and full Program semantic diagnostics are not checked.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over two var declarations of one symbol ({ first: 1 } then { second: 2 }): the built node must carry exactly one object member named first, and the dump node src/main.ts#duplicate:variable must carry exactly that member with signature first: 1.
+// @evidence contracts/testing.md#distinguishing-cases Two same-name declarations with different member literals distinguish preservation of the first member from overwrite or member union. Both in-memory member identity and dumped signature are asserted; single-declaration and other initializer forms are not owned here.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit writes a native project and loads/closes its compiler Program in-process, invoking Build, NewDump and SourceTexts directly. A restored empty linked-plugin manifest excludes ambient hooks. Node selection uses the actual Program filename and shared ID formatter, not an independent ID-grammar oracle; no consumer installation or product process runs.
 func TestDuplicateVariableObjectMembersKeepFirstDeclaration(t *testing.T) {
+  t.Setenv(driver.LinkedPluginsEnv, "")
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `export var duplicate = { first: 1 };

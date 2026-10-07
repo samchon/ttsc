@@ -6,11 +6,11 @@ import path from "node:path";
  *
  * The anchor exists for embedders that compile through a generated tsconfig
  * outside the project (the bundler adapters' alias overlay): they set
- * `pluginConfigDir` to the real project directory and every native plugin spawn
- * forwards it as `TTSC_PLUGIN_CONFIG_DIR`, so config-file discovery walks the
- * project instead of the wrapper's temp-dir ancestry. Callers that point at a
- * user-authored tsconfig (even a wrapper outside the project) leave it unset,
- * keeping discovery anchored at the tsconfig's own directory.
+ * `pluginConfigDir` to the real project directory. Build and transform
+ * environment composers use this result for `TTSC_PLUGIN_CONFIG_DIR`, with
+ * their own caller-environment precedence. This resolver does not inspect that
+ * environment or authenticate a config's physical ancestry. An absent anchor
+ * returns undefined for the consumer's ordinary discovery policy.
  *
  * @evidence contracts/common.md#principled-implementation Only an explicit nonempty config anchor overrides discovery ancestry; path.resolve interprets a relative anchor from the declared cwd or current process directory.
  * @evidence contracts/common.md#clear-and-simple-design One resolver serves generated-wrapper consumers while preserving undefined as the ordinary tsconfig-owned discovery policy.

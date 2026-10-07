@@ -22,6 +22,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One alias exposes the callback directly rather than a wrapper closure or parallel visitor interface.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Traversal callbacks use the supported upstream type without replacing compiler traversal methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies callback ownership and boolean interpretation, with separated prose and tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Visitor = innerast.Visitor
 
 // NodeFlags is the compiler's bitmask of node and declaration context. Use the
@@ -31,6 +35,10 @@ type Visitor = innerast.Visitor
 // @evidence contracts/common.md#clear-and-simple-design The alias exposes one canonical bitmask instead of a duplicate flag schema.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Flag values come from upstream definitions rather than guessed numbers or fixture-specific masks.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains named bits and enclosing declaration flags, with paragraph and tag separation following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NodeFlags = innerast.NodeFlags
 
 // ModifierFlags is the compiler's modifier bitmask. It represents computed
@@ -40,6 +48,10 @@ type NodeFlags = innerast.NodeFlags
 // @evidence contracts/common.md#clear-and-simple-design One canonical mask avoids a second modifier enum or conversion layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Modifier bits retain upstream identity rather than consumer-specific access or modifier guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes modifier facts from syntax lists, using separated prose and tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ModifierFlags = innerast.ModifierFlags
 
 // ---- Statement-shaped node types ----
@@ -51,6 +63,10 @@ type ModifierFlags = innerast.ModifierFlags
 // @evidence contracts/common.md#clear-and-simple-design The alias leaves statement-list representation with upstream rather than another block container.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Block structure is the actual compiler type, without synthetic fixture statements or foreign mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the braced-sequence role and no-copy ownership, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Block = innerast.Block
 
 // BreakStatement exposes a break node, including its optional target label.
@@ -61,6 +77,10 @@ type Block = innerast.Block
 // @evidence contracts/common.md#clear-and-simple-design Label and node state remain upstream-owned without another jump model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Break targets remain compiler syntax rather than guessed control-flow destinations.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains label optionality and the semantic-validation boundary, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type BreakStatement = innerast.BreakStatement
 
 // CaseBlock exposes the ordered case/default clauses of a switch body.
@@ -70,6 +90,10 @@ type BreakStatement = innerast.BreakStatement
 // @evidence contracts/common.md#clear-and-simple-design Clause-list ownership stays in the compiler case-block type without a duplicate switch index.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Clauses remain real syntax rather than precomputed matching-case results.
 // @evidence contracts/common.md#meaningful-documentation Native prose states ordering and shared node ownership, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type CaseBlock = innerast.CaseBlock
 
 // CaseOrDefaultClause is the compiler's shared switch-clause payload. Inspect
@@ -79,6 +103,10 @@ type CaseBlock = innerast.CaseBlock
 // @evidence contracts/common.md#clear-and-simple-design One shared clause type avoids parallel local case and default payloads.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The actual node kind determines clause form rather than a guessed expression-presence rule.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the required kind distinction, with separated prose and tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type CaseOrDefaultClause = innerast.CaseOrDefaultClause
 
 // CatchClause exposes a catch body and its optional exception binding.
@@ -88,6 +116,10 @@ type CaseOrDefaultClause = innerast.CaseOrDefaultClause
 // @evidence contracts/common.md#clear-and-simple-design The compiler catch payload owns binding and body without a second exception-handler structure.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Exception bindings remain compiler syntax rather than injected error values or foreign handler changes.
 // @evidence contracts/common.md#meaningful-documentation Native prose clarifies binding absence and body meaning, with paragraph separation under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type CatchClause = innerast.CatchClause
 
 // ContinueStatement exposes a continue node and optional label. The alias does
@@ -97,6 +129,10 @@ type CatchClause = innerast.CatchClause
 // @evidence contracts/common.md#clear-and-simple-design Target syntax stays with the compiler node without a separate local jump resolver.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Labels are supplied syntax rather than expected loop destinations or patched flow analysis.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes syntax exposure from target validation, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ContinueStatement = innerast.ContinueStatement
 
 // DebuggerStatement exposes the payload-free debugger statement form. Compiler
@@ -106,6 +142,10 @@ type ContinueStatement = innerast.ContinueStatement
 // @evidence contracts/common.md#clear-and-simple-design Upstream's marker node is exposed directly with no redundant local flag.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Debugger syntax is an existing compiler kind rather than a debugging-only production branch.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains operand absence and retained metadata, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type DebuggerStatement = innerast.DebuggerStatement
 
 // DoStatement exposes the do/while body and condition. Its syntax order differs
@@ -115,6 +155,10 @@ type DebuggerStatement = innerast.DebuggerStatement
 // @evidence contracts/common.md#clear-and-simple-design The compiler owns this loop form without a generalized local loop adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Loop syntax remains the dedicated upstream type rather than a guessed while-loop rewrite.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies body-before-condition syntax and the loop distinction, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type DoStatement = innerast.DoStatement
 
 // EmptyStatement exposes a standalone semicolon statement, which is distinct
@@ -124,6 +168,10 @@ type DoStatement = innerast.DoStatement
 // @evidence contracts/common.md#clear-and-simple-design One marker type expresses semicolon syntax without another emptiness flag.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The semicolon form is actual syntax rather than a manufactured no-op for known fixtures.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the absent-node and block distinctions, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type EmptyStatement = innerast.EmptyStatement
 
 // ExpressionStatement exposes an expression in statement position. The wrapper
@@ -133,6 +181,10 @@ type EmptyStatement = innerast.EmptyStatement
 // @evidence contracts/common.md#clear-and-simple-design The compiler wrapper owns statement metadata without another local expression container.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Statement position comes from real AST structure rather than a text-based fixture classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the statement wrapper's purpose, with paragraph and tag separation following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ExpressionStatement = innerast.ExpressionStatement
 
 // ForInOrOfStatement exposes the shared for-in/for-of payload. The node kind
@@ -142,6 +194,10 @@ type ExpressionStatement = innerast.ExpressionStatement
 // @evidence contracts/common.md#clear-and-simple-design The existing shared shape avoids duplicate local iteration-loop structures.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Iteration form uses the actual node kind rather than guessing from operand text.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the kind distinction and semantic boundary, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ForInOrOfStatement = innerast.ForInOrOfStatement
 
 // ForStatement exposes the classic for-loop initializer, condition, incrementor
@@ -151,6 +207,10 @@ type ForInOrOfStatement = innerast.ForInOrOfStatement
 // @evidence contracts/common.md#clear-and-simple-design The compiler loop node owns header/body structure without another local iteration abstraction.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Absent operands remain syntax facts rather than inserted fixture-specific conditions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains optional header roles and retained absence, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ForStatement = innerast.ForStatement
 
 // FunctionDeclaration exposes a declaration-form function with the compiler's
@@ -160,6 +220,10 @@ type ForStatement = innerast.ForStatement
 // @evidence contracts/common.md#clear-and-simple-design Signature state remains compiler-owned instead of duplicated in a local callable schema.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Function syntax is the actual upstream declaration rather than a consumer-specific callable stub.
 // @evidence contracts/common.md#meaningful-documentation Native prose states declaration form and optional bodies, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type FunctionDeclaration = innerast.FunctionDeclaration
 
 // IfStatement exposes condition and branch statements. The optional else
@@ -169,6 +233,10 @@ type FunctionDeclaration = innerast.FunctionDeclaration
 // @evidence contracts/common.md#clear-and-simple-design Branch ownership remains in the compiler node without a duplicate local decision tree.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Branches remain syntax inputs rather than precomputed outcomes for known conditions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains optional else versus empty syntax, following the documentation guidance's prose/tag separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type IfStatement = innerast.IfStatement
 
 // LabeledStatement exposes a label attached to a statement. This syntax payload
@@ -178,6 +246,10 @@ type IfStatement = innerast.IfStatement
 // @evidence contracts/common.md#clear-and-simple-design A single compiler node owns the label attachment rather than a separate local label registry.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Label attachment is AST structure rather than guessed textual jump resolution.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies attachment and its resolution boundary, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LabeledStatement = innerast.LabeledStatement
 
 // ModuleDeclaration exposes namespace or module declaration syntax. Its name,
@@ -187,6 +259,10 @@ type LabeledStatement = innerast.LabeledStatement
 // @evidence contracts/common.md#clear-and-simple-design The compiler owns name, body and flags without another local module model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Module names remain syntax rather than hardcoded package-resolution answers.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the declaration role and lack of path resolution, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ModuleDeclaration = innerast.ModuleDeclaration
 
 // ModuleBlock exposes the statements inside a module body. It remains distinct
@@ -196,6 +272,10 @@ type ModuleDeclaration = innerast.ModuleDeclaration
 // @evidence contracts/common.md#clear-and-simple-design The existing module-body node avoids a parallel local namespace statement container.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Module-body classification uses the compiler type rather than special package-name logic.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the Block distinction, with separated prose and tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ModuleBlock = innerast.ModuleBlock
 
 // ReturnStatement exposes an optional return expression. A nil expression is a
@@ -205,6 +285,10 @@ type ModuleBlock = innerast.ModuleBlock
 // @evidence contracts/common.md#clear-and-simple-design The compiler return node owns expression absence without a redundant local return-value flag.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Bare returns remain absent operands rather than invented expected values.
 // @evidence contracts/common.md#meaningful-documentation Native prose clarifies bare-return meaning, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ReturnStatement = innerast.ReturnStatement
 
 // SwitchStatement exposes the tested expression and its case block. Syntax
@@ -214,6 +298,10 @@ type ReturnStatement = innerast.ReturnStatement
 // @evidence contracts/common.md#clear-and-simple-design Case storage remains in CaseBlock rather than a duplicate local dispatch table.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Branch outcomes are not hardcoded from known switch examples.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the structural roles and evaluation boundary, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SwitchStatement = innerast.SwitchStatement
 
 // ThrowStatement exposes the expression to be thrown. The alias neither raises
@@ -223,6 +311,10 @@ type SwitchStatement = innerast.SwitchStatement
 // @evidence contracts/common.md#clear-and-simple-design The compiler node owns failure syntax without another local exception representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Thrown values remain real operands rather than injected fixture errors.
 // @evidence contracts/common.md#meaningful-documentation Native prose separates syntax exposure from runtime throwing, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ThrowStatement = innerast.ThrowStatement
 
 // TryStatement exposes the protected body and optional catch/finally parts.
@@ -232,6 +324,10 @@ type ThrowStatement = innerast.ThrowStatement
 // @evidence contracts/common.md#clear-and-simple-design Optional handlers stay with the compiler try node without another recovery-policy layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Handler structure is not replaced with compensating retries or expected exception paths.
 // @evidence contracts/common.md#meaningful-documentation Native prose names optional handlers and the execution boundary, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TryStatement = innerast.TryStatement
 
 // VariableDeclaration exposes one binding and its optional type/initializer.
@@ -242,6 +338,10 @@ type TryStatement = innerast.TryStatement
 // @evidence contracts/common.md#clear-and-simple-design The alias exposes one declaration while list-level keyword policy stays with the compiler tree.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Keyword classification uses actual enclosing flags rather than guessed binding text.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains optional operands and parent-owned keyword flags, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type VariableDeclaration = innerast.VariableDeclaration
 
 // VariableDeclarationList exposes ordered bindings and declaration-keyword
@@ -251,6 +351,10 @@ type VariableDeclaration = innerast.VariableDeclaration
 // @evidence contracts/common.md#clear-and-simple-design One compiler list owns shared keyword state instead of repeating it on every local binding.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Keyword flags retain upstream values rather than fixture-specific declaration categories.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains list ordering, keyword ownership and no-copy semantics, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type VariableDeclarationList = innerast.VariableDeclarationList
 
 // VariableStatement exposes a declaration list in statement position, including
@@ -260,6 +364,10 @@ type VariableDeclarationList = innerast.VariableDeclarationList
 // @evidence contracts/common.md#clear-and-simple-design The compiler wrapper owns statement modifiers while the list owns bindings and keyword state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Statement context follows AST structure rather than a special-case source-text match.
 // @evidence contracts/common.md#meaningful-documentation Native prose contrasts statement and loop-header usage, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type VariableStatement = innerast.VariableStatement
 
 // WhileStatement exposes a condition followed by a loop body. The alias keeps
@@ -269,6 +377,10 @@ type VariableStatement = innerast.VariableStatement
 // @evidence contracts/common.md#clear-and-simple-design The dedicated compiler form avoids a local generalized loop representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Loop classification uses real syntax rather than a compensating do/while conversion.
 // @evidence contracts/common.md#meaningful-documentation Native prose states condition-first meaning and the do/while distinction, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type WhileStatement = innerast.WhileStatement
 
 // WithStatement exposes an object expression and its nested statement. This
@@ -278,6 +390,10 @@ type WhileStatement = innerast.WhileStatement
 // @evidence contracts/common.md#clear-and-simple-design Object and body remain compiler payloads rather than another local scope adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign scope or property lookup is patched to simulate the construct.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes syntax representation from runtime lookup, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type WithStatement = innerast.WithStatement
 
 // ---- Class / module / enum shapes ----
@@ -289,6 +405,10 @@ type WithStatement = innerast.WithStatement
 // @evidence contracts/common.md#clear-and-simple-design Class members remain in the compiler representation without a duplicate local class schema.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The shim exposes real class nodes rather than consumer-specific class substitutes.
 // @evidence contracts/common.md#meaningful-documentation Native prose states declaration form and member ownership, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ClassDeclaration = innerast.ClassDeclaration
 
 // ClassExpression exposes a class used as an expression, including an optional
@@ -298,6 +418,10 @@ type ClassDeclaration = innerast.ClassDeclaration
 // @evidence contracts/common.md#clear-and-simple-design Expression identity stays in the compiler type without a second class-form switch.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Class form follows actual AST identity rather than guessed naming conventions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains expression form and optional naming, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ClassExpression = innerast.ClassExpression
 
 // ClassStaticBlockDeclaration exposes a class's static initialization block.
@@ -307,6 +431,10 @@ type ClassExpression = innerast.ClassExpression
 // @evidence contracts/common.md#clear-and-simple-design The dedicated compiler member owns initialization syntax without a local lifecycle abstraction.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Static bodies remain real AST data rather than injected initialization hooks.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies static initialization and the execution boundary, using separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ClassStaticBlockDeclaration = innerast.ClassStaticBlockDeclaration
 
 // ConstructorDeclaration exposes constructor parameters and optional body.
@@ -316,6 +444,10 @@ type ClassStaticBlockDeclaration = innerast.ClassStaticBlockDeclaration
 // @evidence contracts/common.md#clear-and-simple-design Constructor state remains with the compiler declaration without a local callable wrapper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No known-class constructor or synthetic implementation substitutes for the upstream node.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains parameters and body absence, with paragraph separation following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ConstructorDeclaration = innerast.ConstructorDeclaration
 
 // EnumDeclaration exposes named enum syntax and its member sequence. The alias
@@ -325,6 +457,10 @@ type ConstructorDeclaration = innerast.ConstructorDeclaration
 // @evidence contracts/common.md#clear-and-simple-design Members stay in the canonical compiler declaration rather than a duplicate value table.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Enum values are not replaced with precomputed fixture answers.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes syntax from value evaluation and emission, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type EnumDeclaration = innerast.EnumDeclaration
 
 // EnumMember exposes an enum member name and optional initializer. An absent
@@ -334,6 +470,10 @@ type EnumDeclaration = innerast.EnumDeclaration
 // @evidence contracts/common.md#clear-and-simple-design The member node owns syntax without a second inferred-value representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing initializers are not filled with guessed enum values.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the computed-value boundary, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type EnumMember = innerast.EnumMember
 
 // GetAccessorDeclaration exposes getter syntax with the compiler's signature
@@ -343,6 +483,10 @@ type EnumMember = innerast.EnumMember
 // @evidence contracts/common.md#clear-and-simple-design Getter structure stays compiler-owned rather than a generic local property adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign getter is replaced to expose this syntax type.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the getter role and execution boundary, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type GetAccessorDeclaration = innerast.GetAccessorDeclaration
 
 // SetAccessorDeclaration exposes setter syntax and its parameter/body data.
@@ -352,6 +496,10 @@ type GetAccessorDeclaration = innerast.GetAccessorDeclaration
 // @evidence contracts/common.md#clear-and-simple-design Setter syntax remains in its canonical type without a duplicate assignment mechanism.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign setter replacement is used to expose setter nodes.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes declaration access from property writes, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SetAccessorDeclaration = innerast.SetAccessorDeclaration
 
 // HeritageClause exposes an extends or implements clause. Inspect its token to
@@ -361,6 +509,10 @@ type SetAccessorDeclaration = innerast.SetAccessorDeclaration
 // @evidence contracts/common.md#clear-and-simple-design One compiler clause owns both forms without parallel local inheritance records.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Clause meaning follows its actual token rather than a guessed target-name rule.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the token distinction and semantic boundary, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type HeritageClause = innerast.HeritageClause
 
 // PropertyDeclaration exposes class property syntax, including optional type
@@ -370,6 +522,10 @@ type HeritageClause = innerast.HeritageClause
 // @evidence contracts/common.md#clear-and-simple-design Class-member syntax remains in the compiler declaration without a duplicate property schema.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Properties are real declaration nodes rather than known-object fixture fields.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains class-member role and the assignment distinction, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type PropertyDeclaration = innerast.PropertyDeclaration
 
 // ---- Module syntax ----
@@ -381,6 +537,10 @@ type PropertyDeclaration = innerast.PropertyDeclaration
 // @evidence contracts/common.md#clear-and-simple-design Import syntax remains compiler-owned without another local loader model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Module operands are real AST inputs rather than hardcoded resolution answers.
 // @evidence contracts/common.md#meaningful-documentation Native prose names side-effect-only imports and the resolution boundary, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ImportDeclaration = innerast.ImportDeclaration
 
 // ImportSpecifier exposes one named import and any original/local name
@@ -390,6 +550,10 @@ type ImportDeclaration = innerast.ImportDeclaration
 // @evidence contracts/common.md#clear-and-simple-design One specifier owns binding syntax without a duplicate local import map.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Binding names are actual syntax rather than consumer-specific alias rewrites.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains original/local naming and type-only state, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ImportSpecifier = innerast.ImportSpecifier
 
 // ImportEqualsDeclaration exposes an import-equals binding and its module
@@ -399,6 +563,10 @@ type ImportSpecifier = innerast.ImportSpecifier
 // @evidence contracts/common.md#clear-and-simple-design The compiler declaration owns reference syntax without a separate local require adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No module-name special case converts the upstream reference payload.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies reference-form distinctions, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ImportEqualsDeclaration = innerast.ImportEqualsDeclaration
 
 // ExternalModuleReference exposes the require-style reference operand used by
@@ -408,6 +576,10 @@ type ImportEqualsDeclaration = innerast.ImportEqualsDeclaration
 // @evidence contracts/common.md#clear-and-simple-design The compiler owns the reference boundary without another local module loader.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts External references are not guessed paths or patched require handlers.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes syntax from loading and resolution, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ExternalModuleReference = innerast.ExternalModuleReference
 
 // NamedImports exposes the ordered named-binding list of an import clause.
@@ -417,6 +589,10 @@ type ExternalModuleReference = innerast.ExternalModuleReference
 // @evidence contracts/common.md#clear-and-simple-design One canonical list avoids a duplicate binding collection or name index.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Specifier order is retained rather than normalized for known fixtures.
 // @evidence contracts/common.md#meaningful-documentation Native prose states ordering and no-copy semantics, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NamedImports = innerast.NamedImports
 
 // NamespaceImport exposes the local name of an import namespace binding.
@@ -426,6 +602,10 @@ type NamedImports = innerast.NamedImports
 // @evidence contracts/common.md#clear-and-simple-design Namespace binding syntax remains in one compiler node without a local module-object wrapper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Namespace names are supplied syntax rather than fabricated module objects.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies local binding and runtime boundary, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NamespaceImport = innerast.NamespaceImport
 
 // ExportDeclaration exposes export-clause and optional module syntax. Star and
@@ -435,6 +615,10 @@ type NamespaceImport = innerast.NamespaceImport
 // @evidence contracts/common.md#clear-and-simple-design The compiler clause owns export structure without another local export registry.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Export targets are not replaced by consumer-specific public-name guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose states form distinctions and unresolved targets, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ExportDeclaration = innerast.ExportDeclaration
 
 // ExportSpecifier exposes one named export and any local/exported-name
@@ -444,6 +628,10 @@ type ExportDeclaration = innerast.ExportDeclaration
 // @evidence contracts/common.md#clear-and-simple-design One specifier owns its names without a duplicate local export mapping.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Public names remain actual syntax rather than hardcoded downstream exports.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains naming and type-only state, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ExportSpecifier = innerast.ExportSpecifier
 
 // ExportAssignment exposes an export-equals or default-export expression.
@@ -453,6 +641,10 @@ type ExportSpecifier = innerast.ExportSpecifier
 // @evidence contracts/common.md#clear-and-simple-design The shared compiler node owns both forms without another local export switch.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Assignment form uses upstream state rather than consumer-specific module conventions.
 // @evidence contracts/common.md#meaningful-documentation Native prose names export-equals/default distinctions, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ExportAssignment = innerast.ExportAssignment
 
 // ImportTypeNode exposes import-based type syntax, including qualifier and
@@ -462,6 +654,10 @@ type ExportAssignment = innerast.ExportAssignment
 // @evidence contracts/common.md#clear-and-simple-design Type-import structure stays in the compiler type rather than a parallel module-resolution model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Import types are actual syntax, not precomputed module types or patched loaders.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains type syntax versus execution, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ImportTypeNode = innerast.ImportTypeNode
 
 // ---- Binding patterns ----
@@ -473,6 +669,10 @@ type ImportTypeNode = innerast.ImportTypeNode
 // @evidence contracts/common.md#clear-and-simple-design One element owns binding syntax without a second flattened local binding map.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Destructuring is actual AST structure rather than guessed property-name substitution.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies optional operands and pattern ownership, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type BindingElement = innerast.BindingElement
 
 // BindingPattern exposes the shared array/object destructuring shape. Inspect
@@ -482,6 +682,10 @@ type BindingElement = innerast.BindingElement
 // @evidence contracts/common.md#clear-and-simple-design The compiler shared shape avoids separate local array/object binding containers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Pattern form comes from the actual kind rather than fixture-specific naming rules.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the required array/object kind distinction, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type BindingPattern = innerast.BindingPattern
 
 // ---- Expressions ----
@@ -493,6 +697,10 @@ type BindingPattern = innerast.BindingPattern
 // @evidence contracts/common.md#clear-and-simple-design The canonical element list avoids a duplicate local array-value model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Array elements remain syntax rather than precomputed fixture arrays.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains ordering, holes and evaluation boundaries, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ArrayLiteralExpression = innerast.ArrayLiteralExpression
 
 // ArrowFunction exposes arrow syntax with its parameters and expression or
@@ -502,6 +710,10 @@ type ArrayLiteralExpression = innerast.ArrayLiteralExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler callable node owns body and signature without a local function conversion.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Arrow bodies are real syntax rather than rewritten known callbacks.
 // @evidence contracts/common.md#meaningful-documentation Native prose names both body forms, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ArrowFunction = innerast.ArrowFunction
 
 // AsExpression exposes the operand and type of an `as` assertion. This syntax
@@ -511,6 +723,10 @@ type ArrowFunction = innerast.ArrowFunction
 // @evidence contracts/common.md#clear-and-simple-design The existing assertion node avoids another local cast representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed type result or foreign checker override implements the alias.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes assertion syntax from conversion and checking, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type AsExpression = innerast.AsExpression
 
 // AwaitExpression exposes an awaited operand. Its presence records syntax,
@@ -520,6 +736,10 @@ type AsExpression = innerast.AsExpression
 // @evidence contracts/common.md#clear-and-simple-design Await syntax stays in the compiler expression without another coroutine wrapper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The alias introduces no retry or patched scheduling behavior.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the syntax and async-validation boundary, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type AwaitExpression = innerast.AwaitExpression
 
 // BinaryExpression exposes left/right operands and the operator token. The
@@ -529,6 +749,10 @@ type AwaitExpression = innerast.AwaitExpression
 // @evidence contracts/common.md#clear-and-simple-design One compiler binary node owns syntax without a local operation dispatch table.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Operators are actual AST tokens rather than fixture-specific computed answers.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains operator ownership and evaluation boundaries, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type BinaryExpression = innerast.BinaryExpression
 
 // ConditionalExpression exposes condition, true operand and false operand.
@@ -538,6 +762,10 @@ type BinaryExpression = innerast.BinaryExpression
 // @evidence contracts/common.md#clear-and-simple-design Three expression roles stay in the compiler node without a parallel local decision structure.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Conditional results are not substituted for known conditions.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies expression/statement/result distinctions, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ConditionalExpression = innerast.ConditionalExpression
 
 // DeleteExpression exposes deletion syntax and its operand. Aliasing this node
@@ -547,6 +775,10 @@ type ConditionalExpression = innerast.ConditionalExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler unary node owns syntax without another property-mutation layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No foreign property or deletion method is changed by the alias.
 // @evidence contracts/common.md#meaningful-documentation Native prose states execution and permission boundaries, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type DeleteExpression = innerast.DeleteExpression
 
 // ElementAccessExpression exposes a receiver and bracketed index expression.
@@ -556,6 +788,10 @@ type DeleteExpression = innerast.DeleteExpression
 // @evidence contracts/common.md#clear-and-simple-design Bracket access remains a dedicated compiler expression without a local lookup wrapper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Indices are actual syntax rather than hardcoded property results.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies bracket operands and optional-chain ownership, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ElementAccessExpression = innerast.ElementAccessExpression
 
 // FunctionExpression exposes expression-form functions and optional naming.
@@ -565,6 +801,10 @@ type ElementAccessExpression = innerast.ElementAccessExpression
 // @evidence contracts/common.md#clear-and-simple-design The canonical compiler callable avoids a second local function container.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No expected callback implementation substitutes for the compiler expression.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains expression form and compiler ownership, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type FunctionExpression = innerast.FunctionExpression
 
 // NewExpression exposes a constructor operand, generic arguments and optional
@@ -574,6 +814,10 @@ type FunctionExpression = innerast.FunctionExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler new-expression type owns constructor syntax without a local object factory.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Constructor operands remain syntax rather than known-class object substitutes.
 // @evidence contracts/common.md#meaningful-documentation Native prose clarifies argument-list absence, with separated tags following the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NewExpression = innerast.NewExpression
 
 // NonNullExpression exposes the postfix non-null assertion operand. The alias
@@ -583,6 +827,10 @@ type NewExpression = innerast.NewExpression
 // @evidence contracts/common.md#clear-and-simple-design The dedicated compiler assertion avoids another local nullability flag.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed successful null check replaces the actual operand.
 // @evidence contracts/common.md#meaningful-documentation Native prose separates syntax from runtime null guarantees, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NonNullExpression = innerast.NonNullExpression
 
 // ObjectLiteralExpression exposes ordered property/method members. The alias
@@ -592,6 +840,10 @@ type NonNullExpression = innerast.NonNullExpression
 // @evidence contracts/common.md#clear-and-simple-design The canonical syntax collection avoids a duplicate local object representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Members remain real AST inputs rather than known-fixture object shapes.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains ordering and runtime boundaries, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ObjectLiteralExpression = innerast.ObjectLiteralExpression
 
 // ParenthesizedExpression exposes an explicit grouping wrapper. Keeping the
@@ -601,6 +853,10 @@ type ObjectLiteralExpression = innerast.ObjectLiteralExpression
 // @evidence contracts/common.md#clear-and-simple-design Grouping stays in the compiler wrapper without a duplicate precedence model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Parentheses are actual syntax rather than fixture-specific formatting compensation.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why explicit grouping remains represented, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ParenthesizedExpression = innerast.ParenthesizedExpression
 
 // PostfixUnaryExpression exposes a postfix increment/decrement operand and
@@ -610,6 +866,10 @@ type ParenthesizedExpression = innerast.ParenthesizedExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler postfix form avoids a local placement switch or mutation adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Operators are syntax tokens rather than injected known-value updates.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes postfix form from execution, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type PostfixUnaryExpression = innerast.PostfixUnaryExpression
 
 // PropertyAccessExpression exposes a receiver and dotted member name. Optional
@@ -619,6 +879,10 @@ type PostfixUnaryExpression = innerast.PostfixUnaryExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler access node owns member syntax without another local property lookup.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Member names are real operands rather than hardcoded foreign property values.
 // @evidence contracts/common.md#meaningful-documentation Native prose states dotted access and unresolved-value meaning, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type PropertyAccessExpression = innerast.PropertyAccessExpression
 
 // PropertyAssignment exposes a named object-literal member and initializer.
@@ -628,6 +892,10 @@ type PropertyAccessExpression = innerast.PropertyAccessExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler assignment form avoids a duplicate generic property container.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Object members remain actual syntax rather than known-shape substitutions.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies declaration and shorthand distinctions, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type PropertyAssignment = innerast.PropertyAssignment
 
 // ShorthandPropertyAssignment exposes a binding-name shorthand in an object
@@ -637,6 +905,10 @@ type PropertyAssignment = innerast.PropertyAssignment
 // @evidence contracts/common.md#clear-and-simple-design The dedicated compiler shorthand type avoids flattening syntax into another member model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Binding values are not guessed from known variable names.
 // @evidence contracts/common.md#meaningful-documentation Native prose states shorthand and initializer roles, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ShorthandPropertyAssignment = innerast.ShorthandPropertyAssignment
 
 // SpreadAssignment exposes an object-literal spread operand. It is distinct
@@ -646,6 +918,10 @@ type ShorthandPropertyAssignment = innerast.ShorthandPropertyAssignment
 // @evidence contracts/common.md#clear-and-simple-design Object-member context stays in the compiler type without another spread-context option.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No known-object property expansion replaces the supplied syntax.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the SpreadElement context distinction, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SpreadAssignment = innerast.SpreadAssignment
 
 // SpreadElement exposes a spread operand in arrays or argument lists. The alias
@@ -655,6 +931,10 @@ type SpreadAssignment = innerast.SpreadAssignment
 // @evidence contracts/common.md#clear-and-simple-design The canonical element wrapper avoids a local iterable-expansion layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Spread results are not precomputed for known iterable fixtures.
 // @evidence contracts/common.md#meaningful-documentation Native prose names element contexts and the evaluation boundary, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SpreadElement = innerast.SpreadElement
 
 // TaggedTemplateExpression exposes a tag expression and its template operand.
@@ -664,6 +944,10 @@ type SpreadElement = innerast.SpreadElement
 // @evidence contracts/common.md#clear-and-simple-design The compiler template-call form avoids another local interpolation adapter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No known-tag result or patched template function replaces the AST.
 // @evidence contracts/common.md#meaningful-documentation Native prose states tag ownership and evaluation boundaries, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TaggedTemplateExpression = innerast.TaggedTemplateExpression
 
 // TemplateExpression exposes a template head and ordered substitution spans.
@@ -673,6 +957,10 @@ type TaggedTemplateExpression = innerast.TaggedTemplateExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler sequence owns template structure rather than a duplicate flattened string.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Interpolated values are not replaced by fixture-specific completed text.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains separated literals and substitutions, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TemplateExpression = innerast.TemplateExpression
 
 // TemplateSpan exposes a substitution expression and the literal segment that
@@ -682,6 +970,10 @@ type TemplateExpression = innerast.TemplateExpression
 // @evidence contracts/common.md#clear-and-simple-design One compiler span owns the pair without another interpolation-state object.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Literal segments remain actual syntax rather than guessed rendered substitutions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains which literal follows each expression, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TemplateSpan = innerast.TemplateSpan
 
 // TypeAssertion exposes angle-bracket assertion syntax and its type/operand.
@@ -691,6 +983,10 @@ type TemplateSpan = innerast.TemplateSpan
 // @evidence contracts/common.md#clear-and-simple-design The dedicated compiler form avoids another local cast representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed cast result or foreign checker patch supplies assertion semantics.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies form and runtime-conversion boundaries, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeAssertion = innerast.TypeAssertion
 
 // TypeOperatorNode exposes a type operator and its operand. Inspect the operator
@@ -700,6 +996,10 @@ type TypeAssertion = innerast.TypeAssertion
 // @evidence contracts/common.md#clear-and-simple-design The shared compiler type operator avoids parallel local per-operator schemas.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Operator meaning comes from actual tokens rather than name-based type guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose names token-dependent distinctions, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeOperatorNode = innerast.TypeOperatorNode
 
 // TypeOfExpression exposes the runtime typeof operator's operand. It is distinct
@@ -709,6 +1009,10 @@ type TypeOperatorNode = innerast.TypeOperatorNode
 // @evidence contracts/common.md#clear-and-simple-design The compiler unary node owns runtime syntax without another local type-inference layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No expected typeof result substitutes for the compiler operand.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains runtime/type-query distinctions, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeOfExpression = innerast.TypeOfExpression
 
 // VoidExpression exposes the void operator and its operand. The alias records
@@ -718,6 +1022,10 @@ type TypeOfExpression = innerast.TypeOfExpression
 // @evidence contracts/common.md#clear-and-simple-design The compiler unary type avoids another local discard-operation abstraction.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No fabricated undefined value replaces the actual syntax operand.
 // @evidence contracts/common.md#meaningful-documentation Native prose states evaluation and value boundaries, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type VoidExpression = innerast.VoidExpression
 
 // YieldExpression exposes an optional yielded operand and delegation marker.
@@ -727,6 +1035,10 @@ type VoidExpression = innerast.VoidExpression
 // @evidence contracts/common.md#clear-and-simple-design The canonical yield node owns both forms without another local generator protocol.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Generator results are not substituted for known yielded fixtures.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies bare and delegated yield forms, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type YieldExpression = innerast.YieldExpression
 
 // RegularExpressionLiteral exposes regexp literal syntax as held by the
@@ -736,6 +1048,10 @@ type YieldExpression = innerast.YieldExpression
 // @evidence contracts/common.md#clear-and-simple-design Literal storage stays compiler-owned instead of another local regexp engine.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No known-input match result or foreign regexp override supplies this syntax type.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes syntax exposure from regexp compilation, with separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type RegularExpressionLiteral = innerast.RegularExpressionLiteral
 
 // SatisfiesExpression exposes an expression and its satisfaction target type.
@@ -745,6 +1061,10 @@ type RegularExpressionLiteral = innerast.RegularExpressionLiteral
 // @evidence contracts/common.md#clear-and-simple-design The compiler expression owns the annotation boundary without a duplicate assignability result.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No fabricated successful check replaces the actual expression and target nodes.
 // @evidence contracts/common.md#meaningful-documentation Native prose states checking and coercion boundaries, following the documentation guidance's paragraph separation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SatisfiesExpression = innerast.SatisfiesExpression
 
 // ---- Comment directives (banTsComment) ----
@@ -757,6 +1077,10 @@ type SatisfiesExpression = innerast.SatisfiesExpression
 // @evidence contracts/common.md#clear-and-simple-design One compiler record associates directive classification with its location without a second suppression model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Directive metadata is exposed unchanged rather than translated into rule-specific expected diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes recognized metadata from successful suppression, with acknowledgment tags separated as the documentation skill requires.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type CommentDirective = innerast.CommentDirective
 
 // CommentDirectiveKind identifies the compiler's suppression directive
@@ -767,6 +1091,10 @@ type CommentDirective = innerast.CommentDirective
 // @evidence contracts/common.md#clear-and-simple-design The compiler category is shared directly instead of maintained as a separate shim enum.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Directive constants derive from the pinned compiler rather than guessed numeric encodings.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the category's association and constant provenance; a blank comment line separates the tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type CommentDirectiveKind = innerast.CommentDirectiveKind
 
 // ---- Source file parse options ----
@@ -779,6 +1107,10 @@ type CommentDirectiveKind = innerast.CommentDirectiveKind
 // @evidence contracts/common.md#clear-and-simple-design Parsing configuration stays in the compiler's single options record without a shim-specific conversion layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The alias adds no platform-specific path rewrite or filename-based fixture exception.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes configuration purpose and the path-normalization boundary, with the documentation skill's separated acknowledgment block.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SourceFileParseOptions = innerast.SourceFileParseOptions
 
 // ExternalModuleIndicatorOptions configures additional external-module
@@ -790,6 +1122,10 @@ type SourceFileParseOptions = innerast.SourceFileParseOptions
 // @evidence contracts/common.md#clear-and-simple-design Two independent detection choices remain the compiler's two fields rather than a shim policy engine.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Module detection is configured through upstream options without replacing foreign classification or singling out consumers.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains each option and declaration-file eligibility, followed by a separate tag block using the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ExternalModuleIndicatorOptions = innerast.ExternalModuleIndicatorOptions
 
 // ---- Node-flag constants ----
@@ -993,18 +1329,27 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design One forwarding call exposes the compiler's combined flags without duplicating declaration traversal in lint consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The helper uses the pinned compiler implementation without synthetic parent repair or consumer-specific flag overrides.
 // @evidence contracts/common.md#meaningful-documentation Native prose states non-nil input and parent-link requirements; the tag block follows a blank comment line under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetCombinedNodeFlags acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim selects no independent traversal strategy. Upstream walks H enclosing binding elements, then combines at most three declaration/list/statement flag values; the call costs O(H) and creates no traversal collection.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding call coordinates no cache or in-flight work; compiler-tree owners determine when node flags and parent links may be reused.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetCombinedNodeFlags computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetCombinedNodeFlags(node *Node) NodeFlags {
   return innerast.GetCombinedNodeFlags(node)
 }
 
 // IsConstAssertion recognizes an `as const` or `<const>` assertion by its
-// syntax. Pass a non-nil compiler node; recognition does not validate whether
-// the asserted expression is permitted in a const assertion.
+// syntax. Pass a nonnil node with valid compiler kind/payload data, including a
+// type for assertion nodes. Recognition does not validate whether the asserted
+// expression is permitted in a const assertion.
 //
 // @evidence contracts/common.md#principled-implementation Upstream classification requires an assertion expression whose type is a const reference without type arguments, preserving syntactic recognition rather than asserting semantic validity.
 // @evidence contracts/common.md#clear-and-simple-design A single forwarding predicate keeps const-assertion syntax classification with the compiler that owns it.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler node classification replaces textual matching and supplies no fixture-specific or semantic-validation bypass.
 // @evidence contracts/common.md#meaningful-documentation Native prose states syntax-only recognition and the non-nil input condition, with prose and tags separated following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsConstAssertion acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent assertion classifier. Upstream checks fixed kinds, type-argument count and an identifier against the fixed four-byte text const, costing O(1) time and space without traversing the asserted expression.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This syntax forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish whether the inspected payload remains valid.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsConstAssertion computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsConstAssertion(node *Node) bool { return innerast.IsConstAssertion(node) }
 
 // IsPartOfTypeNode applies the compiler's context-sensitive type-node
@@ -1016,6 +1361,10 @@ func IsConstAssertion(node *Node) bool { return innerast.IsConstAssertion(node) 
 // @evidence contracts/common.md#clear-and-simple-design A forwarding predicate centralizes context classification without a separate recursive shim ancestry rule.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper retains compiler position semantics rather than broadening recognition to silence rule reports.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies parent-link requirements and important classification boundaries, using a separated tag block as the documentation skill requires.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsPartOfTypeNode acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The shim chooses no independent type-context classifier. Upstream uses fixed nearby kind/payload checks, except call/new/tagged-template parents can scan A type arguments for pointer membership in O(A) time and O(1) temporary space; no recursive ancestor search is performed.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This forwarding predicate owns no cache or in-flight coordination; compiler-tree owners establish validity of parent positions and type-argument membership.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsPartOfTypeNode computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsPartOfTypeNode(node *Node) bool { return innerast.IsPartOfTypeNode(node) }
 
 // IsLet reports whether a declaration's combined flags contain the let bit.
@@ -1026,6 +1375,10 @@ func IsPartOfTypeNode(node *Node) bool { return innerast.IsPartOfTypeNode(node) 
 // @evidence contracts/common.md#clear-and-simple-design The helper expresses one declaration-keyword predicate through the shared flag combiner and one mask.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The mask is the upstream Let constant, with no name-based declaration exception or compensating flag mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states input provenance and the using distinction, followed by separated tags under the documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsLet acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidence contracts/performance.md#efficient-algorithms One Let-bit test follows the shared combined-flags helper. Its upstream root search follows H binding parents and then reads at most three declaration/list/statement flag values, costing O(H) time and O(1) temporary space without collecting ancestors.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This mask query owns no completed-result cache or in-flight coordination; compiler-tree owners determine whether declaration flags and parent links remain valid across calls.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsLet computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsLet(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsLet != 0 }
 
 // IsConst reports whether a declaration's combined flags contain the const
@@ -1037,6 +1390,10 @@ func IsLet(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsLet != 
 // @evidence contracts/common.md#clear-and-simple-design One mask answers the existing const-bit question without introducing a competing resource-declaration classifier.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The helper reads the upstream Const bit without widening its result through consumer-specific exceptions or altered foreign flags.
 // @evidence contracts/common.md#meaningful-documentation Native prose makes the const-bit versus immutable-declaration distinction explicit and states tree requirements, with a separate tag block following documentation guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsConst acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidence contracts/performance.md#efficient-algorithms One Const-bit test follows the shared combined-flags helper. Its upstream root search follows H binding parents and then reads at most three declaration/list/statement flag values, costing O(H) time and O(1) temporary space without collecting ancestors.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This mask query owns no completed-result cache or in-flight coordination; compiler-tree owners determine whether declaration flags and parent links remain valid across calls.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsConst computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsConst(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsConst != 0 }
 
 // IsVar recognizes a var declaration by absence of combined block-scoped
@@ -1048,4 +1405,8 @@ func IsConst(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsConst
 // @evidence contracts/common.md#clear-and-simple-design A single complement-mask test shares parent traversal with the other declaration predicates.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler BlockScoped mask covers resource declarations without invented keyword strings or fixture-specific fallback classification.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the variable-declaration precondition and why unrelated unflagged nodes are unsuitable, followed by tags separated under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsVar acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidence contracts/performance.md#efficient-algorithms One BlockScoped-mask test follows the shared combined-flags helper. Its upstream root search follows H binding parents and then reads at most three declaration/list/statement flag values, costing O(H) time and O(1) temporary space without collecting ancestors.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This mask query owns no completed-result cache or in-flight coordination; compiler-tree owners establish whether variable flags and parent links remain valid across calls.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsVar computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsVar(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsBlockScoped == 0 }

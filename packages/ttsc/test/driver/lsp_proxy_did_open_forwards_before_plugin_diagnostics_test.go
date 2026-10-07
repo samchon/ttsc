@@ -8,20 +8,27 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDidOpenForwardsBeforePluginDiagnostics verifies document-open
-// notifications are not blocked by slow plugin diagnostics.
+// TestLSPProxyDidOpenForwardsBeforePluginDiagnostics Verifies that didOpen reaches upstream while its diagnostics callback remains blocked.
 //
-// Sidecar-backed diagnostics can take seconds on a cold cache. The proxy must
-// forward `didOpen` to tsgo immediately so hover/completion and TypeScript
-// diagnostics are not delayed by the plugin pipeline.
+// The 200-millisecond observation detects notification blocking, without checking plugin publication completion.
 //
 // 1. Configure a source whose Diagnostics blocks.
 // 2. Send `textDocument/didOpen` from the editor.
 // 3. Assert upstream receives the notification within a short window.
+//
+// @evidence contracts/testing.md#behavioral-verification didOpen reaches upstream while its diagnostics callback remains blocked.
+// @evidence contracts/testing.md#independent-expectations The authored notification must be forwarded before the channel-blocked callback can finish.
+// @evidence contracts/testing.md#distinguishing-cases The 200-millisecond observation detects notification blocking, without checking plugin publication completion.
+// @evidence contracts/testing.md#execution-ownership A channel-controlled Go source and io.Pipe proxy execute the ordering case; deferred release unblocks cleanup. Go discovers TestLSPProxyDidOpenForwardsBeforePluginDiagnostics under ./test/driver.
 func TestLSPProxyDidOpenForwardsBeforePluginDiagnostics(t *testing.T) {
   release := make(chan struct{})
+  started := make(chan struct{}, 1)
   source := &stubSource{
     diagnosticsFor: func(driver.LSPDocumentVersion) []driver.LSPDiagnostic {
+      select {
+      case started <- struct{}{}:
+      default:
+      }
       <-release
       return []driver.LSPDiagnostic{{Message: "plugin"}}
     },
@@ -52,5 +59,10 @@ func TestLSPProxyDidOpenForwardsBeforePluginDiagnostics(t *testing.T) {
     }
   case <-time.After(200 * time.Millisecond):
     t.Fatal("didOpen was blocked by plugin diagnostics")
+  }
+  select {
+  case <-started:
+  case <-time.After(2 * time.Second):
+    t.Fatal("diagnostics callback did not enter the unreleased boundary")
   }
 }

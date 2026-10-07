@@ -33,15 +33,14 @@ import type { WithStatement } from "./WithStatement";
 /**
  * The supported statement forms, including explicit non-emitted placeholders.
  *
- * This union represents printable syntax data. It does not determine whether
- * a statement is legal at a particular program or control-flow position.
+ * This union represents printable syntax data. It does not determine whether a
+ * statement is legal at a particular program or control-flow position.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The union admits supported control-flow, declaration, module and non-emitted statement forms; membership is distinct from contextual or semantic validity.
  * @evidence contracts/common.md#clear-and-simple-design One shared statement alias owns variants reused by bodies and source files; each concrete variant owns its fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Alternatives are syntax categories; non-emission is an explicit placeholder rather than an ad hoc fixture deletion.
  * @evidence contracts/common.md#meaningful-documentation JSDoc states placeholder support and contextual-validation limits in separate paragraphs following the documentation skill.
- *
- * @author Jeongho Nam - https://github.com/samchon
  */
 export type Statement =
   | Block

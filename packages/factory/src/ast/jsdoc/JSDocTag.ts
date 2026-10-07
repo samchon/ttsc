@@ -30,11 +30,11 @@ import type { JSDocUnknownTag } from "./JSDocUnknownTag";
  * Recognized tags retain their structured payloads. JSDocUnknownTag carries an
  * arbitrary tag name and description without resolving that name's meaning.
  *
+ * @author Jeongho Nam - https://github.com/samchon
  * @evidence contracts/common.md#principled-implementation The discriminated union preserves each supported block tag's required payload and includes an explicit unknown-tag form; membership does not establish the tag's semantic validity.
  * @evidence contracts/common.md#clear-and-simple-design Concrete tag types own their individual fields, while this union provides one shared boundary for ordered tag collections.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Arbitrary tag names use the public unknown-tag representation rather than consumer-specific additions or patched printer behavior.
  * @evidence contracts/common.md#meaningful-documentation The native prose describes structured and unknown tags and the lack of name resolution, with one explanatory paragraph before tags under the documentation guidance.
- * @author Jeongho Nam - https://github.com/samchon
  */
 export type JSDocTag =
   | JSDocAugmentsTag

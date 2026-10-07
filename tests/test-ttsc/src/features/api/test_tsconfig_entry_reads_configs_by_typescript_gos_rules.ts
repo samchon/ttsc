@@ -1,12 +1,14 @@
-import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   isRelativePluginSpecifier,
   parseJsonc,
   resolveTsconfigExtends,
   tsconfigExtendsFileCandidates,
-} from "ttsc/tsconfig";
-
-import { assert, fs, path } from "../../internal/compiler";
+} from "../../../../../packages/ttsc/src/internal/tsconfig";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies the `ttsc/tsconfig` entry reads a config the way TypeScript-Go does:
@@ -25,6 +27,11 @@ import { assert, fs, path } from "../../internal/compiler";
  * 3. Assert a missing base throws naming its first candidate, while its candidates
  *    are the file and the file with `.json`, and a module specifier has none.
  * 4. Assert the plugin-path predicate answers relative and bare spellings.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Parses authored JSONC and resolves real relative, extensionless, linked and package-config fixtures; checks missing candidates and relative versus bare plugin spelling.
+ * @evidence contracts/testing.md#independent-expectations Literal parsed data and authored config paths determine expectations; the preset package explicitly declares its tsconfig and missing paths are deliberately absent.
+ * @evidence contracts/testing.md#distinguishing-cases BOM/comments/trailing commas, slash variants, extension omission, logical symlink spelling, package entry, missing extension candidates and relative/bare specifiers retain distinct checks.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseJsonc, resolveTsconfigExtends, tsconfigExtendsFileCandidates and isRelativePluginSpecifier directly over small config files, a junction and a fake node_modules preset in a private temp directory; no compiler process or ttsc host.
  */
 export const test_tsconfig_entry_reads_configs_by_typescript_gos_rules =
   (): void => {

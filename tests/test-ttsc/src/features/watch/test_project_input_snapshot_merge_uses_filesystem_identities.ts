@@ -1,29 +1,49 @@
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import child_process from "node:child_process";
+import childProcess from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
-import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/lib/compiler/internal/build/mergeProjectInputSnapshots.js";
+import { mergeProjectInputSnapshots } from "../../../../../packages/ttsc/src/compiler/internal/build/mergeProjectInputSnapshots";
 
 /**
- * Verifies project-input merge keys follow physical filesystem identities.
+ * Retains the original native filesystem identity merge population.
  *
- * Lexical path folding cannot distinguish a case-sensitive Windows directory,
- * while plain `path.resolve` cannot join symlink, 8.3, or extended aliases.
- * Missing declarations need the same identity as their nearest existing
- * ancestor without requiring the declared file or glob population to exist.
+ * Actual directory junction/symlink aliases and available Windows case, short
+ * and namespaced aliases carry existing and missing declarations. Windows
+ * sensitive-directory preparation and Linux case-distinct fixtures remain
+ * native; the original Darwin sensitive-population omission is preserved.
  *
- * 1. Merge root, existing file, missing file, and glob declarations through
- *    symlink plus available Windows case, 8.3, and extended aliases.
- * 2. Prove aliases are order-independent and missing case aliases follow the
- *    nearest existing directory's actual case semantics.
- * 3. Under a case-sensitive directory, keep case-distinct roots and entries
- *    separate, including missing descendants.
+ * @evidence contracts/testing.md#behavioral-verification Imports actual mergeProjectInputSnapshots and checks original reverse-order canonical equality, files/globs/reload populations and exact paths, Windows missing-case folding, sensitive distinct roots and mismatched-root refusal, and sensitive populations 4/2/4/4.
+ * @evidence contracts/testing.md#independent-expectations Authored native entries, independent fs.realpathSync paths and literal counts/canonical paths supply expectations. Successful fsutil preparation and distinct physical roots establish the fixture premises; these expectations do not branch on the resolver's own mode. Unavailable Windows aliases remain conditional as in the donor, not certified identities.
+ * @evidence contracts/testing.md#distinguishing-cases Keeps existing versus missing declarations, junction/dir-symlink versus physical paths, reversed producers, four snapshot categories, available Windows case/short/namespaced aliases, Windows insensitive missing suffixes and Windows/Linux sensitive entries. Darwin retains the original sensitive-population return. Supplied-policy and virtual memoization units are separate contributions.
+ * @evidence contracts/testing.md#execution-ownership This named source unit invokes the owning operation against private native roots and actual fsutil/cmd helpers without an installed consumer, compiler, Go build, foreign replacement or guessed authority. Command preparation errors/signals remain distinct from ordinary exit and optional short-alias availability; cleanup failures are retained. Native classifier correctness, actual selection and execution are not certified by authored body existence.
  */
-export const test_project_input_snapshot_merge_uses_filesystem_identities =
-  (): void => {
-    const fixtureRoot = TestProject.tmpdir("ttsc-project-input-identity-");
+export function test_project_input_snapshot_merge_uses_filesystem_identities(): void {
+  const fixtureRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-project-input-identity-"),
+  );
+  const failures: Error[] = [];
+  try {
+    exercise();
+  } catch (cause) {
+    failures.push(
+      new Error("native snapshot merge inputs and observations", { cause }),
+    );
+  } finally {
+    try {
+      fs.rmSync(fixtureRoot, { recursive: true, force: true });
+    } catch (cause) {
+      failures.push(new Error("native snapshot merge root cleanup", { cause }));
+    }
+  }
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "native snapshot merge observations failed",
+    );
+
+  function exercise(): void {
     const physicalRoot = path.join(fixtureRoot, "physical-project");
     const existingFile = path.join(physicalRoot, "docs", "spec.md");
     fs.mkdirSync(path.dirname(existingFile), { recursive: true });
@@ -191,7 +211,8 @@ export const test_project_input_snapshot_merge_uses_filesystem_identities =
     assert.equal(caseDistinct.globs.length, 2);
     assert.equal(caseDistinct.reloadFiles?.length, 4);
     assert.equal(caseDistinct.reloadDirectories?.length, 4);
-  };
+  }
+}
 
 function realpath(location: string): string {
   return fs.realpathSync.native?.(location) ?? fs.realpathSync(location);
@@ -207,7 +228,7 @@ function alternateCase(location: string): string {
 
 function enableWindowsCaseSensitivity(directory: string): void {
   if (process.platform !== "win32") return;
-  const result = child_process.spawnSync(
+  const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
     {
@@ -215,18 +236,26 @@ function enableWindowsCaseSensitivity(directory: string): void {
       windowsHide: true,
     },
   );
+  const details = JSON.stringify({
+    directory,
+    error: result.error?.message,
+    signal: result.signal,
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  });
+  assert.equal(result.error, undefined, `fsutil preparation error: ${details}`);
+  assert.equal(result.signal, null, `fsutil signal termination: ${details}`);
   assert.equal(
     result.status,
     0,
-    `failed to enable Windows per-directory case sensitivity: ${
-      result.error?.message ?? result.stderr.trim()
-    }`,
+    `failed to enable Windows per-directory case sensitivity: ${details}`,
   );
 }
 
 function windowsShortPath(location: string): string | undefined {
   const command = `for %I in ("${location}") do @echo %~sI`;
-  const result = child_process.spawnSync(
+  const result = childProcess.spawnSync(
     process.env.ComSpec ?? "cmd.exe",
     ["/d", "/s", "/c", command],
     {
@@ -235,6 +264,28 @@ function windowsShortPath(location: string): string | undefined {
       windowsVerbatimArguments: true,
     },
   );
+  const details = JSON.stringify({
+    location,
+    command,
+    error: result.error?.message,
+    signal: result.signal,
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  });
+  assert.equal(
+    result.error,
+    undefined,
+    `short-path command preparation error: ${details}`,
+  );
+  assert.equal(
+    result.signal,
+    null,
+    `short-path command signal termination: ${details}`,
+  );
+  // Preserve ordinary nonzero/empty-output alias unavailability from the donor.
+  if (result.status !== 0 || result.stdout.trim().length === 0)
+    console.log("native short-path alias unavailable", details);
   const output = result.status === 0 ? result.stdout.trim() : "";
   return output.length === 0 ? undefined : output;
 }

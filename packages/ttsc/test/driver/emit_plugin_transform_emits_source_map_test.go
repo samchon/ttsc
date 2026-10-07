@@ -14,21 +14,26 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerEmitsSourceMap is the source-map contract guard
-// for the AST plugin-transform emit path (the seam typia integrates through).
+// TestEmitWithPluginTransformerEmitsSourceMap Verifies synthetic statement expansion retains
+// source-map output and mappings to all three authored source lines.
 //
 // A plugin transform can expand one source statement into many emitted lines, so
 // `sourceMap: true` must still yield a `.js.map` next to the `.js` and a trailing
 // `//# sourceMappingURL=` comment — exactly as a plain tsgo build does. The
-// hand-assembled emit pipeline in EmitWithPluginTransformers historically wrote
-// only the JavaScript and dropped the map, silently producing source-map-less
-// output for every transformed file. This pins the map back on.
+// hand-assembled emit pipeline in EmitWithPluginTransformers must write the map
+// as well as the JavaScript, or every transformed file would silently lose its
+// source map. This pins the map.
 //
-//  1. Compile a `sourceMap: true` project whose plugin transform prepends a block
-//     of synthetic statements (one line becomes many).
+//  1. Compile a `sourceMap: true` project whose plugin transform prepends fifty
+//     synthetic statements before the three authored source statements.
 //  2. Emit through EmitWithPluginTransformer.
 //  3. Assert the `.js` carries the sourceMappingURL trailer and the emitted
-//     `.js.map` is a valid v3 map that lists `index.ts` with non-empty mappings.
+//     `.js.map` is a populated v3 map whose decoded source-line set is exactly 0, 1 and 2.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs actual fifty-statement injection, requires first/last injected controls, JS trailer and decoded populated v3 map naming index.ts; decoded mappings must cover exactly authored lines zero through two.
+// @evidence contracts/testing.md#independent-expectations Three literal source statements independently establish source-line set; test-local VLQ decoder and authored injected endpoint statements establish separate transformation and mapping controls.
+// @evidence contracts/testing.md#distinguishing-cases Expanded positionless statements coexist with three original mapped lines, rejecting missing injection, collapse-to-one-line mapping and shifted coordinates.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit invokes actual visitor/compiler APIs on a private Program and captures/decodes writes, with deferred close and no runtime process.
 func TestEmitWithPluginTransformerEmitsSourceMap(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -56,9 +61,9 @@ func TestEmitWithPluginTransformerEmitsSourceMap(t *testing.T) {
   }
   defer prog.Close()
 
-  // Transform: prepend 50 synthetic `const _k = k;` statements so the single
-  // authored line balloons into a many-line output, the shape that motivated the
-  // source-map question in the first place.
+  // Transform: prepend 50 synthetic `const _k = k;` statements before the three
+  // authored statements, expanding the output while retaining their source
+  // coordinates.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
@@ -92,6 +97,9 @@ func TestEmitWithPluginTransformerEmitsSourceMap(t *testing.T) {
   js := emitted["index.js"]
   if js == "" {
     t.Fatalf("index.js was not emitted: %#v keys", keysOf(emitted))
+  }
+  if !strings.Contains(js, "const _0 = 0;") || !strings.Contains(js, "const _49 = 49;") {
+    t.Fatalf("source-map test did not emit the synthetic expansion:\n%s", js)
   }
   if !strings.Contains(js, "//# sourceMappingURL=index.js.map") {
     t.Fatalf("index.js missing sourceMappingURL trailer:\n%s", js)

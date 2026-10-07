@@ -1,0 +1,89 @@
+package linthost
+
+import (
+  "strings"
+  "testing"
+)
+
+// TestUnicornNoUnusedPropertiesReportingShape verifies the exact diagnostic
+// surface: the reported range covers the whole property node, the message
+// interpolates the resolved key (or the computed key's source text), and no
+// autofix or suggestion is offered by the native rule.
+//
+// Independent source needles specify each complete property range, including
+// a type-literal member with its trailing semicolon and a shorthand property
+// without its comma. No expected range is taken from a production AST node.
+//
+//  1. Declare one unused property per member kind: assignment, shorthand,
+//     method, computed key, and an inline parameter type member.
+//  2. Run the rule through the real Program/checker lifecycle.
+//  3. Assert each finding's [Pos, End) range, message, and empty edit set.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot checks complete property ranges, literal messages and absent fixes/suggestions for five member shapes.
+// @evidence contracts/testing.md#independent-expectations The supported fix-free property diagnostic and source-authored property needles independently establish ranges and messages; CRLF is normalized to the same byte representation before locating needles.
+// @evidence contracts/testing.md#distinguishing-cases Assignments, shorthand, methods, computed keys and inline type members expose different node ends; trailing comma is excluded while type-member semicolon remains included. Other hosts own clean liveness twins.
+// @evidence contracts/testing.md#execution-ownership TestUnicornNoUnusedPropertiesReportingShape owns this authored checker-source matrix as a discoverable Go unit entry. loadProgram and the lint cycle operate in the shared Go process on t.TempDir fixtures; no native build, installed consumer or real child product host runs.
+func TestUnicornNoUnusedPropertiesReportingShape(t *testing.T) {
+  // Normalize any CRLF input to the LF representation of the authored needles.
+  source := `export {};
+declare function consume(...values: unknown[]): void;
+declare const outer: { key: string };
+
+const short = 1;
+const subject = {
+  used: 1,
+  droppedValue: 2,
+  short,
+  droppedMethod() {
+    return 3;
+  },
+  [outer.key]: 4,
+};
+consume(subject.used);
+
+function typed(args: { wanted: number; ignored: number; }): number {
+  return args.wanted;
+}
+consume(typed);
+`
+  source = strings.ReplaceAll(source, "\r\n", "\n")
+  _, _, findings := runRuleFindingsSnapshot(t, "unicorn/no-unused-properties", source, nil)
+  type expectation struct {
+    text    string
+    message string
+  }
+  expectations := []expectation{
+    {"droppedValue: 2", "Property `droppedValue` is defined but never used."},
+    {"short,", "Property `short` is defined but never used."},
+    {"droppedMethod() {\n    return 3;\n  }", "Property `droppedMethod` is defined but never used."},
+    {"[outer.key]: 4", "Property `outer.key` is defined but never used."},
+    {"ignored: number;", "Property `ignored` is defined but never used."},
+  }
+  if len(findings) != len(expectations) {
+    t.Fatalf("want %d findings, got %d: %+v", len(expectations), len(findings), findings)
+  }
+  for index, finding := range findings {
+    want := expectations[index]
+    text := want.text
+    if strings.HasSuffix(text, ",") {
+      text = strings.TrimSuffix(text, ",")
+    }
+    start := strings.Index(source, want.text)
+    if start < 0 {
+      t.Fatalf("expectation %d text %q not in source", index, want.text)
+    }
+    if finding.Pos != start || finding.End != start+len(text) {
+      t.Fatalf(
+        "finding %d range: want [%d,%d) for %q, got [%d,%d) covering %q",
+        index, start, start+len(text), text, finding.Pos, finding.End,
+        source[finding.Pos:finding.End],
+      )
+    }
+    if finding.Message != want.message {
+      t.Fatalf("finding %d message: want %q, got %q", index, want.message, finding.Message)
+    }
+    if len(finding.Fix) != 0 || len(finding.Suggestions) != 0 {
+      t.Fatalf("finding %d must not offer edits: %+v", index, finding)
+    }
+  }
+}

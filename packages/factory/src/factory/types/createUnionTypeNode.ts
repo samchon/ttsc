@@ -12,9 +12,12 @@ import { make } from "../internal/make";
  * Given the constituents `string` and `number`, the printer renders:
  *
  * ```ts
- * string | number
+ * string | number;
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param types The constituent types.
+ * @returns The created {@link UnionTypeNode}.
  * @evidence contracts/common.md#principled-implementation
  *   Ordered constituents remain a union structure; the printer chooses inline
  *   or leading-pipe layout without evaluating or reordering the represented types.
@@ -30,10 +33,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains width-dependent pipe placement in its own paragraph and
  *   gives the union itself, without an unrelated statement semicolon.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param types The constituent types.
- * @returns The created {@link UnionTypeNode}.
  */
 export const createUnionTypeNode = (
   types: readonly TypeNode[],

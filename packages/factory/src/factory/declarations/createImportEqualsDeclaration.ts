@@ -23,6 +23,12 @@ import { make } from "../internal/make";
  * export import app = require("./app");
  * ```
  *
+ * @author Jeongho Nam - https://github.com/samchon
+ * @param modifiers The leading modifiers, if any.
+ * @param isTypeOnly Whether the import is type-only (`import type`).
+ * @param name The local binding name.
+ * @param moduleReference The right-hand side module or entity reference.
+ * @returns The created {@link ImportEqualsDeclaration}.
  * @evidence contracts/common.md#principled-implementation
  *   Identifier normalization supplies the local binding; ModuleReference retains
  *   external require syntax or an entity-name alias, independently of type-only.
@@ -37,13 +43,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains exported/type-only forms and the two reference kinds,
  *   with separate import example and acknowledgment paragraphs.
- *
- * @author Jeongho Nam - https://github.com/samchon
- * @param modifiers The leading modifiers, if any.
- * @param isTypeOnly Whether the import is type-only (`import type`).
- * @param name The local binding name.
- * @param moduleReference The right-hand side module or entity reference.
- * @returns The created {@link ImportEqualsDeclaration}.
  */
 export const createImportEqualsDeclaration = (
   modifiers: readonly ModifierLike[] | undefined,

@@ -11,20 +11,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverEmitRewritesEverySourceUnderParallelEmit verifies whole-program
-// emit patches every source file's output when TypeScript-Go emits in parallel.
+// TestDriverEmitRewritesEverySourceUnderParallelEmit Verifies whole-program
+// emit patches every authored source file's output under the selected threading policy.
 //
-// With SingleThreaded dropped, TypeScript-Go runs one emitter goroutine per
-// source file, so the driver's WriteFile callback is invoked concurrently. That
-// callback mutates the shared `cursors` map and resolves a per-output rewrite;
-// without the serializing mutex it would trip `fatal error: concurrent map
-// writes` or splice a replacement into the wrong file. A single-source fixture
-// cannot surface either bug because it spawns only one emitter — this case uses
-// four sources so the concurrent path is actually exercised.
+// Four distinct sources exercise per-output rewrite routing through the
+// parallel-capable emitter. Each output owes its own replacement. Actual worker
+// overlap/count and race-detector coverage are not observed by this case.
 //
 // 1. Load a four-file project, each file owning a distinct plugin call.
 // 2. Register one rewrite per source with a file-unique replacement.
 // 3. Emit the whole program and assert every output carries its own rewrite.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll puts the correct replacement and marker in each of four outputs.
+// @evidence contracts/testing.md#independent-expectations Four authored source names determine distinct replacement literals.
+// @evidence contracts/testing.md#distinguishing-cases Four distinct sources must retain their own rewrites rather than another file's replacement; missing outputs fail, while actual concurrency and duplicate callbacks are not certified.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit loads/closes an in-process Program and captures actual write callbacks with private filesystem inputs, without installing a consumer or running an executable compiler.
 func TestDriverEmitRewritesEverySourceUnderParallelEmit(t *testing.T) {
   root := t.TempDir()
 
@@ -75,7 +76,7 @@ func TestDriverEmitRewritesEverySourceUnderParallelEmit(t *testing.T) {
   }
 
   // Emit assertion: the callback runs under emit()'s mutex, so writing this
-  // map is safe; the test still exercises the concurrent emitter goroutines.
+  // map is safe; the assertions observe routing rather than worker overlap.
   emitted := map[string]string{}
   _, emitDiags, err := prog.EmitAll(rewrites, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     emitted[filepath.Base(fileName)] = text

@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRunReportsMalformedEditorForwardError covers
+// TestLSPProxyRunReportsMalformedEditorForwardError Verifies
 // pumpEditorToUpstream's malformed-envelope forward branch: when a
 // non-JSON frame from the editor must be forwarded to a broken upstream
 // pipe, the proxy returns the wrapped write error.
@@ -19,6 +19,11 @@ import (
 // 2. Close the upstream producer so the second pump returns cleanly.
 // 3. Send a non-JSON editor frame (parse fails, then write fails).
 // 4. Assert Proxy.Run returns a wrapped io.ErrClosedPipe.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns a wrapped io.ErrClosedPipe when forwarding a non-JSON editor frame to a closed upstream consumer.
+// @evidence contracts/testing.md#independent-expectations Malformed envelope bytes still take the forwarding path; the independently closed pipe establishes the failure oracle.
+// @evidence contracts/testing.md#distinguishing-cases A non-JSON body and broken upstream writer own this error branch while the sibling upstream producer is closed to drain the run.
+// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the proxy directly over controlled pipe endpoints without starting a TypeScript-Go process.
 func TestLSPProxyRunReportsMalformedEditorForwardError(t *testing.T) {
   edInR, edInW := io.Pipe()
   edOutR, edOutW := io.Pipe()

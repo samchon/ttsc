@@ -1,22 +1,23 @@
 /**
  * Classify the ways the isolated TypeScript descriptor evaluator can stop.
  *
- * The loader writes the child's own output straight to this process's stderr,
- * so a diagnostic has already reached the user by the time anything here runs.
- * What is left to say is only how the process ended: it never launched,
- * something outside killed it, or it exited non-zero after printing its own
- * reason.
+ * The ttsx loader routes any child stdout/stderr directly to the parent's
+ * stderr; a failed process need not have printed a diagnostic. This classifier
+ * formats the reported error, signal or nonzero status without proving a
+ * signal's origin or collecting the child's stream bytes.
  *
- * Nothing is bounded here — not time, not output. Both were the compiler
- * deciding, on numbers nobody chose for this machine, that a user's own
- * descriptor had run too long or said too much. Neither is this process's
- * memory to spend either, because the child's streams are no longer collected
- * into it.
+ * It sets no deadline or output ceiling. Request/error text and the returned
+ * Error still occupy memory; descriptor output-file parsing and process
+ * lifetime remain with the loader.
  *
  * @evidence contracts/common.md#principled-implementation Launch error, signal and nonzero status are classified in causal order from the child-process result; only a zero-status run without either earlier failure has no process error.
  * @evidence contracts/common.md#clear-and-simple-design The classifier returns an error without owning spawning, streamed diagnostics or descriptor decoding, keeping those responsibilities with the loader.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No descriptor-name exception, fixed runtime deadline or output threshold replaces the actual process result.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains the already-streamed child output and remaining process-level information; separate paragraphs and a blank line before tags follow the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The classifier acquires no child or stream; a returned Error transfers to the caller and no helper-owned history is retained.
+ * @evidence contracts/performance.md#efficient-algorithms A fixed precedence chain formats at most one Error. Request and reported-message text affect allocation/formatting; text length is uncapped and no child-output population is collected here.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work One supplied result is classified without coordinating completed or in-flight evaluations.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Formats the process result's error, signal and exit status into a message; it reads no file and builds no path.
  */
 export function pluginDescriptorProcessFailure(
   result: DescriptorProcessResult,
