@@ -155,10 +155,9 @@ export async function captureTransformGeneration(props: {
   session?: string;
 
   /**
-   * The project state of a publication an earlier attempt adopted and found
-   * refuted here (`TtscAdoptionVerdict`). A claim for that same state compiles
-   * under the lock and replaces it; a claim for any other state adopts as
-   * usual, since nothing has found its publication wanting.
+   * Digest of the exact publication refuted by an earlier attempt. A claim
+   * excludes those bytes but can prove a replacement under the same state;
+   * without an eligible publication it compiles under the existing lock.
    */
   rejected?: string;
 
@@ -339,7 +338,7 @@ export async function captureTransformGeneration(props: {
             props.session,
             sharedCompileIdentity({ ...props, projectRoot }),
             state,
-            { adopt: state !== props.rejected },
+            { adopt: true, rejectedPublication: props.rejected },
           )
         : undefined;
     if (claim?.kind === "compile") {
@@ -771,17 +770,19 @@ export async function captureTransformGeneration(props: {
     // An adopted envelope failed either because the publication does not hold
     // on this disk or because this worker's own window moved around it, and
     // only the first speaks against the publication (samchon/ttsc#1479). The
-    // retry refuses a refuted one for the same state, and adopts one that held.
+    // retry refuses only the refuted payload, not a peer's newer publication
+    // under the same projected state. Every replacement retains these proofs.
     // Diagnostics depend on the failed check's actual compiler generation too.
     // Its graph and universal observations retain the same proof obligations
     // as transformed output, including inputs outside root membership.
-    if (adopted !== undefined && state !== undefined) {
+    if (adopted !== undefined && state !== undefined && claim?.kind === "adopt") {
       TRANSFORM_ADOPTED_RESULTS.set(result, {
         refuted:
           adoptionFailure !== undefined ||
           !externalInputSnapshot.complete ||
           !(graphProofs && universalInputs),
         state,
+        publication: claim.fingerprint,
       });
     }
     // Trace the already evaluated admission premises, not a second proof pass.

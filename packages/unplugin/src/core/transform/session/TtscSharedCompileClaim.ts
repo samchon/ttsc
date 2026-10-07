@@ -33,6 +33,9 @@ export type TtscSharedCompileClaim =
   | {
       kind: "adopt";
       publication: TtscSharedCompilePublication;
+
+      /** Digest of exactly the serialized payload read, not its projected state. */
+      fingerprint: string;
     }
   | {
       kind: "compile";

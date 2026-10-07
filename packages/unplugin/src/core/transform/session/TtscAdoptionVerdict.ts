@@ -6,16 +6,16 @@
  * they call for opposite retries. Either the publication does not hold on this
  * worker's disk: an input outside the walk moved since its publisher read it,
  * or a successful publication's graph or universal proofs fail here, which a
- * retry for the same state would find again, so the retry compiles that state
- * and replaces the publication. Or the publication held, and it was this
+ * retry for the same state could find again, so the retry excludes that payload
+ * while allowing a peer's replacement to undergo its own full proof. If none
+ * is eligible, the lock owner compiles and replaces it. Or the publication held, and it was this
  * worker's own window that moved around it: a declared input's metadata
  * changed, the tracker heard an event, or the config moved during the attempt.
  * That says nothing against the publication, only that the project moved,
  * exactly as it would of a compile made here, so the retry claims the state it
  * then reads, adopting the same publication when the project's content never
- * changed. Diagnostic publications use external-state proof for refutation;
- * successful publications additionally require graph and universal input
- * proof.
+ * changed. Diagnostic and successful publications retain external-state,
+ * graph and universal input proof before adoption can be reused.
  *
  * @evidence contracts/common.md#principled-implementation Refutation and the claimed state are separate because a bad publication requires replacement, while a changed local proof window requires a new state claim.
  * @evidence contracts/common.md#clear-and-simple-design Two fields preserve the retry decision without storing another copy of the envelope or transient attempt state.
@@ -40,4 +40,7 @@ export interface TtscAdoptionVerdict {
 
   /** The project state the publication was compiled for. */
   state: string;
+
+  /** Digest of the exact adopted payload to exclude after refutation. */
+  publication: string;
 }

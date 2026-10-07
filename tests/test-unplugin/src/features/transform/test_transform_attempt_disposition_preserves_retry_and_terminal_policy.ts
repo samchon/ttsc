@@ -18,8 +18,8 @@ import { selectTransformAttemptDisposition } from "../../../../../packages/unplu
  * 3. Distinguish learned facts, refuted publications and moving windows, then
  *    require the movement and absolute caps to choose diagnostics or terminal.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the production selectTransformAttemptDisposition used by transformProject. Literal admission/fresh-only/retry/diagnostic/terminal rows check precedence, unavailable-host qualification, learned-fact versus movement accounting, rejected publication state and both retry caps.
- * @evidence contracts/testing.md#independent-expectations Coherent reusable success needs a complete project snapshot, while current diagnostics may be returned without it. Missing knowledge/refuted publication does not establish movement; loss or mixed evidence cannot excuse it. Literal moved counts, state strings and cap positions are authored from these distinctions, not calculated by the selector.
+ * @evidence contracts/testing.md#behavioral-verification Calls the production selectTransformAttemptDisposition used by transformProject. Literal admission/fresh-only/retry/diagnostic/terminal rows check precedence, unavailable-host qualification, learned-fact versus movement accounting, rejected publication payload and both retry caps.
+ * @evidence contracts/testing.md#independent-expectations Coherent reusable success needs a complete project snapshot, while current diagnostics may be returned without it. Missing knowledge/refuted publication does not establish movement; loss or mixed evidence cannot excuse it. Literal moved counts, payload strings and cap positions are authored from these distinctions, not calculated by the selector.
  * @evidence contracts/testing.md#distinguishing-cases Contrasts success/failure/exception, true/false/unknown proof, observations incomplete versus named host failures, local versus adopted unavailable proof, empty/mixed/omitted learned facts, refuted versus nonrefuted publication, two movement failures versus four knowledge attempts and diagnostic config coherence versus unavailable config. Retained failure aggregates preserve exact identity and input contents.
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit calls the actual in-process operation with caller-owned proof facts. No compiler, session, native observer, peer or external host runs. Dependency union/case-policy carry, capture assembly, disposal and terminal error rendering remain caller responsibilities and are not certified by this classification unit.
  */
@@ -118,7 +118,7 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
       {
         projectSnapshotComplete: true,
         failures: unavailable,
-        adopted: { state: "publication", refuted: true },
+        adopted: { state: "publication-state", publication: "publication", refuted: true },
       },
       { kind: "accepted", freshDeliveryOnly: false },
     ],
@@ -148,7 +148,7 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
   for (const [name, change] of [
     [
       "adoption cannot become local fresh output",
-      { adopted: { state: "publication", refuted: false } },
+      { adopted: { state: "publication-state", publication: "publication", refuted: false } },
     ],
     ["unknown config", { configStateComplete: undefined }],
     ["unknown project stability", { projectHeldStill: undefined }],
@@ -224,20 +224,20 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
     ],
     [
       "refuted publication",
-      { adopted: { state: "refuted-state", refuted: true } },
+      { adopted: { state: "shared-state", publication: "refuted-state", refuted: true } },
       0,
       "refuted-state",
     ],
     [
       "adopted moving window",
-      { adopted: { state: "still-valid-state", refuted: false } },
+      { adopted: { state: "shared-state", publication: "still-valid-payload", refuted: false } },
       1,
       "earlier-publication",
     ],
     [
       "adopted learned window",
       {
-        adopted: { state: "still-valid-state", refuted: false },
+        adopted: { state: "shared-state", publication: "still-valid-payload", refuted: false },
         failures: learned,
       },
       0,
@@ -303,7 +303,7 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
     ],
     [
       "fourth refuted publication",
-      { attempt: 3, adopted: { state: "last-refuted", refuted: true } },
+      { attempt: 3, adopted: { state: "shared-state", publication: "last-refuted", refuted: true } },
       "terminal",
       0,
       false,

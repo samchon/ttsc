@@ -60,7 +60,10 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * certifying persistence. The caller retains local compilation. With `adopt:
  * false` the caller has already found a publication wanting and compiles
  * regardless, but still under the lock, so its compile replaces the publication
- * for the waiters.
+ * for the waiters. A rejectedPublication excludes only that serialized payload:
+ * another worker's replacement under the same projected state remains eligible
+ * for independent adoption proof. The digest is computed from the already read
+ * UTF-8 publication, without another filesystem query.
  *
  * Its place in the adapter's invalidation model, and the units beside it, are
  * mapped in the maintainer page
@@ -70,6 +73,7 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * @param identity Caller-provided hex configuration digest used in store names.
  * @param state Caller-provided hex project-state digest used in store names.
  * @param options.adopt Whether an existing publication may be adopted.
+ * @param options.rejectedPublication Digest of the exact previously refuted payload; a replacement still requires the caller's full proof.
  * @evidence contracts/common.md#principled-implementation
  *   Filesystem directory creation coordinates independent workers, and owned
  *   tokens distinguish a claim from another holder at the same pathname.
@@ -102,6 +106,8 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  *   Each waiting iteration may reread and parse all publication bytes, inspect
  *   envelope fields, probe lock metadata/token/process state and reclaim a
  *   subtree. Backoff intervals are capped, not iteration count or total time.
+ *   Each valid read additionally hashes its serialized UTF-8 payload in O(bytes)
+ *   time for attempt-local refutation identity. This is not an input proof.
  *   Publishing serializes the full payload before its UTF8 byte-budget check.
  *   Pruning materializes all N store names, launches concurrent stats for J
  *   JSON entries, sorts J last-use observations and scans names again for
@@ -134,7 +140,7 @@ export async function claimSharedCompile(
   store: string,
   identity: string,
   state: string,
-  options: { adopt: boolean },
+  options: { adopt: boolean; rejectedPublication?: string },
 ): Promise<TtscSharedCompileClaim | undefined> {
   const name = `${identity}-${state}`;
   const publication = path.join(store, `${name}.json`);
@@ -144,9 +150,9 @@ export async function claimSharedCompile(
     for (;;) {
       if (options.adopt) {
         const published = await readPublication(publication);
-        if (published !== undefined) {
+        if (published !== undefined && published.fingerprint !== options.rejectedPublication) {
           await markUsed(publication);
-          return { kind: "adopt", publication: published };
+          return { kind: "adopt", publication: published.value, fingerprint: published.fingerprint };
         }
       }
       const token = await acquire(lock);
@@ -156,10 +162,10 @@ export async function claimSharedCompile(
           // A holder may have published and released between the read above
           // and the lock.
           const published = await readPublication(publication);
-          if (published !== undefined) {
+          if (published !== undefined && published.fingerprint !== options.rejectedPublication) {
             claim.release();
             await markUsed(publication);
-            return { kind: "adopt", publication: published };
+            return { kind: "adopt", publication: published.value, fingerprint: published.fingerprint };
           }
         }
         return claim;
@@ -429,15 +435,15 @@ async function markUsed(file: string): Promise<void> {
 /** Read a publication, or `undefined` when it is absent or unusable. */
 async function readPublication(
   file: string,
-): Promise<TtscSharedCompilePublication | undefined> {
-  let text: string;
+): Promise<{ value: TtscSharedCompilePublication; fingerprint: string } | undefined> {
+  let bytes: Buffer;
   try {
-    text = await fs.promises.readFile(file, "utf8");
+    bytes = await fs.promises.readFile(file);
   } catch {
     return undefined;
   }
   try {
-    const value: unknown = JSON.parse(text);
+    const value: unknown = JSON.parse(bytes.toString("utf8"));
     // A compile that ended in diagnostics is published like one that
     // succeeded (samchon/ttsc#1458); an exception never is.
     if (
@@ -457,7 +463,7 @@ async function readPublication(
     ) {
       return undefined;
     }
-    return value as unknown as TtscSharedCompilePublication;
+    return { value: value as unknown as TtscSharedCompilePublication, fingerprint: crypto.createHash("sha256").update(bytes).digest("hex") };
   } catch {
     return undefined;
   }

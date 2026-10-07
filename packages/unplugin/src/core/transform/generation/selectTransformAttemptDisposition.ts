@@ -81,7 +81,7 @@ export function selectTransformAttemptDisposition(props: {
   /** Movement failures counted before this capture. */
   moved: number;
 
-  /** Publication state the caller's next capture must refuse, if any. */
+  /** Exact publication payload the caller's next capture must refuse, if any. */
   rejected?: string;
 }):
   | {
@@ -128,7 +128,7 @@ export function selectTransformAttemptDisposition(props: {
   }
   let moved = props.moved;
   let rejected = props.rejected;
-  if (props.adopted?.refuted === true) rejected = props.adopted.state;
+  if (props.adopted?.refuted === true) rejected = props.adopted.publication;
   else if (!onlyLearnedCompileFacts(failures)) moved += 1;
   const last =
     moved === TRANSFORM_MOVEMENT_ATTEMPTS ||
