@@ -23,6 +23,8 @@ const viteCreateServer =
  * The prepared scenario selects a backend config with sibling src files under
  * an explicit common root. Its banner config stays relative to the backend,
  * proving that source-root selection does not move plugin config discovery.
+ * Vite retains legal comments so its downstream transform keeps that proof
+ * observable in the delivered module.
  *
  * 1. Let a later configResolved hook disable watching, then request the entry
  *    from the middleware-mode dev server.
@@ -30,14 +32,14 @@ const viteCreateServer =
  * 3. Request a module not yet served and assert it comes from the starting
  *    generation.
  *
- * @evidence contracts/testing.md#behavioral-verification Real watcherless server serves lazy output from startup even after main is broken on disk.
- * @evidence contracts/testing.md#independent-expectations Authored lazy declaration remains valid; broken main would make a new compile fail.
+ * @evidence contracts/testing.md#behavioral-verification Prepared native main output retains the backend-relative banner under an explicit common source root. Real watcherless server serves lazy output from startup even after main is broken on disk.
+ * @evidence contracts/testing.md#independent-expectations The authored banner literal identifies the backend-relative config; inline legal comments preserve it through Vite. Authored lazy declaration remains valid; the prepared main's authored type error would make a new compile fail.
  * @evidence contracts/testing.md#distinguishing-cases A post configResolved hook changes initially enabled watching to null, as one-shot Vitest does. First main request then first lazy request after another input changes distinguish the settled pass lifecycle from the stale watching decision. Direct lifecycle units cover reverse mutation, polling and build watching.
  * @evidence contracts/testing.md#execution-ownership The selected test_e2e_vite_batch calls viteServeCorpus, which calls this scenario on its prepared island after the watching server closes. This body owns the late hook, mutation and output assertions; it is not separately discovered.
  * @evidence contracts/e2e.md#necessary-boundary Real Vite middleware server executes watch:null lifecycle and native program reuse.
- * @evidence contracts/e2e.md#shared-execution One server and fixture serve requests and mutations, with replacement only for restart assertions; shared native artifacts do not replace the cold request.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
- * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real watcherless server serves lazy output from startup even after main is broken on disk. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
+ * @evidence contracts/e2e.md#shared-execution One server and fixture serve both requests and the intervening mutation, without a restart. Shared native artifacts do not replace the cold request.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure before the corpus restores its shared island. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage The prepared native main retains its backend-relative banner under a common source root, and the real watcherless server serves lazy output from startup even after main is broken on disk. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_serve_without_a_watcher_serves_the_startup_generation(
   preparedRoot?: string,
@@ -69,6 +71,9 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
     appType: "custom",
     configFile: false,
     logLevel: "silent",
+    // Vite defaults to legalComments:none. Preserve the native banner so the
+    // prepared scenario can observe its backend-relative configuration.
+    esbuild: { legalComments: "inline" },
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [
       unpluginVite(preparedRoot === undefined ? {} : {
