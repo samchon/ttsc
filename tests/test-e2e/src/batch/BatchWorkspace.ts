@@ -1529,8 +1529,13 @@ export namespace BatchWorkspace {
         assert.equal(compiledDependency(record), index === 0,
           "only the first epoch compiles the unique dependency; retries retain valid Go object reuse");
       }
-      assert.match(coldActions[0]!.stderr, /[\\/]asm(?:\.exe)?\b/,
-        "the first unique dependency must execute the actual assembler");
+      assert.ok(
+        coldActions[0]!.stderr.split(/\r?\n/).some((line) =>
+          /[\\/]asm(?:\.exe)?\b/.test(line) &&
+          /(?:^|\s)-p main(?:\s|$)/.test(line) &&
+          /[\\/]witness\.s(?:"|\s|$)/.test(line)),
+        "the cold main package must execute its authored witness.s with the actual assembler",
+      );
       const physicalPlugins = fs.realpathSync.native(
         path.join(expected, "plugins"),
       );
@@ -1873,9 +1878,10 @@ export namespace BatchWorkspace {
         rebuiltBytes,
         "restored warm reuse must preserve the independently captured rebuilt publication; the deleted first publication is a different artifact lifetime",
       );
-      // Each case owns a fresh plugin namespace but shares the already proven
-      // Go object storage. A failed epoch must not acquire a publication or
-      // silently replace the caller's source/environment authority.
+      // Transition cases own fresh plugin namespaces and share the proven Go
+      // object storage; the moving-reader contrast reuses the original binary.
+      // A failed epoch must not acquire a publication or silently replace the
+      // caller's source/environment authority.
       const epochFailures: Error[] = [];
       const stableLauncher = fs.readFileSync(go);
       const stableSource = fs.readFileSync(path.join(source, "main.go"));
