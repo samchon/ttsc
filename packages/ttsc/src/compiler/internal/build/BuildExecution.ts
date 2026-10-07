@@ -789,7 +789,7 @@ export namespace BuildExecution {
         ...TsgoArguments.createTsgoThreadingArgs(options),
         ...(options.passthrough ?? []),
         ...extraArgs,
-        ...TsgoArguments.isolatedTsgoOutputArgs(options),
+        ...TsgoArguments.isolatedTsgoOutputArgs(options, true),
       ],
       {
         cwd: execution.projectRoot,

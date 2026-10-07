@@ -25,6 +25,34 @@ const inputs = new Map([
 assert.equal(fs.existsSync(artifacts), false);
 const missingDescriptor = path.join(root, "missing-plugin.cjs");
 assert.equal(fs.existsSync(missingDescriptor), false);
+/**
+ * Verifies public in-memory failures leave caller output and state unchanged.
+ *
+ * The initial absent descriptor is followed by seeded relative and absolute
+ * state files, a deep inferred state path and an independent TS2322. All
+ * cases borrow this installed preload actor and its existing native seed.
+ *
+ * 1. Reject the missing descriptor before caller output exists.
+ * 2. Preserve seeded artifacts while recovery checks observe each state path.
+ * 3. Restore source/config and capture the original plugin-free result again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual installed TtscCompiler.compile rejects the missing descriptor, retains independent TS2322, returns no recovery artifacts and preserves every seeded declaration/map/build-info byte and the external sentinel.
+ * @evidence contracts/testing.md#independent-expectations Authored missing descriptor and string-to-number assignment establish diagnostic identities. Previously captured native artifacts and literal sentinel bytes establish unchanged caller state; independently computed deep inferred destination must remain absent.
+ * @evidence contracts/testing.md#distinguishing-cases Covers clean plugin setup rejection, existing relative state, existing absolute external state, deep inferred state and restored successful capture. Compiler failures collect independently and report to the owning batch after its shared runtime completes.
+ * @evidence contracts/testing.md#execution-ownership This fixture body runs only in the main thread of test_e2e_runtime_batch's installed public runtime preload; the fixture is excluded from declaration selection and this body is not separately addressable by Evidence.
+ * @evidence contracts/e2e.md#necessary-boundary Independent compiler recovery can write incremental metadata even without emission, which destination-composer units cannot prove absent through the installed API and selected native compiler connection.
+ * @evidence contracts/e2e.md#shared-execution The existing installed runtime actor and native seed serve all rows. Recovery-only checks and restored API capture add compiler calls without another installation, native producer or host actor.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The copied config/source bytes restore in finally and only the new owned external sentinel is removed. Seeded caller files are never removed to hide a compiler write. No private cache clearing makes a row cold.
+ * @evidence contracts/e2e.md#preserved-coverage Existing runtime declaration/map/state preservation assertions continue after these rows. Portable mapping and final argv expectations execute in their direct source units; each new native failure retains its row identity in the final observation.
+ */
+const apiFailures = [];
+try {
+  const initialRejectedApi = new TtscCompiler({ cwd: root, tsconfig: "runtime-declared.json" }).compile();
+  assert.equal(initialRejectedApi.type, "failure", JSON.stringify(initialRejectedApi));
+  assert.deepEqual(initialRejectedApi.output, {});
+  assert.ok(initialRejectedApi.diagnostics.some((diagnostic) => String(diagnostic.messageText).includes("missing-plugin.cjs")));
+  assert.equal(fs.existsSync(artifacts), false, "failed API recovery must not create the caller's declared output tree");
+} catch (cause) { apiFailures.push(new Error("public API isolation: initially absent caller output", { cause })); }
 const compiled = new TtscCompiler({ cwd: root, tsconfig: "runtime-declared.json", plugins: false }).compile();
 assert.equal(compiled.type, "success", JSON.stringify(compiled));
 assert.equal(fs.existsSync(missingDescriptor), false, "plugins:false must bypass the actually configured absent descriptor");
@@ -47,6 +75,54 @@ for (const [file, text] of output) {
   fs.writeFileSync(file, text);
 }
 const seed = new Map([...output.keys()].map((file) => [file, fs.readFileSync(file)]));
+const apiConfigFile = path.join(root, "runtime-declared.json");
+const apiSourceFile = path.join(root, "src/runtime-corpus/native-factory.ts");
+const apiConfigBytes = fs.readFileSync(apiConfigFile);
+const apiSourceBytes = fs.readFileSync(apiSourceFile);
+const externalApiState = path.join(root, "tools/api-external-state.tsbuildinfo");
+const inferredApiState = path.join(root, "tools/runtime-declared.tsbuildinfo");
+assert.equal(fs.existsSync(inferredApiState), false);
+const externalApiSentinel = Buffer.from("caller-owned absolute build state\n");
+assert.equal(fs.existsSync(externalApiState), false);
+try {
+  fs.writeFileSync(externalApiState, externalApiSentinel);
+  for (const [name, buildInfo, rootDir] of [
+    ["existing-relative-state", "tools/runtime-declared-artifacts/state/app.tsbuildinfo", "src"],
+    ["absolute-external-state", externalApiState, "src"],
+    ["deep-inferred-state", undefined, "src/runtime-corpus"],
+  ]) {
+    try {
+      const config = JSON.parse(apiConfigBytes);
+      config.compilerOptions.rootDir = rootDir;
+      if (buildInfo === undefined) delete config.compilerOptions.tsBuildInfoFile;
+      else config.compilerOptions.tsBuildInfoFile = buildInfo;
+      fs.writeFileSync(apiConfigFile, JSON.stringify(config));
+      fs.writeFileSync(apiSourceFile, Buffer.concat([apiSourceBytes, Buffer.from("\nconst apiIndependentTypeError: number = 'wrong';\n")]));
+      const rejected = new TtscCompiler({ cwd: root, tsconfig: "runtime-declared.json" }).compile();
+      assert.equal(rejected.type, "failure", JSON.stringify(rejected));
+      assert.deepEqual(rejected.output, {});
+      assert.ok(rejected.diagnostics.some((diagnostic) => String(diagnostic.messageText).includes("missing-plugin.cjs")));
+      assert.ok(rejected.diagnostics.some((diagnostic) => diagnostic.code === 2322 && diagnostic.file?.endsWith("native-factory.ts")), "independent authored TypeScript error must survive plugin setup rejection");
+      for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes, "API failure must preserve actual CLI-compatible seeded output bytes");
+      assert.deepEqual(fs.readFileSync(externalApiState), externalApiSentinel);
+      assert.equal(fs.existsSync(inferredApiState), false, "deep inferred build-info must never escape above the private output directory");
+    } catch (cause) { apiFailures.push(new Error("public API isolation: " + name, { cause })); }
+  }
+} finally {
+  try { fs.writeFileSync(apiConfigFile, apiConfigBytes); }
+  finally {
+    try { fs.writeFileSync(apiSourceFile, apiSourceBytes); }
+    finally { fs.rmSync(externalApiState); }
+  }
+}
+assert.deepEqual(fs.readFileSync(apiConfigFile), apiConfigBytes);
+assert.deepEqual(fs.readFileSync(apiSourceFile), apiSourceBytes);
+try {
+  const recoveredApi = new TtscCompiler({ cwd: root, tsconfig: "runtime-declared.json", plugins: false }).compile();
+  assert.equal(recoveredApi.type, "success", JSON.stringify(recoveredApi));
+  assert.deepEqual(recoveredApi.output, compiled.output, "restoring source/config must restore the original captured artifacts");
+  for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes);
+} catch (cause) { apiFailures.push(new Error("public API isolation: restored capture", { cause })); }
 const unchanged = () => {
   for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes, "actual runtime delivery must preserve every produced declaration, map and build-info byte");
   for (const [file, bytes] of inputs) assert.deepEqual(fs.readFileSync(file), bytes, "each delivery must preserve its authored source and compiler configuration");
@@ -363,4 +439,4 @@ if (descendantFailures.length) throw new AggregateError(descendantFailures, "reg
 }
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));

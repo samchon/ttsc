@@ -206,7 +206,7 @@ export namespace TsgoArguments {
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
     options: RunBuildOptions,
   ): string | undefined {
-    return createNativeTsgoArgs(options, pinnedRootDirArgs(execution, options));
+    return createNativeTsgoArgs(options, pinnedRootDirArgs(execution, options), false);
   }
 
   /**
@@ -225,6 +225,9 @@ export namespace TsgoArguments {
    * third-party host consumes the fallback or accepts every forwarded flag.
    *
    * Returns the JSON payload, or `undefined` when this lane forwards nothing.
+   * Check callers use diagnostic-only destinations by default. The build
+   * composer explicitly selects emission destinations so a recovery check
+   * cannot replace the API's emitted incremental artifact.
    *
    * @evidence contracts/common.md#principled-implementation Leading internal defaults precede preserved compiler flags, and isolation overrides follow them; JSON retains exact argv boundaries for driver option replay.
    * @evidence contracts/common.md#clear-and-simple-design Compiler forwarding, host timing exclusion and private isolation are composed once behind the environment-payload boundary.
@@ -239,13 +242,14 @@ export namespace TsgoArguments {
   export function createNativeTsgoArgs(
     options: TtscCommonOptions,
     leading: readonly string[] = [],
+    diagnosticsOnly = true,
   ): string | undefined {
     const passthrough = [
       // Ahead of the user's own flags, so the same precedence holds here as on
       // the direct tsgo lane: whatever the user forwarded wins.
       ...leading,
       ...(nativeTsgoPassthroughArgs(options) ?? []),
-      ...isolatedTsgoOutputArgs(options),
+      ...isolatedTsgoOutputArgs(options, diagnosticsOnly),
     ];
     if (passthrough.length === 0) {
       return undefined;
@@ -255,27 +259,45 @@ export namespace TsgoArguments {
 
   /**
    * The arguments that keep every output of a build in `isolateOutputsTo`, or
-   * nothing when the caller asked for no isolation.
+   * nothing when the caller asked for no isolation. The in-memory API instead
+   * supplies separate private destinations so bundled and declaration output
+   * retain their own layout and option validity; both policies are final
+   * assignments shared by native emission and independent diagnostic recovery.
+   * API callers identify diagnostic-only passes separately so their temporary
+   * state does not replace actual emitted state.
    *
-   * They null each separately located output (`outFile`, `declarationDir`,
-   * `tsBuildInfoFile`) and pin `outDir`, so declarations and build information
-   * land beside the JavaScript. Callers append them after the forwarded flags,
+   * They null `outFile` and `declarationDir`, pin `outDir`, and explicitly
+   * locate incremental state at `.ttsc.tsbuildinfo` inside it. Clearing the
+   * state path alone permits inference above outDir for a deep rootDir. A
+   * build-info destination does not enable incremental emission; the compiler
+   * still owns the incremental/composite decision. Callers append them after the forwarded flags,
    * which applies the final compiler destination assignments after user
    * locations. This is compiler output policy, not an OS sandbox for plugin or
    * cache writes. A `--noEmit` pass needs them as much as an emitting one: the
    * compiler still writes build information for an `incremental` project.
    *
-   * @evidence contracts/common.md#principled-implementation Disabling separately located outputs and pinning outDir closes declaration, bundled and build-info escape paths, including no-emit incremental writes.
-   * @evidence contracts/common.md#clear-and-simple-design A fixed compiler-option bundle owns sandbox output policy and both direct and native payload composers place it after forwarded options.
+   * @evidence contracts/common.md#principled-implementation The API applies its independently relocated destinations, including explicit private incremental state. Runtime callers clear separate bundle/declaration destinations, pin outDir and explicitly place incremental state within it; choosing a state path does not enable incremental compilation.
+   * @evidence contracts/common.md#clear-and-simple-design The runtime directory policy and API destination record share one final argv adapter; direct and native payload composers both append it after forwarded options.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler-supported null option values clear separate destinations instead of intercepting filesystem writes or changing foreign compiler internals.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain affected outputs, final precedence and why no-emit builds still require isolation.
    * @evidence contracts/portability.md#os-neutral-implementation node:path resolves the private target using host-native rules and sends it as one argv value, preserving drive and separator semantics without shell parsing.
-   * @evidence contracts/performance.md#efficient-algorithms Native target resolution includes path-text costs before constructing a fixed eight-token bundle; absent isolation exits without output-token allocation. Fixed token count does not bound target string bytes or native consumer costs.
+   * @evidence contracts/performance.md#efficient-algorithms An API destination record produces at most eight argv tokens. Runtime target resolution includes path-text costs before constructing its fixed eight-token bundle; absent isolation exits without output-token allocation. Fixed token count does not bound target string bytes or native consumer costs.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This returns current isolation options and coordinates no reusable producer or cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Argument construction does not acquire the output directory or manage its lifetime; the private-build owner does.
    */
-  export function isolatedTsgoOutputArgs(options: TtscCommonOptions): string[] {
+  export function isolatedTsgoOutputArgs(options: TtscCommonOptions, diagnosticsOnly = false): string[] {
+    const destinations = (options as RunBuildOptions).privateOutputDestinations;
+    if (destinations !== undefined) {
+      const args = [
+        "--outDir", destinations.outDir ?? "null",
+        "--declarationDir", destinations.declarationDir ?? "null",
+        "--outFile", destinations.outFile ?? "null",
+      ];
+      const state = diagnosticsOnly ? destinations.diagnosticsTsBuildInfoFile ?? destinations.tsBuildInfoFile : destinations.tsBuildInfoFile;
+      if (state !== undefined) args.push("--tsBuildInfoFile", state);
+      return args;
+    }
     const target =
       "isolateOutputsTo" in options &&
       typeof options.isolateOutputsTo === "string"
@@ -288,7 +310,7 @@ export namespace TsgoArguments {
       "--declarationDir",
       "null",
       "--tsBuildInfoFile",
-      "null",
+      path.join(target, ".ttsc.tsbuildinfo"),
       "--outDir",
       target,
     ];

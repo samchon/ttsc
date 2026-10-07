@@ -31,6 +31,19 @@ import {
  * while changed bytes and changed/restored bytes with restored mtime must
  * invalidate the first witness. This adds real Go metadata queries within the
  * existing source producer, without another install or native build.
+ * A self-changing selected Go launcher must refuse every unstable version/byte
+ * observation without seeding a reusable witness; stopping its mutation then
+ * permits a fresh stable reading. Twelve real Go status commands cover help
+ * failure 2 with stderr and version success 0 before/after mutation, each with
+ * inherited ERRORLEVEL absent, 0 or 999. The selected Windows launcher must
+ * preserve actual status rather than an inherited variable's shadow value.
+ * These processes share the same source producer without another native build.
+ *
+ * The declaration preload also checks public in-memory API failure ownership:
+ * an absent descriptor and an independent TS2322 preserve caller state across
+ * relative, absolute and deep inferred incremental destinations. Its existing
+ * installed actor and native seed are reused; recovery-only checks add native
+ * compiler invocations, and a restored plugin-free capture verifies recovery.
  *
  * The actual same-file compiler rewrite emits opt-in attempt/result or original
  * error observations using its existing stat and the shared test trace runtime;
@@ -568,6 +581,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           "utf8",
         ),
       ) as {
+        apiFailures: { name: string; detail: string; stack?: string }[];
         produced: string[];
         nativeEmitBefore: number;
         nativeEmitAfter: number;
@@ -585,6 +599,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         registerBefore: number;
         registerAfter: number;
       };
+      try {
+        assert.deepEqual(declarationObservation.apiFailures, [], "every installed public API ownership row must pass after all shared runtime cases execute");
+      } catch (error) {
+        combinedFailures.push(error);
+      }
       assert.equal(typeof declarationObservation.driverEmitStatus, "number");
       assert.notEqual(
         declarationObservation.driverEmitStatus,

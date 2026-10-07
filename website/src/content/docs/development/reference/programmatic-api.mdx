@@ -11,7 +11,7 @@ For browser embedding (running `ttsc` inside a Web Worker / WebAssembly), see th
 Reach for the programmatic API when you need to:
 
 - Compile or type-check a project from inside another Node tool and consume the result as structured data, not parsed terminal output.
-- Capture every emitted text artifact in memory without writing JS or `.d.ts` files into the user's project tree.
+- Capture every emitted text artifact in memory without writing JavaScript, declarations, maps or incremental state into the user's project tree.
 - Pay the lazy plugin-build cost ahead of time in CI warmup steps.
 - Manage the ttsc cache directory from your tool's own lifecycle.
 - Compare watched or cached filesystem paths with the same physical-path and per-directory case rules as ttsc.
@@ -53,6 +53,8 @@ if (result.type === "success") {
 }
 ```
 
+Plugin-backed `compile()` keeps all compiler outputs in a private temporary lifetime, including incremental metadata from diagnostic recovery after a plugin fails. Separate declaration directories and bundled outputs retain their original returned keys. Source maps use their original output coordinates. Existing caller output and build-info files remain untouched; compiler/plugin caches and arbitrary plugin effects retain their normal ownership.
+
 ## Lifecycle
 
 `TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call, create another instance to compile a different project.
@@ -76,7 +78,7 @@ Plugin payload capture uses JSON serialization, including `Date` and custom `toJ
 
 Runs the configured project through the TypeScript-Go pipeline and returns the structured result as a discriminated union.
 
-For projects with no plugins, ttsc starts its native TypeScript-Go host in a separate process. That host captures `WriteFile` callbacks and returns the `output` map through `api-compile`. For projects with plugins, ttsc runs the plugin pipeline against a temporary output directory under the configured cache root, reads the generated text back into memory, and removes the temp directory before returning.
+For projects with no plugins, ttsc starts its native TypeScript-Go host in a separate process. That host captures `WriteFile` callbacks and returns the `output` map through `api-compile`. For projects with plugins, ttsc runs the plugin pipeline against a private system temporary directory, reads the generated text back into memory, and removes the temp directory before returning.
 
 **Result shape** ([`ITtscCompilerResult`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerResult.ts)):
 
