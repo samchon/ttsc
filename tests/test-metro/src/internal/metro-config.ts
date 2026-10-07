@@ -193,12 +193,12 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
     });
     assert.equal(
       publishedUpstream(ENV_KEY),
-      absolute,
+      fs.realpathSync(absolute),
       "the transformer the config already named must become the upstream",
     );
     assert.notEqual(
       config.transformer.babelTransformerPath,
-      absolute,
+      fs.realpathSync(absolute),
       "and this package's transformer must be the one Metro loads",
     );
 
@@ -216,7 +216,7 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
     });
     assert.equal(
       publishedUpstream(ENV_KEY),
-      relativeTarget,
+      fs.realpathSync(relativeTarget),
       "a project-relative path must be anchored to the project before it travels",
     );
 
@@ -235,7 +235,7 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
     });
     assert.equal(
       publishedUpstream(ENV_KEY),
-      bareTarget,
+      fs.realpathSync(bareTarget),
       "a bare specifier must be resolved from the project, not from this package",
     );
 
@@ -339,7 +339,7 @@ export async function assertWithTtscChainsAnExistingTransformer(): Promise<void>
     });
     assert.equal(
       publishedUpstream(ENV_KEY),
-      lookalike,
+      fs.realpathSync(lookalike),
       "a foreign module named transformer.js must still be chained",
     );
   });
@@ -368,7 +368,7 @@ export async function assertWithTtscResolvesUpstreamFromTheProject(): Promise<vo
     withTtsc({ projectRoot: autoRoot });
     assert.equal(
       publishedUpstream(ENV_KEY),
-      autoTarget,
+      fs.realpathSync(autoTarget),
       "an automatic candidate only the app installed must be found from the project",
     );
 
@@ -384,7 +384,7 @@ export async function assertWithTtscResolvesUpstreamFromTheProject(): Promise<vo
     );
     assert.equal(
       publishedUpstream(ENV_KEY),
-      explicitTarget,
+      fs.realpathSync(explicitTarget),
       "an explicit package name must resolve from the project",
     );
 

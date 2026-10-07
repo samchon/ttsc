@@ -24,17 +24,17 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    a same-topology reload-directory link and prove lexical and physical
  *    identity invalidate the selection.
  * 3. Prove a platform-representable exact-entry link target and (on POSIX only) a
- *    backslash directory name and a raw non-UTF-8 directory-link target digest
- *    to independently framed sha256 values.
- * 4. Materialize a manifest larger than a Windows environment block, prove it
- *    travels by private file and dispose it idempotently.
- * 5. Frame an empty existing directory and a missing directory independently, and
+ *    backslash directory name and a representable raw directory-link target
+ *    digest to independently framed sha256 values. An actual EILSEQ refusal
+ *    must leave the directory unchanged and permit a valid UTF-8 target.
+ * 4. Materialize and dispose a manifest larger than a Windows environment block;
+ *    frame an empty existing directory and a missing directory independently, and
  *    prove each captured baseline is current. Windows missing-suffix casing
  *    follows the observed directory authority, not a platform-default guess.
  *
  * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
  * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; link, raw directory, empty-directory and missing-directory digests use independent sha256 framing (`symlink\0`/`directory\0`, target or native physical path bytes, NUL, `missing\0` or the empty-topology hash). Missing Windows suffix casing uses the supported authority observation without certifying that classifier itself. The test cannot prove agreement with the Go validator or startup host, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
- * @evidence contracts/testing.md#distinguishing-cases Child contents remain current while exact-file edits and immediate topology invalidate. Exact-entry retarget uses a Windows leaf junction or POSIX leaf file symlink: both own link identity, but junction framing has missing content while the POSIX link reaches file bytes. POSIX preserves original different-content and added same-content retargets; Windows empty-directory retarget isolates identity. Native directory-link retarget is mandatory. POSIX raw bytes/backslash names and Windows Unicode junction bytes retain their distinct native input domains. Preparation errors are failures; manifest contents and repeated disposal are asserted separately.
+ * @evidence contracts/testing.md#distinguishing-cases Child contents remain current while exact-file edits and immediate topology invalidate. Exact-entry retarget uses a Windows leaf junction or POSIX leaf file symlink: both own link identity, but junction framing has missing content while the POSIX link reaches file bytes. POSIX preserves original different-content and added same-content retargets; Windows empty-directory retarget isolates identity. Native directory-link retarget is mandatory. POSIX raw bytes/backslash names and Windows Unicode junction bytes retain their distinct native input domains. Only an observed EILSEQ creation refusal selects UTF-8 recovery after an unchanged directory/link assertion; other preparation errors fail; manifest contents and repeated disposal are asserted separately.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */
 export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
@@ -415,8 +415,27 @@ function verifyRawDirectoryIdentity(
       Buffer.from([0xff, 0x2d, 0x64, 0x69, 0x72]),
     ]);
     const rawLink = path.join(root, "raw-directory-link");
-    fs.mkdirSync(rawTarget);
-    fs.symlinkSync(rawTarget, Buffer.from(rawLink), "dir");
+    const before = fs.readdirSync(root, { encoding: "buffer" }).sort(Buffer.compare);
+    let target: Buffer;
+    try {
+      fs.mkdirSync(rawTarget);
+      target = rawTarget;
+    } catch (error) {
+      // POSIX path syntax alone does not promise arbitrary filename bytes.
+      // APFS rejects invalid UTF-8 at creation; observe that boundary without
+      // masking permission, space, or unrelated fixture failures.
+      assert.ok(error instanceof Error && "code" in error);
+      assert.equal(error.code, "EILSEQ");
+      assert.deepEqual(
+        fs.readdirSync(root, { encoding: "buffer" }).sort(Buffer.compare),
+        before,
+      );
+      assert.equal(fs.existsSync(rawLink), false);
+      target = Buffer.from(path.join(root, "\uC720\uD6A8-directory"));
+      fs.mkdirSync(target);
+      console.log("raw directory capability: invalid UTF-8 refused; verifying UTF-8 recovery");
+    }
+    fs.symlinkSync(target, Buffer.from(rawLink), "dir");
     const rawSnapshot = fingerprintInitialLSPProjectInputSnapshot({
       files: [],
       globs: [],
@@ -438,7 +457,8 @@ function verifyRawDirectoryIdentity(
     assert.equal(
       rawSnapshot.reloadDirectoryDigests[rawLink],
       expectedRaw,
-      "POSIX physical directory identity lost non-UTF-8 bytes",
+      "physical directory identity lost the native target bytes",
     );
+    assert.equal(initialLSPProjectInputSnapshotIsCurrent(rawSnapshot), true);
   });
 }
