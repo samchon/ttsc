@@ -7,28 +7,21 @@ import (
   "testing"
 )
 
-/**
- * Verifies a chain ending on the last hop this rule follows still resolves.
- *
- * The bound counts links followed, not answers given, and the difference is a
- * root that works. A chain whose last link lands on its directory exactly as
- * the last iteration is spent has resolved — the loop simply had none left to
- * look with — and the filesystem follows more than this on every platform. The
- * refusal beside this case is for a chain still going, and reporting one for
- * the other would take a population that loads and fail it. This is the
- * boundary between them, one hop below the case above.
- *
- *  1. Build a chain of exactly the length this rule follows.
- *  2. Root a TypeScript claim at its head and run the rule.
- *  3. Assert the population loads and owes its ordinary acknowledgement.
- *
- * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn accepts exactly thirty-two links and reports the expected uncovered Discounts reference without a resolver refusal.
- * @evidence contracts/testing.md#independent-expectations Literal missing acknowledgement and absence of refused-root wording establish an active population at the limit.
- * @evidence contracts/testing.md#distinguishing-cases The last permitted link settles while the overlong cases reject chains beyond the limit.
- * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
- */
+// TestALinkChainEndingOnTheLastFollowedHopResolves verifies a chain ending on the last permitted hop still resolves.
+//
+// The bound counts followed links, so the thirty-second link may land on a directory.
+// Canonical ancestry and relative POSIX targets prevent incidental temporary-root aliases consuming extra native hops.
+//
+//  1. Build exactly 32 native links onto a real project.
+//  2. Require native Stat to establish the reachable fixture and run its rooted claim.
+//  3. Assert the ordinary missing acknowledgement and no resolver refusal.
+//
+// @evidence contracts/testing.md#behavioral-verification runRootedGraphIn accepts exactly thirty-two links and reports the uncovered Discounts reference without root refusal.
+// @evidence contracts/testing.md#independent-expectations The literal missing acknowledgement proves active coverage; native Stat independently establishes the fixture is reachable and no unresolved-root message is permitted.
+// @evidence contracts/testing.md#distinguishing-cases The final permitted hop lands on a directory; the adjacent modeled resolver table separately rejects the immediately following hop on every host.
+// @evidence contracts/testing.md#execution-ownership This named Go unit calls owning graph/resolver operations in-process. Native fixtures use the existing junction boundary on Windows and relative symbolic links elsewhere; creation failures fail preparation. No consumer installation, native build or product host is started.
 func TestALinkChainEndingOnTheLastFollowedHopResolves(t *testing.T) {
-  workspace := t.TempDir()
+  workspace := linkedPopulationWorkspace(t)
   project := filepath.Join(workspace, "project")
   if err := os.MkdirAll(project, 0o755); err != nil {
     t.Fatal(err)
@@ -38,7 +31,7 @@ func TestALinkChainEndingOnTheLastFollowedHopResolves(t *testing.T) {
   for hop := range 32 {
     head = "hop" + decimal(hop)
     link := filepath.Join(workspace, head)
-    if err := linkDirectory(t, previous, link); err != nil {
+    if err := linkPopulationDirectory(t, previous, link); err != nil {
       t.Fatalf("this platform refused to create a link: %v", err)
     }
     previous = link

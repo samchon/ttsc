@@ -7,33 +7,21 @@ import (
   "testing"
 )
 
-/**
- * Verifies the project root itself is refused, and not told to correct a `root`.
- *
- * The default base is checked by the two walkers, and it is the one base that
- * declared no property, so the sentence written for a declared root would send
- * its author looking for a line their configuration does not contain. It is the
- * ttsc project root, so it is named as one and the repair is the invocation.
- *
- * The TypeScript gate deliberately does not ask this of the default base: a
- * Program spells its sources against the directory ttsc was invoked with, so the
- * comparison matches without any resolution and refusing would fail a population
- * that works. The refusal below therefore comes from the Markdown reference.
- *
- *  1. Build a chain longer than the resolver follows and drive the rule with it
- *     as the project root, which is a state the host's own realpath keeps
- *     production from reaching at this length.
- *  2. Read the refusal.
- *  3. Assert it names the project root and asks for the invocation, not the
- *     property.
- *
- * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot reports the overlong project-root chain and asks to change the invocation without naming a root property.
- * @evidence contracts/testing.md#independent-expectations The literal sentences "found no directory at the end of the ttsc project root" and "Run ttsc against the directory those links end at." come from the diagnostic's authored contract, and the literal absence of "Correct the 'root' property" encodes that a base with no declared root has no property to correct.
- * @evidence contracts/testing.md#distinguishing-cases A single negative-boundary case: a 34-link chain, longer than the resolver follows, as the default project root with a Markdown reference; the body asserts both the required invocation sentence and the forbidden property sentence, and runs no declared-root or TypeScript-only counterpart.
- * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
- */
+// TestAProjectRootPastTheResolverIsNotToldToCorrectARoot verifies an overlong project root names the invocation, not a property.
+//
+// A project identity declares no root property.
+// Native validation may reject it before the Markdown walker reaches the bounded resolution policy; either result must avoid inventing a configuration repair.
+//
+//  1. Build an overlong native chain as the project identity.
+//  2. Run the real project gate if native Stat refuses, otherwise run the authored Markdown-reference graph.
+//  3. Assert the exact project-identity failure or the bounded invocation repair, without a root-property repair.
+//
+// @evidence contracts/testing.md#behavioral-verification graphRule.Check rejects a native-inaccessible project identity; for a native-readable chain runIndexRuleAtRoot requires the bounded project-root refusal and invocation repair without a root-property instruction.
+// @evidence contracts/testing.md#independent-expectations Actual native Stat chooses the reachable graph path. Exact authored project-gate, project-root and invocation literals identify the respective failures, and the bounded path forbids Correct-the-root wording.
+// @evidence contracts/testing.md#distinguishing-cases The same 34-link project identity exercises the real native prerequisite when inaccessible and the default Markdown-base bound when readable; declared roots are covered separately.
+// @evidence contracts/testing.md#execution-ownership This named Go unit calls owning graph/resolver operations in-process. Native fixtures use the existing junction boundary on Windows and relative symbolic links elsewhere; creation failures fail preparation. No consumer installation, native build or product host is started.
 func TestAProjectRootPastTheResolverIsNotToldToCorrectARoot(t *testing.T) {
-  workspace := t.TempDir()
+  workspace := linkedPopulationWorkspace(t)
   real := filepath.Join(workspace, "real")
   if err := os.MkdirAll(real, 0o755); err != nil {
     t.Fatal(err)
@@ -41,26 +29,25 @@ func TestAProjectRootPastTheResolverIsNotToldToCorrectARoot(t *testing.T) {
   previous := real
   for hop := range 34 {
     link := filepath.Join(workspace, "hop"+decimal(hop))
-    if err := linkDirectory(t, previous, link); err != nil {
+    if err := linkPopulationDirectory(t, previous, link); err != nil {
       t.Fatalf("this platform refused to create a link: %v", err)
     }
     previous = link
   }
-  if _, err := os.Stat(previous); err != nil {
-    t.Fatalf(
-      "this platform did not follow the chain to a directory either (%v), so nothing reaches the refusal",
-      err,
-    )
-  }
-  messages := runIndexRuleAtRoot(t, previous, map[string]string{
-    "docs/pricing.md": "## Discounts {#discounts}\n",
-    "src/sale.ts":     "export interface ISale {}\n",
-  }, `{"claims":[{
+  config := `{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
     "symbol":"type",
     "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
-  }]}`)
+  }]}`
+  if _, err := os.Stat(previous); err != nil {
+    assertUnreachableLinkedProject(t, previous, config)
+    return
+  }
+  messages := runIndexRuleAtRoot(t, previous, map[string]string{
+    "docs/pricing.md": "## Discounts {#discounts}\n",
+    "src/sale.ts":     "export interface ISale {}\n",
+  }, config)
   if len(messages) == 0 {
     logLinkedPopulationPaths(t, previous)
   }
