@@ -1,7 +1,18 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-/** Read and materialize UTF-8 file maps for caller-owned fixture directories. */
+/**
+ * Read and materialize UTF-8 file maps for caller-owned fixture directories.
+ *
+ * @evidence contracts/common.md#principled-implementation The namespace exposes complementary materialization and snapshot-reading operations for caller-owned UTF-8 fixture trees.
+ * @evidence contracts/common.md#clear-and-simple-design Read and write each own their traversal while sharing only the public fixture-map purpose.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual files supply read results and caller-authored maps supply writes; no compiler or foreign filesystem operation is replaced.
+ * @evidence contracts/common.md#meaningful-documentation Member paragraphs document relative-key rules, symlink limitations and nontransactional writes.
+ * @evidence contracts/portability.md#os-neutral-implementation Native filesystem paths remain separate from slash-relative map keys; nested symlinks are omitted by read and write is not a symlink-containment boundary.
+ * @evidence contracts/performance.md#efficient-algorithms Reading visits entries and bytes once; writing visits map entries once and tracks prepared parents within that call.
+ * @evidence contracts/performance.md#reuse-equivalent-work Write shares already prepared parents only during a stable caller-owned invocation; reads and cross-call writes observe current state afresh.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Filesystem promises are awaited sequentially; Node closes handles. Call-local maps grow with fixture size and returned contents transfer to the caller, with no persistent cache.
+ */
 export namespace FileSystemIterator {
   /**
    * Write relative file names below location, creating missing directories.

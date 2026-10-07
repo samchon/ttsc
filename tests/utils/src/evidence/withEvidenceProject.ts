@@ -15,6 +15,10 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit operation and cleanup inputs retain actual consumer behavior without replacing foreign methods, swallowing release failures or fabricating a passing result.
  * @evidence contracts/common.md#meaningful-documentation The declaration explains synchronous ownership, unconditional cleanup invocation and preservation of both ordinary and undefined thrown values; the cleanup owner may refuse unresolved-reader input removal.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Finally requests the caller-provided project's release; its cleanup owner may refuse removal after unknown process closure and that failure remains observable. The result and at most two errors survive only for this call's return or throw.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This synchronous callback owner performs no native operation itself; actual fixture removal belongs to the supplied cleanup owner.
+ * @evidence contracts/performance.md#efficient-algorithms One operation and one release request run once each; at most two failures are retained and no traversal depends on fixture size.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Operations and cleanup are effectful requests and are never reused across calls.
  */
 export function withEvidenceProject<Result, Release>(
   project: {

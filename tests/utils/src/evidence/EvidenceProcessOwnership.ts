@@ -31,6 +31,15 @@ export namespace EvidenceProcessOwnership {
    * default owner passes the actual NativeLintProducer retention operation.
    * Independently owned operations can use separate instances without resetting
    * a running owner's state or replacing filesystem and process methods.
+   *
+   * @evidence contracts/common.md#principled-implementation Each instance records first unknown-reader causes and their used cache identities before delegation, so a throwing retention callback cannot reopen admission.
+   * @evidence contracts/common.md#clear-and-simple-design The returned operations share private fixture and cache maps, while cacheKeys centralizes native spelling and identity observations.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts An explicit retention delegate is the injection boundary; unknown descendants are never declared joined and foreign cache deletion authority is not granted.
+   * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify isolated ownership, sticky state and delegate failure semantics.
+   * @evidence contracts/portability.md#os-neutral-implementation cacheKeys uses native realpath, stat and nearest existing ancestors; original reader spelling remains alongside physical path and directory identity without case guessing.
+   * @evidence contracts/performance.md#efficient-algorithms Map/set checks are expected constant time per key; cache-key discovery visits missing ancestors and retention visits the fixture's recorded keys.
+   * @evidence contracts/performance.md#reuse-equivalent-work Repeated unknown transitions keep the first reason and delegate once. Admission is checked on every operation; no quiet path or later parent exit clears sticky state.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The instance owns maps growing with registered fixtures and distinct cache keys for its lifetime. There is no release/reset API; unresolved state intentionally survives, and actual allocations stay with external owners.
    */
   export function create(retainSharedInputs: (reason: string) => void) {
     const unknown = new Map<string, unknown>();
@@ -111,22 +120,66 @@ export namespace EvidenceProcessOwnership {
     return owner;
   }
 
-  /** Permanently retain the first reason closure could not be established. */
+  /**
+   * Permanently retain the first reason closure could not be established.
+   *
+   * @evidence contracts/common.md#principled-implementation The shared instance records the fixture's first unresolved closure reason and delegates existing shared-input retention.
+   * @evidence contracts/common.md#clear-and-simple-design This facade preserves one process-wide admission owner without exposing its maps.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A later launcher exit cannot clear unknown descendant ownership or manufacture a join.
+   * @evidence contracts/common.md#meaningful-documentation The headline states permanent first-reason retention.
+   * @evidence contracts/portability.md#os-neutral-implementation The delegated owner binds native cache paths and identities; the fixture key is the exact spelling supplied by its caller.
+   * @evidence contracts/performance.md#efficient-algorithms One delegation visits only that fixture's registered cache keys and allocation-retention checks.
+   * @evidence contracts/performance.md#reuse-equivalent-work Repeated retention of the same fixture preserves the first reason and does not repeat the shared-input delegate.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources No new root or child is acquired; sticky process-local records keep unresolved inputs unavailable and reclamation remains with their owner.
+   */
   export function retain(directory: string, reason: unknown): void {
     shared.retain(directory, reason);
   }
 
-  /** Refuse mutation or removal while an earlier reader may still exist. */
+  /**
+   * Refuse mutation or removal while an earlier reader may still exist.
+   *
+   * @evidence contracts/common.md#principled-implementation The shared owner refuses mutation or cleanup when that exact fixture key has an unknown-reader reason.
+   * @evidence contracts/common.md#clear-and-simple-design One facade connects writers and cleanup to the same admission map.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Absence from this registry is not a kernel liveness or descendant-join assertion.
+   * @evidence contracts/common.md#meaningful-documentation The headline identifies the mutation/removal admission boundary.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This operation checks the supplied fixture key in a process-local map and performs no native observation.
+   * @evidence contracts/performance.md#efficient-algorithms One expected constant-time map lookup determines registered refusal.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Admission is recomputed for each request rather than cached as process closure proof.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This check acquires no resource or retained state; the shared owner holds existing refusal records.
+   */
   export function assertAvailable(directory: string): void {
     shared.assertAvailable(directory);
   }
 
-  /** Refuse a cache path or actual directory identity with unresolved readers. */
+  /**
+   * Refuse a cache path or actual directory identity with unresolved readers.
+   *
+   * @evidence contracts/common.md#principled-implementation Current native spelling and identity keys are compared with sticky unresolved cache keys before cache IO.
+   * @evidence contracts/common.md#clear-and-simple-design The facade delegates all cache identity policy to the common instance.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Retargeting an earlier reader's path cannot erase that recorded path refusal; this grants no deletion authority.
+   * @evidence contracts/common.md#meaningful-documentation The headline identifies cache-path and actual-directory refusal.
+   * @evidence contracts/portability.md#os-neutral-implementation The delegated native realpath/stat discovery keeps reader spelling, physical spelling and directory identity separate without case folding.
+   * @evidence contracts/performance.md#efficient-algorithms Key discovery scales with missing ancestor depth, followed by a fixed number of expected constant-time map checks.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each request reobserves its current native path; prior admission is not cached as future validity.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous observations leave no handle or task; this check adds no retained records.
+   */
   export function assertCacheAvailable(location: string): void {
     shared.assertCacheAvailable(location);
   }
 
-  /** Record the actual cache inputs before a fixture starts its reader. */
+  /**
+   * Record the actual cache inputs before a fixture starts its reader.
+   *
+   * @evidence contracts/common.md#principled-implementation Fixture and cache admission are checked before the exact reader spelling and native identity keys are bound to the fixture.
+   * @evidence contracts/common.md#clear-and-simple-design The facade shares one registration owner with retention and later cache access.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Registration observes actual cache inputs; it neither allocates a substitute root nor declares successful process completion.
+   * @evidence contracts/common.md#meaningful-documentation The headline states before-reader-start registration of actual inputs.
+   * @evidence contracts/portability.md#os-neutral-implementation The delegated native path observations preserve original spelling alongside physical path and existing directory identity.
+   * @evidence contracts/performance.md#efficient-algorithms Two admission checks and key discovery scale with ancestor depth, while set insertion is expected constant time per key.
+   * @evidence contracts/performance.md#reuse-equivalent-work The fixture set deduplicates repeated equal keys; changed paths or native identities produce separate keys and admission is checked again.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The shared instance retains fixture/key bindings for the finite process; this adapter owns no native handle or allocation and does not prune historical registrations.
+   */
   export function registerCache(directory: string, location: string): void {
     shared.registerCache(directory, location);
   }

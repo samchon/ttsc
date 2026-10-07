@@ -14,10 +14,33 @@ const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
   ): void;
 };
 
-/** Discovers and runs the named feature exports of the package-shaped suites. */
+/**
+ * Discovers and runs the named feature exports of the package-shaped suites.
+ *
+ * @evidence contracts/common.md#principled-implementation The namespace exposes the existing runner and its location contract as one package entry.
+ * @evidence contracts/common.md#clear-and-simple-design Discovery, invocation and failure reporting remain together under main rather than independent runners.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Named exports execute normally; tracing observes actual invocation without substituting results.
+ * @evidence contracts/common.md#meaningful-documentation The headline identifies the suite runner and main documents failure isolation and unfinished-run detection.
+ * @evidence contracts/portability.md#os-neutral-implementation Native directory paths and module URLs are separated by main through Node path and URL APIs.
+ * @evidence contracts/performance.md#efficient-algorithms Main visits each directory entry once per supplied location, then imports each selected module and invokes its test exports sequentially.
+ * @evidence contracts/performance.md#reuse-equivalent-work Node module identity shares helpers; test outcomes are always recomputed and overlapping supplied locations are not deduplicated.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Run-local paths and failures are released after settlement; the exit guard is removed on completion. Actual test resources remain with case owners.
+ */
 export namespace TestExecutor {
-  /** Feature-module trees selected by the owning test package. */
+  /**
+   * Feature-module trees selected by the owning test package.
+   *
+   * @evidence contracts/common.md#principled-implementation A single location or list represents the runner's supported discovery roots without confusing a string with iterable path characters.
+   * @evidence contracts/common.md#clear-and-simple-design One field leaves discovery and execution policy in main.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Locations select actual modules, not expected outcomes or fabricated executions.
+   * @evidence contracts/common.md#meaningful-documentation The interface identifies package-selected feature roots; location accepts one root or several.
+   * @evidence contracts/portability.md#os-neutral-implementation Location strings retain native filesystem spelling for the runner; conversion to module URLs belongs to main.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms TestExecutor.IProps defines a representation; it chooses no processing algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TestExecutor.IProps defines no computation-sharing or invalidation policy.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TestExecutor.IProps carries data or signatures; acquisition and release remain with the implementing operation.
+   */
   export interface IProps {
+    /** Native feature file or directory roots; every supplied location is visited. */
     location: string | string[];
   }
 
