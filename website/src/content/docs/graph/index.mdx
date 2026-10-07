@@ -18,12 +18,19 @@ One MCP tool, `inspect_typescript_graph`, answers instead. Its replies carry nam
 - **What is this, exactly?** The declaration shape, its range, its dependencies, and its dependents: `details`.
 - **Which code implements this specification?** The declarations whose documentation cites a document section, an API operation, or a data model: `lookup`, with the target as the query.
 
+For package users who need every caller or the full impact set, a trace request accepts `complete: true`. This exhausts the finite graph selected by `direction`, `focus`, and `includeExternal`, including dispatch through bodyless declarations. Cycles terminate without expanding a node twice, and impact results retain exported and test roles. With `to`, it searches for one shortest dependency path.
+
+Exploratory traces default to a depth of three, twelve reached nodes and twenty-four traversed edges; path searches default to twelve hops. Explicit `maxDepth` and `maxNodes` have no upper ceiling, but bounded open traces still withhold dispatch fanouts of twelve or more implementations and limit hops to twice the node budget. `truncated` identifies omitted flow or an unsuccessful bounded path search. `complete: true` overrides every traversal budget and includes a summary of every hop, so a complete response may grow with the entire graph. Traversal is synchronous without per-request cancellation; resource or transport refusal fails the request instead of returning partial success.
+
+Graph requests admitted before one native freshness check starts share that check of current disk inputs. A later request receives another check, without a time-based freshness window or cooldown. Canceling one waiting request releases only that caller; shared work continues for its remaining callers. The last cancellation aborts that work, and an outstanding native request retires its peer.
+
 Every node and edge is the compiler's own answer, which is what a text search cannot give you.
 
 - **pnpm workspaces.** A `workspace:*` dependency is followed into the sibling package's real source, so a cross-package call lands on the true declaration rather than the barrel it passed through.
 - **Path aliases.** A `@app/*` import from `tsconfig` resolves to the real file.
 - **Barrel re-exports.** An `index.ts` that only re-exports is unwrapped to the file that declares the symbol.
 - **Your code, not the world.** Anything in `node_modules` or a `.d.ts` is an outside boundary rather than a place to walk into, and generated sources your `.gitignore` covers are de-ranked.
+- **Object members.** Statically named object-literal methods, function properties and nested properties have their own nodes. Ordinary names use `api.create`; empty keys and keys containing dots or brackets use JSON brackets such as `api["quoted.key"]` and `api[""]`, keeping literal text distinct from nested ownership. Dynamic keys and object literals without a stable binding receive no guessed member identity or edge.
 - **Documentation links.** A `{@link Symbol}` the checker resolves is an edge like any other, and a tag the type system does not recognize is carried as written, so `lookup` answers which declarations cite `docs/pricing.md#sale`.
 
 ## [Benchmark](/docs/benchmark/graph)

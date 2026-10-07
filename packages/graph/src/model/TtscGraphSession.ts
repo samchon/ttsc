@@ -18,8 +18,9 @@ import {
 /**
  * Resident bridge to `ttscgraph serve`.
  *
- * Every graph request first asks the native session for the current disk
- * snapshot. Unchanged requests reuse the existing {@link TtscGraphMemory}; an
+ * Requests admitted before a freshness check starts share that check and its
+ * snapshot. Later arrivals require another check. Unchanged requests reuse the
+ * existing {@link TtscGraphMemory}; an
  * edited source reuses tsgo's resident Program through `driver.Session`, while
  * config and root-file-set changes force a safe full reload.
  *
@@ -106,18 +107,20 @@ export class TtscGraphSession {
   }
 
   /**
-   * Return a graph for the current disk snapshot, serialized per tool call.
+   * Return a graph refreshed after this caller's admission.
    *
-   * Cancellation rejects a queued request before it starts or retires its
-   * active child. Closed sessions reject new requests and do not respawn.
+   * Callers already waiting when a check starts share it. Cancellation rejects
+   * only that caller. The last cancellation aborts shared work; an outstanding
+   * native request then retires its peer.
+   * Closed sessions reject new requests and do not respawn.
    *
-   * @evidence contracts/common.md#principled-implementation Queue serialization refreshes one current native generation, and single-settlement callbacks preserve request results across cancellation races.
+   * @evidence contracts/common.md#principled-implementation The state groups only callers admitted before its refresh starts, so every returned snapshot was validated after that caller's admission; independent cancellation cannot settle siblings.
    * @evidence contracts/common.md#clear-and-simple-design The state owner handles admission, cancellation, response semantics and model replacement; facade callbacks synchronize artifacts and open the actual native transport.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A cancelled or closed request cannot be fulfilled from fabricated empty facts or restart a disposed session.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states serialized snapshot timing, queued/active cancellation and closed-session behavior.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states admission-based snapshot sharing, independent cancellation and closed-session behavior.
    * @evidence contracts/portability.md#os-neutral-implementation Native binary resolution, argv spawning and Node termination APIs own host differences; project coordinates are never passed through a shell.
-   * @evidence contracts/performance.md#efficient-algorithms An unchanged request validates artifact inputs and a native frame, then returns the resident model; changed frames additionally validate shards and rebuild model indexes.
-   * @evidence contracts/performance.md#reuse-equivalent-work Current memory is shared only after the native producer confirms unchanged inputs; changed generations replace it and changed artifacts are republished before requesting facts.
+   * @evidence contracts/performance.md#efficient-algorithms An admission group validates artifact inputs and a native frame once, then shares its model among live callers; changed frames additionally validate shards and rebuild indexes.
+   * @evidence contracts/performance.md#reuse-equivalent-work Only callers admitted before validation starts share that validation. Later groups check again; unchanged responses reuse current memory, while changed generations replace it and changed artifacts are republished before requesting facts.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns one graph child, current model, shard map and current publisher sidecars; republishing retires removed publishers, while pending/queued demand grows with submitted requests and completion/cancellation remove registrations.
    */
   public graph(

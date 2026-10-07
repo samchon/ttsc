@@ -21,13 +21,16 @@ export interface StatePort {
  * Exercise authored state with explicit envelopes/events and optional
  * first-peer release.
  */
-export function sessionState(firstRetirement?: Promise<void>) {
+export function sessionState(
+  firstRetirement?: Promise<void>,
+  beforeRequest: () => Promise<void> = async () => undefined,
+) {
   const ports: StatePort[] = [];
   let closed = 0;
   let artifact = "";
   const session = new TtscGraphSessionState({
     decode: TtscGraphProtocol.decode,
-    beforeRequest: async () => undefined,
+    beforeRequest,
     artifacts: () => artifact,
     close: () => {
       closed++;
@@ -56,6 +59,7 @@ export function sessionState(firstRetirement?: Promise<void>) {
             port.live = false;
             if (ports[0] === port) return firstRetirement;
           }
+          return undefined;
         },
       };
       ports.push(port);
