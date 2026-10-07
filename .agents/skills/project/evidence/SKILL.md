@@ -1,11 +1,13 @@
 ---
 name: project/evidence
-description: Defines the evidence graph domain model for @ttsc/evidence: the tag grammar, node kinds, hierarchy, reference resolution, obligation coverage, reference policies, and exclusions. Use before changing rule semantics, the tag grammar, the configuration surface, or a diagnostic message; do not use for the mechanics of the Go rule API, which the `@ttsc/lint` contributor contract in packages/lint/README.md owns.
+description: "Defines the evidence graph domain model for @ttsc/evidence: the tag grammar, node kinds, hierarchy, reference resolution, obligation coverage, reference policies, and exclusions. Use before changing rule semantics, the tag grammar, the configuration surface, or a diagnostic message; do not use for the mechanics of the Go rule API, which the `@ttsc/lint` contributor contract in packages/lint/README.md owns."
 ---
 
 # Evidence Graph
 
-The user-facing semantics live in the website guides, so read them first: [Evidence Tags](../../../../website/src/content/docs/evidence/tags.mdx) covers the tag grammar, targets, scope, withdrawal, and reviews, and [Configuration](../../../../website/src/content/docs/evidence/claims.mdx) covers claims, references, selectors, policies, checklists, and exclusion carriers. This skill holds only the implementation invariants behind them. The Go rule API mechanics belong to the `@ttsc/lint` contributor contract in `packages/lint/README.md`.
+Read the user-facing [Evidence Tags](../../../../website/src/content/docs/evidence/tags.mdx) and [Configuration](../../../../website/src/content/docs/evidence/claims.mdx) guides first. They own tag grammar, targets, scope, withdrawal, reviews, claims, selectors, policies, checklists and exclusion carriers.
+
+This skill owns the implementation invariants behind those semantics. The Go rule API belongs to the `@ttsc/lint` contributor contract in `packages/lint/README.md`.
 
 ## Contents
 
@@ -22,172 +24,223 @@ The user-facing semantics live in the website guides, so read them first: [Evide
 
 ## Tag Parsing
 
-**A review is an annotation of a citation, never an acknowledgement of a unit, and it must not be a third `tagKind`.** Every acknowledgement map in evaluation consumes the declarations of a claim, so a review arriving through that parse discharges coverage, contributes a host to `uniqueEvidence`, counts a unit toward `singleEvidencePerSymbol`, and conflicts with an exclusion of the same scope. Each of those is a build going green because a review was mistaken for evidence. A distinct type cannot reach any of them by construction, where a shared one stays out only by being remembered at six sites. `declarationLine` needs no change to keep them apart: it matches `@evidence` only when the next character is whitespace, so `@evidenceReview` falls through exactly as `@evidenceExclude` does.
+Represent a review as an annotation of a citation, with a distinct type outside `tagKind`. A review must never enter acknowledgment maps, discharge coverage, add a host to `uniqueEvidence`, count toward `singleEvidencePerSymbol` or conflict with an exclusion. A distinct type enforces that boundary instead of relying on every consumer to remember an exclusion guard.
 
-The fingerprint parser checks the exact length as well as the `#`, because a requirement anchor such as `#req-search-policies` opens a description in that same shape.
+Keep `declarationLine`'s whitespace boundary after `@evidence`. It distinguishes `@evidenceReview` and `@evidenceExclude` without changing their shared prefix.
 
-The parser stays independent of reference context: a target's kind is decided by its own token, so a path target stays one token and only a code target may spend braces to buy a boundary. A consumer also running `@typescript-eslint/no-unused-vars` still sees a citation-only import as unused, because that rule does not count JSDoc usage.
+Check a fingerprint's exact length as well as its opening `#`. A requirement anchor such as `#req-search-policies` has the same opening shape.
 
-Resolve a file-qualified target's path from the citing file and its segmented accessor from that module's public exports. Preserve existing import-scoped inline links and reject bare cross-module symbol lookup.
+Decide a target's kind from its token independently of reference context. A path target is one token; only a code target may use braces as a boundary. A citation-only import remains unused to `@typescript-eslint/no-unused-vars` because that rule does not count JSDoc usage.
 
-**A TypeScript reference's explicit `root` opts into disk loading.** `files` selects entry modules under that root, and re-export traversal stays inside it. Active Program snapshots win over disk for the same module. Declare the rooted directory through `ProjectInputs` before loading so creation, deletion, repair, and re-export changes refresh watch and editor diagnostics. Without root or package, entry selection remains Program-only. File-qualified resolution keeps existing declaration IDs and policy state, and never counts a failed lookup as coverage.
+Resolve a file-qualified target's path from the citing file and its segmented accessor from that module's public exports. Preserve import-scoped inline links and reject bare cross-module symbol lookup.
 
-The reason exists for review, not machine judgment. Do not add a rule that guesses whether prose is sincere; it will teach authors to write filler that passes.
+An explicit TypeScript reference `root` opts into disk loading. Its `files` select entry modules under that root, and re-export traversal stays inside it. Active Program snapshots take precedence over disk for the same module.
+
+Declare that rooted directory through `ProjectInputs` before loading. Creation, deletion, repair and re-export changes must refresh watch and editor diagnostics. Without `root` or `package`, entry selection stays Program-only. File-qualified resolution retains declaration IDs and policy state; a failed lookup never supplies coverage.
+
+Reasons are reviewed by humans and agents. Do not add a rule that guesses whether prose is sincere; such a rule rewards filler that satisfies its heuristic.
 
 ## Units And Hierarchy
 
-Keep selected obligations and resolvable scopes separate. Do not make every unselected unit resolvable; only actual ancestors belong to the scope closure, or an unrelated same-name declaration can create false ambiguity.
+Keep selected obligations separate from resolvable scopes. Add only actual ancestors to the scope closure. Making unrelated unselected units resolvable can create same-name ambiguity.
 
-Hierarchy is identity, not spelling. Store explicit parent unit IDs while materializing. Never infer TypeScript ancestry from a dotted-string prefix: literal names may contain dots, and `A.B` can mean one literal segment or two qualified segments.
+Store explicit parent unit IDs during materialization. Do not infer TypeScript ancestry from dotted-string prefixes: a literal name may contain dots, and `A.B` may denote one segment or two.
 
-Keep a withdrawn unit rather than discarding it, marked with the tag that withdrew it, so a citation naming one is answered with the tag as the cause.
+Retain a withdrawn unit with its withdrawal tag. A citation of that identity must name the tag as the cause rather than report an unexplained unresolved target.
 
-**Withdrawal belongs to the identity, and the host set is filled per declaration, so reconcile the two after materialization rather than while walking.** An identity may span several declarations, and a tag on any one of them withdraws it: an overload run and a merged interface are both one identity in two places. A collector filling the host set sees only the node in hand, so resolving withdrawal there closes the container it walks and no other, and there is one container per declaration form. Done that way twice, the untagged sibling stayed a claim host and an exclusion carrier, and a declaration the author had taken out of the API went on discharging coverage, silently, because the unit really was marked.
+Reconcile withdrawal after materialization, across every declaration of an identity. A tag on any declaration withdraws the whole identity, including overloads and merged interfaces. A declaration-local walk cannot remove hosts registered by another declaration form.
 
-**Give a host position up only when every identity reaching it is withdrawn.** One node can host several: `export var price: number, live: number` is two identities sharing the statement TypeScript attaches their block to. Judging the position by the first withdrawn identity that names it refuses a citation on a public sibling nobody tagged, which is the same rule the mixed-variable-statement host set already states from the other direction. The example is `var` rather than `const` because withdrawing one identity of a statement takes a second declaration of it, and `const` cannot be redeclared.
+Treat a host position as a node-and-symbol-kind pair. Release it only when every identity of that kind reaching the node is withdrawn. For example, `export var price: number, live: number` shares one statement documentation position; withdrawing one identity must leave the public sibling citable. The `var` example permits a second declaration to withdraw one identity; `const` cannot be redeclared.
 
-**The reconciliation reaches exactly as far as the unit-to-node association does, so every host position must be one of its unit's recorded nodes.** A variable declarator, at module scope and at namespace scope alike, was a host that no unit recorded, and that one asymmetry gave two wrong answers, both silent: a withdrawn identity kept the position, so a declaration taken out of the API went on discharging coverage and carrying exclusions, and a citation written on it resolved to no semantic host, so `singleEvidencePerSymbol` counted the statement's identities as citing zero while the same run called the obligation satisfied. A third consumer reads the same association and was measured to answer identically either way, because `evidence/documented` takes the first of a unit's host nodes and a declarator is a host only when its statement is one for the same symbol, so the wrapper was always there to take; the invariant was broken there rather than the answer.
+Record every host position among its unit's nodes, including variable declarators at module and namespace scope. Per-host counts, withdrawal and review pairing all depend on that association. Read an inner declarator's own withdrawal tags as well as its container's; container documentation does not substitute for that read.
 
-Record the node wherever a form registers one, and do not wait for a consumer to be visibly wrong. Recording the node gives that position a unit identity, which is what the per-host policies and the review ledger read; the position was already a host and already discharged coverage. So `uniqueEvidence` now sees a host it did not, `singleEvidencePerSymbol` now counts the unit a citation on an inner declarator names instead of counting zero, and review pairing moves in the other direction: a review written on the statement now answers a citation on an inner declarator and the reverse, so an `Unreviewed` diagnostic can disappear. Say both directions, because a migration note that lists only the expiries reads as though reviews can only get stricter.
+The statement wrapper and inner declarator are positions of the same variable identity. A review on either position may answer a citation on the other. Changes to these associations can both expire and newly satisfy reviews; document both effects when the association changes.
 
-A second fault travelled with it and has its own cause, which is why they are stated apart: a withdrawal tag read from a container is not the tag of the declarations inside it, so an inner declarator owes its own read. That one is a collector-local read rather than a pass over finished identities, and the reconciliation is the pass; neither is a per-container index, and the reconciliation covers a declaration form nobody has written yet exactly to the extent that form records the nodes it hosts on.
+Keep position ownership separate from content used for fingerprints. A variable owns its statement wrapper because TypeScript attaches leading documentation there, but its content is its own declarator: name, annotation and initializer. Sibling declarators must not enter its fingerprint.
 
-**Owning a position and being that identity's content are different questions, and the answer to the second is stated per declaration rather than derived from the first.** A variable is where they part. TypeScript attaches a variable's leading documentation to the statement wrapper, so the wrapper is a position the identity owns and every walk from a unit to its declarations has to reach it. One wrapper declares every sibling of a declarator, though, and their text is not this identity's content: hashing everything the identity owned put each declarator's text inside every other declarator's fingerprint, so an edit to one identity expired a review of another. The binding identifier a variable unit is named by begins where the previous token ended, so it arrived carrying the documentation block above it while reporting none of its own to exclude, which put a tag position back inside the digest that excludes tag positions. A variable's content is its declarator: it holds the name, the annotation, and the initializer, and nothing of its siblings, and a destructuring pattern's leaves share one because they share the initializer they take their values from. Narrowing content moves every variable unit's fingerprint once, so state that in its own migration note. That note lists only expiries, and unlike the one above it that is complete: narrowing what a digest covers has no loosening direction. On upgrade, a review naming a variable, or naming a scope such as a namespace that contains one, expires and has to be rewritten.
+Destructuring leaves share the declarator and initializer that produce their values. Do not hash a binding identifier's leading trivia as content: it may include documentation whose tag positions must be excluded. A narrowed variable digest also changes enclosing-scope fingerprints; document the resulting review expiries when changing that boundary.
 
-**A unit's reported position comes from inside the declaration's own name.** A node's full start precedes its leading trivia, so it names the line the previous token ended on. That is a line above each leaf of a multi-line destructuring pattern, and two above a declarator whose documentation block sits between it and the preceding comma. Those are the two shapes where a reader cannot recover the position by eye.
+Report a unit's position inside its declaration's own name. A full start may point before leading trivia, above a multiline destructuring leaf or before documentation between comma-separated declarators.
 
-**Reading tags only from blocks the parser attached keeps a citation, the host it lands on, and the exclusion that cuts it out of a digest all naming one position.** Two ordinary shapes fall outside it: TypeScript gives a binding element no documentation, so a block between the braces of a destructuring pattern reaches nothing, and a `//` comment is not documentation at all. Report the tag rather than adopting it, because attaching a binding element's block to the leaf it precedes means inventing an association the parser does not provide. A run of three or four slashes is answered like two, and so is a tag left behind in commented-out code. Name both repairs in the diagnostic, because a citation meant to be kept belongs in a block on a declaration while one left behind belongs nowhere, and judge each line on its own: deciding for a whole comment on the strength of one line silences the tags above and below it. Report only inside the declared population, and judge that against the configuration as declared rather than as activated: a claim that deactivated still declared its files, and a file whose every declaration is commented out is exactly the shape this diagnostic exists for. TypeScript needs the check because a base is a directory whose glob decides ownership only afterwards, so a program file outside every glob is still scanned; answering for those made a stray tag in a consumer's `node_modules` fail their build over a file they did not write. A package reference governs nothing here, because its globs resolve against the installed package rather than the project.
+Read tags only from documentation blocks attached by the parser. This keeps the citation, its host and the text excluded from a digest associated with one position. Binding elements have no attached documentation, so do not invent an association for a block inside a destructuring pattern.
 
-**A scan problem is reported to every population that reads the file, matched on that population's own symbol set.** A malformed heading and an unaddressable path both say the file materialized less than it looks like it should, and that is a hole on either side: a reference loses evidence units, a claim loses the hosts that owe acknowledgements. Asking references alone left the claim side silent in the worse direction, because an unaddressable claim file contributes no host at all and left its obligation without a word. The file-level problem carries the wildcard symbol, because it is about the file rather than about any heading kind.
+Report unsupported tags in `//` comments, runs of three or four slashes and commented-out code. Judge each line independently. Offer both repairs: move an intended citation into a declaration's documentation block, or remove an abandoned tag.
 
-The two sides are judged at different moments, and the difference is load-bearing rather than an oversight. A claim is judged as declared, since the claim populations are scanned and their problems appended before activation, which is what lets a claim that deactivated still report the file that emptied it. A reference is judged as activated, because a deactivated claim's reference loaders never run at all: that is the same ordering that stops an inactive claim from making its references perform work, and a reference nobody will ask about is not owed a diagnostic. Do not restate this as one rule over both; the claim half is the one the tag rules' declared-not-activated reasoning covers.
+Confine that reporting to the claim populations as declared, including inactive claims. A file whose declarations are all commented out still belongs to those declared globs. Program files outside every matching claim glob are out of scope, including dependency files. Package-reference globs select installed package files and confer no claim ownership here.
+
+Report a scan problem to every population reading that file, matched against that population's own symbol set. A malformed heading or unaddressable path can lose either reference units or claim hosts. A file-level problem uses the wildcard symbol because it concerns the file, not one heading kind.
+
+Judge claim scan problems before activation, so a file that empties its claim still reports its cause. Judge reference scan problems only after activation: inactive claims do not run their reference loaders. Do not combine these into one activation rule.
 
 ## Swagger Classification
 
-One `ITtscEvidenceGraphSwaggerReference` owns one document through its singular `file` property, and it has no public `symbol` selector because every operation under the normalized document's `paths` object is selected.
+One `ITtscEvidenceGraphSwaggerReference` owns one document through its singular `file`. It has no public `symbol` selector; every operation under the normalized document's `paths` is selected.
 
-Normalize the input with `@typia/utils` to `@typia/interface`'s `OpenApi.IDocument` before materializing operations. The bridge returns each operation's identity together with a digest of its normalized definition, because this is the only side that sees the document. Resolve every `$ref` into `components.schemas` before hashing, following a self-referential schema once: the converter preserves references rather than inlining them, so a digest over the operation as written covers the name of a contract instead of the contract, and changing every property of a DTO would expire no review of the endpoint that carries it. Nothing inside an operation hosts an evidence tag and the operation is the unit, so nothing is excluded and there is no subtree to compose. A remote source has no bytes to revalidate, so its fingerprints are those of the document its one fetch returned.
+Normalize with `@typia/utils` to `@typia/interface`'s `OpenApi.IDocument` before materializing operations. Return each operation's identity and digest from the bridge that understands that document.
+
+Resolve every `$ref` into `components.schemas` before hashing, following a self-referential schema once. The converter preserves references rather than inlining them; hashing only a referenced name would miss a change to its DTO.
+
+An operation is the unit, hosts no interior evidence tags and has no subtree to compose. Exclude no interior content. A remote source has no local bytes to revalidate; its fingerprints describe the document returned by its one fetch.
 
 ## Prisma Classification
 
-**A per-unit fingerprint is computed where the declaration is understood, and the whole-source digest beside it answers a different question.** The bridge returns a digest of each model's and each member's parsed declaration, excluding its documentation comment, because that comment is where a review of it is written and hashing it would expire the review the moment it was written. A model's own digest folds in none of its fields: a field is a unit of its own and the scope composes them, so folding them in would make one field's edit expire a review of every sibling. Read the type, the attributes, and their arguments from the parser's value rather than from text, which is the same subordination the position scan obeys. What that value carries decides the reach: `@@unique` and `@@map` move the model, `@@index` moves nothing, and both bridges hash a parser's or a converter's own output, so upgrading either expires every review of that kind at once. The composite digest over the ordered file set stays what it is, a cache key: it folds each path in so that moving a model between files changes it, while a per-unit digest must not, because a model name is unique across the schema folder and moving one cannot break a citation.
+Compute per-unit fingerprints in the bridge that understands each declaration. Hash each model's and member's parsed declaration without its documentation comment, where reviews are written.
 
-**The set is composed of physical files, never of paths.** Two populations reach one schema whenever their roots spell it differently, which is what a package manager installs, and the parser rejects a set declaring one model twice. Identity is therefore the filesystem's (`os.SameFile`, which answers for a hard link, a linked directory, and a case-insensitive volume alike), and the one parse result reaches every inventory of that file. The units and declarations it produces stay one object shared by both populations rather than a copy each, because the graph keys hosts and acknowledgements by identity and a copy would owe every obligation twice.
+A model's own digest excludes its fields. Fields are separate units composed by the scope; including them in the model digest would make one field edit expire every sibling's review.
 
-**The classification is Prisma's, not ours.** A **view** arrives among that parser's models and is therefore a `model` unit; the name argues otherwise, which is exactly why it was measured. Enums, composite types, and indexes are outside the unit model.
+Read types, attributes and arguments from the parser's values rather than reconstructing them from source text. `@@unique` and `@@map` change the model digest; `@@index` changes no unit. Parser or converter upgrades may change every fingerprint of that artifact kind.
 
-**That parser returns no position for anything, so a native scan supplies every location.** The scan is subordinate: it may not add a unit, remove one, or change a symbol kind, so a scan that misses costs a precise line and never a smaller coverage denominator. Keep it that way: the moment it decides what exists, a mis-scan turns into a silently passing build.
+Keep the composite source digest as a cache key over the ordered file set and its paths. Per-unit Prisma digests exclude file paths: model names are unique across a schema folder, and moving a model must not break its citation.
 
-A Prisma identifier can never contain a dot, so joining a member address on one is unambiguous; the hazard that keeps TypeScript identities segmented does not exist here.
+Compose the schema from physical files. Use `os.SameFile` to deduplicate hard links, linked directories and aliases on case-insensitive volumes. A parser rejects a set that declares one model twice. Share the resulting units and declarations across inventories of that physical file; copied identities would owe obligations twice.
 
-The `///` and `/* */` split from `//` was settled by running `prisma generate`: both documentation forms reach the generated client types and prisma-markdown's ERD indistinguishably, while a `//` comment is discarded outright. `//// @evidence` arrives as content beginning with a slash and opens no tag, so it is reported like a `//` citation. An intervening `//` line does not break a run. Do not re-derive these from the grammar; both directions are silent when wrong.
+Use Prisma's classification. Views arrive as models and are `model` units. Enums, composite types and indexes are outside the unit model.
+
+Supply locations through a native scan because the parser returns none. The scan may not add or remove a unit or change its kind; a missed position loses precision, never coverage denominator.
+
+Prisma identifiers contain no dots, so joining a member address with a dot is unambiguous.
+
+Accept `///` and `/* */` documentation; both reach generated client types and prisma-markdown's ERD. Discard `//` comments as documentation. `//// @evidence` begins with slash content and opens no tag, so report it like a `//` citation. An intervening `//` line does not break a documentation run.
 
 ## TypeScript Classification
 
-A diagnostic spells a location the way a reader opens it, which is project-relative unless no relative spelling exists. A diagnostic that names the `root` property itself spells it as the configuration declares it, normalized but not resolved, on every artifact kind, because a derived spelling would be absent from the file the message asks the author to edit whenever the declared root is absolute.
+Spell diagnostic locations project-relative unless no relative spelling exists. When a diagnostic names a configuration's `root` property, use its declared spelling, normalized but unresolved, for every artifact kind. The author must be able to find that value in the named configuration.
 
-**A class is a subject, so it is a unit and its members hang below it.** A merge partner keeps the instance and static split: an interface merged with a class declares that class's instance members, so they take the same `prototype` address the body form takes, while a namespace merged with a class adds statics and takes the bare one. Addressing an interface half from the bare name published a path no consumer can walk, a second unit for a method the class already declared, and an obligation that stayed owed however the real member was cited.
+Materialize a class as a unit with members beneath it. Preserve the instance/static split across merges: an interface merged with a class contributes `prototype` members; a namespace merged with it contributes bare static members. Both declarations of a member must share its walkable address and identity.
 
-The public test is `private` or `protected` alone, so an `abstract` or `override` member is selected exactly as its plain twin is.
+Determine public visibility from `private` and `protected` alone. `abstract` and `override` members remain selected like their ordinary counterparts.
 
-A type-only alias exposes the class name, because that name is type-space, and no member, because every member address runs through the class value the alias does not expose. An interface merged with that class is withheld with it for the same reason, which is the one place an interface's members are not type-space, and the guard has to travel with the merge rather than sit on the class collector.
+A type-only alias exposes the class name but no class members: their addresses require the class value. Withhold a merged interface's members with that class. Keep this guard on the merged identity rather than only the class collector.
 
-Every type-only export withholds, in every spelling and across every module boundary: an export list in the declaring file, an inline `export { type Sale }`, a type-only projection, and a re-export naming another module in any of `export type { Sale } from`, `export { type Sale } from`, `export type * from`, and `export type * as api from`. The collector answers the first three, where the declaration kind is in hand; the re-export is answered at traversal time from the unit's own value-space mark, because reachability arriving through a type-only edge exposes no value to walk a member address from. That mark belongs to the identity rather than to a declaration of it, so type-space wins where two collectors write one unit and the answer cannot follow declaration order.
+Apply type-only withholding to declaring-file export lists, inline `export { type Sale }`, type-only projections and re-exports: `export type { Sale } from`, `export { type Sale } from`, `export type * from` and `export type * as api from`.
 
-The two halves differ in what else moves. A declaring-module export takes the member out of that file's population, so the file rules stop asking for it and a tag on it is refused; a re-export changes only what a reference counts, so the declaring file still asks and still accepts a tag on the member. A target naming a withheld member, or a scope the withholding emptied, stops resolving in both halves and is loud. Changing the declaring inventory can move a review fingerprint. A re-export projection alone leaves the fingerprint of an addressable declaration unchanged.
+At declaration collection, use the declaration kind. At re-export traversal, use the identity's value-space mark. A type-only edge supplies no value from which to walk members. Type-space must win when collectors share a unit, independently of declaration order.
 
-**The callable test reads the annotation as spelled, because these rules read no type checker.** Only parentheses are seen through, so a constructor type and a union containing a function type are properties.
+A declaring-module type-only export changes that file's inventory: file rules stop asking for the withheld member and tags on it are refused. A type-only re-export changes reference reachability alone; the declaring file still selects the member and accepts its tags.
 
-**A member is classified the same way whichever syntax declared it, and the exclusions travel with the classification.** An accessor is a get/set pair wherever it is written, so a `get`/`set` signature materializes nothing on an interface or an object-shaped type alias just as an accessor does on a class, and a member with no citable name, whether nameless or computed, is refused on all three. A constructor parameter carrying a property modifier declares a field, so it materializes exactly what the same field written in the class body would, and the constructor's own visibility decides nothing about it. Take that modifier set from TypeScript's own mask rather than restating it: it holds five, and every enumeration written from the familiar four is short by `override`, whose meaning is about the base class rather than about the field, so it does not read as a field declaration. It still declares one.
+A withheld member, or a scope emptied by withholding, stops resolving in both cases. Changing the declaring inventory can change a review fingerprint; a re-export projection alone leaves an addressable declaration's fingerprint unchanged.
 
-Classify both from one place: two independent classifications would let moving a field between the two syntaxes change its symbol kind, and that syntax dependence is the whole defect. Reclassifying a member moves it out of one selector as well as into another, and the losing direction is the silent one: a `property` reference stops counting a member that became a callable, and a `property` claim over interfaces holding only callables selects no host and deactivates. Say so wherever such a change ships, because the gaining direction announces itself with a diagnostic and the losing direction never does.
+Classify callable members from their written annotation without a type checker. See through parentheses only. Constructor types and unions containing function types remain properties.
 
-The constructor hosts nothing itself, but its withdrawal tag still cascades, because it is the one container that declares units without being one.
+Use one member classification across classes, interfaces and object-shaped type aliases. Get/set pairs materialize no unit in any of those forms. Refuse nameless or computed members without a citable name.
 
-**A unit key records an address, a symbol kind, and a qualified name, and nothing about which container declared the member, so one member address can be two units, or two members one unit.** Splitting: `interface I { charge: () => void }` beside `interface I { charge: Handler }` is one member that materializes a function unit and a property unit under one address, and a citation of it is reported ambiguous wherever the reference selects both kinds. TypeScript accepts the source because the two annotations denote one type, and these rules read no checker, so nothing here can see that they do. Folding: `interface ISale { settle: () => void }` beside `namespace ISale { export const settle = (): void => {} }` is two members, in two spaces, that materialize one unit, because the kinds coincide and the key cannot tell the containers apart. An object-shaped type alias folds the same way, since the four spellings are one rule. The fold is the worse of the two. The split is loud and names its repair, while the fold shrinks the coverage denominator with no diagnostic at all, lets an `@internal` on one container withdraw the other container's public member, and then refuses a citation written on that still-public declaration as an unsupported host.
+A constructor parameter with a property modifier materializes the same field as a body declaration. The constructor's visibility does not decide the field's visibility. Use TypeScript's property-modifier mask, including `override`, instead of enumerating a partial set.
 
-Both are reachable in source TypeScript accepts. Neither is closed here, and the reason is not that a repair is unavailable. The doubled member arrives twice through the member collector while the namespace member arrives through the namespace one, so a fold keyed on a container's own repeated member would need a member-collector index that does not exist yet and would reach no namespace member. It is that closing the split alone leaves the silent fold standing and makes the model less coherent rather than more, and that whichever kind such a fold picks then decides whether a same-named namespace member joins it or splits from it. Decide the address-collision question once, for both directions, rather than patching the face that reported itself.
+Document both directions when classification changes. A new callable gains a function obligation and loses its property obligation; a property-only claim over callables can select no host and deactivate silently. The constructor itself hosts no unit, but its withdrawal tag still cascades to the units it declares.
 
-A type-only alias projects public namespaces, interfaces, type aliases, classes, and every member an object-shaped type alias or an interface no class merges with declares, callables included, because those members are all type-space. It withholds value-space: namespace data, namespace functions, and every class member.
+The unit key contains address, symbol kind and qualified name, without the member's declaring container. Two accepted TypeScript shapes remain unresolved limitations:
 
-**A namespace merged with a same-named function is that function's static side, and nothing inside it materializes.** This is the generated SDK accessor shape: `get.path` and `get.METADATA` are properties of the `get` function value, and `get.Output` is the type its own signature spells, so none of them is authored contract. The exclusion is whole rather than per-kind, or one namespace would read as machinery under one `symbol` selector and as public surface under another. It also removes a resolution failure with no repair: a selected member promoted the merged namespace to an addressable aggregate scope, where it collided with the function unit of the same name and left every citation of the accessor ambiguous under the narrowest selector the diagnostic could recommend.
+- `interface I { charge: () => void }` merged with `interface I { charge: Handler }` can split one member into function and property units at one address. A reference selecting both kinds reports ambiguity; these rules cannot infer that the annotations denote the same type.
+- `interface ISale { settle: () => void }` merged with `namespace ISale { export const settle = (): void => {} }` can fold two members in different spaces into one unit. An object-shaped type alias can fold similarly. The fold silently reduces the denominator and can let withdrawal of one member suppress the other's public host.
 
-The merge partner decides this, not the namespace. An interface or a class merged with a same-named namespace is already one unit (both halves are symbol `type` under one identity), so a type family keeps every variant, and a companion namespace beside a class is authored contract rather than accessor machinery. Both shapes keep the population they have. A `const` or `let` cannot merge with a namespace at all; TypeScript rejects it as `TS2451`.
+Resolve splitting and folding together at the address-collision owner. A member-collector-only index cannot see namespace members, and choosing one kind for a fold also decides whether another same-named member joins it. Fixing only the reported ambiguity leaves the silent collision unresolved.
 
-**A re-export decides reachability, never identity.** A module's own inventory names a declaration by what that module exposes it as, so match an aliased export by its public name, never by the local binding. A type-only edge narrows what it carries rather than what it reaches: the symbol arrives with its address, and only its type-space half comes with it.
+A type-only alias projects public namespaces, interfaces, type aliases, classes and members of interfaces or object-shaped type aliases without a class merge, including callables. It withholds namespace data, namespace functions and all class members as value-space.
 
-**Narrowing an installed package separates the two halves.** A `package` reference with `files` uses its matched modules to decide membership and the package's declaration entry to decide addresses. Making a matched module the address root instead collapses `functional.health.get` to `get`, while an inline link still resolves under the entry, the only module a consumer's specifier reaches, so no spelling of the target resolves and the narrowing defeats the adoptability it exists for. A unit the entry does not publish has no address anyone can write, so it is reported as an empty population rather than selected.
+Materialize no namespace members when that namespace merges with a same-named function. The whole namespace is the function's static machinery, including `get.path`, `get.METADATA` and `get.Output`. A per-kind exclusion would make that machinery public under another selector and could create an aggregate scope ambiguous with the function unit.
 
-Build a symbol's addresses from identity segments rather than by rewriting a joined target, or a literal dot inside a name collapses into qualification. An address is legal in the module that publishes it rather than everywhere, so record the module-and-address pair; import-scope resolution then keeps two modules publishing one declaration from competing.
+Keep namespace members in interface and class merges: they are authored type-family or class companion contracts. A `const` or `let` cannot merge with a namespace; TypeScript rejects the shape with `TS2451`.
 
-Containment among reached units follows the declaration hierarchy, never the address text. A type and a callable may share one public name, so treating a common address prefix as ownership would make an unrelated same-name declaration an ancestor and turn every citation of that name ambiguous.
+Re-exports decide reachability, never identity. Match an aliased export by the public name its module exposes, not its local binding. A type-only edge retains the address while narrowing what it carries to type-space.
 
-A mixed variable statement can carry both function and property host kinds because TypeScript attaches one leading JSDoc block to the statement wrapper. Preserve the host set; choosing one kind makes the other selector spuriously out of scope.
+For a narrowed `package` reference, matched modules decide membership and the package declaration entry decides addresses. A matched module must not become the address root: it would shorten `functional.health.get` to `get` while import links still resolve through the package entry. Report a unit that the entry does not publish as an empty population; it has no writable public address.
+
+Build addresses from identity segments. Record the module-and-address pair, because an address is legal in the module publishing it and another module may publish the same declaration.
+
+Use declaration hierarchy for containment, not address prefixes. A type and callable may share a public name without either owning the other.
+
+Preserve both function and property host kinds on a mixed variable statement. TypeScript attaches its leading JSDoc to the shared wrapper; choosing one kind makes the other selector spuriously out of scope.
 
 ## Evaluation
 
-`evidence/graph` evaluates the complete configured graph once per Program and answers three distinct questions.
+Evaluate the complete configured graph once per Program, answering these questions separately:
 
-- **Resolution.** Does every declaration target resolve to exactly one selected unit or structural ancestor?
-- **Host eligibility.** Does `@evidence` live on a symbol kind selected by its claim, or does `@evidenceExclude` live on an eligible carrier in a matching claim file?
-- **Coverage.** Does every selected reference unit have at least one acknowledgement in this claim, and does that acknowledgement satisfy whatever the reference's own policy demands of it?
+- **Resolution:** does each declaration target resolve to exactly one selected unit or structural ancestor?
+- **Host eligibility:** does an `@evidence` host have a symbol kind selected by its claim, or does `@evidenceExclude` occupy an eligible carrier in a matching claim file?
+- **Coverage:** does each selected reference unit have an acknowledgment in this claim satisfying that reference's policies?
 
-Keep claim and reference state separate. A declaration that satisfies one claim or reference never leaks coverage into another, even when the physical target is the same.
+Keep claim and reference state separate. Satisfying one obligation supplies no coverage to another, even for the same physical target.
 
-One declaration host may state one resolved evidence scope only once. Report one duplicate or conflict diagnostic per later overlapping scope rather than one per descendant.
+A declaration host may state one resolved evidence scope once. Report one duplicate or conflict per later overlapping scope, not one per descendant.
 
 ## Reference Policies
 
-Constraints never cross or pool between reference-array elements, including identical and overlapping references.
+Keep constraints local to each reference-array element, including identical or overlapping references.
 
-- **A refused exclusion is reference-local.** Report one diagnostic for the declaration and reference, give that reference no coverage from it, and leave the missing positive coverage visible. The same declaration may still satisfy another reference that allows exclusions.
-- **`singleEvidencePerSymbol` counts reference-unit identities reached by `@evidence`.** Do not count tags, source positions, or exclusions, and count nothing at all against a population with no units; see the empty-population rule below.
-- **A review diagnostic reports exactly one of missing review, missing fingerprint, or stale fingerprint,** because each repair subsumes the next, and states the expected value in every one: the hint API publishes only on a cycle where the rule reports nothing, so the cycle that needs the value is the cycle that offers none.
-- **A fingerprint is a property of the cited address, not of the reference.** It covers the unit and its structural subtree. `UnitsByScope` is per reference while a tag carries one token, so a covered-set digest would let two references citing one scope demand two values from it and no value could satisfy both. A reference that confines acknowledgement does not narrow this; the citation still names the scope, and re-reviewing when the subtree moves is conservative rather than wrong.
-- **TypeScript fingerprints use declaring identities and their original inventories.** Public aliases and type-only reachability are projections for resolution and coverage. Hashing either projection lets overlapping references require different fingerprints for one citation. Include the file-bearing unit ID and its original structural subtree so rebinding an address to another declaration expires its review.
-- **A digest excludes every position a tag can occupy, and normalizes before hashing.** HTML comments in Markdown and documentation blocks in TypeScript come out, or writing the review changes the digest its own fingerprint is checked against, and the repair never terminates. That is not only self-citation: a property's block is interior text of the type containing it. Line endings collapse and trailing whitespace goes, or one commit expires every review on a CRLF checkout and none on an LF one.
-- **How much of a unit its digest covers differs by artifact, and the Markdown intuition does not carry.** A document partitions into disjoint regions, so a heading's digest is independent of its subsections. A declaration does not partition: `interface ISale` textually contains the members it declares, so a TypeScript unit's digest covers every nested member whether or not that is wanted. Two consequences follow and both are deliberate. A nested change moves its own unit's digest and every enclosing unit's, which composition would do anyway. And churn behind `@internal` expires a review of the enclosing type, because a withdrawn member's body sits inside that declaration's text and no substitution in the composite can remove it; a withdrawn unit contributes the tag that withdrew it so the withdrawal itself is visible, and nothing more. Do not build on an assumption that a unit's digest is independent of its subtree.
-- **Every reference kind may require a review, because every bridge digests a unit's content where that content is understood.** Never substitute the whole-source digest both loaders return in place of a per-unit one: it is a cache key, and one value shared by every unit of a document expires every review in it on every regeneration, which communicates nothing.
-- **An empty population establishes no cardinality either, and for a different reason.** Preserve a loader failure and derive no count from a partial denominator. A population whose own base could not be listed is such a failure and never a healthy empty one, whatever the globs select, because the base belongs to the population by construction. A base that is a link to a directory, or that sits inside one, is read through the link at every component, so every consumer agrees with the stat that accepted the root, and the addresses it produces are the ones the declared root would have produced without a link. A Program can spell a source through a linked project root or a link inside it, so a TypeScript population resolves the source and its configured base through the same physical-path rule before comparing them. A chain of links the resolver stops following is a failure like any other, never a healthy empty population. A population that is healthy and empty is a complete denominator and the count of zero against it is true, yet no per-host policy may report it. The materializer has already named that population as empty, and a per-host finding on top of it asks each host to cite a unit that does not exist: a repair the population makes impossible, multiplied by host count. Report the cause once, at the cause.
+Refuse an exclusion per reference. Report one declaration/reference diagnostic, supply no coverage to that reference and retain its missing positive coverage. Another reference permitting exclusions may still consume the same declaration.
 
-**`checklist` is not a fifth cardinality option, and treating it as one is the mistake to avoid.** The other four tighten a count inside the per-reference obligation; this one moves the obligation itself onto each host, which is why the duplicate and conflict keys change under it and why the two cardinality options are refused beside it at decode rather than composed with it. Refuse there rather than as coverage, because one host and one unit satisfy all three by accident and would ship the contradiction until a second file arrived.
+`singleEvidencePerSymbol` counts reference-unit identities reached by `@evidence`, not tags, positions or exclusions. A population without units supplies no cardinality finding.
 
-- **Report one diagnostic per host naming its unacknowledged targets,** never one per host-unit pair.
-- **Refusing a target that names no item is load-bearing.** Answering only the named item alone is a no-op, because the default Markdown selector makes the file itself an item and a subtree cascade there discharged every heading from one citation. Judge legality by selection rather than by descendants, so a heading that is an item and also contains items stays citable. Do not report the units under a refused aggregate as missing on that host as well.
-- **Every acknowledgement is one host's answer.** A tag speaking for no selected host answers nothing there, and is reported where it sits once no sibling obligation consumes it: carrier eligibility is wider than the host gate, so the same tag may be an ordinary reference's gathered exclusion or an overlapping claim's own answer, and refusing one of those leaves a valid configuration no placement to exist in. Do not spread it across the claim to buy a gathered exclusion ledger: that reach requires reading "no selected host" as "no host owes this", and an anchorless Markdown heading and a whitespace-named path both satisfy it by accident, which turns one tag into a silent discharge of every item for every host.
-- **An empty population passes**, as it does under every other policy, because a host owes each item and there are none.
-- **Per-host coverage replaces the population-wide answer only while a host exists.** With no selected host there is nobody to report on, so keep the population-wide diagnostic. `activeGraphConfig` makes that state unreachable today by deactivating a claim that selects no host; keep the guard anyway, because a selection change would otherwise drop the obligation silently.
-- **A checklist reference declaring `noEvidenceExclude` is exempt from the `evidenceExcludeCarriers` refusal,** because it accepts no exclusion for those globs to confine.
-- **A non-Markdown checklist is refused at decode,** and the refusal stays silent when the reference kind itself failed to decode, the way the foreign-TypeScript guard does.
+Report exactly one review state: missing review, missing fingerprint or stale fingerprint. Each repair subsumes the next. Include the expected fingerprint in every state because the hint API publishes only in a cycle with no rule findings.
 
-Completion keeps every positive target. At the exclusion trigger, omit a target selected only by references that refuse exclusions, and keep one any enabled reference still allows. The hint API has no cursor or claim context, so cardinality stays an evaluation diagnostic rather than a completion filter.
+A fingerprint belongs to the cited address and its structural subtree, not a reference's selected coverage set. One tag carries one token, so overlapping references must not demand different fingerprints for one address. Restricting acknowledgment coverage does not narrow that digest.
+
+For TypeScript, hash declaring identities and original inventories, including the file-bearing unit ID and original structural subtree. Public aliases and type-only reachability are projections for resolution and coverage. Rebinding an address to another declaration must expire its review.
+
+Exclude every tag-capable position before hashing: HTML comments in Markdown and documentation blocks in TypeScript, including nested property blocks. Normalize line endings and trim trailing whitespace. Writing a review must not change its own fingerprint, and CRLF/LF checkout differences must not expire it.
+
+Preserve the artifact's content boundary. A Markdown heading's own region excludes its subsections. A TypeScript declaration text includes its nested members, so changing one changes its own digest and every enclosing digest.
+
+A withdrawn member's body remains inside an enclosing TypeScript declaration's text and can expire that declaration's review. The withdrawn unit itself contributes only its withdrawal tag to composition. Do not assume a unit's own digest is independent of its subtree.
+
+Every reference kind may require reviews. Compute a per-unit digest where that artifact's content is understood. A whole-source loader digest is a cache key, not a substitute: using it for every unit would expire unrelated reviews on every source regeneration.
+
+Preserve loader failures and derive no cardinality from a partial denominator. An unreadable population base is a loader failure even when its globs select nothing.
+
+Read a linked base through links at every path component. Resolve a TypeScript source and its configured base through the same physical-path rule before comparing them. A link chain the resolver stops following is a failure, never a healthy empty population.
+
+A healthy empty population is a complete denominator of zero. Do not add per-host cardinality findings: the materializer already reports emptiness, and asking each host to cite nonexistent units duplicates an impossible repair. Report the cause once at its owner.
+
+### Checklists
+
+Treat `checklist` as a per-host obligation rather than a fifth cardinality option. Key its duplicates and conflicts per host. Refuse the two incompatible cardinality options at decode; a singleton can satisfy a contradictory combination accidentally.
+
+Report one diagnostic per host listing its unacknowledged targets, never one per host/item pair.
+
+Require a positive checklist target to select an item, and answer only that item without its descendants. The default Markdown selector selects the file itself as an item; a legal file citation must still leave its headings owed. A selected heading stays citable even if it also contains items. Refuse an unselected aggregate and do not also report its descendants missing.
+
+An exclusion retains its subtree cascade: deciding that none of a scope applies is one reviewed answer. Ordinary references also retain their cascade; only positive checklist citations answer one item.
+
+An acknowledgment answers for its own selected host only. If no selected host consumes it, report it once no sibling obligation consumes it. Preserve ordinary reference exclusions and overlapping claims that legitimately consume the same tag; carrier eligibility is wider than checklist host eligibility.
+
+Do not spread a hostless tag over the claim as a gathered exclusion. An anchorless Markdown heading or whitespace-named path must not silently discharge every item for every host.
+
+An empty checklist population passes because no host owes an item. While a selected host exists, its findings replace population-wide coverage findings. Without one, retain the population-wide diagnostic, even though `activeGraphConfig` currently deactivates hostless claims.
+
+A checklist reference with `noEvidenceExclude` is exempt from the `evidenceExcludeCarriers` refusal: it accepts no exclusions for those globs to confine.
+
+Refuse non-Markdown checklists at decode. Suppress that additional refusal when the reference kind itself failed to decode, consistently with the foreign-TypeScript guard.
+
+Keep every positive completion target. At an exclusion trigger, omit a target only if every reference selecting it refuses exclusions. The hint API has no cursor or claim context, so cardinality remains an evaluation diagnostic rather than a completion filter.
 
 ## Exclusions
 
-Carrier eligibility is intentionally wider than ownership evidence and no wider than the claim's file population.
+Carrier eligibility is wider than ownership evidence but stays within the claim's file population.
 
-- A TypeScript exclusion may sit on any supported public export in a matching claim file, even when the claim's `symbol` selector chooses another host kind. Unexported and unsupported declarations remain ineligible.
-- A Prisma exclusion may sit on a selected model or field host, or in an unattached top-level `///` run in a matching claim file. The same unattached position never accepts `@evidence`.
-- Markdown and Swagger claim hosts retain their selected-symbol behavior.
+- TypeScript exclusions may occupy supported public exports in matching claim files even when `symbol` selects another host kind. Unexported and unsupported declarations remain ineligible.
+- Prisma exclusions may occupy selected model or field hosts, or unattached top-level `///` runs in matching claim files. Those unattached runs never accept `@evidence`.
+- Markdown and Swagger hosts retain their selected-symbol behavior.
 
-Never auto-exclude, auto-retarget, or delete an artifact or citation to make a graph green. Repair is the author's, and every diagnostic must name the path that performs it.
+Never auto-exclude, auto-retarget or delete an artifact or citation to make a graph green. Authors own repairs; diagnostics must name the repair path.
 
 ## Diagnostic Messages
 
-Most users meet this plugin only through an error message, and increasingly that user is an agent whose next action is conditioned on the message alone. State what is wrong, then what fixes it. Name the claim, reference, target, source location, and supported repair. Prefer one precise diagnostic to several descendant duplicates.
+State the problem and its repair, naming the claim, reference, target, source location and supported action. Prefer one precise diagnostic to repeated descendant findings.
 
-**A repair that lists only tags teaches that the answer is always a tag.** A unit may be unacknowledged because nothing was built, a target may not resolve because the tag does not belong on this host, and a review may be missing because the check failed. Name the code as an option wherever it is one; a reader who is offered two tags will choose the cheaper of the two.
+Include a code repair when applicable. Missing acknowledgments can reflect missing implementation, unresolved targets can reflect an invalid host, and missing reviews can reflect failed checks. A list of tags alone hides those alternatives.
 
-**A diagnostic a falsehood can clear says so.** Where writing, moving, or keeping an untrue tag would silence it, close the message with the standard refusal in `untrueTagWarning`, or `untrueReviewWarning` for the two review tags. It names the motive rather than the truth value, because a tag written to pass may happen to be true and is still wrong, and it states the consequence in the reader's own terms: the error goes and the problem stays. Leave it off a diagnostic whose only cheap answer is deleting something the graph would then report elsewhere.
+Where an untrue tag could clear a diagnostic, end it with `untrueTagWarning`, or `untrueReviewWarning` for the two review tags. Explain that a tag written to pass can remove the error while leaving the problem; motive matters even if that tag happens to be true.
+
+Omit that warning when the only cheap response is deleting something the graph will report elsewhere.
 
 ## Identity Rules
 
-- **Targets are exact tokens.** Prose is free, but target identity never depends on heading text beyond its generated or explicit anchor.
-- **Case-insensitive comparison may improve a diagnostic but never decides equality.**
-- **Markdown separators normalize only for Markdown targets.** Do not rewrite TypeScript literal symbol names.
-- **Swagger methods canonicalize to uppercase; Swagger paths do not normalize.** `POST:/members` and `POST:/Members` are distinct.
-- **A Prisma target carries its `prisma:` prefix and never a file path.** The prefix is what stops a model named `Sale` from competing with a TypeScript type of the same name in the one address map every reference shares.
-- **Qualified TypeScript segments stay encoded internally.** This prevents a literal dot from collapsing into namespace or property qualification.
-- **A merged identity reports the declaration encountered first.** Order is source position, never declaration kind, so `namespace ISale` written above `interface ISale` is the one every diagnostic names. This holds for a class merge too. `TS2434` refuses only an _instantiated_ namespace written before its class, so a type-only companion namespace, and any namespace in an ambient context, may legally come first and then be the declaration the merge reports.
-- **A citation may sit on any declaration of a merged identity.** The relation is judged on the identity, so placement changes neither resolution nor coverage and is not worth a diagnostic.
-- **The unit model decides which declarations a citation may sit on.** An enum registers no host, so a tag on one is an unsupported host however public the enum is. `evidence/documented` asks nothing of it for the same reason, while `evidence/singular` still counts it as an identity; that rule is about a file's public surface, where the enum is part of it.
+- Targets are exact tokens. Heading identity uses generated or explicit anchors; prose is free.
+- Case-insensitive comparison may improve a diagnostic but never decides equality.
+- Normalize separators only in Markdown targets, never TypeScript literal names.
+- Uppercase Swagger methods but preserve Swagger path case. `POST:/members` and `POST:/Members` differ.
+- Preserve the `prisma:` prefix and omit file paths. A Prisma `Sale` must not compete with a TypeScript `Sale` in the shared address map.
+- Keep qualified TypeScript segments encoded so a literal dot does not collapse into qualification.
+- Report a merged identity at its first declaration by source position, not declaration kind. A type-only namespace may precede its class; `TS2434` forbids only an instantiated namespace before a class, and ambient namespaces may precede it too.
+- Accept citations on any declaration of a merged identity. Placement changes neither resolution nor coverage.
+- Let the unit model decide supported hosts. An enum has no host, so tags on it are unsupported and `evidence/documented` asks nothing of it. `evidence/singular` still counts it as an identity in the public surface.

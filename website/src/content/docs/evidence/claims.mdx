@@ -339,7 +339,7 @@ Duplicate and conflict detection moves to the host as well. Two hosts excluding 
 
 `uniqueEvidence` and `singleEvidencePerSymbol` are refused beside `checklist`, at configuration time rather than as coverage failures. They are not redundant here, they are contradictory: a checklist requires every host to cite every unit, which the first forbids as soon as a claim has two hosts and the second forbids as soon as the population has two units.
 
-Pairing `checklist` with `requireReview` is what most checklists are actually for. Each host's answer then carries the fingerprint of that item alone, so editing one principle expires every host's answer to that principle and touches nothing else.
+Pairing `checklist` with `requireReview` gives each host's answer a review fingerprint. Positive coverage answers only the named item, but the fingerprint still covers that target's structural subtree. Editing a principle expires every host's review of it and of any cited ancestor containing it; reviews of unrelated principles remain valid.
 
 ## Rules
 

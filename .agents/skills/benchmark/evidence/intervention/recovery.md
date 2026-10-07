@@ -1,5 +1,36 @@
 # Recovery
 
+Diagnose before acting. Never blind-retry, edit retained state or substitute a session. Remedies belong outside the measured workspace; [boundary.md](boundary.md) owns where repository corrections may land.
+
+Use the recovery order: deliver any required [warning](warning.md), resume the exact run when valid, derive only for the downstream-instruction case below, and consider restart only after recovery is impossible. Preserve the original run and its record at every step.
+
+## Contents
+
+- [Triage](#triage)
+- [Diagnose](#diagnose)
+- [Recover A Hung Turn](#recover-a-hung-turn)
+- [Never Restart A Finished Sequence](#never-restart-a-finished-sequence)
+- [Free The Cell's Ports](#free-the-cells-ports)
+- [Resume The Same Run](#resume-the-same-run)
+- [Derive A Run From The Backend-Start Checkpoint](#derive-a-run-from-the-backend-start-checkpoint)
+- [Cancel The Campaign](#cancel-the-campaign)
+
+## Triage
+
+| What you observed | Remedy |
+| --- | --- |
+| A cell edited a frozen configuration file | Confirm it against [measurement/integrity.md](../measurement/integrity.md), then [warn it](warning.md) and resume. A prescribed `disabled` deletion or a new dependency is not a violation |
+| A cell stopped, a process died, or a launch or resume failed | [Diagnose](#diagnose), then resume the same run |
+| A cell's process is alive while its stage log has stopped growing | [End the hung turn](#recover-a-hung-turn), free its ports, then resume |
+| A silent cell has no objective left | Nothing. [Never restart a finished sequence](#never-restart-a-finished-sequence) |
+| An `inspection/` directory holds only a prompt and a schema | Nothing. An inspection is in flight and writes its result when it returns |
+| A goal update reports status `blocked` | Resume. A cell reporting that it is blocked is a measurement outcome, not a fault |
+| A cell's ports have a listener but no live runner of its own | [Free the ports](#free-the-cells-ports), then resume |
+| A Plain cell sits at `awaiting-review-verdict` | Resume to retry the inspection. [plain-review.md](../measurement/plain-review.md) owns the loop |
+| The dashboard disagrees with `state.json` | Regenerate it. [dashboard.md](../measurement/dashboard.md) owns the commands |
+| A template, instruction, or runner defect | Fix it where [boundary.md](boundary.md) permits |
+| Anything else | Record it in the pull-request prose and change nothing |
+
 ## Diagnose
 
 Preserve the run and identify the exact instruction, process result, native session, and failure from `state.json`, `events.jsonl`, and the stage logs. The failing instruction names the file to read.
