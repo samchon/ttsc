@@ -61,21 +61,23 @@ function createState(workspace: BatchWorkspace.Workspace, traceRoot: string, obs
       return {path:item.path,kind:item.kind,scope:item.scope,identityStable:item.identityStable,digest:item.digest};
     });
   };
+  // Dependency identity is lexical path plus kind; aliases retain separate witnesses.
+  // Physical resolution is reserved for containment and explicit alias assertions.
   const kind = (items: Dependency[], name: string, expectedKind: string, scope = "watch"): void => {
-    const matches = items.filter((item) => physical(item.path) === physical(target(name)));
+    const matches = items.filter((item) => path.resolve(item.path) === path.resolve(target(name)) && item.kind === expectedKind);
     assert.equal(matches.length, 1, name);
     const item = matches[0]; assert.ok(item !== undefined);
     assert.equal(item.kind, expectedKind, name); assert.equal(item.scope, scope, name);
   };
   const absent = (items: Dependency[], name: string, expectedKind?: string): void => {
-    assert.equal(items.some((item) => physical(item.path) === physical(target(name)) && (expectedKind === undefined || item.kind === expectedKind)), false, name);
+    assert.equal(items.some((item) => path.resolve(item.path) === path.resolve(target(name)) && (expectedKind === undefined || item.kind === expectedKind)), false, name);
   };
   const contained = (items: Dependency[]): void => {
     for (const item of items) if (item.kind === "directory" && item.scope === "watch") assert.equal(within(root, item.path), true, item.path);
   };
   const local = (items: Dependency[], entry: string, helpers: string[], excluded: string, allowed: string[]): void => {
     for (const name of [entry,...helpers]) kind(items,name,"file");
-    for (const item of items) if (item.scope === "watch" && item.kind !== "directory" && within(target(excluded),item.path)) assert.ok(allowed.some((name) => physical(target(name)) === physical(item.path)), item.path);
+    for (const item of items) if (item.scope === "watch" && item.kind !== "directory" && within(target(excluded),item.path)) assert.ok(allowed.some((name) => path.resolve(target(name)) === path.resolve(item.path)), item.path);
   };
   const verify = (name: string, body: () => void): void => { try { body(); } catch(cause) { errors.push(new Error(name,{cause})); } };
   const read = (traces: TraceMeasurements, name: string, rules: Readonly<Record<string,string>>, check: (items: Dependency[]) => void = () => {}): void => {
@@ -85,7 +87,7 @@ function createState(workspace: BatchWorkspace.Workspace, traceRoot: string, obs
       const normalized=dependencies(row.data.dependencies);
       observe(traces,target(name),rules,(value) => {
         const raw=dependencies(value);
-        const project=(items:Dependency[])=>items.map((item)=>JSON.stringify([physical(item.path),item.kind,item.scope,item.identityStable,item.digest])).sort();
+        const project=(items:Dependency[])=>items.map((item)=>JSON.stringify([path.resolve(item.path),item.kind,item.scope,item.identityStable,item.digest])).sort();
         assert.deepEqual(project(normalized),project(raw),name+": accepted native dependency graph");
         check(normalized);
       });
@@ -158,7 +160,11 @@ function baseline(state: State, traces: TraceMeasurements): void {
   read(traces,"exports-project/lint.config.cjs",{"no-var":"error"},(items) => {
     kind(items,"node_modules/exports-priority/require","directory");
     absent(items,"node_modules/exports-priority/import"); absent(items,"ignored-exports-main"); absent(items,"node_modules/exports-priority","directory");
-    if(state.exportsLinked) kind(items,"node_modules/exports-priority/bridge","directory");
+    if(state.exportsLinked) {
+      kind(items,"node_modules/exports-priority/bridge","directory");
+      kind(items,"node_modules/exports-priority/bridge/active","directory");
+      assert.equal(state.physical(state.target("node_modules/exports-priority/bridge/active")), state.physical(state.target("node_modules/exports-priority/require")));
+    }
   });
   if(state.danglingLinked) read(traces,"configs/dangling.config.cjs",{"no-var":"warning"},(items) => kind(items,"dangling-targets","directory"));
   read(traces,"shadow-project/lint.config.cjs",{"no-var":"error"},(items) => {kind(items,"shadow-project/node_modules/shadowed/index.js","optional-file");absent(items,"shadow-project/node_modules/shadowed","directory");});
