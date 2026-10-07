@@ -20,16 +20,16 @@ const viteCreateServer =
  * verdict through the actual generation selector unit and the shared native
  * pool changed-input epoch.
  *
- * 1. Start a middleware-mode dev server with `watch: null` and request the entry
- *    module.
+ * 1. Let a later configResolved hook disable watching, then request the entry
+ *    from the middleware-mode dev server.
  * 2. Break the entry module on disk.
  * 3. Request a module not yet served and assert it comes from the starting
  *    generation.
  *
  * @evidence contracts/testing.md#behavioral-verification Real watcherless server serves lazy output from startup even after main is broken on disk.
  * @evidence contracts/testing.md#independent-expectations Authored lazy declaration remains valid; broken main would make a new compile fail.
- * @evidence contracts/testing.md#distinguishing-cases First main request then first lazy request after another input changes.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_without_a_watcher_serves_the_startup_generation is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
+ * @evidence contracts/testing.md#distinguishing-cases A post configResolved hook changes initially enabled watching to null, as one-shot Vitest does. First main request then first lazy request after another input changes distinguish the settled pass lifecycle from the stale watching decision. Direct lifecycle units cover reverse mutation, polling and build watching.
+ * @evidence contracts/testing.md#execution-ownership The selected test_e2e_vite_batch calls viteServeCorpus, which calls this scenario on its prepared island after the watching server closes. This body owns the late hook, mutation and output assertions; it is not separately discovered.
  * @evidence contracts/e2e.md#necessary-boundary Real Vite middleware server executes watch:null lifecycle and native program reuse.
  * @evidence contracts/e2e.md#shared-execution One server and fixture serve requests and mutations, with replacement only for restart assertions; shared native artifacts do not replace the cold request.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
@@ -65,9 +65,19 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
     configFile: false,
     logLevel: "silent",
     optimizeDeps: { include: [], noDiscovery: true },
-    plugins: [unpluginVite()],
+    plugins: [
+      unpluginVite(),
+      {
+        name: "disable-watch-after-ttsc-resolution",
+        enforce: "post",
+        configResolved(config: { server: { watch: unknown } }) {
+          assert.notEqual(config.server.watch, null);
+          config.server.watch = null;
+        },
+      },
+    ],
     root: viteRoot,
-    server: { hmr: false, middlewareMode: true, watch: null },
+    server: { hmr: false, middlewareMode: true },
   });
   try {
     const first = await server.transformRequest("/src/main.ts");

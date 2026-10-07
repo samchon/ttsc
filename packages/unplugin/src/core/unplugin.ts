@@ -247,11 +247,7 @@ const unpluginFactory: UnpluginFactory<
           transformCache,
           hostDeclaresPolling(
             process.env,
-            (
-              config as {
-                server?: { watch?: { usePolling?: boolean } | null };
-              }
-            ).server?.watch?.usePolling === true,
+            viteLifecycle.usePolling,
           ),
         );
       },
@@ -420,6 +416,12 @@ const unpluginFactory: UnpluginFactory<
     buildStart() {
       cachedModules.begin();
       viteLifecycle.start(this);
+      if (viteLifecycle.command !== undefined) {
+        declareTtscTransformPolling(
+          transformCache,
+          hostDeclaresPolling(process.env, viteLifecycle.usePolling),
+        );
+      }
       // Persistent validation exists for a session that spans edits it can
       // observe, and a dev server told to open no watcher is not one:
       // `server.watch: null` leaves Vite with no change channel at all, so no
@@ -504,7 +506,7 @@ const unpluginFactory: UnpluginFactory<
       // ordinary bridge helper's default when no watch capability is reported.
       const watching =
         viteLifecycle.command === "serve"
-          ? true
+          ? viteLifecycle.watching
           : viteLifecycle.command === "build"
             ? viteLifecycle.buildWatching
             : native?.framework === "webpack" || native?.framework === "rspack"
