@@ -803,6 +803,7 @@ export namespace TestLint {
 
   /**
    * Return the canonical supported TypeScript suffix for a source path.
+   * Return null for an unsupported path.
    *
    * @evidence contracts/common.md#principled-implementation The anchored suffix pattern recognizes the supported canonical lowercase TypeScript extensions, including declaration suffixes before ordinary suffixes.
    * @evidence contracts/common.md#clear-and-simple-design One classifier is reused by source admission and renderer parsing.
