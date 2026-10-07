@@ -281,6 +281,12 @@ A remote source also makes your build depend on that host being up and reachable
 
 A fetch failure, a non-2xx response, an invalid document, a 30-second timeout, and a document over 16 MiB all fail the build rather than quietly producing an empty population. Only operations under `paths` become units; webhooks and component schemas are outside this reference kind.
 
+An operation's review fingerprint includes its effective servers, inherited security requirements, used security-scheme definitions and referenced local components. Operation servers override path servers, which override document servers; absent or empty document servers mean `/`. Operation security overrides document security, including an explicit empty array. Reordering security alternatives or required scopes keeps a review current, while server preference and payload array order remain significant. Unused schemes and unrelated operations do not expire that review.
+
+This update expires existing Swagger review fingerprints once. Re-read each cited operation's effective contract before updating its review tag; the checker supplies the current fingerprint but does not renew reviews or write approving prose.
+
+URL labels and error reasons hide user information, query values and fragments, including malformed URLs and URLs repeated by a lower-level error. The original configured address still identifies the source and remote cache entry and is sent unchanged to the transport. Local filesystem error text retains its path.
+
 ### Prisma schemas
 
 The `model`, `column`, and `relation` split follows Prisma's own resolution rather than the schema text, which is what classifies a relation back-reference such as `Seller.sales` correctly even though it carries no `@relation` attribute.

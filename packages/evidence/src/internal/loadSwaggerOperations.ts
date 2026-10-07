@@ -6,9 +6,14 @@ import { parse } from "yaml";
 
 import { canonicalDigest } from "./canonicalDigest";
 import { normalizeSwaggerDocument } from "./normalizeSwaggerDocument";
+import { swaggerSafeMessage } from "./swaggerSafeMessage";
 
 const MAX_DOCUMENT_BYTES: number = 16 * 1024 * 1024;
 const REMOTE_TIMEOUT_MILLISECONDS: number = 30_000;
+const OPERATION_CONTEXT_KEYS: ReadonlySet<string> = new Set([
+  "servers",
+  "security",
+]);
 const METHODS = [
   "get",
   "post",
@@ -38,7 +43,7 @@ interface ISwaggerOperation {
   path: string;
 
   /**
-   * The operation's own content, digested where it is understood.
+   * The operation's effective contract, digested where it is understood.
    *
    * The native side receives identities and cannot recompute this: it never
    * sees the normalized document. Nothing inside an OpenAPI operation hosts an
@@ -79,6 +84,10 @@ interface IReadSource {
  * protocol case without changing document paths or replacing fetch and its TLS
  * validation. Local paths retain path.resolve and raw-byte SHA256 identity;
  * normalization and operation digests remain independent of source spelling.
+ * Operation digests include effective server/security inheritance and used
+ * scheme definitions. Only security alternatives and scope names are sorted;
+ * server preference and literal payload order remain semantic. URL errors are
+ * sanitized only for presentation, including lower-level redirect addresses.
  *
  * One source reader separates URL transport from local byte reading. The outer
  * per-source boundary preserves original identity and collects every read or
@@ -114,7 +123,7 @@ export const loadSwaggerOperations = async (request: {
         } catch (error) {
           return {
             source,
-            message: errorMessage(error),
+            message: swaggerSafeMessage(error, source),
             digest,
           } satisfies ISwaggerDocumentProblem;
         }
@@ -237,20 +246,37 @@ const operationsOf = (
   normalized: ReturnType<typeof normalizeSwaggerDocument>,
 ): ISwaggerOperation[] => {
   const document = normalized.document;
+  const rootServers: OpenApi.IServer[] = document.servers?.length
+    ? document.servers
+    : [{ url: "/" }];
   const operations: ISwaggerOperation[] = [];
   for (const [operationPath, item] of Object.entries(document.paths ?? {})) {
     for (const method of METHODS) {
       const operation: OpenApi.IOperation | undefined = item[method];
       if (operation !== undefined)
         operations.push(
-          operationOf(method, operationPath, operation, normalized),
+          operationOf(
+            method,
+            operationPath,
+            operation,
+            normalized,
+            operation.servers ?? item.servers ?? rootServers,
+            operation.security ?? document.security ?? [],
+          ),
         );
     }
     for (const [method, operation] of Object.entries(
       item.additionalOperations ?? {},
     ))
       operations.push(
-        operationOf(method, operationPath, operation, normalized),
+        operationOf(
+          method,
+          operationPath,
+          operation,
+          normalized,
+          operation.servers ?? item.servers ?? rootServers,
+          operation.security ?? document.security ?? [],
+        ),
       );
   }
   operations.sort((left, right) => {
@@ -280,6 +306,8 @@ const operationOf = (
   operationPath: string,
   operation: OpenApi.IOperation,
   normalized: Parameters<typeof operationsOf>[0],
+  servers: OpenApi.IServer[],
+  security: Record<string, string[]>[],
 ): ISwaggerOperation => {
   if (!operationPath.startsWith("/"))
     throw new Error(
@@ -295,9 +323,81 @@ const operationOf = (
   return {
     method: method.toUpperCase(),
     path: operationPath,
-    digest: canonicalDigest(withResolvedReferences(operation, normalized)),
+    digest: canonicalDigest({
+      ...(withResolvedReferences(
+        operation, normalized, undefined, OPERATION_CONTEXT_KEYS,
+      ) as Record<string, unknown>),
+      servers: literalValue(servers),
+      security: normalizedSecurity(security),
+      securitySchemes: Object.fromEntries(
+        [...new Set(
+          security.flatMap((requirement) => Object.keys(requirement)),
+        )].flatMap((name) => {
+          const catalog = normalized.document.components?.securitySchemes;
+          return catalog !== undefined && Object.hasOwn(catalog, name)
+            ? [[name, resolvedSecurityScheme(catalog[name], normalized)]]
+            : [];
+        }),
+      ),
+    }),
   };
 };
+
+/**
+ * Follows a security scheme's root Reference Object while retaining its data.
+ * A server has no reference slots; a scheme's OAuth scope descriptions and
+ * extensions are also data, even when a scope is literally named `$ref`.
+ * Only the root scheme reference is meaningful, with the same component pointer
+ * and recursive-boundary identity used for operation references.
+ */
+const resolvedSecurityScheme = (
+  value: unknown,
+  normalized: Parameters<typeof operationsOf>[0],
+  open: Set<string> = new Set<string>(),
+): unknown => {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return literalValue(value);
+  const reference = (value as Record<string, unknown>)["$ref"];
+  if (typeof reference !== "string") return literalValue(value);
+  const target = normalized.referenceAt(reference)?.target;
+  if (target === undefined || open.has(target.pointer)) return literalValue(value);
+  open.add(target.pointer);
+  try {
+    const resolved = resolvedSecurityScheme(target.value, normalized, open);
+    const siblings = Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key !== "$ref")
+        .map(([key, child]) => [key, literalValue(child)]),
+    );
+    if (Object.keys(siblings).length === 0) return resolved;
+    return {
+      ...(resolved !== null && typeof resolved === "object" ? resolved : {}),
+      ...siblings,
+    };
+  } finally {
+    open.delete(target.pointer);
+  }
+};
+
+/**
+ * Orders only security's set-like alternatives and conjunctive scope names.
+ * Server preference, examples and other operation arrays retain their order.
+ * Duplicate requirements remain represented; no document objects are mutated.
+ */
+const normalizedSecurity = (
+  security: Record<string, string[]>[],
+): Record<string, string[]>[] =>
+  security.map((requirement) =>
+    Object.fromEntries(
+      Object.entries(requirement)
+        .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+        .map(([name, scopes]) => [name, [...scopes].sort()]),
+    ),
+  ).sort((left, right) => {
+    const a = JSON.stringify(left);
+    const b = JSON.stringify(right);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
 
 /**
  * Replaces every local `$ref` into `components` with what it names.
@@ -328,20 +428,27 @@ const operationOf = (
  * the recursion boundary or bind an unresolved reference to an unrelated
  * component. Literal example, default, const, enum and extension values are
  * hashed as data, not dereferenced.
+ *
+ * The operation caller omits its raw context keys only at the top level, since
+ * their effective server/security contract is assembled separately. Its original
+ * object still owns the literal-slot metadata for every retained field.
  */
 const withResolvedReferences = (
   value: unknown,
   normalized: Parameters<typeof operationsOf>[0],
   open: Set<string> = new Set<string>(),
+  omittedKeys?: ReadonlySet<string>,
 ): unknown => {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value))
     return value.map((element) =>
       withResolvedReferences(element, normalized, open),
     );
-  const entries: Array<[string, unknown]> = Object.entries(
+  let entries: Array<[string, unknown]> = Object.entries(
     value as Record<string, unknown>,
   );
+  if (omittedKeys !== undefined)
+    entries = entries.filter(([key]) => !omittedKeys.has(key));
   const reference: unknown = (value as Record<string, unknown>)["$ref"];
   const preserved =
     typeof reference === "string"
@@ -471,6 +578,3 @@ const isInventory = (
 const isProblem = (
   value: ISwaggerDocumentInventory | ISwaggerDocumentProblem,
 ): value is ISwaggerDocumentProblem => "message" in value;
-
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
