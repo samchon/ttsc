@@ -31,16 +31,10 @@ var hiddenDeclarationTags = []string{"@internal", "@hidden", "@ignore"}
 // sentence silently delete an obligation. Text after the tag is a comment for
 // humans and is not read.
 func commentHidingTag(comment string) string {
-  comment = strings.TrimSpace(comment)
-  comment = strings.TrimPrefix(comment, "/**")
-  comment = strings.TrimPrefix(comment, "/*")
-  comment = strings.TrimSuffix(comment, "*/")
-  fence := commentFence{}
-  for _, rawLine := range strings.Split(comment, "\n") {
-    line := strings.TrimSpace(rawLine)
-    line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
-    line = strings.TrimSpace(strings.TrimPrefix(line, "///"))
-    if fence.consume(line) {
+  comment, _, _ = documentationBody(comment)
+  for _, example := range documentationExamples(comment, true) {
+    line := example.text
+    if example.fenced {
       continue
     }
     for _, tag := range hiddenDeclarationTags {
@@ -65,21 +59,15 @@ func parseCommentDeclarations(
   comment string,
   tagBoundaries bool,
 ) []parsedDeclaration {
-  trimmed := strings.TrimLeftFunc(comment, unicode.IsSpace)
-  leadingLines := strings.Count(comment[:len(comment)-len(trimmed)], "\n")
-  comment = trimmed
-  jsdoc := strings.HasPrefix(comment, "/**") || tagBoundaries
-  comment = strings.TrimPrefix(comment, "/**")
-  comment = strings.TrimPrefix(comment, "/*")
-  comment = strings.TrimSuffix(comment, "*/")
-  lines := strings.Split(comment, "\n")
+  comment, leadingLines, documented := documentationBody(comment)
+  jsdoc := documented || tagBoundaries
+  lines := documentationExamples(comment, tagBoundaries)
   type pendingDeclaration struct {
     tag        tagKind
     body       []string
     lineOffset int
   }
   var pending *pendingDeclaration
-  fence := commentFence{}
   parsed := []parsedDeclaration{}
   flush := func() {
     if pending == nil {
@@ -94,13 +82,10 @@ func parseCommentDeclarations(
     })
     pending = nil
   }
-  for index, rawLine := range lines {
-    line := strings.TrimSpace(rawLine)
-    line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
-    if fence.consume(line) {
-      if pending != nil {
-        pending.body = append(pending.body, line)
-      }
+  for index, example := range lines {
+    line := example.text
+    if example.fenced {
+      flush()
       continue
     }
     tag, body, found := declarationLine(line)
@@ -329,15 +314,9 @@ func (review parsedReview) marker() string {
 // other `@`-opening line closes the review above it, so a review sharing a
 // block with `@param` or a following `@evidence` swallows neither.
 func parseReviews(comment string) []parsedReview {
-  trimmed := strings.TrimLeftFunc(comment, unicode.IsSpace)
-  leadingLines := strings.Count(comment[:len(comment)-len(trimmed)], "\n")
-  comment = trimmed
-  comment = strings.TrimPrefix(comment, "/**")
-  comment = strings.TrimPrefix(comment, "/*")
-  comment = strings.TrimSuffix(comment, "*/")
+  comment, leadingLines, _ := documentationBody(comment)
   reviews := []parsedReview{}
   var pending *parsedReview
-  fence := commentFence{}
   var body []string
   flush := func() {
     if pending == nil {
@@ -352,14 +331,10 @@ func parseReviews(comment string) []parsedReview {
     pending = nil
     body = nil
   }
-  for index, rawLine := range strings.Split(comment, "\n") {
-    line := strings.TrimSpace(rawLine)
-    line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
-    line = strings.TrimSpace(strings.TrimPrefix(line, "///"))
-    if fence.consume(line) {
-      if pending != nil {
-        body = append(body, line)
-      }
+  for index, example := range documentationExamples(comment, true) {
+    line := example.text
+    if example.fenced {
+      flush()
       continue
     }
     if reviews, remainder, opened := reviewLine(line); opened {
@@ -471,8 +446,8 @@ func containsWhitespace(value string) bool {
   return false
 }
 
-// Fences inside documentation are examples, not declarations. Their text is
-// still retained when it belongs to a pending reason or review description.
+// Fences inside documentation are examples, not declarations or annotation
+// prose. Callers end a pending annotation at the opening delimiter.
 type commentFence struct {
   marker rune
   length int
