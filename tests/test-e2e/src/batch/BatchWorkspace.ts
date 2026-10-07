@@ -1832,9 +1832,50 @@ export namespace BatchWorkspace {
             .filter((line) => line !== replaceLines[0])
             .join("\n"),
         );
-        const workspacePublication = request(source, expected, {}, [
-          dependency,
-        ]);
+        // Both workspace modules participate in the import graph. Their common
+        // ancestor preserves the deep dependency's necessary relative geometry;
+        // a single external root remains free to use its compact snapshot.
+        const workspaceHelper = path.join(container, "workspace-helper");
+        fs.mkdirSync(workspaceHelper);
+        for (const filename of ["dep.go", "go.mod"])
+          fs.copyFileSync(
+            path.join(
+              materializationInputs,
+              "source-materialization-dependency",
+              filename,
+            ),
+            path.join(workspaceHelper, filename),
+          );
+        const workspaceHelperName = dependencyName + "-workspace-helper";
+        fs.writeFileSync(
+          path.join(workspaceHelper, "go.mod"),
+          fs
+            .readFileSync(path.join(workspaceHelper, "go.mod"), "utf8")
+            .replace(
+              "example.com/batch-materialization-dependency",
+              workspaceHelperName,
+            ),
+        );
+        fs.writeFileSync(
+          path.join(workspaceHelper, "dep.go"),
+          dependencyText.replace('"first"', '"second"'),
+        );
+        fs.writeFileSync(
+          dependencySource,
+          dependencyText
+            .replace(
+              "package dependency",
+              'package dependency\n\nimport helper "' + workspaceHelperName + '"',
+            )
+            .replace('return "first"', "return helper.Value()"),
+        );
+        const workspaceRoots = [dependency, workspaceHelper];
+        const workspacePublication = request(
+          source,
+          expected,
+          {},
+          workspaceRoots,
+        );
         assert.ok(
           fs.existsSync(workspacePublication),
           "the actual patch-qualified modules must build together as workspace use entries",
@@ -1856,7 +1897,7 @@ export namespace BatchWorkspace {
           .split(/\r?\n/)
           .map((line) => JSON.parse(line) as string[]);
         const dependencyLayout = path.relative(
-          path.parse(dependency).root,
+          container,
           path.join(dependency, "go.mod"),
         );
         const externalCopies = path.join(
@@ -1864,22 +1905,23 @@ export namespace BatchWorkspace {
           ".ttsc",
           "external",
         );
+        const copiedDependencyMod = observedGoArguments.find((args) => {
+          if (args[0] !== "mod" || args[1] !== "edit" || args[2] !== "-json")
+            return false;
+          const filename = args[3];
+          if (typeof filename !== "string" || !path.isAbsolute(filename))
+            return false;
+          const relative = path.relative(externalCopies, filename);
+          return (
+            filename.length > 180 &&
+            relative !== ".." &&
+            !relative.startsWith(".." + path.sep) &&
+            !path.isAbsolute(relative) &&
+            relative.endsWith(path.sep + dependencyLayout)
+          );
+        })?.[3];
         assert.ok(
-          observedGoArguments.some((args) => {
-            if (args[0] !== "mod" || args[1] !== "edit" || args[2] !== "-json")
-              return false;
-            const filename = args[3];
-            if (typeof filename !== "string" || !path.isAbsolute(filename))
-              return false;
-            const relative = path.relative(externalCopies, filename);
-            return (
-              filename.length > 180 &&
-              relative !== ".." &&
-              !relative.startsWith(".." + path.sep) &&
-              !path.isAbsolute(relative) &&
-              relative.endsWith(path.sep + dependencyLayout)
-            );
-          }),
+          copiedDependencyMod,
           "the actual workspace metadata process must accept its deeply nested absolute copied module filename: " +
             JSON.stringify({
               buildCwd: workspaceBuild.cwd,
@@ -1887,6 +1929,35 @@ export namespace BatchWorkspace {
               observedGoArguments,
             }),
         );
+        assert.notEqual(
+          path.resolve(copiedDependencyMod),
+          path.resolve(dependencyMod),
+          "metadata must consume the private copied module, never its live authored path",
+        );
+        const workspaceExecution = E2eProcessTrace.spawnSync(
+          workspacePublication,
+          [],
+          {
+            encoding: "utf8",
+            windowsHide: true,
+            env: {
+              ...process.env,
+              TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "2",
+              ORPHAN_RACE_SOURCE: undefined,
+              ORPHAN_RACE_DONE: undefined,
+              ORPHAN_RACE_COMPILER: undefined,
+            },
+          },
+        );
+        assert.ok(isOrdinarilyClosedReadonlyLauncher(workspaceExecution));
+        assert.equal(workspaceExecution.error, undefined);
+        assert.equal(workspaceExecution.signal, null);
+        assert.equal(workspaceExecution.status, 0, workspaceExecution.stderr);
+        assert.equal(
+          workspaceExecution.stdout,
+          'second|"embedded bytes\\n"|example.com/plugin/main.go\n',
+        );
+        assert.equal(workspaceExecution.stderr.trim(), "second");
         const dependencyModText = originalDependencyMod.toString("utf8");
         assert.ok(dependencyModText.includes("go 1.26.0"));
         fs.writeFileSync(
@@ -1895,7 +1966,7 @@ export namespace BatchWorkspace {
         );
         assert.throws(
           () =>
-            request(source, expected, { GOTOOLCHAIN: "local" }, [dependency]),
+            request(source, expected, { GOTOOLCHAIN: "local" }, workspaceRoots),
           /go >= 1\.99\.0/,
           "the real Go workspace must reject an incompatible imported overlay instead of guessing a lower version",
         );

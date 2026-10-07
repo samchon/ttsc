@@ -57,14 +57,17 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * four long components: patch-qualified directives and relative/absolute
  * replacement select first, changed external bytes select second, and an
  * incompatible local toolchain directive rejects before publication. External
- * replacements and workspace overlays are distinct epochs of that graph. Six
+ * replacements and workspace overlays are distinct epochs of that graph. The
+ * workspace epoch imports a second real module, preserving the deep module's
+ * required relative geometry while singleton snapshots remain compact. Six
  * baseline Go build attempts include binary-only cold rebuild, external byte
  * change, malformed dependency refusal and compatible workspace publication.
  * Actual Go -x must show cold helper compilation, unchanged object reuse across
  * different scratch roots and recompilation after edit; mode2 independently
- * observes embedding, logical runtime source and panic provenance. Five
- * compiled executions (three combined value/object probes, one cold-rebuild
- * probe and one panic) replace the separate source-project and object-cache
+ * observes embedding, logical runtime source and panic provenance. Six
+ * compiled executions (four combined value/object probes, including the
+ * workspace helper import, one cold-rebuild probe and one panic) replace the
+ * separate source-project and object-cache
  * recipes; restored bytes reuse the original publication before the runtime
  * borrows it. The first cold request can discard two additional toolchain
  * transactions; independent before/after SDK metadata must explain every
