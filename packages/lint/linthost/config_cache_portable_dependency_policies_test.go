@@ -23,10 +23,10 @@ import (
 // Symlink directory and non-UTF-8-name branches depend on actual filesystem
 // capability; merely passing this entry does not establish they ran.
 //
-// @evidence contracts/testing.md#behavioral-verification Direct loadCachedConfigEvaluation preserves generation1 disk reuse, returns generation2/beta after a helper edit, and retries unstable results three times on each load. Direct fingerprint operations check directory digests, optional absent-present-absent transitions, equal-byte identity retargeting, ten malformed envelopes, exact duplicate preservation and unstable soft misses.
+// @evidence contracts/testing.md#behavioral-verification Direct loadCachedConfigEvaluation preserves generation1 disk reuse, returns generation2/beta after a helper edit, and retries unstable results three times on each load. Direct fingerprint operations check directory digests, optional absent-present-absent transitions, equal-byte identity retargeting, ten malformed envelopes, exact duplicate preservation and unstable soft misses. Direct root-bound cache loads preserve equivalent cleaned roots, separate different roots and restore the first root generation without any Node or ttsx child.
 // @evidence contracts/testing.md#independent-expectations Literal generations/call counts and beta selection are authored; directory names are independently raw-byte sorted and NUL-encoded before SHA256, optional deletion must restore its missing digest, and physically retargeted equal bytes cannot authorize the old identity.
 // @evidence contracts/testing.md#distinguishing-cases Retains empty/single/UTF-8/nested directories, capability-dependent link/raw names, optional lifecycle, native junction-or-symlink retargeting, ten separate invalid-envelope rows, valid duplicate fields and an unstable empty-digest sentinel. Actual two-loader parity and registerHooks A-B-A remain separate E2E responsibilities.
-// @evidence contracts/testing.md#execution-ownership This Go entry invokes native cache/digest/normalization operations with a callback and temporary filesystem. It restores the exact prior memory-cache map and environment, removes only its two disk keys, and owns inline phase/envelope failure identities. Windows identity creation uses the owning junction operation; no config-loader child or installed consumer runs.
+// @evidence contracts/testing.md#execution-ownership This Go entry invokes native cache/digest/normalization operations with a callback and temporary filesystem. It restores the exact prior memory-cache map and environment, removes only its two content keys and two root-bound keys, and owns inline phase/envelope failure identities. Windows identity creation uses the owning junction operation; no config-loader child or installed consumer runs.
 func TestConfigCachePortableDependencyPolicies(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()
@@ -372,6 +372,54 @@ func TestConfigCachePortableDependencyPolicies(t *testing.T) {
   if configDependencyDigestsAreCurrent(normalized) {
     t.Fatal("an unstable conflict fingerprint must never authorize cache reuse")
   }
+
+  // Root identity partitions the actual cache owner without running a loader.
+  rootCalls := 0
+  rootEvaluate := func(string) (evaluatedConfigFile, error) {
+    rootCalls++
+    body, err := os.ReadFile(config)
+    if err != nil {
+      return evaluatedConfigFile{}, err
+    }
+    sum := sha256.Sum256(body)
+    return evaluatedConfigFile{
+      value: map[string]any{"generation": float64(rootCalls)},
+      dependenciesTracked: true,
+      dependencyDigests: []configDependencyFingerprint{{
+        Path: config, Digest: hex.EncodeToString(sum[:]),
+        IdentityStable: true, Kind: configDependencyFile,
+        Realpath: configDependencyRealpath(config), Scope: configDependencyWatch,
+      }},
+    }, nil
+  }
+  rootContent, err := os.ReadFile(config)
+  if err != nil {
+    t.Fatal(err)
+  }
+  rootA := filepath.Join(root, "root-a")
+  rootB := filepath.Join(root, "root-b")
+  t.Cleanup(func() {
+    for _, contextRoot := range []string{rootA, rootB} {
+      key := configCacheKey("config-graph\x00"+contextRoot, config, rootContent)
+      if err := os.Remove(filepath.Join(configCacheDir(), key+".json")); err != nil && !os.IsNotExist(err) {
+        t.Errorf("remove root-owned cache entry: %v", err)
+      }
+    }
+  })
+  for index, contextRoot := range []string{rootA, rootA + string(filepath.Separator) + ".", rootB, rootA} {
+    evaluated, err := loadCachedConfigEvaluationForRoot(config, contextRoot, rootEvaluate)
+    if err != nil {
+      t.Fatalf("root cache epoch %d: %v", index, err)
+    }
+    expected := []float64{1, 1, 2, 1}[index]
+    if got := configCacheGeneration(evaluated.value); got != expected {
+      t.Fatalf("root cache epoch %d generation = %v, want %v", index, got, expected)
+    }
+  }
+  if rootCalls != 2 {
+    t.Fatalf("root cache evaluations = %d, want 2", rootCalls)
+  }
+
 }
 
 type portableDirectoryDigestRecord struct {

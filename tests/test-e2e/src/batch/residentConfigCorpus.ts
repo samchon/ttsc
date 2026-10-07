@@ -9,6 +9,7 @@ import { SidecarEnvironment } from "../../../../packages/ttsc/lib/compiler/inter
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { PLUGIN_BUILD_TIMEOUT } from "../internal/ttsc/internal/ttscserver";
 import { BatchWorkspace } from "./BatchWorkspace";
+import { scriptConfigGraphResident, scriptConfigGraphTraceRoot } from "./scriptConfigGraphCorpus";
 
 /**
  * Verifies real and linked executable-config dependencies through raw inputs.
@@ -25,9 +26,9 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * @evidence contracts/testing.md#behavioral-verification Actual public lsp-serve frames return code0 and exact old/new file membership while imported real/link modules append evaluation records. Independent helper edits must preserve the opposite value and counter; startup opt-out evaluates twice.
  * @evidence contracts/testing.md#independent-expectations Authored before/after/input paths and literal LF counter totals prescribe the result independently of resolver cache bookkeeping. Physical expected paths use the existing TestProject filesystem identity helper.
  * @evidence contracts/testing.md#distinguishing-cases Real package versus directory link, unchanged versus content-only real edit versus linked edit, settling and normal versus startup-disabled evaluation are distinct epochs. No membership change or simultaneous edit can mask the opposite helper.
- * @evidence contracts/testing.md#execution-ownership The existing selected esbuild nativeWatchCorpus calls this body after actual watcher join and original restoration. Two new OS children replace no original OS daemon: the retained donors used three in-process io.Pipe lifetimes and remain selected until actual acceptance.
+ * @evidence contracts/testing.md#execution-ownership The existing selected esbuild nativeWatchCorpus calls this body after actual watcher join and original restoration. The same two OS children also serve the shared ScriptGraph failure/recovery pair before the original normal baseline; no new child is added for that graph. Two OS children replace no original OS daemon: the retained donors used three in-process io.Pipe lifetimes and remain selected until actual acceptance.
  * @evidence contracts/e2e.md#necessary-boundary Real TypeScript loader to Node package evaluation, recorded dependency validity and raw project-input publication must agree. The maintained Go resident unit owns private loads, memo invalidation, project separation and opt-out policies, not this external transport.
- * @evidence contracts/e2e.md#shared-execution Same root, installation, producer and object cache serve one public prepare and both raw children. Normal seven and opt-out two requests replace twelve donor requests only after acceptance; expected helper evaluations remain four plus two. Public prepare adds real descriptor/admission work and possible builds; project-inputs loads configuration without a Program, while nested typed evaluators have real compiler work whose total remains unmeasured.
+ * @evidence contracts/e2e.md#shared-execution Same root, installation, producer and object cache serve one public prepare and both raw children. Normal nine (including the shared ScriptGraph failure/recovery pair) and opt-out two requests retain the original real/link seven and opt-out two assertions; expected helper evaluations remain four plus two. Public prepare adds real descriptor/admission work and possible builds; project-inputs loads configuration without a Program, while nested typed evaluators have real compiler work whose total remains unmeasured.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Static inputs are copied into exclusively absent owned names; the linked physical package lives in a unique owned cache namespace outside the shared input root, matching the original external target. Its resolved cleanup path is checked against only that namespace, after removing the project link. Normal child EOF/close/code0 precedes opt-out changes; both joins precede restoration. Startup environment is child-local. Failed or unknown closure retains inputs and prevents cleanup rather than mutating an active reader.
  * @evidence contracts/e2e.md#preserved-coverage The two retained resident donors map their three unchanged queries, real/link helper-only refresh, old removal/new membership, one settled query and actual counters to this body; opted-out unchanged queries and counters map to its second child. TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged retains private loads and direct policy distinctions. Original topology/project-input docs/api behavior is unchanged. Donor deletion and total independent E2E acceptance remain pending.
  */
@@ -102,6 +103,7 @@ export async function residentConfigCorpus(
       TTSC_TTSX_BINARY: TestProject.TTSX_BIN,
       TTSC_NODE_BINARY: process.execPath,
       TTSC_RESIDENT_CONTRIBUTOR: contributor,
+      TTSC_E2E_TRACE: scriptConfigGraphTraceRoot(workspace),
     });
     const binaries = new TtscCompiler({
       cwd: root,
@@ -187,7 +189,7 @@ export async function residentConfigCorpus(
       let stderr = "";
       let fatal: unknown;
       let pending:
-        | { resolve(value: unknown): void; reject(error: unknown): void }
+        | { resolve(value: unknown): void; reject(error: unknown): void; expectedCode: number }
         | undefined;
       const closed = new Promise<void>((resolve, reject) => {
         child.once("error", (error) => {
@@ -245,7 +247,7 @@ export async function residentConfigCorpus(
               "code" in frame &&
               "result" in frame,
           );
-          assert.equal(frame.code, 0, line);
+          assert.equal(frame.code, current.expectedCode, line);
           current.resolve(frame.result);
         } catch (error) {
           fatal = error;
@@ -270,11 +272,11 @@ export async function residentConfigCorpus(
         }
       };
       return {
-        ask: async () => {
+        ask: async (expectedCode = 0) => {
           if (fatal) throw fatal;
           assert.equal(pending, undefined);
           const response = new Promise<unknown>((resolve, reject) => {
-            pending = { resolve, reject };
+            pending = { resolve, reject, expectedCode };
           });
           input.write('{"verb":"project-inputs"}\n', (error) => {
             if (error) {
@@ -308,6 +310,16 @@ export async function residentConfigCorpus(
     };
     const normal = start(false);
     try {
+      try {
+        counter(realCounter,0);
+        counter(linkedCounter,0);
+        counter(optoutCounter,0);
+        await scriptConfigGraphResident(workspace,lintConfig,normal.ask);
+        held();
+        counter(realCounter,0);
+        counter(linkedCounter,0);
+        counter(optoutCounter,0);
+      } catch(error) { failures.push(error); }
       for (let request = 0; request < 3; request++) {
         const reply = await normal.ask();
         held();

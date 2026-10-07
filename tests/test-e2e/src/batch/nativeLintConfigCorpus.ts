@@ -12,6 +12,7 @@ import {
 } from "../internal/readE2eTraceMeasurements";
 import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import { BatchWorkspace } from "./BatchWorkspace";
+import { scriptConfigGraphCorpus, observeScriptConfigGraph, advanceScriptConfigGraph } from "./scriptConfigGraphCorpus";
 
 /**
  * Verifies typed contributor/config discovery and native CLI diagnostic
@@ -63,6 +64,9 @@ export function nativeLintConfigCorpus(
     TestProject.tmpdir("ttsc-lint-loader-observations-");
   assert.ok(path.isAbsolute(traceRoot));
   fs.mkdirSync(traceRoot, { recursive: true });
+  scriptConfigGraphCorpus(workspace, traceRoot, (traces, location, rules, dependencies) => {
+    assertExecutableConfigRules(traces, traceRoot, location, rules, 1, dependencies);
+  });
   const config = path.join(root, "tsconfig.json");
   const typed = path.join(root, "lint.config.ts");
   const originalConfig = fs.readFileSync(config);
@@ -200,6 +204,7 @@ export function nativeLintConfigCorpus(
       const result = run();
       assert.equal(result.status, 2, result.stderr);
       assert.equal(result.stdout, "", result.stderr);
+      observeScriptConfigGraph(workspace,result.traces,"first");
       const evaluated = assertExecutableConfigRules(
         result.traces,
         traceRoot,
@@ -393,6 +398,7 @@ export function nativeLintConfigCorpus(
       );
     });
     capture("CJS warning-only CLI", () => {
+      advanceScriptConfigGraph(workspace);
       assert.deepEqual(fs.readFileSync(typed), originalTyped);
       const helperText = originalHelper.toString("utf8");
       const errorRule = '"no-debugger": "error"';
@@ -425,6 +431,7 @@ export function nativeLintConfigCorpus(
           verificationErrors.push(new Error(name, { cause }));
         }
       };
+      verify("shared script graph mutation",()=>observeScriptConfigGraph(workspace,result.traces,"second"));
       const warningCounterStart = counterCursor;
       verify("warning raw rules", () => {
         assertExecutableConfigRules(

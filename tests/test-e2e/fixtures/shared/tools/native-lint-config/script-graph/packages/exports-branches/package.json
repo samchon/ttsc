@@ -1,0 +1,1 @@
+{"exports":{".":{"ttsc-unknown":"./absent.cjs","require":"./entry/main%20entry.cjs"},"./alias/*":["../escaped.cjs","./real/*.cjs"],"./blocked":null}}
