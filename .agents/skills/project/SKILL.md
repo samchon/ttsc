@@ -7,6 +7,8 @@ description: Maps ttsc's product boundaries and package ownership, and holds the
 
 ## Product Contract
 
+Apply [AGENTS.md's compiler boundary](../../../AGENTS.md#attitude) to compiler and toolchain changes.
+
 - The contract is general-purpose. Downstream projects such as `typia` and `nestia` are compatibility fixtures, not the product definition.
 - `ttsc` builds, checks, watches, and transforms source on top of `typescript`, the native TypeScript-Go compiler. `ttsx` runs a TypeScript entrypoint after a real type-check, and a JavaScript entrypoint under the `ttsc/register` runtime, which checks each TypeScript module the program loads through the same pipeline before running it.
 - `ttscserver` wraps `tsc --lsp --stdio` and proxies JSON-RPC, so plugin diagnostics, code actions, and `workspace/executeCommand` handlers reach the editor through one stream.

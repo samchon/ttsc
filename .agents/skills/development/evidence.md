@@ -10,7 +10,7 @@ Run `pnpm evidence` from the repository root to collect the production and enrol
 
 Read the report's counts for what they measure. A claim whose selectors match no host is reported as inactive (`Claims: 3/4 active`) without a diagnostic, and `Coverage: n/n units` counts the checklist sections of the active claims' reference documents, not the declarations that answer them. The Go adapter selects exported package declarations with their receiver owners, so a Go package whose declarations are unexported, such as `packages/evidence/native`, selects no production host: its production claim stays inactive and its production declarations are reviewed by the [review skill](../review/SKILL.md) instead of the checker. Its exported `Test` functions are selected hosts and do carry the testing checklist. The TypeScript adapter reports `typescript-ambient-module` and `inventory-incomplete` for a `declare module "@ttsc/lint"` augmentation, which is the only way a lint contributor types its rules, so a package that ships one cannot reach zero errors until the adapter resolves ambient modules.
 
-The JSON configuration avoids evaluating configuration through the compiler this repository is developing. This keeps the checker usable before that compiler has been built.
+The JSON configuration avoids evaluating configuration through the toolchain this repository builds. This keeps the checker usable before that toolchain has been built.
 
 Use the existing Evidence command and build-job gate in the [CI workflows](validation.md#ci-workflows). Enroll test claims in that same check; do not add a separate Evidence workflow, job or test-runner step. Acknowledgments remain a graph check, not behavioral assertions.
 

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`ttsc` is a standalone TypeScript-Go compiler, runtime, plugin host, and LSP host. It ships the `ttsc`, `ttsx`, and `ttscserver` CLIs plus the Go-source plugin protocol.
+`ttsc` is a TypeScript compiler wrapper and toolchain built on unmodified TypeScript-Go, with runtime, plugin and LSP hosts. It ships the `ttsc`, `ttsx`, and `ttscserver` CLIs plus the Go-source plugin protocol.
 
 ## Commands
 
@@ -22,6 +22,10 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 - **Scope is the user's to widen.** Reinterpret the goal, weigh alternatives, or expand the task only on an explicit hand-off ("figure it out", "you decide"). Take a confident, specific ask as given, and do not edit code the change does not need.
 - **The user's instruction outranks a skill.** A skill's procedure is the default for whatever the user left open.
 - **Fidelity binds the goal, not the effort.** Within that goal, act with full initiative: do the substeps it needs, verify your work, surface what you notice. Literal scope is no excuse for passive execution.
+- **Preserve the upstream compiler.** Never develop or alter upstream compiler internals or behavior through source, binary or cache edits, patched vendors (even official patches), ignored patch recipes, or hidden supply steps.
+
+  ttsc-owned drivers, shims, plugins and LSP hosts may use APIs present in an unmodified upstream version. Selecting another unmodified upstream version remains allowed. Record defects requiring upstream changes with their owner and unresolved status; never replace that missing compiler behavior with a ttsc extension.
+
 - **Evidence precedes correction.** Treat issue reports, review proposals, and claims that something is wrong or missing as hypotheses. Verify the real code path, tests, generated artifacts, upstream ownership, and history before accepting the premise or changing behavior.
 - **Trace the consequence surface.** A named file or failing case is the starting point, not the investigation boundary. Follow the same cause, and the change that corrects it, through downstream consumers, side effects, state transitions, platforms, and boundary cases, then address the whole verified class of failure within the requested goal.
 - **Collect every symptom before correcting.** Diagnose each finding as it appears, but finish the test run, CI run, reproduction or review round before repairing anything. Group its findings by cause, trace each cause under **Trace the consequence surface**, and apply one correction for the whole set.
