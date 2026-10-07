@@ -244,7 +244,7 @@ export namespace TsgoArguments {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The payload composer retains no environment, process or history after returning text.
    */
   export function createNativeTsgoArgs(
-    options: TtscCommonOptions,
+    options: RunBuildOptions,
     leading: readonly string[] = [],
     diagnosticsOnly = true,
   ): string | undefined {
@@ -292,10 +292,10 @@ export namespace TsgoArguments {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Argument construction does not acquire the output directory or manage its lifetime; the private-build owner does.
    */
   export function isolatedTsgoOutputArgs(
-    options: TtscCommonOptions,
+    options: RunBuildOptions,
     diagnosticsOnly = false,
   ): string[] {
-    const destinations = (options as RunBuildOptions).privateOutputDestinations;
+    const destinations = options.privateOutputDestinations;
     if (destinations !== undefined) {
       const args = [
         "--outDir",
