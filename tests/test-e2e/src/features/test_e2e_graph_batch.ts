@@ -21,6 +21,7 @@ import { assertGraphReverseCorpus } from "../batch/graphReverseCorpus";
 import { assertGraphTourInputCorpus } from "../batch/graphTourInputCorpus";
 import { installedTargetBoundary } from "../internal/graph/internal/installedTargetBoundary";
 import { TtsgraphClient } from "../internal/graph/internal/ttsgraph";
+import { case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof } from "./graph/scenes/case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof";
 import { case_ttscgraph_launcher_repairs_non_executable_dump_binary } from "./graph/scenes/case_ttscgraph_launcher_repairs_non_executable_dump_binary";
 import { case_ttscgraph_target_installed_consumers_share_native_boundary } from "./graph/scenes/case_ttscgraph_target_installed_consumers_share_native_boundary";
 import { case_ttscgraph_view_owns_http_server_lifecycle } from "./graph/scenes/case_ttscgraph_view_owns_http_server_lifecycle";
@@ -1634,6 +1635,13 @@ export async function test_e2e_graph_batch(): Promise<void> {
         "Graph identity epoch could not be restored after verified native closure",
       );
     }
+  }
+  try {
+    await case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof(
+      workspace,
+    );
+  } catch (error) {
+    failures.push(error);
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
