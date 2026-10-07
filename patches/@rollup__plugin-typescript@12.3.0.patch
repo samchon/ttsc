@@ -1,0 +1,90 @@
+diff --git a/dist/cjs/index.js b/dist/cjs/index.js
+index 4397e72a61b65a51266d8eafb9cd0aef5f57fbb6..8634cc36a5b36d68b2ab5038ade6b662ac1e93a8 100644
+--- a/dist/cjs/index.js
++++ b/dist/cjs/index.js
+@@ -769,7 +769,39 @@ function createWatchHost(ts, context, { formatHost, parsedOptions, writeFile, st
+     };
+ }
+ function createWatchProgram(ts, context, options) {
+-    return ts.createWatchProgram(createWatchHost(ts, context, options));
++    // Backport rollup/plugins#2025: own host timers until watch-program close.
++    // TypeScript 6.0.3 otherwise reopens watchers from a pending update.
++    const host = createWatchHost(ts, context, options);
++    const timers = new Set();
++    const { setTimeout: schedule, clearTimeout: cancel } = host;
++    if (schedule && cancel) {
++        host.setTimeout = (callback, ms, ...args) => {
++            const timer = schedule(() => {
++                timers.delete(timer);
++                callback(...args);
++            }, ms, ...args);
++            timers.add(timer);
++            return timer;
++        };
++        host.clearTimeout = (timer) => {
++            timers.delete(timer);
++            cancel(timer);
++        };
++    }
++    const program = ts.createWatchProgram(host);
++    const { close } = program;
++    program.close = () => {
++        try {
++            close.call(program);
++        }
++        finally {
++            if (cancel) {
++                timers.forEach((timer) => cancel(timer));
++            }
++            timers.clear();
++        }
++    };
++    return program;
+ }
+ 
+ /** Creates the folders needed given a path to a file to be saved*/
+diff --git a/dist/es/index.js b/dist/es/index.js
+index 31bae2cfde4114d4e9a400781f774f7ecbceb315..2ec612a836296f2a49085b647aec7b66e7b9375c 100644
+--- a/dist/es/index.js
++++ b/dist/es/index.js
+@@ -745,7 +745,39 @@ function createWatchHost(ts, context, { formatHost, parsedOptions, writeFile, st
+     };
+ }
+ function createWatchProgram(ts, context, options) {
+-    return ts.createWatchProgram(createWatchHost(ts, context, options));
++    // Backport rollup/plugins#2025: own host timers until watch-program close.
++    // TypeScript 6.0.3 otherwise reopens watchers from a pending update.
++    const host = createWatchHost(ts, context, options);
++    const timers = new Set();
++    const { setTimeout: schedule, clearTimeout: cancel } = host;
++    if (schedule && cancel) {
++        host.setTimeout = (callback, ms, ...args) => {
++            const timer = schedule(() => {
++                timers.delete(timer);
++                callback(...args);
++            }, ms, ...args);
++            timers.add(timer);
++            return timer;
++        };
++        host.clearTimeout = (timer) => {
++            timers.delete(timer);
++            cancel(timer);
++        };
++    }
++    const program = ts.createWatchProgram(host);
++    const { close } = program;
++    program.close = () => {
++        try {
++            close.call(program);
++        }
++        finally {
++            if (cancel) {
++                timers.forEach((timer) => cancel(timer));
++            }
++            timers.clear();
++        }
++    };
++    return program;
+ }
+ 
+ /** Creates the folders needed given a path to a file to be saved*/

@@ -5,6 +5,8 @@ packages:
   - "packages/lint/test/lint-contributor-demo"
   - "tests/*"
   - "website"
+patchedDependencies:
+  "@rollup/plugin-typescript@12.3.0": patches/@rollup__plugin-typescript@12.3.0.patch
 overrides:
   # Patch releases retain each installed major's API while clearing the
   # severe advisories reported by the locked dependency graph.
