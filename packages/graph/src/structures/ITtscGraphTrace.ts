@@ -28,7 +28,7 @@ export interface ITtscGraphTrace {
   /** Unique nodes reached (excluding the start), each with its depth, and its roles on an impact trace. */
   reached: ITtscGraphTrace.INode[];
 
-  /** In an open trace, true when a bound omitted an eligible node or hop. */
+  /** True when an open walk omitted an eligible node or hop, or an unsuccessful path search stopped on a depth or dispatch bound. */
   truncated: boolean;
 
   /** The resolved `to` target, when a path was requested. */
@@ -40,11 +40,12 @@ export interface ITtscGraphTrace {
    */
   path?: ITtscGraphTrace.INode[];
 
-  /** Compact hop summaries preserving node names and edge evidence, capped. */
+  /** Hop summaries preserving names and evidence. First twelve by default; every returned hop with `complete: true`. */
   steps?: string[];
 
   /**
-   * Symbols both ends touch, when no call path runs between them.
+   * Up to four ranked symbols both ends touch, when no call path runs between
+   * them. This diagnostic summary does not change path-search completeness.
    *
    * Nothing calls across the gap because in an event-driven codebase nothing
    * does: a handler registers a listener on an emitter, the emitter's `emit()`
@@ -179,16 +180,34 @@ export namespace ITtscGraphTrace {
     focus?: "all" | "execution" | "types";
 
     /**
-     * Hops deep to follow (open forward/reverse cap at 8, impact at 4, path
-     * mode at 12). Raise it to follow a runtime chain to its end in one call.
-     * Path mode searches to its cap of 12 when this is omitted.
+     * Exhaust the finite graph admitted by direction, focus and external-node
+     * policy, including every eligible dispatch relation. Overrides maxDepth,
+     * maxNodes, hop budgets and limits on hop summaries. Path mode returns one shortest path.
+     *
+     * Output and synchronous traversal can grow with the entire graph; there is
+     * no per-request cancellation or fixed response-size bound. Resource or
+     * transport failures fail the request rather than return partial success.
+     *
+     * @default false
+     */
+    complete?: boolean;
+
+    /**
+     * Hops deep to follow. Positive finite values have no upper clamp and are
+     * rounded down; invalid or omitted values use 3 (12 in path mode).
+     * Values below one become one. Ignored with complete true.
      *
      * @default 3
      */
     maxDepth?: number;
 
     /**
-     * Cap on reached nodes (open forward/reverse cap at 32, impact at 16).
+     * Cap on unique reached nodes, excluding the start. Positive finite values
+     * have no upper clamp and are rounded down; invalid or omitted values use
+     * 12. Values below one become one. Open walks also limit hops to twice this
+     * budget and withhold dispatch fanouts of twelve or more implementations.
+     * Use complete true to remove every traversal budget. Path mode ignores
+     * maxNodes.
      *
      * @default 12
      */

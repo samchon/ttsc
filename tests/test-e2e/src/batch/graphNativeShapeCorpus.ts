@@ -33,15 +33,22 @@ const membersOf = (result: ToolResult, name: string): Member[] => {
   return value.result?.nodes?.find((node) => node.name === name)?.members ?? [];
 };
 /**
- * Observes native member shapes and replacement through the existing graph
- * host.
+ * Verifies native object identities, complete traces and outline replacement
+ * through the existing graph host.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual MCP details reply carries sixteen actual object members that retain kind/order/head/line and eight body-marker exclusions; replacement changes the same resident native outline.
- * @evidence contracts/testing.md#independent-expectations The sixteen literal authored direct keys prescribe the expected native facts independently of extraction; the replacement literal has exactly one named key.
- * @evidence contracts/testing.md#distinguishing-cases Object shorthand/static/dynamic/spread/nested/accessor/callable distinctions coexist; the controlled edit distinguishes a refreshed snapshot from stale identity.
+ * 1. Trace static object members through actual MCP in both directions and
+ *    distinguish dotted literal keys from nested objects.
+ * 2. Request all sixty direct callers and a twenty-hop chain from the same
+ *    native generation, including impact export roles.
+ * 3. Retain the direct member outline/body exclusions, then edit and restore
+ *    that object's source through the resident session.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual MCP trace replies resolve object methods and callable properties to their native callers/helper, retain distinct literal/nested keys and source spans, return all sixty reverse/impact callers and twenty chain nodes without truncation, and preserve the original sixteen-member outline/replacement assertions.
+ * @evidence contracts/testing.md#independent-expectations Authored source declares sixty distinctly named callers and a twenty-edge chain; literal names and roles prescribe expected trace results independently of traversal. Sixteen direct keys and eight body markers retain the independent outline oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Object shorthand/static/dynamic/spread/nested/accessor/callable distinctions coexist; alias calls, bracketed-versus-nested identity, above-default reverse/impact fanout and deep complete forward traversal add native connection contrasts. The controlled outline edit still distinguishes refresh from stale identity.
  * @evidence contracts/testing.md#execution-ownership Called once by the selected graph entry with its already initialized client. It creates no launcher, compiler profile or project and invokes no legacy scene.
- * @evidence contracts/e2e.md#necessary-boundary Actual checker snapshot fields and changed native source identities cross the resident MCP serialization boundary.
- * @evidence contracts/e2e.md#shared-execution The object population is staged before the first native snapshot. Readonly shape queries share that snapshot; one deliberate object edit/restore advances the same session rather than creating per-scenario Programs or clients.
+ * @evidence contracts/e2e.md#necessary-boundary Actual checker-produced object endpoints and large/deep graph facts must survive the generated MCP request schema and trace serialization. Source units own traversal policies; this case authenticates their connection to a real producer and transport alongside the existing refreshed outline.
+ * @evidence contracts/e2e.md#shared-execution Object, caller and chain populations are staged before the first native snapshot and share its existing client/Program. Independent trace scenarios collect failures before the outline mutation; one deliberate object edit/restore advances the same session without separate hosts.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The edit captures original bytes and requires actual client's mutation authority before edit/restore. Restoration failure withdraws reuse; the calling graph entry joins the actual host close.
  * @evidence contracts/e2e.md#preserved-coverage Every original object outline and replacement assertion is retained. MCP branch meanings are owned separately by graphMcpCorpus; ranked tour/global-universe, CLI extraction and encoding/other refresh originals are not certified here.
  */
@@ -57,6 +64,49 @@ export async function assertGraphNativeShapeCorpus(
       failures.push(new Error(name, { cause }));
     }
   };
+  const trace = async (request: Record<string, unknown>) => {
+    const reply = (await client.request("tools/call", {
+      name: "inspect_typescript_graph",
+      arguments: {
+        question: "Which native declarations does this API reach?",
+        draft: { type: "trace", reason: "Trace actual checker relationships." },
+        review: "Use the returned declaration identities and relationships.",
+        request: { type: "trace", focus: "execution", ...request },
+      },
+    })) as { structuredContent?: { result?: {
+      type: string;
+      start?: { id: string; name: string; sourceSpan?: unknown };
+      reached: { name: string; roles?: string[] }[];
+      truncated: boolean;
+    } } };
+    const result = reply.structuredContent?.result;
+    assert.equal(result?.type, "trace", JSON.stringify(reply));
+    return result!;
+  };
+  await run("native-object-method-call-identity", async () => {
+    for (const from of ["objectApi.create", "objectApi.arrow", "objectApi.nested.key", 'objectApi["nested.key"]', 'objectApi["a[\\\"\\\"]"]', 'objectApi.a[""]']) {
+      const reverse = await trace({ from, direction: "reverse", complete: true });
+      assert.equal(reverse.start?.name, from);
+      assert.ok(reverse.start?.sourceSpan, JSON.stringify(reverse));
+      assert.ok(reverse.reached.some((node) => node.name === "GraphObjectCaller"), JSON.stringify(reverse));
+      const forward = await trace({ from, complete: true });
+      assert.ok(forward.reached.some((node) => node.name === "GraphObjectHelper"), JSON.stringify(forward));
+    }
+  });
+  for (const direction of ["reverse", "impact"]) {
+    await run(`native-complete-fanout-${direction}`, async () => {
+      const result = await trace({ from: "GraphFanoutRoot", direction, complete: true });
+      assert.equal(result.truncated, false);
+      assert.deepEqual(new Set(result.reached.map((node) => node.name)), new Set(Array.from({ length: 60 }, (_, index) => `GraphFanoutCaller${index}`)));
+      if (direction === "impact")
+        assert.ok(result.reached.every((node) => node.roles?.includes("exported")));
+    });
+  }
+  await run("native-complete-depth", async () => {
+    const result = await trace({ from: "GraphDepth0", complete: true });
+    assert.equal(result.truncated, false);
+    assert.deepEqual(result.reached.map((node) => node.name), Array.from({ length: 20 }, (_, index) => `GraphDepth${index + 1}`));
+  });
   await run("native-object-outline-and-refresh", async () => {
     const original = membersOf(
       (await client.request("tools/call", {

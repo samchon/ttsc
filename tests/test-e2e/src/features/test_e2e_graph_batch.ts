@@ -1,4 +1,4 @@
-import { FileSystemIterator } from "@ttsc/testing";
+import { FileSystemIterator, TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -42,7 +42,7 @@ type NodeDetails = {
  * @evidence contracts/testing.md#distinguishing-cases String, implicitly numbered and duplicate-value enums distinguish declared member identity from a deduplicated type-value set; the class outline must remain unaffected.
  * @evidence contracts/testing.md#execution-ownership One TtsgraphClient.start owns one resident MCP/native session; a multi-handle details request and abstract dispatch trace serve all these declarations without CLI dumps or legacy scene dispatch.
  * @evidence contracts/e2e.md#necessary-boundary Real native checker extraction, snapshot transport and built MCP projection must carry each member fact. A synthetic graph cannot certify this producer boundary.
- * @evidence contracts/e2e.md#shared-execution The session first observes graph-free escape under invalid config with zero native starts, restores exact config bytes and initializes its one resident native snapshot. All later declaration, dispatch and readonly requests share the upfront source population. The object outline advances the same resident snapshot by one controlled edit/restore; no per-scene fixture or compiler profile is created.
+ * @evidence contracts/e2e.md#shared-execution The session first observes graph-free escape under invalid config with zero native starts, restores exact config bytes and initializes its one resident native snapshot. All later declaration, dispatch and readonly requests share the upfront source population. The launcher uses the batch-owned plugin cache and shared Go object storage; actual SDK resolution and production source/toolchain keys still decide reuse, without a preparatory build. The object outline advances the same resident snapshot by one controlled edit/restore; no per-scene fixture or compiler profile is created.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The MCP host's stdin is closed and actual process exit awaited after the body. Unknown closure rejects and shared inputs remain retained; Controlled object mutation captures/restores source bytes under actual client authority; no force-kill substitutes for completion.
  * @evidence contracts/e2e.md#preserved-coverage Preserves the original enum-details exact assertions with renamed authored Dup/Cls declarations replaced by Duplicate/Service. Retains both original signature head/body controls and both abstract implementation dispatch/terminal controls in this same resident session. Remaining impact and refresh distinctions are not certified.
  */
@@ -103,6 +103,10 @@ export async function test_e2e_graph_batch(): Promise<void> {
   const client = TtsgraphClient.start(
     workspace.graphRoot,
     path.join(workspace.graphRoot, "graph-native-starts.jsonl"),
+    {
+      cacheDir: workspace.cache,
+      goBuildCacheDir: TestProject.sharedGoBuildCache(),
+    },
   );
   try {
     const initialization = await client.request("initialize", {
@@ -1105,7 +1109,7 @@ export async function test_e2e_graph_batch(): Promise<void> {
         junctions?: unknown[];
       }
 
-      const OVER_CEILING_HOPS = 13;
+      const LONG_PATH_HOPS = 13;
 
       const call = async (
         request: Record<string, unknown>,
@@ -1206,35 +1210,44 @@ export async function test_e2e_graph_batch(): Promise<void> {
         "and returns the whole path",
       );
 
-      const overCeiling = await call({
+      const longBounded = await call({
         from: "n0",
-        to: `n${OVER_CEILING_HOPS}`,
+        to: `n${LONG_PATH_HOPS}`,
         focus: "execution",
         maxDepth: 12,
       });
       assert.notEqual(
-        overCeiling.next?.action,
+        longBounded.next?.action,
         "outside",
-        "a path longer than the hard ceiling is not reported as absent",
+        "a path longer than the requested bound is not reported as absent",
       );
-      assert.notEqual(
-        overCeiling.next?.reason,
-        boundedSeam.next?.reason,
-        "at the ceiling the continuation cannot be 'raise maxDepth'",
-      );
+      for (const budget of [
+        { maxDepth: LONG_PATH_HOPS },
+        { complete: true, maxDepth: 1, maxNodes: 1 },
+      ]) {
+        const longFound = await call({
+          from: "n0",
+          to: `n${LONG_PATH_HOPS}`,
+          focus: "execution",
+          ...budget,
+        });
+        assert.equal(longFound.next?.action, "answer");
+        assert.equal(longFound.result!.hops.length, LONG_PATH_HOPS);
+        assert.equal(longFound.result!.path?.length, LONG_PATH_HOPS + 1);
+      }
 
       const underCeiling = await call({
         from: "n0",
-        to: `n${OVER_CEILING_HOPS - 1}`,
+        to: `n${LONG_PATH_HOPS - 1}`,
         focus: "execution",
         maxDepth: 12,
       });
       assert.equal(
         underCeiling.next?.action,
         "answer",
-        "the longest answerable path is still answered",
+        "a path exactly as long as the requested bound is still answered",
       );
-      assert.equal(underCeiling.result!.hops.length, OVER_CEILING_HOPS - 1);
+      assert.equal(underCeiling.result!.hops.length, LONG_PATH_HOPS - 1);
 
       const identity = await call({ from: "apartLeft", to: "apartLeft" });
       assert.deepEqual(
@@ -1615,6 +1628,9 @@ export async function test_e2e_graph_batch(): Promise<void> {
     } catch (error) {
       failures.push(error);
       BatchWorkspace.retain(
+        "Graph identity epoch could not be restored after verified native closure",
+      );
+      TestProject.retainSharedPluginCache(
         "Graph identity epoch could not be restored after verified native closure",
       );
     }
