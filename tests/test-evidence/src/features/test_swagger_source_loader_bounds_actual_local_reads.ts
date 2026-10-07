@@ -250,8 +250,6 @@ function loader(
           return { canonicalDigest };
         case "./normalizeSwaggerDocument":
           return { normalizeSwaggerDocument };
-        case "./swaggerSafeMessage":
-          return sourceRequire(fileURLToPath(new URL("../../../../packages/evidence/src/internal/swaggerSafeMessage.ts", import.meta.url)));
         default:
           throw new Error(`unexpected loader import ${name}`);
       }

@@ -266,7 +266,7 @@ func swaggerUnitsFromOutcome(
 // that trails off after a colon reads like a formatting bug rather than a
 // broken document.
 func swaggerNormalizationFailure(source string, message string) string {
-  reason := causeReason(strings.TrimSpace(swaggerSafeMessage(message, source)))
+  reason := causeReason(strings.TrimSpace(message))
   if reason == "" {
     reason = "the normalizer reported no reason"
   }

@@ -157,11 +157,7 @@ func loadSwaggerInventories(
 
   result, err := normalizeSwaggerSources(root, pending, trace)
   if err != nil {
-    reason := causeText(err)
-    for _, source := range pending {
-      reason = swaggerSafeMessage(reason, source)
-    }
-    message := "Evidence graph could not run its Swagger normalizer: " + reason + ". Swagger references require Node.js and the installed @typia/interface, @typia/utils, and yaml dependencies."
+    message := "Evidence graph could not run its Swagger normalizer: " + causeText(err) + ". Swagger references require Node.js and the installed @typia/interface, @typia/utils, and yaml dependencies."
     for _, source := range pending {
       inventories[source].LoadFailed = true
       inventories[source].Problems = append(
@@ -381,6 +377,20 @@ func swaggerOperationUnit(
 func isRemoteSwaggerSource(source string) bool {
   parsed, err := url.Parse(source)
   return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https")
+}
+
+func displaySwaggerSource(source string) string {
+  parsed, err := url.Parse(source)
+  if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+    return source
+  }
+  if parsed.User != nil {
+    parsed.User = url.User("***")
+  }
+  if parsed.RawQuery != "" {
+    parsed.RawQuery = "<redacted>"
+  }
+  return parsed.String()
 }
 
 type limitedBuffer struct {

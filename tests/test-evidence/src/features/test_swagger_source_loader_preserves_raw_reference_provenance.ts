@@ -526,7 +526,7 @@ export async function test_swagger_source_loader_preserves_raw_reference_provena
     }
   };
   const hash = (text: string): string =>
-    createHash("sha256").update(text.slice(0, -1) + ',"security":[],"securitySchemes":{},"servers":[{"url":"/"}]}').digest("hex");
+    createHash("sha256").update(text).digest("hex");
   const sibling = hash('{"responses":{"200":{"description":"OK"}}}');
   try {
     for (const version of ["3.1.0", "3.2.0"] as const) {

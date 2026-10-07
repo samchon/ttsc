@@ -62,11 +62,11 @@ export async function test_swagger_source_loader_decodes_component_uri_fragments
       .update(
         '{"requestBody":{"content":{"application/json":{"schema":' +
           schema +
-          '}}},"responses":{"200":{"description":"OK"}},"security":[],"securitySchemes":{},"servers":[{"url":"/"}]}',
+          '}}},"responses":{"200":{"description":"OK"}}}',
       )
       .digest("hex");
   const siblingDigest = createHash("sha256")
-    .update('{"responses":{"200":{"description":"OK"}},"security":[],"securitySchemes":{},"servers":[{"url":"/"}]}')
+    .update('{"responses":{"200":{"description":"OK"}}}')
     .digest("hex");
   const simple = (selected: string, decoy: string) => ({
     Target: { type: selected },
