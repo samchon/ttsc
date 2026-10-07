@@ -231,7 +231,8 @@ export function test_native_check_arguments_gate_threading_without_name_shortcut
       (extra) => {
         assert.equal(extra.length, 1);
         const flag = extra[0];
-        assert.ok(flag?.startsWith("--check-observations-json="));
+        assert.ok(typeof flag === "string");
+        assert.ok(flag.startsWith("--check-observations-json="));
         const file = flag.slice("--check-observations-json=".length);
         assert.ok(path.isAbsolute(file));
         fs.writeFileSync(
@@ -408,7 +409,7 @@ export function test_native_check_arguments_gate_threading_without_name_shortcut
       );
     });
   const provenance = path.join(root, "proof.json");
-  const supported = {
+  const supported: ITtscLoadedNativePlugin = {
     ...transform,
     capabilities: { emitProvenance: true, projectContextArgs: true },
   };
@@ -450,21 +451,27 @@ export function test_native_check_arguments_gate_threading_without_name_shortcut
       ),
     );
   for (const capabilities of [undefined, { emitProvenance: false }] as const)
-    verify("unsupported selected provenance", () =>
+    verify("unsupported selected provenance", () => {
+      const unsupported: ITtscLoadedNativePlugin = {
+        ...transform,
+        // JavaScript descriptors can supply false; typed descriptors must omit it.
+        // @ts-expect-error False is deliberately outside the true-only opt-in DTO.
+        capabilities,
+      };
       assert.throws(
         () =>
           NativePluginArguments.createNativeBuildArgs(
             selected,
             {},
-            [linked, { ...transform, capabilities }],
+            [linked, unsupported],
             provenance,
           ),
         {
           message:
             "ttsc: native compiler host does not support emit provenance",
         },
-      ),
-    );
+      );
+    });
   verify("build inputs unchanged", () =>
     assert.deepEqual({ plugins, buildRows }, buildBefore),
   );

@@ -17,7 +17,7 @@ import { ResidentTransformRequests } from "../../../../../packages/ttsc/src/comp
  * @evidence contracts/testing.md#behavioral-verification Calls actual add/current/accept/settle/retire and awaits real Promise outcomes. Exact FIFO owners, payloads, errors, terminal transition booleans, callback counts and listener removal are observed without accessing private queue storage.
  * @evidence contracts/testing.md#independent-expectations Literal reply records and contract error messages define outcomes; explicit expected callback order and the supplied Error identity require exactly-once settlement and terminal state before rejection callbacks, independently of private queue implementation.
  * @evidence contracts/testing.md#distinguishing-cases Blank lines preserve a slot, transform/update negatives are valid, wrong-operation shape rejects only the current slot, malformed input rejects all live slots with one error, unsolicited input preserves the first failure, duplicate settlement does not call twice, five sequential slots exercise head advancement, and later aborts cannot invoke removed listeners after settlement/retirement. A live abort invokes only the supplied callback; native cancellation policy is not inferred.
- * @evidence contracts/testing.md#execution-ownership One asynchronous matching source unit directly invokes the production-used class with no constructor seam, peer, child, compiler, installation, host or stream replacement. It certifies no chunk framing, native writes, AbortError/stderr policy, disposal/exit lifetime or public fast-failure admission. Authored body, selection and runtime are separate; this body is unexecuted.
+ * @evidence contracts/testing.md#execution-ownership One asynchronous matching source unit directly invokes the production-used class with no constructor seam, peer, child, compiler, installation, host or stream replacement. It certifies no chunk framing, native writes, AbortError/stderr policy, disposal/exit lifetime or public fast-failure admission.
  */
 export async function test_resident_transform_requests_preserves_fifo_and_terminal_slots(): Promise<void> {
   const failures: Error[] = [];
@@ -156,7 +156,7 @@ export async function test_resident_transform_requests_preserves_fifo_and_termin
     assert.equal(core.accept("   "), false);
     assert.equal(core.failure, undefined);
     assert.equal(core.accept('{"found":false}'), true);
-    const terminal = core.failure;
+    const terminal: unknown = core.failure;
     assert.ok(terminal instanceof Error);
     assert.equal(
       terminal.message,
