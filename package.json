@@ -7,7 +7,7 @@
     "build": "pnpm --filter \"./packages/*\" --filter lint-contributor-demo -r --workspace-concurrency=1 build",
     "evidence": "pnpm --filter \"./packages/*\" --filter \"./tests/*\" -r --no-bail --workspace-concurrency=1 run evidence",
     "test": "pnpm run test:go && pnpm run test:units",
-    "test:go": "go test -count=1 ./packages/banner/... ./packages/evidence/... ./packages/lint/... ./packages/paths/... ./packages/strip/... ./packages/ttsc/... ./packages/wasm/... && GOOS=js GOARCH=wasm go -C packages/wasm test -count=1 -exec \"sh \\\"$(pwd)/packages/wasm/test/go-js-wasm-exec.sh\\\" \\\"$(go env GOROOT)/lib/wasm/go_js_wasm_exec\\\"\" ./test/host",
+    "test:go": "node config/test-go.mjs",
     "test:units": "pnpm --filter \"./tests/*\" --filter \"!@ttsc/test-e2e\" -r --no-bail --workspace-concurrency=1 start",
     "test:e2e": "pnpm --filter @ttsc/test-e2e start",
     "format": "pnpm run gen:flags --skip-website && prettier --write --no-error-on-unmatched-pattern \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" \"!website/**\" && pnpm run format:go",
