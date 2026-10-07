@@ -209,7 +209,7 @@ On GitHub Actions, `docker/build-push-action` reaches the same registry-backed c
 A cache that never hits is indistinguishable from one that works, unless you look. On a cold build `ttsc` prints:
 
 ```text
-ttsc: building source plugin ... this runs once per cache key
+ttsc: building source plugin ... (a cold Go cache can take several minutes)
 ```
 
 On the second run of an unchanged workflow, or the second build of an unchanged image, that line must be absent. If it appears every time, the cache is restoring nothing useful.
