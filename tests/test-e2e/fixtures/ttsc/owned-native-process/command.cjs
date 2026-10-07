@@ -2,8 +2,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const assert = require("node:assert/strict");
+const lifetime = require("./lifetime.cjs");
 
 const [mode, root, ...args] = process.argv.slice(2);
+if (process.env.TTSC_LIFETIME_ROLE && mode !== "grandchild")
+  lifetime.enrolled(process.env.TTSC_LIFETIME_ROLE);
 if (mode === "echo") {
   const input = [];
   process.stdin.on("data", (chunk) => input.push(chunk));
@@ -91,12 +94,14 @@ if (mode === "echo") {
         assert.equal(path.dirname(admissions[0].resultFile), directory);
         assert.ok(Number.isSafeInteger(admissions[0].pid));
         assert.ok(admissions[0].pid > 0);
-        assert.throws(() => process.kill(admissions[0].pid, 0), { code: "ESRCH" });
         process.stderr.write(
           "Retained RPC native protocol input: " + directory + "\n",
         );
         return true;
       });
+      const admission = JSON.parse(fs.readFileSync(process.env.TTSC_OWNED_HELPER_ADMISSIONS, "utf8").trim());
+      const target = lifetime.awaitAck("rpc-helper", "acquired", admission.pid);
+      lifetime.requireRetired("rpc-helper", target);
       process.stdout.write("queued unknown retirement rejected\n");
     } else {
       operation = owner.resolve(request, { signal: controller.signal });
@@ -108,10 +113,12 @@ if (mode === "echo") {
       }
       const pid = Number(fs.readFileSync(process.env.TTSC_OWNED_PROBE_PID, "utf8"));
       assert.ok(Number.isSafeInteger(pid) && pid > 0);
+      const target = lifetime.awaitAck("rpc-probe", "acquired", pid);
       controller.abort(reason);
       await assert.rejects(operation, (error) => error === reason);
       await owner.close();
-      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+      const joinObserved = { joinObservedAt: Date.now(), joinObservedNs: process.hrtime.bigint().toString() };
+      lifetime.requireRetired("rpc-probe", target, joinObserved);
       process.stdout.write("actual RPC runtime probe cancelled and joined\n");
     }
   })().catch((error) => {

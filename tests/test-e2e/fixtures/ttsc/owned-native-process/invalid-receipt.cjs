@@ -6,5 +6,6 @@ if (
   process.argv[2] !== "--result"
 )
   throw new Error("Invalid-receipt fixture must only run as the supervisor");
+require("./lifetime.cjs").enrolled("invalid-helper");
 fs.writeFileSync(process.argv[3], "null");
 process.exit(0);

@@ -14,6 +14,7 @@ if (
     JSON.stringify({ pid: process.pid, resultFile: process.argv[result + 1] }) +
       "\n",
   );
+  require("./lifetime.cjs").enrolled(process.env.TTSC_LIFETIME_HELPER_ROLE);
 }
 
 if (
@@ -23,6 +24,7 @@ if (
 ) {
   fs.writeFileSync(process.env.TTSC_OWNED_PROBE_PID, String(process.pid));
   setInterval(() => {}, 1000);
+  require("./lifetime.cjs").enrolled("rpc-probe");
 }
 
 module.exports = () => {
