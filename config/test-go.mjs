@@ -21,6 +21,11 @@ const native = run([
 const transformer = run([
   "-C", "packages/ttsc/test/go-transformer", "test", "-count=1", "./...",
 ], { ...process.env, GOWORK: "off" });
+// The process-lifetime observer is another standalone fixture module. Its
+// original-handle units must run even when another Go population fails.
+const observer = run([
+  "-C", "packages/ttsc/test/fixtures/process-observer", "test", "-count=1", "./...",
+], { ...process.env, GOWORK: "off" });
 const toolchain = spawnSync("go", ["env", "GOROOT"], {
   cwd: root,
   encoding: "utf8",
@@ -45,7 +50,7 @@ if (toolchain.status === 0) {
 } else {
   console.error(toolchain.error ?? `Cannot locate the Go WASM runner (go env GOROOT exited ${toolchain.status}): ${toolchain.stderr}`);
 }
-process.exitCode = native || transformer || wasm;
+process.exitCode = native || transformer || observer || wasm;
 
 // Await each complete Go population and retain launch failures and native
 // child exit codes. No command shell interprets Go arguments or environment.
