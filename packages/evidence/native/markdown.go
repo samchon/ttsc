@@ -4,15 +4,418 @@ import (
   "io/fs"
   "path/filepath"
   "regexp"
+  "sort"
   "strings"
   "unicode"
+
+  "github.com/yuin/goldmark/v2/ast"
+  "github.com/yuin/goldmark/v2/parser"
+  "github.com/yuin/goldmark/v2/text"
+  "github.com/yuin/goldmark/v2/util"
 )
 
 var explicitAnchorPattern = regexp.MustCompile(`\s*\{#([A-Za-z0-9][A-Za-z0-9._:-]*)\}\s*$`)
 
-// preElementPattern matches an opening `<pre` tag on a lowered line, whose name
-// ends at whitespace, `>`, or the end of the line.
-var preElementPattern = regexp.MustCompile(`<pre(?:[\s>]|$)`)
+// markdownLexicalLine keeps syntax visibility separate from original content.
+// Heading preserves inline source on its opening line and masks continuations;
+// Prose retains a non-whitespace sentinel for inline examples so a tag after
+// one cannot become line-leading metadata. Neither view changes source offsets.
+type markdownLexicalLine struct {
+  Heading string
+  Prose string
+}
+
+// markdownRegion records a half-open range in the original UTF-8 source.
+type markdownRegion struct {
+  Start int
+  End int
+  Block bool
+}
+
+// markdownHybridParser adds the existing HTML/MDX example carriers to a
+// CommonMark parse. It consumes the original reader instead of projecting or
+// deleting bytes, so paragraph and container boundaries remain authoritative.
+type markdownHybridParser struct {
+  Source string
+  Protected []markdownRegion
+  Owners []markdownRegion
+  Ends map[ast.Node]int
+}
+
+// markdownHybridBlock is deliberately not an ast.Paragraph. Goldmark gives
+// paragraphs its own continuation policy; this node owns example continuations
+// while retaining original source segments for the standard inline parser.
+var markdownHybridBlockKind = ast.NewNodeKind("EvidenceMarkdownExample")
+
+type markdownHybridBlock struct { ast.BaseBlock }
+
+func (block *markdownHybridBlock) Kind() ast.NodeKind { return markdownHybridBlockKind }
+func (block *markdownHybridBlock) Dump(_ []byte) *ast.NodeDump { return ast.NewNodeDump(block, nil) }
+
+// Free block parsers run after every registered trigger parser regardless of
+// priority. Register every byte so an existing owner can precede fence/list/
+// quote openers, and a new carrier can precede the ordinary HTML block parser.
+var markdownHybridTriggers = func() []byte {
+  triggers := make([]byte, 256)
+  for index := range triggers { triggers[index] = byte(index) }
+  return triggers
+}()
+
+func (scan *markdownHybridParser) Trigger() []byte { return markdownHybridTriggers }
+
+func (scan *markdownHybridParser) ownerAt(position int) (markdownRegion, bool) {
+  index := sort.Search(len(scan.Owners), func(index int) bool {
+    return scan.Owners[index].End > position
+  })
+  if index < len(scan.Owners) && scan.Owners[index].Start <= position {
+    return scan.Owners[index], true
+  }
+  return markdownRegion{}, false
+}
+
+func (scan *markdownHybridParser) protectedAt(position int) (markdownRegion, bool) {
+  index := sort.Search(len(scan.Protected), func(index int) bool {
+    return scan.Protected[index].End > position
+  })
+  if index < len(scan.Protected) && scan.Protected[index].Start <= position {
+    region := scan.Protected[index]
+    if _, owned := scan.ownerAt(region.Start); !owned {
+      return region, true
+    }
+  }
+  return markdownRegion{}, false
+}
+
+// findOwners records only lexical carriers outside earlier code and comments.
+// A standard-parser code region beginning inside an already acquired hybrid
+// carrier has no authority: the hybrid carrier owns those delimiter bytes.
+func (scan *markdownHybridParser) findOwners(start int, end int) int {
+  ownerEnd := start
+  for cursor := start; cursor < end; {
+    if owner, found := scan.ownerAt(cursor); found {
+      ownerEnd = max(ownerEnd, owner.End)
+      cursor = owner.End
+      continue
+    }
+    if region, found := scan.protectedAt(cursor); found {
+      cursor = region.End
+      continue
+    }
+    if scan.Source[cursor] == '\\' && cursor+1 < len(scan.Source) {
+      cursor += 2
+      continue
+    }
+    next := markdownOpaqueEnd(scan.Source, cursor)
+    if next > cursor {
+      scan.Owners = append(scan.Owners, markdownRegion{Start: cursor, End: next})
+      ownerEnd = max(ownerEnd, next)
+      cursor = next
+      continue
+    }
+    cursor++
+  }
+  return ownerEnd
+}
+
+func (scan *markdownHybridParser) Open(_ ast.Node, reader text.Reader, _ parser.Context) (ast.Node, parser.State) {
+  _, segment := reader.PeekLine()
+  end := scan.findOwners(segment.Start, segment.Stop)
+  if end <= segment.Stop {
+    return nil, parser.NoChildren
+  }
+  node := &markdownHybridBlock{}
+  node.Init(node)
+  node.AppendSource(segment)
+  scan.Ends[node] = end
+  reader.AdvanceToEOL()
+  return node, parser.NoChildren
+}
+
+func (scan *markdownHybridParser) Continue(node ast.Node, reader text.Reader, _ parser.Context) parser.State {
+  line, segment := reader.PeekLine()
+  if util.IsBlank(line) || segment.Start >= scan.Ends[node] {
+    return parser.Close
+  }
+  scan.Ends[node] = max(scan.Ends[node], scan.findOwners(segment.Start, segment.Stop))
+  node.(ast.BlockNode).AppendSource(segment)
+  reader.AdvanceToEOL()
+  return parser.Continue | parser.NoChildren
+}
+
+func (scan *markdownHybridParser) Close(node ast.Node, _ text.Reader, _ parser.Context) {
+  delete(scan.Ends, node)
+}
+
+func (scan *markdownHybridParser) CanInterruptParagraph() bool { return true }
+func (scan *markdownHybridParser) CanAcceptIndentedLine() bool { return false }
+
+// markdownHybridCarry reacquires a known owner after a paragraph/container
+// boundary, before the bytes inside it can open an unrelated Markdown block.
+// It never acquires new owners and therefore cannot steal ordinary code blocks.
+type markdownHybridCarry struct { Scan *markdownHybridParser }
+
+func (carry *markdownHybridCarry) Trigger() []byte { return markdownHybridTriggers }
+func (carry *markdownHybridCarry) Open(_ ast.Node, reader text.Reader, _ parser.Context) (ast.Node, parser.State) {
+  line, segment := reader.PeekLine()
+  owner, found := carry.Scan.ownerAt(segment.Start)
+  if !found || owner.Start >= segment.Start || util.IsBlank(line) {
+    return nil, parser.NoChildren
+  }
+  node := &markdownHybridBlock{}
+  node.Init(node)
+  node.AppendSource(segment)
+  carry.Scan.Ends[node] = max(owner.End, carry.Scan.findOwners(segment.Start, segment.Stop))
+  reader.AdvanceToEOL()
+  return node, parser.NoChildren
+}
+func (carry *markdownHybridCarry) Continue(node ast.Node, reader text.Reader, context parser.Context) parser.State { return carry.Scan.Continue(node, reader, context) }
+func (carry *markdownHybridCarry) Close(node ast.Node, reader text.Reader, context parser.Context) { carry.Scan.Close(node, reader, context) }
+func (carry *markdownHybridCarry) CanInterruptParagraph() bool { return true }
+func (carry *markdownHybridCarry) CanAcceptIndentedLine() bool { return true }
+
+type markdownHybridInline struct { Scan *markdownHybridParser }
+
+func (inline *markdownHybridInline) Trigger() []byte { return []byte{' ', '<', '=', '`'} }
+
+func (inline *markdownHybridInline) Parse(parent ast.Node, reader text.Reader, _ parser.Context) ast.Node {
+  _, segment := reader.Position()
+  owner, found := inline.Scan.ownerAt(segment.Start)
+  if !found {
+    return nil
+  }
+  source := parent.(ast.BlockNode).Source()
+  end := min(owner.End, source[len(source)-1].Stop)
+  start := segment.Start
+  for {
+    line, segment := reader.PeekLine()
+    if line == nil {
+      break
+    }
+    if end <= segment.Stop {
+      reader.Advance(end-segment.Start)
+      break
+    }
+    reader.AdvanceLine()
+  }
+  return ast.NewRawHTML(text.NewMultiLineValueFromIndex(text.NewIndex(start, end), text.IdentityDecoder))
+}
+
+// markdownParserRegions reads code positions from the maintained CommonMark
+// parser. Containers and multiline spans use its original source positions.
+func markdownParserRegions(source string, document ast.Node, comments bool) []markdownRegion {
+  regions := []markdownRegion{}
+  ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+    if !entering { return ast.WalkContinue, nil }
+    switch value := node.(type) {
+    case *ast.CodeBlock:
+      start, end := value.Pos(), value.Pos()
+      for _, segment := range value.Value.Segments() { end = segment.Stop }
+      start = strings.LastIndexByte(source[:start], '\n')+1
+      regions = append(regions, markdownRegion{Start:start, End:end, Block:true})
+    case *ast.CodeSpan:
+      indices := value.Value.Indices()
+      if len(indices) != 0 {
+        start, end := value.Pos(), indices[len(indices)-1].Stop
+        for end < len(source) && source[end] == '`' { end++ }
+        regions = append(regions, markdownRegion{Start:start, End:end})
+      }
+    case *ast.HTMLBlock:
+      if comments && value.HTMLBlockKind == ast.HTMLBlockKind2 {
+        end := markdownCommentEnd(source, value.Pos())
+        regions = append(regions, markdownRegion{Start:value.Pos(), End:end})
+      }
+    case *ast.RawHTML:
+      if comments && strings.HasPrefix(source[value.Pos():], "<!--") {
+        indices := value.Value.Indices()
+        if len(indices) != 0 { regions = append(regions, markdownRegion{Start:value.Pos(), End:indices[len(indices)-1].Stop}) }
+      }
+    }
+    return ast.WalkContinue, nil
+  })
+  sort.Slice(regions, func(left, right int) bool { return regions[left].Start < regions[right].Start })
+  return regions
+}
+
+// scanMarkdownRegions gives every annotation consumer the same original-byte
+// classification. Two parser passes preserve CommonMark ownership before adding
+// the existing permissive MDX carriers through public parser extension APIs.
+// No rendered text or normalized projection participates in source offsets.
+func scanMarkdownRegions(content string, lines []string) ([]markdownLexicalLine, [][2]int) {
+  baseline := parser.New().Parse([]byte(content))
+  scan := &markdownHybridParser{Source:content, Protected:markdownParserRegions(content, baseline, true), Ends:map[ast.Node]int{}}
+  // All block entries share one receiver's ownership state. A known owner
+  // resumes before new blocks; headings acquire carriers before ATX parsing,
+  // and ordinary carriers acquire ownership after code and quote openers.
+  document := parser.New(parser.WithBlockParsers(
+    util.Prioritized[parser.BlockParser](&markdownHybridCarry{Scan:scan}, 0),
+    util.Prioritized[parser.BlockParser](&markdownHybridHeading{Scan:scan}, 590),
+    util.Prioritized[parser.BlockParser](scan, 850),
+  ), parser.WithInlineParsers(util.Prioritized[parser.InlineParser](&markdownHybridInline{Scan:scan}, 50))).Parse([]byte(content))
+  regions := markdownParserRegions(content, document, false)
+  code := make([]byte, len(content))
+  for _, region := range regions {
+    kind := byte(1)
+    if region.Block { kind = 2 }
+    for cursor := region.Start; cursor < region.End; cursor++ { code[cursor] = kind }
+  }
+  lexical := make([]markdownLexicalLine, len(lines))
+  spans := [][2]int{}
+  commentStart := -1
+  opaqueStart, opaqueEnd := 0, 0
+  offset := 0
+  for index, rawLine := range lines {
+    line := strings.TrimSuffix(rawLine, "\r")
+    heading, prose := []byte(line), []byte(line)
+    mask := func(start, end int, structural bool) {
+      for cursor := start; cursor < end; cursor++ {
+        prose[cursor] = ' '
+        if structural { heading[cursor] = ' ' }
+      }
+    }
+    for cursor := 0; cursor < len(line); {
+      if commentStart >= 0 {
+        end, closed := len(line), false
+        if offset+cursor == commentStart+4 && strings.HasPrefix(line[cursor:], ">") {
+          end, closed = cursor+1, true
+        } else if offset+cursor == commentStart+4 && strings.HasPrefix(line[cursor:], "->") {
+          end, closed = cursor+2, true
+        } else if closing := strings.Index(line[cursor:], "-->"); closing >= 0 {
+          end, closed = cursor+closing+3, true
+        }
+        mask(cursor,end,true)
+        if commentStart < offset { heading[cursor] = 'x' }
+        cursor = end
+        if closed {
+          spans = append(spans,[2]int{commentStart,offset+end})
+          commentStart = -1
+        }
+        continue
+      }
+      if opaqueEnd > offset+cursor {
+        end := min(len(line),opaqueEnd-offset)
+        continuation := opaqueStart < offset
+        mask(cursor,end,continuation)
+        if continuation { heading[cursor] = 'x' }
+        prose[cursor] = 'x'
+        cursor = end
+        continue
+      }
+      if kind := code[offset+cursor]; kind != 0 {
+        end := cursor+1
+        for end < len(line) && code[offset+end] == kind { end++ }
+        mask(cursor,end,kind==2)
+        prose[cursor] = 'x'
+        cursor = end
+        continue
+      }
+      if line[cursor] == '\\' && cursor+1 < len(line) && strings.ContainsRune("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",rune(line[cursor+1])) {
+        mask(cursor,cursor+2,false)
+        prose[cursor] = 'x'
+        cursor += 2
+        continue
+      }
+      if strings.HasPrefix(line[cursor:], "<!--") {
+        commentStart = offset+cursor
+        mask(cursor,cursor+4,true)
+        cursor += 4
+        continue
+      }
+      if end := markdownOpaqueEnd(content,offset+cursor); end > offset+cursor {
+        opaqueStart, opaqueEnd = offset+cursor, end
+        continue
+      }
+      cursor++
+    }
+    lexical[index] = markdownLexicalLine{Heading:string(heading),Prose:string(prose)}
+    offset += len(rawLine)+1
+  }
+  return lexical, spans
+}
+
+type markdownHybridHeading struct {
+  Scan *markdownHybridParser
+}
+
+func (heading *markdownHybridHeading) Trigger() []byte { return []byte{'#'} }
+func (heading *markdownHybridHeading) Open(parent ast.Node, reader text.Reader, context parser.Context) (ast.Node,parser.State) {
+  line, segment := reader.PeekLine()
+  if _, _, found := markdownHeading(string(line)); !found {
+    return nil, parser.NoChildren
+  }
+  node, state := heading.Scan.Open(parent, reader, context)
+  if node != nil {
+    // An ATX heading owns exactly one source line. Its rendered carrier may
+    // continue, but backticks in the heading cannot pair with the next block.
+    heading.Scan.Ends[node] = segment.Stop
+  }
+  return node, state
+}
+func (heading *markdownHybridHeading) Continue(node ast.Node, reader text.Reader, context parser.Context) parser.State { return heading.Scan.Continue(node,reader,context) }
+func (heading *markdownHybridHeading) Close(node ast.Node, reader text.Reader, context parser.Context) { heading.Scan.Close(node,reader,context) }
+func (heading *markdownHybridHeading) CanInterruptParagraph() bool { return true }
+func (heading *markdownHybridHeading) CanAcceptIndentedLine() bool { return false }
+
+// markdownOpaqueEnd consumes supported HTML syntax and template attributes with
+// quote-aware original-byte boundaries. An unclosed rendered owner retains its
+// suffix, matching the existing permissive Markdown/MDX documentation contract.
+func markdownOpaqueEnd(content string, start int) int {
+  if strings.HasPrefix(content[start:], "={`") {
+    return markdownTemplateEnd(content,start+3)
+  }
+  if content[start] != '<' || start+1 >= len(content) { return start }
+  cursor := start+1
+  closing := content[cursor]=='/'
+  if closing { cursor++ }
+  name := cursor
+  for cursor < len(content) && (content[cursor]>='a'&&content[cursor]<='z'||content[cursor]>='A'&&content[cursor]<='Z'||cursor>name&&(content[cursor]>='0'&&content[cursor]<='9'||content[cursor]=='-'||content[cursor]==':')) { cursor++ }
+  if cursor == name { return start }
+  if cursor < len(content) && !strings.ContainsRune(" \t\r\n/>", rune(content[cursor])) { return start }
+  pre := !closing && strings.EqualFold(content[name:cursor],"pre")
+  quote := byte(0)
+  for cursor < len(content) {
+    char := content[cursor]
+    if quote != 0 {
+      if char == quote { quote = 0 }
+      cursor++
+    } else if char=='\'' || char=='"' {
+      quote = char
+      cursor++
+    } else if strings.HasPrefix(content[cursor:],"={`") {
+      cursor = markdownTemplateEnd(content,cursor+3)
+    } else if char=='>' {
+      cursor++
+      if pre {
+        for probe:=cursor; probe+6<=len(content); probe++ {
+          if strings.EqualFold(content[probe:probe+6],"</pre>") { return probe+6 }
+        }
+        return len(content)
+      }
+      return cursor
+    } else if char=='<' {
+      return start
+    } else { cursor++ }
+  }
+  if pre { return len(content) }
+  return start
+}
+
+// markdownCommentEnd clips a protected comment to its actual closing byte;
+// CommonMark HTML blocks may retain unrelated text from the closing line.
+func markdownCommentEnd(content string, start int) int {
+  body := start+4
+  if strings.HasPrefix(content[body:], ">") { return body+1 }
+  if strings.HasPrefix(content[body:], "->") { return body+2 }
+  if close := strings.Index(content[body:], "-->"); close >= 0 { return body+close+3 }
+  return len(content)
+}
+
+func markdownTemplateEnd(content string, from int) int {
+  for cursor:=from; cursor<len(content); cursor++ {
+    if content[cursor]=='\\' && cursor+1<len(content) { cursor++
+    } else if strings.HasPrefix(content[cursor:],"`}") { return cursor+2 }
+  }
+  return len(content)
+}
 
 // loadMarkdownInventories reads every configured Markdown population, once per
 // distinct base.
@@ -190,17 +593,6 @@ func scanMarkdownInventory(
   lines := strings.Split(content, "\n")
   hostAtLine := make([]string, len(lines))
   hostIDAtLine := make([]string, len(lines))
-  fencedAtLine := make([]bool, len(lines))
-  // commentAtLine marks the lines that open or sit inside a line-leading HTML
-  // comment, which only the unreadable-tag report reads. The content digest
-  // does not: it cuts the exact spans the declaration scan matches, because a
-  // comment may open after prose or close before it. A fenced block is not
-  // marked: an `<!-- -->` inside one hosts no tag. Neither is an inline code span,
-  // where a comment marker is read as the example it is. A fence is recognized
-  // only at the start of a line, so one inside a list item or a quote is not
-  // seen. An indented code block is not seen either, so a line of one that opens
-  // with `<!--` is read as a comment.
-  commentAtLine := make([]bool, len(lines))
   // The nearest heading *unit* enclosing each line, which is not the same as its
   // host: a heading may open a region without materializing a unit. Kept apart
   // from hostIDAtLine because that value decides where a declaration sits, and
@@ -209,58 +601,10 @@ func scanMarkdownInventory(
   currentDigestHostID := fileUnitID
   currentHost := "file"
   currentHostID := fileUnitID
-  fenceMarker := rune(0)
-  fenceLength := 0
-  commentStart := -1
-  commentSpans := [][2]int{}
-  lineOffset := 0
+  lexical, commentSpans := scanMarkdownRegions(content, lines)
   headingUnitIDs := [5]string{}
-  for index, rawLine := range lines {
-    offset := lineOffset
-    lineOffset += len(rawLine) + 1
-    line := strings.TrimSuffix(rawLine, "\r")
-    trimmed := strings.TrimLeft(line, " \t")
-    // Comment syntax takes precedence over fences inside the comment, while
-    // real fenced content never opens a comment. Keep the same closed spans
-    // for declaration extraction and digest removal so those views agree. A
-    // comment that opens after prose is found further down, by the same scan
-    // that masks the visible text for heading recognition.
-    if fenceMarker == 0 && (commentStart >= 0 || strings.HasPrefix(trimmed, "<!--")) {
-      markdownCommentContent(line, offset, &commentStart, &commentSpans)
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      commentAtLine[index] = true
-      continue
-    }
-    if marker, length, remainder, ok := markdownFence(line); ok {
-      fencedAtLine[index] = true
-      hostIDAtLine[index] = currentHostID
-      // Fenced content is content. It hosts no tag, so it is never excluded as a
-      // tag position, and leaving it unattributed would drop every code block out
-      // of its section's digest: rewriting the example in a cited section would
-      // then expire nothing.
-      digestHostIDAtLine[index] = currentDigestHostID
-      if fenceMarker == 0 {
-        fenceMarker = marker
-        fenceLength = length
-      } else if marker == fenceMarker &&
-        length >= fenceLength &&
-        strings.TrimSpace(remainder) == "" {
-        fenceMarker = 0
-        fenceLength = 0
-      }
-      hostAtLine[index] = currentHost
-      continue
-    }
-    if fenceMarker != 0 {
-      fencedAtLine[index] = true
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      continue
-    }
-    visible := markdownCommentContent(line, offset, &commentStart, &commentSpans)
+  for index := range lines {
+    visible := lexical[index].Heading
     level, title, ok := markdownHeading(visible)
     if ok {
       currentHost = "h" + decimal(level)
@@ -343,13 +687,13 @@ func scanMarkdownInventory(
     digestHostIDAtLine[index] = currentDigestHostID
   }
 
-  reportUnreadableMarkdownTags(inventory, address.Display, lines, fencedAtLine, commentAtLine)
+  reportUnreadableMarkdownTags(inventory, address.Display, lexical)
 
   sequence := 0
   for _, match := range commentSpans {
     commentStart := match[0]
     line := lineAt(content, commentStart)
-    if line <= 0 || line > len(lines) || fencedAtLine[line-1] {
+    if line <= 0 || line > len(lines) {
       continue
     }
     // `<!-->` and `<!--->` are complete comments with no body, so their closing
@@ -392,111 +736,6 @@ func scanMarkdownInventory(
   return inventory, problems
 }
 
-// markdownCommentContent records closed metadata spans and masks their text for
-// heading recognition. An unclosed comment suppresses syntax but stays content
-// in the digest, because no declaration can be extracted from it.
-//
-// A comment that opens on this line looks for its closing marker after its own
-// opening one, so the dashes of `<!--` are never counted twice. The two forms
-// HTML allows to close at once, `<!-->` and `<!--->`, are complete comments with
-// no body.
-func markdownCommentContent(line string, offset int, start *int, spans *[][2]int) string {
-  visible := []byte(line)
-  cursor := 0
-  for cursor < len(line) {
-    searchFrom := cursor
-    immediate := 0
-    if *start < 0 {
-      opening := markdownCommentOpening(line, cursor)
-      if opening < 0 {
-        break
-      }
-      cursor = opening
-      *start = offset + cursor
-      searchFrom = cursor + len("<!--")
-      if strings.HasPrefix(line[searchFrom:], ">") {
-        immediate = 1
-      } else if strings.HasPrefix(line[searchFrom:], "->") {
-        immediate = 2
-      }
-    }
-    end := len(line)
-    closed := true
-    if immediate != 0 {
-      end = searchFrom + immediate
-    } else if closing := strings.Index(line[searchFrom:], "-->"); closing >= 0 {
-      end = searchFrom + closing + 3
-    } else {
-      closed = false
-    }
-    for index := cursor; index < end; index++ {
-      visible[index] = ' '
-    }
-    cursor = end
-    if !closed {
-      break
-    }
-    *spans = append(*spans, [2]int{*start, offset + end})
-    *start = -1
-  }
-  return string(visible)
-}
-
-// markdownCommentOpening finds the first `<!--` at or after `from` that is not
-// inside an inline code span, or returns -1.
-//
-// A code span is a run of backticks closed by the next run of the same length,
-// and it shows its text literally, so a comment marker inside one is an example
-// of a comment rather than a comment. A run with no closing partner is literal
-// text and a backslash-escaped backtick opens nothing. The search stays on one
-// line, so a span that wraps across lines is read as prose.
-func markdownCommentOpening(line string, from int) int {
-  for cursor := from; cursor < len(line); {
-    switch line[cursor] {
-    case '\\':
-      if cursor+1 < len(line) && line[cursor+1] == '`' {
-        cursor += 2
-      } else {
-        cursor++
-      }
-    case '`':
-      width := 0
-      for cursor+width < len(line) && line[cursor+width] == '`' {
-        width++
-      }
-      closing := -1
-      for probe := cursor + width; probe < len(line); {
-        if line[probe] != '`' {
-          probe++
-          continue
-        }
-        run := 0
-        for probe+run < len(line) && line[probe+run] == '`' {
-          run++
-        }
-        if run == width {
-          closing = probe
-          break
-        }
-        probe += run
-      }
-      if closing < 0 {
-        cursor += width
-      } else {
-        cursor = closing + width
-      }
-    case '<':
-      if strings.HasPrefix(line[cursor:], "<!--") {
-        return cursor
-      }
-      cursor++
-    default:
-      cursor++
-    }
-  }
-  return -1
-}
-
 // assignMarkdownDigests gives every unit the text it alone owns.
 //
 // A heading owns its own line and the body under it up to the next heading, and a
@@ -514,9 +753,9 @@ func markdownCommentOpening(line string, from int) int {
 // intuition across.
 //
 // The text cut out of every digest is exactly what the declaration scan reads
-// as a tag position: each `<!-- ... -->` span that opens outside a fence and
-// outside an inline code span. That scan records exact spans while walking
-// outside fences, so a span may open after prose, close before prose, or run
+// as a tag position: each closed HTML comment outside code and rendered
+// examples. The shared lexical scan records exact original-byte spans, so a
+// span may open after prose, close before prose, or run
 // across lines, and it may not be a whole line. Cutting spans rather than lines
 // keeps the prose beside a comment in the digest, so a content change there
 // still expires a review, while writing the review changes nothing it is
@@ -768,9 +1007,10 @@ func markdownSlug(title string) string {
 // A fenced block is an example rather than a citation and stays silent, which
 // is not a concession: this product's own documentation shows tags inside
 // fences, and reporting them would fail its build. An indented code block is
-// the same case in another spelling, so four leading spaces or a leading tab are
-// read as code rather than as prose. A line indented by less is prose, which is
-// what a nested list item is.
+// the same case in another spelling. The maintained CommonMark parser decides
+// indentation relative to the enclosing list and quote containers. Inline code,
+// escaped delimiters and the supported HTML/MDX example carriers stay silent
+// under the same lexical classification used by headings and metadata.
 //
 // The tag has to open its line, which is the discrimination every reader in
 // this package performs, so a sentence mentioning one describes it rather than
@@ -778,45 +1018,19 @@ func markdownSlug(title string) string {
 func reportUnreadableMarkdownTags(
   inventory *artifactInventory,
   location string,
-  lines []string,
-  fencedAtLine []bool,
-  commentAtLine []bool,
+  lexical []markdownLexicalLine,
 ) {
   if inventory == nil {
     return
   }
-  rendered := false
-  for index, rawLine := range lines {
-    line := strings.TrimSuffix(rawLine, "\r")
-    if opens, closes := renderedCodeEdges(line); opens || closes {
-      rendered = opens
-      continue
-    }
-    if rendered {
-      continue
-    }
-    if index < len(fencedAtLine) && fencedAtLine[index] {
-      continue
-    }
-    if index < len(commentAtLine) && commentAtLine[index] {
-      continue
-    }
-    if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
-      continue
-    }
-    trimmed := markdownLineContent(line)
+  for index, line := range lexical {
+    trimmed := markdownLineContent(line.Prose)
     if tag, _, found := declarationLine(trimmed); found {
-      inventory.Unreadable = append(
-        inventory.Unreadable,
-        unreadableMarkdownProblem("@"+string(tag), location, index+1),
-      )
+      inventory.Unreadable = append(inventory.Unreadable, unreadableMarkdownProblem("@"+string(tag), location, index+1))
       continue
     }
     if reviews, _, opened := reviewLine(trimmed); opened {
-      inventory.Unreadable = append(
-        inventory.Unreadable,
-        unreadableMarkdownProblem(reviewMarkerFor(reviews), location, index+1),
-      )
+      inventory.Unreadable = append(inventory.Unreadable, unreadableMarkdownProblem(reviewMarkerFor(reviews), location, index+1))
     }
   }
 }
@@ -866,33 +1080,6 @@ func markdownListMarker(content string) int {
     return 0
   }
   return digits + 2
-}
-
-// renderedCodeEdges reports whether a line opens or closes a block that renders
-// as code without being a fence.
-//
-// A documentation site shows examples through more than one syntax. An MDX page
-// passes a template literal to a component, and an HTML page uses `<pre>`; both
-// render as code, so both are examples in the sense a fence is, and the repair
-// this diagnostic names would delete the example from the rendered page rather
-// than fix anything. Only the two edges are recognized, because a page that
-// opens one and never closes it is a page whose own build fails first. The
-// element name has to end at the tag, so `<preview>` or `<prefix>` is some other
-// element and opens nothing; reading it as `<pre>` would leave every tag after
-// it unreported.
-func renderedCodeEdges(line string) (bool, bool) {
-  lowered := strings.ToLower(line)
-  switch {
-  case preElementPattern.MatchString(lowered):
-    return !strings.Contains(lowered, "</pre>"), strings.Contains(lowered, "</pre>")
-  case strings.Contains(lowered, "</pre>"):
-    return false, true
-  case strings.Contains(line, "={`"):
-    return !strings.Contains(line, "`}"), strings.Contains(line, "`}")
-  case strings.Contains(line, "`}"):
-    return false, true
-  }
-  return false, false
 }
 
 // unreadableMarkdownProblem names the position and the move that fixes it.

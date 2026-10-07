@@ -27,6 +27,7 @@ require (
 	github.com/microsoft/typescript-go/shim/vfs v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs/cachedvfs v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs/osvfs v0.0.0
+	github.com/yuin/goldmark/v2 v2.1.6
 	golang.org/x/text v0.38.0
 )
 

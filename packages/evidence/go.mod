@@ -21,6 +21,7 @@ require (
 	github.com/microsoft/typescript-go/shim/parser v0.0.0
 	github.com/microsoft/typescript-go/shim/scanner v0.0.0
 	github.com/samchon/ttsc/packages/lint v0.0.0
+	github.com/yuin/goldmark/v2 v2.1.6
 	golang.org/x/sys v0.46.0
 )
 
