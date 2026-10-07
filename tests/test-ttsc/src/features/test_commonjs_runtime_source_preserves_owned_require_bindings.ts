@@ -85,7 +85,11 @@ export function test_commonjs_runtime_source_preserves_owned_require_bindings():
       resolve(specifier, options),
     );
   }
-  const calls: Array<{ filename: string; specifier: string; options: unknown }> = [];
+  const calls: Array<{
+    filename: string;
+    specifier: string;
+    options: unknown;
+  }> = [];
   CommonJsRuntimeSource.configure((resolve, specifier, options, anchor) => {
     calls.push({ filename: anchor, specifier, options });
     if (specifier === "owned-policy") return destination;
@@ -99,7 +103,10 @@ export function test_commonjs_runtime_source_preserves_owned_require_bindings():
     assert.equal(api.Module, api);
     assert.equal(NativeModule.createRequire, createRequire);
     assert.equal(api.isBuiltin, NativeModule.isBuiltin);
-    assert.equal(Object.getOwnPropertyDescriptor(api, "createRequire")!.value, api.createRequire);
+    assert.equal(
+      Object.getOwnPropertyDescriptor(api, "createRequire")!.value,
+      api.createRequire,
+    );
     const options = { paths: [path.dirname(filename)] };
     for (const anchor of [filename, pathToFileURL(filename)]) {
       const scoped = api.createRequire(anchor);
@@ -108,13 +115,24 @@ export function test_commonjs_runtime_source_preserves_owned_require_bindings():
       assert.equal(calls.at(-1)!.options, options);
       assert.equal(scoped.cache, native.cache);
       assert.equal(scoped("node:module"), api);
-      assert.throws(() => scoped.resolve("owned-missing-module"), { code: "MODULE_NOT_FOUND" });
+      assert.throws(() => scoped.resolve("owned-missing-module"), {
+        code: "MODULE_NOT_FOUND",
+      });
     }
-    assert.throws(() => api.createRequire("relative.cjs"), { code: "ERR_INVALID_ARG_VALUE" });
+    assert.throws(() => api.createRequire("relative.cjs"), {
+      code: "ERR_INVALID_ARG_VALUE",
+    });
   } catch (cause) {
-    failures.push(new Error("owned module API retains anchored resolver and native failures", { cause }));
+    failures.push(
+      new Error(
+        "owned module API retains anchored resolver and native failures",
+        { cause },
+      ),
+    );
   } finally {
-    CommonJsRuntimeSource.configure((resolve, specifier, options) => resolve(specifier, options));
+    CommonJsRuntimeSource.configure((resolve, specifier, options) =>
+      resolve(specifier, options),
+    );
   }
   if (failures.length)
     throw new AggregateError(

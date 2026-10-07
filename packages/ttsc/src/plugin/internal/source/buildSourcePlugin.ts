@@ -63,11 +63,11 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * retain caller-managed pruning policy. Every returned cache key registers a
  * reader token retained by this process until exit; registration shares the
  * builder/collector lease, and other consumers register independent readers.
- * Failure to establish ownership propagates.
- * Private opt-in tracing records the mandatory key-creation and pre-build
- * witness gates and adds one diagnostic observation after Go returns. That
- * diagnostic read adds metadata work, not publication permission. A discarded
- * epoch is separately recorded when the bounded build owner starts again.
+ * Failure to establish ownership propagates. Private opt-in tracing records the
+ * mandatory key-creation and pre-build witness gates and adds one diagnostic
+ * observation after Go returns. That diagnostic read adds metadata work, not
+ * publication permission. A discarded epoch is separately recorded when the
+ * bounded build owner starts again.
  *
  * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before build, publication or cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
@@ -134,10 +134,13 @@ export function buildSourcePlugin(opts: {
         attempt === 2
       )
         throw error;
-      E2ETrace.capabilityResolution("plugin-build-environment-epoch-discarded", {
-        pluginName: opts.pluginName,
-        attempt: attempt + 1,
-      });
+      E2ETrace.capabilityResolution(
+        "plugin-build-environment-epoch-discarded",
+        {
+          pluginName: opts.pluginName,
+          attempt: attempt + 1,
+        },
+      );
     }
   }
 }
@@ -184,10 +187,14 @@ function buildSourcePluginAttempt(
     E2ETrace.capabilityResolution("plugin-build-environment-key-created", {
       pluginName: opts.pluginName,
       goBinary,
-      key, dir, entry,
+      key,
+      dir,
+      entry,
       sourceDigestsJson: JSON.stringify(Object.fromEntries(sourceDigests)),
       overlayDirsJson: JSON.stringify(overlayDirs),
-      contributorNamesJson: JSON.stringify(contributors.map((contributor) => contributor.name)),
+      contributorNamesJson: JSON.stringify(
+        contributors.map((contributor) => contributor.name),
+      ),
       unchanged,
     });
   }
@@ -222,7 +229,11 @@ function buildSourcePluginAttempt(
   if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
     requireBuildEnvironment(environmentWitness, opts.pluginName, "cache-hit");
     E2ETrace.capabilityResolution("plugin-build-cache-admission", {
-      pluginName: opts.pluginName, key, cacheDir, binaryPath, outcome: "held-binary",
+      pluginName: opts.pluginName,
+      key,
+      cacheDir,
+      binaryPath,
+      outcome: "held-binary",
     });
     touchCacheEntry(cacheDir);
     return binaryPath;
@@ -239,11 +250,20 @@ function buildSourcePluginAttempt(
       pluginName: opts.pluginName,
       quiet,
     },
-    () => requireBuildEnvironment(environmentWitness, opts.pluginName, "lock-adoption"),
+    () =>
+      requireBuildEnvironment(
+        environmentWitness,
+        opts.pluginName,
+        "lock-adoption",
+      ),
     () => {
       compiled = true;
       E2ETrace.capabilityResolution("plugin-build-cache-admission", {
-        pluginName: opts.pluginName, key, cacheDir, binaryPath, outcome: "compile-owned",
+        pluginName: opts.pluginName,
+        key,
+        cacheDir,
+        binaryPath,
+        outcome: "compile-owned",
       });
       // GC owns the same key lease before deleting a binary entry. It may have
       // removed this directory before acquisition, so recreate and validate it
@@ -273,7 +293,10 @@ function buildSourcePluginAttempt(
     },
   );
   E2ETrace.capabilityResolution("plugin-build-cache-admission", {
-    pluginName: opts.pluginName, key, cacheDir, binaryPath,
+    pluginName: opts.pluginName,
+    key,
+    cacheDir,
+    binaryPath,
     outcome: compiled ? "compile-returned" : "lock-adopted",
   });
   if (managePluginCache) {
@@ -292,18 +315,20 @@ function buildSourcePluginAttempt(
  * A rejected toolchain epoch whose owned build can be attempted again only
  * after cleanup. Other failures never acquire this retry authority.
  *
- * The subtype separates strict witness failure from source, native compiler
- * and filesystem failures. It does not authorize reuse of changed output;
- * cleanup can revoke retry permission without replacing the original error.
- * Native observation remains with witness and cleanup owners, and the build
- * owner chooses the bounded algorithm and owns this call-local error.
+ * The subtype separates strict witness failure from source, native compiler and
+ * filesystem failures. It does not authorize reuse of changed output; cleanup
+ * can revoke retry permission without replacing the original error. Native
+ * observation remains with witness and cleanup owners, and the build owner
+ * chooses the bounded algorithm and owns this call-local error.
  */
 class PluginBuildEnvironmentChangedError extends Error {
   /** A cleanup failure revokes permission to start another epoch. */
   retryable = true;
 }
 
-function pluginBuildEnvironmentChanged(pluginName: string): PluginBuildEnvironmentChangedError {
+function pluginBuildEnvironmentChanged(
+  pluginName: string,
+): PluginBuildEnvironmentChangedError {
   return new PluginBuildEnvironmentChangedError(
     `ttsc: the Go toolchain of plugin "${pluginName}" changed while it ` +
       `was being built, so the binary was not cached under the key of its ` +
@@ -437,13 +462,20 @@ function compileSourcePlugin(opts: {
         opts.manageGoBuildCache,
         (goBuildCacheRoot) => {
           attemptedGoBuildCacheRoot = goBuildCacheRoot;
-          requireBuildEnvironment(opts.environmentWitness, opts.pluginName, "go-starting");
+          requireBuildEnvironment(
+            opts.environmentWitness,
+            opts.pluginName,
+            "go-starting",
+          );
           if (process.env.TTSC_E2E_TRACE) {
-            E2ETrace.capabilityResolution("plugin-build-environment-go-starting", {
-              pluginName: opts.pluginName,
-              goBinary: opts.goBinary,
-              unchanged: true,
-            });
+            E2ETrace.capabilityResolution(
+              "plugin-build-environment-go-starting",
+              {
+                pluginName: opts.pluginName,
+                goBinary: opts.goBinary,
+                unchanged: true,
+              },
+            );
           }
           runGoBuild(
             scratchDir,
@@ -456,11 +488,17 @@ function compileSourcePlugin(opts: {
             opts.normalizeGoToolPermissions,
           );
           if (process.env.TTSC_E2E_TRACE) {
-            E2ETrace.capabilityResolution("plugin-build-environment-go-returned", {
-              pluginName: opts.pluginName,
-              goBinary: opts.goBinary,
-              unchanged: PluginBuildEnvironmentWitness.holds(opts.environmentWitness, "go-returned"),
-            });
+            E2ETrace.capabilityResolution(
+              "plugin-build-environment-go-returned",
+              {
+                pluginName: opts.pluginName,
+                goBinary: opts.goBinary,
+                unchanged: PluginBuildEnvironmentWitness.holds(
+                  opts.environmentWitness,
+                  "go-returned",
+                ),
+              },
+            );
           }
         },
       );
@@ -479,7 +517,12 @@ function compileSourcePlugin(opts: {
     // toolchain's. Change time also detects reverted writes when native
     // metadata distinguishes those edits; the witness
     // documents that premise rather than certifying a second byte comparison.
-    if (!PluginBuildEnvironmentWitness.holds(opts.environmentWitness, "publication")) {
+    if (
+      !PluginBuildEnvironmentWitness.holds(
+        opts.environmentWitness,
+        "publication",
+      )
+    ) {
       E2ETrace.capabilityResolution(
         "plugin-build-environment-publication-refused",
         {
@@ -508,10 +551,10 @@ function compileSourcePlugin(opts: {
 /**
  * Build a source plugin while holding an exclusive cross-process lock for its
  * cache key, so concurrent fan-out (parallel suites, a benchmark, a worker
- * pool) shares a successful publication instead of building once per process.
- * A discarded transaction can rebuild under the same content key after a
- * fresh reading; the lock serializes each attempt rather than promising one
- * build for the key's entire lifetime.
+ * pool) shares a successful publication instead of building once per process. A
+ * discarded transaction can rebuild under the same content key after a fresh
+ * reading; the lock serializes each attempt rather than promising one build for
+ * the key's entire lifetime.
  *
  * `<cacheDir>.lock.v3` is a persistent coordination directory. The adjacent
  * legacy `.lock` and older `.lock.v2` paths are separate namespaces: an old

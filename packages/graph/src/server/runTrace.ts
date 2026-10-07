@@ -56,7 +56,9 @@ export function runTrace(
   const complete = props.complete === true;
   const dispatch = new Map<string, IDispatchSelection>();
   const maxDepth = complete ? Infinity : bound(props.maxDepth, DEFAULT_DEPTH);
-  const maxNodes = complete ? Infinity : bound(props.maxNodes, DEFAULT_MAX_NODES);
+  const maxNodes = complete
+    ? Infinity
+    : bound(props.maxNodes, DEFAULT_MAX_NODES);
   const maxHops = complete ? Infinity : maxNodes * MAX_HOPS_PER_NODE;
   const reverse = direction === "reverse" || direction === "impact";
   const includeExternal = props.includeExternal === true;
@@ -881,9 +883,10 @@ function dispatchEdges(
   // Bounded walks withhold broad fanouts, retaining omitted edges for truthful
   // truncation. Complete walks follow them without the exploratory hub cut.
   const byTarget = new Map(out.map((edge) => [edge.to, edge]));
-  const result = !complete && out.length >= DISPATCH_HUB
-    ? { selected: [], omitted: out, byTarget }
-    : { selected: out, omitted: [], byTarget };
+  const result =
+    !complete && out.length >= DISPATCH_HUB
+      ? { selected: [], omitted: out, byTarget }
+      : { selected: out, omitted: [], byTarget };
   dispatch.set(id, result);
   return result;
 }
@@ -1072,10 +1075,7 @@ function evidenceRank(edge: ITtscGraphEdge): number {
   return line * 100 + col;
 }
 
-function bound(
-  value: number | undefined,
-  fallback: number,
-): number {
+function bound(value: number | undefined, fallback: number): number {
   const n = value === undefined || !Number.isFinite(value) ? fallback : value;
   return Math.max(1, Math.floor(n));
 }

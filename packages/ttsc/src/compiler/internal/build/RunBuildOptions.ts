@@ -57,13 +57,17 @@ export type RunBuildOptions = TtscBuildOptions & {
   /**
    * API-owned destinations preserving separate declaration and bundle output.
    * Every specified path belongs to the API temporary lifetime. An absent
-   * build-info override means the project has no incremental state to relocate.
+   * build-info override means the project has no incremental state to
+   * relocate.
    */
   privateOutputDestinations?: {
     /** Private JavaScript directory, or null for a bundle-only layout. */
     outDir: string | null;
 
-    /** Private separate declaration directory; null keeps declarations beside JS. */
+    /**
+     * Private separate declaration directory; null keeps declarations beside
+     * JS.
+     */
     declarationDir: string | null;
 
     /** Private bundle filename; null retains per-source emission. */

@@ -206,7 +206,11 @@ export namespace TsgoArguments {
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
     options: RunBuildOptions,
   ): string | undefined {
-    return createNativeTsgoArgs(options, pinnedRootDirArgs(execution, options), false);
+    return createNativeTsgoArgs(
+      options,
+      pinnedRootDirArgs(execution, options),
+      false,
+    );
   }
 
   /**
@@ -270,11 +274,12 @@ export namespace TsgoArguments {
    * locate incremental state at `.ttsc.tsbuildinfo` inside it. Clearing the
    * state path alone permits inference above outDir for a deep rootDir. A
    * build-info destination does not enable incremental emission; the compiler
-   * still owns the incremental/composite decision. Callers append them after the forwarded flags,
-   * which applies the final compiler destination assignments after user
-   * locations. This is compiler output policy, not an OS sandbox for plugin or
-   * cache writes. A `--noEmit` pass needs them as much as an emitting one: the
-   * compiler still writes build information for an `incremental` project.
+   * still owns the incremental/composite decision. Callers append them after
+   * the forwarded flags, which applies the final compiler destination
+   * assignments after user locations. This is compiler output policy, not an OS
+   * sandbox for plugin or cache writes. A `--noEmit` pass needs them as much as
+   * an emitting one: the compiler still writes build information for an
+   * `incremental` project.
    *
    * @evidence contracts/common.md#principled-implementation The API applies its independently relocated destinations, including explicit private incremental state. Runtime callers clear separate bundle/declaration destinations, pin outDir and explicitly place incremental state within it; choosing a state path does not enable incremental compilation.
    * @evidence contracts/common.md#clear-and-simple-design The runtime directory policy and API destination record share one final argv adapter; direct and native payload composers both append it after forwarded options.
@@ -286,15 +291,24 @@ export namespace TsgoArguments {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This returns current isolation options and coordinates no reusable producer or cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Argument construction does not acquire the output directory or manage its lifetime; the private-build owner does.
    */
-  export function isolatedTsgoOutputArgs(options: TtscCommonOptions, diagnosticsOnly = false): string[] {
+  export function isolatedTsgoOutputArgs(
+    options: TtscCommonOptions,
+    diagnosticsOnly = false,
+  ): string[] {
     const destinations = (options as RunBuildOptions).privateOutputDestinations;
     if (destinations !== undefined) {
       const args = [
-        "--outDir", destinations.outDir ?? "null",
-        "--declarationDir", destinations.declarationDir ?? "null",
-        "--outFile", destinations.outFile ?? "null",
+        "--outDir",
+        destinations.outDir ?? "null",
+        "--declarationDir",
+        destinations.declarationDir ?? "null",
+        "--outFile",
+        destinations.outFile ?? "null",
       ];
-      const state = diagnosticsOnly ? destinations.diagnosticsTsBuildInfoFile ?? destinations.tsBuildInfoFile : destinations.tsBuildInfoFile;
+      const state = diagnosticsOnly
+        ? (destinations.diagnosticsTsBuildInfoFile ??
+          destinations.tsBuildInfoFile)
+        : destinations.tsBuildInfoFile;
       if (state !== undefined) args.push("--tsBuildInfoFile", state);
       return args;
     }

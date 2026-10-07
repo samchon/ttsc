@@ -118,7 +118,11 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
       {
         projectSnapshotComplete: true,
         failures: unavailable,
-        adopted: { state: "publication-state", publication: "publication", refuted: true },
+        adopted: {
+          state: "publication-state",
+          publication: "publication",
+          refuted: true,
+        },
       },
       { kind: "accepted", freshDeliveryOnly: false },
     ],
@@ -148,7 +152,13 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
   for (const [name, change] of [
     [
       "adoption cannot become local fresh output",
-      { adopted: { state: "publication-state", publication: "publication", refuted: false } },
+      {
+        adopted: {
+          state: "publication-state",
+          publication: "publication",
+          refuted: false,
+        },
+      },
     ],
     ["unknown config", { configStateComplete: undefined }],
     ["unknown project stability", { projectHeldStill: undefined }],
@@ -224,20 +234,36 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
     ],
     [
       "refuted publication",
-      { adopted: { state: "shared-state", publication: "refuted-state", refuted: true } },
+      {
+        adopted: {
+          state: "shared-state",
+          publication: "refuted-state",
+          refuted: true,
+        },
+      },
       0,
       "refuted-state",
     ],
     [
       "adopted moving window",
-      { adopted: { state: "shared-state", publication: "still-valid-payload", refuted: false } },
+      {
+        adopted: {
+          state: "shared-state",
+          publication: "still-valid-payload",
+          refuted: false,
+        },
+      },
       1,
       "earlier-publication",
     ],
     [
       "adopted learned window",
       {
-        adopted: { state: "shared-state", publication: "still-valid-payload", refuted: false },
+        adopted: {
+          state: "shared-state",
+          publication: "still-valid-payload",
+          refuted: false,
+        },
         failures: learned,
       },
       0,
@@ -303,7 +329,14 @@ export function test_transform_attempt_disposition_preserves_retry_and_terminal_
     ],
     [
       "fourth refuted publication",
-      { attempt: 3, adopted: { state: "shared-state", publication: "last-refuted", refuted: true } },
+      {
+        attempt: 3,
+        adopted: {
+          state: "shared-state",
+          publication: "last-refuted",
+          refuted: true,
+        },
+      },
       "terminal",
       0,
       false,

@@ -73,7 +73,8 @@ const KEPT_STORE_BYTES = 256 * 1024 * 1024;
  * @param identity Caller-provided hex configuration digest used in store names.
  * @param state Caller-provided hex project-state digest used in store names.
  * @param options.adopt Whether an existing publication may be adopted.
- * @param options.rejectedPublication Digest of the exact previously refuted payload; a replacement still requires the caller's full proof.
+ * @param options.rejectedPublication Digest of the exact previously refuted
+ *   payload; a replacement still requires the caller's full proof.
  * @evidence contracts/common.md#principled-implementation
  *   Filesystem directory creation coordinates independent workers, and owned
  *   tokens distinguish a claim from another holder at the same pathname.
@@ -150,9 +151,16 @@ export async function claimSharedCompile(
     for (;;) {
       if (options.adopt) {
         const published = await readPublication(publication);
-        if (published !== undefined && published.fingerprint !== options.rejectedPublication) {
+        if (
+          published !== undefined &&
+          published.fingerprint !== options.rejectedPublication
+        ) {
           await markUsed(publication);
-          return { kind: "adopt", publication: published.value, fingerprint: published.fingerprint };
+          return {
+            kind: "adopt",
+            publication: published.value,
+            fingerprint: published.fingerprint,
+          };
         }
       }
       const token = await acquire(lock);
@@ -162,10 +170,17 @@ export async function claimSharedCompile(
           // A holder may have published and released between the read above
           // and the lock.
           const published = await readPublication(publication);
-          if (published !== undefined && published.fingerprint !== options.rejectedPublication) {
+          if (
+            published !== undefined &&
+            published.fingerprint !== options.rejectedPublication
+          ) {
             claim.release();
             await markUsed(publication);
-            return { kind: "adopt", publication: published.value, fingerprint: published.fingerprint };
+            return {
+              kind: "adopt",
+              publication: published.value,
+              fingerprint: published.fingerprint,
+            };
           }
         }
         return claim;
@@ -435,7 +450,9 @@ async function markUsed(file: string): Promise<void> {
 /** Read a publication, or `undefined` when it is absent or unusable. */
 async function readPublication(
   file: string,
-): Promise<{ value: TtscSharedCompilePublication; fingerprint: string } | undefined> {
+): Promise<
+  { value: TtscSharedCompilePublication; fingerprint: string } | undefined
+> {
   let bytes: Buffer;
   try {
     bytes = await fs.promises.readFile(file);
@@ -463,7 +480,10 @@ async function readPublication(
     ) {
       return undefined;
     }
-    return { value: value as unknown as TtscSharedCompilePublication, fingerprint: crypto.createHash("sha256").update(bytes).digest("hex") };
+    return {
+      value: value as unknown as TtscSharedCompilePublication,
+      fingerprint: crypto.createHash("sha256").update(bytes).digest("hex"),
+    };
   } catch {
     return undefined;
   }

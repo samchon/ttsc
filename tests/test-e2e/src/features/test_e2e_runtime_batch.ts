@@ -30,8 +30,8 @@ import {
  * its first and warm environment readings must agree and remain witnessed,
  * while changed bytes and changed/restored bytes with restored mtime must
  * invalidate the first witness. This adds real Go metadata queries within the
- * existing source producer, without another install or native build.
- * A self-changing selected Go launcher must refuse every unstable version/byte
+ * existing source producer, without another install or native build. A
+ * self-changing selected Go launcher must refuse every unstable version/byte
  * observation without seeding a reusable witness; stopping its mutation then
  * permits a fresh stable reading. Twelve real Go status commands cover help
  * failure 2 with stderr and version success 0 before/after mutation, each with
@@ -65,19 +65,19 @@ import {
  * compiled executions (three combined value/object probes, one cold-rebuild
  * probe and one panic) replace the separate source-project and object-cache
  * recipes; restored bytes reuse the original publication before the runtime
- * borrows it.
- * The first cold request can discard two additional toolchain transactions;
- * independent before/after SDK metadata must explain every discarded native
- * attempt, and the final attempt must be stable. The static comment-only main
- * assembly input requires a real assembler command without depending on cold
- * standard-library objects. Nine further actual Go build attempts distinguish
- * one byte transition with exact restored mtime, three continuously changing
- * transactions plus recovery, simultaneous source motion, native failure and
- * failed key-lease release. Only one-shot and recovery add two literal binary
- * executions. Private publication namespaces separate conflicting failure
- * states while retaining the producer and Go object storage. The existing
- * published content key also rejects nine unstable version observations with
- * restored launcher bytes and mtime, adding no native build or cache adoption.
+ * borrows it. The first cold request can discard two additional toolchain
+ * transactions; independent before/after SDK metadata must explain every
+ * discarded native attempt, and the final attempt must be stable. The static
+ * comment-only main assembly input requires a real assembler command without
+ * depending on cold standard-library objects. Nine further actual Go build
+ * attempts distinguish one byte transition with exact restored mtime, three
+ * continuously changing transactions plus recovery, simultaneous source motion,
+ * native failure and failed key-lease release. Only one-shot and recovery add
+ * two literal binary executions. Private publication namespaces separate
+ * conflicting failure states while retaining the producer and Go object
+ * storage. The existing published content key also rejects nine unstable
+ * version observations with restored launcher bytes and mtime, adding no native
+ * build or cache adoption.
  *
  * 1. Capture the source/config bytes and invoke the public ttsx entry once.
  * 2. Compare its one actual JSON payload against all original literal rows.
@@ -612,7 +612,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         registerAfter: number;
       };
       try {
-        assert.deepEqual(declarationObservation.apiFailures, [], "every installed public API ownership row must pass after all shared runtime cases execute");
+        assert.deepEqual(
+          declarationObservation.apiFailures,
+          [],
+          "every installed public API ownership row must pass after all shared runtime cases execute",
+        );
       } catch (error) {
         combinedFailures.push(error);
       }

@@ -30,14 +30,34 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
   let descriptor: number | undefined;
   let traceLease: Readonly<Record<string, string | number>> | undefined;
   let stage = "lexical-stat";
-  const unavailable = (reason: string, expected?: string, observed?: string,
-    observations?: { before: fs.BigIntStats; after: fs.BigIntStats }) => {
+  const unavailable = (
+    reason: string,
+    expected?: string,
+    observed?: string,
+    observations?: { before: fs.BigIntStats; after: fs.BigIntStats },
+  ) => {
     E2ETrace.capabilityResolution("runtime-executable-identity-unavailable", {
-      runtime, stage, reason, expected, observed,
-      expectedAtimeNs: observations === undefined ? undefined : String(observations.before.atimeNs),
-      observedAtimeNs: observations === undefined ? undefined : String(observations.after.atimeNs),
-      expectedBirthtimeNs: observations === undefined ? undefined : String(observations.before.birthtimeNs),
-      observedBirthtimeNs: observations === undefined ? undefined : String(observations.after.birthtimeNs),
+      runtime,
+      stage,
+      reason,
+      expected,
+      observed,
+      expectedAtimeNs:
+        observations === undefined
+          ? undefined
+          : String(observations.before.atimeNs),
+      observedAtimeNs:
+        observations === undefined
+          ? undefined
+          : String(observations.after.atimeNs),
+      expectedBirthtimeNs:
+        observations === undefined
+          ? undefined
+          : String(observations.before.birthtimeNs),
+      observedBirthtimeNs:
+        observations === undefined
+          ? undefined
+          : String(observations.after.birthtimeNs),
     });
     return undefined;
   };
@@ -47,7 +67,8 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
     const physicalPath = fs.realpathSync.native(runtime);
     stage = "physical-stat";
     const physical = fs.statSync(physicalPath, { bigint: true });
-    if (!physical.isFile()) return unavailable("not-regular", undefined, fileIdentity(physical));
+    if (!physical.isFile())
+      return unavailable("not-regular", undefined, fileIdentity(physical));
     stage = "open";
     descriptor = fs.openSync(physicalPath, "r");
     if (process.env.TTSC_E2E_TRACE) {
@@ -69,7 +90,11 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
     stage = "opened-stat";
     const opened = fs.fstatSync(descriptor, { bigint: true });
     if (fileIdentity(opened) !== fileIdentity(physical))
-      return unavailable("opened-file-changed", fileIdentity(physical), fileIdentity(opened));
+      return unavailable(
+        "opened-file-changed",
+        fileIdentity(physical),
+        fileIdentity(opened),
+      );
     const hash = crypto.createHash("sha256");
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let remaining = opened.size;
@@ -78,14 +103,24 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
       const requested =
         remaining > BigInt(buffer.length) ? buffer.length : Number(remaining);
       const length = fs.readSync(descriptor, buffer, 0, requested, null);
-      if (length === 0) return unavailable("premature-eof", String(opened.size), String(opened.size - remaining));
+      if (length === 0)
+        return unavailable(
+          "premature-eof",
+          String(opened.size),
+          String(opened.size - remaining),
+        );
       hash.update(buffer.subarray(0, length));
       remaining -= BigInt(length);
     }
     stage = "post-read-opened-stat";
     const afterOpened = fs.fstatSync(descriptor, { bigint: true });
     if (fileIdentity(afterOpened) !== fileIdentity(opened))
-      return unavailable("opened-file-changed-during-read", fileIdentity(opened), fileIdentity(afterOpened), { before: opened, after: afterOpened });
+      return unavailable(
+        "opened-file-changed-during-read",
+        fileIdentity(opened),
+        fileIdentity(afterOpened),
+        { before: opened, after: afterOpened },
+      );
     stage = "post-read-realpath";
     const afterPath = fs.realpathSync.native(runtime);
     if (afterPath !== physicalPath)
@@ -93,17 +128,32 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
     stage = "post-read-lexical-stat";
     const afterLexical = fs.lstatSync(runtime, { bigint: true });
     if (fileIdentity(afterLexical) !== fileIdentity(lexical))
-      return unavailable("lexical-file-changed-during-read", fileIdentity(lexical), fileIdentity(afterLexical));
+      return unavailable(
+        "lexical-file-changed-during-read",
+        fileIdentity(lexical),
+        fileIdentity(afterLexical),
+      );
     stage = "post-read-physical-stat";
     const afterPhysical = fs.statSync(physicalPath, { bigint: true });
     if (fileIdentity(afterPhysical) !== fileIdentity(physical))
-      return unavailable("physical-file-changed-during-read", fileIdentity(physical), fileIdentity(afterPhysical));
+      return unavailable(
+        "physical-file-changed-during-read",
+        fileIdentity(physical),
+        fileIdentity(afterPhysical),
+      );
     const digest = hash.digest("hex");
     E2ETrace.capabilityResolution("runtime-executable-identity-observed", {
-      runtime, physicalPath, startedAt, finishedAt: new Date().toISOString(),
-      lexical: fileIdentity(lexical), physical: fileIdentity(physical), digest,
-      openedAtimeNs: String(opened.atimeNs), afterOpenedAtimeNs: String(afterOpened.atimeNs),
-      openedBirthtimeNs: String(opened.birthtimeNs), afterOpenedBirthtimeNs: String(afterOpened.birthtimeNs),
+      runtime,
+      physicalPath,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      lexical: fileIdentity(lexical),
+      physical: fileIdentity(physical),
+      digest,
+      openedAtimeNs: String(opened.atimeNs),
+      afterOpenedAtimeNs: String(afterOpened.atimeNs),
+      openedBirthtimeNs: String(opened.birthtimeNs),
+      afterOpenedBirthtimeNs: String(afterOpened.birthtimeNs),
     });
     return [
       physicalPath,
@@ -112,7 +162,11 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
       digest,
     ].join("\0");
   } catch (error) {
-    return unavailable("filesystem-error", undefined, error instanceof Error ? error.message : String(error));
+    return unavailable(
+      "filesystem-error",
+      undefined,
+      error instanceof Error ? error.message : String(error),
+    );
   } finally {
     if (descriptor !== undefined) {
       try {
@@ -132,7 +186,11 @@ export function runtimeExecutableIdentity(runtime: string): string | undefined {
             },
           );
         stage = "close";
-        return unavailable("descriptor-close-error", undefined, error instanceof Error ? error.message : String(error));
+        return unavailable(
+          "descriptor-close-error",
+          undefined,
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
   }

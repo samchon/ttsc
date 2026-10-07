@@ -28,11 +28,11 @@ import (
 // @evidence contracts/testing.md#execution-ownership Go discovers this driver unit directly. Each case loads one owned temporary project and runs actual compiler/emitter operations in process; deferred Close releases its Program and no consumer, executable or native host is built.
 func TestBuildInformationUsesSelectedOutputIdentity(t *testing.T) {
   for _, c := range []struct {
-    name string
-    state string
+    name        string
+    state       string
     incremental bool
-    noEmit bool
-    bad bool
+    noEmit      bool
+    bad         bool
   }{
     {name: "standard", state: "cache/state.tsbuildinfo", incremental: true},
     {name: "map", state: "cache/state.map", incremental: true},
@@ -45,56 +45,102 @@ func TestBuildInformationUsesSelectedOutputIdentity(t *testing.T) {
   } {
     t.Run(c.name, func(t *testing.T) {
       root := t.TempDir()
-      options := map[string]any{"target":"es2020", "module":"commonjs", "rootDir":"src", "outDir":"dist", "sourceMap":true, "incremental":c.incremental, "noEmit":c.noEmit, "noEmitOnError":false}
-      if c.state != "" { options["tsBuildInfoFile"] = c.state }
-      config, err := json.Marshal(map[string]any{"compilerOptions":options,"files":[]string{"src/input.ts"}})
-      if err != nil { t.Fatal(err) }
-      if err = os.MkdirAll(filepath.Join(root,"src"),0700); err != nil { t.Fatal(err) }
-      if err = os.WriteFile(filepath.Join(root,"tsconfig.json"),config,0600); err != nil { t.Fatal(err) }
+      options := map[string]any{"target": "es2020", "module": "commonjs", "rootDir": "src", "outDir": "dist", "sourceMap": true, "incremental": c.incremental, "noEmit": c.noEmit, "noEmitOnError": false}
+      if c.state != "" {
+        options["tsBuildInfoFile"] = c.state
+      }
+      config, err := json.Marshal(map[string]any{"compilerOptions": options, "files": []string{"src/input.ts"}})
+      if err != nil {
+        t.Fatal(err)
+      }
+      if err = os.MkdirAll(filepath.Join(root, "src"), 0700); err != nil {
+        t.Fatal(err)
+      }
+      if err = os.WriteFile(filepath.Join(root, "tsconfig.json"), config, 0600); err != nil {
+        t.Fatal(err)
+      }
       source := "export const value: number = 1;\n"
-      if c.bad { source = "export const value: number = 'wrong';\n" }
-      if err = os.WriteFile(filepath.Join(root,"src/input.ts"),[]byte(source),0600); err != nil { t.Fatal(err) }
-      p, diagnostics, err := LoadProgram(root,"tsconfig.json",LoadProgramOptions{SourcePreamble:"// source preamble\n"})
-      if err != nil || len(diagnostics) != 0 { t.Fatalf("load: %v %v",err,diagnostics) }
+      if c.bad {
+        source = "export const value: number = 'wrong';\n"
+      }
+      if err = os.WriteFile(filepath.Join(root, "src/input.ts"), []byte(source), 0600); err != nil {
+        t.Fatal(err)
+      }
+      p, diagnostics, err := LoadProgram(root, "tsconfig.json", LoadProgramOptions{SourcePreamble: "// source preamble\n"})
+      if err != nil || len(diagnostics) != 0 {
+        t.Fatalf("load: %v %v", err, diagnostics)
+      }
       defer p.Close()
       state := c.state
-      if state == "" { state = "tsconfig.tsbuildinfo" }
-      expected := filepath.ToSlash(filepath.Join(root,state))
-      if escaped := p.outputEscapesOutDir(expected); escaped == c.incremental { t.Errorf("selected state containment: escaped=%v incremental=%v",escaped,c.incremental) }
-      for _, decoy := range []string{"cache/unrelated.tsbuildinfo","cache/unrelated.map"} {
-        if !p.outputEscapesOutDir(filepath.ToSlash(filepath.Join(root,decoy))) { t.Errorf("unselected output escaped containment: %s",decoy) }
+      if state == "" {
+        state = "tsconfig.tsbuildinfo"
+      }
+      expected := filepath.ToSlash(filepath.Join(root, state))
+      if escaped := p.outputEscapesOutDir(expected); escaped == c.incremental {
+        t.Errorf("selected state containment: escaped=%v incremental=%v", escaped, c.incremental)
+      }
+      for _, decoy := range []string{"cache/unrelated.tsbuildinfo", "cache/unrelated.map"} {
+        if !p.outputEscapesOutDir(filepath.ToSlash(filepath.Join(root, decoy))) {
+          t.Errorf("unselected output escaped containment: %s", decoy)
+        }
       }
       if c.incremental {
         original := `{"version":"unchanged-state","fileNames":["../src/input.ts"]}`
-        corrected, correctionErr := p.NewSourceMapCorrector()(expected,original)
-        if correctionErr != nil || corrected != original { t.Errorf("selected state correction: %q %v",corrected,correctionErr) }
+        corrected, correctionErr := p.NewSourceMapCorrector()(expected, original)
+        if correctionErr != nil || corrected != original {
+          t.Errorf("selected state correction: %q %v", corrected, correctionErr)
+        }
       }
       if c.bad {
         sawTypeError := false
-        for _, diagnostic := range p.Diagnostics() { if diagnostic.Code == 2322 { sawTypeError = true } }
-        if !sawTypeError { t.Error("authored semantic error did not produce TS2322") }
+        for _, diagnostic := range p.Diagnostics() {
+          if diagnostic.Code == 2322 {
+            sawTypeError = true
+          }
+        }
+        if !sawTypeError {
+          t.Error("authored semantic error did not produce TS2322")
+        }
       }
-      for _, lane := range []string{"raw","rewrite","plugin"} {
+      for _, lane := range []string{"raw", "rewrite", "plugin"} {
         t.Run(lane, func(t *testing.T) {
           writes := map[string]string{}
-          writer := func(file,text string,_ *shimcompiler.WriteFileData) error { writes[filepath.ToSlash(file)] = text; return nil }
+          writer := func(file, text string, _ *shimcompiler.WriteFileData) error {
+            writes[filepath.ToSlash(file)] = text
+            return nil
+          }
           var emitted []Diagnostic
           var emitErr error
           switch lane {
-          case "raw": _,emitted,emitErr = p.EmitAllRaw(writer)
-          case "rewrite": _,emitted,emitErr = p.EmitAll(NewRewriteSet(),writer)
-          case "plugin": emitted,emitErr = p.EmitWithPluginTransformer(func(_ *shimprinter.EmitContext,source *shimast.SourceFile) *shimast.SourceFile {return source},writer)
+          case "raw":
+            _, emitted, emitErr = p.EmitAllRaw(writer)
+          case "rewrite":
+            _, emitted, emitErr = p.EmitAll(NewRewriteSet(), writer)
+          case "plugin":
+            emitted, emitErr = p.EmitWithPluginTransformer(func(_ *shimprinter.EmitContext, source *shimast.SourceFile) *shimast.SourceFile { return source }, writer)
           }
-          if emitErr != nil || len(emitted) != 0 { t.Errorf("emit: %v %v",emitErr,emitted) }
+          if emitErr != nil || len(emitted) != 0 {
+            t.Errorf("emit: %v %v", emitErr, emitted)
+          }
           text, found := writes[expected]
-          if found != c.incremental { t.Errorf("selected state presence=%v incremental=%v writes=%v",found,c.incremental,writes) }
-          if found {
-            var document struct { Version string `json:"version"` }
-            if err := json.Unmarshal([]byte(text),&document); err != nil || document.Version == "" { t.Errorf("state is not versioned JSON: %v %s",err,text) }
+          if found != c.incremental {
+            t.Errorf("selected state presence=%v incremental=%v writes=%v", found, c.incremental, writes)
           }
-          javascript := filepath.ToSlash(filepath.Join(root,"dist/input.js"))
-          if (writes[javascript] != "") == c.noEmit { t.Errorf("JavaScript presence contradicts noEmit=%v: %v",c.noEmit,writes) }
-          if c.noEmit && len(writes) != 1 { t.Errorf("noEmit must retain only state, got %v",writes) }
+          if found {
+            var document struct {
+              Version string `json:"version"`
+            }
+            if err := json.Unmarshal([]byte(text), &document); err != nil || document.Version == "" {
+              t.Errorf("state is not versioned JSON: %v %s", err, text)
+            }
+          }
+          javascript := filepath.ToSlash(filepath.Join(root, "dist/input.js"))
+          if (writes[javascript] != "") == c.noEmit {
+            t.Errorf("JavaScript presence contradicts noEmit=%v: %v", c.noEmit, writes)
+          }
+          if c.noEmit && len(writes) != 1 {
+            t.Errorf("noEmit must retain only state, got %v", writes)
+          }
         })
       }
     })

@@ -20,9 +20,9 @@ import {
  *
  * Requests admitted before a freshness check starts share that check and its
  * snapshot. Later arrivals require another check. Unchanged requests reuse the
- * existing {@link TtscGraphMemory}; an
- * edited source reuses tsgo's resident Program through `driver.Session`, while
- * config and root-file-set changes force a safe full reload.
+ * existing {@link TtscGraphMemory}; an edited source reuses tsgo's resident
+ * Program through `driver.Session`, while config and root-file-set changes
+ * force a safe full reload.
  *
  * @evidence contracts/common.md#principled-implementation Validated versioned responses and atomic shard transactions preserve generation consistency while serialized requests correlate native replies by id.
  * @evidence contracts/common.md#clear-and-simple-design This facade owns project/binary and artifact sidecars; the state owns queue/model/shards, the protocol owns generated decoding and the line adapter owns the native child.
@@ -111,8 +111,8 @@ export class TtscGraphSession {
    *
    * Callers already waiting when a check starts share it. Cancellation rejects
    * only that caller. The last cancellation aborts shared work; an outstanding
-   * native request then retires its peer.
-   * Closed sessions reject new requests and do not respawn.
+   * native request then retires its peer. Closed sessions reject new requests
+   * and do not respawn.
    *
    * @evidence contracts/common.md#principled-implementation The state groups only callers admitted before its refresh starts, so every returned snapshot was validated after that caller's admission; independent cancellation cannot settle siblings.
    * @evidence contracts/common.md#clear-and-simple-design The state owner handles admission, cancellation, response semantics and model replacement; facade callbacks synchronize artifacts and open the actual native transport.

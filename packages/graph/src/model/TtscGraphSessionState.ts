@@ -36,15 +36,17 @@ export class TtscGraphSessionState {
   private nextId = 0;
   private readonly pending = new Map<number, Pending>();
   private queue: Promise<void> = Promise.resolve();
-  private waiting: {
-    controller: AbortController;
-    started: boolean;
-    consumers: Set<{
-      settled: boolean;
-      resolve: (graph: TtscGraphMemory) => void;
-      reject: (error: Error) => void;
-    }>;
-  } | undefined;
+  private waiting:
+    | {
+        controller: AbortController;
+        started: boolean;
+        consumers: Set<{
+          settled: boolean;
+          resolve: (graph: TtscGraphMemory) => void;
+          reject: (error: Error) => void;
+        }>;
+      }
+    | undefined;
   private current: TtscGraphMemory | undefined;
   private shardStore = new TtscGraphShardStore();
   private closed = false;
@@ -95,10 +97,18 @@ export class TtscGraphSessionState {
     let group = this.waiting;
     const created = group === undefined;
     if (group === undefined) {
-      group = { controller: new AbortController(), started: false, consumers: new Set() };
+      group = {
+        controller: new AbortController(),
+        started: false,
+        consumers: new Set(),
+      };
       this.waiting = group;
     }
-    const consumer = { settled: false, resolve: undefined! as (graph: TtscGraphMemory) => void, reject: undefined! as (error: Error) => void };
+    const consumer = {
+      settled: false,
+      resolve: undefined! as (graph: TtscGraphMemory) => void,
+      reject: undefined! as (error: Error) => void,
+    };
     const result = new Promise<TtscGraphMemory>((res, rej) => {
       resolve = (graph) => {
         if (consumer.settled) return;

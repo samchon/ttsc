@@ -40,7 +40,10 @@ export namespace TestExecutor {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TestExecutor.IProps carries data or signatures; acquisition and release remain with the implementing operation.
    */
   export interface IProps {
-    /** Native feature file or directory roots; every supplied location is visited. */
+    /**
+     * Native feature file or directory roots; every supplied location is
+     * visited.
+     */
     location: string | string[];
   }
 

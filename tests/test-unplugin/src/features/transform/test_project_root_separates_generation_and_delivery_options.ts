@@ -7,7 +7,8 @@ import { createTransformCacheKey } from "../../../../../packages/unplugin/src/co
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies source-root selection separates cached generations and host deliveries.
+ * Verifies source-root selection separates cached generations and host
+ * deliveries.
  *
  * A wrapper config can describe siblings under a common root. Those output
  * coordinates differ from the config-directory default, even with identical
@@ -23,16 +24,24 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership This source unit invokes option and key owners on a real temporary directory tree without a compiler, installation, watcher or product host. TestProject owns the temporary tree through its normal cleanup.
  */
 export function test_project_root_separates_generation_and_delivery_options(): void {
-  const root = TestProject.createProject({ "backend/tsconfig.json": '{"files":[]}' });
+  const root = TestProject.createProject({
+    "backend/tsconfig.json": '{"files":[]}',
+  });
   const backend = path.join(root, "backend");
   const tsconfig = path.join(backend, "tsconfig.json");
   const compile = { aliasPaths: {}, compilerOptions: {}, tsconfig };
   const defaultKey = createTransformCacheKey(compile);
-  assert.equal(createTransformCacheKey({ ...compile, projectRoot: backend }), defaultKey);
+  assert.equal(
+    createTransformCacheKey({ ...compile, projectRoot: backend }),
+    defaultKey,
+  );
   const commonKey = createTransformCacheKey({ ...compile, projectRoot: root });
   assert.notEqual(commonKey, defaultKey);
   const relative = path.relative(process.cwd(), root);
-  assert.equal(createTransformCacheKey({ ...compile, projectRoot: relative }), commonKey);
+  assert.equal(
+    createTransformCacheKey({ ...compile, projectRoot: relative }),
+    commonKey,
+  );
   const options = resolveOptions({ project: tsconfig, projectRoot: root });
   assert.notEqual(
     rollupDeliveryOptions(options, {}),

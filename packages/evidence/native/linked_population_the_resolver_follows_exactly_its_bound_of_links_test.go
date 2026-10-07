@@ -50,7 +50,7 @@ func TestTheResolverFollowsExactlyItsBoundOfLinks(t *testing.T) {
     links: links, target: filepath.ToSlash(target), directory: directoryInfo, link: linkInfo,
   }}
   for _, expected := range []struct {
-    links int
+    links   int
     settles bool
   }{{31, true}, {32, true}, {33, false}} {
     head := heads[expected.links-1]

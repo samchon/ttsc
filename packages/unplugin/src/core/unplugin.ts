@@ -245,10 +245,7 @@ const unpluginFactory: UnpluginFactory<
         // environment override `hostDeclaresPolling` does.
         declareTtscTransformPolling(
           transformCache,
-          hostDeclaresPolling(
-            process.env,
-            viteLifecycle.usePolling,
-          ),
+          hostDeclaresPolling(process.env, viteLifecycle.usePolling),
         );
       },
       // Compiler dependencies belong to the filesystem watch graph. Vite's

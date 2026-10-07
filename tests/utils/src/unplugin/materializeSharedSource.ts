@@ -5,7 +5,7 @@ import path from "node:path";
 /**
  * Publish one generated fixture under an immutable content-addressed path.
  *
- * parent must be absolute and label must contain lowercase letters, digits or
+ * Parent must be absolute and label must contain lowercase letters, digits or
  * hyphens. The synchronous writer owns a private staging tree of regular files
  * and directories. Keep the returned tree immutable: the publisher compares a
  * competing destination during publication but does not monitor later edits.

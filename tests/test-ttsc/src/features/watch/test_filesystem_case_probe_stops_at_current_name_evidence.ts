@@ -6,8 +6,8 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
 /**
  * Verifies read-only case probing stops once current names establish policy.
  *
- * A directory listing can outlive an entry. Only an alternate-name miss with
- * an original still present establishes sensitivity; vanished names and failed
+ * A directory listing can outlive an entry. Only an alternate-name miss with an
+ * original still present establishes sensitivity; vanished names and failed
  * observations must remain unavailable evidence.
  *
  * 1. Probe a large sensitive directory and require only two metadata reads.
@@ -39,7 +39,9 @@ export function test_filesystem_case_probe_stops_at_current_name_evidence(): voi
     {
       name: "late distinct pair",
       entries: [...names, "last", "LAST"],
-      lstat: (_location: string) => { throw new Error("unnecessary read"); },
+      lstat: (_location: string) => {
+        throw new Error("unnecessary read");
+      },
       physical: (location: string) => location,
       expected: true,
       reads: 0,
@@ -58,7 +60,9 @@ export function test_filesystem_case_probe_stops_at_current_name_evidence(): voi
     {
       name: "all vanished",
       entries: ["gone"],
-      lstat: (_location: string) => { throw missing(); },
+      lstat: (_location: string) => {
+        throw missing();
+      },
       physical: (location: string) => location,
       expected: undefined,
       reads: 2,
@@ -92,15 +96,23 @@ export function test_filesystem_case_probe_stops_at_current_name_evidence(): voi
         platform: "linux",
         realpath: scenario.physical,
         readdir: () => scenario.entries,
-        lstat: (location) => { reads += 1; return scenario.lstat(location); },
+        lstat: (location) => {
+          reads += 1;
+          return scenario.lstat(location);
+        },
       });
       assert.equal(context.caseSensitive("/root"), scenario.expected);
       assert.equal(reads, scenario.reads);
       assert.equal(context.caseSensitive("/root"), scenario.expected);
-      assert.equal(reads, scenario.reads, "one transaction reuses the observation");
+      assert.equal(
+        reads,
+        scenario.reads,
+        "one transaction reuses the observation",
+      );
     } catch (cause) {
       failures.push(new Error(scenario.name, { cause }));
     }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "case probe evidence");
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "case probe evidence");
 }

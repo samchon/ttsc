@@ -1,8 +1,8 @@
 package projectinput
 
 import (
-	"fmt"
-	"github.com/samchon/ttsc/packages/lint/rule"
+  "fmt"
+  "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // residentInputRule publishes the configured helper's one exact input.
@@ -65,16 +65,16 @@ func (residentInputRule) Check(*rule.ProjectContext) {}
 // @evidence contracts/performance.md#bound-retention-and-release-resources The decoded option and single returned record transfer to the collector without a handle or task.
 // @evidence contracts/portability.md#os-neutral-implementation The file string is passed to the native host's supported path normalizer; this rule does not rewrite separators or infer case policy.
 func (residentInputRule) ProjectInputs(ctx *rule.ProjectInputContext) []rule.ProjectInput {
-	var options struct {
-		File string `json:"file"`
-	}
-	if err := ctx.DecodeOptions(&options); err != nil {
-		panic(err)
-	}
-	if options.File == "" {
-		panic(fmt.Errorf("resident input requires file"))
-	}
-	return []rule.ProjectInput{{Kind: rule.ProjectInputFile, Pattern: options.File}}
+  var options struct {
+    File string `json:"file"`
+  }
+  if err := ctx.DecodeOptions(&options); err != nil {
+    panic(err)
+  }
+  if options.File == "" {
+    panic(fmt.Errorf("resident input requires file"))
+  }
+  return []rule.ProjectInput{{Kind: rule.ProjectInputFile, Pattern: options.File}}
 }
 
 // init adds two separate public fixture registrations beside topologyRule.
@@ -88,6 +88,6 @@ func (residentInputRule) ProjectInputs(ctx *rule.ProjectInputContext) []rule.Pro
 // @evidence contracts/performance.md#bound-retention-and-release-resources No handle or task is acquired; initialization retains only the two fixed rule values.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This operation performs no native path, filesystem or process query.
 func init() {
-	rule.RegisterProject(residentInputRule{name: "topology/resident-real"})
-	rule.RegisterProject(residentInputRule{name: "topology/resident-linked"})
+  rule.RegisterProject(residentInputRule{name: "topology/resident-real"})
+  rule.RegisterProject(residentInputRule{name: "topology/resident-linked"})
 }

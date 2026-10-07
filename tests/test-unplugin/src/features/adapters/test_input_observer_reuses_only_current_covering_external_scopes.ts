@@ -23,8 +23,16 @@ import { TestProject } from "../../../../utils/src/TestProject";
  */
 export async function test_input_observer_reuses_only_current_covering_external_scopes(): Promise<void> {
   const failures: Error[] = [];
-  for (const scenario of ["shared", "failed", "replaced", "escaping", "race"] as const) {
-    const base = fs.realpathSync.native(TestProject.tmpdir("ttsc-scope-sharing-"));
+  for (const scenario of [
+    "shared",
+    "failed",
+    "replaced",
+    "escaping",
+    "race",
+  ] as const) {
+    const base = fs.realpathSync.native(
+      TestProject.tmpdir("ttsc-scope-sharing-"),
+    );
     const root = path.join(base, "project");
     const external = path.join(base, "external");
     fs.mkdirSync(root);
@@ -39,25 +47,51 @@ export async function test_input_observer_reuses_only_current_covering_external_
     }> = [];
     const changed = new Set<string>();
     let poll: (() => void) | undefined;
-    const observer = createInputObserver((change) => {
-      for (const owner of change.reload) changed.add(owner);
-    }, {
-      watch(scope, event, fail, admit) {
-        const handle = { root: scope, closed: 0, tracked: [] as string[], admit, event, fail };
-        handles.push(handle);
-        return {
-          close: () => { handle.closed += 1; },
-          track: (file) => { handle.tracked.push(file); },
-          prune: () => {},
-        };
+    const observer = createInputObserver(
+      (change) => {
+        for (const owner of change.reload) changed.add(owner);
       },
-      poll(listener) { poll = listener; return { close: () => { poll = undefined; } }; },
-    });
+      {
+        watch(scope, event, fail, admit) {
+          const handle = {
+            root: scope,
+            closed: 0,
+            tracked: [] as string[],
+            admit,
+            event,
+            fail,
+          };
+          handles.push(handle);
+          return {
+            close: () => {
+              handle.closed += 1;
+            },
+            track: (file) => {
+              handle.tracked.push(file);
+            },
+            prune: () => {},
+          };
+        },
+        poll(listener) {
+          poll = listener;
+          return {
+            close: () => {
+              poll = undefined;
+            },
+          };
+        },
+      },
+    );
     const missing = (file: string) => ({
       file,
-      evidence: { identity: file, missing: true, state: {
-        codec: "predicates" as const, observation: { fileExists: false },
-      } },
+      evidence: {
+        identity: file,
+        missing: true,
+        state: {
+          codec: "predicates" as const,
+          observation: { fileExists: false },
+        },
+      },
     });
     try {
       observer.open(root, false);
@@ -73,28 +107,54 @@ export async function test_input_observer_reuses_only_current_covering_external_
         });
         const childOwner = path.join(root, "children.ts");
         observer.replace(childOwner, children);
-        assert.equal(handles.length, 2, "nested candidates share one external scope");
+        assert.equal(
+          handles.length,
+          2,
+          "nested candidates share one external scope",
+        );
         assert.equal(parent.tracked.length, 21);
         assert.equal(parent.admit?.(path.dirname(children[0]!.file)), true);
         for (let index = 0; index < 15; index++) {
           const sibling = path.join(base, `external-sibling${index}`);
           fs.mkdirSync(sibling);
-          observer.replace(path.join(root, `sibling${index}.ts`), [missing(path.join(sibling, "input.d.ts"))]);
+          observer.replace(path.join(root, `sibling${index}.ts`), [
+            missing(path.join(sibling, "input.d.ts")),
+          ]);
         }
-        assert.equal(handles.length, 17, "prefix siblings need independent scopes");
+        assert.equal(
+          handles.length,
+          17,
+          "prefix siblings need independent scopes",
+        );
         const afterCap = path.join(external, "after-cap");
         fs.mkdirSync(afterCap);
-        observer.replace(path.join(root, "after-cap.ts"), [missing(path.join(afterCap, "input.d.ts"))]);
+        observer.replace(path.join(root, "after-cap.ts"), [
+          missing(path.join(afterCap, "input.d.ts")),
+        ]);
         assert.equal(handles.length, 17);
-        assert.ok(parent.tracked.includes(path.join(afterCap, "input.d.ts")), "reuse precedes the cap");
+        assert.ok(
+          parent.tracked.includes(path.join(afterCap, "input.d.ts")),
+          "reuse precedes the cap",
+        );
         observer.forget(path.join(root, "parent.ts"));
-        assert.equal(parent.closed, 0, "descendant owners retain the shared scope");
+        assert.equal(
+          parent.closed,
+          0,
+          "descendant owners retain the shared scope",
+        );
         fs.writeFileSync(children[0]!.file, "export {};\n");
         parent.event("rename", children[0]!.file);
         await new Promise((resolve) => setTimeout(resolve, 30));
-        assert.ok(changed.has(childOwner), "a shared scope event reaches its descendant owner");
+        assert.ok(
+          changed.has(childOwner),
+          "a shared scope event reaches its descendant owner",
+        );
         observer.forget(childOwner);
-        assert.equal(parent.admit?.(path.dirname(children[1]!.file)), false, "withdrawal removes directory contributions");
+        assert.equal(
+          parent.admit?.(path.dirname(children[1]!.file)),
+          false,
+          "withdrawal removes directory contributions",
+        );
         observer.forget(path.join(root, "after-cap.ts"));
         assert.equal(parent.closed, 1, "last owner releases the shared scope");
       } else {
@@ -107,18 +167,38 @@ export async function test_input_observer_reuses_only_current_covering_external_
         if (scenario === "escaping") {
           const target = path.join(base, "outside");
           fs.mkdirSync(target);
-          fs.symlinkSync(target, child, process.platform === "win32" ? "junction" : "dir");
+          fs.symlinkSync(
+            target,
+            child,
+            process.platform === "win32" ? "junction" : "dir",
+          );
         } else fs.mkdirSync(child);
         const startedAt = observer.begin();
-        if (scenario === "race") fs.writeFileSync(path.join(child, "input.d.ts"), "export {};\n");
+        if (scenario === "race")
+          fs.writeFileSync(path.join(child, "input.d.ts"), "export {};\n");
         const childOwner = path.join(root, "child.ts");
-        observer.replace(childOwner, [missing(path.join(child, "input.d.ts"))], false, startedAt);
+        observer.replace(
+          childOwner,
+          [missing(path.join(child, "input.d.ts"))],
+          false,
+          startedAt,
+        );
         if (scenario === "race") {
           assert.equal(handles.length, 2);
-          assert.ok(changed.has(childOwner), "new shared admission replays the compile-to-subscribe window");
+          assert.ok(
+            changed.has(childOwner),
+            "new shared admission replays the compile-to-subscribe window",
+          );
         } else {
-          assert.ok(handles.length > 2, "invalid covering authority needs its own scope");
-          assert.equal(parent.tracked.length, 1, "invalid ancestor cannot admit the new descendant");
+          assert.ok(
+            handles.length > 2,
+            "invalid covering authority needs its own scope",
+          );
+          assert.equal(
+            parent.tracked.length,
+            1,
+            "invalid ancestor cannot admit the new descendant",
+          );
           if (scenario !== "escaping") assert.equal(parent.closed, 1);
         }
         assert.ok(poll, "external identities remain subject to polling");
@@ -128,9 +208,15 @@ export async function test_input_observer_reuses_only_current_covering_external_
     } finally {
       await observer.dispose();
       for (const handle of handles) {
-        if (handle.closed !== 1) failures.push(new Error(`${scenario}: ${handle.root} closed ${handle.closed} times`));
+        if (handle.closed !== 1)
+          failures.push(
+            new Error(
+              `${scenario}: ${handle.root} closed ${handle.closed} times`,
+            ),
+          );
       }
     }
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "external scope sharing");
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "external scope sharing");
 }

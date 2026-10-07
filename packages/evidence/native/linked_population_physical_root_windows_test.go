@@ -41,7 +41,7 @@ func linkedPopulationPhysicalRoot(location string) (resolved string, err error) 
     if length < uint32(len(buffer)) {
       resolved = windows.UTF16ToString(buffer[:length])
       if strings.HasPrefix(resolved, `\\?\UNC\`) {
-        resolved = `\\`+strings.TrimPrefix(resolved, `\\?\UNC\`)
+        resolved = `\\` + strings.TrimPrefix(resolved, `\\?\UNC\`)
       } else {
         resolved = strings.TrimPrefix(resolved, `\\?\`)
       }

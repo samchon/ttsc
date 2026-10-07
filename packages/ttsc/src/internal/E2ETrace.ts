@@ -35,8 +35,9 @@ export namespace E2ETrace {
    * Observe one runtime cleanup without repeating ownership or filesystem work.
    *
    * The returned observer shares an invocation across actual lock, ownership,
-   * removal and failure phases. It records caller-computed values only. Disabled
-   * tracing allocates no writer; observer errors never replace cleanup results.
+   * removal and failure phases. It records caller-computed values only.
+   * Disabled tracing allocates no writer; observer errors never replace cleanup
+   * results.
    *
    * @evidence contracts/common.md#principled-implementation One token binds the caller's actual cleanup phases and computed classification; an event does not establish an unobserved owner incarnation or successful deletion.
    * @evidence contracts/common.md#clear-and-simple-design A private optional callback reuses the existing writer, metadata schema and error absorption without changing runtime ownership APIs.

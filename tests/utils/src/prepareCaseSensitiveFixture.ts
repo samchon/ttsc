@@ -9,9 +9,10 @@ import path from "node:path";
  * Windows exposes a per-directory preparation tool; other hosts use the
  * existing filesystem. Preparation changes only the newly allocated child,
  * never the supplied parent. An exclusive two-directory probe observes the
- * actual capability, repeated after Windows preparation. An EEXIST refusal
- * must preserve the first entry, its bytes and its identity before callers select a representable recovery row.
- * False records an unavailable case-only subexperiment, not a passed test.
+ * actual capability, repeated after Windows preparation. An EEXIST refusal must
+ * preserve the first entry, its bytes and its identity before callers select a
+ * representable recovery row. False records an unavailable case-only
+ * subexperiment, not a passed test.
  *
  * @evidence contracts/common.md#principled-implementation Exclusive mkdir distinguishes two native entries from an existing alias; independent realpath/stat, listing and marker observations verify the collision leaves the original unchanged.
  * @evidence contracts/common.md#clear-and-simple-design One fixture preparation operation owns the existing Windows tool boundary and common native probe for both topology consumers.
@@ -41,12 +42,15 @@ export function prepareCaseSensitiveFixture(parent: string): {
         `native case-sensitive fixture preparation failed: ${result.error?.message ?? result.stderr}`,
       );
     }
-    const caseDistinct = process.platform === "win32"
-      ? probeCaseDistinctEntries(directory)
-      : before;
+    const caseDistinct =
+      process.platform === "win32"
+        ? probeCaseDistinctEntries(directory)
+        : before;
     if (process.platform === "win32") assert.equal(caseDistinct, true);
     if (!caseDistinct)
-      console.log("case-distinct capability unavailable; collision preserved native identity and bytes");
+      console.log(
+        "case-distinct capability unavailable; collision preserved native identity and bytes",
+      );
     return { directory, caseDistinct };
   } catch (error) {
     fs.rmSync(directory, { recursive: true, force: true });
@@ -69,7 +73,10 @@ function probeCaseDistinctEntries(directory: string): boolean {
     } catch (error) {
       assert.ok(error instanceof Error && "code" in error);
       assert.equal(error.code, "EEXIST");
-      assert.equal(fs.realpathSync.native(lower), fs.realpathSync.native(upper));
+      assert.equal(
+        fs.realpathSync.native(lower),
+        fs.realpathSync.native(upper),
+      );
       const after = fs.statSync(lower);
       assert.deepEqual([after.dev, after.ino], [before.dev, before.ino]);
       assert.deepEqual(fs.readdirSync(probe), ["Entry"]);
@@ -77,7 +84,10 @@ function probeCaseDistinctEntries(directory: string): boolean {
       assert.equal(fs.readFileSync(marker, "utf8"), "unchanged native entry\n");
       return false;
     }
-    assert.notEqual(fs.realpathSync.native(upper), fs.realpathSync.native(lower));
+    assert.notEqual(
+      fs.realpathSync.native(upper),
+      fs.realpathSync.native(lower),
+    );
     assert.deepEqual(fs.readdirSync(lower), []);
     assert.equal(fs.readFileSync(marker, "utf8"), "unchanged native entry\n");
     return true;

@@ -156,7 +156,10 @@ export namespace TestLint {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TestLint.ILintDiagnostic carries data or signatures; acquisition and release remain with the implementing operation.
    */
   export interface ILintDiagnostic {
-    /** Source filename as written by the renderer, without native identity proof. */
+    /**
+     * Source filename as written by the renderer, without native identity
+     * proof.
+     */
     file: string;
 
     /** One-based source line from the diagnostic banner. */
@@ -290,7 +293,10 @@ export namespace TestLint {
     /** Unmodified captured stderr, including text the banner parser omits. */
     stderr: string;
 
-    /** Recognized lint banners in rendered order; continuation lines are omitted. */
+    /**
+     * Recognized lint banners in rendered order; continuation lines are
+     * omitted.
+     */
     diagnostics: ILintDiagnostic[];
   }
 
@@ -802,8 +808,8 @@ export namespace TestLint {
     /(\.d\.mts|\.d\.cts|\.d\.ts|\.tsx|\.mts|\.cts|\.ts)$/i;
 
   /**
-   * Return the canonical supported TypeScript suffix for a source path.
-   * Return null for an unsupported path.
+   * Return the canonical supported TypeScript suffix for a source path. Return
+   * null for an unsupported path.
    *
    * @evidence contracts/common.md#principled-implementation The anchored suffix pattern recognizes the supported canonical lowercase TypeScript extensions, including declaration suffixes before ordinary suffixes.
    * @evidence contracts/common.md#clear-and-simple-design One classifier is reused by source admission and renderer parsing.
@@ -875,7 +881,8 @@ export namespace TestLint {
    *
    * Only complete supported-TypeScript banner lines become records.
    * Continuation lines and other stderr remain outside this projection; the
-   * caller retains raw stderr and must assert the native exit status separately.
+   * caller retains raw stderr and must assert the native exit status
+   * separately.
    *
    * @evidence contracts/common.md#principled-implementation ANSI removal precedes line-banner parsing; only supported TypeScript filenames and complete captured fields become structured diagnostics.
    * @evidence contracts/common.md#clear-and-simple-design One parser projects the renderer's explicit banner format while callers retain full stderr.

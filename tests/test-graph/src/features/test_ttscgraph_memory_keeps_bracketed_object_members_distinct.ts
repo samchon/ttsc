@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 
-import { createSyntheticGraph, type ResolverGraphNode } from "../internal/resolverGraph";
+import {
+  type ResolverGraphNode,
+  createSyntheticGraph,
+} from "../internal/resolverGraph";
 
 /**
  * Verifies object containment preserves bracketed literal keys and nested keys.
  *
  * 1. Author a variable object with a dotted literal method, a nested method,
- *    empty/escaped keys, a bracket-text collision and namespace/class controls.
+ *    empty/escaped keys, a bracket-text collision and namespace/class
+ *    controls.
  * 2. Build memory from those producer coordinates.
  * 3. Require each member's actual lexical owner and distinct identity.
  *
@@ -31,21 +35,26 @@ export function test_ttscgraph_memory_keeps_bracketed_object_members_distinct():
     ["Control", "Control", "class", undefined],
     ['Control.a[""]', 'a[""]', "method", "Control"],
   ] as const;
-  const nodes: ResolverGraphNode[] = rows.map(([qualifiedName, name, kind]) => ({
-    id: `src/object.ts#${qualifiedName}:${kind}`,
-    kind,
-    name,
-    qualifiedName,
-    file: "src/object.ts",
-    external: false,
-  }));
+  const nodes: ResolverGraphNode[] = rows.map(
+    ([qualifiedName, name, kind]) => ({
+      id: `src/object.ts#${qualifiedName}:${kind}`,
+      kind,
+      name,
+      qualifiedName,
+      file: "src/object.ts",
+      external: false,
+    }),
+  );
   const graph = createSyntheticGraph(nodes);
   assert.equal(graph.nodes.filter((node) => node.kind === "method").length, 8);
   for (const [qualified, , kind, owner] of rows) {
     if (owner === undefined) continue;
     const id = `src/object.ts#${qualified}:${kind}`;
     assert.deepEqual(
-      graph.incoming(id).filter((edge) => edge.kind === "contains").map((edge) => edge.from),
+      graph
+        .incoming(id)
+        .filter((edge) => edge.kind === "contains")
+        .map((edge) => edge.from),
       [`src/object.ts#${owner}:${owner === "Control" ? "class" : "variable"}`],
     );
   }

@@ -45,7 +45,8 @@ export interface TtscUnpluginOptions {
    * Common source root for a config that includes sibling workspace packages.
    *
    * Relative paths resolve from `process.cwd()`. Omission uses the selected
-   * config's directory. Plugin config discovery remains anchored at that config.
+   * config's directory. Plugin config discovery remains anchored at that
+   * config.
    */
   projectRoot?: string;
 

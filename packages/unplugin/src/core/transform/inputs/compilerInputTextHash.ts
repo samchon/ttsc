@@ -1,9 +1,9 @@
 import { hashText } from "../utils/hashText";
 
 /**
- * Hash one observed byte buffer under the compiler's BOM decoding rules.
- * UTF-16 omits an incomplete trailing unit and big-endian decoding copies its
- * slice before swapping; raw host hashing can still consume the original bytes.
+ * Hash one observed byte buffer under the compiler's BOM decoding rules. UTF-16
+ * omits an incomplete trailing unit and big-endian decoding copies its slice
+ * before swapping; raw host hashing can still consume the original bytes.
  *
  * @evidence contracts/common.md#principled-implementation Compiler text decoding removes UTF BOMs and preserves the existing incomplete UTF-16 unit rule before hashing.
  * @evidence contracts/common.md#clear-and-simple-design One byte-to-text hash owner lets a current observation share its actual read across compiler and host codecs.

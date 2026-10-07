@@ -18,55 +18,163 @@ import { createSyntheticGraph } from "../internal/resolverGraph";
  * @evidence contracts/testing.md#execution-ownership This discoverable source-unit entry runs production traversal and memory indexes in process with authored declaration facts and no native compiler, installed artifact or MCP host.
  */
 export function test_ttscgraph_trace_complete_respects_admitted_graph_policy(): void {
-  const node = (name: string, extra: Partial<ITtscGraphDump.INode> = {}): ITtscGraphDump.INode => ({
-    id: `${extra.file ?? "src/dispatch.ts"}#${name}:${extra.kind ?? "method"}`, name, kind: "method", file: "src/dispatch.ts", external: false, ...extra,
+  const node = (
+    name: string,
+    extra: Partial<ITtscGraphDump.INode> = {},
+  ): ITtscGraphDump.INode => ({
+    id: `${extra.file ?? "src/dispatch.ts"}#${name}:${extra.kind ?? "method"}`,
+    name,
+    kind: "method",
+    file: "src/dispatch.ts",
+    external: false,
+    ...extra,
   });
   const caller = node("caller", { exported: true });
   const base = node("base", { modifiers: ["abstract"] });
-  const implementations = Array.from({ length: 13 }, (_, i) => node(`impl${i}`));
-  const external = node("external", { file: "node_modules/api/index.d.ts", external: true });
+  const implementations = Array.from({ length: 13 }, (_, i) =>
+    node(`impl${i}`),
+  );
+  const external = node("external", {
+    file: "node_modules/api/index.d.ts",
+    external: true,
+  });
   const type = node("Shape", { kind: "interface" });
   const edges: ITtscGraphDump.IEdge[] = [
     { from: caller.id, to: base.id, kind: "calls" },
     { from: base.id, to: type.id, kind: "type_ref" },
     { from: implementations[0]!.id, to: external.id, kind: "calls" },
-    ...implementations.map((implementation) => ({ from: implementation.id, to: base.id, kind: "overrides" as const })),
+    ...implementations.map((implementation) => ({
+      from: implementation.id,
+      to: base.id,
+      kind: "overrides" as const,
+    })),
     { from: implementations[0]!.id, to: base.id, kind: "implements" },
   ];
-  const graph = createSyntheticGraph([caller, base, ...implementations, external, type], edges);
-  const file = graph.nodes.find((entry) => entry.kind === "file" && entry.file === "src/dispatch.ts")!;
+  const graph = createSyntheticGraph(
+    [caller, base, ...implementations, external, type],
+    edges,
+  );
+  const file = graph.nodes.find(
+    (entry) => entry.kind === "file" && entry.file === "src/dispatch.ts",
+  )!;
   assert.ok(file);
   assert.ok(graph.outgoing(file.id).some((edge) => edge.kind === "contains"));
-  assert.deepEqual(runTrace(graph, { type: "trace", from: file.id, complete: true }).result.reached, []);
-  const bounded = runTrace(graph, { type: "trace", from: caller.id, focus: "execution", maxNodes: 100 }).result;
+  assert.deepEqual(
+    runTrace(graph, { type: "trace", from: file.id, complete: true }).result
+      .reached,
+    [],
+  );
+  const bounded = runTrace(graph, {
+    type: "trace",
+    from: caller.id,
+    focus: "execution",
+    maxNodes: 100,
+  }).result;
   assert.equal(bounded.truncated, true);
-  assert.deepEqual(bounded.reached.map((entry) => entry.name), ["base"]);
-  const full = runTrace(graph, { type: "trace", from: caller.id, focus: "execution", complete: true }).result;
+  assert.deepEqual(
+    bounded.reached.map((entry) => entry.name),
+    ["base"],
+  );
+  const full = runTrace(graph, {
+    type: "trace",
+    from: caller.id,
+    focus: "execution",
+    complete: true,
+  }).result;
   assert.equal(full.truncated, false);
   assert.equal(full.reached.length, 14);
-  assert.equal(full.hops.filter((edge) => edge.kind === "dispatches").length, 13);
-  assert.deepEqual(full.reached.map((entry) => entry.name).sort(), ["base", ...implementations.map((entry) => entry.name)].sort());
-  const inclusive = runTrace(graph, { type: "trace", from: caller.id, focus: "execution", complete: true, includeExternal: true }).result;
+  assert.equal(
+    full.hops.filter((edge) => edge.kind === "dispatches").length,
+    13,
+  );
+  assert.deepEqual(
+    full.reached.map((entry) => entry.name).sort(),
+    ["base", ...implementations.map((entry) => entry.name)].sort(),
+  );
+  const inclusive = runTrace(graph, {
+    type: "trace",
+    from: caller.id,
+    focus: "execution",
+    complete: true,
+    includeExternal: true,
+  }).result;
   assert.equal(inclusive.reached.length, 15);
-  assert.equal(inclusive.reached.some((entry) => entry.name === "external"), true);
-  assert.equal(inclusive.reached.some((entry) => entry.kind === "file"), false);
+  assert.equal(
+    inclusive.reached.some((entry) => entry.name === "external"),
+    true,
+  );
+  assert.equal(
+    inclusive.reached.some((entry) => entry.kind === "file"),
+    false,
+  );
   for (const direction of ["reverse", "impact"] as const) {
-    const reverse = runTrace(graph, { type: "trace", from: implementations[0]!.id, direction, focus: "execution", complete: true }).result;
-    assert.deepEqual(reverse.reached.map((entry) => entry.name).sort(), ["base", "caller"]);
+    const reverse = runTrace(graph, {
+      type: "trace",
+      from: implementations[0]!.id,
+      direction,
+      focus: "execution",
+      complete: true,
+    }).result;
+    assert.deepEqual(reverse.reached.map((entry) => entry.name).sort(), [
+      "base",
+      "caller",
+    ]);
     assert.equal(reverse.truncated, false);
-    assert.equal(reverse.hops.some((edge) => edge.kind === "dispatches" && edge.to === implementations[0]!.id), true);
+    assert.equal(
+      reverse.hops.some(
+        (edge) =>
+          edge.kind === "dispatches" && edge.to === implementations[0]!.id,
+      ),
+      true,
+    );
   }
-  const all = runTrace(graph, { type: "trace", from: caller.id, focus: "all", complete: true }).result;
+  const all = runTrace(graph, {
+    type: "trace",
+    from: caller.id,
+    focus: "all",
+    complete: true,
+  }).result;
   assert.equal(all.reached.length, 15);
-  assert.equal(all.reached.some((entry) => entry.name === "Shape"), true);
-  assert.equal(all.hops.filter((edge) => edge.kind === "dispatches").length, 13);
+  assert.equal(
+    all.reached.some((entry) => entry.name === "Shape"),
+    true,
+  );
+  assert.equal(
+    all.hops.filter((edge) => edge.kind === "dispatches").length,
+    13,
+  );
   assert.equal(all.truncated, false);
-  const typed = runTrace(graph, { type: "trace", from: base.id, focus: "types", complete: true }).result;
-  assert.deepEqual(typed.reached.map((entry) => entry.name), ["Shape"]);
-  assert.equal(typed.hops.some((edge) => edge.kind === "dispatches"), false);
-  const pathBounded = runTrace(graph, { type: "trace", from: caller.id, to: implementations[12]!.id, focus: "execution" }).result;
+  const typed = runTrace(graph, {
+    type: "trace",
+    from: base.id,
+    focus: "types",
+    complete: true,
+  }).result;
+  assert.deepEqual(
+    typed.reached.map((entry) => entry.name),
+    ["Shape"],
+  );
+  assert.equal(
+    typed.hops.some((edge) => edge.kind === "dispatches"),
+    false,
+  );
+  const pathBounded = runTrace(graph, {
+    type: "trace",
+    from: caller.id,
+    to: implementations[12]!.id,
+    focus: "execution",
+  }).result;
   assert.equal(pathBounded.truncated, true);
-  const path = runTrace(graph, { type: "trace", from: caller.id, to: implementations[12]!.id, focus: "execution", complete: true }).result;
-  assert.deepEqual(path.path?.map((entry) => entry.name), ["caller", "base", "impl12"]);
+  const path = runTrace(graph, {
+    type: "trace",
+    from: caller.id,
+    to: implementations[12]!.id,
+    focus: "execution",
+    complete: true,
+  }).result;
+  assert.deepEqual(
+    path.path?.map((entry) => entry.name),
+    ["caller", "base", "impl12"],
+  );
   assert.equal(path.truncated, false);
 }

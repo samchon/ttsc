@@ -8,8 +8,8 @@ import { captureWatchInputBaselines } from "../../../../../packages/unplugin/src
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Batch proof must reread bytes and native namespace facts in both phases.
- * Real files contrast stable BOM codecs with content, kind and link changes;
+ * Batch proof must reread bytes and native namespace facts in both phases. Real
+ * files contrast stable BOM codecs with content, kind and link changes;
  * explicit capability wrappers count actual reads without replacing fs APIs.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual batch capture reads real temporary files and directory links. Assertions require current raw/compiler hashes, independent phase reads, namespace sharing, per-input rejection and fresh later invocations.
@@ -35,11 +35,20 @@ export function test_watch_input_batch_preserves_fresh_observations(): void {
   let policies = 0;
   const view = {
     ...DEFAULT_FILESYSTEM_OPERATIONS,
-    caseSensitive: () => { ++policies; return true; },
-    readFile: (file: string) => { ++reads; return fs.readFileSync(file); },
+    caseSensitive: () => {
+      ++policies;
+      return true;
+    },
+    readFile: (file: string) => {
+      ++reads;
+      return fs.readFileSync(file);
+    },
   };
   assert.equal(captureWatchInputBaselines([], view).size, 0);
-  const stableBatch = captureWatchInputBaselines([stable, stable, missing], view);
+  const stableBatch = captureWatchInputBaselines(
+    [stable, stable, missing],
+    view,
+  );
   assert.equal(stableBatch.size, 2);
   assert.equal(reads, 4, "both unique inputs are actually read in each phase");
   assert.equal(stableBatch.get(stable)?.hostHash, digest(bom));
@@ -47,13 +56,25 @@ export function test_watch_input_batch_preserves_fresh_observations(): void {
   assert.equal(stableBatch.get(missing)?.stat, "missing");
   const firstPolicies = policies;
   captureWatchInputBaselines([stable, missing], view);
-  assert.equal(policies, firstPolicies * 2, "a later batch cannot borrow native case observations");
+  assert.equal(
+    policies,
+    firstPolicies * 2,
+    "a later batch cannot borrow native case observations",
+  );
 
-  const absent = Array.from({ length: 20 }, (_, i) => path.join(root, "unresolved", "nested", `absent-${i}.ts`));
+  const absent = Array.from({ length: 20 }, (_, i) =>
+    path.join(root, "unresolved", "nested", `absent-${i}.ts`),
+  );
   policies = 0;
   const absentBatch = captureWatchInputBaselines(absent, view);
-  assert.ok([...absentBatch.values()].every((value) => value?.stat === "missing"));
-  assert.equal(policies, 2, "one shared directory policy per independent phase");
+  assert.ok(
+    [...absentBatch.values()].every((value) => value?.stat === "missing"),
+  );
+  assert.equal(
+    policies,
+    2,
+    "one shared directory policy per independent phase",
+  );
 
   const upper = path.join(root, "MissingUpper.ts");
   const lower = path.join(root, "missingupper.ts");
@@ -70,13 +91,25 @@ export function test_watch_input_batch_preserves_fresh_observations(): void {
   }
   const mixed = path.join(root, "MissingMixedCase.ts");
   let mixedReads = 0;
-  assert.equal(captureWatchInputBaselines([mixed], {
-    ...view,
-    caseSensitive: () => mixedReads < 2 ? false : true,
-    readFile: (file: string) => { ++mixedReads; return fs.readFileSync(file); },
-  }).get(mixed), undefined, "the second phase must reacquire changed case authority");
+  assert.equal(
+    captureWatchInputBaselines([mixed], {
+      ...view,
+      caseSensitive: () => (mixedReads < 2 ? false : true),
+      readFile: (file: string) => {
+        ++mixedReads;
+        return fs.readFileSync(file);
+      },
+    }).get(mixed),
+    undefined,
+    "the second phase must reacquire changed case authority",
+  );
 
-  for (const transition of ["content", "create", "recreate", "delete"] as const) {
+  for (const transition of [
+    "content",
+    "create",
+    "recreate",
+    "delete",
+  ] as const) {
     const file = transition === "create" ? missing : changing;
     if (transition === "create") fs.rmSync(file, { force: true });
     else fs.writeFileSync(file, "before");
@@ -85,7 +118,8 @@ export function test_watch_input_batch_preserves_fresh_observations(): void {
       ...view,
       readFile: (location: string) => {
         if (location === file && ++count === 2) {
-          if (transition === "delete" || transition === "recreate") fs.unlinkSync(file);
+          if (transition === "delete" || transition === "recreate")
+            fs.unlinkSync(file);
           if (transition !== "delete") fs.writeFileSync(file, "after");
         }
         return fs.readFileSync(location);
@@ -93,11 +127,19 @@ export function test_watch_input_batch_preserves_fresh_observations(): void {
     });
     assert.equal(mutated.get(file), undefined, transition);
     assert.equal(mutated.get(stable)?.graphReadHash, digest("A"));
-    assert.notEqual(captureWatchInputBaselines([file], view).get(file), undefined, "new state can recover");
+    assert.notEqual(
+      captureWatchInputBaselines([file], view).get(file),
+      undefined,
+      "new state can recover",
+    );
   }
 
   const link = path.join(root, "link");
-  fs.symlinkSync(path.join(root, "left"), link, process.platform === "win32" ? "junction" : "dir");
+  fs.symlinkSync(
+    path.join(root, "left"),
+    link,
+    process.platform === "win32" ? "junction" : "dir",
+  );
   const alias = path.join(link, "input.ts");
   let aliasReads = 0;
   const retargeted = captureWatchInputBaselines([alias, stable], {
@@ -105,19 +147,29 @@ export function test_watch_input_batch_preserves_fresh_observations(): void {
     readFile: (file: string) => {
       if (file === alias && ++aliasReads === 2) {
         fs.unlinkSync(link);
-        fs.symlinkSync(path.join(root, "right"), link, process.platform === "win32" ? "junction" : "dir");
+        fs.symlinkSync(
+          path.join(root, "right"),
+          link,
+          process.platform === "win32" ? "junction" : "dir",
+        );
       }
       return fs.readFileSync(file);
     },
   });
-  assert.equal(retargeted.get(alias), undefined, "equal bytes cannot hide a changed physical target");
+  assert.equal(
+    retargeted.get(alias),
+    undefined,
+    "equal bytes cannot hide a changed physical target",
+  );
   assert.notEqual(retargeted.get(stable), undefined);
   const directory = captureWatchInputBaselines([root], view).get(root);
   assert.equal(directory?.stat, "directory");
   assert.equal(directory?.graphReadHash, null);
   const unreadable = captureWatchInputBaselines([stable], {
     ...view,
-    readFile: () => { throw new Error("read refused"); },
+    readFile: () => {
+      throw new Error("read refused");
+    },
   }).get(stable);
   assert.equal(unreadable?.fileExists, true);
   assert.equal(unreadable?.graphReadHash, null);

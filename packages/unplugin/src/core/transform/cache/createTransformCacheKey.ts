@@ -9,12 +9,12 @@ import { stableStringify } from "../utils/stableStringify";
  * Build the key one project generation is cached under.
  *
  * The declared compile configuration is represented by: the selected tsconfig's
- * filesystem identity, common source-root identity, compiler overlay, plugin list, and
- * translated aliases. Two adapter configurations that have different supported
- * JSON representations therefore receive different keys; native spellings
- * resolving to one config identity may share a key. A key does not encode
- * current filesystem content or prove freshness. Compiler overlays, plugin
- * payloads and alias mappings retain their JSON declaration order: tied
+ * filesystem identity, common source-root identity, compiler overlay, plugin
+ * list, and translated aliases. Two adapter configurations that have different
+ * supported JSON representations therefore receive different keys; native
+ * spellings resolving to one config identity may share a key. A key does not
+ * encode current filesystem content or prove freshness. Compiler overlays,
+ * plugin payloads and alias mappings retain their JSON declaration order: tied
  * compiler path patterns and arbitrary plugin payloads can observe it. Only the
  * host-owned outer manifest is serialized with sorted keys.
  *
@@ -53,7 +53,10 @@ export function createTransformCacheKey(props: {
     aliasPaths: JSON.stringify(props.aliasPaths),
     compilerOptions: JSON.stringify(props.compilerOptions),
     plugins: JSON.stringify(props.plugins),
-    projectRoot: pathIdentityKey(props.projectRoot ?? path.dirname(props.tsconfig), identities),
+    projectRoot: pathIdentityKey(
+      props.projectRoot ?? path.dirname(props.tsconfig),
+      identities,
+    ),
     tsconfig: pathIdentityKey(props.tsconfig, identities),
   });
 }

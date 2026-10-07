@@ -278,10 +278,10 @@ export namespace TestProject {
    * module from allocating a different "shared" cache and paying the same Go
    * plugin build again. Tests that observe cold builds or cache lifecycle still
    * pass their own explicit `tmpdir`. A retained internally owned cache has
-   * unresolved readers and cannot serve a new consumer in this process.
-   * The first caller can select the existing tmpdir parent contract when its
-   * owned project and relative cache arguments must share a filesystem root.
-   * An existing allocation or externally selected cache is never relocated.
+   * unresolved readers and cannot serve a new consumer in this process. The
+   * first caller can select the existing tmpdir parent contract when its owned
+   * project and relative cache arguments must share a filesystem root. An
+   * existing allocation or externally selected cache is never relocated.
    *
    * @evidence contracts/common.md#principled-implementation The first ordinary consumer selects an allocated cache unless an external environment root is supplied; retained internally owned inputs refuse later consumers.
    * @evidence contracts/common.md#clear-and-simple-design One process-level slot prevents distinct fixture helpers from allocating separate ordinary native caches.
@@ -455,7 +455,7 @@ export namespace TestProject {
   /**
    * Serialize the standard minimal tsconfig shape used by synthetic projects.
    *
-   * extra fields override the standard compilerOptions and include fields.
+   * Extra fields override the standard compilerOptions and include fields.
    *
    * @evidence contracts/common.md#principled-implementation Object spread gives explicit extra fields precedence over the standard compilerOptions and include fields before JSON serialization.
    * @evidence contracts/common.md#clear-and-simple-design One serializer owns the minimal synthetic tsconfig shape.

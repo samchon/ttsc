@@ -67,7 +67,8 @@ export class TtsgraphClient {
   /**
    * Start the real launcher with optional caller-owned source build caches.
    * Omitted cache paths preserve the launcher's inherited selection; explicit
-   * paths change storage only, leaving SDK discovery and build validation intact.
+   * paths change storage only, leaving SDK discovery and build validation
+   * intact.
    */
   static start(
     cwd: string,

@@ -38,10 +38,10 @@ const membersOf = (result: ToolResult, name: string): Member[] => {
  *
  * 1. Trace static object members through actual MCP in both directions and
  *    distinguish dotted literal keys from nested objects.
- * 2. Request all sixty direct callers and a twenty-hop chain from the same
- *    native generation, including impact export roles.
- * 3. Retain the direct member outline/body exclusions, then edit and restore
- *    that object's source through the resident session.
+ * 2. Request all sixty direct callers and a twenty-hop chain from the same native
+ *    generation, including impact export roles.
+ * 3. Retain the direct member outline/body exclusions, then edit and restore that
+ *    object's source through the resident session.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual MCP trace replies resolve object methods and callable properties to their native callers/helper, retain distinct literal/nested keys and source spans, return all sixty reverse/impact callers and twenty chain nodes without truncation, and preserve the original sixteen-member outline/replacement assertions.
  * @evidence contracts/testing.md#independent-expectations Authored source declares sixty distinctly named callers and a twenty-edge chain; literal names and roles prescribe expected trace results independently of traversal. Sixteen direct keys and eight body markers retain the independent outline oracle.
@@ -73,39 +73,74 @@ export async function assertGraphNativeShapeCorpus(
         review: "Use the returned declaration identities and relationships.",
         request: { type: "trace", focus: "execution", ...request },
       },
-    })) as { structuredContent?: { result?: {
-      type: string;
-      start?: { id: string; name: string; sourceSpan?: unknown };
-      reached: { name: string; roles?: string[] }[];
-      truncated: boolean;
-    } } };
+    })) as {
+      structuredContent?: {
+        result?: {
+          type: string;
+          start?: { id: string; name: string; sourceSpan?: unknown };
+          reached: { name: string; roles?: string[] }[];
+          truncated: boolean;
+        };
+      };
+    };
     const result = reply.structuredContent?.result;
     assert.equal(result?.type, "trace", JSON.stringify(reply));
     return result!;
   };
   await run("native-object-method-call-identity", async () => {
-    for (const from of ["objectApi.create", "objectApi.arrow", "objectApi.nested.key", 'objectApi["nested.key"]', 'objectApi["a[\\\"\\\"]"]', 'objectApi.a[""]']) {
-      const reverse = await trace({ from, direction: "reverse", complete: true });
+    for (const from of [
+      "objectApi.create",
+      "objectApi.arrow",
+      "objectApi.nested.key",
+      'objectApi["nested.key"]',
+      'objectApi["a[\\\"\\\"]"]',
+      'objectApi.a[""]',
+    ]) {
+      const reverse = await trace({
+        from,
+        direction: "reverse",
+        complete: true,
+      });
       assert.equal(reverse.start?.name, from);
       assert.ok(reverse.start?.sourceSpan, JSON.stringify(reverse));
-      assert.ok(reverse.reached.some((node) => node.name === "GraphObjectCaller"), JSON.stringify(reverse));
+      assert.ok(
+        reverse.reached.some((node) => node.name === "GraphObjectCaller"),
+        JSON.stringify(reverse),
+      );
       const forward = await trace({ from, complete: true });
-      assert.ok(forward.reached.some((node) => node.name === "GraphObjectHelper"), JSON.stringify(forward));
+      assert.ok(
+        forward.reached.some((node) => node.name === "GraphObjectHelper"),
+        JSON.stringify(forward),
+      );
     }
   });
   for (const direction of ["reverse", "impact"]) {
     await run(`native-complete-fanout-${direction}`, async () => {
-      const result = await trace({ from: "GraphFanoutRoot", direction, complete: true });
+      const result = await trace({
+        from: "GraphFanoutRoot",
+        direction,
+        complete: true,
+      });
       assert.equal(result.truncated, false);
-      assert.deepEqual(new Set(result.reached.map((node) => node.name)), new Set(Array.from({ length: 60 }, (_, index) => `GraphFanoutCaller${index}`)));
+      assert.deepEqual(
+        new Set(result.reached.map((node) => node.name)),
+        new Set(
+          Array.from({ length: 60 }, (_, index) => `GraphFanoutCaller${index}`),
+        ),
+      );
       if (direction === "impact")
-        assert.ok(result.reached.every((node) => node.roles?.includes("exported")));
+        assert.ok(
+          result.reached.every((node) => node.roles?.includes("exported")),
+        );
     });
   }
   await run("native-complete-depth", async () => {
     const result = await trace({ from: "GraphDepth0", complete: true });
     assert.equal(result.truncated, false);
-    assert.deepEqual(result.reached.map((node) => node.name), Array.from({ length: 20 }, (_, index) => `GraphDepth${index + 1}`));
+    assert.deepEqual(
+      result.reached.map((node) => node.name),
+      Array.from({ length: 20 }, (_, index) => `GraphDepth${index + 1}`),
+    );
   });
   await run("native-object-outline-and-refresh", async () => {
     const original = membersOf(

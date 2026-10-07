@@ -34,31 +34,49 @@ func TestServeObjectMembersRefreshWithoutIdentityCollisions(t *testing.T) {
     if session == nil {
       var err error
       session, err = newGraphSession(root, "tsconfig.json")
-      if err != nil { t.Fatal(err) }
+      if err != nil {
+        t.Fatal(err)
+      }
       defer session.Close()
     }
     snapshot, _, _, err := snapshotGraphShardState(session)
-    if err != nil || snapshot == nil { t.Fatalf("snapshot for %q: %v", method, err) }
+    if err != nil || snapshot == nil {
+      t.Fatalf("snapshot for %q: %v", method, err)
+    }
     assertServeShardFactsMatchFullDump(t, session)
     dump, err := projectGraphDump(session)
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     var target, from string
     for _, node := range dump.Nodes {
       qualified := node.QualifiedName
-      if qualified == "" { qualified = node.Name }
+      if qualified == "" {
+        qualified = node.Name
+      }
       for _, other := range []string{"create", "replace", "added"} {
-        if qualified == "api." + other {
-          if other != method { t.Errorf("stale method %q in state %q", other, method) }
+        if qualified == "api."+other {
+          if other != method {
+            t.Errorf("stale method %q in state %q", other, method)
+          }
           target = node.ID
         }
       }
-      if qualified == "caller" { from = node.ID }
+      if qualified == "caller" {
+        from = node.ID
+      }
     }
-    if method == "" { continue }
+    if method == "" {
+      continue
+    }
     found := false
     for _, edge := range dump.Edges {
-      if edge.From == from && edge.To == target && edge.Kind == "calls" { found = true }
+      if edge.From == from && edge.To == target && edge.Kind == "calls" {
+        found = true
+      }
     }
-    if target == "" || from == "" || !found { t.Errorf("missing current caller->api.%s", method) }
+    if target == "" || from == "" || !found {
+      t.Errorf("missing current caller->api.%s", method)
+    }
   }
 }

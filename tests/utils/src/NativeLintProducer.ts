@@ -59,13 +59,19 @@ interface IFileReading {
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources INativeLintSourceSelection carries data or signatures; acquisition and release remain with the implementing operation.
  */
 export interface INativeLintSourceSelection {
-  /** Sorted slash-relative declarations not selected as compiled or embedded input. */
+  /**
+   * Sorted slash-relative declarations not selected as compiled or embedded
+   * input.
+   */
   readonly excludedGoTestFiles: readonly string[];
 
   /** Original Go package records that justify the excluded population. */
   readonly metadata: readonly unknown[];
 
-  /** Observed selection environment; absent when no environment proof was supplied. */
+  /**
+   * Observed selection environment; absent when no environment proof was
+   * supplied.
+   */
   readonly environment?: Readonly<Record<string, string | null>>;
 }
 

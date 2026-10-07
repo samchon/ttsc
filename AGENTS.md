@@ -32,7 +32,6 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 - **Default over ask.** On an ambiguous detail, pick the sensible default and say what you chose; reserve questions for forks only the user can settle.
 - **Unattended runs keep moving.** In an issue campaign's authorized phases or under a standing autonomous mandate, take every reversible step the authorization covers without asking. Stop only when nothing can move without the user, or before a destructive action the workflow has not authorized.
 - **Background work never stops the turn.** A background command never justifies stopping or ending the turn, whether or not the user is present. Keep working in the same turn while its result is pending. Follow the active workflow's order or, where it sets none, this order:
-
   1. Read and diagnose the log of every check or process that already failed.
   2. Run a complete self-review round over the current change, starting from a risk no earlier round examined.
   3. Run local tests over the affected scope.

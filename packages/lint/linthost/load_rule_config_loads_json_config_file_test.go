@@ -1,8 +1,8 @@
 package linthost
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestLoadRuleConfigLoadsJSONConfigFile verifies that a `configFile` pointing to a .json file
@@ -21,9 +21,9 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns native JSON dispatch and the warning alias alongside error for both original rules and the CJS loader donor's exact no-console/no-debugger names; malformed JSON and executable JS/TS loaders are separate entries.
 // @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The temporary explicit JSON file reaches LoadRuleConfig directly in the shared Go process; four resulting severities observe native JSON loading without executable config evaluation.
 func TestLoadRuleConfigLoadsJSONConfigFile(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
-	writeFile(t, filepath.Join(dir, "ttsc-lint.config.json"), `{
+  dir := t.TempDir()
+  writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")
+  writeFile(t, filepath.Join(dir, "ttsc-lint.config.json"), `{
     "rules": {
       "no-var": "error",
       "eqeqeq": "warning",
@@ -32,24 +32,24 @@ func TestLoadRuleConfigLoadsJSONConfigFile(t *testing.T) {
     }
   }`)
 
-	cfg, err := LoadRuleConfig(&PluginEntry{
-		Config: map[string]any{
-			"configFile": "./ttsc-lint.config.json",
-		},
-	}, dir, "tsconfig.json")
-	if err != nil {
-		t.Fatalf("LoadRuleConfig: %v", err)
-	}
-	if cfg.Severity("no-var") != SeverityError {
-		t.Errorf("noVar: want error, got %v", cfg.Severity("no-var"))
-	}
-	if cfg.Severity("no-console") != SeverityWarn {
-		t.Errorf("noConsole: want warning, got %v", cfg.Severity("no-console"))
-	}
-	if cfg.Severity("no-debugger") != SeverityError {
-		t.Errorf("noDebugger: want error, got %v", cfg.Severity("no-debugger"))
-	}
-	if cfg.Severity("eqeqeq") != SeverityWarn {
-		t.Errorf("eqeqeq: want warning, got %v", cfg.Severity("eqeqeq"))
-	}
+  cfg, err := LoadRuleConfig(&PluginEntry{
+    Config: map[string]any{
+      "configFile": "./ttsc-lint.config.json",
+    },
+  }, dir, "tsconfig.json")
+  if err != nil {
+    t.Fatalf("LoadRuleConfig: %v", err)
+  }
+  if cfg.Severity("no-var") != SeverityError {
+    t.Errorf("noVar: want error, got %v", cfg.Severity("no-var"))
+  }
+  if cfg.Severity("no-console") != SeverityWarn {
+    t.Errorf("noConsole: want warning, got %v", cfg.Severity("no-console"))
+  }
+  if cfg.Severity("no-debugger") != SeverityError {
+    t.Errorf("noDebugger: want error, got %v", cfg.Severity("no-debugger"))
+  }
+  if cfg.Severity("eqeqeq") != SeverityWarn {
+    t.Errorf("eqeqeq: want warning, got %v", cfg.Severity("eqeqeq"))
+  }
 }

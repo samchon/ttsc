@@ -93,7 +93,9 @@ export async function test_bun_registration_locks_detached_pending_options(): Pr
       try {
         assert.doesNotThrow(() =>
           register({
-            projectRoot: replacePending ? "../selected-workspace" : "../workspace",
+            projectRoot: replacePending
+              ? "../selected-workspace"
+              : "../workspace",
             plugins: [
               {
                 transform: "./plugin.cjs",
@@ -104,16 +106,25 @@ export async function test_bun_registration_locks_detached_pending_options(): Pr
           }),
         );
         assert.throws(
-          () => register({
-            projectRoot: "../another-workspace",
-            plugins: [{ transform: "./plugin.cjs", name: "prefix", prefix: replacePending ? "B:" : "PRESERVED:" }],
-          }),
+          () =>
+            register({
+              projectRoot: "../another-workspace",
+              plugins: [
+                {
+                  transform: "./plugin.cjs",
+                  name: "prefix",
+                  prefix: replacePending ? "B:" : "PRESERVED:",
+                },
+              ],
+            }),
           /options are locked[\s\S]*Restart the Bun process/,
         );
         assert.throws(
           () =>
             register({
-              projectRoot: replacePending ? "../selected-workspace" : "../workspace",
+              projectRoot: replacePending
+                ? "../selected-workspace"
+                : "../workspace",
               plugins: [
                 { transform: "./plugin.cjs", name: "prefix", prefix: "C:" },
               ],

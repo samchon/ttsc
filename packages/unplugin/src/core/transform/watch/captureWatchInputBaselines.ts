@@ -15,12 +15,12 @@ import { MISSING_INPUT_STATE } from "../validation/MISSING_INPUT_STATE";
 import type { TtscWatchInputBaseline } from "./TtscWatchInputBaseline";
 
 /**
- * Capture a batch through two independently fresh native observation phases.
- * A phase shares path/case observations only within this synchronous batch;
- * the second phase has a new identity context and rereads every input. Nothing
+ * Capture a batch through two independently fresh native observation phases. A
+ * phase shares path/case observations only within this synchronous batch; the
+ * second phase has a new identity context and rereads every input. Nothing
  * survives this call. Changed captures or escaping exceptions decline that
- * input alone.
- * Matching endpoints still cannot certify an atomic snapshot or exclude ABA.
+ * input alone. Matching endpoints still cannot certify an atomic snapshot or
+ * exclude ABA.
  *
  * One current byte read supplies raw-host and compiler-text hashes in each
  * phase. Failed reads retain native kind fallbacks; optional tree and listing
@@ -46,7 +46,10 @@ export function captureWatchInputBaselines(
     return new Map(
       selected.map((file) => {
         try {
-          return [file, capture(file, filesystem, identities, options)] as const;
+          return [
+            file,
+            capture(file, filesystem, identities, options),
+          ] as const;
         } catch {
           return [file, undefined] as const;
         }

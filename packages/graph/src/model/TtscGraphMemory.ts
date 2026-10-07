@@ -392,7 +392,11 @@ function ownerKey(node: ITtscGraphNode): string | undefined {
     for (let index = qualified.length - 3; index > 0; index--) {
       if (qualified[index] !== '"') continue;
       let escapes = 0;
-      for (let before = index - 1; before >= 0 && qualified[before] === "\\"; before--)
+      for (
+        let before = index - 1;
+        before >= 0 && qualified[before] === "\\";
+        before--
+      )
         escapes++;
       if (escapes % 2 !== 0) continue;
       if (qualified[index - 1] !== "[") break;

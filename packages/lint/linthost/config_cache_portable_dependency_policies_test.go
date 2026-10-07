@@ -383,7 +383,7 @@ func TestConfigCachePortableDependencyPolicies(t *testing.T) {
     }
     sum := sha256.Sum256(body)
     return evaluatedConfigFile{
-      value: map[string]any{"generation": float64(rootCalls)},
+      value:               map[string]any{"generation": float64(rootCalls)},
       dependenciesTracked: true,
       dependencyDigests: []configDependencyFingerprint{{
         Path: config, Digest: hex.EncodeToString(sum[:]),

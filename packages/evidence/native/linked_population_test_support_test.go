@@ -21,8 +21,8 @@ import (
 // observed input proofs never do. Native fixture metadata supplies entry kinds.
 type linkPolicyFixture struct {
   rule.ProjectInputReader
-  links map[string]string
-  target string
+  links           map[string]string
+  target          string
   directory, link os.FileInfo
 }
 
@@ -140,7 +140,7 @@ func assertUnreachableLinkedProject(t *testing.T, root, config string) {
     rule.ProjectIdentity{PhysicalProjectRoot: root}, nil, nil,
     rule.SeverityError, json.RawMessage(config), reporter,
   ))
-  expected := "Evidence graph project root '"+root+"' is not a readable directory. Fix the ttsc project identity before evaluating evidence globs."
+  expected := "Evidence graph project root '" + root + "' is not a readable directory. Fix the ttsc project identity before evaluating evidence globs."
   if len(reporter.messages) != 1 || reporter.messages[0] != expected {
     t.Fatalf("native-inaccessible project messages=%q, want only %q", reporter.messages, expected)
   }

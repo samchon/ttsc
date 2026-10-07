@@ -9,10 +9,11 @@ import { stableStringify } from "../transform/utils/stableStringify";
  * the module carries into Rollup's cache (`TtscRollupDelivery`).
  *
  * The identity records alias mappings, compiler overlay, plugin payloads and
- * configured project and source-root selection. Tsconfig input state is represented separately
- * by the delivery's project record. A configured project resolves under the
- * same native cwd rule as explicit selection; it is not canonicalized to a
- * physical alias or made process-independent across different cwd spellings.
+ * configured project and source-root selection. Tsconfig input state is
+ * represented separately by the delivery's project record. A configured project
+ * resolves under the same native cwd rule as explicit selection; it is not
+ * canonicalized to a physical alias or made process-independent across
+ * different cwd spellings.
  *
  * Compiler options, plugin payloads and alias mappings preserve their actual
  * JSON order. Their consumers can observe declaration order; the host cannot
@@ -49,7 +50,9 @@ export function rollupDeliveryOptions(
       project:
         options.project === undefined ? null : path.resolve(options.project),
       projectRoot:
-        options.projectRoot === undefined ? null : path.resolve(options.projectRoot),
+        options.projectRoot === undefined
+          ? null
+          : path.resolve(options.projectRoot),
     }),
   );
 }

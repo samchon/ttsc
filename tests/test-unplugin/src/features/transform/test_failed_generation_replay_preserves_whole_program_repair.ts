@@ -28,7 +28,8 @@ export function test_failed_generation_replay_preserves_whole_program_repair(): 
     "tsconfig.json": '{"include":["src"]}',
     "src/mod0.ts": "export const value = 1;\n",
     "src/disconnected.ts": "export type Broken = MissingType;\n",
-    "node_modules/types/index.d.ts": "export type ExternalBroken = MissingType;\n",
+    "node_modules/types/index.d.ts":
+      "export type ExternalBroken = MissingType;\n",
   });
   const config = path.join(root, "tsconfig.json");
   const external = path.join(root, "node_modules/types/index.d.ts");
@@ -36,10 +37,18 @@ export function test_failed_generation_replay_preserves_whole_program_repair(): 
     type: "failure",
     typescript: {},
     diagnostics: [],
-    graph: { edges: { "src/mod0.ts": [] }, globals: [], configs: ["tsconfig.json"] },
+    graph: {
+      edges: { "src/mod0.ts": [] },
+      globals: [],
+      configs: ["tsconfig.json"],
+    },
     dependencies: { "src/mod0.ts": [external] },
     hostInputs: [config],
-    hostInputHashes: { [config]: createHash("sha256").update(fs.readFileSync(config)).digest("hex") },
+    hostInputHashes: {
+      [config]: createHash("sha256")
+        .update(fs.readFileSync(config))
+        .digest("hex"),
+    },
     hostInputRealpaths: { [config]: fs.realpathSync.native(config) },
   });
   const cache = createTtscTransformCache();
@@ -47,13 +56,22 @@ export function test_failed_generation_replay_preserves_whole_program_repair(): 
     let observed = observeValidationUnitGeneration(root, result());
     let generation = Promise.resolve(observed);
     cache.set("failed", generation);
-    const action = () => selectCachedGenerationAction({
-      cache, cached: observed, generation, key: "failed", epoch: undefined,
-      file: path.join(root, "src/mod0.ts"), source: fs.readFileSync(path.join(root, "src/mod0.ts"), "utf8"),
-    });
+    const action = () =>
+      selectCachedGenerationAction({
+        cache,
+        cached: observed,
+        generation,
+        key: "failed",
+        epoch: undefined,
+        file: path.join(root, "src/mod0.ts"),
+        source: fs.readFileSync(path.join(root, "src/mod0.ts"), "utf8"),
+      });
     assert.equal(action(), "serve");
     assert.equal(cache.get("failed"), generation);
-    fs.writeFileSync(path.join(root, "src/disconnected.ts"), "export type Repaired = string;\n");
+    fs.writeFileSync(
+      path.join(root, "src/disconnected.ts"),
+      "export type Repaired = string;\n",
+    );
     assert.equal(action(), "capture");
     assert.equal(cache.has("failed"), false);
     observed = observeValidationUnitGeneration(root, result());

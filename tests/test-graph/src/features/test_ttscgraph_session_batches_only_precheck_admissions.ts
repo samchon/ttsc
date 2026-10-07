@@ -18,9 +18,13 @@ import { admitted, emptyResponse, sessionState } from "./internal/sessionState";
  */
 export async function test_ttscgraph_session_batches_only_precheck_admissions(): Promise<void> {
   let release!: () => void;
-  const validation = new Promise<void>((resolve) => { release = resolve; });
+  const validation = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   let started!: () => void;
-  const validating = new Promise<void>((resolve) => { started = resolve; });
+  const validating = new Promise<void>((resolve) => {
+    started = resolve;
+  });
   const { session, ports } = sessionState(undefined, async () => {
     started();
     await validation;
@@ -33,7 +37,9 @@ export async function test_ttscgraph_session_batches_only_precheck_admissions():
     let lateSettled = false;
     const late = session.graph();
     const lateOther = session.graph();
-    void late.then(() => { lateSettled = true; });
+    void late.then(() => {
+      lateSettled = true;
+    });
     release();
     const port = await admitted(ports);
     session.receive(port.peer, emptyResponse(Number(port.writes[0]!.id)));
@@ -42,7 +48,10 @@ export async function test_ttscgraph_session_batches_only_precheck_admissions():
     await admitted(ports, 2);
     assert.equal(lateSettled, false);
     assert.equal(port.writes.length, 2);
-    session.receive(port.peer, emptyResponse(Number(port.writes[1]!.id), false));
+    session.receive(
+      port.peer,
+      emptyResponse(Number(port.writes[1]!.id), false),
+    );
     assert.equal(await late, initial);
     assert.equal(await lateOther, initial);
     assert.equal(port.writes.length, 2);

@@ -38,7 +38,7 @@ func (p *Program) isBuildInfoOutput(fileName string) bool {
   buildInfo := p.TSProgram.CommandLine().GetBuildInfoFileName()
   return buildInfo != "" && tspath.ComparePaths(buildInfo, fileName, tspath.ComparePathsOptions{
     UseCaseSensitiveFileNames: p.TSProgram.UseCaseSensitiveFileNames(),
-    CurrentDirectory: p.TSProgram.GetCurrentDirectory(),
+    CurrentDirectory:          p.TSProgram.GetCurrentDirectory(),
   }) == 0
 }
 

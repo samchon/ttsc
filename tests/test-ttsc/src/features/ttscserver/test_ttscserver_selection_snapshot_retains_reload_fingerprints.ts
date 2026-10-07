@@ -28,8 +28,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    digest to independently framed sha256 values. An actual EILSEQ refusal
  *    must leave the directory unchanged and permit a valid UTF-8 target.
  * 4. Materialize and dispose a manifest larger than a Windows environment block;
- *    frame an empty existing directory and a missing directory independently, and
- *    prove each captured baseline is current. Windows missing-suffix casing
+ *    frame an empty existing directory and a missing directory independently,
+ *    and prove each captured baseline is current. Windows missing-suffix casing
  *    follows the observed directory authority, not a platform-default guess.
  *
  * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
@@ -415,7 +415,9 @@ function verifyRawDirectoryIdentity(
       Buffer.from([0xff, 0x2d, 0x64, 0x69, 0x72]),
     ]);
     const rawLink = path.join(root, "raw-directory-link");
-    const before = fs.readdirSync(root, { encoding: "buffer" }).sort(Buffer.compare);
+    const before = fs
+      .readdirSync(root, { encoding: "buffer" })
+      .sort(Buffer.compare);
     let target: Buffer;
     try {
       fs.mkdirSync(rawTarget);
@@ -433,7 +435,9 @@ function verifyRawDirectoryIdentity(
       assert.equal(fs.existsSync(rawLink), false);
       target = Buffer.from(path.join(root, "\uC720\uD6A8-directory"));
       fs.mkdirSync(target);
-      console.log("raw directory capability: invalid UTF-8 refused; verifying UTF-8 recovery");
+      console.log(
+        "raw directory capability: invalid UTF-8 refused; verifying UTF-8 recovery",
+      );
     }
     fs.symlinkSync(target, Buffer.from(rawLink), "dir");
     const rawSnapshot = fingerprintInitialLSPProjectInputSnapshot({

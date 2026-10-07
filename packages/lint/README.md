@@ -1226,7 +1226,6 @@ Relative patterns are anchored to `ctx.Identity.PhysicalProjectRoot`. Exact file
 
 For reusable check results, read external inputs through the optional `ctx.Inputs` reader and implement `rule.ProjectInputObservationRule` with `UsesProjectInputReader() bool` returning `true`. The reader belongs to the current Program: its `ReadFile` returns raw bytes and its native directory/path operations preserve their normal results. Keep the existing OS operations when `ctx.Inputs == nil`, as in manually constructed contexts. Call `ctx.Inputs.Unavailable()` when an external bridge or other operation consumes inputs the reader cannot observe. The capability declaration and `ProjectInputs` topology do not certify consumed bytes; unsupported, conflicting or incomplete observations prevent reuse of that check result.
 
-
 Use `ctx.SetState(value)` when a later file rule needs the exact project binding selected during that check. The host returns the same value without interpreting or serializing it:
 
 ```go

@@ -75,14 +75,22 @@ export namespace Names {
 }
 `)
   prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   defer func() { _ = prog.Close() }()
-  if len(diags) != 0 { t.Fatalf("unexpected diagnostics: %v", diags) }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %v", diags)
+  }
   graph := Build(prog)
   path := sourceFile(t, prog, "main.ts").FileName()
   caller := nodeID(path, "caller", NodeFunction)
   helper := nodeID(path, "helper", NodeFunction)
-  for _, item := range []struct { name string; kind NodeKind; relation EdgeKind }{
+  for _, item := range []struct {
+    name     string
+    kind     NodeKind
+    relation EdgeKind
+  }{
     {"api.create", NodeMethod, EdgeValueCall},
     {"api.arrow", NodeVariable, EdgeValueCall},
     {"api.classic", NodeVariable, EdgeValueCall},
@@ -123,7 +131,11 @@ export namespace Names {
       t.Errorf("namespace object identity/relationships missing: %s", name)
     }
   }
-  for _, item := range []struct { qualified, simple string; kind NodeKind; relation EdgeKind }{
+  for _, item := range []struct {
+    qualified, simple string
+    kind              NodeKind
+    relation          EdgeKind
+  }{
     {"api.__#41@#value", "__#41@#value", NodeMethod, EdgeValueCall},
     {"api.nestedPrivate.prefix__#7@#read", "prefix__#7@#read", NodeMethod, EdgeValueCall},
     {"api.1", "1", NodeMethod, EdgeValueCall},

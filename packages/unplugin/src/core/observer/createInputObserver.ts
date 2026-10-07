@@ -47,19 +47,18 @@ import { someSet } from "./someSet";
  * One recursive scope observes the project root, pinned once the observer
  * opens, and at most 16 external scopes the inputs outside it, each closed when
  * its last input leaves. A healthy external recursive scope also admits newly
- * registered descendants while its root identity and physical containment
- * still hold; the scope cap is checked only when no existing scope covers them.
- * Ordinary files use events after their initial
- * subscription is observed. Missing spellings and directory predicates use the
- * recursive observer for their nearest available scope. Inputs a native scope
- * cannot safely cover share one bounded fallback poll; linked files also share
- * topology checks because retargeting a junction need not emit events on its
- * old descendants. Every event is re-checked against the input's recorded
- * condition before an owner hears it, so an event that changed nothing the
- * compile observed is silent. Native event names can have aliases missing from
- * lexical indexes. Each settled event batch therefore rechecks all registered
- * conditions of the reporting scope; directory admission still limits native
- * watch coverage.
+ * registered descendants while its root identity and physical containment still
+ * hold; the scope cap is checked only when no existing scope covers them.
+ * Ordinary files use events after their initial subscription is observed.
+ * Missing spellings and directory predicates use the recursive observer for
+ * their nearest available scope. Inputs a native scope cannot safely cover
+ * share one bounded fallback poll; linked files also share topology checks
+ * because retargeting a junction need not emit events on its old descendants.
+ * Every event is re-checked against the input's recorded condition before an
+ * owner hears it, so an event that changed nothing the compile observed is
+ * silent. Native event names can have aliases missing from lexical indexes.
+ * Each settled event batch therefore rechecks all registered conditions of the
+ * reporting scope; directory admission still limits native watch coverage.
  *
  * Large event waves yield between bounded entry slices so native IPC and host
  * requests can advance. Each slice reads current facts with its own fresh
@@ -610,8 +609,10 @@ export function createInputObserver(
           continue;
         if (
           candidate.identity === undefined ||
-          watchLocationIdentity(candidate.root, DEFAULT_FILESYSTEM_OPERATIONS) !==
-            candidate.identity
+          watchLocationIdentity(
+            candidate.root,
+            DEFAULT_FILESYSTEM_OPERATIONS,
+          ) !== candidate.identity
         ) {
           failScope(candidate);
           continue;
@@ -625,8 +626,10 @@ export function createInputObserver(
             physicalRoot.startsWith(`${physicalScope}${path.sep}`))
         ) {
           if (
-            watchLocationIdentity(candidate.root, DEFAULT_FILESYSTEM_OPERATIONS) !==
-              candidate.identity
+            watchLocationIdentity(
+              candidate.root,
+              DEFAULT_FILESYSTEM_OPERATIONS,
+            ) !== candidate.identity
           ) {
             failScope(candidate);
             continue;
@@ -839,7 +842,8 @@ export function createInputObserver(
       // A replacement can answer the old registration while this wave yields.
       // Only its own still-current registration may receive a delayed effect.
       for (const [owner, registration] of reload) {
-        if (ownerRegistrations.get(owner) !== registration) reload.delete(owner);
+        if (ownerRegistrations.get(owner) !== registration)
+          reload.delete(owner);
       }
       for (const [owner, registration] of invalidate)
         if (ownerRegistrations.get(owner) !== registration || reload.has(owner))

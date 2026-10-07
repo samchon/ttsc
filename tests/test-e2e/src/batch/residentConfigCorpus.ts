@@ -4,24 +4,28 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 
-import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
 import { SidecarEnvironment } from "../../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment";
+import { TtscCompiler } from "../../../../packages/ttsc/lib/index";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { PLUGIN_BUILD_TIMEOUT } from "../internal/ttsc/internal/ttscserver";
 import { BatchWorkspace } from "./BatchWorkspace";
-import { scriptConfigGraphResident, scriptConfigGraphTraceRoot } from "./scriptConfigGraphCorpus";
+import {
+  scriptConfigGraphResident,
+  scriptConfigGraphTraceRoot,
+} from "./scriptConfigGraphCorpus";
 
 /**
  * Verifies real and linked executable-config dependencies through raw inputs.
  *
  * The caller joins and restores its existing watcher first. This body borrows
- * that installed project and producer, then owns two public lsp-serve children.
+ * that installed project and producer, then owns two public lsp-serve
+ * children.
  *
  * 1. Prepare the existing CJS contributor before connecting typed helpers.
- * 2. Query unchanged three times, change real only and settle, then change
- *    linked only and settle; observe both memberships and evaluation logs.
- * 3. Join the normal child, restore the helper, and start cache opt-out before
- *    two unchanged requests; join before restoring the borrowed project.
+ * 2. Query unchanged three times, change real only and settle, then change linked
+ *    only and settle; observe both memberships and evaluation logs.
+ * 3. Join the normal child, restore the helper, and start cache opt-out before two
+ *    unchanged requests; join before restoring the borrowed project.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual public lsp-serve frames return code0 and exact old/new file membership while imported real/link modules append evaluation records. Independent helper edits must preserve the opposite value and counter; startup opt-out evaluates twice.
  * @evidence contracts/testing.md#independent-expectations Authored before/after/input paths and literal LF counter totals prescribe the result independently of resolver cache bookkeeping. Physical expected paths use the existing TestProject filesystem identity helper.
@@ -189,7 +193,11 @@ export async function residentConfigCorpus(
       let stderr = "";
       let fatal: unknown;
       let pending:
-        | { resolve(value: unknown): void; reject(error: unknown): void; expectedCode: number }
+        | {
+            resolve(value: unknown): void;
+            reject(error: unknown): void;
+            expectedCode: number;
+          }
         | undefined;
       const closed = new Promise<void>((resolve, reject) => {
         child.once("error", (error) => {
@@ -311,15 +319,17 @@ export async function residentConfigCorpus(
     const normal = start(false);
     try {
       try {
-        counter(realCounter,0);
-        counter(linkedCounter,0);
-        counter(optoutCounter,0);
-        await scriptConfigGraphResident(workspace,lintConfig,normal.ask);
+        counter(realCounter, 0);
+        counter(linkedCounter, 0);
+        counter(optoutCounter, 0);
+        await scriptConfigGraphResident(workspace, lintConfig, normal.ask);
         held();
-        counter(realCounter,0);
-        counter(linkedCounter,0);
-        counter(optoutCounter,0);
-      } catch(error) { failures.push(error); }
+        counter(realCounter, 0);
+        counter(linkedCounter, 0);
+        counter(optoutCounter, 0);
+      } catch (error) {
+        failures.push(error);
+      }
       for (let request = 0; request < 3; request++) {
         const reply = await normal.ask();
         held();

@@ -15,12 +15,12 @@ const O_RDWR = 2;
  * storage. Node's 64-bit Uint8Array length limit is 2^53 - 1, rather than 2^40;
  * an accepted virtual allocation need not commit all its physical pages.
  * Independently verify native RangeError refusal at the last two safe lengths
- * before asking MemFS to translate that same allocation failure to EFBIG.
- * No oversized accepted buffer is filled or read, and no allocator is patched.
+ * before asking MemFS to translate that same allocation failure to EFBIG. No
+ * oversized accepted buffer is filled or read, and no allocator is patched.
  *
  * 1. Seed `/f.txt`="abcdef" and open it read-write.
- * 2. Independently verify allocation refusal at the last two safe lengths,
- *    then write one byte ending at each of those lengths.
+ * 2. Independently verify allocation refusal at the last two safe lengths, then
+ *    write one byte ending at each of those lengths.
  * 3. Read the file and the cursor, then write inside the file to prove the
  *    descriptor still works.
  *

@@ -69,7 +69,10 @@ export function test_shared_compile_identity_and_external_input_adoption(): void
   }
   assert.notEqual(
     sharedCompileIdentity({ ...compile, projectRoot: otherCompiler }),
-    sharedCompileIdentity({ ...compile, projectRoot: path.join(otherCompiler, "child") }),
+    sharedCompileIdentity({
+      ...compile,
+      projectRoot: path.join(otherCompiler, "child"),
+    }),
     "different source roots must not share output even when they resolve the same compiler",
   );
 

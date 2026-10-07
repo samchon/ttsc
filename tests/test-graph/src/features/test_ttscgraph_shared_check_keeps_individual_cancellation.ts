@@ -1,16 +1,22 @@
 import assert from "node:assert/strict";
 
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 
 /**
  * Verifies a shared freshness check outlives one cancelled consumer, and ends
  * when every consumer cancels.
  *
- * 1. Cancel one of two admitted consumers and require its sibling to receive
- *    the original request's reply without retiring the peer.
+ * 1. Cancel one of two admitted consumers and require its sibling to receive the
+ *    original request's reply without retiring the peer.
  * 2. Cancel both consumers of a later check and require native retirement.
  * 3. Recover on a new peer, cancel an entire queued group and require it to
- *    perform no native check or peer retirement after the active head succeeds.
+ *    perform no native check or peer retirement after the active head
+ *    succeeds.
  *
  * @evidence contracts/testing.md#behavioral-verification One active abort rejects only its caller while its sibling gets the graph; the last abort retires the peer and later graph demand opens a new one.
  * @evidence contracts/testing.md#independent-expectations Authored transport counts of one initial write, no retirement after one abort, and one retirement after both aborts distinguish caller ownership from native producer ownership.
@@ -61,17 +67,26 @@ export async function test_ttscgraph_shared_check_keeps_individual_cancellation(
     queuedRight.abort();
     await assert.rejects(queuedA, /cancelled/);
     await assert.rejects(queuedB, /cancelled/);
-    session.receive(next.peer, emptyResponse(Number(next.writes[1]!.id), false));
+    session.receive(
+      next.peer,
+      emptyResponse(Number(next.writes[1]!.id), false),
+    );
     await head;
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(next.writes.length, 2);
     assert.deepEqual(next.retirement, []);
     const alreadyAborted = new AbortController();
     alreadyAborted.abort();
-    await assert.rejects(session.graph({ signal: alreadyAborted.signal }), /cancelled/);
+    await assert.rejects(
+      session.graph({ signal: alreadyAborted.signal }),
+      /cancelled/,
+    );
     const fresh = session.graph();
     await admitted(ports, 3);
-    session.receive(next.peer, emptyResponse(Number(next.writes[2]!.id), false));
+    session.receive(
+      next.peer,
+      emptyResponse(Number(next.writes[2]!.id), false),
+    );
     await fresh;
     assert.equal(next.writes.length, 3);
   } finally {

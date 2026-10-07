@@ -352,7 +352,8 @@ async function runPreparedEntry(
  * ended: with its exit code, or by re-raising the signal that killed it.
  * `afterClose` runs after direct child close, before the signal is re-raised.
  * Spawn errors retain their original outcome through that same close boundary.
- * An exit notification alone does not settle the child handles or output users.
+ * An exit notification alone does not settle the child handles or output
+ * users.
  */
 async function runProgram(
   args: readonly string[],

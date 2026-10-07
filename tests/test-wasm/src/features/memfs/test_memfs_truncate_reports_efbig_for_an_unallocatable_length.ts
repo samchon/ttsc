@@ -8,15 +8,15 @@ import { callMutation, expectFsError, openFd } from "../../internal/callbackFs";
  * Verifies path and descriptor truncation report a length too large to allocate
  * as `EFBIG` through the callback and leave the file untouched.
  *
- * Independently verify the engine refuses the last safe integer length and
- * the following unsafe integer with RangeError before MemFS translates those
- * same failures. Node's 64-bit typed-array limit permits 2^53 - 1 as a length;
- * that numeric upper bound does not promise allocation succeeds. Truncation
- * accepts both integers, unlike positioned writes' safe-integer end check.
+ * Independently verify the engine refuses the last safe integer length and the
+ * following unsafe integer with RangeError before MemFS translates those same
+ * failures. Node's 64-bit typed-array limit permits 2^53 - 1 as a length; that
+ * numeric upper bound does not promise allocation succeeds. Truncation accepts
+ * both integers, unlike positioned writes' safe-integer end check.
  *
  * 1. Seed `/t.txt`="abcdef" and open it for writing.
- * 2. Verify native allocation refusal, then truncate and ftruncate to those
- *    same 2^53 - 1 and 2^53 lengths.
+ * 2. Verify native allocation refusal, then truncate and ftruncate to those same
+ *    2^53 - 1 and 2^53 lengths.
  * 3. Read the file back, then truncate and ftruncate to a small accepted size.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls host.fs.truncate and host.fs.ftruncate with unallocatable integer lengths and observes the coded callback error, then re-reads the file to prove no resize happened.

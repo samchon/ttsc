@@ -778,7 +778,11 @@ export async function captureTransformGeneration(props: {
     // Diagnostics depend on the failed check's actual compiler generation too.
     // Its graph and universal observations retain the same proof obligations
     // as transformed output, including inputs outside root membership.
-    if (adopted !== undefined && state !== undefined && claim?.kind === "adopt") {
+    if (
+      adopted !== undefined &&
+      state !== undefined &&
+      claim?.kind === "adopt"
+    ) {
       TRANSFORM_ADOPTED_RESULTS.set(result, {
         refuted:
           adoptionFailure !== undefined ||

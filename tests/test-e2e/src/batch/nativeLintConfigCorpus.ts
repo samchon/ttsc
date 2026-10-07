@@ -12,7 +12,11 @@ import {
 } from "../internal/readE2eTraceMeasurements";
 import { readE2eTracePayload } from "../internal/readE2eTracePayload";
 import { BatchWorkspace } from "./BatchWorkspace";
-import { scriptConfigGraphCorpus, observeScriptConfigGraph, advanceScriptConfigGraph } from "./scriptConfigGraphCorpus";
+import {
+  advanceScriptConfigGraph,
+  observeScriptConfigGraph,
+  scriptConfigGraphCorpus,
+} from "./scriptConfigGraphCorpus";
 
 /**
  * Verifies typed contributor/config discovery and native CLI diagnostic
@@ -24,10 +28,10 @@ import { scriptConfigGraphCorpus, observeScriptConfigGraph, advanceScriptConfigG
  * correctly loaded rule value; this transfer does not certify cache reuse. The
  * CJS warning module also extends a pure format-only child. The first typed
  * command owns its exact fresh raw width; the later warning command may reuse
- * that unchanged evaluation without introducing another launcher. The
- * same CJS invocation resolves two missing absolute manifest mains through
- * their literal fallbacks and one owned main. Exact entry/watch observations,
- * owned directory/watch and filesystem-root exclusion preserve the original
+ * that unchanged evaluation without introducing another launcher. The same CJS
+ * invocation resolves two missing absolute manifest mains through their literal
+ * fallbacks and one owned main. Exact entry/watch observations, owned
+ * directory/watch and filesystem-root exclusion preserve the original
  * resolution graph boundary without a separate evaluator. A configured
  * observation sink is borrowed; otherwise the existing opt-in writer is enabled
  * only in these children with an owned trace-only allocation. No additional
@@ -64,9 +68,20 @@ export function nativeLintConfigCorpus(
     TestProject.tmpdir("ttsc-lint-loader-observations-");
   assert.ok(path.isAbsolute(traceRoot));
   fs.mkdirSync(traceRoot, { recursive: true });
-  scriptConfigGraphCorpus(workspace, traceRoot, (traces, location, rules, dependencies) => {
-    assertExecutableConfigRules(traces, traceRoot, location, rules, 1, dependencies);
-  });
+  scriptConfigGraphCorpus(
+    workspace,
+    traceRoot,
+    (traces, location, rules, dependencies) => {
+      assertExecutableConfigRules(
+        traces,
+        traceRoot,
+        location,
+        rules,
+        1,
+        dependencies,
+      );
+    },
+  );
   const config = path.join(root, "tsconfig.json");
   const typed = path.join(root, "lint.config.ts");
   const originalConfig = fs.readFileSync(config);
@@ -204,7 +219,7 @@ export function nativeLintConfigCorpus(
       const result = run();
       assert.equal(result.status, 2, result.stderr);
       assert.equal(result.stdout, "", result.stderr);
-      observeScriptConfigGraph(workspace,result.traces,"first");
+      observeScriptConfigGraph(workspace, result.traces, "first");
       const evaluated = assertExecutableConfigRules(
         result.traces,
         traceRoot,
@@ -431,7 +446,9 @@ export function nativeLintConfigCorpus(
           verificationErrors.push(new Error(name, { cause }));
         }
       };
-      verify("shared script graph mutation",()=>observeScriptConfigGraph(workspace,result.traces,"second"));
+      verify("shared script graph mutation", () =>
+        observeScriptConfigGraph(workspace, result.traces, "second"),
+      );
       const warningCounterStart = counterCursor;
       verify("warning raw rules", () => {
         assertExecutableConfigRules(
@@ -559,7 +576,10 @@ export function nativeLintConfigCorpus(
         );
       });
       if (verificationErrors.length !== 0)
-        throw new AggregateError(verificationErrors, "warning config observations");
+        throw new AggregateError(
+          verificationErrors,
+          "warning config observations",
+        );
     });
     if (!unresolved) {
       fs.writeFileSync(config, originalConfig);
@@ -689,9 +709,9 @@ export function nativeLintConfigCorpus(
  * successful dependency normalization; it does not infer values from sources or
  * run a second module evaluation. Rule-bearing exports require their literal
  * rules; a format-only export instead returns the same validated value for the
- * caller to compare as a complete object, without inventing a rules field.
- * The A-B-A input requires the owning cache's three uncached attempts; each
- * still binds its own child outcome and raw bytes. The optional observer reads
+ * caller to compare as a complete object, without inventing a rules field. The
+ * A-B-A input requires the owning cache's three uncached attempts; each still
+ * binds its own child outcome and raw bytes. The optional observer reads
  * dependencies from those same already captured bytes, without re-evaluation.
  */
 function assertExecutableConfigRules(
@@ -977,8 +997,8 @@ function assertUnstableConfigDependency(
  * The corpus enables its existing trace sink even without an ambient opt-in.
  * The containing entry identifies one actual descriptor runtime. Its child
  * close joins the launcher to the extractor's successful attempt/result; the
- * bounded aggregate retry limit is not a prescribed module execution count.
- * No descriptor evaluation is counted as a native inner-cache lookup or hidden.
+ * bounded aggregate retry limit is not a prescribed module execution count. No
+ * descriptor evaluation is counted as a native inner-cache lookup or hidden.
  */
 function assertConfigEvaluationCounter(
   counter: string,
@@ -1047,7 +1067,11 @@ function assertConfigEvaluationCounter(
       row.data?.filename === descriptorEntry &&
       rows.some((close): boolean => ownsDescriptorSource(row, close)),
   );
-  assert.equal(descriptorSources.length, 1, "one containing descriptor runtime");
+  assert.equal(
+    descriptorSources.length,
+    1,
+    "one containing descriptor runtime",
+  );
   const descriptorSource = descriptorSources[0];
   assert.ok(descriptorSource !== undefined);
   const descriptorPids: number[] = [];

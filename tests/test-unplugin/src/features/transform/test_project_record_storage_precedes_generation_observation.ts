@@ -3,10 +3,10 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createHostPathIdentityContext } from "../../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
 import { readProjectRecordFile } from "../../../../../packages/unplugin/src/core/bridge/readProjectRecordFile";
 import type { TtscCachedProjectTransform } from "../../../../../packages/unplugin/src/core/transform/cache/TtscCachedProjectTransform";
 import { transformFilesystem } from "../../../../../packages/unplugin/src/core/transform/cache/transformFilesystem";
+import { createHostPathIdentityContext } from "../../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
 import { nativeInputPredicateMatches } from "../../../../../packages/unplugin/src/core/transform/inputs/nativeInputPredicateMatches";
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
@@ -45,26 +45,46 @@ export async function test_project_record_storage_precedes_generation_observatio
     const bypassStorage = path.join(root, "bypassed");
     assert.equal(
       await fixture.api.transformTtsc(
-        fixture.file + "?raw", fixture.source, fixture.options, undefined,
-        fixture.cache, { project: { ...project, toolDirectory: bypassStorage } },
+        fixture.file + "?raw",
+        fixture.source,
+        fixture.options,
+        undefined,
+        fixture.cache,
+        { project: { ...project, toolDirectory: bypassStorage } },
       ),
       undefined,
     );
     assert.equal(fs.existsSync(bypassStorage), false);
     assert.equal(fs.existsSync(fallback), false);
     const delivery = fixture.api.transformTtsc(
-      fixture.file, fixture.source, fixture.options, undefined,
-      fixture.cache, { project },
+      fixture.file,
+      fixture.source,
+      fixture.options,
+      undefined,
+      fixture.cache,
+      { project },
     );
     // Before the first await can settle, all accepted parent locations exist.
-    assert.equal(fs.statSync(path.join(primary, "records")).isDirectory(), true);
-    assert.equal(fs.statSync(path.join(fallback, "records")).isDirectory(), true);
+    assert.equal(
+      fs.statSync(path.join(primary, "records")).isDirectory(),
+      true,
+    );
+    assert.equal(
+      fs.statSync(path.join(fallback, "records")).isDirectory(),
+      true,
+    );
     assert.deepEqual(fs.readdirSync(path.join(primary, "records")), []);
     assert.deepEqual(fs.readdirSync(path.join(fallback, "records")), []);
     assert.equal(fixture.cache.get(fixture.key), owner);
     const filesystem = transformFilesystem(fixture.cache);
     const identities = createHostPathIdentityContext(filesystem);
-    const rootMembers = [".fallback", ".ttsc", "node_modules", "src", "tsconfig.json"];
+    const rootMembers = [
+      ".fallback",
+      ".ttsc",
+      "node_modules",
+      "src",
+      "tsconfig.json",
+    ];
     assert.deepEqual(fs.readdirSync(root).sort(), rootMembers);
     const predicate = {
       version: 1 as const,
@@ -73,13 +93,21 @@ export async function test_project_record_storage_precedes_generation_observatio
       realpath: root,
       identityStable: true,
       digest: createHash("sha256")
-        .update(".fallback\0directory\0\0.ttsc\0directory\0\0node_modules\0directory\0\0src\0directory\0\0tsconfig.json\0file\0")
+        .update(
+          ".fallback\0directory\0\0.ttsc\0directory\0\0node_modules\0directory\0\0src\0directory\0\0tsconfig.json\0file\0",
+        )
         .digest("hex"),
     };
-    assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), true);
+    assert.equal(
+      nativeInputPredicateMatches(root, predicate, filesystem, identities),
+      true,
+    );
     const observed = observeValidationUnitGeneration(root, fixture.good.result);
     assert.deepEqual(fs.readdirSync(root).sort(), rootMembers);
-    assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), true);
+    assert.equal(
+      nativeInputPredicateMatches(root, predicate, filesystem, identities),
+      true,
+    );
     settle(observed);
     assert.equal((await delivery)?.code, fixture.code);
     assert.equal(fixture.cache.get(fixture.key), owner);
@@ -87,19 +115,34 @@ export async function test_project_record_storage_precedes_generation_observatio
     assert.equal(path.dirname(records[0]!), path.join(primary, "records"));
     assert.ok(readProjectRecordFile(records[0]!));
     assert.deepEqual(fs.readdirSync(root).sort(), rootMembers);
-    assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), true);
+    assert.equal(
+      nativeInputPredicateMatches(root, predicate, filesystem, identities),
+      true,
+    );
     const added = path.join(root, "added.ts");
     fs.writeFileSync(added, "export {};\n");
-    assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), false);
+    assert.equal(
+      nativeInputPredicateMatches(root, predicate, filesystem, identities),
+      false,
+    );
     fs.unlinkSync(added);
-    assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), true);
+    assert.equal(
+      nativeInputPredicateMatches(root, predicate, filesystem, identities),
+      true,
+    );
     const blocked = path.join(fallback, "blocked-record-storage");
     fs.writeFileSync(blocked, "not a directory\n");
     assert.equal(
-      (await fixture.api.transformTtsc(
-        fixture.file, fixture.source, fixture.options, undefined,
-        fixture.cache, { project: { ...project, toolDirectory: blocked } },
-      ))?.code,
+      (
+        await fixture.api.transformTtsc(
+          fixture.file,
+          fixture.source,
+          fixture.options,
+          undefined,
+          fixture.cache,
+          { project: { ...project, toolDirectory: blocked } },
+        )
+      )?.code,
       fixture.code,
     );
     assert.equal(records.length, 2);

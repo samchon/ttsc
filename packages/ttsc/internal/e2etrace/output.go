@@ -1,9 +1,9 @@
 package e2etrace
 
 import (
-	"crypto/sha256"
-	"fmt"
-	"os"
+  "crypto/sha256"
+  "fmt"
+  "os"
 )
 
 // Output preserves the caller's already captured stdout/stderr under the same
@@ -20,31 +20,31 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each actual command owns distinct output; equal bytes from another command do not establish this invocation's result.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Payload files are exclusively created and closed by the existing 256MiB-budgeted writer. This method acquires no process or stream handle and retains no caller buffer after return; saved payloads transfer to the coordinator. Failure can leave partial evidence and does not claim automatic reclamation.
 func (observation *Command) Output(stdout, stderr []byte, stdoutTruncated, stderrTruncated bool) {
-	defer func() { _ = recover() }()
-	if observation == nil || os.Getenv("TTSC_E2E_TRACE") == "" {
-		return
-	}
-	data := map[string]any{"stdoutTruncated": stdoutTruncated, "stderrTruncated": stderrTruncated}
-	pid := 0
-	if observation.cmd.Process != nil {
-		pid = observation.cmd.Process.Pid
-	}
-	for _, stream := range []struct {
-		name string
-		body []byte
-	}{{"stdout", stdout}, {"stderr", stderr}} {
-		raw, err := writeArtifactPayload(observation.invocation, stream.name, stream.body)
-		if err != nil {
-			data["outcome"] = "capture-failed"
-			data["error"] = err.Error()
-			writeEvent("integrity-failure", observation.invocation, pid, observation.cmd.Args, observation.cmd.Dir, data)
-			return
-		}
-		data[stream.name] = map[string]any{"raw": raw, "sha256": fmt.Sprintf("%x", sha256.Sum256(stream.body))}
-	}
-	data["outcome"] = "complete"
-	if stdoutTruncated || stderrTruncated {
-		data["outcome"] = "truncated"
-	}
-	writeEvent("process-output", observation.invocation, pid, observation.cmd.Args, observation.cmd.Dir, data)
+  defer func() { _ = recover() }()
+  if observation == nil || os.Getenv("TTSC_E2E_TRACE") == "" {
+    return
+  }
+  data := map[string]any{"stdoutTruncated": stdoutTruncated, "stderrTruncated": stderrTruncated}
+  pid := 0
+  if observation.cmd.Process != nil {
+    pid = observation.cmd.Process.Pid
+  }
+  for _, stream := range []struct {
+    name string
+    body []byte
+  }{{"stdout", stdout}, {"stderr", stderr}} {
+    raw, err := writeArtifactPayload(observation.invocation, stream.name, stream.body)
+    if err != nil {
+      data["outcome"] = "capture-failed"
+      data["error"] = err.Error()
+      writeEvent("integrity-failure", observation.invocation, pid, observation.cmd.Args, observation.cmd.Dir, data)
+      return
+    }
+    data[stream.name] = map[string]any{"raw": raw, "sha256": fmt.Sprintf("%x", sha256.Sum256(stream.body))}
+  }
+  data["outcome"] = "complete"
+  if stdoutTruncated || stderrTruncated {
+    data["outcome"] = "truncated"
+  }
+  writeEvent("process-output", observation.invocation, pid, observation.cmd.Args, observation.cmd.Dir, data)
 }

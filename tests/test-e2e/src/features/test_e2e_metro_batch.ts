@@ -91,12 +91,12 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * assertions. Missing capability instead requires fresh factory calls, explicit
  * incomplete proof and no reusable answer publication. Default maintenance
  * borrows one upfront normal package outside prior cache consumers; neither
- * runtime versions nor operating-system names select these assertions.
- * The existing scripted Go protocol producer also rewrites and restores its
- * selected launcher during every build. Its three bounded transactions must
- * all refuse publication; restoring the stable producer then permits recovery.
- * These repeated scripted commands share the original protocol project and
- * are distinct from actual native Go builds and resident Program receipts.
+ * runtime versions nor operating-system names select these assertions. The
+ * existing scripted Go protocol producer also rewrites and restores its
+ * selected launcher during every build. Its three bounded transactions must all
+ * refuse publication; restoring the stable producer then permits recovery.
+ * These repeated scripted commands share the original protocol project and are
+ * distinct from actual native Go builds and resident Program receipts.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.

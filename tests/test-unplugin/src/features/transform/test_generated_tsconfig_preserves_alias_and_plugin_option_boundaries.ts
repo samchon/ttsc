@@ -21,7 +21,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * stderr's exact own descriptor without resetting the reporter's private
  * state.
  *
- * 1. Read authored file and package presets and materialize their alias/plugin overlay.
+ * 1. Read authored file and package presets and materialize their alias/plugin
+ *    overlay.
  * 2. Assert inherited anchors, ordered payloads and separate override channels.
  * 3. Allocate scratch through native parent aliases and verify physical ownership
  *    and cleanup while restoring the exact temporary environment.

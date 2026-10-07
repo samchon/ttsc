@@ -7,8 +7,8 @@ import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
-import { runBuild } from "./build/runBuild";
 import { PrivateCompilerOutput } from "./PrivateCompilerOutput";
+import { runBuild } from "./build/runBuild";
 import { buildNativeCompiler } from "./buildNativeCompiler";
 import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
@@ -28,7 +28,8 @@ import { spawnNative } from "./spawnNative";
  * present the plugin path goes through `runBuild` into a temp directory and
  * reads the files back from disk. Independent recovery checks use the same
  * private destinations, with a separate incremental-state file that is not an
- * emitted API artifact. Actual emission state remains in returned partial output.
+ * emitted API artifact. Actual emission state remains in returned partial
+ * output.
  *
  * A native response must contain a string-valued output record. Plugin output
  * storage removal is attempted before returning. If removal also fails after a
@@ -166,8 +167,13 @@ function compileProjectWithPlugins(
       tsconfig: project.path,
     });
     outcome = {
-      output: PrivateCompilerOutput.read(project, tempRoot, layout.originalPath,
-        layout.destinations.tsBuildInfoFile, layout.destinations.diagnosticsTsBuildInfoFile),
+      output: PrivateCompilerOutput.read(
+        project,
+        tempRoot,
+        layout.originalPath,
+        layout.destinations.tsBuildInfoFile,
+        layout.destinations.diagnosticsTsBuildInfoFile,
+      ),
       result,
     };
     return outcome;

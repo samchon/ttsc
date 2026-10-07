@@ -107,7 +107,10 @@ export async function transformProject(props: {
   /** Native plugin descriptors supplied to the compiler. */
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
 
-  /** Explicit common source root; omitted direct callers use the config directory. */
+  /**
+   * Explicit common source root; omitted direct callers use the config
+   * directory.
+   */
   projectRoot?: string;
 
   /** Whether live membership observers may transfer to a retained generation. */

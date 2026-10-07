@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 
-import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
+import {
+  admitted,
+  assertRetired,
+  emptyResponse,
+  sessionState,
+} from "./internal/sessionState";
 
 /**
  * Verifies shared refresh failure and shutdown settle all live callers once.
@@ -24,8 +29,12 @@ export async function test_ttscgraph_shared_check_failure_and_close_settle_every
     void second.catch(() => undefined);
     const port = await admitted(ports);
     session.receive(port.peer, {
-      id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "error",
-      changed: false, capabilities: [], error: "authored load failure",
+      id: Number(port.writes[0]!.id),
+      protocolVersion: 1,
+      mode: "error",
+      changed: false,
+      capabilities: [],
+      error: "authored load failure",
     });
     await assert.rejects(first, /authored load failure/);
     await assert.rejects(second, /authored load failure/);

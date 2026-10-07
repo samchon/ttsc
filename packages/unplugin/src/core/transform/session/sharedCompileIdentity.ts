@@ -8,8 +8,8 @@ import { unpluginVersion } from "./unpluginVersion";
  * Hex digest of what a whole-project compile is, apart from the files it reads
  * (samchon/ttsc#1390).
  *
- * The ordered JSON tuple groups sharing candidates by spelled config and source root,
- * serialized compiler-option/alias/plugin payloads, reported versions and
+ * The ordered JSON tuple groups sharing candidates by spelled config and source
+ * root, serialized compiler-option/alias/plugin payloads, reported versions and
  * binary platform. Supported option values must preserve their meaning through
  * JSON; omitted or unsupported JavaScript values are not independent key
  * dimensions. This is a truncated digest, not a complete filesystem or output

@@ -229,17 +229,29 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
       lifecycle.configure(settled);
       settled.server.watch = null;
       lifecycle.start(first);
-      assert.equal(lifecycle.watching, false, "later config hooks disable serve watching");
+      assert.equal(
+        lifecycle.watching,
+        false,
+        "later config hooks disable serve watching",
+      );
       assert.equal(lifecycle.usePolling, false);
       lifecycle.end(first);
       settled.server.watch = { usePolling: true };
       lifecycle.start(first);
-      assert.equal(lifecycle.watching, true, "the next container reads its current watch options");
+      assert.equal(
+        lifecycle.watching,
+        true,
+        "the next container reads its current watch options",
+      );
       assert.equal(lifecycle.usePolling, true);
       lifecycle.end(first);
       settled.server.watch = {};
       lifecycle.start(first);
-      assert.equal(lifecycle.usePolling, false, "native watching withdraws the previous polling declaration");
+      assert.equal(
+        lifecycle.usePolling,
+        false,
+        "native watching withdraws the previous polling declaration",
+      );
       lifecycle.end(first);
       settled.command = "build";
       lifecycle.configure(settled);
@@ -254,7 +266,11 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
       lifecycle.start(first);
       assert.equal(lifecycle.buildWatching, false);
       lifecycle.end(first);
-      assert.equal(scheduled.size, 1, "late watch removal releases ordinary build grace");
+      assert.equal(
+        scheduled.size,
+        1,
+        "late watch removal releases ordinary build grace",
+      );
       runIdle();
       assert.equal(fixture.cache.size, 0);
 

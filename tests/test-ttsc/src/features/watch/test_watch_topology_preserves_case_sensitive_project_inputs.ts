@@ -16,8 +16,8 @@ import { prepareCaseSensitiveFixture } from "../../../../utils/src/prepareCaseSe
 /**
  * Verifies authored case-sensitive project declarations with actual identities.
  *
- * Native capability preparation preserves case-only twins when representable.
- * A refused collision proves identity and bytes remain unchanged; distinct-name
+ * Native capability preparation preserves case-only twins when representable. A
+ * refused collision proves identity and bytes remain unchanged; distinct-name
  * recovery still exercises the complete input and output role sequence.
  *
  * 1. Establish the required native case-distinct physical paths.
@@ -52,14 +52,21 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     const externalParent = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-project-input-case-external-"),
     );
-    const { directory: external, caseDistinct } = prepareCaseSensitiveFixture(externalParent);
+    const { directory: external, caseDistinct } =
+      prepareCaseSensitiveFixture(externalParent);
     const upperRoot = path.join(external, "Project");
-    const lowerRoot = path.join(external, caseDistinct ? "project" : "declared-project");
+    const lowerRoot = path.join(
+      external,
+      caseDistinct ? "project" : "declared-project",
+    );
     fs.mkdirSync(upperRoot);
     fs.mkdirSync(lowerRoot);
     assert.notEqual(realpath(upperRoot), realpath(lowerRoot));
     const upperApi = path.join(upperRoot, "Api");
-    const lowerApi = path.join(upperRoot, caseDistinct ? "api" : "declared-api");
+    const lowerApi = path.join(
+      upperRoot,
+      caseDistinct ? "api" : "declared-api",
+    );
     fs.mkdirSync(upperApi);
     fs.mkdirSync(lowerApi);
     assert.notEqual(realpath(upperApi), realpath(lowerApi));

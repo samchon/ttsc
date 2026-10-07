@@ -16,8 +16,8 @@ import { prepareCaseSensitiveFixture } from "../../../../utils/src/prepareCaseSe
 /**
  * Verifies authored case-sensitive project declarations with actual identities.
  *
- * Native capability preparation preserves case-only twins when representable.
- * A refused collision proves identity and bytes remain unchanged; distinct-name
+ * Native capability preparation preserves case-only twins when representable. A
+ * refused collision proves identity and bytes remain unchanged; distinct-name
  * recovery still exercises the complete input and output role sequence.
  *
  * 1. Create the original case-distinct physical paths under measured capabilities.
@@ -41,9 +41,13 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     const externalParent = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-project-input-output-external-"),
     );
-    const { directory: external, caseDistinct } = prepareCaseSensitiveFixture(externalParent);
+    const { directory: external, caseDistinct } =
+      prepareCaseSensitiveFixture(externalParent);
     const outputRoot = path.join(external, "Output");
-    const inputRoot = path.join(external, caseDistinct ? "output" : "declared-input");
+    const inputRoot = path.join(
+      external,
+      caseDistinct ? "output" : "declared-input",
+    );
     fs.mkdirSync(outputRoot);
     fs.mkdirSync(inputRoot);
     assert.notEqual(realpath(outputRoot), realpath(inputRoot));
@@ -52,7 +56,10 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     const { directory: exactDirectory, caseDistinct: exactCaseDistinct } =
       prepareCaseSensitiveFixture(exactRoot);
     const exactOutput = path.join(exactDirectory, "State.json");
-    const exactInput = path.join(exactDirectory, exactCaseDistinct ? "state.json" : "declared-input.json");
+    const exactInput = path.join(
+      exactDirectory,
+      exactCaseDistinct ? "state.json" : "declared-input.json",
+    );
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       JSON.stringify({

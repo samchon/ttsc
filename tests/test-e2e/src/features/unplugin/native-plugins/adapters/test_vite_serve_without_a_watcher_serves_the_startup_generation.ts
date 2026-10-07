@@ -19,15 +19,14 @@ const viteCreateServer =
  * (samchon/ttsc#1260) settles each module's first delivery against the
  * generation the session started from. The watching twin keeps the opposite
  * verdict through the actual generation selector unit and the shared native
- * pool changed-input epoch.
- * The prepared scenario selects a backend config with sibling src files under
- * an explicit common root. Its banner config stays relative to the backend,
- * proving that source-root selection does not move plugin config discovery.
- * Vite retains legal comments so its downstream transform keeps that proof
- * observable in the delivered module.
+ * pool changed-input epoch. The prepared scenario selects a backend config with
+ * sibling src files under an explicit common root. Its banner config stays
+ * relative to the backend, proving that source-root selection does not move
+ * plugin config discovery. Vite retains legal comments so its downstream
+ * transform keeps that proof observable in the delivered module.
  *
- * 1. Let a later configResolved hook disable watching, then request the entry
- *    from the middleware-mode dev server.
+ * 1. Let a later configResolved hook disable watching, then request the entry from
+ *    the middleware-mode dev server.
  * 2. Break the entry module on disk.
  * 3. Request a module not yet served and assert it comes from the starting
  *    generation.
@@ -56,7 +55,10 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
   ];
   const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins });
   if (preparedRoot !== undefined) {
-    plugins.unshift({ transform: "@ttsc/banner", configFile: "../banner.config.json" });
+    plugins.unshift({
+      transform: "@ttsc/banner",
+      configFile: "../banner.config.json",
+    });
     const config = path.join(root, "tsconfig.json");
     const document = JSON.parse(fs.readFileSync(config, "utf8"));
     document.compilerOptions.plugins = plugins;
@@ -76,10 +78,14 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
     esbuild: { legalComments: "inline" },
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [
-      unpluginVite(preparedRoot === undefined ? {} : {
-        project: path.join(viteRoot, "backend/tsconfig.json"),
-        projectRoot: viteRoot,
-      }),
+      unpluginVite(
+        preparedRoot === undefined
+          ? {}
+          : {
+              project: path.join(viteRoot, "backend/tsconfig.json"),
+              projectRoot: viteRoot,
+            },
+      ),
       {
         name: "disable-watch-after-ttsc-resolution",
         enforce: "post",

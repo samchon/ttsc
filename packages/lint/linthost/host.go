@@ -10,26 +10,26 @@
 package linthost
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync/atomic"
+  "context"
+  "errors"
+  "fmt"
+  "os"
+  "path/filepath"
+  "strings"
+  "sync/atomic"
 
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	"github.com/microsoft/typescript-go/shim/bundled"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
-	shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
-	shimcore "github.com/microsoft/typescript-go/shim/core"
-	"github.com/microsoft/typescript-go/shim/tsoptions"
-	shimtspath "github.com/microsoft/typescript-go/shim/tspath"
-	"github.com/microsoft/typescript-go/shim/vfs"
-	"github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
-	"github.com/microsoft/typescript-go/shim/vfs/osvfs"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/microsoft/typescript-go/shim/bundled"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  "github.com/microsoft/typescript-go/shim/tsoptions"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+  "github.com/microsoft/typescript-go/shim/vfs"
+  "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
+  "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 
-	publicrule "github.com/samchon/ttsc/packages/lint/rule"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 var programLifecycleSequence atomic.Uint64
@@ -42,47 +42,47 @@ const semanticConfigPathEnv = "TTSC_SEMANTIC_CONFIG_PATH"
 // program bundles the tsgo Program with the parsed config and the standalone
 // checker used only by type-aware lint rules.
 type program struct {
-	cwd           string
-	inputObserver *inputObservationFS
-	inputReader   *projectInputReader
-	configInputs  []configDependencyFingerprint
-	tsProgram     *shimcompiler.Program
-	parsed        *tsoptions.ParsedCommandLine
-	checker       *shimchecker.Checker
-	identity      publicrule.ProjectIdentity
-	projectCycle  *projectCycle
-	// projectRoots memoizes projectSourceFileNames, which resolves every
-	// selected file's path and therefore costs filesystem work. The tsconfig
-	// selection cannot change while one program is loaded — a config edit or a
-	// new or removed file forces a full reload upstream rather than an
-	// applyChange — while every read and every write consults the set at least
-	// once per cycle, and a fix or format cascade repeats that per pass. Filled
-	// lazily under the same single-threaded assumption projectCycle already
-	// makes, and read-only to its callers.
-	projectRoots map[string]struct{}
+  cwd           string
+  inputObserver *inputObservationFS
+  inputReader   *projectInputReader
+  configInputs  []configDependencyFingerprint
+  tsProgram     *shimcompiler.Program
+  parsed        *tsoptions.ParsedCommandLine
+  checker       *shimchecker.Checker
+  identity      publicrule.ProjectIdentity
+  projectCycle  *projectCycle
+  // projectRoots memoizes projectSourceFileNames, which resolves every
+  // selected file's path and therefore costs filesystem work. The tsconfig
+  // selection cannot change while one program is loaded — a config edit or a
+  // new or removed file forces a full reload upstream rather than an
+  // applyChange — while every read and every write consults the set at least
+  // once per cycle, and a fix or format cascade repeats that per pass. Filled
+  // lazily under the same single-threaded assumption projectCycle already
+  // makes, and read-only to its callers.
+  projectRoots map[string]struct{}
 }
 
 type loadProgramOptions struct {
-	observeInputs      bool
-	forceEmit          bool
-	forceNoEmit        bool
-	outDir             string
-	semanticConfigPath string
-	// needsRuleChecker asks loadProgram to create the standalone checker that
-	// type-aware lint rules receive through Context.Checker.
-	needsRuleChecker bool
-	// singleThreaded mirrors `tsgo --singleThreaded`: one checker, serial
-	// parse/check/emit.
-	singleThreaded bool
-	// checkers mirrors `tsgo --checkers`: type-checker pool size. Zero leaves
-	// TypeScript-Go's default; ignored when singleThreaded is set.
-	checkers int
-	// tsgoArgs carries tsgo CLI flags the `ttsc` launcher forwarded (`--strict`,
-	// `--target es2020`, …). They are parsed through TypeScript-Go's own
-	// command-line parser into a CompilerOptions overlay that wins over the
-	// tsconfig, exactly as tsgo's CLI merges them.
-	tsgoArgs        []string
-	projectIdentity publicrule.ProjectIdentity
+  observeInputs      bool
+  forceEmit          bool
+  forceNoEmit        bool
+  outDir             string
+  semanticConfigPath string
+  // needsRuleChecker asks loadProgram to create the standalone checker that
+  // type-aware lint rules receive through Context.Checker.
+  needsRuleChecker bool
+  // singleThreaded mirrors `tsgo --singleThreaded`: one checker, serial
+  // parse/check/emit.
+  singleThreaded bool
+  // checkers mirrors `tsgo --checkers`: type-checker pool size. Zero leaves
+  // TypeScript-Go's default; ignored when singleThreaded is set.
+  checkers int
+  // tsgoArgs carries tsgo CLI flags the `ttsc` launcher forwarded (`--strict`,
+  // `--target es2020`, …). They are parsed through TypeScript-Go's own
+  // command-line parser into a CompilerOptions overlay that wins over the
+  // tsconfig, exactly as tsgo's CLI merges them.
+  tsgoArgs        []string
+  projectIdentity publicrule.ProjectIdentity
 }
 
 // loadProgram parses the given tsconfig and builds a Program. When
@@ -93,171 +93,171 @@ type loadProgramOptions struct {
 // before the program is created so `--noEmit` and friends behave like
 // they do in `ttsc check`.
 func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program, []*shimast.Diagnostic, error) {
-	if !filepath.IsAbs(cwd) {
-		abs, err := filepath.Abs(cwd)
-		if err != nil {
-			return nil, nil, fmt.Errorf("loadProgram: cwd: %w", err)
-		}
-		cwd = abs
-	}
-	resolved := tsconfigPath
-	if !filepath.IsAbs(resolved) {
-		resolved = filepath.Join(cwd, resolved)
-	}
+  if !filepath.IsAbs(cwd) {
+    abs, err := filepath.Abs(cwd)
+    if err != nil {
+      return nil, nil, fmt.Errorf("loadProgram: cwd: %w", err)
+    }
+    cwd = abs
+  }
+  resolved := tsconfigPath
+  if !filepath.IsAbs(resolved) {
+    resolved = filepath.Join(cwd, resolved)
+  }
 
-	var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
-	var observer *inputObservationFS
-	var reader *projectInputReader
-	if options.observeInputs {
-		observer = newInputObservationFS(fs)
-		reader = newProjectInputReader(observer)
-		fs = observer
-	}
-	host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
+  var fs vfs.FS = bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+  var observer *inputObservationFS
+  var reader *projectInputReader
+  if options.observeInputs {
+    observer = newInputObservationFS(fs)
+    reader = newProjectInputReader(observer)
+    fs = observer
+  }
+  host := shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 
-	commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
-	if len(cliDiags) > 0 {
-		return nil, cliDiags, nil
-	}
+  commandLine, cliDiags := parseTsgoArgs(options.tsgoArgs, host)
+  if len(cliDiags) > 0 {
+    return nil, cliDiags, nil
+  }
 
-	// The options the command line spelled out go beside the merged ones, as
-	// TypeScript-Go's own command line passes them, so a forwarded reset such as
-	// `--declarationDir null` overrides the config instead of vanishing.
-	cliOptions := commandLine.CompilerOptions()
-	if cliOptions == nil {
-		cliOptions = &shimcore.CompilerOptions{}
-	}
-	parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
-		resolved,
-		cliOptions,
-		tsoptions.CommandLineRawOptions(commandLine),
-		host,
-		nil,
-	)
-	if parsed == nil {
-		return nil, nil, fmt.Errorf("tsoptions: parsed command line was nil for %s", resolved)
-	}
-	if len(parseDiags) > 0 {
-		return nil, parseDiags, nil
-	}
-	if len(parsed.Errors) > 0 {
-		return nil, parsed.Errors, nil
-	}
-	if err := applySemanticConfigPath(parsed, options.semanticConfigPath); err != nil {
-		return nil, nil, err
-	}
-	if options.forceNoEmit {
-		forceNoEmit(parsed)
-	}
-	if options.forceEmit {
-		forceEmit(parsed)
-	}
-	if options.outDir != "" {
-		overrideOutDir(cwd, parsed, options.outDir)
-	}
-	applyThreading(parsed, options.singleThreaded, options.checkers)
+  // The options the command line spelled out go beside the merged ones, as
+  // TypeScript-Go's own command line passes them, so a forwarded reset such as
+  // `--declarationDir null` overrides the config instead of vanishing.
+  cliOptions := commandLine.CompilerOptions()
+  if cliOptions == nil {
+    cliOptions = &shimcore.CompilerOptions{}
+  }
+  parsed, parseDiags := tsoptions.GetParsedCommandLineOfConfigFile(
+    resolved,
+    cliOptions,
+    tsoptions.CommandLineRawOptions(commandLine),
+    host,
+    nil,
+  )
+  if parsed == nil {
+    return nil, nil, fmt.Errorf("tsoptions: parsed command line was nil for %s", resolved)
+  }
+  if len(parseDiags) > 0 {
+    return nil, parseDiags, nil
+  }
+  if len(parsed.Errors) > 0 {
+    return nil, parsed.Errors, nil
+  }
+  if err := applySemanticConfigPath(parsed, options.semanticConfigPath); err != nil {
+    return nil, nil, err
+  }
+  if options.forceNoEmit {
+    forceNoEmit(parsed)
+  }
+  if options.forceEmit {
+    forceEmit(parsed)
+  }
+  if options.outDir != "" {
+    overrideOutDir(cwd, parsed, options.outDir)
+  }
+  applyThreading(parsed, options.singleThreaded, options.checkers)
 
-	// Keep the user's checker pool intact for parallel semantic diagnostics.
-	// Type-aware lint rules cannot borrow one member of that pool: they walk
-	// every source file through a single Context.Checker, while TypeScript-Go
-	// affinitizes files to different pool members and forbids mixing their type
-	// graphs. Instead, lint owns a standalone checker over the same Program.
-	// Every lint type is then produced by one checker, while the Program's pool
-	// remains free to check its file groups in parallel. The engine serializes
-	// type-aware walks, so this dedicated checker is never accessed concurrently.
-	tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
-		Config:                      parsed,
-		Host:                        host,
-		UseSourceOfProjectReference: true,
-	})
-	if tsProgram == nil {
-		return nil, nil, errors.New("compiler.NewProgram returned nil")
-	}
-	var checker *shimchecker.Checker
-	if options.needsRuleChecker {
-		checker, _ = shimchecker.NewChecker(tsProgram, nil)
-	}
-	return &program{
-		cwd:           cwd,
-		inputObserver: observer,
-		inputReader:   reader,
-		tsProgram:     tsProgram,
-		parsed:        parsed,
-		checker:       checker,
-		identity:      normalizeProjectIdentity(options.projectIdentity, cwd, resolved),
-	}, nil, nil
+  // Keep the user's checker pool intact for parallel semantic diagnostics.
+  // Type-aware lint rules cannot borrow one member of that pool: they walk
+  // every source file through a single Context.Checker, while TypeScript-Go
+  // affinitizes files to different pool members and forbids mixing their type
+  // graphs. Instead, lint owns a standalone checker over the same Program.
+  // Every lint type is then produced by one checker, while the Program's pool
+  // remains free to check its file groups in parallel. The engine serializes
+  // type-aware walks, so this dedicated checker is never accessed concurrently.
+  tsProgram := shimcompiler.NewProgram(shimcompiler.ProgramOptions{
+    Config:                      parsed,
+    Host:                        host,
+    UseSourceOfProjectReference: true,
+  })
+  if tsProgram == nil {
+    return nil, nil, errors.New("compiler.NewProgram returned nil")
+  }
+  var checker *shimchecker.Checker
+  if options.needsRuleChecker {
+    checker, _ = shimchecker.NewChecker(tsProgram, nil)
+  }
+  return &program{
+    cwd:           cwd,
+    inputObserver: observer,
+    inputReader:   reader,
+    tsProgram:     tsProgram,
+    parsed:        parsed,
+    checker:       checker,
+    identity:      normalizeProjectIdentity(options.projectIdentity, cwd, resolved),
+  }, nil, nil
 }
 
 func applySemanticConfigPath(parsed *tsoptions.ParsedCommandLine, semanticConfigPath string) error {
-	configured := strings.TrimSpace(semanticConfigPath)
-	if configured == "" {
-		return nil
-	}
-	if !filepath.IsAbs(configured) {
-		return fmt.Errorf("linthost: semantic config path must be absolute: %s", configured)
-	}
-	parsed.ParsedConfig.CompilerOptions.ConfigFilePath = shimtspath.ResolvePath(configured)
-	return nil
+  configured := strings.TrimSpace(semanticConfigPath)
+  if configured == "" {
+    return nil
+  }
+  if !filepath.IsAbs(configured) {
+    return fmt.Errorf("linthost: semantic config path must be absolute: %s", configured)
+  }
+  parsed.ParsedConfig.CompilerOptions.ConfigFilePath = shimtspath.ResolvePath(configured)
+  return nil
 }
 
 func normalizeProjectIdentity(
-	identity publicrule.ProjectIdentity,
-	cwd string,
-	configPath string,
+  identity publicrule.ProjectIdentity,
+  cwd string,
+  configPath string,
 ) publicrule.ProjectIdentity {
-	if identity.InvocationCwd == "" {
-		identity.InvocationCwd = cwd
-	}
-	if identity.LogicalConfigPath == "" {
-		identity.LogicalConfigPath = absoluteProjectPath(identity.InvocationCwd, configPath)
-	}
-	if identity.LogicalProjectRoot == "" {
-		identity.LogicalProjectRoot = filepath.Dir(identity.LogicalConfigPath)
-	}
-	if identity.PhysicalConfigPath == "" {
-		identity.PhysicalConfigPath = realProjectPath(absoluteProjectPath(cwd, configPath))
-	}
-	if identity.PhysicalProjectRoot == "" {
-		identity.PhysicalProjectRoot = realProjectPath(cwd)
-	}
-	if identity.PluginConfigOrigin == "" {
-		if origin := os.Getenv("TTSC_PLUGIN_CONFIG_DIR"); origin != "" {
-			identity.PluginConfigOrigin = absoluteProjectPath(identity.InvocationCwd, origin)
-		}
-	}
-	identity.LifecycleID = fmt.Sprintf(
-		"%d:%d",
-		os.Getpid(),
-		programLifecycleSequence.Add(1),
-	)
-	return identity
+  if identity.InvocationCwd == "" {
+    identity.InvocationCwd = cwd
+  }
+  if identity.LogicalConfigPath == "" {
+    identity.LogicalConfigPath = absoluteProjectPath(identity.InvocationCwd, configPath)
+  }
+  if identity.LogicalProjectRoot == "" {
+    identity.LogicalProjectRoot = filepath.Dir(identity.LogicalConfigPath)
+  }
+  if identity.PhysicalConfigPath == "" {
+    identity.PhysicalConfigPath = realProjectPath(absoluteProjectPath(cwd, configPath))
+  }
+  if identity.PhysicalProjectRoot == "" {
+    identity.PhysicalProjectRoot = realProjectPath(cwd)
+  }
+  if identity.PluginConfigOrigin == "" {
+    if origin := os.Getenv("TTSC_PLUGIN_CONFIG_DIR"); origin != "" {
+      identity.PluginConfigOrigin = absoluteProjectPath(identity.InvocationCwd, origin)
+    }
+  }
+  identity.LifecycleID = fmt.Sprintf(
+    "%d:%d",
+    os.Getpid(),
+    programLifecycleSequence.Add(1),
+  )
+  return identity
 }
 
 func absoluteProjectPath(cwd string, target string) string {
-	if filepath.IsAbs(target) {
-		return filepath.Clean(target)
-	}
-	return filepath.Clean(filepath.Join(cwd, target))
+  if filepath.IsAbs(target) {
+    return filepath.Clean(target)
+  }
+  return filepath.Clean(filepath.Join(cwd, target))
 }
 
 func realProjectPath(target string) string {
-	original := filepath.Clean(target)
-	resolved := original
-	seen := make(map[string]struct{})
-	for range 255 {
-		key := filepath.Clean(resolved)
-		if _, exists := seen[key]; exists {
-			return original
-		}
-		seen[key] = struct{}{}
+  original := filepath.Clean(target)
+  resolved := original
+  seen := make(map[string]struct{})
+  for range 255 {
+    key := filepath.Clean(resolved)
+    if _, exists := seen[key]; exists {
+      return original
+    }
+    seen[key] = struct{}{}
 
-		next, ok := resolveProjectPathAncestor(resolved)
-		if !ok {
-			return filepath.Clean(resolved)
-		}
-		resolved = next
-	}
-	return original
+    next, ok := resolveProjectPathAncestor(resolved)
+    if !ok {
+      return filepath.Clean(resolved)
+    }
+    resolved = next
+  }
+  return original
 }
 
 // resolveProjectPathAncestor resolves the nearest existing or symlink-like
@@ -267,45 +267,45 @@ func realProjectPath(target string) string {
 // os.Readlink while EvalSymlinks either leaves them unchanged or fails on their
 // children, so both resolution paths are retained.
 func resolveProjectPathAncestor(target string) (string, bool) {
-	original := filepath.Clean(target)
-	probe := original
-	suffix := make([]string, 0)
-	evaluateAncestor := true
-	for {
-		if evaluateAncestor {
-			if evaluated, err := filepath.EvalSymlinks(probe); err == nil {
-				// EvalSymlinks resolves the probe's complete ancestry. If it leaves
-				// the spelling unchanged, retrying it on every parent cannot reveal
-				// anything new; retain only the os.Readlink walk for junctions that
-				// EvalSymlinks does not expose.
-				evaluateAncestor = false
-				candidate := filepath.Clean(evaluated)
-				for i := len(suffix) - 1; i >= 0; i-- {
-					candidate = filepath.Join(candidate, suffix[i])
-				}
-				candidate = filepath.Clean(candidate)
-				if candidate != original {
-					return candidate, true
-				}
-			}
-		}
-		if _, err := os.Readlink(probe); err == nil {
-			destination := resolveDirLink(probe)
-			for i := len(suffix) - 1; i >= 0; i-- {
-				destination = filepath.Join(destination, suffix[i])
-			}
-			destination = filepath.Clean(destination)
-			if destination != original {
-				return destination, true
-			}
-		}
-		parent := filepath.Dir(probe)
-		if parent == probe {
-			return "", false
-		}
-		suffix = append(suffix, filepath.Base(probe))
-		probe = parent
-	}
+  original := filepath.Clean(target)
+  probe := original
+  suffix := make([]string, 0)
+  evaluateAncestor := true
+  for {
+    if evaluateAncestor {
+      if evaluated, err := filepath.EvalSymlinks(probe); err == nil {
+        // EvalSymlinks resolves the probe's complete ancestry. If it leaves
+        // the spelling unchanged, retrying it on every parent cannot reveal
+        // anything new; retain only the os.Readlink walk for junctions that
+        // EvalSymlinks does not expose.
+        evaluateAncestor = false
+        candidate := filepath.Clean(evaluated)
+        for i := len(suffix) - 1; i >= 0; i-- {
+          candidate = filepath.Join(candidate, suffix[i])
+        }
+        candidate = filepath.Clean(candidate)
+        if candidate != original {
+          return candidate, true
+        }
+      }
+    }
+    if _, err := os.Readlink(probe); err == nil {
+      destination := resolveDirLink(probe)
+      for i := len(suffix) - 1; i >= 0; i-- {
+        destination = filepath.Join(destination, suffix[i])
+      }
+      destination = filepath.Clean(destination)
+      if destination != original {
+        return destination, true
+      }
+    }
+    parent := filepath.Dir(probe)
+    if parent == probe {
+      return "", false
+    }
+    suffix = append(suffix, filepath.Base(probe))
+    probe = parent
+  }
 }
 
 // runProjectCycle evaluates the project rules alone and returns the cycle,
@@ -316,20 +316,20 @@ func resolveProjectPathAncestor(target string) (string, bool) {
 // memo use the same evaluation cycle; resident acquire resets it before a new
 // request so that request evaluates its own engine settings.
 func (p *program) runProjectCycle(engine *Engine) *projectCycle {
-	if p == nil || engine == nil {
-		return nil
-	}
-	if p.projectCycle == nil {
-		p.projectCycle = engine.evaluateProject(p.identity, p.userSourceFiles(), p.checker)
-	}
-	return p.projectCycle
+  if p == nil || engine == nil {
+    return nil
+  }
+  if p.projectCycle == nil {
+    p.projectCycle = engine.evaluateProject(p.identity, p.userSourceFiles(), p.checker)
+  }
+  return p.projectCycle
 }
 
 // runLintCycle walks everything the invocation reads: the project's own sources
 // and the TypeScript it imported. Every caller here reports its findings, so a
 // source the type-check pass read must be able to produce one.
 func (p *program) runLintCycle(engine *Engine) []*Finding {
-	return p.runCycleOver(engine, p.userSourceFiles())
+  return p.runCycleOver(engine, p.userSourceFiles())
 }
 
 // runWriteScopedCycle walks the project's own sources alone. It serves the
@@ -342,7 +342,7 @@ func (p *program) runLintCycle(engine *Engine) []*Finding {
 // command discards. Scope is enforced by what these commands read rather than
 // by filtering afterwards, which leaves projectWritableFindings to `fix` alone.
 func (p *program) runWriteScopedCycle(engine *Engine) []*Finding {
-	return p.runCycleOver(engine, p.projectSourceFiles())
+  return p.runCycleOver(engine, p.projectSourceFiles())
 }
 
 // runDocumentWriteScopedCycle preserves the project's complete project-rule
@@ -353,14 +353,14 @@ func (p *program) runWriteScopedCycle(engine *Engine) []*Finding {
 // Each cascade pass has a fresh Program and cycle, so fixes never reuse a
 // project result from the preceding document state.
 func (p *program) runDocumentWriteScopedCycle(engine *Engine, target *shimast.SourceFile) []*Finding {
-	if p == nil || engine == nil || target == nil {
-		return nil
-	}
-	if p.projectCycle == nil {
-		p.projectCycle = engine.evaluateProject(p.identity, p.projectSourceFiles(), p.checker, p.projectInputReaders()...)
-	}
-	fileFindings := engine.runFiles([]*shimast.SourceFile{target}, p.checker, p.projectCycle.results, p.cwd)
-	return append(p.projectCycle.finalize(), fileFindings...)
+  if p == nil || engine == nil || target == nil {
+    return nil
+  }
+  if p.projectCycle == nil {
+    p.projectCycle = engine.evaluateProject(p.identity, p.projectSourceFiles(), p.checker, p.projectInputReaders()...)
+  }
+  fileFindings := engine.runFiles([]*shimast.SourceFile{target}, p.checker, p.projectCycle.results, p.cwd)
+  return append(p.projectCycle.finalize(), fileFindings...)
 }
 
 // runCycleOver evaluates the project rules and the file rules over one file set,
@@ -372,42 +372,42 @@ func (p *program) runDocumentWriteScopedCycle(engine *Engine, target *shimast.So
 // mix lint and write scopes while retaining it; a new resident request resets
 // the memo before selecting its scope over the reused Program.
 func (p *program) runCycleOver(engine *Engine, files []*shimast.SourceFile) []*Finding {
-	if p == nil || engine == nil {
-		return nil
-	}
-	if p.projectCycle == nil {
-		p.projectCycle = engine.evaluateProject(p.identity, files, p.checker, p.projectInputReaders()...)
-	}
-	fileFindings := engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)
-	return append(p.projectCycle.finalize(), fileFindings...)
+  if p == nil || engine == nil {
+    return nil
+  }
+  if p.projectCycle == nil {
+    p.projectCycle = engine.evaluateProject(p.identity, files, p.checker, p.projectInputReaders()...)
+  }
+  fileFindings := engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)
+  return append(p.projectCycle.finalize(), fileFindings...)
 }
 
 // close drops the standalone lint checker. Safe to call on a nil receiver and
 // idempotent after the first call.
 func (p *program) close() {
-	if p == nil {
-		return
-	}
-	p.checker = nil
+  if p == nil {
+    return
+  }
+  p.checker = nil
 }
 
 // sourceFileByPath returns the resident Program's source file whose name matches
 // absPath (slash-normalized), or nil when the Program has no such file. Mirrors
 // how driver.Program.SourceFile resolves a path over SourceFiles().
 func (p *program) sourceFileByPath(absPath string) *shimast.SourceFile {
-	if p == nil || p.tsProgram == nil {
-		return nil
-	}
-	normalized := filepath.ToSlash(absPath)
-	for _, file := range p.tsProgram.SourceFiles() {
-		if file == nil {
-			continue
-		}
-		if filepath.ToSlash(file.FileName()) == normalized {
-			return file
-		}
-	}
-	return nil
+  if p == nil || p.tsProgram == nil {
+    return nil
+  }
+  normalized := filepath.ToSlash(absPath)
+  for _, file := range p.tsProgram.SourceFiles() {
+    if file == nil {
+      continue
+    }
+    if filepath.ToSlash(file.FileName()) == normalized {
+      return file
+    }
+  }
+  return nil
 }
 
 // applyChange incrementally updates the resident Program for one changed file:
@@ -421,35 +421,35 @@ func (p *program) sourceFileByPath(absPath string) *shimast.SourceFile {
 // correct, but callers use the reused flag to distinguish incremental updates
 // from full Program reconstruction in product telemetry.
 func (p *program) applyChange(absPath string) bool {
-	if p == nil || p.tsProgram == nil {
-		return false
-	}
-	name := absPath
-	if file := p.sourceFileByPath(absPath); file != nil {
-		name = file.FileName()
-	}
-	fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
-	host := shimcompiler.NewCompilerHost(p.cwd, fs, bundled.LibPath(), nil, nil)
-	changed := shimtspath.ToPath(name, p.cwd, fs.UseCaseSensitiveFileNames())
-	newProg, reused := p.tsProgram.UpdateProgram(changed, host, nil)
-	if newProg != nil {
-		// An updated generation cannot inherit a one-shot check's observed inputs.
-		// Resident commands currently negotiate no check sidecar; keep an explicit
-		// limitation if an observed Program is updated by an internal caller.
-		if p.inputReader != nil {
-			p.inputReader.Unavailable()
-		}
-		p.inputObserver = nil
-		p.configInputs = nil
-		p.tsProgram = newProg
-		if p.checker != nil {
-			p.checker, _ = shimchecker.NewChecker(newProg, nil)
-		}
-	}
-	// The prior cycle described the pre-edit Program; drop it so the next verb
-	// re-evaluates its rules over the updated ASTs.
-	p.projectCycle = nil
-	return reused
+  if p == nil || p.tsProgram == nil {
+    return false
+  }
+  name := absPath
+  if file := p.sourceFileByPath(absPath); file != nil {
+    name = file.FileName()
+  }
+  fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+  host := shimcompiler.NewCompilerHost(p.cwd, fs, bundled.LibPath(), nil, nil)
+  changed := shimtspath.ToPath(name, p.cwd, fs.UseCaseSensitiveFileNames())
+  newProg, reused := p.tsProgram.UpdateProgram(changed, host, nil)
+  if newProg != nil {
+    // An updated generation cannot inherit a one-shot check's observed inputs.
+    // Resident commands currently negotiate no check sidecar; keep an explicit
+    // limitation if an observed Program is updated by an internal caller.
+    if p.inputReader != nil {
+      p.inputReader.Unavailable()
+    }
+    p.inputObserver = nil
+    p.configInputs = nil
+    p.tsProgram = newProg
+    if p.checker != nil {
+      p.checker, _ = shimchecker.NewChecker(newProg, nil)
+    }
+  }
+  // The prior cycle described the pre-edit Program; drop it so the next verb
+  // re-evaluates its rules over the updated ASTs.
+  p.projectCycle = nil
+  return reused
 }
 
 // userSourceFiles returns the source files the lint engine reads for one cycle:
@@ -477,39 +477,39 @@ func (p *program) applyChange(absPath string) bool {
 // A published dependency reaches the Program through its typings, so its own
 // `.ts` sources stay out without a dependency-shaped rule here.
 func (p *program) userSourceFiles() []*shimast.SourceFile {
-	roots := p.projectSourceFileNames()
-	out := make([]*shimast.SourceFile, 0)
-	for _, f := range p.tsProgram.SourceFiles() {
-		if f == nil {
-			continue
-		}
-		if p.selectedByProject(roots, f.FileName()) {
-			out = append(out, f)
-			continue
-		}
-		if isImportedLintSourceFile(f) {
-			out = append(out, f)
-		}
-	}
-	return out
+  roots := p.projectSourceFileNames()
+  out := make([]*shimast.SourceFile, 0)
+  for _, f := range p.tsProgram.SourceFiles() {
+    if f == nil {
+      continue
+    }
+    if p.selectedByProject(roots, f.FileName()) {
+      out = append(out, f)
+      continue
+    }
+    if isImportedLintSourceFile(f) {
+      out = append(out, f)
+    }
+  }
+  return out
 }
 
 // projectSourceFiles returns the Program's copy of the files the tsconfig itself
 // selected — the project's own sources, the set `format` walks and the set any
 // lint write stays inside.
 func (p *program) projectSourceFiles() []*shimast.SourceFile {
-	roots := p.projectSourceFileNames()
-	out := make([]*shimast.SourceFile, 0, len(roots))
-	for _, f := range p.tsProgram.SourceFiles() {
-		if f == nil {
-			continue
-		}
-		if !p.selectedByProject(roots, f.FileName()) {
-			continue
-		}
-		out = append(out, f)
-	}
-	return out
+  roots := p.projectSourceFileNames()
+  out := make([]*shimast.SourceFile, 0, len(roots))
+  for _, f := range p.tsProgram.SourceFiles() {
+    if f == nil {
+      continue
+    }
+    if !p.selectedByProject(roots, f.FileName()) {
+      continue
+    }
+    out = append(out, f)
+  }
+  return out
 }
 
 // projectSourceFileNames returns the canonical paths of the TS/JS files the
@@ -528,25 +528,25 @@ func (p *program) projectSourceFiles() []*shimast.SourceFile {
 // would leave the file readable and unwritable, turning a fixable diagnostic
 // into one `fix` refuses to touch, so ownership resolves the alias.
 func (p *program) projectSourceFileNames() map[string]struct{} {
-	if p == nil {
-		return map[string]struct{}{}
-	}
-	if p.projectRoots != nil {
-		return p.projectRoots
-	}
-	out := make(map[string]struct{})
-	if p.parsed != nil && p.parsed.ParsedConfig != nil {
-		for _, fileName := range p.parsed.ParsedConfig.FileNames {
-			if !isLintSourceFileName(fileName) {
-				continue
-			}
-			absolute := absoluteProjectPath(p.cwd, fileName)
-			out[canonicalProjectPath(p.cwd, absolute)] = struct{}{}
-			out[canonicalProjectPath(p.cwd, realProjectPath(absolute))] = struct{}{}
-		}
-	}
-	p.projectRoots = out
-	return out
+  if p == nil {
+    return map[string]struct{}{}
+  }
+  if p.projectRoots != nil {
+    return p.projectRoots
+  }
+  out := make(map[string]struct{})
+  if p.parsed != nil && p.parsed.ParsedConfig != nil {
+    for _, fileName := range p.parsed.ParsedConfig.FileNames {
+      if !isLintSourceFileName(fileName) {
+        continue
+      }
+      absolute := absoluteProjectPath(p.cwd, fileName)
+      out[canonicalProjectPath(p.cwd, absolute)] = struct{}{}
+      out[canonicalProjectPath(p.cwd, realProjectPath(absolute))] = struct{}{}
+    }
+  }
+  p.projectRoots = out
+  return out
 }
 
 // selectedByProject reports whether the tsconfig selected fileName, resolving
@@ -558,18 +558,18 @@ func (p *program) projectSourceFileNames() map[string]struct{} {
 // select, paid by the imported set on every cycle, against the rule walk those
 // same files are about to receive.
 func (p *program) selectedByProject(
-	roots map[string]struct{},
-	fileName string,
+  roots map[string]struct{},
+  fileName string,
 ) bool {
-	if p == nil || len(roots) == 0 {
-		return false
-	}
-	if _, ok := roots[canonicalProjectPath(p.cwd, fileName)]; ok {
-		return true
-	}
-	resolved := realProjectPath(absoluteProjectPath(p.cwd, fileName))
-	_, ok := roots[canonicalProjectPath(p.cwd, resolved)]
-	return ok
+  if p == nil || len(roots) == 0 {
+    return false
+  }
+  if _, ok := roots[canonicalProjectPath(p.cwd, fileName)]; ok {
+    return true
+  }
+  resolved := realProjectPath(absoluteProjectPath(p.cwd, fileName))
+  _, ok := roots[canonicalProjectPath(p.cwd, resolved)]
+  return ok
 }
 
 // projectWritableFindings keeps the findings whose file this project may write:
@@ -584,77 +584,77 @@ func (p *program) selectedByProject(
 // without a source file (a project rule's detached report) never reaches disk
 // either and is dropped with them.
 func (p *program) projectWritableFindings(findings []*Finding) []*Finding {
-	roots := p.projectSourceFileNames()
-	out := make([]*Finding, 0, len(findings))
-	for _, finding := range findings {
-		if finding == nil || finding.File == nil {
-			continue
-		}
-		if !p.selectedByProject(roots, finding.File.FileName()) {
-			continue
-		}
-		out = append(out, finding)
-	}
-	return out
+  roots := p.projectSourceFileNames()
+  out := make([]*Finding, 0, len(findings))
+  for _, finding := range findings {
+    if finding == nil || finding.File == nil {
+      continue
+    }
+    if !p.selectedByProject(roots, finding.File.FileName()) {
+      continue
+    }
+    out = append(out, finding)
+  }
+  return out
 }
 
 func canonicalProjectPath(cwd, fileName string) string {
-	if !filepath.IsAbs(fileName) {
-		fileName = filepath.Join(cwd, fileName)
-	}
-	return filepath.ToSlash(filepath.Clean(fileName))
+  if !filepath.IsAbs(fileName) {
+    fileName = filepath.Join(cwd, fileName)
+  }
+  return filepath.ToSlash(filepath.Clean(fileName))
 }
 
 // isImportedLintSourceFile reports whether a Program source file the tsconfig
 // did not select is authored TypeScript the lint pass must still read.
 func isImportedLintSourceFile(file *shimast.SourceFile) bool {
-	if file == nil || file.IsDeclarationFile {
-		return false
-	}
-	return isTypeScriptSourceFileName(file.FileName())
+  if file == nil || file.IsDeclarationFile {
+    return false
+  }
+  return isTypeScriptSourceFileName(file.FileName())
 }
 
 // isLintSourceFileName reports whether a tsconfig-selected file is a lint/format
 // source root. The project's own selection governs here, so both TypeScript and
 // JavaScript qualify: a project that lists `.js` under `allowJs` owns it.
 func isLintSourceFileName(fileName string) bool {
-	switch strings.ToLower(filepath.Ext(fileName)) {
-	case ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs":
-		return true
-	default:
-		return false
-	}
+  switch strings.ToLower(filepath.Ext(fileName)) {
+  case ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs":
+    return true
+  default:
+    return false
+  }
 }
 
 // isTypeScriptSourceFileName reports whether a path names TypeScript source.
 // `.d.ts` shares the `.ts` extension, so callers pair this with the source
 // file's IsDeclarationFile flag rather than reading the suffix twice.
 func isTypeScriptSourceFileName(fileName string) bool {
-	switch strings.ToLower(filepath.Ext(fileName)) {
-	case ".ts", ".tsx", ".mts", ".cts":
-		return true
-	default:
-		return false
-	}
+  switch strings.ToLower(filepath.Ext(fileName)) {
+  case ".ts", ".tsx", ".mts", ".cts":
+    return true
+  default:
+    return false
+  }
 }
 
 // programDiagnostics returns the bind + semantic diagnostics for the
 // loaded program. Same surface tsgo's CLI prints when you run a regular
 // `tsgo --noEmit`.
 func (p *program) programDiagnostics() []*shimast.Diagnostic {
-	if p == nil || p.tsProgram == nil {
-		return nil
-	}
-	ctx := context.Background()
-	raw := shimcompiler.GetDiagnosticsOfAnyProgram(
-		ctx,
-		p.tsProgram,
-		nil,
-		false,
-		p.tsProgram.GetBindDiagnostics,
-		p.tsProgram.GetSemanticDiagnostics,
-	)
-	return shimcompiler.SortAndDeduplicateDiagnostics(raw)
+  if p == nil || p.tsProgram == nil {
+    return nil
+  }
+  ctx := context.Background()
+  raw := shimcompiler.GetDiagnosticsOfAnyProgram(
+    ctx,
+    p.tsProgram,
+    nil,
+    false,
+    p.tsProgram.GetBindDiagnostics,
+    p.tsProgram.GetSemanticDiagnostics,
+  )
+  return shimcompiler.SortAndDeduplicateDiagnostics(raw)
 }
 
 // findSourceFile locates a source file in the program by absolute path.
@@ -666,34 +666,34 @@ func (p *program) programDiagnostics() []*shimast.Diagnostic {
 // that conversion. Normalize both sides through tspath instead — the same gap
 // this closes in ttsc's resident serve host (samchon/ttsc#319).
 func (p *program) findSourceFile(target string) *shimast.SourceFile {
-	want := shimtspath.NormalizePath(target)
-	for _, file := range p.tsProgram.SourceFiles() {
-		if shimtspath.NormalizePath(file.FileName()) == want {
-			return file
-		}
-	}
-	return nil
+  want := shimtspath.NormalizePath(target)
+  for _, file := range p.tsProgram.SourceFiles() {
+    if shimtspath.NormalizePath(file.FileName()) == want {
+      return file
+    }
+  }
+  return nil
 }
 
 // forceEmit clears the NoEmit and EmitDeclarationOnly flags so the
 // program emits JavaScript even when the tsconfig says otherwise.
 func forceEmit(parsed *tsoptions.ParsedCommandLine) {
-	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-		return
-	}
-	options := parsed.ParsedConfig.CompilerOptions
-	options.NoEmit = shimcore.TSFalse
-	options.EmitDeclarationOnly = shimcore.TSFalse
+  if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+    return
+  }
+  options := parsed.ParsedConfig.CompilerOptions
+  options.NoEmit = shimcore.TSFalse
+  options.EmitDeclarationOnly = shimcore.TSFalse
 }
 
 // forceNoEmit sets the NoEmit flag regardless of what the tsconfig
 // specifies. Used by fix and check subcommands that must not write output
 // files as a side effect of type-checking.
 func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
-	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-		return
-	}
-	parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
+  if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+    return
+  }
+  parsed.ParsedConfig.CompilerOptions.NoEmit = shimcore.TSTrue
 }
 
 // parseTsgoArgs runs forwarded tsgo CLI flags through TypeScript-Go's own
@@ -702,17 +702,17 @@ func forceNoEmit(parsed *tsoptions.ParsedCommandLine) {
 // the in-process lint program even though @ttsc/lint never shells out to
 // `tsgo`. Returns nil when there are no forwarded flags.
 func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.ParsedCommandLine, []*shimast.Diagnostic) {
-	if len(args) == 0 {
-		return nil, nil
-	}
-	cli := tsoptions.ParseCommandLine(args, host)
-	if cli == nil {
-		return nil, nil
-	}
-	if len(cli.Errors) > 0 {
-		return nil, cli.Errors
-	}
-	return cli, nil
+  if len(args) == 0 {
+    return nil, nil
+  }
+  cli := tsoptions.ParseCommandLine(args, host)
+  if cli == nil {
+    return nil, nil
+  }
+  if len(cli.Errors) > 0 {
+    return nil, cli.Errors
+  }
+  return cli, nil
 }
 
 // applyThreading forwards the --singleThreaded / --checkers knobs onto the
@@ -724,17 +724,17 @@ func parseTsgoArgs(args []string, host shimcompiler.CompilerHost) (*tsoptions.Pa
 // preserved for the Program's semantic diagnostics. `--singleThreaded` still
 // takes full effect across the Program and the serial type-aware lint walk.
 func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, checkers int) {
-	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-		return
-	}
-	options := parsed.ParsedConfig.CompilerOptions
-	if singleThreaded {
-		options.SingleThreaded = shimcore.TSTrue
-	}
-	if checkers > 0 {
-		n := checkers
-		options.Checkers = &n
-	}
+  if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+    return
+  }
+  options := parsed.ParsedConfig.CompilerOptions
+  if singleThreaded {
+    options.SingleThreaded = shimcore.TSTrue
+  }
+  if checkers > 0 {
+    n := checkers
+    options.Checkers = &n
+  }
 }
 
 // overrideOutDir replaces the parsed config's OutDir with `outDir`.
@@ -742,21 +742,21 @@ func applyThreading(parsed *tsoptions.ParsedCommandLine, singleThreaded bool, ch
 // used as-is. Paths are converted to forward slashes for tsgo
 // compatibility.
 func overrideOutDir(cwd string, parsed *tsoptions.ParsedCommandLine, outDir string) {
-	if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
-		return
-	}
-	if filepath.IsAbs(outDir) {
-		parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(outDir)
-		return
-	}
-	parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(filepath.Join(cwd, outDir))
+  if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+    return
+  }
+  if filepath.IsAbs(outDir) {
+    parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(outDir)
+    return
+  }
+  parsed.ParsedConfig.CompilerOptions.OutDir = filepath.ToSlash(filepath.Join(cwd, outDir))
 }
 
 // projectInputReaders exposes only this loaded generation's reader. Manual or
 // unobserved Programs keep the legacy nil-reader contributor behavior.
 func (p *program) projectInputReaders() []publicrule.ProjectInputReader {
-	if p == nil || p.inputReader == nil {
-		return nil
-	}
-	return []publicrule.ProjectInputReader{p.inputReader}
+  if p == nil || p.inputReader == nil {
+    return nil
+  }
+  return []publicrule.ProjectInputReader{p.inputReader}
 }
