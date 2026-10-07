@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -69,14 +70,20 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * publication permission. A discarded epoch is separately recorded when the
  * bounded build owner starts again.
  *
- * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before build, publication or cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
+ * Explicit worker scopes check cancellation between build phases, copied source
+ * entries and native commands, including reader admission and final publication.
+ * Observed cancellation releases held leases and scratch without starting a
+ * new post-build maintenance pass. Native calls and delegated hashing can delay
+ * observation; these checkpoints do not impose a hard execution deadline.
+ *
+ * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before build, publication or cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Opted-in cancellation guards stage, copy-entry, native-command, reader and publication admission, while cleanup still finishes. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A changed witness is never overwritten or accepted. A fresh epoch takes a new toolchain reading and performs the actual build or qualified adoption; source, native and cleanup failures stay terminal. No selected SDK tool is warmed by a special command, and no foreign environment or memo is rebased. Shared Go objects retain their owner's toolID/actionID contract; same-version custom tool semantics beyond that contract are not newly guaranteed.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, recorded-input comparisons and their trust/observation limits, reader registration and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/physical-cache/temp APIs preserve native identities; executable resolution and Windows command handling are isolated owners, and the binary filename explicitly follows its executable platform.
- * @evidence contracts/performance.md#efficient-algorithms At most three epochs redo native toolchain observation, key construction, materialization and guarded admission; each can run one Go build. The shared compiler reader can itself make three version observations, hence at most nine such cold observations for a persistently moving compiler and no build when its key witness fails. Full-file bytes, entries, path/sort text, contributors, external trees and witness populations drive work. First source digest readings are reused across epochs, while each scratch is independently checked. Existing lock contention has its separate wait budget and native Go compiler work remains delegated.
+ * @evidence contracts/performance.md#efficient-algorithms At most three epochs redo native toolchain observation, key construction, materialization and guarded admission; each can run one Go build. The shared compiler reader can itself make three version observations, hence at most nine such cold observations for a persistently moving compiler and no build when its key witness fails. Full-file bytes, entries, path/sort text, contributors, external trees and witness populations drive work. Scoped cancellation is sampled between phases/entries/commands and does not bound native calls or delegated hashing. First source digest readings are reused across epochs, while each scratch is independently checked. Existing lock contention has its separate wait budget and native Go compiler work remains delegated.
  * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the version/platform/source/environment key with reader admission before return, assuming trustworthy cache producers and supplied digest maps. Fixed trimpath compilation removes disposable snapshot paths from Go object identities. Shared load readings and sequential source/toolchain comparisons reject observed changes; metadata reuse and unobserved concurrent mutation remain the underlying witnesses' limits.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Scratch directories and build/cache leases have finally-based cleanup; scratch removal or lease cleanup can fail, and selected synchronous child settlement does not join arbitrary descendants. Repeated commands can repeat external tool effects; only ttsc-owned failed outputs are discarded, and Go-owned object entries retain their existing lifetime. Pending binary cleanup is best-effort. Reader tokens and their process map grow with distinct physical keys until process exit. Managed pruning attempts age/LRU reclamation while protecting live, unknown and selected entries, so it is not a hard disk bound; explicit roots remain caller-managed.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Scratch directories and build/cache leases have finally-based cleanup, including cancellation; cancelled work admits no new post-build prune pass. Scratch removal or lease cleanup can fail, and selected synchronous child settlement does not join arbitrary descendants. Repeated commands can repeat external tool effects; only ttsc-owned failed outputs are discarded, and Go-owned object entries retain their existing lifetime. Pending binary cleanup is best-effort. Reader tokens and their process map grow with distinct physical keys until process exit. Managed pruning attempts age/LRU reclamation while protecting live, unknown and selected entries, so it is not a hard disk bound; explicit roots remain caller-managed.
  */
 export function buildSourcePlugin(opts: {
   source: string;
@@ -109,11 +116,13 @@ export function buildSourcePlugin(opts: {
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
+  OwnedSynchronousProcess.checkpoint();
   const env = SidecarEnvironment.merge(opts.env ?? process.env);
   // Source authority belongs to the request, not to a discarded toolchain
   // epoch. Keep its first readings even when the toolchain is read again.
   const sourceDigests = new Map(opts.sourceDigests);
   for (let attempt = 0; ; attempt += 1) {
+    OwnedSynchronousProcess.checkpoint();
     const environmentDigests = new Map(opts.environmentDigests);
     try {
       const binary = buildSourcePluginAttempt(
@@ -122,6 +131,7 @@ export function buildSourcePlugin(opts: {
         sourceDigests,
         environmentDigests,
       );
+      OwnedSynchronousProcess.checkpoint();
       for (const [directory, digest] of sourceDigests)
         opts.sourceDigests?.set(directory, digest);
       for (const [directory, digest] of environmentDigests)
@@ -152,6 +162,7 @@ function buildSourcePluginAttempt(
   sourceDigests: Map<string, string>,
   environmentDigests: Map<string, string>,
 ): string {
+  OwnedSynchronousProcess.checkpoint();
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = [...(opts.overlayDirs ?? findTtscOverlayDirs())].sort();
   const contributors = opts.contributors ?? [];
@@ -162,6 +173,7 @@ function buildSourcePluginAttempt(
     dir,
   );
   ensureExecutableGoToolchain(goBinary, compiler.bundled);
+  OwnedSynchronousProcess.checkpoint();
   // The digest of every directory the key covers, as the key read it, which
   // the build proves against what it compiled.
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
@@ -179,6 +191,7 @@ function buildSourcePluginAttempt(
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });
+  OwnedSynchronousProcess.checkpoint();
   const unchanged = PluginBuildEnvironmentWitness.holds(
     environmentWitness,
     "key-created",
@@ -199,6 +212,7 @@ function buildSourcePluginAttempt(
     });
   }
   if (!unchanged) throw pluginBuildEnvironmentChanged(opts.pluginName);
+  OwnedSynchronousProcess.checkpoint();
   const paths = resolveSourceBuildCachePaths(opts.baseDir, opts.cacheDir, env);
   SourcePluginAdmission.requireCachesOutsideSources(
     [paths.root, paths.goBuildRoot],
@@ -216,6 +230,7 @@ function buildSourcePluginAttempt(
   const pluginRoot = managePluginCache
     ? SourceBuildCacheLayout.canonicalPluginCacheRoot(paths.pluginRoot)
     : paths.pluginRoot;
+  OwnedSynchronousProcess.checkpoint();
   SourceBuildCacheLayout.maybePruneSourceBuildCaches(
     { ...paths, pluginRoot },
     opts.cacheDir,
@@ -226,8 +241,10 @@ function buildSourcePluginAttempt(
     : path.join(pluginRoot, key);
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
+  OwnedSynchronousProcess.checkpoint();
   if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
     requireBuildEnvironment(environmentWitness, opts.pluginName, "cache-hit");
+    OwnedSynchronousProcess.checkpoint();
     E2ETrace.capabilityResolution("plugin-build-cache-admission", {
       pluginName: opts.pluginName,
       key,
@@ -257,6 +274,7 @@ function buildSourcePluginAttempt(
         "lock-adoption",
       ),
     () => {
+      OwnedSynchronousProcess.checkpoint();
       compiled = true;
       E2ETrace.capabilityResolution("plugin-build-cache-admission", {
         pluginName: opts.pluginName,
@@ -292,6 +310,7 @@ function buildSourcePluginAttempt(
       });
     },
   );
+  OwnedSynchronousProcess.checkpoint();
   E2ETrace.capabilityResolution("plugin-build-cache-admission", {
     pluginName: opts.pluginName,
     key,
@@ -303,6 +322,7 @@ function buildSourcePluginAttempt(
     // The pre-build daily pass cannot account for the binary this cold build
     // just published. Attempt size-policy maintenance after publication, once this
     // process has released its per-key build lock.
+    OwnedSynchronousProcess.checkpoint();
     prunePluginCacheRoot(pluginRoot, {
       force: true,
       protectedEntries: [cacheDir],
@@ -378,6 +398,7 @@ function compileSourcePlugin(opts: {
   quiet: boolean;
   source: string;
 }): string {
+  OwnedSynchronousProcess.checkpoint();
   if (!opts.quiet) {
     const extra =
       opts.contributors.length === 0
@@ -394,6 +415,7 @@ function compileSourcePlugin(opts: {
 
   const scratchDir = createCanonicalTempDirectory(`ttsc-plugin-${opts.key}-`);
   try {
+    OwnedSynchronousProcess.checkpoint();
     materializeScratchDir(opts.dir, scratchDir);
     requireKeyedSource(
       opts.dir,
@@ -406,6 +428,7 @@ function compileSourcePlugin(opts: {
       opts.env,
       opts.goBinary,
     );
+    OwnedSynchronousProcess.checkpoint();
     // Every source the build would otherwise read in place, an overlay and
     // each replace target outside the module, is copied and proven against the
     // key before Go reads it, as the module and its contributors are: a check
@@ -420,6 +443,7 @@ function compileSourcePlugin(opts: {
       opts.keyedDigests,
       opts.pluginName,
     );
+    OwnedSynchronousProcess.checkpoint();
     anchorReplaceDirectories(
       replacements.map((replacement) => ({
         ...replacement,
@@ -434,6 +458,7 @@ function compileSourcePlugin(opts: {
       opts.pluginName,
       opts.env,
     );
+    OwnedSynchronousProcess.checkpoint();
     if (opts.contributors.length > 0) {
       mergeContributors({
         contributors: opts.contributors,
@@ -453,6 +478,7 @@ function compileSourcePlugin(opts: {
       opts.pluginName,
       opts.env,
     );
+    OwnedSynchronousProcess.checkpoint();
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
     let attemptedGoBuildCacheRoot: string | undefined;
@@ -461,6 +487,7 @@ function compileSourcePlugin(opts: {
         opts.goBuildCacheRoot,
         opts.manageGoBuildCache,
         (goBuildCacheRoot) => {
+          OwnedSynchronousProcess.checkpoint();
           attemptedGoBuildCacheRoot = goBuildCacheRoot;
           requireBuildEnvironment(
             opts.environmentWitness,
@@ -487,6 +514,7 @@ function compileSourcePlugin(opts: {
             opts.env,
             opts.normalizeGoToolPermissions,
           );
+          OwnedSynchronousProcess.checkpoint();
           if (process.env.TTSC_E2E_TRACE) {
             E2ETrace.capabilityResolution(
               "plugin-build-environment-go-returned",
@@ -503,11 +531,16 @@ function compileSourcePlugin(opts: {
         },
       );
     } finally {
-      if (opts.manageGoBuildCache && attemptedGoBuildCacheRoot !== undefined) {
+      if (
+        !OwnedSynchronousProcess.cancelled() &&
+        opts.manageGoBuildCache &&
+        attemptedGoBuildCacheRoot !== undefined
+      ) {
         // The daily pre-build pass cannot see objects the build is about to
         // add, including objects left behind by a failed compile. Enforce the
         // size policy after every actual cold-build attempt so churn cannot
-        // grow the cache unchecked behind a fresh daily marker.
+        // grow the cache unchecked behind a fresh daily marker. Cancellation
+        // still releases the lease and scratch, but admits no new maintenance.
         pruneGoBuildCacheRoot(attemptedGoBuildCacheRoot, { force: true });
       }
     }
@@ -540,6 +573,7 @@ function compileSourcePlugin(opts: {
       throw pluginBuildEnvironmentChanged(opts.pluginName);
     }
     const builtBinary = path.join(scratchDir, scratchBinaryName);
+    OwnedSynchronousProcess.checkpoint();
     publishBuiltBinary(builtBinary, opts.binaryPath);
     touchCacheEntry(opts.cacheDir);
     return opts.binaryPath;
@@ -597,8 +631,10 @@ function buildUnderPluginLock(
   const lockDir = `${cacheDir}.lock`;
   const startedAt = performance.now();
   for (;;) {
+    OwnedSynchronousProcess.checkpoint();
     if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
       validateAdoption();
+      OwnedSynchronousProcess.checkpoint();
       touchCacheEntry(cacheDir);
       return binaryPath;
     }
@@ -630,7 +666,7 @@ function buildUnderPluginLock(
       if (waited.outcome === "published") {
         // Publication is not reader admission: reacquire the key to register
         // this consumer before returning the shared executable pathname.
-        PluginBuildLockProtocol.sleepSync(Math.min(10, remaining));
+        OwnedSynchronousProcess.sleep(Math.min(10, remaining));
         continue;
       }
       if (waited.outcome === "abandoned") {
@@ -653,14 +689,17 @@ function buildUnderPluginLock(
     return runHoldingLock(
       () => {
         try {
+          OwnedSynchronousProcess.checkpoint();
           // Re-check under the lock: a previous holder may have just published.
           if (fs.existsSync(binaryPath)) {
             validateAdoption();
+            OwnedSynchronousProcess.checkpoint();
             PluginBinaryUse.retain(cacheDir);
             touchCacheEntry(cacheDir);
             return binaryPath;
           }
           const binary = build();
+          OwnedSynchronousProcess.checkpoint();
           PluginBinaryUse.retain(cacheDir);
           return binary;
         } catch (error) {
@@ -768,6 +807,7 @@ function mergeContributors(opts: {
   );
   const imports: string[] = [];
   for (const contributor of sortedContributors) {
+    OwnedSynchronousProcess.checkpoint();
     SourcePluginAdmission.requireContributorPackage(
       opts.pluginName,
       contributor,
@@ -832,6 +872,7 @@ ${importLines}
 }
 
 function publishBuiltBinary(builtBinary: string, binaryPath: string): void {
+  OwnedSynchronousProcess.checkpoint();
   const pending = `${binaryPath}.${process.pid}.${Date.now()}-${Math.random()
     .toString(16)
     .slice(2)}.tmp`;
@@ -841,6 +882,7 @@ function publishBuiltBinary(builtBinary: string, binaryPath: string): void {
       fs.chmodSync(pending, 0o755);
     }
     try {
+      OwnedSynchronousProcess.checkpoint();
       fs.renameSync(pending, binaryPath);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
@@ -906,10 +948,14 @@ function resolveSourceBuildTarget(opts: {
 }
 
 function materializeScratchDir(source: string, scratch: string): void {
+  OwnedSynchronousProcess.checkpoint();
   fs.mkdirSync(scratch, { recursive: true });
   fs.cpSync(source, scratch, {
     recursive: true,
-    filter: (src) => copiesPluginSourceEntry(source, src),
+    filter: (src) => {
+      OwnedSynchronousProcess.checkpoint();
+      return copiesPluginSourceEntry(source, src);
+    },
   });
 }
 
@@ -940,6 +986,7 @@ function snapshotExternalSources(
   for (const directory of new Set(
     directories.map((dir) => path.resolve(dir)),
   )) {
+    OwnedSynchronousProcess.checkpoint();
     const parsed = path.parse(directory);
     const copy = path.join(
       root,
@@ -973,6 +1020,7 @@ function anchorReplaceDirectories(
   env: NodeJS.ProcessEnv,
 ): void {
   for (const replacement of replacements) {
+    OwnedSynchronousProcess.checkpoint();
     const old =
       replacement.version === undefined
         ? replacement.modulePath
@@ -987,6 +1035,7 @@ function anchorReplaceDirectories(
         windowsHide: true,
       },
     );
+    OwnedSynchronousProcess.checkpoint();
     if (result.error !== undefined || result.status !== 0)
       throw new Error(
         `ttsc: anchoring the replacement of ${old} failed: ${
@@ -1017,6 +1066,7 @@ function requireKeyedSource(
   keyedDigests: ReadonlyMap<string, string>,
   pluginName: string,
 ): void {
+  OwnedSynchronousProcess.checkpoint();
   const keyed = keyedDigests.get(path.resolve(source));
   if (keyed === undefined || pluginSourceDigest(compiled) === keyed) return;
   throw new Error(
@@ -1039,6 +1089,7 @@ function writeGoWork(
   const effectiveUseDirs =
     sourceInfo.modulePath === TTSC_GO_MODULE_PATH
       ? useDirs.filter((dir) => {
+          OwnedSynchronousProcess.checkpoint();
           const modulePath = goModReader.read(dir).modulePath;
           return (
             modulePath !== null &&
@@ -1048,6 +1099,7 @@ function writeGoWork(
       : useDirs;
   const useLines = ["\t."];
   for (const dir of effectiveUseDirs) {
+    OwnedSynchronousProcess.checkpoint();
     useLines.push(`\t${formatGoWorkPath(dir)}`);
   }
   const replaceLines = sourceBuildWorkspaceReplacements(
@@ -1068,6 +1120,7 @@ function writeGoWork(
     env: GoSourceInputs.goBuildEnv(goBinary, undefined, env),
     windowsHide: true,
   });
+  OwnedSynchronousProcess.checkpoint();
   if (settled.error) {
     throw new Error(
       goSpawnFailureMessage(
@@ -1164,6 +1217,7 @@ function createGoModReader(
   const cache = new Map<string, GoModInfo>();
   return {
     read(dir) {
+      OwnedSynchronousProcess.checkpoint();
       const resolved = path.resolve(dir);
       const cached = cache.get(resolved);
       if (cached !== undefined) {
@@ -1202,6 +1256,7 @@ function readGoModInfo(
       windowsHide: true,
     },
   );
+  OwnedSynchronousProcess.checkpoint();
   if (result.error) {
     throw new Error(
       goSpawnFailureMessage(
@@ -1263,6 +1318,7 @@ function collectOverlayModulePaths(
 ): Set<string> {
   const out = new Set<string>();
   for (const dir of dirs) {
+    OwnedSynchronousProcess.checkpoint();
     const modulePath = goModReader.read(dir).modulePath;
     if (modulePath !== null) {
       out.add(modulePath);
@@ -1281,6 +1337,7 @@ function runGoBuild(
   env: NodeJS.ProcessEnv,
   normalizeGoToolPermissions: boolean,
 ): void {
+  OwnedSynchronousProcess.checkpoint();
   ensureExecutableGoToolchain(goBinary, normalizeGoToolPermissions);
   const result = spawnGoTool(
     goBinary,
@@ -1292,6 +1349,7 @@ function runGoBuild(
       windowsHide: true,
     },
   );
+  OwnedSynchronousProcess.checkpoint();
   if (result.error) {
     throw new Error(
       goSpawnFailureMessage(
@@ -1356,6 +1414,7 @@ function findTtscOverlayDirs(): readonly string[] {
 }
 
 function walkForGoMod(dir: string, out: string[]): void {
+  OwnedSynchronousProcess.checkpoint();
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -1364,6 +1423,7 @@ function walkForGoMod(dir: string, out: string[]): void {
   }
   let hasGoMod = false;
   for (const entry of entries) {
+    OwnedSynchronousProcess.checkpoint();
     if (entry.isFile() && entry.name === "go.mod") {
       hasGoMod = true;
     }
@@ -1372,6 +1432,7 @@ function walkForGoMod(dir: string, out: string[]): void {
     out.push(dir);
   }
   for (const entry of entries) {
+    OwnedSynchronousProcess.checkpoint();
     if (!entry.isDirectory()) continue;
     if (GoSourceInputs.shouldPruneDirectory(entry.name)) continue;
     walkForGoMod(path.join(dir, entry.name), out);

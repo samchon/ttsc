@@ -140,17 +140,21 @@ export namespace PluginBuildLockProtocol {
    * Its nonempty destination must remain while the recorded holder or any
    * registered observer can still act. A pre-rename identity read alone would
    * not close the replacement race.
+   * Ordinary synchronous retirement retains its existing contention retries.
+   * Scoped cancellation instead permits the shared retirement helper's cleanup
+   * grace; a continuing refusal propagates as cleanup failure rather than
+   * certifying that this generation was retired.
    *
    * @evidence contracts/common.md#principled-implementation A reserved nonempty tombstone makes the rename fail atomically for a stale generation; observer-aware collection preserves that reservation until all recorded capability holders are gone.
    * @evidence contracts/common.md#clear-and-simple-design The operation validates the token and derives one retirement destination, leaving owner proofs to observation and collection.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Retirement preserves generation history and uses the shared native rename primitive rather than replacing fencing with a racy read followed by recursive removal.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the return/error contract, required tombstone lifetime and the reason a generation read is insufficient before the tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem operations feed the shared retirement helper. Selected Windows refusals retry after a successful sibling-rename probe; this is a sampled capability, not proof that a peer read caused the original refusal.
-   * @evidence contracts/performance.md#efficient-algorithms Direct generation addressing avoids historical scans. Each attempt performs path construction and native metadata/rename observations; eligible Windows retries add sibling probes and synchronous poll waits, with no attempt-count or elapsed-time bound in this retirement operation.
+   * @evidence contracts/performance.md#efficient-algorithms Direct generation addressing avoids historical scans. Each attempt performs path construction and native metadata/rename observations; eligible Windows retries add sibling probes and synchronous poll waits. Ordinary synchronous retries have no attempt-count or elapsed-time bound; scoped cancelled retries use retireLockDirectory's one-second between-attempt cleanup grace, which does not bound native calls or yields.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Retirement changes ownership; its result cannot be memoized across independently racing callers.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Renaming transfers the directory into history; the cooperating collector requires holder/observer absence before removal. Retry-probe deletion is best-effort and may leave empty siblings. A continuing eligible refusal can retain this synchronous operation indefinitely; it installs no asynchronous handle.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Renaming transfers the directory into history; the cooperating collector requires holder/observer absence before removal. Retry-probe deletion is best-effort and may leave empty siblings. A continuing eligible refusal can retain ordinary synchronous work indefinitely; scoped cancellation's cleanup-grace failure propagates through retireLockDirectory and is recorded for the opted-in owner. Native calls and yields can delay observation. This operation installs no asynchronous handle.
    */
   export function retireV3PluginBuildLock(
     lockDir: string,
@@ -312,13 +316,14 @@ export namespace PluginBuildLockProtocol {
   /**
    * Block the synchronous thread for ms without polling the clock in a loop.
    * Protocol callers supply a finite interval. This primitive imposes no
-   * overall retry budget; admission waiters manage one, while retirement's
-   * eligible native retries can continue without a deadline.
+   * overall retry budget; admission waiters manage one, while ordinary
+   * retirement can retry indefinitely. Scoped cancelled retirement applies its
+   * own between-attempt cleanup grace without interrupting this cleanup yield.
    *
    * @evidence contracts/common.md#principled-implementation Atomics.wait suspends the thread on an unchanged shared cell until its supplied timeout, providing the synchronous protocol yield.
    * @evidence contracts/common.md#clear-and-simple-design The primitive waits once; callers own polling and whether an overall deadline exists.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A standard waiting primitive replaces busy-spinning without a host-specific command or invented completion signal.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states blocking behavior, protocol interval inputs and the distinction between budgeted admission and unbounded eligible retirement retries before the tags.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states blocking behavior, protocol interval inputs and caller-owned admission/cleanup budgets, distinguishing ordinary retirement retries from scoped cancellation grace.
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation The JavaScript shared-memory wait performs no filesystem or process-launch boundary operation.
    *

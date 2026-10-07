@@ -6,6 +6,7 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
 /**
@@ -104,12 +105,14 @@ export namespace GoBuildCacheCoordination {
 
     /**
      * Request heartbeat shutdown, attempt to mark the record complete, then
-     * attempt deletion. Shutdown is not joined and failures may leave a task or
+     * attempt deletion. Synchronous finish does not join shutdown; an explicit
+     * worker scope tracks actual exit/close and termination failures for its
+     * asynchronous owner to join. Ordinary failures may leave a task or
      * file. A successful completion write prevents a failed delete from leaving
      * the task active; if both writes and deletion fail, stale-timeout handling
      * remains the collector's fallback.
      *
-     * @evidence contracts/common.md#principled-implementation The terminal callback requests refresher shutdown and attempts complete-state publication before removal; only successful publication records completion if deletion fails, and task termination is not joined.
+     * @evidence contracts/common.md#principled-implementation The terminal callback requests refresher shutdown and attempts complete-state publication before removal; only successful publication records completion if deletion fails, and actual termination remains tracked for an opted-in asynchronous owner rather than joined by this synchronous callback.
      * @evidence contracts/common.md#clear-and-simple-design Release is one idempotent operation and prevents later heartbeat restart.
      * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion persistence addresses a real failed-unlink state rather than simulating successful cleanup.
      * @evidence contracts/common.md#meaningful-documentation Native prose states ordering and its failure consequence, separated from tags.
@@ -118,7 +121,7 @@ export namespace GoBuildCacheCoordination {
      *
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work This callback closes one owned task, not a reusable computation.
      *
-     * @evidence contracts/performance.md#bound-retention-and-release-resources Finish requests worker termination or child kill without joining it, then attempts completion publication/removal. Failed removal is marked complete only if publication succeeds; otherwise age/uncertainty policy may retain the record, and terminal state prevents another cleanup attempt through this capability.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources Finish requests worker termination or child kill, then attempts completion publication/removal. Opted-in scope owners join tracked exit/close and receive termination failures; ordinary synchronous callers do not join. Failed removal is marked complete only if publication succeeds; otherwise age/uncertainty policy may retain the record, and terminal state prevents another cleanup attempt through this capability.
      */
     finish: () => void;
 
@@ -129,7 +132,9 @@ export namespace GoBuildCacheCoordination {
      * initialize during readiness checks (the record then relies on age
      * policy). Repeated calls reuse the startup-acknowledged capability without
      * proving the refresher is still healthy. Finished records cannot be
-     * restarted.
+     * restarted. Explicit worker scopes keep attempted refreshers referenced
+     * until actual exit/close is joined by their asynchronous owner; ordinary
+     * callers retain the unreferenced synchronous behavior.
      *
      * @evidence contracts/common.md#principled-implementation Initialization acknowledgement is required before the callback reports an independently refreshing task; a completed record has no restart capability.
      * @evidence contracts/common.md#clear-and-simple-design Lazy initialization stores one acknowledged refresher capability per unfinished record, separately from terminal finish state.
@@ -140,7 +145,7 @@ export namespace GoBuildCacheCoordination {
      *
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reusing a heartbeat capability is lifecycle ownership, not equivalent build-result reuse.
      *
-     * @evidence contracts/performance.md#bound-retention-and-release-resources One successful refresher capability is stored per record; failed worker termination may overlap child fallback. Startup/finish request termination without joining, and ready-file deletion is best-effort. A later failed refresher is not recreated by repeating start; record expiry follows the declared freshness policy.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources One successful refresher capability is stored per record; failed worker termination may overlap child fallback. Startup/finish track actual worker exit, termination requests and child close for an opted-in owner to join; ordinary synchronous callers do not join, and ready-file deletion is best-effort. A later failed refresher is not recreated by repeating start; record expiry follows the declared freshness policy.
      */
     startHeartbeat: () => boolean;
   }
@@ -158,7 +163,7 @@ export namespace GoBuildCacheCoordination {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A task lease is not a cached build answer; producer identity and lock sharing belong to the build owner.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives one record and lazy refresher capability and must call finish after its synchronous task. Termination is requested without joining; failed startup can overlap fallback, and failed completion/removal can leave records governed by age/uncertainty policy. This factory imposes no cross-task population bound.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives one record and lazy refresher capability and must call finish after its synchronous task. Termination and actual exit/close are tracked for opted-in owners to join after synchronous work; ordinary callers request termination without joining. Failed startup can overlap fallback, and failed completion/removal can leave records governed by age/uncertainty policy. This factory imposes no cross-task population bound.
    */
   export function createGoBuildCacheCoordinationRecord(
     root: string,
@@ -189,7 +194,8 @@ export namespace GoBuildCacheCoordination {
         finished = true;
         try {
           heartbeat?.stop();
-        } catch {
+        } catch (error) {
+          trackGoBuildCacheRetirement(Promise.reject(error));
           // Native termination failure must not skip completion publication.
         }
         heartbeat = undefined;
@@ -229,7 +235,7 @@ export namespace GoBuildCacheCoordination {
 
   /** The sole release capability for one background refresher. */
   interface GoBuildCacheHeartbeat {
-    /** Terminate this refresher without retaining the parent process. */
+    /** Request termination; opted-in owners keep closure referenced and joined. */
     stop: () => void;
   }
 
@@ -271,24 +277,27 @@ export namespace GoBuildCacheCoordination {
           },
         },
       );
+      const owned = OwnedSynchronousProcess.track(
+        new Promise<void>((resolve) => worker.once("exit", () => resolve())),
+      );
       worker.on("error", () => {
         Atomics.store(state, 0, 2);
         Atomics.notify(state, 0);
       });
-      worker.unref();
+      if (!owned) worker.unref();
       Atomics.wait(state, 0, 0, GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS);
       if (Atomics.load(state, 0) === 1) {
         return {
           stop: () => {
             Atomics.store(state, 0, 2);
             Atomics.notify(state, 0);
-            void worker.terminate();
+            retireGoBuildCacheWorker(worker);
           },
         };
       }
       Atomics.store(state, 0, 2);
       Atomics.notify(state, 0);
-      void worker.terminate();
+      retireGoBuildCacheWorker(worker);
     } catch {}
 
     // Node's permission model can deny Worker construction while still allowing
@@ -334,36 +343,76 @@ export namespace GoBuildCacheCoordination {
         stdio: [0, 1, 2],
         windowsHide: true,
       });
-      E2ETrace.asynchronous(trace, child);
+      const owned = OwnedSynchronousProcess.track(
+        new Promise<void>((resolve) => child.once("close", () => resolve())),
+      );
       heartbeatChild = child;
-      child.on("error", () => {
-        // spawn reports OS launch failures asynchronously, outside this try.
-      });
-      child.unref();
+      E2ETrace.asynchronous(trace, child);
+      trackGoBuildCacheRetirement(
+        new Promise<void>((resolve, reject) => {
+          // Capture this promise while the lexical scope is installed: these
+          // events run after the synchronous callback restores its scope.
+          child.on("error", (error) => {
+            // A failed spawn can fall back to unavailable. A launched child's
+            // control failure must reach its owner even if it later closes.
+            if (child.pid !== undefined) reject(error);
+          });
+          child.once("close", () => resolve());
+        }),
+      );
+      if (!owned) child.unref();
       if (child.pid === undefined) return undefined;
       const deadline =
         performance.now() + GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS;
       while (!fs.existsSync(ready)) {
         if (performance.now() >= deadline) {
-          child.kill();
+          retireGoBuildCacheChild(child);
           return undefined;
         }
         Atomics.wait(state, 0, Atomics.load(state, 0), 10);
       }
       return {
         stop: () => {
-          child.kill();
+          retireGoBuildCacheChild(child);
         },
       };
     } catch {
       try {
-        heartbeatChild?.kill();
-      } catch {}
+        if (heartbeatChild !== undefined)
+          retireGoBuildCacheChild(heartbeatChild);
+      } catch (error) {
+        trackGoBuildCacheRetirement(Promise.reject(error));
+      }
       return undefined;
     } finally {
       try {
         fs.rmSync(ready, { force: true });
       } catch {}
+    }
+  }
+
+  /** Preserve scoped retirement failures without unhandled ordinary rejections. */
+  function trackGoBuildCacheRetirement(retirement: Promise<unknown>): void {
+    OwnedSynchronousProcess.track(retirement);
+    void retirement.catch(() => undefined);
+  }
+
+  /** Track a real worker termination request, including synchronous refusal. */
+  function retireGoBuildCacheWorker(worker: Worker): void {
+    try {
+      trackGoBuildCacheRetirement(worker.terminate());
+    } catch (error) {
+      trackGoBuildCacheRetirement(Promise.reject(error));
+    }
+  }
+
+  /** A kill request never replaces the independently tracked child close. */
+  function retireGoBuildCacheChild(child: ReturnType<typeof spawn>): void {
+    try {
+      child.kill();
+    } catch (error) {
+      trackGoBuildCacheRetirement(Promise.reject(error));
+      throw error;
     }
   }
 

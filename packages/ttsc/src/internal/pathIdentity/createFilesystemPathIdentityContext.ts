@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { E2ETrace } from "../E2ETrace";
+import { OwnedSynchronousProcess } from "../OwnedSynchronousProcess";
 import { parseWindowsDirectoryCaseSensitivity } from "../parseWindowsDirectoryCaseSensitivity";
 import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
 import type { FilesystemPathIdentityContext } from "./FilesystemPathIdentityContext";
@@ -393,7 +394,9 @@ function queryWindowsDirectoryCaseSensitivityBytes(
     args,
     {},
     "path-case-probe",
-    () => childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }),
+    () =>
+      OwnedSynchronousProcess.launch("fsutil.exe", args, { windowsHide: true }) ??
+      childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }),
   );
   return result.error === undefined &&
     result.status === 0 &&
