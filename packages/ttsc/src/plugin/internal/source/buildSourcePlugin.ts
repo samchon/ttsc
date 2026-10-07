@@ -23,6 +23,7 @@ import { SourcePluginAdmission } from "./SourcePluginAdmission";
 import { acquirePluginBuildLock } from "./acquirePluginBuildLock";
 import { computeCacheKey } from "./computeCacheKey";
 import { copiesPluginSourceEntry } from "./copiesPluginSourceEntry";
+import { createExternalSourceSnapshotLayout } from "./createExternalSourceSnapshotLayout";
 import { ensureExecutableGoToolchain } from "./ensureExecutableGoToolchain";
 import { formatGoWorkPath } from "./formatGoWorkPath";
 import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories";
@@ -970,7 +971,9 @@ const EXTERNAL_SOURCES_DIRECTORY = path.join(".ttsc", "external");
  * prove the copy against the key's digest, returning each copy by the directory
  * it was taken from.
  *
- * The copies keep their absolute layout below one root, so a relative path
+ * The copies translate each volume's common source ancestor below one root,
+ * omitting unrelated absolute ancestry that can exceed a native cwd limit.
+ * Uniform translation preserves relative paths
  * between two of them, such as a driver's `replace` of the shims beside it,
  * still names the copy of what it named. A directory below another is copied
  * with it and again on its own path, which is the same place.
@@ -982,23 +985,11 @@ function snapshotExternalSources(
   pluginName: string,
 ): Map<string, string> {
   const root = path.join(scratchDir, EXTERNAL_SOURCES_DIRECTORY);
-  const copies = new Map<string, string>();
-  for (const directory of new Set(
-    directories.map((dir) => path.resolve(dir)),
-  )) {
+  const copies = createExternalSourceSnapshotLayout(root, directories);
+  for (const [directory, copy] of copies) {
     OwnedSynchronousProcess.checkpoint();
-    const parsed = path.parse(directory);
-    const copy = path.join(
-      root,
-      // Preserve distinct drive/UNC spellings without stripping punctuation.
-      // SHA-256 supplies the same collision-resistance premise as the cache
-      // key while keeping a long UNC root below native component limits.
-      crypto.createHash("sha256").update(parsed.root, "utf16le").digest("hex"),
-      path.relative(parsed.root, directory),
-    );
     materializeScratchDir(directory, copy);
     requireKeyedSource(directory, copy, keyedDigests, pluginName);
-    copies.set(directory, copy);
   }
   return copies;
 }
