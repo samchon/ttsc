@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Keep both independent populations observable when native tests fail. Go owns
+// Keep independent Go populations observable when native tests fail. Go owns
 // package discovery, per-package timeouts and the final test verdicts.
 const root = fileURLToPath(new URL("../", import.meta.url));
 const native = run([
@@ -11,7 +11,16 @@ const native = run([
   ...["banner", "evidence", "lint", "paths", "strip", "ttsc", "wasm"].map(
     (name) => `./packages/${name}/...`,
   ),
+  // Recursive Go patterns stop at nested module boundaries, including shims.
+  ...["shim/ast", "shim/vfs", "tools/gen_shims", "tools/shim_audit"].map(
+    (name) => `./packages/ttsc/${name}/...`,
+  ),
 ]);
+// This maintained fixture has its own dependency-free module outside go.work.
+// Run its direct units independently without changing consumer workspace inputs.
+const transformer = run([
+  "-C", "packages/ttsc/test/go-transformer", "test", "-count=1", "./...",
+], { ...process.env, GOWORK: "off" });
 const toolchain = spawnSync("go", ["env", "GOROOT"], {
   cwd: root,
   encoding: "utf8",
@@ -36,7 +45,7 @@ if (toolchain.status === 0) {
 } else {
   console.error(toolchain.error ?? `Cannot locate the Go WASM runner (go env GOROOT exited ${toolchain.status}): ${toolchain.stderr}`);
 }
-process.exitCode = native || wasm;
+process.exitCode = native || transformer || wasm;
 
 // Await each complete Go population and retain launch failures and native
 // child exit codes. No command shell interprets Go arguments or environment.
