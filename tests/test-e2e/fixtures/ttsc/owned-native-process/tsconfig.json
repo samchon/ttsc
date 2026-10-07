@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "plugins": [{ "transform": "./plugin.cjs" }]
+  },
+  "files": []
+}

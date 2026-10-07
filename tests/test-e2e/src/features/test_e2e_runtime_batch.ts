@@ -16,6 +16,7 @@ import {
   denyWrites,
   runsAsRoot,
 } from "../internal/ttsc/internal/read-only-directory";
+import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
 
 /**
  * Verifies one public runtime loads the shared transformed graph. The existing
@@ -78,6 +79,13 @@ import {
  * storage. The existing published content key also rejects nine unstable
  * version observations with restored launcher bytes and mtime, adding no native
  * build or cache adoption.
+ *
+ * The installed SDK also drives the platform helper's owned-command protocol
+ * with one copied static Node fixture. Independent transport/error rows and
+ * an actual parent/grandchild cancellation require joined process retirement,
+ * absent late effects and successful recovery without another installation,
+ * native build or compiler Program. Unknown descendant closure retains that
+ * separate fixture root; failures join the experiment's collected outcomes.
  *
  * 1. Capture the source/config bytes and invoke the public ttsx entry once.
  * 2. Compare its one actual JSON payload against all original literal rows.
@@ -412,6 +420,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   }
   const combinedFailures: unknown[] = [];
   if (!workspace.installationOnly) {
+    try {
+      await BatchWorkspace.open();
+      await test_owned_native_process_joins_cancelled_command_trees(
+        workspace.root,
+      );
+    } catch (error) {
+      combinedFailures.push(error);
+    }
     try {
       await BatchWorkspace.open();
       await runtimeFrontdoorsCorpus(workspace);
