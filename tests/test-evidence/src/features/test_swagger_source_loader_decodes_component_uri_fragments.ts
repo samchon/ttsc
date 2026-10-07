@@ -60,13 +60,13 @@ export async function test_swagger_source_loader_decodes_component_uri_fragments
   const digest = (schema: string): string =>
     createHash("sha256")
       .update(
-        '{"requestBody":{"content":{"application/json":{"schema":' +
+        '{"operation":{"requestBody":{"content":{"application/json":{"schema":' +
           schema +
-          '}}},"responses":{"200":{"description":"OK"}}}',
+          '}}},"responses":{"200":{"description":"OK"}}},"security":[],"securitySchemes":{},"servers":[{"url":"/"}]}',
       )
       .digest("hex");
   const siblingDigest = createHash("sha256")
-    .update('{"responses":{"200":{"description":"OK"}}}')
+    .update('{"operation":{"responses":{"200":{"description":"OK"}}},"security":[],"securitySchemes":{},"servers":[{"url":"/"}]}')
     .digest("hex");
   const simple = (selected: string, decoy: string) => ({
     Target: { type: selected },

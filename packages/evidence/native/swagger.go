@@ -8,6 +8,7 @@ import (
   "net/url"
   "os"
   "os/exec"
+  "regexp"
   "sort"
   "strings"
   "time"
@@ -157,7 +158,11 @@ func loadSwaggerInventories(
 
   result, err := normalizeSwaggerSources(root, pending, trace)
   if err != nil {
-    message := "Evidence graph could not run its Swagger normalizer: " + causeText(err) + ". Swagger references require Node.js and the installed @typia/interface, @typia/utils, and yaml dependencies."
+    reason := causeText(err)
+    for _, source := range pending {
+      reason = redactSwaggerError(source, reason)
+    }
+    message := "Evidence graph could not run its Swagger normalizer: " + reason + ". Swagger references require Node.js and the installed @typia/interface, @typia/utils, and yaml dependencies."
     for _, source := range pending {
       inventories[source].LoadFailed = true
       inventories[source].Problems = append(
@@ -379,18 +384,53 @@ func isRemoteSwaggerSource(source string) bool {
   return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https")
 }
 
+var swaggerErrorURL = regexp.MustCompile(`(?i)https?://[^\s"'<>]+`)
+
+// displaySwaggerSource presents a URL without userinfo, query or fragment.
+// Lexical boundaries also cover malformed URLs rejected by net/url. Local
+// filesystem paths retain their spelling; this value never enters cache or
+// transport identity. A malformed HTTP spelling without an authority has no
+// reliably separable host/path and is shown only with its scheme.
 func displaySwaggerSource(source string) string {
-  parsed, err := url.Parse(source)
-  if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+  lower := strings.ToLower(source)
+  if !strings.Contains(source, "://") && !strings.HasPrefix(lower, "http:") && !strings.HasPrefix(lower, "https:") {
     return source
   }
-  if parsed.User != nil {
-    parsed.User = url.User("***")
+  suffix := strings.IndexAny(source, "?#")
+  base := source
+  if suffix >= 0 {
+    base = source[:suffix]
   }
-  if parsed.RawQuery != "" {
-    parsed.RawQuery = "<redacted>"
+  scheme := strings.Index(base, "://")
+  if scheme < 0 {
+    return source[:strings.Index(source, ":")+1] + "[redacted]"
   }
-  return parsed.String()
+  start := scheme + 3
+  end := len(base)
+  if slash := strings.Index(base[start:], "/"); slash >= 0 {
+    end = start + slash
+  }
+  if user := strings.LastIndex(base[start:end], "@"); user >= 0 {
+    base = base[:start] + "***@" + base[start+user+1:]
+  } else if _, err := url.Parse(base[:end]); err != nil {
+    // A malformed authority can be truncated userinfo, not a separable host.
+    base = base[:start] + "[redacted]" + base[end:]
+  }
+  if suffix >= 0 {
+    base += "?[redacted]"
+  }
+  return base
+}
+
+// redactSwaggerError sanitizes remote diagnostic presentation, including every
+// repeated or foreign URL reflected by an external error. Exact source lookup
+// and cache state retain their raw keys. Local filesystem causes stay intact.
+func redactSwaggerError(source string, message string) string {
+  if displaySwaggerSource(source) == source && !isRemoteSwaggerSource(source) {
+    return message
+  }
+  message = strings.ReplaceAll(message, source, displaySwaggerSource(source))
+  return swaggerErrorURL.ReplaceAllStringFunc(message, displaySwaggerSource)
 }
 
 type limitedBuffer struct {

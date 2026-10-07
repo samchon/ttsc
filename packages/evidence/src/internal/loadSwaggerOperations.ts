@@ -38,7 +38,7 @@ interface ISwaggerOperation {
   path: string;
 
   /**
-   * The operation's own content, digested where it is understood.
+   * The operation's content and effective server/authentication contract.
    *
    * The native side receives identities and cannot recompute this: it never
    * sees the normalized document. Nothing inside an OpenAPI operation hosts an
@@ -68,7 +68,8 @@ interface IReadSource {
  * function is the narrow process boundary between them: it accepts only source
  * locations and returns operation identities, each carrying a digest of the
  * operation's content taken here because this is the only side that sees the
- * document.
+ * document, including inherited servers and authentication. Equivalent explicit
+ * overrides and security-set ordering keep that contract's digest stable.
  *
  * URL protocols are interpreted by the URL parser, preserving the configured
  * source spelling in every returned inventory or problem. Local paths resolve
@@ -114,7 +115,9 @@ export const loadSwaggerOperations = async (request: {
         } catch (error) {
           return {
             source,
-            message: errorMessage(error),
+            message: source.includes("://")
+              ? redactSwaggerUrls(errorMessage(error), source)
+              : errorMessage(error),
             digest,
           } satisfies ISwaggerDocumentProblem;
         }
@@ -243,14 +246,14 @@ const operationsOf = (
       const operation: OpenApi.IOperation | undefined = item[method];
       if (operation !== undefined)
         operations.push(
-          operationOf(method, operationPath, operation, normalized),
+          operationOf(method, operationPath, operation, item, normalized),
         );
     }
     for (const [method, operation] of Object.entries(
       item.additionalOperations ?? {},
     ))
       operations.push(
-        operationOf(method, operationPath, operation, normalized),
+        operationOf(method, operationPath, operation, item, normalized),
       );
   }
   operations.sort((left, right) => {
@@ -279,6 +282,7 @@ const operationOf = (
   method: string,
   operationPath: string,
   operation: OpenApi.IOperation,
+  item: OpenApi.IPath,
   normalized: Parameters<typeof operationsOf>[0],
 ): ISwaggerOperation => {
   if (!operationPath.startsWith("/"))
@@ -292,11 +296,87 @@ const operationOf = (
     throw new Error(
       `OpenAPI method '${method}' cannot form a '<METHOD>:<path>' target`,
     );
+  const document = normalized.document;
+  const servers = operation.servers ?? item.servers ?? document.servers;
+  const security = canonicalSecurity(operation.security ?? document.security ?? []);
+  const schemes = document.components?.securitySchemes ?? {};
+  const usedSchemes = Object.fromEntries(
+    [...new Set(security.flatMap((requirement) => Object.keys(requirement)))]
+      .map((name) => [name, schemes[name]]),
+  );
+  // Resolve on original holders before copying: literal-position provenance is
+  // keyed by object identity. Inheritance is represented outside the written
+  // operation so explicit equivalent overrides cannot duplicate its contract.
+  const resolved = withResolvedReferences(operation, normalized) as Record<string, unknown>;
+  const { servers: _servers, security: _security, ...content } = resolved;
   return {
     method: method.toUpperCase(),
     path: operationPath,
-    digest: canonicalDigest(withResolvedReferences(operation, normalized)),
+    digest: canonicalDigest({
+      operation: content,
+      servers: literalValue(servers?.length ? servers : [{ url: "/" }]),
+      security,
+      securitySchemes: withResolvedReferences(usedSchemes, normalized),
+    }),
   };
+};
+
+/**
+ * Canonicalizes only security's unordered OR alternatives and required scopes.
+ *
+ * Scheme keys within one alternative remain an AND. Empty alternatives remain
+ * distinct from removing authentication with an empty list; all other arrays,
+ * including server preference and literal payloads, retain their written order.
+ */
+const canonicalSecurity = (
+  security: Record<string, string[]>[],
+): Record<string, string[]>[] => {
+  const alternatives = new Map<string, Record<string, string[]>>();
+  for (const requirement of security) {
+    const canonical = Object.fromEntries(
+      Object.entries(requirement).map(([name, scopes]) => [
+        name, [...new Set(scopes)].sort(),
+      ]),
+    );
+    alternatives.set(canonicalDigest(canonical), canonical);
+  }
+  return [...alternatives.entries()]
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+    .map(([, requirement]) => requirement);
+};
+
+/**
+ * Redacts remote URL presentation even when a URL is not parseable.
+ *
+ * The complete configured spelling is replaced before scanning reflected URLs.
+ * Lexical authority/query/fragment boundaries also protect malformed host and
+ * percent escapes that the URL parser would reject. This changes only error
+ * text; transport requests and returned source/cache identities stay untouched.
+ */
+const redactSwaggerUrls = (message: string, source: string): string => {
+  const display = (value: string): string => {
+    const suffix = value.search(/[?#]/u);
+    const base = suffix < 0 ? value : value.slice(0, suffix);
+    const scheme = base.indexOf("://");
+    if (scheme < 0) return "<redacted URL>";
+    const start = scheme + 3;
+    const slash = base.indexOf("/", start);
+    const end = slash < 0 ? base.length : slash;
+    const user = base.lastIndexOf("@", end);
+    let authority = base.slice(start);
+    if (user >= start) authority = "***@" + base.slice(user + 1);
+    else
+      try {
+        new URL(base.slice(0, end));
+      } catch {
+        // A malformed authority can be truncated userinfo. It has no safe host.
+        authority = "[redacted]" + base.slice(end);
+      }
+    return base.slice(0, start) + authority +
+      (suffix < 0 ? "" : "?[redacted]");
+  };
+  return message.replaceAll(source, display(source))
+    .replace(/https?:\/\/[^\s"'<>]+/giu, display);
 };
 
 /**
@@ -354,7 +434,7 @@ const withResolvedReferences = (
         key,
         key === "$ref" && preserved !== undefined
           ? preserved.reference
-          : normalized.isLiteral(value, key)
+          : normalized.isLiteral(value, key) || key.startsWith("x-")
             ? literalValue(element)
             : withResolvedReferences(element, normalized, open),
       ]),
@@ -370,7 +450,7 @@ const withResolvedReferences = (
       .filter(([key]) => key !== "$ref")
       .map(([key, element]) => [
         key,
-        normalized.isLiteral(value, key)
+        normalized.isLiteral(value, key) || key.startsWith("x-")
           ? literalValue(element)
           : withResolvedReferences(element, normalized, open),
       ]);
