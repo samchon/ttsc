@@ -28,7 +28,7 @@ import { resolveFilesystemPath } from "./resolveFilesystemPath";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported injected operations replace no foreign methods; strict unexpected realpath failures propagate. Best-effort realpath is explicit, while unavailable case evidence remains unknown rather than a fabricated OS-default capability.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain missing-suffix semantics, per-key rather than atomic consistency and unknown case evidence; helpers document native probing premises, with separate tag paragraphs.
  * @evidence contracts/portability.md#os-neutral-implementation Native realpath, alternate-name observations and read-only Windows fsutil obtain actual case evidence; native path APIs separate Windows and POSIX syntax. OS names select syntax or probe mechanisms, never an unmeasured directory policy.
- * @evidence contracts/performance.md#efficient-algorithms Construction allocates maps and closures without querying paths. Physical resolution visits missing ancestors and reverses the collected suffix once; lexical relations walk components. Default case probes enumerate uncapped immediate entries, inspect folded-name text and attempt native alternate names; Darwin can walk same-device ancestors, while Windows can synchronously launch directory and volume fsutil queries and parse returned bytes. Work includes visited path/name/output lengths and native metadata/process costs, not just depth or entry count.
+ * @evidence contracts/performance.md#efficient-algorithms Construction allocates maps and closures without querying paths. Physical resolution visits missing ancestors and reverses the collected suffix once; lexical relations walk components. Default case probes enumerate uncapped immediate entries and inspect folded-name text, then stop at the first conclusive alternate-name observation. A rejected alternate is conclusive only when its original still exists; disappeared entries cannot establish sensitivity. Darwin can walk same-device ancestors, while Windows can synchronously launch directory and volume fsutil queries and parse returned bytes. Work includes visited path/name/output lengths and native metadata/process costs, not just depth or entry count.
  * @evidence contracts/performance.md#reuse-equivalent-work Each transaction memoizes resolved paths, realpath success or permitted-unavailable observations and case answers by their native keys; repeated questions reuse observations only within that unit of work, not across later filesystem generations. Best-effort cached unavailability is not an absence certificate.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Context-owned maps grow with queried paths and visited ancestors without internal eviction; reclamation requires the caller to release references to the context and its returned methods. Entry snapshots, decoded query text and synchronous fsutil results are transient rather than retained observers; no descriptor or child handle is held between completed observations. A Windows query supplies no explicit timeout, so active synchronous work has no deadline here. This boundary imposes no query-population quota or explicit dispose operation.
  */
@@ -284,12 +284,27 @@ function filesystemDirectoryIsCaseSensitive(
     if (previous !== undefined && previous !== name) return true;
     foldedNames.set(folded, name);
   }
-  let rejectedAlternate = false;
   for (const name of entries) {
     const alternate = alternateCase(name);
     if (alternate === name) continue;
     try {
       operations.lstat(pathApi.join(directory, alternate));
+    } catch (error) {
+      if (isMissingFilesystemEntry(error)) {
+        // Enumeration is not an atomic snapshot. An absent alternate proves
+        // sensitivity only if the original spelling still names an entry.
+        try {
+          operations.lstat(pathApi.join(directory, name));
+          return true;
+        } catch (originalError) {
+          if (isMissingFilesystemEntry(originalError) === false)
+            throw originalError;
+        }
+        continue;
+      }
+      throw error;
+    }
+    try {
       const actual = resolveFilesystemPath(
         operations.realpath(pathApi.join(directory, name)),
         platform,
@@ -300,14 +315,9 @@ function filesystemDirectoryIsCaseSensitive(
       );
       return actual !== alias;
     } catch (error) {
-      if (isMissingFilesystemEntry(error)) {
-        rejectedAlternate = true;
-        continue;
-      }
-      throw error;
+      if (isMissingFilesystemEntry(error) === false) throw error;
     }
   }
-  if (rejectedAlternate) return true;
   if (platform === "darwin") {
     // APFS/HFS case semantics are volume-wide. An empty directory has no child
     // name to probe, so ask the same read-only question of its existing name in

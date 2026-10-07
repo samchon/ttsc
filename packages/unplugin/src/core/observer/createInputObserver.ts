@@ -46,7 +46,10 @@ import { someSet } from "./someSet";
  *
  * One recursive scope observes the project root, pinned once the observer
  * opens, and at most 16 external scopes the inputs outside it, each closed when
- * its last input leaves. Ordinary files use events after their initial
+ * its last input leaves. A healthy external recursive scope also admits newly
+ * registered descendants while its root identity and physical containment
+ * still hold; the scope cap is checked only when no existing scope covers them.
+ * Ordinary files use events after their initial
  * subscription is observed. Missing spellings and directory predicates use the
  * recursive observer for their nearest available scope. Inputs a native scope
  * cannot safely cover share one bounded fallback poll; linked files also share
@@ -120,12 +123,18 @@ import { someSet } from "./someSet";
  *   membership/tree conditions; one prune per changed scope avoids repeated
  *   retirement scans. Poll slices bound selected probes, not dependent fanout,
  *   native read bytes or proof duration.
+ *   An external registration scans at most the bounded scope population for
+ *   exact lexical ancestors, validating their current identity and physical
+ *   containment before sharing native coverage.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Owners with the same resolved lexical input and recorded condition key
  *   share one entry/condition; event aliases help route native spellings but do
  *   not merge every physical alias into one entry. Scopes and linked topology
- *   probes are shared across contributors. Changed condition keys lose their
+ *   probes are shared across contributors. Recursive external coverage is
+ *   shared only for exact lexical descendants still physically below a healthy
+ *   observer's unchanged root; failed or replaced roots confer no coverage.
+ *   Changed condition keys lose their
  *   previous ownership, and rename/removal/reanchor boundaries retire stale
  *   path memos. One clock reference is minted per selected plugin-tree batch.
  *
@@ -555,6 +564,48 @@ export function createInputObserver(
     root = path.resolve(root);
     const key = watchPathKey(root);
     let scope = scopes.get(key);
+    if (external && scope === undefined) {
+      // A recursive observer can admit more descendants without another
+      // native handle. Require exact lexical descent as well as current
+      // physical descent: an unknown case policy or an escaping junction
+      // cannot lend a different directory the old observer's authority.
+      let physicalRoot: string | undefined;
+      for (const candidate of scopes.values()) {
+        if (
+          candidate.pinned ||
+          candidate.failed ||
+          candidate.watcher === undefined ||
+          !root.startsWith(`${candidate.root}${path.sep}`)
+        )
+          continue;
+        if (
+          candidate.identity === undefined ||
+          watchLocationIdentity(candidate.root, DEFAULT_FILESYSTEM_OPERATIONS) !==
+            candidate.identity
+        ) {
+          failScope(candidate);
+          continue;
+        }
+        const physicalScope = realpath(candidate.root);
+        physicalRoot ??= realpath(root);
+        if (
+          physicalScope !== undefined &&
+          physicalRoot !== undefined &&
+          (physicalRoot === physicalScope ||
+            physicalRoot.startsWith(`${physicalScope}${path.sep}`))
+        ) {
+          if (
+            watchLocationIdentity(candidate.root, DEFAULT_FILESYSTEM_OPERATIONS) !==
+              candidate.identity
+          ) {
+            failScope(candidate);
+            continue;
+          }
+          scope = candidate;
+          break;
+        }
+      }
+    }
     if (scope === undefined) {
       if (
         external &&
@@ -662,6 +713,13 @@ export function createInputObserver(
     }
     const scope = ensureScope(root, external);
     if (scope === undefined) return false;
+    if (external && scope.root !== path.resolve(root)) {
+      // Admission is new even though the ancestor handle predates the
+      // compilation. Replay this entry's condition over that subscription
+      // window; later deliveries can share the established coverage.
+      changeSequence += 1;
+      entry.changedAt = changeSequence;
+    }
     scope.entries.add(entry);
     entry.scopes.add(scope);
     let contributed = entry.scopeDirectories.get(scope);
