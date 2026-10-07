@@ -13,8 +13,8 @@ import { validateGraphInputObservation } from "../transform/inputs/validateGraph
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
-import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
+import { captureWatchInputBaselines } from "../transform/watch/captureWatchInputBaselines";
 import { watchInputEvidenceMatchesBaseline } from "../transform/watch/watchInputEvidenceMatchesBaseline";
 import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembershipPolicy";
 import type { InputEntry } from "./InputEntry";
@@ -60,6 +60,10 @@ import { someSet } from "./someSet";
  * lexical indexes. Each settled event batch therefore rechecks all registered
  * conditions of the reporting scope; directory admission still limits native
  * watch coverage.
+ *
+ * Large event waves yield between bounded entry slices so native IPC and host
+ * requests can advance. Each slice reads current facts with its own fresh
+ * contexts; only callback results retain the registration they belong to.
  *
  * A project's root-file membership is one entry for the project root
  * (samchon/ttsc#1419). Its scope admits every directory the project walk
@@ -123,6 +127,9 @@ import { someSet } from "./someSet";
  *   membership/tree conditions; one prune per changed scope avoids repeated
  *   retirement scans. Poll slices bound selected probes, not dependent fanout,
  *   native read bytes or proof duration.
+ *   Native event waves also bound entries per turn, retaining their fixed
+ *   population and owner-result maps until completion or disposal. Poll scope
+ *   and link fanout beyond the immediate slice joins that yielding queue.
  *   An external registration scans at most the bounded scope population for
  *   exact lexical ancestors, validating their current identity and physical
  *   containment before sharing native coverage.
@@ -137,6 +144,9 @@ import { someSet } from "./someSet";
  *   Changed condition keys lose their
  *   previous ownership, and rename/removal/reanchor boundaries retire stale
  *   path memos. One clock reference is minted per selected plugin-tree batch.
+ *   Ordinary checks share namespace facts only within each fresh synchronous
+ *   phase, never between phases or turns. Delayed reports retain registration
+ *   identity, so a replaced or forgotten owner cannot receive an old effect.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Last-owner removal and dispose attempt watch/poll cleanup, suppressing close
@@ -159,6 +169,7 @@ export function createInputObserver(
   const aliases = new Map<string, Set<InputEntry>>();
   const renameAliases = new Map<string, Set<InputEntry>>();
   const ownerInputs = new Map<string, Map<string, string>>();
+  const ownerRegistrations = new Map<string, object>();
   const pending = new Set<InputEntry>();
   // Entries holding a project's root-file membership (samchon/ttsc#1419).
   const memberships = new Set<InputEntry>();
@@ -430,7 +441,27 @@ export function createInputObserver(
     if (topologyChanged) pathIdentityMemosDirty = true;
   };
 
-  const check = (selected: Iterable<InputEntry>): void => {
+  const check = (
+    selected: Iterable<InputEntry>,
+    report: (change: InputObserverChange) => void = onChanged,
+  ): void => {
+    const current = [...selected].filter(
+      (entry) => entries.get(entry.file) === entry,
+    );
+    const baselines = captureWatchInputBaselines(
+      current
+        .filter((entry) =>
+          [...entry.conditions.values()].some((condition) => {
+            const codec = condition.evidence?.state?.codec;
+            return (
+              codec !== "membership" &&
+              codec !== "tree" &&
+              codec !== "predicates"
+            );
+          }),
+        )
+        .map((entry) => entry.file),
+    );
     const reloaded = new Set<string>();
     const invalidated = new Set<string>();
     // Minted before the first plugin source this check proves, as a delivery
@@ -438,9 +469,9 @@ export function createInputObserver(
     // only against a reference minted since any rollback. The observer holds no
     // generation, so it mints in the probe directory this process keeps.
     let referenceMinted = false;
-    for (const entry of selected) {
+    for (const entry of current) {
       if (entries.get(entry.file) !== entry) continue;
-      let baseline: TtscWatchInputBaseline | undefined;
+      const baseline = baselines.get(entry.file);
       let removedCondition = false;
       for (const [key, condition] of entry.conditions) {
         const state = condition.evidence?.state;
@@ -478,7 +509,6 @@ export function createInputObserver(
             validateGraphInputObservation(entry.file, state.observation)
               .length !== 0;
         } else {
-          baseline ??= captureWatchInputBaseline(entry.file);
           changed =
             baseline === undefined ||
             (condition.evidence?.state !== undefined
@@ -501,7 +531,7 @@ export function createInputObserver(
     updatePoller();
     for (const owner of reloaded) invalidated.delete(owner);
     if (reloaded.size !== 0 || invalidated.size !== 0) {
-      onChanged({ invalidate: invalidated, reload: reloaded });
+      report({ invalidate: invalidated, reload: reloaded });
     }
   };
 
@@ -777,12 +807,51 @@ export function createInputObserver(
 
   const scheduleFlush = (): void => {
     if (pending.size === 0 || flushTimer !== undefined) return;
-    flushTimer = setTimeout(() => {
+    // Freeze this wave, leaving events arriving between turns in pending for
+    // the next wave. No path observation or identity context crosses a yield.
+    let selected: InputEntry[] | undefined;
+    const reload = new Map<string, object>();
+    const invalidate = new Map<string, object>();
+    let offset = 0;
+    const flush = (): void => {
+      if (selected === undefined) {
+        selected = [...pending];
+        pending.clear();
+      }
+      const chunk = selected.slice(offset, offset + MAX_EVENT_PROBES_PER_TURN);
+      offset += chunk.length;
+      check(chunk, (change) => {
+        for (const owner of change.reload) {
+          const registration = ownerRegistrations.get(owner);
+          if (registration !== undefined) reload.set(owner, registration);
+        }
+        for (const owner of change.invalidate) {
+          const registration = ownerRegistrations.get(owner);
+          if (registration !== undefined) invalidate.set(owner, registration);
+        }
+      });
+      if (offset < selected.length) {
+        flushTimer = setTimeout(flush, 0);
+        flushTimer.unref();
+        return;
+      }
       flushTimer = undefined;
-      const selected = [...pending];
-      pending.clear();
-      check(selected);
-    }, 0);
+      // A replacement can answer the old registration while this wave yields.
+      // Only its own still-current registration may receive a delayed effect.
+      for (const [owner, registration] of reload) {
+        if (ownerRegistrations.get(owner) !== registration) reload.delete(owner);
+      }
+      for (const [owner, registration] of invalidate)
+        if (ownerRegistrations.get(owner) !== registration || reload.has(owner))
+          invalidate.delete(owner);
+      if (reload.size !== 0 || invalidate.size !== 0)
+        onChanged({
+          invalidate: new Set(invalidate.keys()),
+          reload: new Set(reload.keys()),
+        });
+      scheduleFlush();
+    };
+    flushTimer = setTimeout(flush, 0);
     flushTimer.unref();
   };
 
@@ -866,7 +935,14 @@ export function createInputObserver(
           }
         }
       }
-      check(selected);
+      const probes = [...selected];
+      // Preserve the poll's immediate bounded slice. A replaced scope or one
+      // retargeted link can fan out beyond that slice; only its remainder must
+      // yield through the same current-state event queue.
+      check(probes.slice(0, MAX_FALLBACK_PROBES_PER_TICK));
+      for (const entry of probes.slice(MAX_FALLBACK_PROBES_PER_TICK))
+        pending.add(entry);
+      scheduleFlush();
     });
   }
 
@@ -1027,6 +1103,7 @@ export function createInputObserver(
       aliases.clear();
       renameAliases.clear();
       ownerInputs.clear();
+      ownerRegistrations.clear();
       pending.clear();
       polled.clear();
       links.clear();
@@ -1056,6 +1133,7 @@ export function createInputObserver(
       const previous = ownerInputs.get(owner);
       if (previous === undefined) return;
       ownerInputs.delete(owner);
+      ownerRegistrations.delete(owner);
       for (const [file, key] of previous) {
         const entry = entries.get(file);
         const condition = entry?.conditions.get(key);
@@ -1072,6 +1150,7 @@ export function createInputObserver(
     replace(owner, inputs, failed = false, startedAt) {
       if (!opened) return;
       owner = path.resolve(owner);
+      ownerRegistrations.set(owner, {});
       const previous = ownerInputs.get(owner) ?? new Map<string, string>();
       if (failed) {
         // An exception can omit the dependency whose deletion caused it.
@@ -1172,8 +1251,10 @@ export function createInputObserver(
         }
       }
       if (pathIdentityMemosDirty) resetPathIdentityMemos();
-      if (current.size === 0) ownerInputs.delete(owner);
-      else ownerInputs.set(owner, current);
+      if (current.size === 0) {
+        ownerInputs.delete(owner);
+        ownerRegistrations.delete(owner);
+      } else ownerInputs.set(owner, current);
       // Registration and removal can each touch thousands of compiler inputs.
       // Decide the one shared poller's state once per atomic replacement,
       // rather than rescanning the whole graph once per input.
@@ -1229,5 +1310,7 @@ const MAX_EXTERNAL_WATCH_SCOPES = 16;
 const MAX_CHANGE_HISTORY = 100_000;
 
 const MAX_FALLBACK_PROBES_PER_TICK = 64;
+
+const MAX_EVENT_PROBES_PER_TURN = 64;
 
 const MAX_LINK_PROBES_PER_TICK = 64;
