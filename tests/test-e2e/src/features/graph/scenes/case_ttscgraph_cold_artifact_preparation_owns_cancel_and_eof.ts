@@ -1,6 +1,7 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -30,12 +31,12 @@ import {
  *    canceled preparation must publish no exchange or native graph late start.
  *
  * @evidence contracts/testing.md#behavioral-verification Real built MCP and public Session actors discover the configured lint/Evidence publisher from the shared graph root. Cold readiness combines actual live Go process identity with matching source-key/scratch/argv trace and nonempty Go-generated compiler work. EOF, explicit signal cancellation, subsequent recovery and terminal admission are checked through public owners.
- * @evidence contracts/testing.md#independent-expectations The authored Markdown address defines the recovered artifact; literal AbortError and original reason text define caller cancellation. Native OS process generations, Go-owned work files and exact producer spawn/close receipts independently distinguish execution and retirement. A nonce sampled before an OS query requires an active-Go scan started after the transport response. A begin trace or guard alone cannot establish execution.
+ * @evidence contracts/testing.md#independent-expectations The authored Markdown address defines the recovered artifact; literal AbortError and original reason text define caller cancellation. MCP permits a rejected transport request or a fulfilled isError tool result after EOF, but never a successful result or a request settled before EOF. Native OS process generations, Go-owned work files and exact producer spawn/close receipts independently distinguish execution and retirement. A nonce sampled before an OS query requires an active-Go scan started after the transport response. A begin trace or guard alone cannot establish execution.
  * @evidence contracts/testing.md#distinguishing-cases MCP EOF during active cold preparation differs from public caller abort followed by queued recovery and terminal close. Empty unique plugin caches retain cold source-profile misses while the ordinary shared Go object cache remains unchanged. Warm/freshness and unavailable/absent-publisher semantics remain with the graph batch and source units.
  * @evidence contracts/testing.md#execution-ownership The existing graph batch invokes this scene with its shared workspace. Two actual built product lifetimes use the same configured publisher, SDK and native platform; an isolated Node actor supplies only public AbortSignal control. OS observation actors produce no compiler or graph answers.
  * @evidence contracts/e2e.md#necessary-boundary Event-loop responsiveness, stdin EOF, SDK worker/native process containment and source preparation cannot be certified by the portable injected discovery unit or command-only RPC test.
  * @evidence contracts/e2e.md#shared-execution The batch's actual graphRoot and immutable lint/Evidence dependency population serve both rows without another installation or source fixture copy. Conflicting cold caches and terminal lifetimes require two actors; Go objects are shared normally. Recovery reuses the canceled actor's original cache, source selection and public session.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each tracked row allocation starts with empty plugin cache, trace and Go work directories. Configured fixture sources remain unchanged; row reclamation requires qualified original product close, original actor and OS observer closure plus independent process-generation absence. Windows input observations follow the original outer Job owner as well as its inner target waiter and Go process. Exact admitted guards and task scratch must retire after native joining, and cancellation must publish no binary. Existing interrupted Go work is recorded separately from new or modified work after closure. Unconfirmed closure retains the row and batch; cleanup failures remain selected failures.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each tracked row allocation starts with empty plugin cache, trace and Go work directories. Configured fixture sources remain unchanged; row reclamation requires qualified original product close, original actor and OS observer closure plus independent process-generation absence. Windows input observations follow the original outer Job owner as well as its inner target waiter and Go process. Exact admitted guards and task scratch must retire after qualified SDK settlement; queued recovery establishes that fence after caller abort. Cancellation must publish no binary. Existing interrupted Go work differs from new or modified work after closure. Unconfirmed closure, partial admission or failed original-resource release retains the row and batch. Closed-row raw diagnostics go to a unique runner-owned trace directory; unknown readers retain original inputs and export only explicit partial metadata. Diagnostic failures join the original failures.
  * @evidence contracts/e2e.md#preserved-coverage Adds configured-publisher cold EOF and public cold cancellation/recovery that command-only native/RPC tests do not cover. Existing graph first publication, artifact content refresh and graph-free escape remain in the enclosing batch. MCP cancellation notifications are not asserted to bind an AbortSignal.
  */
 export async function case_ttscgraph_cold_artifact_preparation_owns_cancel_and_eof(
@@ -74,6 +75,7 @@ function allocation(name: string) {
     cache,
     trace,
     goTmp,
+    diagnosticRoot: process.env.TTSC_E2E_TRACE,
     env: {
       ...process.env,
       TTSC_CACHE_DIR: cache,
@@ -127,6 +129,7 @@ async function mcp(workspace: BatchWorkspace.Workspace): Promise<void> {
   const failures: unknown[] = [];
   let joined = false;
   let observerJoined = false;
+  let releaseConfirmed = true;
   let retiredWork: string[] | undefined;
   try {
     await observed.ready();
@@ -148,8 +151,42 @@ async function mcp(workspace: BatchWorkspace.Workspace): Promise<void> {
         },
       },
     });
-    void pending.catch(() => undefined);
+    let phase = "preparing";
+    let settled = false;
+    const outcome = pending.then(
+      (value) => {
+        settled = true;
+        try {
+          recordOutcome(row.root, { phase, status: "fulfilled", value });
+        } catch (error) {
+          failures.push(error);
+        }
+        return { status: "fulfilled" as const, value };
+      },
+      (error: unknown) => {
+        settled = true;
+        try {
+          recordOutcome(row.root, {
+            phase,
+            status: "rejected",
+            error:
+              error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                  }
+                : String(error),
+          });
+        } catch (diagnostic) {
+          failures.push(diagnostic);
+        }
+        return { status: "rejected" as const };
+      },
+    );
+    void outcome.catch(() => undefined);
     const first = await observed.build(row.trace, row.cache, row.goTmp);
+    releaseConfirmed = false;
     const tools = await client.request("tools/list", {});
     assert.ok(tools && typeof tools === "object");
     await observed.active(first);
@@ -159,12 +196,16 @@ async function mcp(workspace: BatchWorkspace.Workspace): Promise<void> {
       "cold publication admitted native graph before completion",
     );
     assert.deepEqual(artifactExchanges(child.pid!), []);
+    assert.equal(settled, false, "Cold request settled before EOF");
+    phase = "eof";
+    recordOutcome(row.root, { phase, status: "pending" });
     client.endStdin();
     assert.equal(await client.waitForExit(), 0, client.stderrText());
     assert.deepEqual(await completion, { code: 0, signal: null });
     await observed.absent(first);
     await observed.joined();
     await observed.retired(first);
+    releaseConfirmed = true;
     retiredWork = workSnapshot(row.goTmp);
     client.assertNativeChildrenJoined();
     assert.equal(
@@ -177,7 +218,15 @@ async function mcp(workspace: BatchWorkspace.Workspace): Promise<void> {
       [],
       "EOF allowed late artifact publication",
     );
-    await assert.rejects(pending);
+    const terminal = await outcome;
+    assert.ok(
+      terminal.status === "rejected" ||
+        (terminal.value !== null &&
+          typeof terminal.value === "object" &&
+          "isError" in terminal.value &&
+          terminal.value.isError === true),
+      "EOF returned a successful tool result",
+    );
     joined = true;
   } catch (error) {
     failures.push(error);
@@ -214,10 +263,21 @@ async function mcp(workspace: BatchWorkspace.Workspace): Promise<void> {
         );
       } catch (error) {
         failures.push(error);
+        releaseConfirmed = false;
       }
     }
-    if (!joined || !observerJoined)
-      retain(row.root, "Cold MCP preparation or observer readers did not join");
+    releaseConfirmed &&= !observed.hasIncompleteAdmission;
+    if (!joined || !observerJoined || !releaseConfirmed)
+      retain(
+        row.root,
+        "Cold MCP reader join or original resource release was not confirmed",
+      );
+    try {
+      preserveDiagnostics(row, joined && observerJoined, releaseConfirmed);
+    } catch (error) {
+      failures.push(error);
+      retain(row.root, "Cold MCP diagnostics could not be preserved");
+    }
   }
   if (failures.length)
     throw new AggregateError(
@@ -256,13 +316,22 @@ async function session(workspace: BatchWorkspace.Workspace): Promise<void> {
   );
   const completion = closeReceipt(child);
   const events = new Set<string>();
+  const failures: unknown[] = [];
   let stderr = "";
-  child.stdout!.on("data", (chunk) =>
-    fs.appendFileSync(path.join(row.root, "stdout.log"), chunk),
-  );
+  child.stdout!.on("data", (chunk) => {
+    try {
+      fs.appendFileSync(path.join(row.root, "stdout.log"), chunk);
+    } catch (error) {
+      failures.push(error);
+    }
+  });
   child.stderr!.on("data", (chunk) => {
     stderr += String(chunk);
-    fs.appendFileSync(path.join(row.root, "stderr.log"), chunk);
+    try {
+      fs.appendFileSync(path.join(row.root, "stderr.log"), chunk);
+    } catch (error) {
+      failures.push(error);
+    }
   });
   child.on("message", (message: { event?: string }) => {
     if (message.event) events.add(message.event);
@@ -288,18 +357,18 @@ async function session(workspace: BatchWorkspace.Workspace): Promise<void> {
     }
   };
   const observed = new ColdArtifactObservation(child.pid!, row.root);
-  const failures: unknown[] = [];
   let joined = false;
   let observerJoined = false;
+  let releaseConfirmed = true;
   let retiredWork: string[] | undefined;
   try {
     await observed.ready();
     await wait("ready");
     child.send("start");
     const first = await observed.build(row.trace, row.cache, row.goTmp);
+    releaseConfirmed = false;
     child.send("abort");
     await observed.absent(first);
-    await observed.retired(first);
     assert.deepEqual(
       artifactExchanges(child.pid!),
       [],
@@ -313,6 +382,10 @@ async function session(workspace: BatchWorkspace.Workspace): Promise<void> {
     const oldWork = new Set(fs.readdirSync(row.goTmp));
     child.send("recover");
     await observed.build(row.trace, row.cache, row.goTmp, first, oldWork);
+    // New preparation runs behind the canceled refresh in the public queue.
+    // Native absence alone does not acknowledge the old SDK input lease.
+    await observed.retired(first);
+    releaseConfirmed = true;
     await wait("cancelled");
     await wait("recovered");
     const published = artifactExchanges(child.pid!);
@@ -381,10 +454,24 @@ async function session(workspace: BatchWorkspace.Workspace): Promise<void> {
         );
       } catch (error) {
         failures.push(error);
+        releaseConfirmed = false;
       }
     }
-    if (!joined || !observerJoined)
-      retain(row.root, "Cold public session or observer readers did not join");
+    releaseConfirmed &&= !observed.hasIncompleteAdmission;
+    if (!joined || !observerJoined || !releaseConfirmed)
+      retain(
+        row.root,
+        "Cold public session reader join or original resource release was not confirmed",
+      );
+    try {
+      preserveDiagnostics(row, joined && observerJoined, releaseConfirmed);
+    } catch (error) {
+      failures.push(error);
+      retain(
+        row.root,
+        "Cold public session diagnostics could not be preserved",
+      );
+    }
   }
   if (failures.length)
     throw new AggregateError(
@@ -421,4 +508,71 @@ function workSnapshot(root: string): string[] {
 function retain(root: string, reason: string): void {
   TestProject.retainTemporaryDirectory(root, reason);
   BatchWorkspace.retain(reason);
+}
+
+/** Keep raw terminal values in the row before any reclamation. */
+function recordOutcome(root: string, data: Record<string, unknown>): void {
+  fs.appendFileSync(
+    path.join(root, "transport-outcomes.jsonl"),
+    JSON.stringify({ at: new Date().toISOString(), ...data }) + "\n",
+  );
+}
+
+/** Copy only this closed row's receipts to the runner-owned upload root. */
+function preserveDiagnostics(
+  row: ReturnType<typeof allocation>,
+  joined: boolean,
+  releaseConfirmed: boolean,
+): void {
+  if (!row.diagnosticRoot) return;
+  const destination = fs.mkdtempSync(
+    path.join(row.diagnosticRoot, `${path.basename(row.root)}-`),
+  );
+  const files: { file: string; size: number; sha256: string }[] = [];
+  const copy = (source: string, target: string): void => {
+    for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+      const original = path.join(source, entry.name);
+      const output = path.join(target, entry.name);
+      if (
+        entry.isDirectory() &&
+        source === row.root &&
+        entry.name === "trace"
+      ) {
+        fs.mkdirSync(output);
+        copy(original, output);
+      } else if (
+        entry.isFile() &&
+        /\.(jsonl|json|log|bin)$/u.test(entry.name)
+      ) {
+        const bytes = fs.readFileSync(original);
+        const retained = entry.name.endsWith(".log")
+          ? path.join(
+              target,
+              `${path.basename(row.root)}-${entry.name.slice(0, -4)}.bin`,
+            )
+          : output;
+        fs.writeFileSync(retained, bytes, { flag: "wx" });
+        files.push({
+          file: path.relative(destination, retained),
+          size: bytes.length,
+          sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+        });
+      }
+    }
+  };
+  // Live/unknown readers keep their original inputs. Metadata explicitly
+  // records partial diagnostics instead of copying a changing authority.
+  if (joined) copy(row.root, destination);
+  fs.writeFileSync(
+    path.join(destination, "row.jsonl"),
+    JSON.stringify({
+      at: new Date().toISOString(),
+      original: row.root,
+      joined,
+      releaseConfirmed,
+      partial: !joined,
+      files,
+    }) + "\n",
+    { flag: "wx" },
+  );
 }

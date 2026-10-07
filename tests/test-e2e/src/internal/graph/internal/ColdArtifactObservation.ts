@@ -14,6 +14,9 @@ interface ProcessReading {
 }
 
 interface BuildAdmission {
+  invocation: string;
+  instance: string;
+  sequence: number;
   process: ProcessReading;
   targetOwner: ProcessReading;
   owner: ProcessReading;
@@ -60,6 +63,7 @@ export class ColdArtifactObservation {
   private observerClosed = false;
   private scannerClosed = false;
   private scanRequest: string | undefined;
+  private incompleteAdmission = false;
 
   public constructor(
     private readonly rootPid: number,
@@ -213,16 +217,37 @@ export class ColdArtifactObservation {
         );
         const attempts = events.filter(
           (event) =>
-            event.event === "process-attempt" && event.argv?.[1] === "build",
+            event.event === "process-attempt" &&
+            event.argv?.[1] === "build" &&
+            typeof event.invocation === "string" &&
+            typeof event.instance === "string" &&
+            typeof event.sequence === "number" &&
+            event.invocation !== excluded?.invocation &&
+            event.cwd !== excluded?.scratch &&
+            (!excluded ||
+              event.instance !== excluded.instance ||
+              event.sequence > excluded.sequence) &&
+            !events.some(
+              (terminal) =>
+                terminal.event === "process-result" &&
+                terminal.invocation === event.invocation,
+            ),
         );
         for (const key of keys) {
           if (typeof key.data?.key !== "string") continue;
           const sourceKey = key.data.key;
-          const scratch = attempts.find(
+          const candidates = attempts.filter(
             (event) =>
+              event.instance === key.instance &&
+              event.sequence! > key.sequence! &&
               event.cwd?.includes(`ttsc-plugin-${sourceKey}-`) &&
               fs.existsSync(event.cwd),
           );
+          assert.ok(
+            candidates.length <= 1,
+            "Multiple live source invocations cannot bind one observed Go command",
+          );
+          const scratch = candidates[0];
           if (!scratch || !fs.existsSync(scratch.cwd!)) continue;
           const entry = path.join(pluginCache, "plugins", key.data.key);
           assert.equal(
@@ -275,6 +300,9 @@ export class ColdArtifactObservation {
                 )
               : targetOwner;
           if (!owner) continue;
+          // Malformed or unknown guards cannot turn an observed native reader
+          // into permission to reclaim its source/cache inputs.
+          this.incompleteAdmission = true;
           const scratchGuards = guardRecords(scratch.cwd!);
           const entryGuards = guardRecords(entry);
           const guards = scratchGuards.flatMap((first) => {
@@ -292,6 +320,9 @@ export class ColdArtifactObservation {
           for (const guard of guards)
             assert.equal(guard.record.state, "pending");
           admitted = {
+            invocation: scratch.invocation!,
+            instance: scratch.instance!,
+            sequence: scratch.sequence!,
             process: go,
             targetOwner,
             owner,
@@ -319,6 +350,9 @@ export class ColdArtifactObservation {
               targetOwner,
               owner,
               key: key.data.key,
+              invocation: scratch.invocation,
+              instance: scratch.instance,
+              sequence: scratch.sequence,
               argv: scratch.argv,
               cwd: scratch.cwd,
               work,
@@ -354,6 +388,7 @@ export class ColdArtifactObservation {
       Math.max(1, Math.min(30_000, deadline - Date.now())),
       "Active original build and protected source/cache input snapshot were not observed together",
     );
+    this.incompleteAdmission = false;
     return admitted!;
   }
 
@@ -418,16 +453,53 @@ export class ColdArtifactObservation {
     );
   }
 
-  /** Check original task resources after actual native absence, before reuse. */
+  /** Check original resources after the public owner settles its input lease. */
   public async retired(admission: BuildAdmission): Promise<void> {
-    await this.until(
-      () =>
-        !fs.existsSync(admission.scratch) &&
-        admission.guards.every((guard) => !fs.existsSync(guard.file)),
-      30_000,
-      "Original task scratch or admitted native guards were not released",
-    );
-    this.unpublished(admission);
+    const failures: unknown[] = [];
+    try {
+      await this.until(
+        () =>
+          !fs.existsSync(admission.scratch) &&
+          admission.guards.every((guard) => !fs.existsSync(guard.file)),
+        30_000,
+        "Original task scratch or admitted native guards were not released",
+      );
+      this.unpublished(admission);
+    } catch (error) {
+      failures.push(error);
+    }
+    try {
+      fs.appendFileSync(
+        path.join(this.directory, "resource-release.jsonl"),
+        JSON.stringify({
+          at: new Date().toISOString(),
+          invocation: admission.invocation,
+          scratch: {
+            path: admission.scratch,
+            exists: fs.existsSync(admission.scratch),
+          },
+          guards: admission.guards.map((guard) => ({
+            ...guard,
+            exists: fs.existsSync(guard.file),
+            current: fs.existsSync(guard.file)
+              ? fs.readFileSync(guard.file, "utf8")
+              : null,
+          })),
+        }) + "\n",
+      );
+    } catch (error) {
+      failures.push(error);
+    }
+    if (failures.length)
+      throw new AggregateError(
+        failures,
+        "Original resource release was not confirmed",
+      );
+  }
+
+  /** A partially observed admission cannot authorize input reclamation. */
+  public get hasIncompleteAdmission(): boolean {
+    return this.incompleteAdmission;
   }
 
   public unpublished(admission: BuildAdmission): void {
@@ -490,6 +562,9 @@ export async function bounded<T>(
 
 interface TraceEvent {
   event: string;
+  invocation?: string;
+  instance?: string;
+  sequence?: number;
   argv?: string[];
   cwd?: string;
   data?: { phase?: string; key?: string };
