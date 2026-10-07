@@ -21,14 +21,16 @@ import (
 // The direct child is then waited for; Linux also reaps adopted descendants, while
 // other POSIX hosts leave orphan reaping to the operating system.
 //
-// @evidence contracts/common.md#principled-implementation Setpgid establishes the command boundary before target execution; group signals retire inherited descendants and wait plus native group absence qualify the completion record. Processes that deliberately leave the group are not contained by a POSIX group.
-// @evidence contracts/common.md#clear-and-simple-design Command execution owns one wait result and one cancellation selection; the platform reaper and the bounded group finalizer isolate native differences.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Native process-group operations retire real work; unknown cleanup remains an error rather than a successful response or a longer command deadline.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes direct-child waiting, Linux adopted-child reaping and the operating system's orphan ownership elsewhere.
-// @evidence contracts/portability.md#os-neutral-implementation A build constraint isolates POSIX group signalling and the Linux reaper from Windows Jobs. Arguments and environment entries remain native vectors without a shell.
-// @evidence contracts/performance.md#efficient-algorithms One target is spawned and waited for; cleanup observes the owned group between fixed polling intervals, with adopted-child work proportional to exited descendants.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Effectful command executions cannot share their results merely because argv matches.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The call owns one target, wait goroutine and optional command timer. Normal completion and cancellation join the direct child and retire surviving group members. Native refusal or a group that does not disappear within the cleanup budget yields an explicit unproved-cleanup error.
+// Setpgid establishes the boundary before target execution. Group signals
+// retire inherited descendants; processes that deliberately leave the group
+// are outside this boundary. Arguments and environment remain native vectors
+// without a shell, and build constraints isolate native reaping differences.
+//
+// Each call owns one target, exit-observation goroutine and optional timer.
+// Effectful commands execute independently even when their arguments match.
+// Cleanup polls the group at fixed intervals; adopted-child reaping is
+// proportional to exited descendants. Native refusal or a group that remains
+// after the cleanup budget yields an explicit unproved-cleanup error.
 func runCommand(req request, cancel <-chan struct{}, out, stderr io.Writer) (completed result) {
 	if req.WindowsVerbatimArguments {
 		return failure("EINVAL", "Windows verbatim arguments are unavailable on POSIX")

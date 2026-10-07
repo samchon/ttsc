@@ -28,14 +28,23 @@ import (
 // A failed emptiness query retains the private directory instead of deleting
 // input that an unverified boundary might still own.
 //
-// @evidence contracts/common.md#principled-implementation Windows job inheritance contains descendants before suspended target creation. READY, STARTED and RUN separate containment, original-handle PID publication and execution admission; cancellation and the requested deadline are rechecked before both authorization writes. Kernel accounting, rather than PID sampling, establishes emptiness.
-// @evidence contracts/common.md#clear-and-simple-design The outer helper owns the job and cancellation while an inner helper owns target execution. Private files carry readiness and the target result independently of inherited stdout handles.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Job Object APIs implement the supported Windows boundary directly without taskkill, foreign method replacement, consumer exceptions or timeout increases.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs describe containment ordering, surviving descendants and the cleanup proof. Helpers retain private implementation details under this operation.
-// @evidence contracts/portability.md#os-neutral-implementation A Windows build constraint isolates job APIs and Windows command-line encoding. The target receives exact environment entries and either Go's argument quoting or the caller-requested verbatim command line.
-// @evidence contracts/performance.md#efficient-algorithms Launch preparation is linear in request bytes and argument count. Fixed-size job accounting polls do not enumerate processes; each invocation owns one request, one readiness marker, one selected-target identity record and one final result.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns independent command effects and a new job; source artifact caching is owned by the caller.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Each call owns one job, helper, control pipe and private directory. Cancellation and normal exit terminate descendants, join the helper and query zero active processes before private files are released. A kernel termination or accounting failure reports an unproven boundary and retains its directory; job and control handles are closed on return.
+// The outer owns the job and cancellation; the inner owns target execution.
+// READY, STARTED and RUN separate containment, original-handle PID publication
+// and execution admission. Cancellation and the requested deadline are checked
+// before both authorization writes. Private control files remain independent
+// of descendant-owned stdout handles. Kernel accounting establishes emptiness.
+//
+// Windows build constraints isolate Job APIs and command-line encoding. The
+// target receives exact environment entries and ordinary argument quoting or
+// the caller-requested verbatim command line. Launch preparation is linear in
+// request bytes and argument count; fixed-size accounting does not enumerate
+// processes. Command effects execute independently under a new job each time;
+// source artifact caching belongs to the caller.
+//
+// Each call owns one helper, control pipe and private directory. Retirement
+// joins the helper and observes zero active processes before releasing private
+// files. Kernel termination or accounting failure reports an unproven boundary
+// and retains its directory; job and control handles close on return.
 func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (completed result) {
   dir, err := os.MkdirTemp("", "ttsc-source-process-")
   if err != nil { return failure("EIO", err.Error()) }

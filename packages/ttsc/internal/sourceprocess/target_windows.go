@@ -21,14 +21,18 @@ import (
 // Only duplicated standard handles are inherited; no broker, shell or global
 // process/thread enumeration participates in execution.
 //
-// @evidence contracts/common.md#principled-implementation CreateProcess returns original process and primary-thread handles atomically. CREATE_SUSPENDED and the outer RUN authorization place PID publication before target execution; ResumeThread uses that original handle and requires exactly one suspended count.
-// @evidence contracts/common.md#clear-and-simple-design One selected-target owner keeps native creation, resumption, waiting and handle release together; the existing outer Job retains cancellation and descendant retirement.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Documented Windows creation and thread APIs establish the admission boundary without a PID-file-only race, uncontained execution, global thread lookup or undocumented resume functions.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains original-handle identity, suspended admission and the three inherited descriptors.
-// @evidence contracts/portability.md#os-neutral-implementation This Windows-only owner preserves the selected executable, argv0, verbatim argument policy, UTF-16 environment and cwd while isolating STARTUPINFOEX and native handle inheritance.
-// @evidence contracts/performance.md#efficient-algorithms Command-line and environment encoding are linear in their bytes; three handles and one attribute list have fixed size, with no host-wide process or thread scan.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Native command effects and their process identities cannot be shared across invocations.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Creation releases duplicated descriptors and its attribute list on every path. The inner owns the original process/thread handles until target wait and result publication or inner exit; the outer Job retires a suspended or running target after any handshake failure.
+// CreateProcess returns both original handles atomically. CREATE_SUSPENDED
+// places PID publication before execution; ResumeThread uses the original
+// primary-thread handle and requires exactly one suspended count. The outer
+// Job owns cancellation and retires suspended or running targets after any
+// handshake failure.
+//
+// The owner preserves the selected executable, argv0, verbatim argument policy,
+// UTF-16 environment and cwd. Encoding is linear in command and environment
+// bytes. Three duplicated descriptors and one attribute list have fixed size
+// and are released after creation on every path. Each invocation owns its
+// command effects and identity independently. The inner retains the original
+// process/thread handles until target wait and result publication or inner exit.
 type windowsTarget struct { info windows.ProcessInformation }
 
 func startWindowsTarget(req request, input *os.File) (*windowsTarget, error) {
