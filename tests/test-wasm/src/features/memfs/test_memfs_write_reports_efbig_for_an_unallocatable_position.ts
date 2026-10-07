@@ -1,5 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
 import { createMemFS } from "@ttsc/wasm";
+import assert from "node:assert/strict";
 
 import { openFd, readFdText, writeFdText } from "../../internal/callbackFs";
 
@@ -10,22 +11,23 @@ const O_RDWR = 2;
  * Verifies a positioned write whose end no buffer can hold reports `EFBIG`
  * through the callback and changes neither the bytes nor the cursor.
  *
- * Growing the file allocates zero-filled storage up to the write's end, and the
- * engine refuses a size it cannot allocate with a `RangeError` that carries no
- * POSIX code. The virtual filesystem treats that refusal as its maximum file
- * size, so a write at 2^40 must answer with a coded error while the file keeps
- * its bytes, and a following small write must still succeed.
+ * A valid safe-integer file length can still exceed the engine's allocatable
+ * storage. Node's 64-bit Uint8Array length limit is 2^53 - 1, rather than 2^40;
+ * an accepted virtual allocation need not commit all its physical pages.
+ * Independently verify native RangeError refusal at the last two safe lengths
+ * before asking MemFS to translate that same allocation failure to EFBIG.
+ * No oversized accepted buffer is filled or read, and no allocator is patched.
  *
  * 1. Seed `/f.txt`="abcdef" and open it read-write.
- * 2. Write one byte at position 2^40 and at the cursor-independent position 2^40 +
- *    1.
+ * 2. Independently verify allocation refusal at the last two safe lengths,
+ *    then write one byte ending at each of those lengths.
  * 3. Read the file and the cursor, then write inside the file to prove the
  *    descriptor still works.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls host.fs.write at positions far beyond any allocatable size and observes the coded callback error and zero byte count, then re-reads the file text and the cursor to prove nothing was mutated.
- * @evidence contracts/testing.md#independent-expectations The expected code EFBIG, the count 0 and the unchanged text "abcdef" are authored literals; a one-tebibyte zero-filled gap exceeds what the engine allocates regardless of the implementation, and the follow-up write at position 0 independently yields "Zbcdef".
+ * @evidence contracts/testing.md#behavioral-verification Calls host.fs.write at two valid safe-integer ends independently refused by the native allocator and observes the coded callback error and zero byte count, then re-reads the file text and the cursor to prove nothing was mutated.
+ * @evidence contracts/testing.md#independent-expectations Native Uint8Array RangeError assertions establish allocation refusal independently of MemFS; the lengths remain within Node's documented 2^53 - 1 limit and positioned-write safe-integer validation. EFBIG, count 0, unchanged "abcdef", and subsequent "Zbcdef" are authored literals.
  * @evidence contracts/testing.md#distinguishing-cases Two oversized positions contrast with the accepted in-bounds write that follows; a position past 2^53 (a distinct EINVAL case) and the beyond-EOF zero-fill of a small gap are owned by test_memfs_write_honors_explicit_positions.
- * @evidence contracts/testing.md#execution-ownership Unit entry that drives only the in-process createMemFS filesystem callbacks; no Go runtime or worker is started. The oversized allocation is refused by the host engine before any memory is committed, so the case needs no real storage.
+ * @evidence contracts/testing.md#execution-ownership Unit entry that drives native allocation refusal and in-process createMemFS callbacks; no Go runtime or worker is started. The independently checked near-eight-pebibyte requests are refused on the host; no accepted large buffer is touched, no real storage is written, and a surprising native allocation success fails the precondition before MemFS can initialize it.
  */
 export const test_memfs_write_reports_efbig_for_an_unallocatable_position =
   async (): Promise<void> => {
@@ -33,16 +35,19 @@ export const test_memfs_write_reports_efbig_for_an_unallocatable_position =
     host.writeFile("/f.txt", "abcdef");
     const fd = await openFd(host.fs, "/f.txt", O_RDWR);
 
-    TestValidator.equals(
-      "a write at 2^40 is refused",
-      await writeFdText(host.fs, fd, "!", 2 ** 40),
-      { code: "EFBIG", n: 0 },
-    );
-    TestValidator.equals(
-      "a write at 2^40 + 1 is refused",
-      await writeFdText(host.fs, fd, "!", 2 ** 40 + 1),
-      { code: "EFBIG", n: 0 },
-    );
+    const lengths = [Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER];
+    for (const length of lengths)
+      assert.throws(
+        () => new Uint8Array(length),
+        RangeError,
+        `native allocation must refuse the safe length ${length}`,
+      );
+    for (const length of lengths)
+      TestValidator.equals(
+        `a write ending at the independently refused length ${length}`,
+        await writeFdText(host.fs, fd, "!", length - 1),
+        { code: "EFBIG", n: 0 },
+      );
     TestValidator.equals(
       "refused writes keep the bytes",
       host.readFileText("/f.txt"),
