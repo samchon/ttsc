@@ -371,14 +371,15 @@ export namespace BatchWorkspace {
    * The source-publication preparation also retains real Go failure statuses
    * before and after its self-rewriting toolchain witness experiment. Windows
    * exits from the wrapper immediately after Node, so appended comments cannot
-   * change the compiler's verdict.
+   * change the compiler's verdict. The wrapper clears an inherited ERRORLEVEL
+   * environment shadow before Node runs, retaining the dynamic child status.
    *
-   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 before and after byte rewrites independently distinguishes failed tool execution from successful publication.
+   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication.
    * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence. The wrapper preserves native failure without changing production build checks, while actual byte rewrites still exercise toolchain refusal and stable recovery; no input predicate, compiler guard or native Program count is bypassed.
    * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it. It also identifies the Windows exit boundary needed by the self-rewriting adapter.
-   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner.
-   * @evidence contracts/performance.md#efficient-algorithms Preparation copies complete selected fixture and installed payloads, hashes candidate executable bytes, installs packages, prints the authored value matrix, and runs its real source-publication builds and toolchain observations. Their population and byte sizes drive IO, transient buffers, native compilation and subprocess cost. Five observation files start with constant-size empty writes; the wrapper regression adds exactly two unsupported-help processes to the existing preparation, with no additional installation, native build or recursive discovery.
+   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines after clearing its case-insensitive ERRORLEVEL environment shadow, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation copies complete selected fixture and installed payloads, hashes candidate executable bytes, installs packages, prints the authored value matrix, and runs its real source-publication builds and toolchain observations. Their population and byte sizes drive IO, transient buffers, native compilation and subprocess cost. Five observation files start with constant-size empty writes; the wrapper regression adds exactly twelve real Go status processes (help failure and version success across absent/0/999 status shadows, before and after rewrites) to the existing preparation, with no additional installation, native build or recursive discovery.
    * @evidence contracts/performance.md#reuse-equivalent-work The process-owned preparation Promise shares this fixture population; empty outputs establish an initial state only. Native appends and consumer generation guards still determine whether later observations can be reused.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The five files belong to the existing allocated root and its tracked cleanup/retention lifecycle. Partial initialization on failure is not success evidence, and retained failures keep the actual subsequent appends rather than inventing or dropping them.
    */
@@ -1354,7 +1355,7 @@ export namespace BatchWorkspace {
       fs.writeFileSync(
         go,
         process.platform === "win32"
-          ? `@echo off\r\n"${process.execPath}" "%~dp0actual-go.cjs" %*\r\nexit /b %errorlevel%\r\n`
+          ? `@echo off\r\nset "ERRORLEVEL="\r\n"${process.execPath}" "%~dp0actual-go.cjs" %*\r\nexit /b %errorlevel%\r\n`
           : `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(script)} "$@"\n`,
       );
       if (process.platform !== "win32") fs.chmodSync(go, 0o755);
@@ -1373,19 +1374,32 @@ export namespace BatchWorkspace {
       };
       // The self-rewriting witness probe must not make the Windows wrapper
       // hide a failed real Go command behind its appended comment commands.
-      const assertRejectedGoCommand = (): void => {
-        const rejected = spawnGoTool(go, ["help", "ttsc-e2e-no-such-topic"], {
-          cwd: tools,
-          encoding: "utf8",
-          env,
-          windowsHide: true,
-        });
-        assert.equal(rejected.error, undefined);
-        assert.equal(rejected.signal, null);
-        assert.equal(rejected.status, 2);
-        assert.match(rejected.stderr, /unknown help topic/);
+      const assertGoCommandExits = (): void => {
+        for (const errorlevel of [undefined, "0", "999"]) {
+          const commandEnv = { ...env, ERRORLEVEL: errorlevel };
+          const rejected = spawnGoTool(go, ["help", "ttsc-e2e-no-such-topic"], {
+            cwd: tools,
+            encoding: "utf8",
+            env: commandEnv,
+            windowsHide: true,
+          });
+          assert.equal(rejected.error, undefined);
+          assert.equal(rejected.signal, null);
+          assert.equal(rejected.status, 2);
+          assert.match(rejected.stderr, /unknown help topic/);
+          const accepted = spawnGoTool(go, ["version"], {
+            cwd: tools,
+            encoding: "utf8",
+            env: commandEnv,
+            windowsHide: true,
+          });
+          assert.equal(accepted.error, undefined);
+          assert.equal(accepted.signal, null);
+          assert.equal(accepted.status, 0);
+          assert.match(accepted.stdout, /^go version /);
+        }
       };
-      assertRejectedGoCommand();
+      assertGoCommandExits();
       // No changing attempt may populate the compiler memo or replace an
       // earlier witness. The existing real Go launcher changes its own bytes
       // during each version query, then returns to ordinary stable operation.
@@ -1407,7 +1421,7 @@ export namespace BatchWorkspace {
         PluginBuildEnvironmentWitness.holds(recovered),
         "a fresh stable reading must recover without discarding earlier refusal",
       );
-      assertRejectedGoCommand();
+      assertGoCommandExits();
       const expected = path.join(source, "node_modules", ".cache", "ttsc");
       assert.equal(
         resolveSourceBuildCachePaths(source, undefined, env).root,
