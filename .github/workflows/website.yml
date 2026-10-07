@@ -58,7 +58,8 @@ jobs:
       - run: pnpm run build
         id: build
       - name: Compile benchmark chart renderer
-        run: pnpm --filter @ttsc/benchmark-evidence exec ttsc --project tsconfig.json --noEmit false --outDir lib
+        working-directory: benchmarks/evidence
+        run: node ../../packages/ttsc/lib/launcher/ttsc.js --project tsconfig.json --noEmit false --outDir lib
       - name: Render benchmark charts from compiled output
         run: node benchmarks/evidence/lib/executable/EvidenceBenchmarkChart.js
       - run: pnpm --filter @ttsc/website build
