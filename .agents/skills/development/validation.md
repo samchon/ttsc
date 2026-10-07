@@ -13,7 +13,6 @@ Verification shape depends on the change type:
 - **Bug fix**: name the failing case and the expected behavior; run a repro that fails before the fix and passes after.
 - **Feature**: name the observable behavior; exercise it end-to-end.
 - **Refactor**: name what should stay unchanged; rely on the existing test suite or a behavior-locking probe.
-- **Review**: name concrete risks, missing tests, or regressions.
 
 ## Inputs And Results
 
