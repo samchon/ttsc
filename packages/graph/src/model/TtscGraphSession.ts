@@ -1,6 +1,8 @@
+import { CapabilityPluginResolver } from "ttsc";
+
 import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
-import type { IPublishedArtifacts } from "./IPublishedArtifacts";
+import type { IPublishedArtifactsResident } from "./IPublishedArtifactsResident";
 import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
@@ -10,8 +12,7 @@ import type { TtscGraphSessionOptions } from "./TtscGraphSessionOptions";
 import { TtscGraphSessionState } from "./TtscGraphSessionState";
 import { TtscLintDaemon } from "./TtscLintDaemon";
 import {
-  artifactsAreStale,
-  publishArtifacts,
+  artifactsAreStaleResident,
   publishArtifactsResident,
 } from "./publishedArtifacts";
 
@@ -23,6 +24,10 @@ import {
  * existing {@link TtscGraphMemory}; an edited source reuses tsgo's resident
  * Program through `driver.Session`, while config and root-file-set changes
  * force a safe full reload.
+ *
+ * Cold publisher discovery, proof validation and direct publisher commands run
+ * through the SDK's asynchronous owner. Request-group cancellation and session
+ * shutdown join those producers before a later admission can publish.
  *
  * @evidence contracts/common.md#principled-implementation Validated versioned responses and atomic shard transactions preserve generation consistency while serialized requests correlate native replies by id.
  * @evidence contracts/common.md#clear-and-simple-design This facade owns project/binary and artifact sidecars; the state owns queue/model/shards, the protocol owns generated decoding and the line adapter owns the native child.
@@ -46,7 +51,8 @@ export class TtscGraphSession {
    * still carries inputs, so that adding a publisher is something a running
    * session can notice.
    */
-  private artifacts: IPublishedArtifacts | undefined;
+  private artifacts: IPublishedArtifactsResident | undefined;
+  private readonly resolver = new CapabilityPluginResolver();
 
   /**
    * One resident `@ttsc/lint` sidecar per plugin binary, opened lazily.
@@ -90,7 +96,11 @@ export class TtscGraphSession {
         for (const daemon of this.daemons.values()) this.retireDaemon(daemon);
         this.daemons.clear();
         this.daemonIdentities.clear();
-        const results = await Promise.allSettled(this.retiredDaemons);
+        const results = await Promise.allSettled([
+          ...this.retiredDaemons,
+          this.resolver.close(),
+        ]);
+        this.artifacts = undefined;
         const failures = results
           .filter(
             (result): result is PromiseRejectedResult =>
@@ -132,8 +142,9 @@ export class TtscGraphSession {
   /**
    * Close the native session. Safe to call more than once.
    *
-   * Retires artifact sidecars and rejects pending native requests. Queued
-   * requests observe the closed state before they can create another child.
+   * Retires artifact sidecars, discovery worker and supervised publisher
+   * commands, and rejects pending native requests. Queued requests observe the
+   * closed state before they can create another child.
    *
    * @evidence contracts/common.md#principled-implementation The closed flag precedes sidecar disposal and child failure, so every pending or subsequent native operation observes retired ownership.
    * @evidence contracts/common.md#clear-and-simple-design The explicit close path reuses failChild/failPending cleanup instead of a second cancellation implementation.
@@ -142,7 +153,7 @@ export class TtscGraphSession {
    * @evidence contracts/portability.md#os-neutral-implementation Node child termination ends stdin, signals the process and escalates after a grace period without platform shell commands.
    * @evidence contracts/performance.md#efficient-algorithms Shutdown visits sidecars and pending replies once; a delayed force-kill timer is cancelled when the child exits.
    * @evidence contracts/performance.md#reuse-equivalent-work Closure ends this owner's permission to reuse native Program, model and sidecars; subsequent graph calls reject.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Sidecars are cleared, native readers and reply listeners are removed, current model/shards are released with child retirement, and termination owns its finite grace timer.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Shutdown aborts discovery and publisher commands, joins the resolver and sidecars, and drops opaque proofs. Native readers and reply listeners are removed, model/shards are released with child retirement, and graph-peer termination owns its finite grace timer.
    */
   public close(): Promise<void> {
     this.shutdown.abort(new Error("@ttsc/graph: native session closed"));
@@ -170,33 +181,70 @@ export class TtscGraphSession {
    * evaluation per verb. An already-cancelled request does not start one.
    */
   private async republishArtifacts(signal?: AbortSignal): Promise<void> {
-    if (signal?.aborted) return;
-    // A child yet to be spawned publishes on the way up, so there is nothing
-    // here to keep fresh until one does.
-    if (!this.state.hasPeer() || this.artifacts === undefined) return;
-    if (!artifactsAreStale(this.artifacts)) return;
+    const active =
+      signal === undefined
+        ? this.shutdown.signal
+        : AbortSignal.any([signal, this.shutdown.signal]);
+    active.throwIfAborted();
+    await Promise.all(this.retiredDaemons);
+    active.throwIfAborted();
+    if (
+      this.artifacts !== undefined &&
+      !(await artifactsAreStaleResident(this.artifacts, { signal: active }))
+    )
+      return;
     const publishers = new Set<string>();
-    const next = await publishArtifactsResident(
-      { cwd: this.cwd, tsconfig: this.tsconfig, signal: this.shutdown.signal },
-      (plugin) => {
-        publishers.add(plugin.binary);
-        return this.daemon(plugin);
-      },
-    );
-    for (const [binary, daemon] of this.daemons) {
-      if (publishers.has(binary)) continue;
-      const closing = this.retireDaemon(daemon);
-      await closing;
-      this.daemons.delete(binary);
-      this.daemonIdentities.delete(binary);
+    let next: IPublishedArtifactsResident | undefined;
+    let failure: unknown;
+    try {
+      next = await publishArtifactsResident(
+        { cwd: this.cwd, tsconfig: this.tsconfig, signal: active },
+        (plugin) => {
+          publishers.add(plugin.binary);
+          return this.daemon(plugin);
+        },
+        this.resolver,
+      );
+      for (const [binary, daemon] of this.daemons) {
+        if (publishers.has(binary)) continue;
+        await this.retireDaemon(daemon);
+        this.daemons.delete(binary);
+        this.daemonIdentities.delete(binary);
+      }
+      active.throwIfAborted();
+      // Successful absence replaces the old overlay too. The exact old proof
+      // is released before the new one becomes this session's authority.
+      await this.artifacts?.discovery.release();
+      active.throwIfAborted();
+      this.artifacts = next;
+      next = undefined;
+    } catch (error) {
+      failure = error;
+      throw error;
+    } finally {
+      const closing: Promise<void>[] = [];
+      if (next !== undefined) closing.push(next.discovery.release());
+      if (active.aborted) {
+        for (const binary of publishers) {
+          const daemon = this.daemons.get(binary);
+          if (daemon !== undefined) closing.push(this.retireDaemon(daemon));
+          this.daemons.delete(binary);
+          this.daemonIdentities.delete(binary);
+        }
+      }
+      const results = await Promise.allSettled(closing);
+      const failures = results
+        .filter(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected",
+        )
+        .map((result) => result.reason);
+      if (failures.length > 0)
+        throw new AggregateError(
+          [...(failure === undefined ? [] : [failure]), ...failures],
+          "@ttsc/graph: artifact cleanup failed",
+        );
     }
-    // The new answer is taken whatever it says, including that the project now
-    // publishes nothing. Keeping the old set on a `null` would be guessing that
-    // the publisher failed rather than that it was removed, and guessing wrong
-    // in that direction is the unrecoverable one: a session that answers with
-    // artifacts from a plugin the user deleted keeps doing so until it is
-    // restarted, while a transient failure is repaired by the next edit.
-    this.artifacts = next;
   }
 
   /** The open sidecar for one plugin, opened on first use. */
@@ -236,11 +284,10 @@ export class TtscGraphSession {
   }
 
   private open(events: TtscGraphLinePeer.Events): TtscGraphLinePeer.Connection {
-    const artifacts = publishArtifacts({
-      cwd: this.cwd,
-      tsconfig: this.tsconfig,
-    });
-    this.artifacts = artifacts;
+    this.shutdown.signal.throwIfAborted();
+    const artifacts = this.artifacts;
+    if (artifacts === undefined)
+      throw new Error("@ttsc/graph: artifact publication was not admitted");
     return TtscGraphLinePeer.open(
       this.binary,
       TtscGraphNativeArguments.serve(this.cwd, this.tsconfig, artifacts.file),
