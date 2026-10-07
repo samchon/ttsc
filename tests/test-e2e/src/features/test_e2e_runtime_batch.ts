@@ -26,6 +26,12 @@ import {
  * request owns the publisher connection, not two CLI executions or a
  * Program-count certificate.
  *
+ * Source-publication preparation also copies the real selected Go executable:
+ * its first and warm environment readings must agree and remain witnessed,
+ * while changed bytes and changed/restored bytes with restored mtime must
+ * invalidate the first witness. This adds real Go metadata queries within the
+ * existing source producer, without another install or native build.
+ *
  * The actual same-file compiler rewrite emits opt-in attempt/result or original
  * error observations using its existing stat and the shared test trace runtime;
  * these records identify the caller thread, not an OS image-lock owner.

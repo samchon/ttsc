@@ -108,6 +108,8 @@ One consequence is worth knowing if you inspect the file: on a build where the p
 
 ## Plugin cache
 
+Before observing a compiler's identity for a new plugin-cache key, ttsc initializes the selected Go executable and then witnesses its version and bytes. This permits native metadata initialization on its first execution. Subsequent compiler changes, including a rewrite with restored modification time, still invalidate the build's toolchain witness and prevent cache publication.
+
 The plugin binary cache is **project-local**. By default it lives in the workspace's `node_modules/.cache/ttsc` (the `find-cache-dir` convention). In a monorepo it resolves to the workspace root's `node_modules`, so every package builds a given plugin once and shares it; `rm -rf node_modules` (or deleting the repo) reclaims everything and ttsc keeps no machine-global cache. Plugin binaries live under `<cache-dir>/plugins` and ttsc's Go object cache under `<cache-dir>/go-build`, unless `TTSC_GO_CACHE_DIR` or a user `GOCACHE` redirects it.
 
 Override the root with `--cache-dir` or `TTSC_CACHE_DIR` (relative `--cache-dir` resolves from `--cwd`, relative `TTSC_CACHE_DIR`/`TTSC_GO_CACHE_DIR` from the project root). Point these at a directory **dedicated to ttsc**, and use `ttsc` as the root's basename when `ttsc clean` should remove its nested `go-build/` as well as `plugins/`. The basename is a deletion-safety boundary, so do not set `TTSC_CACHE_DIR` to a shared cache such as `~/.cache`; use a dedicated path such as `.ttsc-cache/ttsc`. Before deleting anything, `ttsc clean` validates every resolved target, including an external `TTSC_GO_CACHE_DIR`, and refuses a filesystem root or a lexical/physical path that equals or contains the project.

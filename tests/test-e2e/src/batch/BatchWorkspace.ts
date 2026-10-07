@@ -18,6 +18,8 @@ import { buildSourcePlugin } from "../../../../packages/ttsc/lib/plugin/internal
 import { copiesPluginSourceEntry } from "../../../../packages/ttsc/lib/plugin/internal/source/copiesPluginSourceEntry.js";
 import { ensureExecutableGoToolchain } from "../../../../packages/ttsc/lib/plugin/internal/source/ensureExecutableGoToolchain.js";
 import { resolveGoCompiler } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js";
+import { pluginBuildEnvironment } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginBuildEnvironment.js";
+import { PluginBuildEnvironmentWitness } from "../../../../packages/ttsc/lib/plugin/internal/source/PluginBuildEnvironmentWitness.js";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
@@ -1314,6 +1316,32 @@ export namespace BatchWorkspace {
         TTSC_GO_BINARY: "",
       });
       ensureExecutableGoToolchain(actualGo.binary, actualGo.bundled);
+      // A new executable supplies a real first-image-load boundary. Reusing the
+      // already executed compiler would never distinguish #1596.
+      const freshGo = path.join(tools, path.basename(actualGo.binary));
+      fs.copyFileSync(actualGo.binary, freshGo);
+      const freshGoEnv = {
+        ...process.env,
+        TTSC_GO_BINARY: freshGo,
+        GOROOT: execFileSync(actualGo.binary, ["env", "GOROOT"], {
+          encoding: "utf8",
+          windowsHide: true,
+        }).trim(),
+      };
+      const freshGoBytes = fs.readFileSync(freshGo);
+      const firstWitness = new Map<string, string>();
+      const firstEnvironment = pluginBuildEnvironment(source, freshGoEnv, firstWitness);
+      assert.ok(PluginBuildEnvironmentWitness.holds(firstWitness), "first Go execution must establish a usable toolchain witness");
+      assert.deepEqual(fs.readFileSync(freshGo), freshGoBytes);
+      const warmWitness = new Map<string, string>();
+      assert.equal(pluginBuildEnvironment(source, freshGoEnv, warmWitness), firstEnvironment);
+      assert.ok(PluginBuildEnvironmentWitness.holds(warmWitness));
+      const originalTime = fs.statSync(freshGo);
+      fs.writeFileSync(freshGo, Buffer.concat([freshGoBytes, Buffer.from("changed")]));
+      assert.equal(PluginBuildEnvironmentWitness.holds(firstWitness), false, "changed compiler bytes must refute the build witness");
+      fs.writeFileSync(freshGo, freshGoBytes);
+      fs.utimesSync(freshGo, originalTime.atime, originalTime.mtime);
+      assert.equal(PluginBuildEnvironmentWitness.holds(firstWitness), false, "restoring bytes and mtime must not erase a changed compiler witness");
       const go = path.join(
         tools,
         process.platform === "win32" ? "go.cmd" : "go",
