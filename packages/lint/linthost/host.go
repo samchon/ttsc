@@ -513,8 +513,8 @@ func (p *program) projectSourceFiles() []*shimast.SourceFile {
 }
 
 // projectSourceFileNames returns the canonical paths of the TS/JS files the
-// tsconfig itself selected, indexed under both the configured spelling and the
-// resolved one.
+// tsconfig itself selected. Native paths are indexed under both the configured
+// spelling and the resolved one; bundled addresses retain their virtual identity.
 //
 // This is the narrow half of the boundary above. `format` reads nothing else at
 // all, and `fix` reads wider but writes only here, because a project must not
@@ -527,6 +527,12 @@ func (p *program) projectSourceFiles() []*shimast.SourceFile {
 // widened, an alias mismatch merely dropped the file from every pass. Now it
 // would leave the file readable and unwritable, turning a fixable diagnostic
 // into one `fix` refuses to touch, so ownership resolves the alias.
+//
+// The compiler's bundled filesystem defines Realpath as identity. Its official
+// IsBundled predicate keeps those addresses out of native normalization and
+// filesystem probes. Native aliases retain both configured and physical keys.
+// The selection is immutable for this loaded Program, so all projections share
+// this index until reload. It retains at most two keys per selected syntax file.
 func (p *program) projectSourceFileNames() map[string]struct{} {
   if p == nil {
     return map[string]struct{}{}
@@ -540,6 +546,10 @@ func (p *program) projectSourceFileNames() map[string]struct{} {
       if !isLintSourceFileName(fileName) {
         continue
       }
+      if bundled.IsBundled(fileName) {
+        out[fileName] = struct{}{}
+        continue
+      }
       absolute := absoluteProjectPath(p.cwd, fileName)
       out[canonicalProjectPath(p.cwd, absolute)] = struct{}{}
       out[canonicalProjectPath(p.cwd, realProjectPath(absolute))] = struct{}{}
@@ -550,12 +560,13 @@ func (p *program) projectSourceFileNames() map[string]struct{} {
 }
 
 // selectedByProject reports whether the tsconfig selected fileName, resolving
-// the path only when its own spelling misses.
+// a native path only when its own spelling misses. Bundled addresses belong to
+// the compiler's virtual filesystem and cannot acquire native physical aliases.
 //
 // Indexing both spellings above already catches the ordinary link, so this
 // fallback exists for a Program spelling that matches neither, such as a
-// Windows 8.3 short name. It costs one resolution per file the config did not
-// select, paid by the imported set on every cycle, against the rule walk those
+// Windows 8.3 short name. It costs one resolution per unselected native file,
+// paid by the imported set on every cycle, against the rule walk those
 // same files are about to receive.
 func (p *program) selectedByProject(
   roots map[string]struct{},
@@ -563,6 +574,10 @@ func (p *program) selectedByProject(
 ) bool {
   if p == nil || len(roots) == 0 {
     return false
+  }
+  if bundled.IsBundled(fileName) {
+    _, ok := roots[fileName]
+    return ok
   }
   if _, ok := roots[canonicalProjectPath(p.cwd, fileName)]; ok {
     return true

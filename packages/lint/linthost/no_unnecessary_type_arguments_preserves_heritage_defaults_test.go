@@ -5,8 +5,9 @@ import "testing"
 // TestNoUnnecessaryTypeArgumentsPreservesHeritageDefaults verifies type-only
 // and runtime heritage retain checker-based generic-default diagnostics.
 //
-// Qualified names in interface extends and class implements resolve through
-// TypeReference nodes, while class extends resolves a runtime expression.
+// Qualified names in interface extends and class implements name type
+// declarations, while class extends resolves a runtime expression. The compiler
+// owns their AST representation; the assertion concerns their generic defaults.
 //
 // 1. Define an interface and a base class with a string generic default.
 // 2. Use explicit string and number arguments in every heritage position.

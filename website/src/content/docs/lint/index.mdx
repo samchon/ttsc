@@ -55,6 +55,8 @@ Your config decides what runs there. A `files` selector scopes an entry to the p
 
 Declaration files and JavaScript stay selection-driven. A `.d.ts` is typings rather than authored source, and JavaScript enters the Program only through `allowJs`, so both are linted only when your own `tsconfig.json` selects them. An import never pulls either into scope.
 
+Bundled standard libraries follow the same selection rule. Loading a library for type checking does not make it project-owned. An explicitly selected bundled library keeps its compiler virtual address; native file aliases continue to resolve to their physical project ownership.
+
 Writes stay inside the project. `ttsc format` never leaves your own file list at all, so importing a sibling package cannot reformat it. `ttsc fix` reports on an imported source, because it prints diagnostics when the cascade settles, and applies edits only to the files your `tsconfig.json` selected. The package that owns the file fixes it from its own run.
 
 ## What you don't get (yet)

@@ -1141,7 +1141,9 @@ const a = `${"abc"}`;
 
 Reject `Foo<DefaultT>` calls where the supplied generic argument is the same as the parameter's default, the argument adds nothing.
 
-Type-aware via the Checker. Walks the resolved type parameters of the call's signature and compares each explicit argument against the parameter's declared default.
+Type-aware via the Checker. Calls use the selected signature, including overloads and callable interfaces. Type references, heritage and class construction resolve imported aliases to their owning generic declarations before comparing arguments with declared defaults.
+
+Function and class value instantiations such as `const specialized = make<string>` retain their arguments because they specialize the value's callable or constructable type.
 
 Only the contiguous trailing run of default-equal arguments is reported, TypeScript can only omit a suffix of the type-argument list.
 
