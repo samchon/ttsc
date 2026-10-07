@@ -7,7 +7,8 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  *
  * Produced by `resolveOptions`; consumed internally by the transform pipeline.
  * The compiler overlay is always present. An absent project requests discovery;
- * an absent plugin override preserves project-owned selection.
+ * an absent plugin override preserves project-owned selection. An absent source
+ * root uses the selected config's directory; it never changes plugin config origin.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A required overlay and optional project/plugin overrides match resolveOptions:
@@ -46,4 +47,7 @@ export interface ResolvedTtscUnpluginOptions {
 
   /** Resolved path to the project tsconfig, or `undefined` to auto-discover. */
   project?: string;
+
+  /** Explicit source-root spelling, resolved at delivery; absent uses config directory. */
+  projectRoot?: string;
 }

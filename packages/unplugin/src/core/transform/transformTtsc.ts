@@ -133,6 +133,7 @@ export async function transformTtsc(
 
   const selection = resolveProjectSelection(file, options.project, filesystem);
   const tsconfig = selection.tsconfig;
+  const selectedProjectRoot = path.resolve(options.projectRoot ?? path.dirname(tsconfig));
   // Reported config reads and failed discovery candidates are watch inputs:
   // editing a solution's
   // `references`, or the `include` of a project searched before the selected
@@ -149,6 +150,7 @@ export async function transformTtsc(
     aliasPaths,
     compilerOptions: options.compilerOptions,
     plugins: options.plugins,
+    projectRoot: selectedProjectRoot,
     tsconfig,
   });
 
@@ -273,6 +275,7 @@ export async function transformTtsc(
       transformed = transformProject({
         aliasPaths,
         compilerOptions: options.compilerOptions,
+        projectRoot: selectedProjectRoot,
         currentFile: file,
         currentSource: source,
         // Stamp the pass this compile was started for, not the one it happens

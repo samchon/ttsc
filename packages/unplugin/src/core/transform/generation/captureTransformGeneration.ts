@@ -135,6 +135,9 @@ export async function captureTransformGeneration(props: {
   /** Native compiler plugins selected for this attempt. */
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
 
+  /** Common source root, distinct from the original config's plugin anchor. */
+  projectRoot?: string;
+
   /** Whether complete proof may transfer membership observers to the generation. */
   retainProjectMembership: boolean;
 
@@ -181,7 +184,7 @@ export async function captureTransformGeneration(props: {
    */
   useCaseSensitiveFileNames?: boolean;
 }): Promise<TtscCachedProjectTransform> {
-  const projectRoot = path.dirname(props.tsconfig);
+  const projectRoot = props.projectRoot ?? path.dirname(props.tsconfig);
   const scratchDirectory = createTransformScratchDirectory(
     projectRoot,
     props.filesystem,
@@ -251,7 +254,7 @@ export async function captureTransformGeneration(props: {
     const mergedPolicy = mergeMembershipPolicyOverlay(
       tsconfigState.membershipPolicy,
       props.compilerOptions,
-      projectRoot,
+      path.dirname(props.tsconfig),
     );
     // The walk before the compile matches root specs under the case policy an
     // earlier compile reported, or a provisional cache-root approximation

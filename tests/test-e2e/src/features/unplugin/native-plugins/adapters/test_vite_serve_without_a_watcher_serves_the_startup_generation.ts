@@ -2,6 +2,7 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import type { ITtscProjectPluginConfig } from "ttsc";
 
 const viteCreateServer =
   TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite").createServer;
@@ -19,6 +20,9 @@ const viteCreateServer =
  * generation the session started from. The watching twin keeps the opposite
  * verdict through the actual generation selector unit and the shared native
  * pool changed-input epoch.
+ * The prepared scenario selects a backend config with sibling src files under
+ * an explicit common root. Its banner config stays relative to the backend,
+ * proving that source-root selection does not move plugin config discovery.
  *
  * 1. Let a later configResolved hook disable watching, then request the entry
  *    from the middleware-mode dev server.
@@ -40,7 +44,7 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
   onServerClosed?: () => void,
 ): Promise<void> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const plugins = [
+  const plugins: ITtscProjectPluginConfig[] = [
     {
       transform: "./plugin.cjs",
       name: "fixture",
@@ -50,6 +54,7 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
   ];
   const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins });
   if (preparedRoot !== undefined) {
+    plugins.unshift({ transform: "@ttsc/banner", configFile: "../banner.config.json" });
     const config = path.join(root, "tsconfig.json");
     const document = JSON.parse(fs.readFileSync(config, "utf8"));
     document.compilerOptions.plugins = plugins;
@@ -66,7 +71,10 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
     logLevel: "silent",
     optimizeDeps: { include: [], noDiscovery: true },
     plugins: [
-      unpluginVite(),
+      unpluginVite(preparedRoot === undefined ? {} : {
+        project: path.join(viteRoot, "backend/tsconfig.json"),
+        projectRoot: viteRoot,
+      }),
       {
         name: "disable-watch-after-ttsc-resolution",
         enforce: "post",
@@ -82,6 +90,8 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
   try {
     const first = await server.transformRequest("/src/main.ts");
     assert.ok(first, "Vite serve must transform the entry module");
+    if (preparedRoot !== undefined)
+      assert.match(first.code, /@preserve SSR attribution banner/);
     fs.writeFileSync(
       TestUnpluginProject.mainFile(root),
       preparedRoot === undefined

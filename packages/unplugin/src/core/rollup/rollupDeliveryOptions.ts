@@ -9,7 +9,7 @@ import { stableStringify } from "../transform/utils/stableStringify";
  * the module carries into Rollup's cache (`TtscRollupDelivery`).
  *
  * The identity records alias mappings, compiler overlay, plugin payloads and
- * configured project selection. Tsconfig input state is represented separately
+ * configured project and source-root selection. Tsconfig input state is represented separately
  * by the delivery's project record. A configured project resolves under the
  * same native cwd rule as explicit selection; it is not canonicalized to a
  * physical alias or made process-independent across different cwd spellings.
@@ -25,7 +25,7 @@ import { stableStringify } from "../transform/utils/stableStringify";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolving the configured project follows actual selection spelling; no target-specific exception drops relevant compile options.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain why Rollup requires option identity and why the record owns tsconfig state separately.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   Resolves options.project with node:path, so separators and roots follow
+ *   Resolves configured project and projectRoot with node:path, so their anchors follow
  *   the host OS.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Three opaque JSON payloads are encoded before a fixed-key outer encoding
@@ -48,6 +48,8 @@ export function rollupDeliveryOptions(
       plugins: JSON.stringify(options.plugins),
       project:
         options.project === undefined ? null : path.resolve(options.project),
+      projectRoot:
+        options.projectRoot === undefined ? null : path.resolve(options.projectRoot),
     }),
   );
 }

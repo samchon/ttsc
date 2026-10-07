@@ -84,6 +84,7 @@ export async function test_turbopack_loader_passes_through_non_source_ids(): Pro
   const callbackFailure = new Error("authored context callback failure");
   let options: TtscTurbopackLoaderOptions = {
     project: "./configured-tsconfig.json",
+    projectRoot: "../workspace",
     plugins: false,
     compilerOptions: { strict: true },
   };
@@ -159,6 +160,7 @@ export async function test_turbopack_loader_passes_through_non_source_ids(): Pro
   );
   assert.deepEqual(resolveOptions(bindings.readOptions()), {
     project: "./configured-tsconfig.json",
+    projectRoot: "../workspace",
     plugins: false,
     compilerOptions: { strict: true },
   });

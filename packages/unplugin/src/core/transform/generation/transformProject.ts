@@ -107,6 +107,9 @@ export async function transformProject(props: {
   /** Native plugin descriptors supplied to the compiler. */
   plugins?: ResolvedTtscUnpluginOptions["plugins"];
 
+  /** Explicit common source root; omitted direct callers use the config directory. */
+  projectRoot?: string;
+
   /** Whether live membership observers may transfer to a retained generation. */
   retainProjectMembership: boolean;
 
@@ -234,7 +237,7 @@ export async function transformProject(props: {
         );
       }
       throw createUnstableGenerationError(
-        path.dirname(props.tsconfig),
+        props.projectRoot ?? path.dirname(props.tsconfig),
         attempts,
         validation,
       );
