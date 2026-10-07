@@ -11,7 +11,6 @@ import { BatchWorkspace } from "../batch/BatchWorkspace";
 import { nativeLintConfigCorpus } from "../batch/nativeLintConfigCorpus";
 import { nativeWatchCorpus } from "../batch/nativeWatchCorpus";
 import { serviceCorpus } from "../batch/serviceCorpus";
-import { nativeLintConnections } from "../internal/lint/nativeLintConnections";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
 import { positionOf } from "../internal/unplugin/internal/source-map/positionOf";
 import { test_lint_write_commands_share_one_consumer } from "./lint/native-plugins/fix/case_lint_write_commands_share_one_consumer";
@@ -31,11 +30,11 @@ import { test_watch_topology_classifies_config_and_plugin_reload_inputs } from "
  * @evidence contracts/testing.md#behavioral-verification One real esbuild output must yield all661 exact native string values and authored contract/JSON neighbors with parsed-source controls retained; its public disposal must occur exactly once.
  * @evidence contracts/testing.md#independent-expectations Pre-print UTF-16 literals and authored42/retained values fix expected meaning. onDispose is the public host event rather than a predicted native process count.
  * @evidence contracts/testing.md#distinguishing-cases All quote/context/control string contrasts and parsed-source controls coexist in the same graph. Disposal is distinguished from a build that leaves its registered owner alive.
- * @evidence contracts/testing.md#execution-ownership This selected batch invokes esbuild.build exactly once. The rows are assertions on returned bytes, never separate context/rebuild calls. A separate upfront service subtree owns one public one-shot transform and one native resident. One additional Node owner runs up to three compiler-list topology lifetimes. Native lint config uses two real launcher and two compiler API calls; nativeLintConnections selects the remaining named native Go owners in one package process, retaining executable-config children, real/linked resident reuse and cache-opt-out lifetimes, and AwaitThenable original/suggested Node witnesses. Moved typed/CJS loader and format-only exports are observed in the existing config and write consumer calls; binding-import effects share the existing runtime actor, while dirty/clean formatting sidecars belong to the existing LSP actor. The shared write consumer still runs its actual fix and format commands. Those costs and native refreshes are not one execution; complete subprocess/Program totals remain unmeasured. Independent corpus failures are collected.
+ * @evidence contracts/testing.md#execution-ownership This selected batch invokes esbuild.build exactly once. The rows are assertions on returned bytes, never separate context/rebuild calls. A separate upfront service subtree owns one public one-shot transform and one native resident. One additional Node owner runs up to three compiler-list topology lifetimes. Native lint config retains two real launcher and two compiler API calls. ScriptGraph resolver transitions share the same typed/warning CLI results and two additional project-inputs requests in the existing normal resident child. Normal requests total nine and opt-out requests two; actual nested Node/ttsx evaluation and preparation remain work, not separate E2E fixture families or a zero-Program claim. Real/linked helper counters and opt-out replies share nativeWatchCorpus after watcher join. The ordinary LSP lifetime separately owns AwaitThenable returned-edit execution and its two Node stdout oracles. No package Go E2E command is launched by this batch. Moved typed/CJS loader and format-only exports are observed in the existing config and write consumer calls; binding-import effects share the existing runtime actor, while dirty/clean formatting sidecars belong to the existing LSP actor. The shared write consumer still runs its actual fix and format commands. Those costs and native refreshes are not one execution; complete subprocess/Program totals remain unmeasured. Independent corpus failures are collected.
  * @evidence contracts/e2e.md#necessary-boundary Public esbuild plugin setup, native output delivery and onDispose must agree under the real host; captured hooks alone cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing input graph, plugin artifact and one build serve every value. Compatible inputs share preparation; this test starts no per-row compiler or project.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity write:false preserves inputs and public onDispose is awaited after the actual build. Cache environment restores in finally; a failed build remains an error and does not certify successful teardown.
- * @evidence contracts/e2e.md#preserved-coverage Keeps actual esbuild adapter delivery and teardown with the common value/utility matrix. The production-used createEsbuildBuildLifecycle operation and existing source-unit ownership matrix retain repeated start, unstarted/unknown disposal, overlap, last reset and late-disposal decisions. This one installed build owns real setup/delivery/disposal connection; it does not replay the old multi-context timing or fixture compile1/2/3 receipts.
+ * @evidence contracts/e2e.md#preserved-coverage Keeps actual esbuild adapter delivery and teardown with the common value/utility matrix. The production-used createEsbuildBuildLifecycle operation and existing source-unit ownership matrix retain repeated start, unstarted/unknown disposal, overlap, last reset and late-disposal decisions. ScriptGraph's nineteen shared resolver families retain actual module values and exact dependency kind, scope, containment and absent-branch assertions in scriptConfigGraphCorpus; direct Go owners retain cache-root partition and generated module/compiler-anchor policy without replacing runtime require/import evaluation. This one installed build owns real setup/delivery/disposal connection; it does not replay the old multi-context timing or fixture compile1/2/3 receipts.
  */
 export async function test_e2e_esbuild_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
@@ -46,11 +45,6 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
     combinedFailures.push(error);
   }
   await BatchWorkspace.open();
-  try {
-    nativeLintConnections();
-  } catch (error) {
-    combinedFailures.push(error);
-  }
   try {
     const topologyRoot = path.join(
       workspace.root,
