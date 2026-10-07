@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { SourceNativeRetirement } from "./SourceNativeRetirement";
+
 import type { SafeCacheCleanupTarget } from "./SafeCacheCleanupTarget";
 import { type FilesystemPathIdentityOperations } from "./pathIdentity/FilesystemPathIdentityOperations";
 import { createFilesystemPathIdentityContext } from "./pathIdentity/createFilesystemPathIdentityContext";
@@ -19,6 +21,10 @@ import { resolveFilesystemPath } from "./pathIdentity/resolveFilesystemPath";
  * ancestor or descendant; uncertain case or Unicode overlap also preserves a
  * candidate instead of authorizing deletion.
  *
+ * Native-retirement guards in selected trees or their enclosing resource roots
+ * refuse the entire transaction before deletion. Terminal links retain their
+ * unlink-only semantics and do not traverse a guarded destination.
+ *
  * The plan contains observed path spellings, not held directory handles or an
  * atomic namespace snapshot. Pinning an ancestor alias does not prevent later
  * replacement of the selected physical parent or terminal entry; callers must
@@ -29,7 +35,7 @@ import { resolveFilesystemPath } from "./pathIdentity/resolveFilesystemPath";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Protection follows native identities rather than special cache names; aliases are resolved through supported primitives and unexpected identity errors cannot authorize deletion.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain validation-before-deletion, failure behavior and protected preservation; inline comments describe why ancestors are pinned and terminal links remain links.
  * @evidence contracts/portability.md#os-neutral-implementation The shared native resolver handles physical aliases, volume roots and actual directory case policy; Node lstat identifies terminal links, while unknown missing suffix policy preserves spellings rather than asserting case-variant identity.
- * @evidence contracts/performance.md#efficient-algorithms Resolving the project, P protected paths and C candidates requires path/ancestor observations independently of the overlap loop. Candidate/project checks and at most two comparisons per protected path add O(C(P+1)D) component comparisons for depth D, plus path text and delegated native realpath/stat/case-probe work; case probes can scan observed directory entries. Context memoization shares equivalent observations within this call; no cross-run index is built for this cleanup set.
+ * @evidence contracts/performance.md#efficient-algorithms Resolving the project, P protected paths and C candidates requires path/ancestor observations independently of the overlap loop. Candidate/project checks and at most two comparisons per protected path add O(C(P+1)D) component comparisons for depth D, plus path text and delegated native realpath/stat/case-probe work; selected directory trees are scanned for native guards before the transaction returns; case probes can scan observed directory entries. Context memoization shares equivalent observations within this call; no cross-run index is built for this cleanup set.
  * @evidence contracts/performance.md#reuse-equivalent-work All candidate and protected paths share one identity context, so equivalent ancestor realpath and case queries reuse the same transaction observations; deletion results themselves are not cached across mutable filesystem states.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Context maps retain observed identities, ancestors and case facts for this call, growing with distinct queried paths/ancestors and their text; protected identities use O(P) references and returned targets at most O(C). No directory handle is held; the context becomes reclaimable after return, while the caller owns retained plan strings and later deletion under a preserved namespace boundary.
  */
@@ -83,6 +89,7 @@ export function resolveSafeCacheCleanupTargets(
     // following it. Preserve that behavior while pinning any mutable alias in
     // its ancestors to the physical parent selected by this transaction.
     const deletionPath = status?.isSymbolicLink() ? pinnedCache : cache.path;
+    SourceNativeRetirement.assertCleanable(deletionPath);
     targets.push({
       exists: status !== undefined,
       path: deletionPath,

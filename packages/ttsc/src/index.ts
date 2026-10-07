@@ -8,6 +8,7 @@
  */
 
 export * from "./plugin/ITtscCapabilityPlugin";
+export * from "./plugin/CapabilityPluginResolver";
 export * from "./plugin/resolveCapabilityPlugins";
 export * from "./TtscCompiler";
 export * from "./TtscServiceRequestOptions";

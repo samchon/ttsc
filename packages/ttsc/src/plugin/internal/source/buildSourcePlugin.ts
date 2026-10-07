@@ -6,6 +6,7 @@ import path from "node:path";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runHoldingLock } from "../../../internal/runHoldingLock";
 import { GoSourceInputs } from "./GoSourceInputs";
@@ -242,8 +243,16 @@ function buildSourcePluginAttempt(
     : path.join(pluginRoot, key);
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
+  const retirementRoot = PluginBuildLockProtocol.pluginBuildLockProtocolDir(
+    `${cacheDir}.lock`,
+  );
+  SourceNativeRetirement.assertAvailable(retirementRoot);
   OwnedSynchronousProcess.checkpoint();
-  if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
+  if (
+    !SourceNativeRetirement.isProtected(retirementRoot) &&
+    fs.existsSync(binaryPath) &&
+    PluginBinaryUse.holds(cacheDir)
+  ) {
     requireBuildEnvironment(environmentWitness, opts.pluginName, "cache-hit");
     OwnedSynchronousProcess.checkpoint();
     E2ETrace.capabilityResolution("plugin-build-cache-admission", {
@@ -416,6 +425,20 @@ function compileSourcePlugin(opts: {
 
   const scratchDir = createCanonicalTempDirectory(`ttsc-plugin-${opts.key}-`);
   try {
+    SourceNativeRetirement.register({
+      fenceRoot: scratchDir,
+      retainedPaths: [scratchDir],
+    });
+    SourceNativeRetirement.register({
+      fenceRoot: opts.cacheDir,
+      retainedPaths: [opts.cacheDir],
+    });
+    SourceNativeRetirement.register({
+      fenceRoot: PluginBuildLockProtocol.pluginBuildLockProtocolDir(
+        `${opts.cacheDir}.lock`,
+      ),
+      retainedPaths: [scratchDir, opts.cacheDir, opts.goBuildCacheRoot],
+    });
     OwnedSynchronousProcess.checkpoint();
     materializeScratchDir(opts.dir, scratchDir);
     requireKeyedSource(
@@ -534,6 +557,7 @@ function compileSourcePlugin(opts: {
     } finally {
       if (
         !OwnedSynchronousProcess.cancelled() &&
+        SourceNativeRetirement.canRelease() &&
         opts.manageGoBuildCache &&
         attemptedGoBuildCacheRoot !== undefined
       ) {
@@ -579,7 +603,11 @@ function compileSourcePlugin(opts: {
     touchCacheEntry(opts.cacheDir);
     return opts.binaryPath;
   } finally {
-    fs.rmSync(scratchDir, { recursive: true, force: true });
+    SourceNativeRetirement.release(() => {
+      SourceNativeRetirement.forget(scratchDir);
+      fs.rmSync(scratchDir, { recursive: true, force: true });
+      SourceNativeRetirement.forget(opts.cacheDir);
+    });
   }
 }
 
@@ -630,10 +658,17 @@ function buildUnderPluginLock(
   build: () => string,
 ): string {
   const lockDir = `${cacheDir}.lock`;
+  const retirementRoot =
+    PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
   const startedAt = performance.now();
   for (;;) {
     OwnedSynchronousProcess.checkpoint();
-    if (fs.existsSync(binaryPath) && PluginBinaryUse.holds(cacheDir)) {
+    SourceNativeRetirement.assertAvailable(retirementRoot);
+    if (
+      !SourceNativeRetirement.isProtected(retirementRoot) &&
+      fs.existsSync(binaryPath) &&
+      PluginBinaryUse.holds(cacheDir)
+    ) {
       validateAdoption();
       OwnedSynchronousProcess.checkpoint();
       touchCacheEntry(cacheDir);
@@ -645,7 +680,8 @@ function buildUnderPluginLock(
     if (remaining <= 0) {
       throw new Error(
         `ttsc: timed out waiting for ${lockInfo.label} "${lockInfo.pluginName}" ` +
-          `at ${lockDir}; no active generation was retired`,
+          `at ${lockDir}; no active generation was retired` +
+          (SourceNativeRetirement.describeProtection(retirementRoot) ?? ""),
       );
     }
     let lease: PluginBuildLockLease | null;

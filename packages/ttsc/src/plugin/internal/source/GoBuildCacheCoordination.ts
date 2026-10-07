@@ -7,6 +7,7 @@ import { Worker } from "node:worker_threads";
 
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
 /**
@@ -22,11 +23,17 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * opportunistic coordination rather than an absolute proof that every abandoned
  * record can be reclaimed.
  *
- * Age-based expiry assumes a running task can keep its heartbeat fresh. A
+ * Scoped native boundaries add independent guards: their exact build leases
+ * survive age/PID-based collection until qualified closure. Shared cache
+ * guards prevent eviction and clean without serializing independent builders.
+ * Maintenance freshness remains separate so an old maintenance record cannot
+ * block concurrent builds indefinitely under an unrelated native guard.
+ *
+ * Age-based expiry for unguarded records assumes a running task can keep its heartbeat fresh. A
  * prolonged suspension or failed heartbeat after startup can outlast the grace;
  * elapsed time alone does not prove that its Go process has ended.
  *
- * @evidence contracts/common.md#principled-implementation Published completion and refreshed mtimes implement task policy: build grace is one hour and maintenance grace one minute. Unknown metadata age defers pruning, while unreadable bytes can still expire by observed age; grace expiry is not process-absence proof after heartbeat failure.
+ * @evidence contracts/common.md#principled-implementation Exact scoped native guards supersede build-lease expiry until certified closure while shared Go admission remains concurrent. Published completion and refreshed mtimes implement task policy: build grace is one hour and maintenance grace one minute. Unknown metadata age defers pruning, while unreadable bytes can still expire by observed age; grace expiry is not process-absence proof after heartbeat failure.
  * @evidence contracts/common.md#clear-and-simple-design Root validation, task publication and collection form one coordination boundary used by builders and maintenance.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Time windows are documented coordination policy; worker/process alternatives address actual synchronous-build and native spawn constraints rather than known fixtures.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains lease purpose and conservative unreadable/clock-skew limits; function and member comments describe release and startup outcomes.
@@ -117,11 +124,11 @@ export namespace GoBuildCacheCoordination {
      * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion persistence addresses a real failed-unlink state rather than simulating successful cleanup.
      * @evidence contracts/common.md#meaningful-documentation Native prose states ordering and its failure consequence, separated from tags.
      * @evidence contracts/portability.md#os-neutral-implementation Native worker termination and file removal failures are encapsulated by the owning callback.
-     * @evidence contracts/performance.md#efficient-algorithms Release performs fixed task-control and atomic metadata/removal operations without scanning cache contents; costs include stored path and host/PID metadata bytes and native filesystem resolution.
+     * @evidence contracts/performance.md#efficient-algorithms Release performs task-control and guard metadata checks before atomic record cleanup, without scanning cache object contents; costs include stored path and host/PID metadata bytes and native filesystem resolution.
      *
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work This callback closes one owned task, not a reusable computation.
      *
-     * @evidence contracts/performance.md#bound-retention-and-release-resources Finish requests worker termination or child kill, then attempts completion publication/removal. Opted-in scope owners join tracked exit/close and receive termination failures; ordinary synchronous callers do not join. Failed removal is marked complete only if publication succeeds; otherwise age/uncertainty policy may retain the record, and terminal state prevents another cleanup attempt through this capability.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources Finish requests worker termination or child kill, then attempts completion publication/removal only when native closure permits it; unresolved boundaries retain the exact lease and original cleanup callback until qualified recovery. Opted-in scope owners join tracked exit/close and receive termination failures; ordinary synchronous callers do not join. Failed removal is marked complete only if publication succeeds; otherwise age/uncertainty policy may retain the record, and terminal state prevents another cleanup attempt through this capability.
      */
     finish: () => void;
 
@@ -163,7 +170,7 @@ export namespace GoBuildCacheCoordination {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A task lease is not a cached build answer; producer identity and lock sharing belong to the build owner.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives one record and lazy refresher capability and must call finish after its synchronous task. Termination and actual exit/close are tracked for opted-in owners to join after synchronous work; ordinary callers request termination without joining. Failed startup can overlap fallback, and failed completion/removal can leave records governed by age/uncertainty policy. This factory imposes no cross-task population bound.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives one record and lazy refresher capability and must call finish after its synchronous task. Termination and actual exit/close are tracked for opted-in owners to join after synchronous work; ordinary callers request termination without joining. Failed startup can overlap fallback; scoped unknown native closure retains the exact lease without age expiry, while unguarded failed completion/removal follows age/uncertainty policy. This factory imposes no cross-task population bound.
    */
   export function createGoBuildCacheCoordinationRecord(
     root: string,
@@ -185,6 +192,12 @@ export namespace GoBuildCacheCoordination {
       startedAt: Date.now(),
     };
     writeGoBuildCacheCoordinationRecord(record, metadata, "active");
+    if (directoryName === GO_BUILD_CACHE_LEASE_DIR)
+      SourceNativeRetirement.register({
+        fenceRoot: root,
+        retainedPaths: [root, record],
+        generation: path.basename(record),
+      });
     let heartbeat: GoBuildCacheHeartbeat | undefined;
     let finished = false;
     return {
@@ -199,14 +212,18 @@ export namespace GoBuildCacheCoordination {
           // Native termination failure must not skip completion publication.
         }
         heartbeat = undefined;
-        // A failed unlink must not leave a completed task looking active until
-        // its stale timeout. Persist completion first; collectors discard it.
-        try {
-          writeGoBuildCacheCoordinationRecord(record, metadata, "complete");
-        } catch {}
-        try {
-          fs.rmSync(record, { force: true });
-        } catch {}
+        SourceNativeRetirement.release(() => {
+          SourceNativeRetirement.assertReleasable(root, path.basename(record));
+          // A failed unlink must not leave a completed task looking active until
+          // its stale timeout. Persist completion first; collectors discard it.
+          try {
+            writeGoBuildCacheCoordinationRecord(record, metadata, "complete");
+          } catch {}
+          try {
+            fs.rmSync(record, { force: true });
+          } catch {}
+          SourceNativeRetirement.forget(root, path.basename(record));
+        });
       },
       startHeartbeat: () => {
         if (finished) return false;
@@ -419,18 +436,21 @@ export namespace GoBuildCacheCoordination {
   /**
    * The live records of one coordination directory at `now`. Completed and
    * age-policy-stale records have deletion attempted; inaccessible metadata is
-   * retained when its age cannot be established safely.
+   * retained when its age cannot be established safely. Exact native-guarded
+   * build generations are retained independently of status and age. Maintenance
+   * records retain their ordinary freshness policy so unrelated guards cannot
+   * block independent shared-cache builds indefinitely.
    *
-   * @evidence contracts/common.md#principled-implementation Complete status overrides age; ordinary records beyond the declared age policy have removal attempted. Unknown metadata age or far-future clock observations preserve possible work, while unreadable content alone does not prevent age-based expiry.
+   * @evidence contracts/common.md#principled-implementation Exact native-guarded build generations override status and age; for unguarded records complete status overrides age, and stale ordinary records have removal attempted. Unknown metadata age or far-future clock observations preserve possible work, while unreadable content alone does not prevent age-based expiry.
    * @evidence contracts/common.md#clear-and-simple-design One snapshot feeds a liveness helper and best-effort removal, returning only the protected paths.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts PID lifetime is not substituted for task lifetime; actual task status and heartbeat age drive selection.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes completed/stale reclamation from inaccessible metadata retention.
    * @evidence contracts/portability.md#os-neutral-implementation Native Dirents select ordinary files and sequential lstat/realpath checks validate the coordination directory's observed spelling; no directory handle prevents later replacement.
-   * @evidence contracts/performance.md#efficient-algorithms One listing and per-selected-record JSON/mtime reads scale with entry names, path strings and metadata bytes, with arrays retaining entry/path text. Future-clock rebasing can add atomic metadata writes, and stale/complete cleanup adds native removals; directory validation adds native resolution without scanning unrelated cache payloads.
+   * @evidence contracts/performance.md#efficient-algorithms One native-guard snapshot and generation Set membership avoid repeating a guard scan for each lease; one coordination listing and per-selected-record JSON/mtime reads scale with guard and record counts, path strings and metadata bytes, with arrays retaining entry/path text. Future-clock rebasing can add atomic metadata writes, and stale/complete cleanup adds native removals; directory validation adds native resolution without scanning unrelated cache payloads.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Liveness is time-sensitive and filesystem-mutating collection is not memoized.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Completed and stale records are reclaimed; unknown state or failed deletion can retain metadata beyond the normal grace.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Unguarded completed and stale records are reclaimed; exact native guards retain build records until qualified closure without age expiry. Unknown metadata or failed deletion can also retain records beyond ordinary grace.
    */
   export function collectLiveGoBuildCacheCoordinationRecords(
     root: string,
@@ -451,12 +471,16 @@ export namespace GoBuildCacheCoordination {
       throw error;
     }
     const live: string[] = [];
+    const protectedGenerations = directoryName === GO_BUILD_CACHE_LEASE_DIR
+      ? SourceNativeRetirement.protectedGenerations(root)
+      : new Set<string>();
     for (const record of records) {
       if (!record.isFile()) {
         continue;
       }
       const file = path.join(directory, record.name);
-      if (goBuildCacheCoordinationRecordIsLive(file, directoryName, now)) {
+      const protectedNativeInputs = protectedGenerations === undefined || protectedGenerations.has(record.name);
+      if (protectedNativeInputs || goBuildCacheCoordinationRecordIsLive(file, directoryName, now)) {
         live.push(file);
         continue;
       }

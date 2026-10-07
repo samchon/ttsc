@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { retireLockDirectory } from "../../../internal/retireLockDirectory";
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 
 /**
@@ -137,6 +138,9 @@ export namespace PluginBuildLockProtocol {
    * onto its tombstone. Returns `false` when the lock is already free or held
    * by another generation; throws only on an unexpected filesystem error.
    *
+   * Native guards independently prohibit retirement of an unresolved exact
+   * generation, even when its recorded Node owner is absent.
+   *
    * Its nonempty destination must remain while the recorded holder or any
    * registered observer can still act. A pre-rename identity read alone would
    * not close the replacement race.
@@ -150,7 +154,7 @@ export namespace PluginBuildLockProtocol {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Retirement preserves generation history and uses the shared native rename primitive rather than replacing fencing with a racy read followed by recursive removal.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the return/error contract, required tombstone lifetime and the reason a generation read is insufficient before the tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem operations feed the shared retirement helper. Selected Windows refusals retry after a successful sibling-rename probe; this is a sampled capability, not proof that a peer read caused the original refusal.
-   * @evidence contracts/performance.md#efficient-algorithms Direct generation addressing avoids historical scans. Each attempt performs path construction and native metadata/rename observations; eligible Windows retries add sibling probes and synchronous poll waits. Ordinary synchronous retries have no attempt-count or elapsed-time bound; scoped cancelled retries use retireLockDirectory's one-second between-attempt cleanup grace, which does not bound native calls or yields.
+   * @evidence contracts/performance.md#efficient-algorithms Native guard inspection precedes direct generation addressing without historical-generation scans. Each attempt performs path construction and native metadata/rename observations; eligible Windows retries add sibling probes and synchronous poll waits. Ordinary synchronous retries have no attempt-count or elapsed-time bound; scoped cancelled retries use retireLockDirectory's one-second between-attempt cleanup grace, which does not bound native calls or yields.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Retirement changes ownership; its result cannot be memoized across independently racing callers.
    *
@@ -161,6 +165,7 @@ export namespace PluginBuildLockProtocol {
     generation: string,
   ): boolean {
     if (!isPluginBuildLockGeneration(generation)) return false;
+    SourceNativeRetirement.assertReleasable(lockDir, generation);
     const retiredDir = path.join(lockDir, PLUGIN_BUILD_LOCK_RETIRED_DIR);
     try {
       fs.mkdirSync(retiredDir);

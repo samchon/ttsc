@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { GoBuildCacheCoordination } from "./GoBuildCacheCoordination";
 import type { IGoBuildCachePruneOptions } from "./IGoBuildCachePruneOptions";
 import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
@@ -16,6 +17,10 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * Go's trim marker are outside this byte policy. Missing observations or failed
  * removals can leave actual storage above its thresholds without a hard bound.
  *
+ * Pending, unknown or malformed native guards skip eviction regardless of
+ * lease heartbeat age. Shared-cache admission remains independent of this
+ * deletion protection. Older versions do not cooperate with native guards.
+ *
  * @evidence contracts/common.md#principled-implementation A published maintenance intent precedes the live-lease check, so builders and deletion coordinate over the same owned physical root before object eviction.
  * @evidence contracts/common.md#clear-and-simple-design Admission, lease exclusion, eviction and marker publication occur in order; finally invokes intent finish, whose completion/removal remain best-effort.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Go bucket spelling follows its object-cache layout; missing heartbeat startup yields instead of assuming exclusion.
@@ -25,7 +30,7 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Go establishes object equivalence; maintenance chooses eviction rather than reusable computation identity.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Default 8 GiB triggers removal toward 6 GiB of accounted files, with a target-sized metadata-recent reserve. Live/unknown leases, missing observations, excluded kinds and failed deletion prevent a hard disk bound. Finally calls intent finish, but refresher termination is unjoined and record cleanup can fail; marker pacing requires another invocation and does not schedule maintenance itself.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Default 8 GiB triggers removal toward 6 GiB of accounted files, with a target-sized metadata-recent reserve. Live/unknown leases, missing observations, excluded kinds and failed deletion prevent a hard disk bound. Finally calls intent finish; ordinary synchronous callers do not join refresher termination, while opted-in owners join tracked exit/close and receive failures. Native guards can retain inputs without an age bound; record cleanup can fail; marker pacing requires another invocation and does not schedule maintenance itself.
  */
 export function pruneGoBuildCacheRoot(
   root: string,
@@ -36,6 +41,7 @@ export function pruneGoBuildCacheRoot(
     | undefined;
   try {
     const cacheRoot = GoBuildCacheCoordination.canonicalGoBuildCacheRoot(root);
+    if (SourceNativeRetirement.isProtected(cacheRoot)) return;
     const marker = path.join(cacheRoot, GO_BUILD_CACHE_GC_MARKER_FILE);
     const now = options.now ?? Date.now();
     const lastRun = SourceBuildCacheLayout.readTimestamp(marker);
@@ -68,6 +74,7 @@ export function pruneGoBuildCacheRoot(
       return;
     }
 
+    if (SourceNativeRetirement.isProtected(cacheRoot)) return;
     const remainingBytes = pruneGoBuildCacheEntries(cacheRoot, {
       maxBytes: options.maxBytes ?? GO_BUILD_CACHE_MAX_BYTES,
       now,
