@@ -35,11 +35,15 @@ type documentationLine struct {
 // Slash decoration is enabled only by consumers whose host accepts it. The one
 // ordinary padding space after a decoration is removed before tab expansion.
 //
-// @evidence contracts/common.md#principled-implementation Relative visual indentation preserves the four-column literal boundary after decoration removal; ordered lexical state prevents delimiters in an existing example from opening another region. Line slots remain unchanged for diagnostic offsets.
-// @evidence contracts/common.md#clear-and-simple-design One preprocessing owner supplies the same visible lines and fence boundaries to citations, reviews and withdrawal, without merging their distinct annotation types.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts HTML masking applies only inside the already extracted documentation host; it neither removes Markdown's real outer host nor invents prose for an annotation.
-// @evidence contracts/common.md#meaningful-documentation Native prose describes relative indentation, host ownership and lexical precedence; paragraph separation keeps the reasoning separate from acknowledgments.
-// @evidence contracts/performance.md#efficient-algorithms Decoration, indentation and region scans visit the supplied bytes; exact inline delimiter pairing uses a per-line closing-run index rather than rescanning every candidate suffix. Returned line buffers and delimiter indexes retain at most the comment bytes during this parse.
+// One preprocessing owner supplies the same visible lines and fence boundaries
+// to citations, reviews and withdrawal without merging their annotation types.
+// HTML masking applies inside an already extracted documentation host, so it
+// neither removes Markdown's outer host nor invents annotation prose.
+//
+// Decoration, indentation and region scans visit the supplied bytes. A per-line
+// closing-run index pairs exact inline delimiters without rescanning candidate
+// suffixes. Line buffers and indexes retain at most the comment bytes during
+// this parse; no cached result or external resource outlives it.
 func documentationExamples(comment string, slashDecoration bool) []documentationLine {
   lines := strings.Split(comment, "\n")
   baseline := -1
