@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { E2ETrace } from "../../../internal/E2ETrace";
 import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
@@ -22,6 +23,10 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * entry. Old v2 clients use another namespace and do not share this version's
  * build serialization. Legacy clients also cannot provide a cross-path
  * compare-and-swap.
+ *
+ * Opt-in diagnostics retain the already-observed destination and v3-layout
+ * decisions when initialization rename fails. They perform no extra filesystem
+ * query and do not classify an unknown layout as a successful peer.
  *
  * @evidence contracts/common.md#principled-implementation Publishing a complete nonempty candidate by directory rename gives one v3 contender ownership; another nonempty current cannot be replaced by that rename.
  * @evidence contracts/common.md#clear-and-simple-design Acquisition owns complete metadata publication and candidate cleanup; the caller owns building and finally release through the returned lease.
@@ -116,15 +121,39 @@ function ensurePluginBuildLockProtocol(protocolDir: string): void {
     try {
       fs.renameSync(candidateDir, protocolDir);
     } catch (error) {
-      if (
-        PluginBuildLockProtocol.isRenameDestinationOccupied(
-          error,
-          protocolDir,
-        ) &&
-        PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocolDir)
-      ) {
-        return;
+      const occupied = PluginBuildLockProtocol.isRenameDestinationOccupied(
+        error,
+        protocolDir,
+      );
+      // Preserve the original short-circuit: a missing destination does not
+      // acquire a new layout observation just for diagnostics.
+      const recognized =
+        occupied &&
+        PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocolDir);
+      if (process.env.TTSC_E2E_TRACE) {
+        try {
+          E2ETrace.capabilityResolution("plugin-build-lock-protocol-rename-refused", {
+            protocolDir,
+            candidateDir,
+            destinationOccupied: occupied,
+            protocolV3: occupied ? recognized : null,
+            outcome: recognized ? "peer-initialized" : "rethrow",
+            errorName: error instanceof Error ? error.name : null,
+            errorMessage: error instanceof Error ? error.message : null,
+            errorCode:
+              typeof error === "object" && error !== null &&
+              "code" in error && typeof error.code === "string"
+                ? error.code : null,
+            errorErrno:
+              typeof error === "object" && error !== null &&
+              "errno" in error && typeof error.errno === "number"
+                ? error.errno : null,
+          });
+        } catch {
+          // Diagnostics cannot replace either peer acceptance or this error.
+        }
       }
+      if (recognized) return;
       throw error;
     }
   } finally {
