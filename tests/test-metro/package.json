@@ -9,6 +9,7 @@
     "evidence": "evidence"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
     "ttsc": "workspace:*",

@@ -9,6 +9,7 @@
     "x64"
   ],
   "scripts": {
+    "evidence": "evidence",
     "build": "node ../ttsc/build/platform-package.cjs"
   },
   "repository": {
@@ -39,5 +40,8 @@
       "./bin/go/pkg/tool/darwin_amd64/preprofile",
       "./bin/go/pkg/tool/darwin_amd64/vet"
     ]
+  },
+  "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon"
   }
 }

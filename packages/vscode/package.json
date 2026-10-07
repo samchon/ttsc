@@ -102,6 +102,7 @@
     "evidence": "evidence"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@types/node": "catalog:utils",
     "@types/vscode": "^1.94.0",
     "@vscode/vsce": "^3.9.2",

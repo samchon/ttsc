@@ -9,6 +9,7 @@
     "evidence": "evidence"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@nestia/e2e": "catalog:utils",
     "@prisma/prisma-schema-wasm": "catalog:prisma",
     "@ttsc/evidence": "workspace:*",

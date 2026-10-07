@@ -9,6 +9,7 @@
     "evidence": "evidence"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@nestia/e2e": "catalog:utils",
     "@ttsc/factory": "workspace:*",
     "@ttsc/testing": "workspace:*",

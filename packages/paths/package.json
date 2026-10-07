@@ -32,6 +32,7 @@
     "plugin/paths.go"
   ],
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@types/node": "catalog:utils",
     "rimraf": "catalog:utils",
     "typescript": "catalog:typescript"

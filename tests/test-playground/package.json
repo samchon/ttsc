@@ -9,6 +9,7 @@
     "evidence": "evidence"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@ttsc/playground": "workspace:*",
     "@ttsc/testing": "workspace:*",
     "@ttsc/wasm": "workspace:*",

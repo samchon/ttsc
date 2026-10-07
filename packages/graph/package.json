@@ -39,6 +39,7 @@
     "src"
   ],
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@types/node": "catalog:utils",
     "@types/three": "^0.184.1",
     "esbuild": "^0.25.12",

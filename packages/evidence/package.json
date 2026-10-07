@@ -54,6 +54,7 @@
     "@ttsc/lint": ">0.28.6"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@ttsc/lint": "workspace:*",
     "@types/node": "catalog:utils",
     "rimraf": "catalog:utils",
