@@ -21,6 +21,7 @@ import { resolveGoCompiler } from "../../../../packages/ttsc/lib/plugin/internal
 import { pluginBuildEnvironment } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginBuildEnvironment.js";
 import { PluginBuildEnvironmentWitness } from "../../../../packages/ttsc/lib/plugin/internal/source/PluginBuildEnvironmentWitness.js";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
+import { spawnGoTool } from "../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool.js";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
@@ -367,13 +368,17 @@ export namespace BatchWorkspace {
    * population before consumers acquire compiler input snapshots. Empty Program
    * receipts describe the initial output state; only native appends establish
    * executions and context. They remain at the existing consumer coordinates.
+   * The source-publication preparation also retains real Go failure statuses
+   * before and after its self-rewriting toolchain witness experiment. Windows
+   * exits from the wrapper immediately after Node, so appended comments cannot
+   * change the compiler's verdict.
    *
-   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts.
+   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 before and after byte rewrites independently distinguishes failed tool execution from successful publication.
    * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence, and no input predicate, compiler guard or native Program count is bypassed.
-   * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it.
-   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics rather than shell commands or platform-specific default paths.
-   * @evidence contracts/performance.md#efficient-algorithms Preparation's existing copies, package installation and authored graphs retain their actual IO costs. This addition performs five constant-size empty writes and does not introduce a process, compilation or recursive discovery.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence. The wrapper preserves native failure without changing production build checks, while actual byte rewrites still exercise toolchain refusal and stable recovery; no input predicate, compiler guard or native Program count is bypassed.
+   * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it. It also identifies the Windows exit boundary needed by the self-rewriting adapter.
+   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation copies complete selected fixture and installed payloads, hashes candidate executable bytes, installs packages, prints the authored value matrix, and runs its real source-publication builds and toolchain observations. Their population and byte sizes drive IO, transient buffers, native compilation and subprocess cost. Five observation files start with constant-size empty writes; the wrapper regression adds exactly two unsupported-help processes to the existing preparation, with no additional installation, native build or recursive discovery.
    * @evidence contracts/performance.md#reuse-equivalent-work The process-owned preparation Promise shares this fixture population; empty outputs establish an initial state only. Native appends and consumer generation guards still determine whether later observations can be reused.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The five files belong to the existing allocated root and its tracked cleanup/retention lifecycle. Partial initialization on failure is not success evidence, and retained failures keep the actual subsequent appends rather than inventing or dropping them.
    */
@@ -1349,7 +1354,7 @@ export namespace BatchWorkspace {
       fs.writeFileSync(
         go,
         process.platform === "win32"
-          ? `@echo off\r\n"${process.execPath}" "%~dp0actual-go.cjs" %*\r\n`
+          ? `@echo off\r\n"${process.execPath}" "%~dp0actual-go.cjs" %*\r\nexit /b %errorlevel%\r\n`
           : `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(script)} "$@"\n`,
       );
       if (process.platform !== "win32") fs.chmodSync(go, 0o755);
@@ -1366,6 +1371,21 @@ export namespace BatchWorkspace {
         TTSC_TEST_GO_BUILD_TRACE: buildTrace,
         GOFLAGS: "-trimpath=false",
       };
+      // The self-rewriting witness probe must not make the Windows wrapper
+      // hide a failed real Go command behind its appended comment commands.
+      const assertRejectedGoCommand = (): void => {
+        const rejected = spawnGoTool(go, ["help", "ttsc-e2e-no-such-topic"], {
+          cwd: tools,
+          encoding: "utf8",
+          env,
+          windowsHide: true,
+        });
+        assert.equal(rejected.error, undefined);
+        assert.equal(rejected.signal, null);
+        assert.equal(rejected.status, 2);
+        assert.match(rejected.stderr, /unknown help topic/);
+      };
+      assertRejectedGoCommand();
       // No changing attempt may populate the compiler memo or replace an
       // earlier witness. The existing real Go launcher changes its own bytes
       // during each version query, then returns to ordinary stable operation.
@@ -1387,6 +1407,7 @@ export namespace BatchWorkspace {
         PluginBuildEnvironmentWitness.holds(recovered),
         "a fresh stable reading must recover without discarding earlier refusal",
       );
+      assertRejectedGoCommand();
       const expected = path.join(source, "node_modules", ".cache", "ttsc");
       assert.equal(
         resolveSourceBuildCachePaths(source, undefined, env).root,
