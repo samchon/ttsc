@@ -49,6 +49,10 @@ function createState(workspace: BatchWorkspace.Workspace, traceRoot: string, obs
     const relative = path.relative(physical(directory), physical(location));
     return !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(".." + path.sep);
   };
+  const lexicallyWithin = (directory: string, location: string): boolean => {
+    const relative = path.relative(path.resolve(directory), path.resolve(location));
+    return !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(".." + path.sep);
+  };
   const dependencies = (value: unknown): Dependency[] => {
     assert.ok(Array.isArray(value));
     return value.map((item: unknown): Dependency => {
@@ -62,7 +66,7 @@ function createState(workspace: BatchWorkspace.Workspace, traceRoot: string, obs
     });
   };
   // Dependency identity is lexical path plus kind; aliases retain separate witnesses.
-  // Physical resolution is reserved for containment and explicit alias assertions.
+  // Physical equivalence separately retains the original negative/containment oracle.
   const kind = (items: Dependency[], name: string, expectedKind: string, scope = "watch"): void => {
     const matches = items.filter((item) => path.resolve(item.path) === path.resolve(target(name)) && item.kind === expectedKind);
     assert.equal(matches.length, 1, name);
@@ -70,14 +74,14 @@ function createState(workspace: BatchWorkspace.Workspace, traceRoot: string, obs
     assert.equal(item.kind, expectedKind, name); assert.equal(item.scope, scope, name);
   };
   const absent = (items: Dependency[], name: string, expectedKind?: string): void => {
-    assert.equal(items.some((item) => path.resolve(item.path) === path.resolve(target(name)) && (expectedKind === undefined || item.kind === expectedKind)), false, name);
+    assert.equal(items.some((item) => (path.resolve(item.path) === path.resolve(target(name)) || physical(item.path) === physical(target(name))) && (expectedKind === undefined || item.kind === expectedKind)), false, name);
   };
   const contained = (items: Dependency[]): void => {
     for (const item of items) if (item.kind === "directory" && item.scope === "watch") assert.equal(within(root, item.path), true, item.path);
   };
   const local = (items: Dependency[], entry: string, helpers: string[], excluded: string, allowed: string[]): void => {
     for (const name of [entry,...helpers]) kind(items,name,"file");
-    for (const item of items) if (item.scope === "watch" && item.kind !== "directory" && within(target(excluded),item.path)) assert.ok(allowed.some((name) => path.resolve(target(name)) === path.resolve(item.path)), item.path);
+    for (const item of items) if (item.scope === "watch" && item.kind !== "directory" && (lexicallyWithin(target(excluded),item.path) || within(target(excluded),item.path))) assert.ok(allowed.some((name) => physical(target(name)) === physical(item.path)), item.path);
   };
   const verify = (name: string, body: () => void): void => { try { body(); } catch(cause) { errors.push(new Error(name,{cause})); } };
   const read = (traces: TraceMeasurements, name: string, rules: Readonly<Record<string,string>>, check: (items: Dependency[]) => void = () => {}): void => {
