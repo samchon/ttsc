@@ -57,7 +57,7 @@ import {
  * replacement select first, changed external bytes select second, and an
  * incompatible local toolchain directive rejects before publication. External
  * replacements and workspace overlays are distinct epochs of that graph. Six
- * actual Go build attempts include binary-only cold rebuild, external byte
+ * baseline Go build attempts include binary-only cold rebuild, external byte
  * change, malformed dependency refusal and compatible workspace publication.
  * Actual Go -x must show cold helper compilation, unchanged object reuse across
  * different scratch roots and recompilation after edit; mode2 independently
@@ -66,6 +66,18 @@ import {
  * probe and one panic) replace the separate source-project and object-cache
  * recipes; restored bytes reuse the original publication before the runtime
  * borrows it.
+ * The first cold request can discard two additional toolchain transactions;
+ * independent before/after SDK metadata must explain every discarded native
+ * attempt, and the final attempt must be stable. The static comment-only main
+ * assembly input requires a real assembler command without depending on cold
+ * standard-library objects. Nine further actual Go build attempts distinguish
+ * one byte transition with exact restored mtime, three continuously changing
+ * transactions plus recovery, simultaneous source motion, native failure and
+ * failed key-lease release. Only one-shot and recovery add two literal binary
+ * executions. Private publication namespaces separate conflicting failure
+ * states while retaining the producer and Go object storage. The existing
+ * published content key also rejects nine unstable version observations with
+ * restored launcher bytes and mtime, adding no native build or cache adoption.
  *
  * 1. Capture the source/config bytes and invoke the public ttsx entry once.
  * 2. Compare its one actual JSON payload against all original literal rows.
