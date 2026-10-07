@@ -32,7 +32,7 @@ export namespace NativeProcessObserver {
    * @evidence contracts/common.md#clear-and-simple-design A single process-owned preparation serves all rows; explicit prebuilt selection and default isolated build share the same session protocol.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Builds only the authored test fixture, with no SDK source or binary mutation; prebuilt digest observations are not claimed as compilation provenance.
    * @evidence contracts/common.md#meaningful-documentation States the separate test-binary identity and distinguishes recorded bytes from provenance certification.
-   * @evidence contracts/portability.md#os-neutral-implementation Native paths and the host executable suffix select the observer; GOWORK off prevents importing the product workspace into the standalone module.
+   * @evidence contracts/portability.md#os-neutral-implementation Native paths and the host executable suffix select the observer; GOWORK off prevents importing the product workspace, and empty GOCACHEPROG prevents an inherited external cache program from bypassing the allocation's isolated object cache.
    * @evidence contracts/performance.md#efficient-algorithms One source scan and snapshot build prepare the fixture; reuse rechecks source and binary bytes without another build.
    * @evidence contracts/performance.md#reuse-equivalent-work Reuse requires identical source digest and explicit binary selection; changed inputs fail admission rather than silently sharing stale results.
    * @evidence contracts/performance.md#bound-retention-and-release-resources A tracked allocation owns copied source, isolated Go caches and executable until test exit. Native build failure conservatively retains its inputs because direct-child completion does not certify arbitrary tool descendants; a sticky terminal failure prevents repeated allocations. A session whose observer cannot be joined also retains its allocation and disables reuse.
@@ -106,6 +106,7 @@ export namespace NativeProcessObserver {
               CGO_ENABLED: "0",
               GOTOOLCHAIN: "local",
               GOCACHE: path.join(allocation, "go-cache"),
+              GOCACHEPROG: "",
               GOMODCACHE: path.join(allocation, "go-modules"),
               GOTMPDIR: path.join(allocation, "go-temp"),
             },

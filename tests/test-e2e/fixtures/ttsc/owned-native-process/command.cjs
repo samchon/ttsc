@@ -51,11 +51,28 @@ if (mode === "echo") {
   if (process.env.TTSC_OWNED_RPC_BINARY)
     process.env.TTSC_BINARY = process.env.TTSC_OWNED_RPC_BINARY;
   const { CapabilityPluginResolver } = require(args[0]);
+  const { serializeCompilerError } = require(
+    path.join(path.dirname(args[0]), "internal/serializeCompilerError.js"),
+  );
+  const failures = [];
+  const reportFailure = (error) => {
+    failures.push(error);
+    lifetime.reportFailure(
+      process.env.TTSC_LIFETIME_ROLE,
+      failures.length === 1 ? error : new AggregateError(
+        [...failures],
+        "Actor execution and closure failures",
+        { cause: failures[0] },
+      ),
+      serializeCompilerError,
+    );
+  };
   const owner = new CapabilityPluginResolver();
   const request = { capability: "graph", cwd: root, tsconfig: "tsconfig.json" };
   const controller = new AbortController();
   const reason = new Error("authored arbitrary RPC cancellation");
   let operation;
+  let acceptedUnknownClose;
   (async () => {
     if (mode === "rpc-unknown") {
       const results = await Promise.allSettled([
@@ -97,6 +114,7 @@ if (mode === "echo") {
         process.stderr.write(
           "Retained RPC native protocol input: " + directory + "\n",
         );
+        acceptedUnknownClose = error;
         return true;
       });
       const admission = JSON.parse(fs.readFileSync(process.env.TTSC_OWNED_HELPER_ADMISSIONS, "utf8").trim());
@@ -122,14 +140,14 @@ if (mode === "echo") {
       process.stdout.write("actual RPC runtime probe cancelled and joined\n");
     }
   })().catch((error) => {
-    console.error(error);
+    reportFailure(error);
     process.exitCode = 1;
   }).finally(async () => {
     controller.abort(reason);
     if (operation) await operation.catch(() => {});
     await owner.close().catch((error) => {
-      if (mode !== "rpc-unknown") {
-        console.error(error);
+      if (error !== acceptedUnknownClose) {
+        reportFailure(error);
         process.exitCode = 1;
       }
     });

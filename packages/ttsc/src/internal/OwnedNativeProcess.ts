@@ -31,6 +31,9 @@ export namespace OwnedNativeProcess {
    * The optional internal observer receives the actual retirement class even
    * when cancellation or a compiler error rejects the operation. Unknown
    * retirement preserves protocol inputs and does not certify child closure.
+   * Rejected receipts retain native lifetime fields as diagnostic causes.
+   * Output fields and extra receipt fields are omitted. Diagnostic data never
+   * authorizes release.
    *
    * @evidence contracts/common.md#principled-implementation A private request carries exact command/options and a structurally checked native receipt is required after helper close; cancellation returns only after joined and empty-boundary proof.
    * @evidence contracts/common.md#clear-and-simple-design Control stdin is separate from target input, target output streams remain unchanged, and one finally owns listeners and private protocol storage.
@@ -145,8 +148,47 @@ export namespace OwnedNativeProcess {
         typeof receipt.cancelled !== "boolean" ||
         (receipt.error !== undefined && (typeof receipt.error?.code !== "string" || typeof receipt.error?.message !== "string")) ||
         receipt.cleanup?.directChildJoined !== true || receipt.cleanup?.boundaryEmpty !== true ||
-        !["owned", "os", "windows-job"].includes(receipt.cleanup.orphanReaping))
-        throw new Error("ttsc: native supervisor did not confirm process-tree retirement");
+        !["owned", "os", "windows-job"].includes(receipt.cleanup.orphanReaping)) {
+        // The parsed receipt is untrusted diagnostic data, not closure proof.
+        // Project only lifetime fields and never traverse nested payloads.
+        const scalar = (value: unknown) =>
+          value !== null && typeof value === "object"
+            ? { $ttscValue: Array.isArray(value) ? "array" : "object" }
+            : value;
+        const diagnostic =
+          receipt === null || typeof receipt !== "object" || Array.isArray(receipt)
+          ? scalar(receipt)
+          : {
+            version: scalar(receipt.version),
+            pid: scalar(receipt.pid),
+            status: scalar(receipt.status),
+            signal: scalar(receipt.signal),
+            cancelled: scalar(receipt.cancelled),
+            ...(receipt.error === undefined ? {} : {
+              error: receipt.error !== null &&
+                typeof receipt.error === "object" && !Array.isArray(receipt.error)
+                ? {
+                  code: scalar(receipt.error.code),
+                  message: scalar(receipt.error.message),
+                }
+                : scalar(receipt.error),
+            }),
+            ...(receipt.cleanup === undefined ? {} : {
+              cleanup: receipt.cleanup !== null &&
+                typeof receipt.cleanup === "object" && !Array.isArray(receipt.cleanup)
+                ? {
+                  directChildJoined: scalar(receipt.cleanup.directChildJoined),
+                  boundaryEmpty: scalar(receipt.cleanup.boundaryEmpty),
+                  orphanReaping: scalar(receipt.cleanup.orphanReaping),
+                }
+                : scalar(receipt.cleanup),
+            }),
+          };
+        throw new Error(
+          "ttsc: native supervisor did not confirm process-tree retirement",
+          { cause: diagnostic },
+        );
+      }
       retirement = "joined";
       signal?.throwIfAborted();
       const encoding = options.encoding;

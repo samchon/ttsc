@@ -7,6 +7,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import type { OwnedNativeProcess } from "../../../../../../packages/ttsc/src/internal/OwnedNativeProcess";
+import type { serializeCompilerError as SerializeCompilerError } from "../../../../../../packages/ttsc/src/internal/serializeCompilerError";
 import { NativeProcessObserver } from "../../../../../utils/src/NativeProcessObserver";
 import { FixtureFiles } from "../../../internal/FixtureFiles";
 
@@ -22,14 +23,14 @@ import { FixtureFiles } from "../../../internal/FixtureFiles";
  * 4. Cancel an actual resolver runtime probe and reject active/queued work after
  *    unknown proof.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual run calls exercise the Go helper and Node commands. Literal argv, environment, cwd, stdin hex, diagnostic text and status23 assert transport; ENOENT and ENOBUFS assert failure identity. A ready test observer enrolls each live command before effects or fast exit; product join must immediately yield retired on its original kernel lifetime. Parent and grandchild enrollment precedes cancellation, which must preserve original abort identity and prevent the unchanged 500ms late marker. Every command observes its joined, not-started or unknown classification. Recovery succeeds; incompatible and missing supervisors cannot admit the marker target. Unknown proof retains the actual protocol and original refusal cause.
+ * @evidence contracts/testing.md#behavioral-verification Actual run calls exercise the Go helper and Node commands. Literal argv, environment, cwd, stdin hex, diagnostic text and status23 assert transport; ENOENT and ENOBUFS assert failure identity. A ready test observer enrolls each live command before effects or fast exit; product join must immediately yield retired on its original kernel lifetime. Parent and grandchild enrollment precedes cancellation, which must preserve original abort identity and prevent the unchanged 500ms late marker. Every command observes its joined, not-started or unknown classification. Recovery succeeds; incompatible and missing supervisors cannot admit the marker target. Null, unproved object and malformed nested receipt fields remain unknown and retained; literal diagnostic expectations require approved native fields or structure markers and exclude authored output/extra decoys. Original execution, verification and cleanup failures remain together rather than replacing one another.
  * @evidence contracts/testing.md#independent-expectations Authored Node inputs independently report argv/cwd/env/stdin and prescribe status23. Literal bytes distinguish DataView slices and latin1 encoding. Native retained Windows handles, Linux pidfds or Darwin knotes supply original lifetime authority, independent from SDK receipts and numeric PID reuse; wait uses zero timeout after product join. The grandchild's original publication clock and 500ms marker supply a separate effect oracle. An incompatible preload writes null, never a valid cleanup certificate. Actual retained directory/null receipt observations require preservation; unknown is lack of retirement authority, not an asserted OS refusal or reproduced PID reuse.
  * @evidence contracts/testing.md#distinguishing-cases Nonzero successful execution, binary DataView offset/length, latin1 string input, relative cwd, nonexistent target, bounded output overflow, active two-generation cancellation, recovery and legacy/invalid-receipt/missing supervisor refusal retain separate failure names. Resolver rows distinguish arbitrary cancellation during the real configured-JavaScript-plugin runtime probe from unknown helper retirement that must reject both later commands in the active request and the queued request. Portable pre-abort and unsupported-option refusal belong to the direct source unit.
  * @evidence contracts/testing.md#execution-ownership The runtime experiment admits this scenario, loads its installed SDK and executes its platform helper plus a separately prepared test-only native observer. The standalone observer fixture remains under the owning package's test tree. Explicit SDK/platform/observer paths allow separately reported workspace/private probes, which do not certify installed packaging. No TypeScript compiler or installation is added.
  * @evidence contracts/e2e.md#necessary-boundary Native containment and the SDK's control pipe/result receipt must retire a real Node descendant tree; pure parsing or synthetic promise settlement cannot establish that connection.
  * @evidence contracts/e2e.md#shared-execution One existing runtime consumer supplies the SDK installation and already built product helper. A process-shared preparation builds the standalone test observer once with isolated source/module/object/temp inputs, or records an explicit prebuilt observer; one cold ready session serves all rows. Separate command lifetimes distinguish nonzero, missing target, overflow and cancellation. Two resolver actors require conflicting helper/preload environments and separate workers, while sharing the SDK and observer without another installation or TypeScript Program. Actual configured-plugin runtime probing precedes descriptor preparation.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One copied fixture owns unique role/session publications and markers. Live target gates precede effects; grandchild enrollment leaves its timer and interval unchanged. Nonce, role, PID and opaque target acknowledgements must match. Inner actors request original-lifetime retirement proof before success; outer cancellation/finally awaits every operation and closes the observer through actual process exit. Only actor options.env changes isolated authority, never the test environment. Unknown observer or product retirement retains exact allocations and blocks unsafe later target work; observed incompatible-helper exit cannot certify its unknown SDK tree. Normal roots remain exit-tracked.
- * @evidence contracts/e2e.md#preserved-coverage All thirteen transport, input, missing-target, overflow, tree, recovery, RPC and supervisor-refusal rows retain their failure identities and collect outcomes. Original lifetime checks replace ambiguous numeric PID absence, while actual admitted PID equality, no late effect and recovery remain explicit. RPC cancellation retains the original Error through worker close; unknown proof retains first/queued rejection, one actual helper admission and exact retained-result directory. Missing target/supervisor rows assert no target admission without inventing a lifetime. Native platform units, cold publication and MCP EOF coverage remain separate.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One copied fixture owns unique role/session publications and markers. Live target gates precede effects; grandchild enrollment leaves its timer and interval unchanged. Nonce, role, PID and opaque target acknowledgements must match. Inner actors request original-lifetime retirement proof before success; outer cancellation/finally awaits every operation and closes the observer through actual process exit. Only actor options.env changes isolated authority, never the test environment. Unknown observer or product retirement retains exact allocations and blocks unsafe later target work; observed incompatible-helper exit cannot certify its unknown SDK tree. Fixed actor error receipts are atomic diagnostic snapshots checked against the current session and role, and the enrolled PID when enrollment was observed; missing, partial or foreign snapshots cannot certify closure or erase the original failure, and late publication remains unknown. Actual SDK serialization preserves causes and aggregates without a second serializer. Normal roots remain exit-tracked.
+ * @evidence contracts/e2e.md#preserved-coverage All thirteen transport, input, missing-target, overflow, tree, recovery, RPC and supervisor-refusal rows retain their failure identities and collect outcomes. Original lifetime checks replace ambiguous numeric PID absence, while actual admitted PID equality, no late effect and recovery remain explicit. RPC cancellation retains the original Error through worker close; unknown proof retains first/queued rejection, one actual helper admission and exact retained-result directory. The existing invalid row independently collects null, unproved object and malformed field cases with distinct helper lifetimes; an earlier failed assertion cannot skip the later cases. Its direct SDK diagnostic assertions do not claim to test the worker's serialization boundary. Missing target/supervisor rows assert no target admission without inventing a lifetime. Native platform units, cold publication and MCP EOF coverage remain separate.
  */
 export async function test_owned_native_process_joins_cancelled_command_trees(
   consumerRoot: string,
@@ -49,6 +50,8 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
   const owner: { OwnedNativeProcess: typeof OwnedNativeProcess } = await import(
     pathToFileURL(sdkModule).href
   );
+  const diagnostics: { serializeCompilerError: typeof SerializeCompilerError } =
+    await import(pathToFileURL(path.join(path.dirname(sdkModule), "serializeCompilerError.js")).href);
   const sdkIndex = path.resolve(path.dirname(sdkModule), "../index.js");
   const pluginSource = options.sdkModule
     ? path.resolve(
@@ -91,6 +94,34 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
   };
   const location = (role: string, event: string): string =>
     path.join(root, `lifetime-${role}-${event}.json`);
+  const captureActorDiagnostics = (roles: readonly string[]): void => {
+    for (const role of roles) {
+      if (role !== "rpc-cancel-actor" && role !== "rpc-unknown-actor") continue;
+      try {
+        const file = location(role, "error");
+        if (!fs.existsSync(file)) {
+          record("actor-error-diagnostic", { role, status: "unavailable", reason: "No receipt at snapshot; later publication remains unknown" });
+          continue;
+        }
+        const receipt: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+        assert.ok(receipt && typeof receipt === "object");
+        assert.ok("version" in receipt && receipt.version === 1);
+        assert.ok("sessionNonce" in receipt && receipt.sessionNonce === observer.sessionNonce);
+        assert.ok("role" in receipt && receipt.role === role);
+        assert.ok("pid" in receipt && typeof receipt.pid === "number" && Number.isSafeInteger(receipt.pid) && receipt.pid > 0);
+        const target = targets.get(role);
+        if (target) assert.equal(receipt.pid, target.pid);
+        assert.ok("error" in receipt);
+        record("actor-error-diagnostic", { role, status: "available", receipt });
+      } catch (cause) {
+        record("actor-error-diagnostic", {
+          role,
+          status: "unavailable",
+          reason: diagnostics.serializeCompilerError(cause),
+        });
+      }
+    }
+  };
   const publish = (role: string, event: string, target: Target): void => {
     const destination = location(role, event);
     fs.writeFileSync(
@@ -214,11 +245,18 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       return result.value;
     } catch (cause) {
       controller.abort(cause);
-      await outcome;
+      const result = await outcome;
       if (signal?.aborted !== true || cause !== signal.reason)
         retirementUnknown = true;
+      if (result.kind === "rejected" && result.error !== cause)
+        throw new AggregateError(
+          [result.error, cause],
+          "Native command and original lifetime verification failed",
+          { cause: result.error },
+        );
       throw cause;
     } finally {
+      captureActorDiagnostics(roles);
       signal?.removeEventListener("abort", abort);
     }
   };
@@ -230,16 +268,18 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     const before = new Set(targets.keys());
     let outcome = "passed";
     let failure: string | undefined;
+    let diagnostic: unknown;
     try {
       await run();
     } catch (cause) {
       outcome = "failed";
       failure = cause instanceof Error ? cause.message : String(cause);
+      diagnostic = diagnostics.serializeCompilerError(cause);
       failures.push(new Error(name, { cause }));
     } finally {
       const enrolled = [...targets].filter(([role]) => !before.has(role)).map(([role, target]) => ({ role, ...target }));
       console.error("Owned native process row: " + JSON.stringify({
-        name, outcome, failure,
+        name, outcome, failure, diagnostic,
         observerSession: observer.sessionNonce,
         observerReady,
         expectedSdkTargetAdmission: ["missing target", "absent supervisor cannot admit target", "legacy supervisor cannot admit target", "invalid receipt cannot certify target retirement"].includes(name) ? "none" : "admitted",
@@ -267,8 +307,7 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
           : mode === "tree"
             ? [role, "tree-grandchild"]
             : [role];
-    try {
-      return await observe(
+    const result = await observe(
         (ownedSignal) =>
           owner.OwnedNativeProcess.run(
             process.execPath,
@@ -281,33 +320,51 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
               env: { ...env, TTSC_LIFETIME_ROLE: role, ...settings.env },
             },
             ownedSignal,
-            (state) => {
+            (state, reason) => {
               observed.push(state);
-              record("product-retirement", { state });
+              record("product-retirement", { state, reason });
             },
           ),
         roles,
         signal,
+      ).then(
+        (value) => ({ kind: "returned" as const, value }),
+        (error: unknown) => {
+          if (signal?.aborted !== true || error !== signal.reason)
+            retirementUnknown = true;
+          return { kind: "rejected" as const, error };
+        },
       );
-    } catch (error) {
-      if (signal?.aborted !== true || error !== signal.reason)
-        retirementUnknown = true;
-      throw error;
-    } finally {
+    try {
       assert.deepEqual(observed, [expectedRetirement]);
+    } catch (assertionError) {
+      if (result.kind === "rejected" && result.error !== assertionError)
+        throw new AggregateError(
+          [result.error, assertionError],
+          "Native command and retirement classification failed",
+          { cause: result.error },
+        );
+      throw assertionError;
     }
+    if (result.kind === "rejected") throw result.error;
+    return result.value;
   };
   const expectUnknown = async (
     operation: Promise<unknown>,
     original: RegExp,
     receipt?: string,
+    verifyDiagnostic?: (validation: Error) => void,
   ): Promise<void> => {
     await assert.rejects(operation, (error: unknown) => {
+      record("expected-unknown-diagnostic", {
+        error: diagnostics.serializeCompilerError(error),
+      });
       assert.ok(error instanceof Error);
       const prefix = "ttsc: native retirement is unknown; retained protocol ";
       assert.ok(error.message.startsWith(prefix));
       assert.ok(error.cause instanceof Error);
       assert.match(error.cause.message, original);
+      verifyDiagnostic?.(error.cause);
       const directory = error.message.slice(prefix.length);
       assert.ok(path.isAbsolute(directory));
       assert.ok(fs.statSync(directory).isDirectory());
@@ -365,9 +422,9 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         [],
         { env, timeout: 5000 },
         undefined,
-        (state) => {
+        (state, reason) => {
           observed.push(state);
-          record("product-retirement", { state });
+          record("product-retirement", { state, reason });
         },
       );
       assert.deepEqual(observed, ["joined"]);
@@ -411,6 +468,8 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       let parent: number | undefined;
       let lateAt = 0;
       let joined = false;
+      let failed = false;
+      let originalFailure: unknown;
       try {
         const until = Date.now() + 5000;
         while (!targets.has("tree-grandchild")) {
@@ -454,11 +513,23 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         if (remaining > 0)
           await new Promise((resolve) => setTimeout(resolve, remaining));
         assert.equal(fs.existsSync(path.join(root, "late-marker")), false);
+      } catch (cause) {
+        failed = true;
+        originalFailure = cause;
       } finally {
         controller.abort(reason);
         const result = await outcome;
         if (!joined || result.kind !== "rejected" || result.error !== reason)
           retirementUnknown = true;
+        if (result.kind === "rejected" && result.error !== reason && result.error !== originalFailure)
+          throw failed
+            ? new AggregateError(
+                [originalFailure, result.error],
+                "Tree readiness and command execution failed",
+                { cause: originalFailure },
+              )
+            : result.error;
+        if (failed) throw originalFailure;
       }
     });
     await check("recovery after cancellation", () => echo({ input: "" }, ""));
@@ -481,7 +552,7 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
               timeout: 5000,
             },
             signal,
-            (state) => record("product-retirement", { state }),
+            (state, reason) => record("product-retirement", { state, reason }),
           ),
         ["rpc-cancel-actor", "rpc-probe"],
       );
@@ -518,7 +589,7 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
               timeout: 5000,
             },
             signal,
-            (state) => record("product-retirement", { state }),
+            (state, reason) => record("product-retirement", { state, reason }),
           ),
         ["rpc-unknown-actor", "rpc-helper"],
       );
@@ -562,26 +633,60 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     await check(
       "invalid receipt cannot certify target retirement",
       async () => {
-        await expectUnknown(
-          run(
-            "marker",
-            {
-              env: {
-                ...env,
-                TTSC_BINARY: process.execPath,
-                TTSC_LIFETIME_HELPER_ROLE: "invalid-helper",
-                NODE_OPTIONS:
-                  "--require " +
-                  JSON.stringify(path.join(root, "invalid-receipt.cjs")),
+        const invalidFailures: Error[] = [];
+        for (const mode of ["null", "object", "malformed"] as const) {
+          const role = mode === "null" ? "invalid-helper" : "invalid-" + mode + "-helper";
+          try {
+            await expectUnknown(
+              run(
+                "marker",
+                {
+                  env: {
+                    ...env,
+                    TTSC_BINARY: process.execPath,
+                    TTSC_LIFETIME_HELPER_ROLE: role,
+                    TTSC_OWNED_INVALID_RECEIPT_MODE: mode,
+                    NODE_OPTIONS:
+                      "--require " +
+                      JSON.stringify(path.join(root, "invalid-receipt.cjs")),
+                  },
+                },
+                undefined,
+                "unknown",
+              ),
+              /did not confirm process-tree retirement/,
+              mode === "null" ? "null" : undefined,
+              (validation) => {
+                if (mode === "null") assert.equal(validation.cause, null);
+                else {
+                  const target = targets.get(role);
+                  assert.ok(target);
+                  assert.deepEqual(validation.cause, {
+                    version: 1,
+                    pid: target.pid,
+                    status: null,
+                    signal: null,
+                    cancelled: false,
+                    error: {
+                      code: mode === "malformed" ? { $ttscValue: "object" } : "AUTHORED_CLEANUP",
+                      message: "authored unproved cleanup",
+                    },
+                    cleanup: {
+                      directChildJoined: true,
+                      boundaryEmpty: false,
+                      orphanReaping: mode === "malformed" ? { $ttscValue: "array" } : "owned",
+                    },
+                  });
+                }
               },
-            },
-            undefined,
-            "unknown",
-          ),
-          /did not confirm process-tree retirement/,
-          "null",
-        );
-        assert.equal(fs.existsSync(path.join(root, "admitted-marker")), false);
+            );
+            assert.equal(fs.existsSync(path.join(root, "admitted-marker")), false);
+          } catch (cause) {
+            invalidFailures.push(new Error("Invalid receipt " + mode, { cause }));
+          }
+        }
+        if (invalidFailures.length)
+          throw new AggregateError(invalidFailures, "Invalid receipt diagnostic cases");
       },
     );
     await check("absent supervisor cannot admit target", async () => {
@@ -608,10 +713,14 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     for (const directory of retainedProtocols)
       console.error("Retained native protocol input: " + directory);
     if (retirementUnknown)
-      TestProject.retainTemporaryDirectory(
-        allocatedRoot,
-        "Native command descendant retirement was not observed",
-      );
+      try {
+        TestProject.retainTemporaryDirectory(
+          allocatedRoot,
+          "Native command descendant retirement was not observed",
+        );
+      } catch (cause) {
+        failures.push(new Error("Native fixture input retention failed", { cause }));
+      }
   }
   if (failures.length !== 0)
     throw new AggregateError(

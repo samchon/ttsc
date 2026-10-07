@@ -55,4 +55,17 @@ function requireRetired(role, target, joinObserved = {}) {
   assert.equal(ack.retired, true);
 }
 
-module.exports = { enrolled, requireRetired, location, awaitAck };
+function reportFailure(role, error, serializeCompilerError) {
+  console.error(error);
+  try {
+    publish(role, "error", { version: 1, error: serializeCompilerError(error) });
+  } catch (publicationError) {
+    console.error(new AggregateError(
+      [error, publicationError],
+      "Actor failure receipt publication failed",
+      { cause: error },
+    ));
+  }
+}
+
+module.exports = { enrolled, requireRetired, location, awaitAck, reportFailure };
