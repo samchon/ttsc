@@ -8,6 +8,7 @@ import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/intern
 import { NativePluginArguments } from "../../../../../packages/ttsc/src/compiler/internal/build/NativePluginArguments";
 import type { RunBuildOptions } from "../../../../../packages/ttsc/src/compiler/internal/build/RunBuildOptions";
 import { runNativeCheckWithObservations } from "../../../../../packages/ttsc/src/compiler/internal/runNativeCheckWithObservations";
+import { PluginDescriptorAdmission } from "../../../../../packages/ttsc/src/plugin/internal/load/PluginDescriptorAdmission";
 import type { ITtscLoadedNativePlugin } from "../../../../../packages/ttsc/src/structures/internal/ITtscLoadedNativePlugin";
 import type { TtscBuildOptions } from "../../../../../packages/ttsc/src/structures/internal/TtscBuildOptions";
 import { TestProject } from "../../../../utils/src/TestProject";
@@ -26,10 +27,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 4. Compose transform-host build/check commands, including build-only verbosity,
  *    output coordinates, selected-host context and provenance admission.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual createNativeCheckArgs and createNativeBuildArgs with the owned execution context. Exact argv assertions distinguish check-stage threading from transform-host command/modifier policies and selected-host context/provenance gates, while preserving full projected configs and input records. Actual composed verbs also drive the observation adapter: fix/format and undeclared check transport preserve the original callback result without flags, while opted-in checks retain same-invocation metadata and reject absent or malformed successful publications.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual createNativeCheckArgs and createNativeBuildArgs with the owned execution context. Exact argv assertions distinguish check-stage threading from transform-host command/modifier policies and selected-host context/provenance gates, while preserving full projected configs and input records. The actual shallow descriptor admission preserves a raw JavaScript false capability before the composer rejects provenance; no invalid typed DTO is constructed. Actual composed verbs also drive the observation adapter: fix/format and undeclared check transport preserve the original callback result without flags, while opted-in checks retain same-invocation metadata and reject absent or malformed successful publications.
  * @evidence contracts/testing.md#independent-expectations The native protocol gates check-stage threading, gives format precedence over fix, and omits transform check-lane emit/verbosity modifiers. Authored complete plugin JSON, output/context coordinates, build/check arrays and provenance error literals specify the contract independently of the composers. Literal original write-result identity, check streams/status and independently authored complete/incomplete/malformed metadata prescribe adapter negotiation and rejection without an actual native producer.
  * @evidence contracts/testing.md#distinguishing-cases Existing check-stage capability/name/threading/command controls remain. Transform rows distinguish absent/true/false emit, quiet/verbose/omission, relative output, selected executable versus earlier linked capability, absent/false context support, and provenance absolute versus relative/URL/unsupported refusal. Input and option nonmutation remain asserted; Native strict-host acceptance is not exercised. Sidecar transport rows preserve failed and interrupted check outcomes, reject missing/malformed successful records, and distinguish a check-stage write verb from a real check.
- * @evidence contracts/testing.md#execution-ownership One source-unit entry obtains its execution context without plugins or compiler invocation, reads the actual lint factory capabilities and directly calls both composers with full ordinary DTOs and the observation adapter with authored callback results/private metadata bytes. No host, child, Program or evaluator is introduced; actual argv transport/native acceptance is separate.
+ * @evidence contracts/testing.md#execution-ownership One source-unit entry obtains its execution context without plugins or compiler invocation, reads the actual lint factory capabilities and directly calls both composers with full ordinary DTOs and the observation adapter with authored callback results/private metadata bytes. Raw unsupported provenance values pass through the real descriptor-admission operation, which validates object shape rather than every field. No host, child, Program or evaluator is introduced; actual argv transport/native acceptance is separate.
  */
 export function test_native_check_arguments_gate_threading_without_name_shortcuts(): void {
   const root = TestProject.physicalPath(
@@ -452,11 +453,16 @@ export function test_native_check_arguments_gate_threading_without_name_shortcut
     );
   for (const capabilities of [undefined, { emitProvenance: false }] as const)
     verify("unsupported selected provenance", () => {
+      const raw = { source: root, capabilities };
+      const admitted = PluginDescriptorAdmission.descriptor(
+        raw,
+        "@unit/unsupported-provenance",
+      );
+      assert.equal(admitted, raw);
+      assert.deepEqual(admitted.capabilities, capabilities);
       const unsupported: ITtscLoadedNativePlugin = {
         ...transform,
-        // JavaScript descriptors can supply false; typed descriptors must omit it.
-        // @ts-expect-error False is deliberately outside the true-only opt-in DTO.
-        capabilities,
+        capabilities: admitted.capabilities,
       };
       assert.throws(
         () =>
