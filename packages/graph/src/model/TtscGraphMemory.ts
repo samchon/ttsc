@@ -374,13 +374,37 @@ function keyOf(node: ITtscGraphNode): string {
  * A quoted member named `"a.b"` has Name `a.b` and QualifiedName `Box.a.b`.
  * Cutting the qualified name at its last dot invents owner `Box.a`; removing
  * the exact `.${name}` suffix instead preserves the producer's real boundary.
+ * Object keys containing dots, brackets or no characters carry a JSON bracket
+ * suffix, keeping their identity distinct from nested object ownership.
  */
 function ownerKey(node: ITtscGraphNode): string | undefined {
   if (node.qualifiedName === undefined || node.qualifiedName === node.name)
     return undefined;
   const suffix = `.${node.name}`;
-  if (!node.qualifiedName.endsWith(suffix)) return undefined;
-  const owner = node.qualifiedName.slice(0, -suffix.length);
+  let owner: string | undefined;
+  if (node.qualifiedName.endsWith(suffix)) {
+    owner = node.qualifiedName.slice(0, -suffix.length);
+  } else if (node.qualifiedName.endsWith('"]')) {
+    // The native producer brackets reserved/empty object keys using JSON. Find
+    // the opening string quote without treating an escaped quote inside the
+    // key as a boundary; JSON decoding accepts equivalent Unicode escapes.
+    const qualified = node.qualifiedName;
+    for (let index = qualified.length - 3; index > 0; index--) {
+      if (qualified[index] !== '"') continue;
+      let escapes = 0;
+      for (let before = index - 1; before >= 0 && qualified[before] === "\\"; before--)
+        escapes++;
+      if (escapes % 2 !== 0) continue;
+      if (qualified[index - 1] !== "[") break;
+      try {
+        if (JSON.parse(qualified.slice(index, -1)) === node.name)
+          owner = qualified.slice(0, index - 1);
+      } catch {
+        // A malformed qualified coordinate proves no owner.
+      }
+      break;
+    }
+  }
   return owner === "" ? undefined : owner;
 }
 

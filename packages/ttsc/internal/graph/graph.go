@@ -25,8 +25,8 @@ const (
   NodeTypeAlias NodeKind = "type"
   NodeEnum      NodeKind = "enum"
   NodeVariable  NodeKind = "variable"
-  // NodeMethod is a class or interface member (a method, constructor, or
-  // accessor). Its id is class-qualified ("path#Class.method:method") so a
+  // NodeMethod is a class, interface or statically bound object member (a
+  // method, constructor, or accessor). Its id is owner-qualified so a
   // resolved method call lands on the same node the build pass recorded.
   NodeMethod NodeKind = "method"
   // NodeModule is a source file with an export table — the surface a consumer

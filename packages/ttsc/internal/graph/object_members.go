@@ -1,6 +1,11 @@
 package graph
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  "encoding/json"
+  "strings"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
 
 // collectObjectMembers records the direct, statically named members of the
 // object literal bound by declaration on the variable node Build already owns.
@@ -38,9 +43,103 @@ func (g *Graph) collectObjectMembers(path string, declaration *shimast.Node) {
       SignatureBoundary: signatureBoundary,
       SignatureTokenLen: signatureTokenLen,
     })
+    collectObjectDeclaration(g, path, property)
   }
   if len(members) > 0 {
     node.ObjectMembers = members
+  }
+}
+
+// collectObjectDeclaration indexes each statically named property under its
+// lexical binding. Nested literals use their property as the next owner; a
+// dynamic key or unbound literal supplies no stable declaration identity.
+func collectObjectDeclaration(g *Graph, path string, property *shimast.Node) {
+  name, ok := objectDeclarationName(property)
+  if !ok || property.Symbol() == nil {
+    return
+  }
+  _, kind, ok := objectMemberIdentity(property)
+  if !ok {
+    return
+  }
+  putDeclaredNode(g, path, name, kind, property)
+  collectClosures(g, path, property)
+  if property.Kind == shimast.KindPropertyAssignment {
+    assignment := property.AsPropertyAssignment()
+    if object := objectLiteralInitializer(assignment.Initializer); object != nil && object.Properties != nil {
+      for _, child := range object.Properties.Nodes {
+        collectObjectDeclaration(g, path, child)
+      }
+    }
+  }
+}
+
+// objectDeclarationName follows AST ownership to a named variable rather than
+// using the binder's anonymous object-type symbol as a public name. Every
+// segment must be statically declared; aliases resolve to these same nodes.
+func objectDeclarationName(property *shimast.Node) (string, bool) {
+  if property == nil || property.Parent == nil || property.Parent.Kind != shimast.KindObjectLiteralExpression {
+    return "", false
+  }
+  name, _, ok := objectMemberIdentity(property)
+  if !ok {
+    return "", false
+  }
+  owner := property.Parent.Parent
+  for owner != nil {
+    switch owner.Kind {
+    case shimast.KindAsExpression, shimast.KindSatisfiesExpression, shimast.KindParenthesizedExpression,
+      shimast.KindTypeAssertionExpression, shimast.KindNonNullExpression:
+      owner = owner.Parent
+      continue
+    case shimast.KindVariableDeclaration:
+      if owner.Symbol() != nil {
+        return appendObjectMemberName(qualifiedName(owner.Symbol()), name), true
+      }
+    case shimast.KindPropertyAssignment:
+      if prefix, ok := objectDeclarationName(owner); ok {
+        return appendObjectMemberName(prefix, name), true
+      }
+    }
+    break
+  }
+  return "", false
+}
+
+// appendObjectMemberName keeps lexical member segments distinct from nested
+// ownership. JSON bracket spelling quotes empty keys and reserved dot/bracket
+// characters, so literal text cannot impersonate another ownership boundary.
+func appendObjectMemberName(owner, name string) string {
+  if name == "" || strings.ContainsAny(name, ".[]") {
+    encoded, _ := json.Marshal(name)
+    return owner + "[" + string(encoded) + "]"
+  }
+  return owner + "." + name
+}
+
+// forEachObjectDeclaration attributes relationships to the same static members
+// indexed by collectObjectDeclaration. The variable's existing aggregate walk
+// remains available alongside precise member queries.
+func forEachObjectDeclaration(path string, initializer *shimast.Node, fn func(string, *shimast.Node)) {
+  object := objectLiteralInitializer(initializer)
+  if object == nil || object.Properties == nil {
+    return
+  }
+  for _, property := range object.Properties.Nodes {
+    name, ok := objectDeclarationName(property)
+    if !ok || property.Symbol() == nil {
+      continue
+    }
+    _, kind, ok := objectMemberIdentity(property)
+    if !ok {
+      continue
+    }
+    fn(nodeID(path, name, kind), property)
+    forEachClosureIn(path, property, fn)
+    if property.Kind == shimast.KindPropertyAssignment {
+      assignment := property.AsPropertyAssignment()
+      forEachObjectDeclaration(path, assignment.Initializer, fn)
+    }
   }
 }
 
