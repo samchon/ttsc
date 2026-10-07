@@ -15,13 +15,16 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * Record storage is acquired before the coordinator awaits a generation.
  *
  * @evidence contracts/testing.md#behavioral-verification An unresolved supported cache owner receives a real transform delivery; both record parents already exist before settling it. Actual record handoff preserves the independently authored root directory predicate, while a new source member still invalidates it. A blocked primary uses the existing fallback handoff.
- * @evidence contracts/testing.md#independent-expectations Literal src, tsconfig.json, .ttsc and .fallback names and directory/file markers define the SHA-256 witness independently of the production listing. Without early acquisition the pre-settle directory assertions fail, and late handoff changes the root witness.
+ * @evidence contracts/testing.md#independent-expectations Literal src, tsconfig.json, node_modules, .ttsc and .fallback names and directory/file markers define the SHA-256 witness independently of the production listing. Without early acquisition the pre-settle directory assertions fail, and late handoff changes the root witness.
  * @evidence contracts/testing.md#distinguishing-cases Absent storage versus acquired empty parents, primary versus blocked-primary/fallback, unchanged root versus added source, and wrapper bypass versus eligible delivery retain distinct outcomes.
  * @evidence contracts/testing.md#execution-ownership Actual filesystem acquisition, transform coordinator, directory predicate replay and record writer run in process on one temporary corpus. The unresolved cache value is supported authored consumer input; no compiler, child, native capture count or installed adapter is simulated. The existing full Metro E2E owns two-worker native single-execution and adoption.
  */
 export async function test_project_record_storage_precedes_generation_observation(): Promise<void> {
   const fixture = createCachedDeliveryUnitFixture();
   const root = fs.realpathSync.native(path.dirname(path.dirname(fixture.file)));
+  // The POSIX compiler case-policy observer may populate this default cache.
+  // Author its root member before the independent directory witness on all hosts.
+  fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
   const primary = path.join(root, ".ttsc");
   const fallback = path.join(root, ".fallback");
   const records: string[] = [];
@@ -61,6 +64,8 @@ export async function test_project_record_storage_precedes_generation_observatio
     assert.equal(fixture.cache.get(fixture.key), owner);
     const filesystem = transformFilesystem(fixture.cache);
     const identities = createHostPathIdentityContext(filesystem);
+    const rootMembers = [".fallback", ".ttsc", "node_modules", "src", "tsconfig.json"];
+    assert.deepEqual(fs.readdirSync(root).sort(), rootMembers);
     const predicate = {
       version: 1 as const,
       kind: "directory" as const,
@@ -68,17 +73,20 @@ export async function test_project_record_storage_precedes_generation_observatio
       realpath: root,
       identityStable: true,
       digest: createHash("sha256")
-        .update(".fallback\0directory\0\0.ttsc\0directory\0\0src\0directory\0\0tsconfig.json\0file\0")
+        .update(".fallback\0directory\0\0.ttsc\0directory\0\0node_modules\0directory\0\0src\0directory\0\0tsconfig.json\0file\0")
         .digest("hex"),
     };
     assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), true);
     const observed = observeValidationUnitGeneration(root, fixture.good.result);
+    assert.deepEqual(fs.readdirSync(root).sort(), rootMembers);
+    assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), true);
     settle(observed);
     assert.equal((await delivery)?.code, fixture.code);
     assert.equal(fixture.cache.get(fixture.key), owner);
     assert.equal(records.length, 1);
     assert.equal(path.dirname(records[0]!), path.join(primary, "records"));
     assert.ok(readProjectRecordFile(records[0]!));
+    assert.deepEqual(fs.readdirSync(root).sort(), rootMembers);
     assert.equal(nativeInputPredicateMatches(root, predicate, filesystem, identities), true);
     const added = path.join(root, "added.ts");
     fs.writeFileSync(added, "export {};\n");
