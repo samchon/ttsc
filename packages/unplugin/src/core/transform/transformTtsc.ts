@@ -25,6 +25,7 @@ import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
 import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { transformProject } from "./generation/transformProject";
+import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDirectories";
 import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
@@ -125,6 +126,10 @@ export async function transformTtsc(
   if (pluginsAreDisabled(options.plugins)) {
     return undefined;
   }
+
+  // Acquire host-owned storage before any generation observes directory inputs.
+  // Writing the delivered record must not create a new member of that proof.
+  prepareProjectRecordDirectories(hooks?.project);
 
   const selection = resolveProjectSelection(file, options.project, filesystem);
   const tsconfig = selection.tsconfig;
