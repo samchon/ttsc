@@ -10,13 +10,11 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// noUnnecessaryTypeArguments visits the three syntactic positions that
-// carry an explicit type-argument list — `Foo<T>` in type position,
-// `new Foo<T>(…)`, and `foo<T>(…)` — and compares each argument against
-// the parameter default declared on the generic. The check is type-aware
-// because matching against the default requires resolving the generic's
-// symbol back to its parameter list; the AST alone doesn't carry that
-// link.
+// noUnnecessaryTypeArguments compares explicit arguments in type references,
+// heritage, calls and construction against their owning generic's defaults.
+// Function and class value instantiations retain their specialization arguments.
+// The checker resolves aliases and selects callable signatures; the AST alone
+// does not identify which declaration owns the argument list.
 //
 // The rule reports the rightmost run of arguments that equal their
 // defaults: a trailing default-equal arg can be dropped without
@@ -48,7 +46,7 @@ func (noUnnecessaryTypeArguments) Check(ctx *Context, node *shimast.Node) {
   if len(args) == 0 || nameNode == nil {
     return
   }
-  params := noUnnecessaryTypeArgumentsResolveParameters(ctx, nameNode)
+  params := noUnnecessaryTypeArgumentsResolveParameters(ctx, node, nameNode)
   if len(params) == 0 {
     return
   }
@@ -100,6 +98,13 @@ func noUnnecessaryTypeArgumentsExtract(node *shimast.Node) ([]*shimast.Node, *sh
     }
     return ref.TypeArguments.Nodes, ref.TypeName
   case shimast.KindExpressionWithTypeArguments:
+    // A value instantiation such as make<string> specializes a generic value.
+    // Removing its arguments changes that value's callable/constructable type.
+    // Heritage is the expression-shaped position whose omitted arguments may
+    // instead be supplied by the declaration's defaults.
+    if node.Parent == nil || node.Parent.Kind != shimast.KindHeritageClause {
+      return nil, nil
+    }
     ewta := node.AsExpressionWithTypeArguments()
     if ewta == nil || ewta.TypeArguments == nil {
       return nil, nil
@@ -121,12 +126,22 @@ func noUnnecessaryTypeArgumentsExtract(node *shimast.Node) ([]*shimast.Node, *sh
   return nil, nil
 }
 
-// noUnnecessaryTypeArgumentsResolveParameters resolves `nameNode` to a
-// symbol and returns the type parameters declared on the first
-// declaration that carries one. Returns nil when the symbol does not
-// resolve or no declaration carries a type-parameter list — the rule
-// then has nothing to compare against.
-func noUnnecessaryTypeArgumentsResolveParameters(ctx *Context, nameNode *shimast.Node) []*shimast.TypeParameterDeclaration {
+// noUnnecessaryTypeArgumentsResolveParameters uses the selected signature for
+// calls, and the aliased type declaration for references and heritage. New
+// expressions may inherit their generic parameters from the constructed class
+// rather than its constructor declaration. Missing or unresolved declarations
+// leave no default against which the rule can compare.
+func noUnnecessaryTypeArgumentsResolveParameters(ctx *Context, node, nameNode *shimast.Node) []*shimast.TypeParameterDeclaration {
+  if node.Kind == shimast.KindCallExpression || node.Kind == shimast.KindNewExpression {
+    if signature := ctx.Checker.GetResolvedSignature(node); signature != nil {
+      if params := noUnnecessaryTypeArgumentsParamList(signature.Declaration()); len(params) != 0 {
+        return params
+      }
+    }
+    if node.Kind == shimast.KindCallExpression {
+      return nil
+    }
+  }
   if nameNode == nil {
     return nil
   }
@@ -147,12 +162,19 @@ func noUnnecessaryTypeArgumentsResolveParameters(ctx *Context, nameNode *shimast
     target = qn.Right
   }
   symbol := ctx.Checker.GetSymbolAtLocation(target)
+  if symbol != nil && symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+    symbol = ctx.Checker.GetAliasedSymbol(symbol)
+  }
   if symbol == nil {
     return nil
   }
   for _, decl := range symbol.Declarations {
-    if list := noUnnecessaryTypeArgumentsParamList(decl); list != nil {
-      return list
+    switch decl.Kind {
+    case shimast.KindClassDeclaration, shimast.KindClassExpression,
+      shimast.KindInterfaceDeclaration, shimast.KindTypeAliasDeclaration:
+      if list := noUnnecessaryTypeArgumentsParamList(decl); list != nil {
+        return list
+      }
     }
   }
   return nil
@@ -160,20 +182,15 @@ func noUnnecessaryTypeArgumentsResolveParameters(ctx *Context, nameNode *shimast
 
 // noUnnecessaryTypeArgumentsParamList returns the type-parameter list on
 // `decl` when the declaration kind carries one, or nil otherwise. The
-// enumerated kinds match the host types TypeScript binds generic
-// arguments against — function-shaped declarations, class / interface
-// / alias declarations, and the method-like signatures that may appear
-// inside them.
+// type and class kinds have their own parameter lists; the compiler's nullable
+// FunctionLikeData view supplies callable and constructable signature lists
+// without an unchecked cast to one particular function-shaped declaration.
 func noUnnecessaryTypeArgumentsParamList(decl *shimast.Node) []*shimast.TypeParameterDeclaration {
   if decl == nil {
     return nil
   }
   var list *shimast.TypeParameterList
   switch decl.Kind {
-  case shimast.KindFunctionDeclaration:
-    if d := decl.AsFunctionDeclaration(); d != nil {
-      list = d.TypeParameters
-    }
   case shimast.KindClassDeclaration:
     if d := decl.AsClassDeclaration(); d != nil {
       list = d.TypeParameters
@@ -190,29 +207,9 @@ func noUnnecessaryTypeArgumentsParamList(decl *shimast.Node) []*shimast.TypePara
     if d := decl.AsTypeAliasDeclaration(); d != nil {
       list = d.TypeParameters
     }
-  case shimast.KindMethodDeclaration:
-    if d := decl.AsMethodDeclaration(); d != nil {
-      list = d.TypeParameters
-    }
-  case shimast.KindMethodSignature:
-    if d := decl.AsMethodSignatureDeclaration(); d != nil {
-      list = d.TypeParameters
-    }
-  case shimast.KindFunctionExpression:
-    if d := decl.AsFunctionExpression(); d != nil {
-      list = d.TypeParameters
-    }
-  case shimast.KindArrowFunction:
-    if d := decl.AsArrowFunction(); d != nil {
-      list = d.TypeParameters
-    }
-  case shimast.KindCallSignature:
-    if d := decl.AsCallSignatureDeclaration(); d != nil {
-      list = d.TypeParameters
-    }
-  case shimast.KindConstructSignature:
-    if d := decl.AsConstructSignatureDeclaration(); d != nil {
-      list = d.TypeParameters
+  default:
+    if function := decl.FunctionLikeData(); function != nil {
+      list = function.TypeParameters
     }
   }
   if list == nil || len(list.Nodes) == 0 {
