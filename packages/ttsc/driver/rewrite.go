@@ -250,11 +250,15 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
       }
       return nil
     }
-    // The shared rewrite owner recognizes executable calls and genuine header
-    // markers from one parsed output, including direct helper consumers.
-    patched, err := applyRewrites(fileName, text, rs, cursors)
-    if err != nil {
-      return err
+    // Compiler-selected state keeps its native bytes even when configured with
+    // a JavaScript-looking name. Executable output uses the shared lexical owner.
+    patched := text
+    if !p.isBuildInfoOutput(fileName) {
+      var err error
+      patched, err = applyRewrites(fileName, text, rs, cursors)
+      if err != nil {
+        return err
+      }
     }
     if writeFile != nil {
       return writeFile(fileName, patched, data)
@@ -278,8 +282,8 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
 // `internal/execute`, which a host constructing its Program in-process never
 // enters. Without this branch `incremental`, `composite`, and `tsBuildInfoFile`
 // would parse and resolve and then have no effect: a plugin-carrying project
-// would emit its JavaScript and no `.tsbuildinfo`. `driver/emit_containment.go`
-// exempts `.tsbuildinfo` from the outDir guard for that write.
+// would emit its JavaScript without build information. The containment guard
+// exempts the compiler-selected state artifact regardless of its extension.
 //
 // A single-file emit stays on the plain lane. Build information describes a
 // whole program, and tsgo's incremental program returns early on a
