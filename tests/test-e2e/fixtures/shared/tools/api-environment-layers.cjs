@@ -111,7 +111,7 @@ module.exports = function apiEnvironmentLayers({ root, launcher, rootEntries, ap
         assert.throws(() => new TtscCompiler({
           cwd: root, tsconfig: "runtime-declared.json",
           env: { Ttsc_Node_Binary: missingNode },
-        }).prepare(), /api-missing-node|ENOENT/);
+        }).prepare(), /api-missing-node/);
         unchanged();
       });
       process.env.TTSC_GO_BINARY = missingGo;
