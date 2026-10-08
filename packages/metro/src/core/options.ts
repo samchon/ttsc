@@ -74,6 +74,8 @@ export function serializeOptions(
  * behaviour for a project that called `withTtsc(config)` with no explicit
  * options.
  *
+ * All common compiler options, including the output-addressing `projectRoot`,
+ * survive this transport without interpreting their paths in the config host.
  * A present `plugins` property is forwarded even when its value is `false`;
  * omission leaves plugin selection to the project. The `include` and `exclude`
  * arrays retain only string entries, while invalid array values become empty
@@ -117,6 +119,7 @@ export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
   return {
     ttsc: {
       project: parsed.project,
+      projectRoot: parsed.projectRoot,
       compilerOptions: parsed.compilerOptions,
       ...("plugins" in parsed ? { plugins: parsed.plugins } : {}),
     },
