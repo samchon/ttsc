@@ -185,6 +185,7 @@ export async function test_watch_topology_preserves_response_file_output_options
       text: "--declarationMap",
       config: { composite: true },
       expected: [
+        ["input.md", true],
         ["configured/view.d.ts", false],
         ["configured/view.d.ts.map", false],
         ["configured/tsconfig.tsbuildinfo", false],
