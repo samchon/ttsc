@@ -49,6 +49,8 @@ export class WatchSession {
     root: string,
     options: {
       args?: readonly string[];
+      /** Installed launcher owned by the caller; defaults to the checkout CLI. */
+      launcher?: string;
       env?: NodeJS.ProcessEnv;
       ownershipRoot?: string;
       ownedInputRoots?: readonly string[];
@@ -58,7 +60,7 @@ export class WatchSession {
     const child = child_process.spawn(
       process.execPath,
       [
-        ttscBin,
+        options.launcher ?? ttscBin,
         ...(options.args ?? []),
         options.watchFlag ?? "--watch",
         "--cwd",

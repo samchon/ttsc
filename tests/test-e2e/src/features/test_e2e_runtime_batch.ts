@@ -6,6 +6,7 @@ import path from "node:path";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { BatchWorkspace } from "../batch/BatchWorkspace";
+import { positionalCompilerCorpus } from "../batch/positionalCompilerCorpus";
 import { runtimeCacheFailureCorpus } from "../batch/runtimeCacheFailureCorpus";
 import { assertRuntimeCliCorpus } from "../batch/runtimeCliCorpus";
 import { runtimeFrontdoorsCorpus } from "../batch/runtimeFrontdoorsCorpus";
@@ -58,6 +59,16 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * roots, undefined/blank/duplicate selectors, instance isolation and caller
  * Go-cache protection. The fixture bodies are excluded from Evidence selection
  * and are covered by the owning experiment and review.
+ *
+ * After all existing receipt and source assertions, the installed positional
+ * corpus adds eleven one-shot CLI requests and one response-reloading watch.
+ * Selection, presentation, contained public copies, failed-copy refusal and
+ * relative-cache adoption share the original complete native composition.
+ * Source and response edits share that watch until its actual close joins.
+ * Isolated reporting and restored owned inputs preserve the earlier actor
+ * ledger; automatic context rows remain appended without deletion. These are
+ * additional launcher/compiler lifetimes, with native work owned by the normal
+ * source/tool/cache witnesses rather than presumed away.
  *
  * The actual same-file compiler rewrite emits opt-in attempt/result or original
  * error observations using its existing stat and the shared test trace runtime;
@@ -1175,6 +1186,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     try {
       await BatchWorkspace.open();
       runtimeMapsCorpus(workspace);
+    } catch (error) {
+      combinedFailures.push(error);
+    }
+  }
+  if (!workspace.installationOnly) {
+    try {
+      await BatchWorkspace.open();
+      await positionalCompilerCorpus(workspace);
     } catch (error) {
       combinedFailures.push(error);
     }

@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"jsx":"preserve","rootDir":"src","outDir":"products-a","noEmit":true,"types":[],"skipLibCheck":true},"files":["src/view.tsx"]}

@@ -6,7 +6,8 @@
       "type": "typescript",
       "files": [
         "src/features/**/test_*.ts",
-        "src/features/**/case_*.ts"
+        "src/features/**/case_*.ts",
+        "src/batch/positionalCompilerCorpus.ts"
       ],
       "symbol": "function",
       "reference": {
