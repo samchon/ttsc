@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parentPort } from "node:worker_threads";
 
+import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
 import { OwnedSynchronousProcess } from "../../internal/OwnedSynchronousProcess";
 import { SourceNativeRetirement } from "../../internal/SourceNativeRetirement";
 import { serializeCompilerError } from "../../internal/serializeCompilerError";
@@ -129,11 +130,7 @@ function commandRelay(request: Request, command: string, args: readonly string[]
 
 
 function adoptEnvironment(env: NodeJS.ProcessEnv): void {
-  for (const key of Object.keys(process.env)) if (!Object.hasOwn(env, key)) delete process.env[key];
-  for (const [key, value] of Object.entries(env)) {
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
+  SidecarEnvironment.replace(process.env, env);
 }
 
 interface Request {

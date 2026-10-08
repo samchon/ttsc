@@ -1,14 +1,15 @@
 /**
- * Native environment-name identity for plain child-process environments.
+ * Native environment-name identity for child and isolated-worker environments.
  * Construction and Windows scans use own enumerable string names; they do not
  * reproduce Node's inclusion of inherited enumerable environment entries.
  *
  * Merge establishes layer precedence; read and write use that same identity for
- * invocation-owned channel selection and removal without changing process.env.
+ * invocation-owned channels. Replace lets an isolated worker adopt a complete
+ * request snapshot without inheriting stale names from its preceding request.
  *
  * @evidence contracts/common.md#principled-implementation The namespace groups child-environment operations under one native name policy, so precedence and channel presence cannot disagree about Windows aliases.
- * @evidence contracts/common.md#clear-and-simple-design Three operations cover construction, observation and mutation of the same caller-owned data; the single public identity avoids separate environment policies in sidecar consumers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Members use ordinary supplied-object operations and never patch the global environment or child-process implementation.
+ * @evidence contracts/common.md#clear-and-simple-design Construction, observation, channel mutation and complete replacement share one native name policy; the single public identity avoids separate environment policies in sidecar consumers.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Members use supplied-object operations without replacing process.env or child-process APIs; a worker explicitly owns the mutable process.env target it adopts.
  * @evidence contracts/common.md#meaningful-documentation The namespace explains its plain-object boundary and each member documents precedence, undefined and native alias behavior according to the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Each member uses Windows case-insensitive name identity only on Windows; POSIX spelling remains exact throughout merge, lookup and removal.
  *
@@ -17,6 +18,33 @@
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace retains no environment objects, native resources or historical entries between calls.
  */
 export namespace SidecarEnvironment {
+  /**
+   * Replace an owned environment with a complete native-name snapshot.
+   *
+   * Worker process.env is case-sensitive even on Windows. Canonicalizing the
+   * snapshot restores native name identity before existing SDK readers run.
+   * Missing and undefined-valued entries are removed, including stale aliases;
+   * POSIX retains distinct spellings. The caller must own the mutable target.
+   *
+   * @evidence contracts/common.md#principled-implementation Merge selects each native name's authoritative value before target mutation; clearing old own names then assigning defined values makes sequential worker requests independent of prior spelling or presence.
+   * @evidence contracts/common.md#clear-and-simple-design The worker delegates complete environment adoption to the same namespace that owns native merge and lookup instead of duplicating Windows alias rules.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the caller-owned target is mutated through supported environment property operations; no foreign method or global environment object is replaced.
+   * @evidence contracts/common.md#meaningful-documentation The comment states worker case behavior, full replacement, undefined removal and target ownership with descriptive prose separated from acknowledgments.
+   * @evidence contracts/portability.md#os-neutral-implementation Windows native names are canonicalized through merge while POSIX spellings remain independent; deletion precedes assignment so case-sensitive worker copies cannot retain an old alias.
+   * @evidence contracts/performance.md#efficient-algorithms Merge scans the incoming E names once; target deletion and defined-value assignment visit T and E names respectively, with temporary snapshot storage proportional to distinct incoming names. No per-name nested scan or sorting is added.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each snapshot is mutable invocation authority and must be applied anew; previous requests cannot authorize its environment.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller retains its target, while the normalized temporary snapshot ends with this synchronous call; no history or native resource is acquired.
+   */
+  export function replace(
+    target: NodeJS.ProcessEnv,
+    snapshot: NodeJS.ProcessEnv,
+  ): void {
+    const selected = merge(snapshot);
+    for (const key of Object.keys(target)) delete target[key];
+    for (const [key, value] of Object.entries(selected))
+      if (value !== undefined) target[key] = value;
+  }
+
   /**
    * Merge plain environment layers in precedence order, preserving native
    * names.

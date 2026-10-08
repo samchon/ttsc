@@ -12,6 +12,7 @@ import { parentPort } from "node:worker_threads";
 
 import { CompilerContextSnapshot } from "../../internal/CompilerContextSnapshot";
 import { serializeCompilerError } from "../../internal/serializeCompilerError";
+import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
 import type { TransformProjectWorkerReply } from "./TransformProjectWorkerReply";
 import type { TransformProjectWorkerRequest } from "./TransformProjectWorkerRequest";
 import { transformProjectInMemory } from "./transformProjectInMemory";
@@ -36,13 +37,7 @@ parentPort?.on("message", (request: TransformProjectWorkerRequest) => {
   parentPort!.postMessage(reply);
 });
 
-/** Make `env` this thread's `process.env`, dropping what it does not name. */
+/** Adopt native environment names on this isolated thread, dropping stale state. */
 function adoptEnvironment(env: Record<string, string | undefined>): void {
-  for (const key of Object.keys(process.env)) {
-    if (!Object.hasOwn(env, key)) delete process.env[key];
-  }
-  for (const [key, value] of Object.entries(env)) {
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
+  SidecarEnvironment.replace(process.env, env);
 }

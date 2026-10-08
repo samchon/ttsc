@@ -16,6 +16,8 @@ Only a descriptor that declares the files it reads outside its module graph has 
 
 The environment in a descriptor answer's key is complete, because no supported Node release can report which variables an evaluation read. A `ttsc` launched from a program running under `ttsx` inherits that run's own variables, such as the path of its runtime manifest, so its answers are not shared with other runs.
 
+Capability answers are not reusable when `NODE_OPTIONS` selects additional runtime authority. This rule also applies to asynchronous discovery: Windows environment names are case-insensitive, including a lowercase `node_options`, while POSIX names remain case-sensitive. Each worker request adopts the caller's current environment and removes variables absent from that request.
+
 `ttsx` and `ttsc/register` also keep the TypeScript they lower for a package that no tsconfig owns, such as one shipping raw `.ts` under `node_modules`, under `<root>/ttsx-orphan`, keyed by the source bytes and the compiler that lowered them.
 
 These entries are generated outputs that a later build can recreate. Active ttsx processes still need their runtime output. Use `ttsc clean` so its ownership checks preserve runs that may be alive; an explicit `--cache-dir` instead selects that whole directory and requires the caller to stop any runs using it.
