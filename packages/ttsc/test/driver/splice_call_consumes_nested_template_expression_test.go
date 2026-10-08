@@ -5,7 +5,7 @@ import "testing"
 // TestDriverSpliceCallConsumesNestedTemplateExpression Verifies a template
 // literal nested inside a template expression does not end call scanning.
 //
-// The scanner balances the call's parentheses over printed JavaScript. A
+// The upstream parser establishes the whole call range in printed JavaScript. A
 // template expression can hold its own template literal, strings and braces, and
 // a backtick or parenthesis inside it belongs to that expression rather than to
 // the surrounding call.
@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification spliceForTest returns exactly the replacement plus untouched trailing statement for a nested template, a quoted parenthesis in an interpolation, and an object literal containing a nested template.
 // @evidence contracts/testing.md#independent-expectations The whole-call rewrite contract yields the literal statement; the nested backtick and the quoted parenthesis cannot close the argument list.
 // @evidence contracts/testing.md#distinguishing-cases Separate named inputs cover recursive templates, quoted parentheses and object-literal brace depth inside interpolation; each retains the following statement.
-// @evidence contracts/testing.md#execution-ownership Go test/driver calls the existing private scanner linkname through spliceForTest in process, without compile or runtime execution.
+// @evidence contracts/testing.md#execution-ownership The Go unit invokes actual applyRewrites through spliceForTest, which supplies a parsed filename identity and independently requires the real header marker before returning the call body for existing exact assertions. It starts no compiler host or runtime process.
 func TestDriverSpliceCallConsumesNestedTemplateExpression(t *testing.T) {
   for name, tc := range map[string]struct{ text, want string }{
     "nested template": {

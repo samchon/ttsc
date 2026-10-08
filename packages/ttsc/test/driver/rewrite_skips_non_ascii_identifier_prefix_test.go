@@ -7,27 +7,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteSkipsNonASCIIIdentifierPrefix Verifies the call-boundary
-// guard rejects a match that begins mid-identifier after a non-ASCII character.
+// TestDriverRewriteSkipsNonASCIIIdentifierPrefix Verifies executable root
+// identity rejects larger Unicode identifiers while accepting a bare target.
 //
-// Widening the single byte at text[matchStart-1] into a rune would misread a
-// multi-byte identifier character: that byte is a UTF-8 continuation/lead
-// byte, not the character, so isIdentifierPart would return false, the boundary
-// guard would be bypassed, and `étypia.assert(` would match as the tail
-// `typia.assert(` of a larger identifier, splicing the replacement into the
-// middle of a distinct name and silently corrupting the emitted JS. The guard
-// must decode the whole preceding rune, for BMP and astral prefixes alike; the
-// ASCII `mytypia` negative and a bare positive call pin both sides.
+// ASCII, BMP and astral prefixes belong to distinct identifier tokens. The
+// direct output owner must report the registered target absent instead of
+// returning corrupt output, while a bare positive call receives its replacement.
 //
-//  1. Splice `typia.assert(` against inputs whose call head is the trailing
-//     substring of a longer identifier ending in `typia`.
-//  2. Cover an ASCII prefix, BMP (`é`, `한`), and astral (`𝒜`) prefixes.
-//  3. Assert none match, and that a boundary-clean `typia.assert(` still does.
+// 1. Supply calls on roots containing the requested root as a trailing substring.
+// 2. Cover ASCII, BMP and astral identifier prefixes and require missing-call errors.
+// 3. Contrast a bare target call that emits the literal replacement and marker.
 //
-// @evidence contracts/testing.md#behavioral-verification spliceCall leaves each longer identifier byte-identical with no match, while a boundary-clean typia.assert call receives the replacement.
-// @evidence contracts/testing.md#independent-expectations An embedded substring of a longer identifier is not the requested call name; authored unchanged text and positive replacement marker provide independent controls.
-// @evidence contracts/testing.md#distinguishing-cases ASCII, BMP and astral prefixes reject a mid-identifier match, contrasted with the bare positive call.
-// @evidence contracts/testing.md#execution-ownership Go test/driver invokes the real private splice operation through its existing linkname and does not start a compiler or Node.
+// @evidence contracts/testing.md#behavioral-verification applyRewrites rejects each larger identifier with a missing-call error and no output; a bare typia.assert call receives the replacement and actual header marker.
+// @evidence contracts/testing.md#independent-expectations A substring of a larger identifier is not the registered root. Literal missing-call errors and positive marker/replacement requirements distinguish token identity without computing expectations through another scanner.
+// @evidence contracts/testing.md#distinguishing-cases ASCII, two BMP and astral prefixes reject mid-identifier matches, contrasted with a bare positive target; the public runtime case also preserves a neighboring executable Unicode root and property chain.
+// @evidence contracts/testing.md#execution-ownership This Go unit directly exercises the actual output-rewrite owner with a parsed filename identity and authored emitted text through rewriteTextForTest, without a compiler host or installed consumer.
 func TestDriverRewriteSkipsNonASCIIIdentifierPrefix(t *testing.T) {
   rewrite := driver.Rewrite{
     RootName:      "typia",
@@ -37,27 +31,18 @@ func TestDriverRewriteSkipsNonASCIIIdentifierPrefix(t *testing.T) {
   }
   for _, prefix := range []string{"my", "é", "한", "𝒜"} {
     text := "const x = " + prefix + "typia.assert(input);"
-    got, _, ok, err := spliceCall(text, rewrite, 0)
-    if err != nil {
-      t.Fatalf("prefix %q: unexpected error: %v", prefix, err)
-    }
-    if ok {
-      t.Fatalf("prefix %q: guard bypassed, spliced mid-identifier:\n%s", prefix, got)
-    }
-    if got != text {
-      t.Fatalf("prefix %q: no-match must leave text untouched:\n%s", prefix, got)
+    got, err := rewriteTextForTest(text, rewrite)
+    if got != "" || err == nil || !strings.Contains(err.Error(), "could not locate") {
+      t.Fatalf("prefix %q: expected no output and a missing-call error; got=%q err=%v", prefix, got, err)
     }
   }
 
   positive := "const x = typia.assert(input);"
-  got, _, ok, err := spliceCall(positive, rewrite, 0)
+  got, err := rewriteTextForTest(positive, rewrite)
   if err != nil {
     t.Fatalf("positive control: unexpected error: %v", err)
   }
-  if !ok {
-    t.Fatal("positive control: boundary-clean typia.assert( did not match")
-  }
-  if !strings.Contains(got, "__REPLACED__") || strings.Contains(got, "typia.assert") {
+  if !strings.HasPrefix(got, driver.RewriteSentinel+"\n") || !strings.Contains(got, "__REPLACED__") || strings.Contains(got, "typia.assert") {
     t.Fatalf("positive control: call was not replaced:\n%s", got)
   }
 }

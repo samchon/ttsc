@@ -143,11 +143,11 @@ rs.Add(driver.Rewrite{
 prog.EmitAll(rs, driver.DefaultWriteFile)
 ```
 
-`RewriteSet` is the path the engine uses to splice replacements over plugin-owned call expressions in the emitted JavaScript text. Pair with `EmitAll`; pass `DefaultWriteFile` unless you need to intercept.
+`RewriteSet` splices replacements over registered plugin-owned call expressions in emitted JavaScript. The driver parses each affected output with TypeScript-Go and selects complete executable property chains in registration order. Strings, comments, regex literals and template text stay unchanged; executable template substitutions participate in matching. Maps, declarations and build information remain native output. Pair with `EmitAll` or `EmitFile`; pass `nil` for the callback to use the default disk writer, or supply one to intercept writes.
 
 For a default or namespace import, set `RootName` to its source-local binding. When CommonJS lowering creates a `require` declaration, the driver matches the import's module specifier to that actual emitted declaration, so TypeScript-Go remains free to choose any collision suffix without redirecting the rewrite to a similar local identifier. Retained ESM imports and non-import roots keep their source spelling.
 
-The `RewriteSentinel` constant (`/* @ttsc-rewritten */`) is the idempotency marker inserted at the top of a patched file so re-emitting an already-rewritten file is a no-op.
+The `RewriteSentinel` constant (`/* @ttsc-rewritten */`) is the exact header comment inserted after the directive prologue, preserving any byte-order mark and interpreter directive. Re-emitting output with that marker is a no-op. An application string, template, larger comment or body comment containing the marker does not suppress rewrites. Header markers produced by earlier versions remain recognized.
 
 ## Source preambles
 

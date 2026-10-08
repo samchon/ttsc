@@ -1,52 +1,47 @@
 package driver_test
 
 import (
+  "strings"
   "testing"
   _ "unsafe"
+
+  "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-//go:linkname spliceCall github.com/samchon/ttsc/packages/ttsc/driver.spliceCall
-func spliceCall(text string, rewrite driver.Rewrite, searchFrom int) (string, int, bool, error)
-
 //go:linkname insertSentinel github.com/samchon/ttsc/packages/ttsc/driver.insertSentinel
-func insertSentinel(text string) string
+func insertSentinel(text string, file *ast.SourceFile) string
 
 //go:linkname joinRootAndNamespaces github.com/samchon/ttsc/packages/ttsc/driver.joinRootAndNamespaces
 func joinRootAndNamespaces(rewrite driver.Rewrite) string
 
-//go:linkname matchParen github.com/samchon/ttsc/packages/ttsc/driver.matchParen
-func matchParen(text string, pos int) (int, bool)
+// rewriteTextForTest invokes the actual output-rewrite owner directly. Its
+// parsed empty source supplies the filename identity required by registration;
+// authored JavaScript and descriptors supply this phase's independent inputs.
+// Compiler loading and executable exports are covered by the public runtime case.
+func rewriteTextForTest(text string, rewrite driver.Rewrite) (string, error) {
+  rewrite.File = shimparser.ParseSourceFile(ast.SourceFileParseOptions{FileName: "/rewrite.ts"}, "", shimcore.ScriptKindTS)
+  rewrites := driver.NewRewriteSet()
+  rewrites.Add(rewrite)
+  return driverApplyRewrites("/rewrite.js", text, rewrites, map[string]int{})
+}
 
-//go:linkname skipQuoted github.com/samchon/ttsc/packages/ttsc/driver.skipQuoted
-func skipQuoted(text string, pos int, quote byte) (int, bool)
-
-//go:linkname skipTemplate github.com/samchon/ttsc/packages/ttsc/driver.skipTemplate
-func skipTemplate(text string, pos int) (int, bool)
-
-//go:linkname skipLineComment github.com/samchon/ttsc/packages/ttsc/driver.skipLineComment
-func skipLineComment(text string, pos int) int
-
-//go:linkname skipBlockComment github.com/samchon/ttsc/packages/ttsc/driver.skipBlockComment
-func skipBlockComment(text string, pos int) (int, bool)
-
-//go:linkname skipRegexLiteral github.com/samchon/ttsc/packages/ttsc/driver.skipRegexLiteral
-func skipRegexLiteral(text string, pos int) (int, bool)
-
+// spliceForTest retains existing replacement-only assertions while requiring
+// the real output owner to produce its documented header marker first.
 func spliceForTest(t *testing.T, text string) string {
   t.Helper()
-  got, _, ok, err := spliceCall(text, driver.Rewrite{
-    RootName:      "plugin",
-    Method:        "make",
-    Replacement:   "replacement",
-    ConsumeParens: true,
-  }, 0)
+  got, err := rewriteTextForTest(text, driver.Rewrite{
+    RootName: "plugin", Method: "make", Replacement: "replacement", ConsumeParens: true,
+  })
   if err != nil {
     t.Fatal(err)
   }
-  if !ok {
-    t.Fatal("rewrite did not match")
+  marker := driver.RewriteSentinel+"\n"
+  if !strings.HasPrefix(got, marker) {
+    t.Fatalf("rewritten output omitted its header marker: %q", got)
   }
-  return got
+  return strings.TrimPrefix(got, marker)
 }

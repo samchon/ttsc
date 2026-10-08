@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "outDir": "bin",
+    "strict": true,
+    "sourceMap": true
+  },
+  "files": ["marker.ts", "contexts.ts"]
+}
