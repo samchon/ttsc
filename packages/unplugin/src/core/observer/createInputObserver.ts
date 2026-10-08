@@ -108,7 +108,9 @@ import { someSet } from "./someSet";
  *   Filesystem identity comes from ttsc/path-identity and directory
  *   capabilities rather than a universal lowercase path. Unknown case policy
  *   keeps exact identity, routes both case candidates and requires polling;
- *   an observed or supplied insensitive-directory answer folds event keys.
+ *   an observed or supplied insensitive-directory answer folds registration
+ *   aliases. Event history includes all alias key forms without claiming that
+ *   their spellings identify the same filesystem object.
  *   The actual host chooses the default broker on Windows/macOS and Linux
  *   recursive backend otherwise; the injected platform selects identity grammar,
  *   not a foreign filesystem implementation. Native path reads remain native.
@@ -129,9 +131,10 @@ import { someSet } from "./someSet";
  *   Native event waves also bound entries per turn, retaining their fixed
  *   population and owner-result maps until completion or disposal. Poll scope
  *   and link fanout beyond the immediate slice joins that yielding queue.
- *   An external registration scans at most the bounded scope population for
- *   exact lexical ancestors, validating their current identity and physical
- *   containment before sharing native coverage.
+ *   Named-event history uses at most three lexical keys per path without native
+ *   namespace queries. An external registration scans at most the bounded scope
+ *   population for exact lexical ancestors, validating their current identity
+ *   and physical containment before sharing native coverage.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Owners with the same resolved lexical input and recorded condition key
@@ -155,10 +158,12 @@ import { someSet } from "./someSet";
  *   Conditions and owners still require input-proportional memory, and a capped
  *   scope count does not bound the number of admitted descendant subscriptions
  *   or input/path/evidence bytes. Change history clears above 100,000 keys;
- *   unknown-case ancestor memos live until their reset boundary. Dispose clears
- *   registrations/timers but retains the opened root and permits later delivery
- *   to reacquire scopes. Callback/proof/poll-construction exceptions can escape;
- *   this operation provides no general rollback of effects already performed.
+ *   unknown-case ancestor memos live until their reset boundary. Named events
+ *   retain history keys without adding unrelated directories to those memos.
+ *   Dispose clears registrations/timers but retains the opened root and permits
+ *   later delivery to reacquire scopes. Callback/proof/poll-construction
+ *   exceptions can escape; this operation provides no general rollback of
+ *   effects already performed.
  */
 export function createInputObserver(
   onChanged: (change: InputObserverChange) => void,
@@ -281,6 +286,15 @@ export function createInputObserver(
       : [key];
   };
 
+  /**
+   * Candidate history covers every registration key without querying its case
+   * policy. Extra matches only request proof; they never establish identity.
+   */
+  const watchChangeKeys = (absolute: string): string[] => {
+    const folded = absolute.toLowerCase();
+    return [absolute, folded, `unknown-case\0${folded}`];
+  };
+
   const unbindAlias = (alias: string, entry: InputEntry): void => {
     const indexed = aliases.get(alias);
     indexed?.delete(entry);
@@ -384,8 +398,8 @@ export function createInputObserver(
       topologyChanged = true;
     }
     changeSequence += 1;
-    for (const key of watchEventKeys(absolute)) direct.add(key);
-    for (const key of watchEventKeys(parent)) parents.add(key);
+    for (const key of watchChangeKeys(absolute)) direct.add(key);
+    for (const key of watchChangeKeys(parent)) parents.add(key);
     for (const key of direct) {
       componentLinks.delete(key);
       missingComponents.delete(key);
