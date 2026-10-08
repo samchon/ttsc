@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { CompilerArgumentsInspection } from "../../../compiler/internal/CompilerArgumentsInspection";
 import { outputText } from "../../../compiler/internal/outputText";
+import { CompilerProjectSelection } from "../../../compiler/internal/project/CompilerProjectSelection";
 import { readJsoncFile } from "../../../compiler/internal/project/readJsoncFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
@@ -1703,6 +1703,8 @@ export class WatchTopology {
 type WatchTopologyOptions = Pick<
   TtscBuildOptions,
   | "binary"
+  | "compilerArgsCwd"
+  | "compilerProjectSelections"
   | "emit"
   | "env"
   | "outDir"
@@ -1712,6 +1714,7 @@ type WatchTopologyOptions = Pick<
 > & {
   cwd: string;
   files: readonly string[];
+  pinCompilerProject?: boolean;
 };
 
 type WatchTopologyCallbacks = {
@@ -1748,6 +1751,13 @@ function resolveWatchTopology(
   identities: ProjectInputPathIdentityContext,
   getCompilerInputs: typeof listCompilerInputs,
 ): ResolvedWatchTopology {
+  const selection = CompilerProjectSelection.read(options);
+  if (selection.inspectionError !== undefined) throw selection.inspectionError;
+  options = {
+    ...options,
+    compilerArgsCwd: selection.compilerArgsCwd,
+    pinCompilerProject: selection.projectGuard.length !== 0,
+  };
   let analysisOnly = options.emit === false;
   const files = new Map<string, string>();
   const outputFiles = new Map<string, string>();
@@ -1755,12 +1765,8 @@ function resolveWatchTopology(
   const reloadFiles = new Map<string, string>();
   const roots: string[] = [];
   if (options.files.length !== 0) {
-    const project = readProjectConfig({
-      cwd: options.cwd,
-      projectRoot: options.projectRoot,
-      tsconfig: options.tsconfig,
-    });
-    const inspected = watchCompilerOptions(project, options);
+    const project = selection.project;
+    const inspected = watchCompilerOptions(selection, options);
     analysisOnly = watchTopologyAnalysisOnly(options, project);
     addPaths(files, inspected.responseFiles, identities);
     addPaths(reloadFiles, inspected.responseFiles, identities);
@@ -1790,9 +1796,9 @@ function resolveWatchTopology(
     }
     addPaths(files, positionalInputs, identities);
   } else {
-    const projects = readReferencedProjects(options, identities);
+    const projects = readReferencedProjects(selection.project, identities);
     for (const project of projects) {
-      const inspected = watchCompilerOptions(project, options);
+      const inspected = watchCompilerOptions(selection, options);
       if (project === projects[0]) {
         analysisOnly = watchTopologyAnalysisOnly(inspected.options, project);
       }
@@ -1802,12 +1808,7 @@ function resolveWatchTopology(
       addPaths(files, inspected.responseFiles, identities);
       addPaths(reloadFiles, inspected.responseFiles, identities);
       const compilerInputs = getCompilerInputs(project, options);
-      for (const [file, observation] of inspected.observations) {
-        if (CompilerArgumentsInspection.observeInputFile(file) !== observation)
-          throw new Error(
-            `Compiler response file changed during topology refresh: ${file}`,
-          );
-      }
+      CompilerProjectSelection.assertCurrent(selection);
       const compilerOutputs = resolveCompilerOutputs(project, inspected.options);
       addPaths(outputFiles, compilerOutputs.files, identities);
       addPaths(
@@ -1824,6 +1825,7 @@ function resolveWatchTopology(
       addPaths(files, compilerInputs, identities);
     }
   }
+  CompilerProjectSelection.assertCurrent(selection);
   addPaths(files, extraInputs, identities);
   return {
     analysisOnly,
@@ -1836,28 +1838,20 @@ function resolveWatchTopology(
 }
 
 /**
- * Observe response options once per project refresh at the native compiler cwd.
+ * Share the root selection's observed options across its referenced projects.
  * The original request still reaches the compiler-input operation. Positional
  * output placement remains the single-file launcher's own copy policy.
  */
 function watchCompilerOptions(
-  project: ITtscParsedProjectConfig,
+  selection: ReturnType<typeof CompilerProjectSelection.read>,
   options: WatchTopologyOptions,
 ): {
-  observations: ReadonlyMap<string, string>;
   options: WatchTopologyOptions;
   responseFiles: readonly string[];
 } {
-  if (readCompilerOptionValues(options.passthrough).responseFiles.length === 0)
-    return { observations: new Map(), options, responseFiles: [] };
-  const inspected = CompilerArgumentsInspection.inspect(
-    options.passthrough ?? [],
-    project.root,
-  );
   return {
-    observations: inspected.observations,
-    options: { ...options, passthrough: inspected.args },
-    responseFiles: [...inspected.observations.keys()],
+    options: { ...options, passthrough: selection.inspectedArgs },
+    responseFiles: [...selection.observations.keys()],
   };
 }
 
@@ -1877,14 +1871,9 @@ function watchTopologyAnalysisOnly(
 }
 
 function readReferencedProjects(
-  options: WatchTopologyOptions,
+  root: ITtscParsedProjectConfig,
   identities: ProjectInputPathIdentityContext,
 ): ITtscParsedProjectConfig[] {
-  const root = readProjectConfig({
-    cwd: options.cwd,
-    projectRoot: options.projectRoot,
-    tsconfig: options.tsconfig,
-  });
   const projects: ITtscParsedProjectConfig[] = [];
   const queue = [root];
   const seen = new Set<string>();
@@ -1947,9 +1936,10 @@ function listCompilerInputs(
       "--pretty",
       "false",
       ...(options.passthrough ?? []),
+      ...(options.pinCompilerProject === true ? ["-p", project.path] : []),
     ],
     {
-      cwd: project.root,
+      cwd: options.compilerArgsCwd ?? project.root,
       env: { ...process.env, ...options.env },
       encoding: "utf8",
     },
@@ -2164,7 +2154,7 @@ function effectiveCompilerEmit(
       ? normalizeCompilerEnumValue(compilerOptions.jsx, "json")
       : undefined;
   const jsx = typeof rawJsx === "string" ? rawJsx : undefined;
-  const compilerCwd = project.root;
+  const compilerCwd = options.compilerArgsCwd ?? project.root;
   return {
     declaration,
     declarationDir:

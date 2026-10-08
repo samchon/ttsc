@@ -122,6 +122,7 @@ interface ITtscPlugin {
   stage?: "transform" | "check";
   capabilities?: {
     checkObservations?: true;
+    compilerArgsCwd?: true;
     diagnosticsTiming?: boolean;
     emitProvenance?: true;
     lsp?: boolean;
@@ -157,6 +158,10 @@ Field rules:
 `ttsc` accepts Go source only. It builds the source with the pinned Go toolchain and TypeScript-Go shim overlay, then caches the resulting executable.
 
 `checkObservations: true` opts into the private observation channel described under [`check`](#check). `emitProvenance: true` independently opts into the output ownership channel under [`build`](#build). Declare each only when the selected executable implements it. Importing a linked driver library does not declare an executable's capabilities. Omitted capabilities keep those flags out of strict hosts' argv and establish no claim about complete observations or output ownership.
+
+`compilerArgsCwd: true` declares that the selected host consumes `TTSC_TSGO_ARGS_CWD` with its forwarded compiler argv. That directory anchors upstream response-file and relative command-line option parsing; `--cwd` and the explicit config still own the Program, plugin and rule context. Declare it only for an executable that implements both contexts. Linked imports and unrelated capabilities do not establish support. The launcher requires it only for a nonempty payload whose argument directory differs from the Program root; legacy same-directory and empty-payload paths retain their existing protocol.
+
+The invocation publishes or clears both compiler channels together. A nested descriptor or host drops inherited channels unless its caller explicitly supplies them. A host that decodes `--tsgo-args` itself must preserve whether it consumed inherited or explicit argv: explicit argv, including `[]`, suppresses the inherited cwd. The owned driver and lint host implement this distinction through their upstream parser hosts. Resident process identity includes the argument directory so a warm Program cannot reuse a different relative-option base.
 
 ## Stages
 
@@ -701,11 +706,12 @@ Some payloads reach a sidecar through the environment rather than argv, because 
 | Variable | Meaning |
 | --- | --- |
 | `TTSC_TSGO_ARGS` | JSON array of the tsgo CLI flags the user forwarded (`--strict`, `--declaration`, `--target es2020`, …) plus any output containment the launcher itself needs. `driver.LoadProgram` reads it whenever the caller passed no explicit `LoadProgramOptions.TsgoArgs`, so a plugin built on the driver honors forwarded compiler flags without parsing anything. A plugin that builds its own `CompilerOptions` should decode the array and merge it last, so the user's flag wins over the tsconfig: parse it with `tsoptions.ParseCommandLine` and pass both its `CompilerOptions()` and `tsoptions.CommandLineRawOptions` of it to `tsoptions.GetParsedCommandLineOfConfigFile`, as TypeScript-Go's own command line does, or a forwarded reset such as `--declarationDir null` leaves the config's value in place. |
+| `TTSC_TSGO_ARGS_CWD` | Optional original argument directory paired with a nonempty compiler payload. A host declaring `compilerArgsCwd` parses response files and relative command-line options there while retaining its selected Program/plugin root. The driver admits the inherited directory only when it admits inherited argv; explicit argv, including `[]`, suppresses both inherited channels. |
 | `TTSC_LINKED_PLUGINS_JSON` | JSON manifest of the linked transform packages compiled into this host binary. `driver.ApplyLinkedPlugins` consumes it; hosts that emit through the driver need no special handling. |
 | `TTSC_PLUGIN_CONFIG_DIR` | Directory that plugin config-file discovery and relative `configFile` resolution anchor at, when the compiled tsconfig is a generated wrapper outside the project. Read it through `driver.PluginConfigBaseDir`. |
 | `TTSC_TSGO_BINARY`, `TTSC_TTSX_BINARY` | Absolute paths to the compiler and runner this invocation resolved, for a plugin that has to shell out to either. |
 
-`TTSC_TSGO_ARGS` and `TTSC_PLUGIN_CONFIG_DIR` describe one invocation, so a spawn that has nothing to say clears whatever an ancestor `ttsc` process left behind rather than passing it on: a nested build never inherits the outer run's forwarded flags or project anchor.
+`TTSC_TSGO_ARGS`, its `TTSC_TSGO_ARGS_CWD` companion and `TTSC_PLUGIN_CONFIG_DIR` describe one invocation, so a spawn that has nothing to say clears whatever an ancestor `ttsc` process left behind rather than passing it on: a nested build never inherits the outer run's forwarded flags or project anchor.
 
 For the two binary paths, an inherited value wins, because it is how an embedder pins the toolchain for a whole process tree.
 

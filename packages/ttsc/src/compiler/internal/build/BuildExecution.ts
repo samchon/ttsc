@@ -13,11 +13,13 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 import { outputText } from "../outputText";
 import { readProjectConfig } from "../project/readProjectConfig";
+import { CompilerProjectSelection } from "../project/CompilerProjectSelection";
 import { readEffectiveCompilerOptions } from "../readEffectiveCompilerOptions";
 import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
 import { runNativeCheckWithObservations } from "../runNativeCheckWithObservations";
 import { SidecarEnvironment } from "../sharedHost/SidecarEnvironment";
+import { TSGO_ARGS_CWD_ENV } from "../sharedHost/TSGO_ARGS_CWD_ENV";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
 import { assertSharedHostCompatibility } from "../sharedHost/assertSharedHostCompatibility";
 import { clearInheritedSemanticConfigPath } from "../sharedHost/clearInheritedSemanticConfigPath";
@@ -159,6 +161,7 @@ export namespace BuildExecution {
     plugin?: ITtscLoadedNativePlugin,
     tsgoArgs?: string,
   ): NodeJS.ProcessEnv {
+    CompilerProjectSelection.assertCurrent(execution.compilerSelection);
     SidecarEnvironment.write(env, "TTSC_NODE_BINARY", nodeBinary);
     SidecarEnvironment.write(env, "TTSC_TSGO_BINARY", execution.tsgo.binary);
     // Forwarded tsgo argv is per-invocation state this host owns, exactly like
@@ -166,6 +169,19 @@ export namespace BuildExecution {
     // ancestor ttsc process left behind when this lane forwards nothing.
     if (tsgoArgs !== undefined) {
       SidecarEnvironment.write(env, TSGO_ARGS_ENV, tsgoArgs);
+      const compilerArgsCwd = execution.compilerSelection.compilerArgsCwd;
+      if (
+        compilerArgsCwd !== execution.projectRoot &&
+        JSON.parse(tsgoArgs).length !== 0
+      ) {
+        if (plugin?.capabilities?.compilerArgsCwd !== true)
+          throw new Error(
+            `ttsc: native host ${plugin?.name ?? "(unselected)"} does not support separate compiler argument cwd`,
+          );
+        SidecarEnvironment.write(env, TSGO_ARGS_CWD_ENV, compilerArgsCwd);
+      } else {
+        SidecarEnvironment.write(env, TSGO_ARGS_CWD_ENV, undefined);
+      }
     } else {
       clearInheritedTsgoArgs(env, extra);
     }
@@ -276,6 +292,17 @@ export namespace BuildExecution {
     execution: ReturnType<typeof resolveExecutionContext>,
     buildOptions: RunBuildOptions,
   ): TtscBuildResult {
+    if (execution.compilerSelection.inspectionError !== undefined) {
+      const diagnosed = runTsgo(execution, [], buildOptions);
+      if (diagnosed.status !== 0) return diagnosed;
+      return {
+        ...diagnosed,
+        status: 2,
+        stderr:
+          diagnosed.stderr +
+          `ttsc: compiler project selection unavailable: ${String(execution.compilerSelection.inspectionError)}\n`,
+      };
+    }
     if (execution.nativePlugins.length > 0) {
       const compilers = execution.nativePlugins.filter(
         (plugin) => plugin.stage === "transform",
@@ -780,6 +807,7 @@ export namespace BuildExecution {
     extraArgs: readonly string[],
     options: RunBuildOptions,
   ): TtscBuildResult {
+    CompilerProjectSelection.assertCurrent(execution.compilerSelection);
     const res = spawnNative(
       execution.tsgo.binary,
       [
@@ -790,9 +818,10 @@ export namespace BuildExecution {
         ...(options.passthrough ?? []),
         ...extraArgs,
         ...TsgoArguments.isolatedTsgoOutputArgs(options, true),
+        ...CompilerProjectSelection.readGuard(execution.compilerSelection, options.passthrough),
       ],
       {
-        cwd: execution.projectRoot,
+        cwd: execution.compilerSelection.compilerArgsCwd,
         env: mergeEnv(options.env, execution.projectRoot),
         encoding: "utf8",
       },
@@ -833,13 +862,15 @@ export namespace BuildExecution {
       options.passthrough,
       execution.tsgo.binary,
       env,
+      execution.compilerSelection.compilerArgsCwd,
     );
     const userListedEmitted = userOptions?.("listEmittedFiles") === true;
     const run = (
       commandArgs: readonly string[],
     ): { result: TtscBuildResult; completedNormally: boolean } => {
+      CompilerProjectSelection.assertCurrent(execution.compilerSelection);
       const res = spawnNative(execution.tsgo.binary, commandArgs, {
-        cwd: execution.projectRoot,
+        cwd: execution.compilerSelection.compilerArgsCwd,
         env,
         encoding: "utf8",
       });
@@ -872,7 +903,7 @@ export namespace BuildExecution {
         ? runExternalEmitProvenance({
             args,
             binary: execution.tsgo.binary,
-            cwd: execution.projectRoot,
+            cwd: execution.compilerSelection.compilerArgsCwd,
             env,
             run,
           })
@@ -1145,20 +1176,18 @@ export namespace BuildExecution {
     },
   ) {
     const cwd = path.resolve(options.cwd ?? process.cwd());
-    const project =
-      options.resolvedProject ??
-      readProjectConfig({
-        cwd,
-        projectRoot: options.projectRoot,
-        tsconfig: options.tsconfig,
-      });
+    const compilerSelection = CompilerProjectSelection.read(options);
+    const project = compilerSelection.project;
     const tsconfig = project.path;
     const projectRoot = project.root;
     const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
     let pluginSetupFailure: TtscBuildResult | undefined;
     let nativePlugins: ITtscLoadedNativePlugin[] = [];
     try {
-      if (hasProjectPluginEntries(project, options.plugins)) {
+      if (
+        compilerSelection.inspectionError === undefined &&
+        hasProjectPluginEntries(project, options.plugins)
+      ) {
         nativePlugins = loadProjectPlugins({
           binary: resolveBinary(options) ?? "",
           cacheDir:
@@ -1184,6 +1213,7 @@ export namespace BuildExecution {
       };
     }
     return {
+      compilerSelection,
       cwd,
       nativePlugins,
       pluginConfigDir: resolvePluginConfigDir({

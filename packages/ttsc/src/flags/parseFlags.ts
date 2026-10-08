@@ -95,6 +95,11 @@ export function parseFlags(opts: ParseOptions): ParseResult {
           head,
           opts.errorPrefix,
         );
+        opts.onConsumedFlag?.(
+          flag.name,
+          values.get(flag.name)!,
+          passthrough.length,
+        );
         continue;
       }
 

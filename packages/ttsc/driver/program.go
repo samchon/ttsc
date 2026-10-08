@@ -4,6 +4,7 @@ import (
   "context"
   "fmt"
   "io"
+  "os"
   "path/filepath"
   "strings"
 
@@ -377,6 +378,12 @@ type LoadProgramOptions struct {
   // no flags even when an ancestor process published an environment value.
   TsgoArgs []string
 
+  // TsgoArgsCwd anchors response files and relative command-line options while
+  // cwd remains the Program and plugin root. Empty keeps cwd, except that nil
+  // TsgoArgs also admits the paired launcher environment channel. Explicit
+  // non-nil TsgoArgs, including an empty slice, does not inherit that channel.
+  TsgoArgsCwd string
+
   // FS overrides the filesystem the program is built on. When nil, DefaultFS
   // is used. A resident Session passes an overlay FS so in-memory edits stay
   // visible to the program and to incremental UpdateProgram calls.
@@ -605,7 +612,18 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
   if err != nil {
     return nil, nil, err
   }
-  commandLine, cliDiags, err := parseTsgoArgs(tsgoArgs, host)
+  argumentCwd := options.TsgoArgsCwd
+  if argumentCwd == "" && options.TsgoArgs == nil && len(tsgoArgs) != 0 {
+    argumentCwd = os.Getenv(TsgoArgsCwdEnv)
+  }
+  argumentHost := host
+  if argumentCwd != "" {
+    argumentCwd = tspath.ResolvePath(cwd, argumentCwd)
+    if argumentCwd != cwd {
+      argumentHost = DefaultHost(argumentCwd, fs)
+    }
+  }
+  commandLine, cliDiags, err := parseTsgoArgs(tsgoArgs, argumentHost)
   if err != nil {
     return nil, nil, err
   }
@@ -613,7 +631,10 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     return nil, cliDiags, nil
   }
 
-  parsed, diags, err := parseTSConfig(fs, cwd, tsconfigPath, host, commandLine.CompilerOptions(), commandLine)
+  // Config identity is explicit; argument conversion uses the original argv
+  // base, while the Program and linked plugin state retain their selected cwd.
+  selectedConfig := tspath.ResolvePath(cwd, tsconfigPath)
+  parsed, diags, err := parseTSConfig(fs, cwd, selectedConfig, argumentHost, commandLine.CompilerOptions(), commandLine)
   if err != nil {
     return nil, nil, err
   }

@@ -27,6 +27,7 @@ export function planResidentCheckEntries(
   // the compiler options it was started with. Two cycles that forward different
   // flags must not share one warm Program.
   tsgoArgs?: string,
+  compilerArgsCwd?: string,
 ): ResidentCheckEntryPlan[] {
   return plugins
     .filter((candidate) => candidate.stage === "check")
@@ -37,7 +38,7 @@ export function planResidentCheckEntries(
         entryIndex,
         key:
           plugin.capabilities?.residentCheck === true
-            ? residentCheckProcessKey(plugin, args, tsgoArgs)
+            ? residentCheckProcessKey(plugin, args, tsgoArgs, compilerArgsCwd)
             : undefined,
         plugin,
       };
@@ -48,6 +49,7 @@ function residentCheckProcessKey(
   plugin: ITtscLoadedNativePlugin,
   args: readonly string[],
   tsgoArgs?: string,
+  compilerArgsCwd?: string,
 ): string {
-  return `${plugin.binary}\0${plugin.name}\0${JSON.stringify(args)}\0${tsgoArgs ?? ""}`;
+  return `${plugin.binary}\0${plugin.name}\0${JSON.stringify(args)}\0${tsgoArgs ?? ""}\0${compilerArgsCwd ?? ""}`;
 }

@@ -5,13 +5,14 @@ import path from "node:path";
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-import { TestProject } from "../../../../../utils/src/TestProject";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { waitFor } from "../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
 
 /**
  * Verifies response-selected native products agree with real watch delivery.
  * One copied project and observer lifetime carry the output move and reload.
+ * The checkout caller supplies its pinned compiler; fixture cwd is not a
+ * repository-discovery anchor.
  *
  * 1. Emit with the pinned unmodified compiler and observe the same response
  *    request through the built topology's native membership/OS subscriptions.
@@ -20,9 +21,9 @@ import { waitFor } from "../../../internal/unplugin/internal/adapter-vite-serve/
  * 3. Change the response, require config attention, and repeat the distinction
  *    with the new product and the former product now declared as data.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual native TypeScript emits the literal selected/main.js and final/main.js products; shipped WatchTopology uses its real compiler-membership reader and OS watcher. Actual product writes stay out of the project lane while configured/data.md, source edits and response edits deliver their own kinds.
- * @evidence contracts/testing.md#independent-expectations Static config and response bytes name configured, selected and final output roles independently. The native producer must create the expected JavaScript before that path becomes a quiet control; literal event kind and physical target comparisons establish positive delivery.
- * @evidence contracts/testing.md#distinguishing-cases Configured outDir differs from the response-selected directory. A same-session response edit moves the product again, admitting the previous product as explicitly declared data. A genuine compiler source remains live. Units own ordered overrides, encoding/reset and malformed/changing-response matrices.
+ * @evidence contracts/testing.md#behavioral-verification Actual native TypeScript emits the literal selector/products/other.js and final/main.js products; shipped WatchTopology uses its real compiler-membership reader and OS watcher. Actual product writes stay out of the project lane while configured/data.md, source edits and response edits deliver their own kinds.
+ * @evidence contracts/testing.md#independent-expectations Static A/B configs and response bytes name configured, selector/products and final output roles independently. The native producer must create the expected JavaScript before that path becomes a quiet control; literal event kind and physical target comparisons establish positive delivery.
+ * @evidence contracts/testing.md#distinguishing-cases The response selects B, whose configured products and source differ from initial A. A same-session response edit returns to A and moves the product again, admitting the previous product as explicitly declared data. A genuine compiler source remains live. Units own ordered overrides, encoding/reset and malformed/changing-response matrices.
  * @evidence contracts/testing.md#execution-ownership The selected esbuild batch's existing observer worker calls this case with an upfront separate fixture. One topology lifetime and two ordinary native emit calls serve both states; native listFilesOnly refreshes remain real additional work and may recur on delivered directory events.
  * @evidence contracts/e2e.md#necessary-boundary Native response emission, native compiler membership and actual OS callback classification must agree. Supplied compiler-input and recorded-subscription units cannot prove this connection or that a real produced file stays quiet.
  * @evidence contracts/e2e.md#shared-execution No additional installation, worker or plugin build is introduced. The existing observer worker reuses the pinned compiler and its upfront graph; the response mutation requires another ordinary emit and membership refresh, not another preparation host.
@@ -31,14 +32,14 @@ import { waitFor } from "../../../internal/unplugin/internal/adapter-vite-serve/
  */
 export async function case_watch_topology_preserves_response_file_products(
   root: string,
+  binary: string,
 ): Promise<void> {
   const config = path.join(root, "tsconfig.json");
   const response = path.join(root, "flags.rsp");
-  const source = path.join(root, "main.ts");
+  const source = path.join(root, "selector/other.ts");
   const formerData = path.join(root, "configured/data.md");
-  const selected = path.join(root, "selected/main.js");
+  const selected = path.join(root, "selector/products/other.js");
   const final = path.join(root, "final/main.js");
-  const binary = TestProject.TSGO_BINARY;
   const changes: WatchInputChange[] = [];
   const failures: unknown[] = [];
   const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 750));
@@ -98,7 +99,6 @@ export async function case_watch_topology_preserves_response_file_products(
       cwd: root,
       files: [],
       passthrough: ["@flags.rsp"],
-      projectRoot: root,
       tsconfig: config,
     },
     {

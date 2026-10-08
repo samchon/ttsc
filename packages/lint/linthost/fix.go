@@ -161,6 +161,7 @@ func loadFixProgram(opts *subcommandOpts, needsRuleChecker bool) (*program, int)
     singleThreaded:     opts.singleThreaded,
     checkers:           opts.checkers,
     tsgoArgs:           opts.tsgoArgs,
+    tsgoArgsCwd:        opts.tsgoArgsCwd,
     projectIdentity:    opts.projectIdentity,
   })
   if err != nil {

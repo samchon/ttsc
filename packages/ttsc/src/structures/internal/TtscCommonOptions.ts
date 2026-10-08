@@ -76,6 +76,24 @@ export interface TtscCommonOptions {
   passthrough?: readonly string[];
 
   /**
+   * Validated visible CLI project assignments at their original positions in
+   * passthrough. Only the launcher supplies this metadata; explicit compiler
+   * instances retain their resolvedProject authority instead.
+   */
+  compilerProjectSelections?: readonly {
+    passthroughIndex: number;
+    value: string;
+  }[];
+
+  /**
+   * Retained native compiler argument base when project selection redirects
+   * the Program to a different root. Absent retains the selected project root.
+   * Response frames and relative native options use this base; plugin/rule
+   * context and config-relative paths retain their separate project authority.
+   */
+  compilerArgsCwd?: string;
+
+  /**
    * Override project plugin loading for this invocation.
    *
    * - `false`: disable project plugin loading and dependency discovery.

@@ -350,6 +350,7 @@ export class ResidentCheckWatchSession {
       (plugin) =>
         NativePluginArguments.createNativeCheckArgs(execution, options, plugin),
       tsgoArgs,
+      execution.compilerSelection.compilerArgsCwd,
     );
     const request = residentCheckRequest(change, execution.projectRoot);
     // Buffer the cycle for every resident plugin before running any of them.

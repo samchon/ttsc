@@ -68,6 +68,7 @@ export async function test_e2e_esbuild_batch(): Promise<void> {
           ),
         ).href,
         topologyRoot,
+        TestProject.TSGO_BINARY,
       ],
       {
         cwd: topologyRoot,

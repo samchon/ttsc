@@ -460,13 +460,18 @@ export function loadProjectPlugins(options: {
     return {
       binary,
       // This fallback is compiled from our utility-host, whose actual writer
-      // publishes provenance. A separately selected executable host must opt
+      // publishes provenance and supports a separate compiler argument cwd.
+      // A separately selected executable host must opt
       // in itself; a linked library cannot certify that foreign host.
       capabilities:
         record.stage === "transform" &&
         record.kind === "linked" &&
         fallbackDriverHost !== undefined
-          ? { ...record.capabilities, emitProvenance: true }
+          ? {
+              ...record.capabilities,
+              compilerArgsCwd: true,
+              emitProvenance: true,
+            }
           : record.capabilities,
       config: record.config,
       contributors: record.contributors,

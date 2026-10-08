@@ -1,4 +1,4 @@
-const [routineUrl, root] = process.argv.slice(2);
+const [routineUrl, root, binary] = process.argv.slice(2);
 function describe(error, depth = 0) {
   if (depth > 8) return { error: String(error) };
   return {
@@ -12,7 +12,7 @@ function describe(error, depth = 0) {
 let result;
 try {
   const { nativeCompilerTopologyCorpus } = await import(routineUrl);
-  await nativeCompilerTopologyCorpus(root);
+  await nativeCompilerTopologyCorpus(root, binary);
   result = { ok: true };
 } catch (error) {
   result = { ok: false, ...describe(error) };

@@ -19,7 +19,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual source WatchTopology reads real configs and response files, then admits data callbacks and suppresses independently named products through its public project-input boundary. Edits, deletion and repair exercise response reload ownership.
  * @evidence contracts/testing.md#independent-expectations Literal path/report pairs follow final ordered compiler assignments and the configured controls; neither topology output inference nor private state generates an expected result.
- * @evidence contracts/testing.md#distinguishing-cases Moving outDir, noEmit true/false/null, declarations/maps, incremental/build-info paths, JSX defaults and resets, inline-map suppression, literal @ scalar operands, nested/repeated frames, UTF encodings and final direct overrides distinguish expanded options from top-level token projection. A compiler-source overlap remains a genuine input. Positional launchers retain their own one-file copy destination and emit authority rather than treating private native products as project-mode outputs.
+ * @evidence contracts/testing.md#distinguishing-cases Moving outDir, noEmit true/false/null, declarations/maps, incremental/build-info paths, JSX defaults and resets, inline-map suppression, literal @ scalar operands, nested/repeated frames, UTF encodings and final direct overrides distinguish expanded options from top-level token projection. A compiler-source overlap remains a genuine input. Response-selected project and reference configs keep their own products, then a same-session selector edit admits the former product as data. Positional launchers retain their own one-file copy destination and emit authority rather than treating private native products as project-mode outputs.
  * @evidence contracts/testing.md#execution-ownership One tracked temporary project owns real bytes and recorded source-adapter subscriptions. The explicit membership callback asserts the original unexpanded request. finally closes every supplied handle; TestProject removes the allocation at process exit. Actual native emit, watcher transport and compiler processes remain E2E responsibilities.
  */
 export async function test_watch_topology_preserves_response_file_output_options(): Promise<void> {
@@ -326,7 +326,7 @@ export async function test_watch_topology_preserves_response_file_output_options
         changeResponseDuringRead = true;
         assert.throws(
           () => topology.refresh(false),
-          /changed during topology refresh/,
+          /changed after project selection/,
         );
         changeResponseDuringRead = false;
         fs.writeFileSync(response, "--outDir selected");
@@ -347,6 +347,127 @@ export async function test_watch_topology_preserves_response_file_output_options
       topology.close();
       assert.ok(observed.watchers.every((watcher) => watcher.active === false));
     }
+  }
+  // A response-selected root and each reference retain their own config/output
+  // identity while all forwarded relative options retain the original cwd.
+  const other = path.join(root, "other");
+  const child = path.join(root, "child");
+  for (const directory of [other, child]) {
+    fs.mkdirSync(directory);
+    fs.mkdirSync(path.join(directory, "products"));
+    fs.writeFileSync(path.join(directory, "input.ts"), "export const value = 1;\n");
+    fs.writeFileSync(path.join(directory, "data.md"), "declared data");
+    fs.writeFileSync(path.join(directory, "products", "data.md"), "product data");
+    fs.writeFileSync(
+      path.join(directory, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { outDir: "products" }, files: ["input.ts"],
+        ...(directory === other ? { references: [{ path: "../child" }] } : {}),
+      }),
+    );
+  }
+  fs.writeFileSync(
+    path.join(root, "tsconfig.json"),
+    '{"compilerOptions":{"outDir":"configured"},"files":["view.tsx"]}',
+  );
+  fs.writeFileSync(response, "--project other/tsconfig.json");
+  const selectedChanges: WatchInputChange[] = [];
+  const selectedWatchers = recordWatchers(watchDirectoryThroughFsWatch);
+  const selectedTopology = new WatchTopology(
+    { cwd: root, files: [], passthrough: ["@flags.rsp"] },
+    {
+      onError: (location, cause) => failures.push(new Error(location, { cause })),
+      onInputChange: (change) => selectedChanges.push(change),
+      onTopologyChange: () => undefined,
+    },
+    selectedWatchers.openDirectoryWatch,
+    selectedWatchers.openFileWatch,
+    fs.readdirSync,
+    (project, options) => {
+      assert.ok([root, other, child].includes(project.root));
+      assert.equal(options.compilerArgsCwd, root);
+      assert.equal(options.pinCompilerProject, true);
+      assert.deepEqual(options.passthrough, ["@flags.rsp"]);
+      return [project.root === root ? source : path.join(project.root, "input.ts")];
+    },
+  );
+  try {
+    selectedTopology.refresh(false);
+    const controls = [
+      [path.join(root, "configured/data.md"), true],
+      [path.join(other, "data.md"), true],
+      [path.join(other, "products/data.md"), false],
+      [path.join(child, "data.md"), true],
+      [path.join(child, "products/data.md"), false],
+    ] as const;
+    selectedTopology.setProjectInputs({ root, files: controls.map(([file]) => file), globs: [] });
+    await settleWatchEvents();
+    for (const [file, expected] of controls) {
+      try {
+        const before = selectedChanges.length;
+        fs.appendFileSync(file, "changed");
+        deliverWatchEvent(selectedWatchers.watchers, file, "change");
+        await settleWatchEvents();
+        assert.equal(
+          selectedChanges.slice(before).some((change) => change.kind === "project" && change.path === file),
+          expected,
+          file,
+        );
+      } catch (cause) {
+        failures.push(new Error("response-selected project/ref callback " + file, { cause }));
+      }
+    }
+    const before = selectedChanges.length;
+    fs.writeFileSync(response, "--project tsconfig.json");
+    deliverWatchEvent(selectedWatchers.watchers, response, "change");
+    await settleWatchEvents();
+    assert.ok(selectedChanges.slice(before).some((change) => change.kind === "config" && change.path === response));
+    selectedTopology.refresh(false);
+    selectedTopology.setProjectInputs({ root, files: controls.map(([file]) => file), globs: [] });
+    await settleWatchEvents();
+    const formerProduct = path.join(other, "products/data.md");
+    const prior = selectedChanges.length;
+    fs.appendFileSync(formerProduct, "now declared ordinary data");
+    deliverWatchEvent(selectedWatchers.watchers, formerProduct, "change");
+    await settleWatchEvents();
+    // Reload changes several product/data memberships, so the first input
+    // event establishes the new baseline with one aggregate invalidation.
+    assert.ok(
+      selectedChanges.slice(prior).some(
+        (change) =>
+          change.kind === "project" &&
+          change.invalidate === true &&
+          change.path === undefined,
+      ),
+    );
+    // Once that baseline is current, former root/reference products are
+    // ordinary declared inputs, while the newly selected product stays quiet.
+    for (const [file, expected] of [
+      [formerProduct, true],
+      [path.join(child, "products/data.md"), true],
+      [path.join(root, "configured/data.md"), false],
+    ] as const) {
+      try {
+        const beforeInput = selectedChanges.length;
+        fs.appendFileSync(file, "independent content change");
+        deliverWatchEvent(selectedWatchers.watchers, file, "change");
+        await settleWatchEvents();
+        assert.equal(
+          selectedChanges.slice(beforeInput).some(
+            (change) => change.kind === "project" && change.path === file,
+          ),
+          expected,
+          file,
+        );
+      } catch (cause) {
+        failures.push(new Error("response-reloaded input callback " + file, { cause }));
+      }
+    }
+  } catch (cause) {
+    failures.push(new Error("response-selected project/reference reload", { cause }));
+  } finally {
+    selectedTopology.close();
+    assert.ok(selectedWatchers.watchers.every((watcher) => !watcher.active));
   }
   if (failures.length !== 0)
     throw new AggregateError(failures, "response output callback matrix failed");

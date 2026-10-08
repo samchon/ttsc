@@ -10,6 +10,8 @@ import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFo
 
 /**
  * Verifies compiler membership and native notifications on one staged graph.
+ * The checkout owner supplies its pinned response-emission compiler separately
+ * from this mutable fixture root; other compiler discovery controls remain.
  *
  * 1. Register the actual compiler list, reference inputs and declared external
  *    data.
@@ -31,6 +33,7 @@ import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFo
  */
 export async function nativeCompilerTopologyCorpus(
   root: string,
+  binary: string,
 ): Promise<void> {
   const config = path.join(root, "tsconfig.json");
   const configBytes = fs.readFileSync(config);
@@ -67,6 +70,7 @@ export async function nativeCompilerTopologyCorpus(
   await capture("response-selected native products", () =>
     case_watch_topology_preserves_response_file_products(
       path.join(path.dirname(root), "native-response-topology"),
+      binary,
     ),
   );
   const count = (kind: WatchInputChange["kind"]) =>

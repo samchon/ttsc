@@ -245,6 +245,7 @@ func (s *residentCheckState) run(
         singleThreaded:     opts.singleThreaded,
         checkers:           opts.checkers,
         tsgoArgs:           opts.tsgoArgs,
+        tsgoArgsCwd:        opts.tsgoArgsCwd,
         projectIdentity:    opts.projectIdentity,
       },
     )

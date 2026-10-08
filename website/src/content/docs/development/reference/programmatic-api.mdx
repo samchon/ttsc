@@ -57,7 +57,7 @@ Plugin-backed `compile()` keeps all compiler outputs in a private temporary life
 
 ## Lifecycle
 
-`TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call, create another instance to compile a different project.
+`TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call, create another instance to compile a different project. Explicit `tsconfig`, `projectRoot` and `pluginConfigDir` keep their documented authority. Compiler CLI forwarding does not become a per-operation project override on this API. Internal build and watch lanes share one selected config while retaining a separate original compiler argument directory for response and relative command-line options.
 
 ```ts
 // One compiler per project, kept around across calls.

@@ -29,6 +29,27 @@ export interface ParseOptions {
   readonly errorPrefix: string;
 
   /**
+   * Observe a validated launcher assignment at its compiler-frame position.
+   * The canonical schema name and parsed value retain alias/value semantics;
+   * passthroughIndex counts compiler tokens already forwarded at this point.
+   * Exceptions propagate from the caller's observer.
+   *
+   * @evidence contracts/common.md#principled-implementation Canonical validated assignments and their original forwarded-token positions let the launcher retain compiler-frame order without reparsing aliases or scalar operands.
+   * @evidence contracts/common.md#clear-and-simple-design One optional observer reports consumed assignments; parseFlags owns validation/consumption and the caller owns which metadata it retains.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts This declared callback conveys existing parser decisions rather than changing compiler parsing, adding a second grammar or inspecting caller-specific paths.
+   * @evidence contracts/common.md#meaningful-documentation Native prose defines canonical names, parsed values, frame coordinates and propagated observer errors; this is a function-valued contract rather than a data-property acknowledgment.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The callback signature specifies assignment metadata without choosing a filesystem or process operation; any native behavior belongs to its supplied implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This signature chooses no observation algorithm; invocation frequency belongs to parseFlags and processing belongs to the supplied observer.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature coordinates no cross-invocation computation; retained metadata and reuse belong to its caller.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This function contract acquires no state or handles; the supplied callback and invoking parser own their lifetimes.
+   */
+  readonly onConsumedFlag?: (
+    name: string,
+    value: string | boolean | number,
+    passthroughIndex: number,
+  ) => void;
+
+  /**
    * `true` to treat the FIRST positional token as a sentinel that switches the
    * engine to "forward everything after" mode (ttsx's entry-file behaviour:
    * tokens after the entry are runtime argv, not tsgo flags). The sentinel

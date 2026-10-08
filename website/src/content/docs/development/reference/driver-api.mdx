@@ -31,6 +31,8 @@ checker := prog.Checker                  // type-aware queries
 - builds the tsgo `Program` through `shim/compiler.NewProgram` and leases a `*shimchecker.Checker` from the pool.
 - returns a `*driver.Program` carrying the parsed config, the host, the FS, and the lease release function.
 
+`LoadProgramOptions.TsgoArgsCwd` supplies the base for upstream response-file and command-line option parsing. It does not change the selected config, Program host, `PluginContext.Cwd` or plugin discovery root. An empty value uses `cwd`. With nil `TsgoArgs`, the launcher may supply both `TTSC_TSGO_ARGS` and its `TTSC_TSGO_ARGS_CWD` companion. Explicit non-nil `TsgoArgs`, including `[]string{}`, suppresses inherited argv and cwd; supply `TsgoArgsCwd` explicitly when that argv needs another base. A cwd companion without forwarded arguments has no inherited authority. Config-relative paths and inheritance remain upstream-owned.
+
 `Program.SourceFiles()` returns the Program's resident non-declaration implementation files. Imported raw TypeScript or JavaScript dependencies can be present, so a consumer that needs project-owned files must apply its own root predicate. `Program.Diagnostics()` runs `GetDiagnosticsOfAnyProgram` + `SortAndDeduplicateDiagnostics` and drops the unused-overload-signature noise that tsgo emits internally. **Always `defer prog.Close()`**, without it the checker pool fills up and subsequent loads stall.
 
 ## Emit
