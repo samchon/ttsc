@@ -1,0 +1,7 @@
+/// Stores one unacknowledged probe row for the activation walk.
+model benchmark_probe {
+  /// Primary key.
+  id String @id
+  /// Human-readable label.
+  label String
+}
