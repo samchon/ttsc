@@ -60,11 +60,19 @@ export function serializeCompilerError(error: unknown): unknown {
       fields = Object.getOwnPropertyDescriptors(input);
       isError = input instanceof Error;
       const keys = Object.keys(fields).filter((key) => fields[key]!.enumerable);
-      if (!isError && !Array.isArray(input) &&
-          ((keys.length === 1 && keys[0] === "$ttscReference") ||
-           (keys.length === 2 && keys.includes("$ttscValue") && keys.includes("$ttscProperties")))) {
+      if (
+        !isError &&
+        !Array.isArray(input) &&
+        ((keys.length === 1 && keys[0] === "$ttscReference") ||
+          (keys.length === 2 &&
+            keys.includes("$ttscValue") &&
+            keys.includes("$ttscProperties")))
+      ) {
         destination = {};
-        Object.assign(output, { $ttscValue: "object", $ttscProperties: destination });
+        Object.assign(output, {
+          $ttscValue: "object",
+          $ttscProperties: destination,
+        });
         fieldPointer = `${pointer}/$ttscProperties`;
       }
       if (isError) {

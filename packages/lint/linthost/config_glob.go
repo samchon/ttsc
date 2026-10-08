@@ -30,7 +30,9 @@ func matchGlob(pattern, name string) bool {
 func matchConfigGlobNative(pattern, name string) bool {
   patternParts := strings.Split(pattern, "/")
   nameParts := []string{}
-  if name != "" { nameParts = strings.Split(name, "/") }
+  if name != "" {
+    nameParts = strings.Split(name, "/")
+  }
   globstar := -1
   for index, part := range patternParts {
     if part == "**" {
@@ -41,14 +43,22 @@ func matchConfigGlobNative(pattern, name string) bool {
       globstar = index
     }
   }
-  offset := len(nameParts)-len(patternParts)
-  if globstar < 0 && offset != 0 || globstar >= 0 && offset < -1 { return false }
+  offset := len(nameParts) - len(patternParts)
+  if globstar < 0 && offset != 0 || globstar >= 0 && offset < -1 {
+    return false
+  }
   for index, part := range patternParts {
-    if index == globstar { continue }
+    if index == globstar {
+      continue
+    }
     nameIndex := index
-    if globstar >= 0 && index > globstar { nameIndex += offset }
+    if globstar >= 0 && index > globstar {
+      nameIndex += offset
+    }
     matched, err := filepath.Match(part, nameParts[nameIndex])
-    if err != nil || !matched { return false }
+    if err != nil || !matched {
+      return false
+    }
   }
   return true
 }
@@ -58,13 +68,15 @@ func matchConfigGlobNative(pattern, name string) bool {
 // name index, so interleaved globstars cannot revisit an evaluated partition.
 type configGlobNativeMatcher struct {
   pattern []string
-  name []string
-  states map[[2]int]bool
+  name    []string
+  states  map[[2]int]bool
 }
 
 func (m *configGlobNativeMatcher) matches(pattern, name int) bool {
   key := [2]int{pattern, name}
-  if matched, ok := m.states[key]; ok { return matched }
+  if matched, ok := m.states[key]; ok {
+    return matched
+  }
   matched := false
   if pattern == len(m.pattern) {
     matched = name == len(m.name)
@@ -89,19 +101,19 @@ type configGlob struct {
 }
 
 type configGlobNode struct {
-  value byte
-  next int
+  value    byte
+  next     int
   branches []int
 }
 
 type configGlobEdge struct {
-  node int
+  node  int
   value byte
-  next int
+  next  int
 }
 
 type configGlobHead struct {
-  end bool
+  end   bool
   edges []configGlobEdge
 }
 
@@ -124,9 +136,9 @@ func compileConfigGlob(pattern string) *configGlob {
   }
   var build func(int, int, int) int
   literal := func(start, end, next int) int {
-    for index := end-1; index >= start; index-- {
+    for index := end - 1; index >= start; index-- {
       graph.nodes = append(graph.nodes, configGlobNode{value: pattern[index], next: next})
-      next = len(graph.nodes)-1
+      next = len(graph.nodes) - 1
     }
     return next
   }
@@ -135,7 +147,7 @@ func compileConfigGlob(pattern string) *configGlob {
     if relative < 0 {
       return literal(start, end, next)
     }
-    open := start+relative
+    open := start + relative
     close := closes[open]
     if close < 0 || close >= end {
       // The first unmatched opening brace makes the remaining text literal,
@@ -144,13 +156,13 @@ func compileConfigGlob(pattern string) *configGlob {
     }
     suffix := build(close+1, end, next)
     branches := []int{}
-    alternative := open+1
+    alternative := open + 1
     for index := alternative; index < close; index++ {
       if pattern[index] == '{' {
         index = closes[index]
       } else if pattern[index] == ',' {
         branches = append(branches, build(alternative, index, suffix))
-        alternative = index+1
+        alternative = index + 1
       }
     }
     branches = append(branches, build(alternative, close, suffix))
@@ -191,9 +203,9 @@ func (g *configGlob) head(node int) configGlobHead {
 }
 
 type configGlobPosition struct {
-  node int
-  part int
-  offset int
+  node     int
+  part     int
+  offset   int
   boundary bool
   globstar bool
 }
@@ -202,10 +214,10 @@ type configGlobPosition struct {
 // the call. The graph is selector syntax only; no result is cached across paths
 // or filesystem observations.
 type configGlobMatcher struct {
-  graph *configGlob
-  parts []string
+  graph   *configGlob
+  parts   []string
   pending []configGlobPosition
-  seen map[configGlobPosition]bool
+  seen    map[configGlobPosition]bool
   classes map[configGlobClassKey][]int
 }
 
@@ -254,11 +266,17 @@ func (m *configGlobMatcher) matches() bool {
     if position.boundary {
       // An exact whole-component ** can itself be assembled by braces.
       for _, first := range head.edges {
-        if first.value != '*' { continue }
+        if first.value != '*' {
+          continue
+        }
         for _, second := range g.head(first.next).edges {
-          if second.value != '*' { continue }
+          if second.value != '*' {
+            continue
+          }
           tail := g.head(second.next)
-          if tail.end { return true }
+          if tail.end {
+            return true
+          }
           for _, edge := range tail.edges {
             if edge.value == '/' {
               enqueue(configGlobPosition{node: edge.next, part: position.part, boundary: true, globstar: true})
@@ -281,7 +299,7 @@ func (m *configGlobMatcher) matches() bool {
       switch edge.value {
       case '/':
         if position.offset == len(part) {
-          enqueue(configGlobPosition{node: edge.next, part: position.part+1, boundary: true})
+          enqueue(configGlobPosition{node: edge.next, part: position.part + 1, boundary: true})
         }
       case '*':
         enqueue(next)
@@ -308,7 +326,7 @@ func (m *configGlobMatcher) matches() bool {
           }
           for _, end := range ends {
             next.node = end
-            next.offset = position.offset+width
+            next.offset = position.offset + width
             enqueue(next)
           }
         }
@@ -337,18 +355,18 @@ func (m *configGlobMatcher) matches() bool {
 }
 
 type configGlobClassKey struct {
-  node int
+  node  int
   value rune
 }
 
 type configGlobClassPosition struct {
-  node int
-  stage configGlobClassStage
-  negated bool
-  matched bool
-  hasRange bool
+  node         int
+  stage        configGlobClassStage
+  negated      bool
+  matched      bool
+  hasRange     bool
   lowerMatches bool
-  lowerAtMost bool
+  lowerAtMost  bool
 }
 
 type configGlobClassStage uint8
@@ -371,7 +389,9 @@ func (g *configGlob) classEnds(start int, value rune) []int {
   for len(pending) > 0 {
     position := pending[len(pending)-1]
     pending = pending[:len(pending)-1]
-    if seen[position] { continue }
+    if seen[position] {
+      continue
+    }
     seen[position] = true
     head := g.head(position.node)
     if position.stage == configGlobClassLower {
@@ -386,7 +406,9 @@ func (g *configGlob) classEnds(start int, value rune) []int {
       pending = append(pending, singleton)
     }
     for _, edge := range head.edges {
-      if edge.value == '/' { continue }
+      if edge.value == '/' {
+        continue
+      }
       if position.stage == configGlobClassInitial && edge.value == '^' {
         next := position
         next.node, next.stage, next.negated = edge.next, configGlobClassRange, true
@@ -394,7 +416,9 @@ func (g *configGlob) classEnds(start int, value rune) []int {
         continue
       }
       if position.stage == configGlobClassRange && position.hasRange && edge.value == ']' {
-        if position.matched != position.negated { ends[edge.next] = true }
+        if position.matched != position.negated {
+          ends[edge.next] = true
+        }
         continue
       }
       if position.stage == configGlobClassLower {
@@ -421,19 +445,23 @@ func (g *configGlob) classEnds(start int, value rune) []int {
     }
   }
   result := make([]int, 0, len(ends))
-  for end := range ends { result = append(result, end) }
+  for end := range ends {
+    result = append(result, end)
+  }
   return result
 }
 
 type configGlobRune struct {
-  node int
+  node  int
   value rune
 }
 
 // classRune follows filepath.Match's getEsc grammar. UTF-8 decoding consumes at
 // most four pattern bytes, even when brace boundaries split their spelling.
 func (g *configGlob) classRune(edge configGlobEdge) []configGlobRune {
-  if cached, ok := g.runes[edge]; ok { return cached }
+  if cached, ok := g.runes[edge]; ok {
+    return cached
+  }
   if edge.value == '-' || edge.value == ']' {
     g.runes[edge] = nil
     return nil
@@ -443,9 +471,9 @@ func (g *configGlob) classRune(edge configGlobEdge) []configGlobRune {
     edges = g.head(edge.next).edges
   }
   type prefix struct {
-    bytes [utf8.UTFMax]byte
+    bytes  [utf8.UTFMax]byte
     length int
-    node int
+    node   int
   }
   pending := []prefix{}
   for _, first := range edges {
@@ -458,7 +486,9 @@ func (g *configGlob) classRune(edge configGlobEdge) []configGlobRune {
   for len(pending) > 0 {
     current := pending[len(pending)-1]
     pending = pending[:len(pending)-1]
-    if seen[current] { continue }
+    if seen[current] {
+      continue
+    }
     seen[current] = true
     raw := current.bytes[:current.length]
     if utf8.FullRune(raw) {
@@ -468,9 +498,13 @@ func (g *configGlob) classRune(edge configGlobEdge) []configGlobRune {
       }
       continue
     }
-    if current.length == utf8.UTFMax { continue }
+    if current.length == utf8.UTFMax {
+      continue
+    }
     for _, next := range g.head(current.node).edges {
-      if next.value == '/' { continue }
+      if next.value == '/' {
+        continue
+      }
       extended := current
       extended.bytes[extended.length] = next.value
       extended.length++

@@ -108,30 +108,34 @@ export async function test_buildsourceplugin_cancellation_refuses_late_artifact_
           };
         },
       };
-      const build = (): string => buildSourcePlugin({
-        source,
-        baseDir: root,
-        pluginName: "cancellation",
-        overlayDirs: [],
-        quiet: true,
-        env,
-        sourceDigests,
-        filesystem: {
-          readFile: (file) => {
-            const bytes = fs.readFileSync(file);
-            reads += 1;
-            if (stage === "fingerprint")
-              Atomics.store(new Int32Array(cancel), 0, 1);
-            return bytes;
+      const build = (): string =>
+        buildSourcePlugin({
+          source,
+          baseDir: root,
+          pluginName: "cancellation",
+          overlayDirs: [],
+          quiet: true,
+          env,
+          sourceDigests,
+          filesystem: {
+            readFile: (file) => {
+              const bytes = fs.readFileSync(file);
+              reads += 1;
+              if (stage === "fingerprint")
+                Atomics.store(new Int32Array(cancel), 0, 1);
+              return bytes;
+            },
           },
-        },
-        ttscVersion: "unit",
-        tsgoVersion: "unit",
-      });
+          ttscVersion: "unit",
+          tsgoVersion: "unit",
+        });
       try {
         if (stage === "live") {
           const binary = OwnedSynchronousProcess.run(scope, build);
-          assert.equal(fs.readFileSync(binary, "utf8"), "authored output marker");
+          assert.equal(
+            fs.readFileSync(binary, "utf8"),
+            "authored output marker",
+          );
           assert.equal(OwnedSynchronousProcess.run(scope, build), binary);
           assert.equal(builds, 1);
         } else {
@@ -162,7 +166,9 @@ export async function test_buildsourceplugin_cancellation_refuses_late_artifact_
         );
         if (stage !== "live")
           assert.equal(
-            entries.some((entry) => /^plugin(?:\.exe)?$/.test(path.basename(entry))),
+            entries.some((entry) =>
+              /^plugin(?:\.exe)?$/.test(path.basename(entry)),
+            ),
             false,
           );
       }

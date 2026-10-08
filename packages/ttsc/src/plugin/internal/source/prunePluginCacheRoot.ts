@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
-
 import { CachePrunePolicy } from "./CachePrunePolicy";
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
 import { PluginBinaryUse } from "./PluginBinaryUse";

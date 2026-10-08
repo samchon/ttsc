@@ -20,8 +20,8 @@ import { reloadImporters } from "./reloadImporters";
  * graph nodes (`invalidateImporters`, samchon/ttsc#1419), without proving that
  * the actual root set changed or requesting an HMR update.
  *
- * A watching server opens the observer on its root before compilation begins.
- * A watcherless server (`server.watch: null`) registers no notification inputs
+ * A watching server opens the observer on its root before compilation begins. A
+ * watcherless server (`server.watch: null`) registers no notification inputs
  * and releases any preceding server's observer. A server told to poll registers
  * inputs for the observer's per-tick bounded poll (samchon/ttsc#1395).
  *

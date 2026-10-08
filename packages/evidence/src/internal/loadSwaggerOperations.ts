@@ -298,16 +298,22 @@ const operationOf = (
     );
   const document = normalized.document;
   const servers = operation.servers ?? item.servers ?? document.servers;
-  const security = canonicalSecurity(operation.security ?? document.security ?? []);
+  const security = canonicalSecurity(
+    operation.security ?? document.security ?? [],
+  );
   const schemes = document.components?.securitySchemes ?? {};
   const usedSchemes = Object.fromEntries(
-    [...new Set(security.flatMap((requirement) => Object.keys(requirement)))]
-      .map((name) => [name, schemes[name]]),
+    [
+      ...new Set(security.flatMap((requirement) => Object.keys(requirement))),
+    ].map((name) => [name, schemes[name]]),
   );
   // Resolve on original holders before copying: literal-position provenance is
   // keyed by object identity. Inheritance is represented outside the written
   // operation so explicit equivalent overrides cannot duplicate its contract.
-  const resolved = withResolvedReferences(operation, normalized) as Record<string, unknown>;
+  const resolved = withResolvedReferences(operation, normalized) as Record<
+    string,
+    unknown
+  >;
   const { servers: _servers, security: _security, ...content } = resolved;
   return {
     method: method.toUpperCase(),
@@ -326,7 +332,8 @@ const operationOf = (
  *
  * Scheme keys within one alternative remain an AND. Empty alternatives remain
  * distinct from removing authentication with an empty list; all other arrays,
- * including server preference and literal payloads, retain their written order.
+ * including server preference and literal payloads, retain their written
+ * order.
  */
 const canonicalSecurity = (
   security: Record<string, string[]>[],
@@ -335,13 +342,14 @@ const canonicalSecurity = (
   for (const requirement of security) {
     const canonical = Object.fromEntries(
       Object.entries(requirement).map(([name, scopes]) => [
-        name, [...new Set(scopes)].sort(),
+        name,
+        [...new Set(scopes)].sort(),
       ]),
     );
     alternatives.set(canonicalDigest(canonical), canonical);
   }
   return [...alternatives.entries()]
-    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(([, requirement]) => requirement);
 };
 
@@ -351,7 +359,8 @@ const canonicalSecurity = (
  * The complete configured spelling is replaced before scanning reflected URLs.
  * Lexical authority/query/fragment boundaries also protect malformed host and
  * percent escapes that the URL parser would reject. This changes only error
- * text; transport requests and returned source/cache identities stay untouched.
+ * text; transport requests and returned source/cache identities stay
+ * untouched.
  */
 const redactSwaggerUrls = (message: string, source: string): string => {
   const display = (value: string): string => {
@@ -372,10 +381,10 @@ const redactSwaggerUrls = (message: string, source: string): string => {
         // A malformed authority can be truncated userinfo. It has no safe host.
         authority = "[redacted]" + base.slice(end);
       }
-    return base.slice(0, start) + authority +
-      (suffix < 0 ? "" : "?[redacted]");
+    return base.slice(0, start) + authority + (suffix < 0 ? "" : "?[redacted]");
   };
-  return message.replaceAll(source, display(source))
+  return message
+    .replaceAll(source, display(source))
     .replace(/https?:\/\/[^\s"'<>]+/giu, display);
 };
 

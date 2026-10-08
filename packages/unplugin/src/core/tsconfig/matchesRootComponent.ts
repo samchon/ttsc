@@ -4,11 +4,11 @@ import type { IRootPattern } from "./IRootPattern";
  * Match one compiled filename component without searching wildcard partitions.
  *
  * A token position is a possible prefix of the pattern. A star can advance
- * without consuming text or stay in place while consuming a nonseparator;
- * other tokens consume one Unicode code point. Equal positions merge before
- * the next character, so repeated stars never multiply equivalent searches.
- * Literal token expressions contain one escaped code point, retaining the
- * compiler's Unicode simple-folding rule without lowercasing filenames.
+ * without consuming text or stay in place while consuming a nonseparator; other
+ * tokens consume one Unicode code point. Equal positions merge before the next
+ * character, so repeated stars never multiply equivalent searches. Literal
+ * token expressions contain one escaped code point, retaining the compiler's
+ * Unicode simple-folding rule without lowercasing filenames.
  *
  * The expression must come from compile: a whole literal expression has no
  * wildcard, and each token expression matches exactly one literal code point.
@@ -29,10 +29,7 @@ export function matchesRootComponent(
   expression: Exclude<IRootPattern["components"][number], string>["expression"],
 ): boolean {
   if (expression instanceof RegExp) return expression.test(part);
-  if (
-    (expression[0] === "*" || expression[0] === "?") &&
-    part.startsWith(".")
-  )
+  if ((expression[0] === "*" || expression[0] === "?") && part.startsWith("."))
     return false;
   let states = new Set([0]);
   let next = new Set<number>();
@@ -48,9 +45,7 @@ export function matchesRootComponent(
       if (token === undefined) continue;
       if (token === "*") {
         if (character !== "/") next.add(state);
-      } else if (
-        token === "?" ? character !== "/" : token.test(character)
-      )
+      } else if (token === "?" ? character !== "/" : token.test(character))
         next.add(state + 1);
     }
     if (next.size === 0) return false;

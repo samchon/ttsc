@@ -10,8 +10,8 @@ import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
  * Guards are published before command admission. Pending and uncertified
  * boundaries protect inputs from cooperating collectors even after their Node
  * owner disappears. Neither PID absence nor elapsed time grants reclamation.
- * Older compiler versions do not implement these guards and cannot safely
- * share quarantined roots. External deletion is outside this protocol.
+ * Older compiler versions do not implement these guards and cannot safely share
+ * quarantined roots. External deletion is outside this protocol.
  *
  * @evidence contracts/common.md#principled-implementation Exact pre-admission guards protect inputs until the original native boundary certifies closure; PID absence and age never grant authority.
  * @evidence contracts/common.md#clear-and-simple-design One protocol owns admission, deferred cleanup and collector checks; native containment remains with the command owner.
@@ -53,12 +53,17 @@ export namespace SourceNativeRetirement {
     /**
      * Optional task-local publication primitives for an explicit filesystem
      * boundary oracle. Omitted tasks use Node's original synchronous APIs.
-     * Implementations must preserve exclusive-open and real descriptor meaning.
+     * Implementations must preserve exclusive-open and real descriptor
+     * meaning.
      */
-    guardFileOperations?: Pick<typeof fs, "openSync" | "writeFileSync" | "closeSync" | "renameSync" | "rmSync">;
+    guardFileOperations?: Pick<
+      typeof fs,
+      "openSync" | "writeFileSync" | "closeSync" | "renameSync" | "rmSync"
+    >;
   }
 
-  /** Allocate an empty task capability without acquiring a filesystem guard.
+  /**
+   * Allocate an empty task capability without acquiring a filesystem guard.
    *
    * @evidence contracts/common.md#principled-implementation A nonempty task token distinguishes the original admission owner and starts with no native commands.
    * @evidence contracts/common.md#clear-and-simple-design Two maps and one FIFO separate registration, boundary state and deferred cleanup.
@@ -70,11 +75,18 @@ export namespace SourceNativeRetirement {
    * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the returned capability; no filesystem or process handle is acquired.
    */
   export function createScope(taskToken: string): Scope {
-    if (taskToken.length === 0) throw new Error("ttsc: empty native task identity");
-    return { taskToken, resources: new Map(), boundaries: new Map(), deferred: [] };
+    if (taskToken.length === 0)
+      throw new Error("ttsc: empty native task identity");
+    return {
+      taskToken,
+      resources: new Map(),
+      boundaries: new Map(),
+      deferred: [],
+    };
   }
 
-  /** Install one synchronous task; promises do not extend its lexical lifetime.
+  /**
+   * Install one synchronous task; promises do not extend its lexical lifetime.
    *
    * @evidence contracts/common.md#principled-implementation Finally restores the predecessor even when task work throws.
    * @evidence contracts/common.md#clear-and-simple-design One lexical saved reference supports nested synchronous scopes.
@@ -88,8 +100,11 @@ export namespace SourceNativeRetirement {
   export function run<T>(scope: Scope, task: () => T): T {
     const previous = current;
     current = scope;
-    try { return task(); }
-    finally { current = previous; }
+    try {
+      return task();
+    } finally {
+      current = previous;
+    }
   }
 
   /**
@@ -122,13 +137,26 @@ export namespace SourceNativeRetirement {
     if (current === undefined) return;
     const root = physicalRoot(resource.fenceRoot);
     const previous = current.resources.get(root);
-    if (previous !== undefined &&
-      ((resource.generation !== undefined && previous.generation !== undefined && resource.generation !== previous.generation) ||
-       (resource.completionNonce !== undefined && previous.completionNonce !== undefined && resource.completionNonce !== previous.completionNonce)))
-      throw new Error(`ttsc: conflicting native resource generation at ${root}`);
+    if (
+      previous !== undefined &&
+      ((resource.generation !== undefined &&
+        previous.generation !== undefined &&
+        resource.generation !== previous.generation) ||
+        (resource.completionNonce !== undefined &&
+          previous.completionNonce !== undefined &&
+          resource.completionNonce !== previous.completionNonce))
+    )
+      throw new Error(
+        `ttsc: conflicting native resource generation at ${root}`,
+      );
     current.resources.set(root, {
       fenceRoot: root,
-      retainedPaths: [...new Set([...(previous?.retainedPaths ?? []), ...resource.retainedPaths.map((entry) => path.resolve(entry))])],
+      retainedPaths: [
+        ...new Set([
+          ...(previous?.retainedPaths ?? []),
+          ...resource.retainedPaths.map((entry) => path.resolve(entry)),
+        ]),
+      ],
       generation: resource.generation ?? previous?.generation,
       completionNonce: resource.completionNonce ?? previous?.completionNonce,
     });
@@ -155,7 +183,8 @@ export namespace SourceNativeRetirement {
     register({ fenceRoot: root, retainedPaths: [root] });
   }
 
-  /** Forget a safely released registration, never another generation's inputs.
+  /**
+   * Forget a safely released registration, never another generation's inputs.
    *
    * @evidence contracts/common.md#principled-implementation Safe tasks remove only the matching registered generation.
    * @evidence contracts/common.md#clear-and-simple-design The current scope and one physical root lookup keep ownership local.
@@ -170,15 +199,18 @@ export namespace SourceNativeRetirement {
     if (current === undefined || !canRelease()) return;
     const root = physicalRoot(fenceRoot);
     const resource = current.resources.get(root);
-    if (resource !== undefined && (generation === undefined || resource.generation === generation))
+    if (
+      resource !== undefined &&
+      (generation === undefined || resource.generation === generation)
+    )
       current.resources.delete(root);
   }
 
   /**
    * Publish every input guard before the native owner may admit a command.
    * Partial publication failure admits no native work and rolls back only this
-   * boundary's guards. A failed rollback remains a visible protected record.
-   * An unresolved earlier command closes further admission in the same task.
+   * boundary's guards. A failed rollback remains a visible protected record. An
+   * unresolved earlier command closes further admission in the same task.
    * Exclusive open registers ownership before any write or close can fail.
    * Failed close/rollback preserves original errors and exact paths for the
    * task owner even if a legacy resolver converts the result to unavailable.
@@ -195,16 +227,34 @@ export namespace SourceNativeRetirement {
   export function begin(boundaryToken: string): void {
     if (current === undefined) return;
     if (!canRelease())
-      throw new Error("ttsc: native admission is closed while an earlier boundary has unresolved retirement");
+      throw new Error(
+        "ttsc: native admission is closed while an earlier boundary has unresolved retirement",
+      );
     if (boundaryToken.length === 0 || current.boundaries.has(boundaryToken))
       throw new Error("ttsc: native boundary identity was empty or reused");
-    const boundary: Boundary = { token: boundaryToken, state: "not-started", resources: [...current.resources.values()], files: [], candidates: new Set() };
+    const boundary: Boundary = {
+      token: boundaryToken,
+      state: "not-started",
+      resources: [...current.resources.values()],
+      files: [],
+      candidates: new Set(),
+    };
     current.boundaries.set(boundaryToken, boundary);
     try {
       for (const resource of boundary.resources) {
         const directory = guardDirectory(resource.fenceRoot, true)!;
-        const file = path.join(directory, `${digest(current.taskToken)}-${digest(boundaryToken)}.json`);
-        writeGuard(file, current.taskToken, boundary, resource, "pending", true);
+        const file = path.join(
+          directory,
+          `${digest(current.taskToken)}-${digest(boundaryToken)}.json`,
+        );
+        writeGuard(
+          file,
+          current.taskToken,
+          boundary,
+          resource,
+          "pending",
+          true,
+        );
       }
       boundary.state = "pending";
     } catch (error) {
@@ -213,12 +263,22 @@ export namespace SourceNativeRetirement {
       const retained: string[] = [];
       const owned = [...boundary.files];
       for (const file of boundary.files) {
-        try { operations.rmSync(file, { force: true }); }
-        catch (failure) { failures.push(failure); retained.push(file); }
+        try {
+          operations.rmSync(file, { force: true });
+        } catch (failure) {
+          failures.push(failure);
+          retained.push(file);
+        }
       }
       boundary.files = retained;
-      const failure = new AggregateError(failures, `ttsc: native guard publication failed before admission; created guards: ${JSON.stringify(owned)}; retained guards: ${JSON.stringify(retained)}; retained paths: ${JSON.stringify(boundary.resources.flatMap((resource) => resource.retainedPaths))}`);
-      if (failures.length > 1 || (error instanceof GuardPublicationError && error.cleanupFailed))
+      const failure = new AggregateError(
+        failures,
+        `ttsc: native guard publication failed before admission; created guards: ${JSON.stringify(owned)}; retained guards: ${JSON.stringify(retained)}; retained paths: ${JSON.stringify(boundary.resources.flatMap((resource) => resource.retainedPaths))}`,
+      );
+      if (
+        failures.length > 1 ||
+        (error instanceof GuardPublicationError && error.cleanupFailed)
+      )
         OwnedSynchronousProcess.reportFailure(failure);
       throw failure;
     }
@@ -232,7 +292,8 @@ export namespace SourceNativeRetirement {
    * Candidate close/removal failures retain their original errors and reach the
    * owned task even when later resolver code catches the thrown outcome.
    * Successful removal relinquishes that pathname immediately; only failed
-   * removals retain retry authority, and all roots are attempted before failure.
+   * removals retain retry authority, and all roots are attempted before
+   * failure.
    *
    * @evidence contracts/common.md#principled-implementation Only the original boundary accepts a classified result; safe certificates cannot become unknown through a surrounding catch.
    * @evidence contracts/common.md#clear-and-simple-design The state transition and exact guard-file list centralize completion and unknown publication.
@@ -243,24 +304,53 @@ export namespace SourceNativeRetirement {
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated identical safe outcomes retry cleanup, while conflicting certificates are rejected.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Joined or never-started outcomes relinquish each successfully removed guard or candidate pathname and retain only failed removals for retry; original cleanup failures reach the owned task across legacy catches. Unknown retains guards and failed owned candidates until qualified recovery.
    */
-  export function settle(boundaryToken: string, retirement: "joined" | "not-started" | "unknown", reason?: string): void {
+  export function settle(
+    boundaryToken: string,
+    retirement: "joined" | "not-started" | "unknown",
+    reason?: string,
+  ): void {
     if (current === undefined) return;
     const boundary = current.boundaries.get(boundaryToken);
-    if (boundary === undefined) throw new Error("ttsc: native outcome has no admitted boundary");
-    if ((boundary.state === "joined" || boundary.state === "not-started") && retirement === "unknown") return;
-    if ((boundary.state === "joined" || boundary.state === "not-started") && retirement !== boundary.state)
-      throw new Error("ttsc: certified native retirement outcome cannot change");
+    if (boundary === undefined)
+      throw new Error("ttsc: native outcome has no admitted boundary");
+    if (
+      (boundary.state === "joined" || boundary.state === "not-started") &&
+      retirement === "unknown"
+    )
+      return;
+    if (
+      (boundary.state === "joined" || boundary.state === "not-started") &&
+      retirement !== boundary.state
+    )
+      throw new Error(
+        "ttsc: certified native retirement outcome cannot change",
+      );
     if (retirement === "unknown") {
       boundary.state = "unknown";
-      boundary.reason = reason ?? "native process-tree retirement was not confirmed";
+      boundary.reason =
+        reason ?? "native process-tree retirement was not confirmed";
       const failures: unknown[] = [];
       for (let index = 0; index < boundary.resources.length; index++) {
-        try { writeGuard(boundary.files[index]!, current.taskToken, boundary, boundary.resources[index]!, "unknown"); }
-        catch (error) { failures.push(error); }
+        try {
+          writeGuard(
+            boundary.files[index]!,
+            current.taskToken,
+            boundary,
+            boundary.resources[index]!,
+            "unknown",
+          );
+        } catch (error) {
+          failures.push(error);
+        }
       }
       if (failures.length !== 0) {
         const failure = new AggregateError(failures, diagnostic(boundary));
-        if (failures.some((error) => error instanceof GuardPublicationError && error.cleanupFailed))
+        if (
+          failures.some(
+            (error) =>
+              error instanceof GuardPublicationError && error.cleanupFailed,
+          )
+        )
           OwnedSynchronousProcess.reportFailure(failure);
         throw failure;
       }
@@ -272,8 +362,9 @@ export namespace SourceNativeRetirement {
     const retainedCandidates = new Set<string>();
     const operations = current.guardFileOperations ?? fs;
     for (const file of [...boundary.files, ...boundary.candidates]) {
-      try { operations.rmSync(file, { force: true }); }
-      catch (error) {
+      try {
+        operations.rmSync(file, { force: true });
+      } catch (error) {
         failures.push(error);
         if (boundary.candidates.has(file)) retainedCandidates.add(file);
         else retained.push(file);
@@ -282,7 +373,10 @@ export namespace SourceNativeRetirement {
     boundary.files = retained;
     boundary.candidates = retainedCandidates;
     if (failures.length !== 0) {
-      const failure = new AggregateError(failures, `ttsc: certified native guard cleanup failed; retained guards: ${JSON.stringify([...retained, ...retainedCandidates])}; retained paths: ${JSON.stringify(boundary.resources.flatMap((resource) => resource.retainedPaths))}`);
+      const failure = new AggregateError(
+        failures,
+        `ttsc: certified native guard cleanup failed; retained guards: ${JSON.stringify([...retained, ...retainedCandidates])}; retained paths: ${JSON.stringify(boundary.resources.flatMap((resource) => resource.retainedPaths))}`,
+      );
       OwnedSynchronousProcess.reportFailure(failure);
       throw failure;
     }
@@ -290,9 +384,9 @@ export namespace SourceNativeRetirement {
 
   /**
    * Run safe cleanup now or retain its original capability after unknown
-   * retirement. Deferred callbacks are not treated as completed cleanup.
-   * A cleanup refusal is recorded for the task owner before it is rethrown,
-   * so a surrounding discovery catch cannot turn resource loss into success.
+   * retirement. Deferred callbacks are not treated as completed cleanup. A
+   * cleanup refusal is recorded for the task owner before it is rethrown, so a
+   * surrounding discovery catch cannot turn resource loss into success.
    *
    * @evidence contracts/common.md#principled-implementation Cleanup executes only when all admitted boundaries certify safety; otherwise its original callback is retained. An immediate refusal remains the same thrown error and is recorded in the asynchronous task owner's failure ledger.
    * @evidence contracts/common.md#clear-and-simple-design One predicate chooses immediate execution or FIFO deferral.
@@ -306,15 +400,17 @@ export namespace SourceNativeRetirement {
   export function release(cleanup: () => void): void {
     if (current !== undefined && !canRelease()) current.deferred.push(cleanup);
     else {
-      try { cleanup(); }
-      catch (error) {
+      try {
+        cleanup();
+      } catch (error) {
         OwnedSynchronousProcess.reportFailure(error);
         throw error;
       }
     }
   }
 
-  /** Observe the installed task's native closure authority without throwing.
+  /**
+   * Observe the installed task's native closure authority without throwing.
    *
    * @evidence contracts/common.md#principled-implementation Every boundary must be joined or never started before cleanup is safe.
    * @evidence contracts/common.md#clear-and-simple-design One task-local predicate serves every release consumer.
@@ -328,7 +424,8 @@ export namespace SourceNativeRetirement {
   export function canRelease(): boolean {
     if (current === undefined) return true;
     for (const boundary of current.boundaries.values())
-      if (boundary.state === "unknown" || boundary.state === "pending") return false;
+      if (boundary.state === "unknown" || boundary.state === "pending")
+        return false;
     return true;
   }
 
@@ -346,17 +443,27 @@ export namespace SourceNativeRetirement {
    * @evidence contracts/performance.md#reuse-equivalent-work A previously certified identical outcome can retry failed cleanup without rerunning successful callbacks.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Successful callbacks are removed once; failures retain the original capability for another qualified retry.
    */
-  export function recover(scope: Scope, boundaryToken: string, retirement: "joined" | "not-started"): void {
+  export function recover(
+    scope: Scope,
+    boundaryToken: string,
+    retirement: "joined" | "not-started",
+  ): void {
     run(scope, () => {
       const boundary = scope.boundaries.get(boundaryToken);
-      if (boundary === undefined || (boundary.state !== "unknown" && boundary.state !== retirement))
-        throw new Error("ttsc: recovery does not identify an unresolved native boundary");
+      if (
+        boundary === undefined ||
+        (boundary.state !== "unknown" && boundary.state !== retirement)
+      )
+        throw new Error(
+          "ttsc: recovery does not identify an unresolved native boundary",
+        );
       settle(boundaryToken, retirement);
       if (!canRelease()) return;
       while (scope.deferred.length !== 0) {
         const cleanup = scope.deferred[0]!;
-        try { cleanup(); }
-        catch (error) {
+        try {
+          cleanup();
+        } catch (error) {
           OwnedSynchronousProcess.reportFailure(error);
           throw error;
         }
@@ -365,7 +472,8 @@ export namespace SourceNativeRetirement {
     });
   }
 
-  /** Pending, malformed and unknown guards all prohibit collector reclamation.
+  /**
+   * Pending, malformed and unknown guards all prohibit collector reclamation.
    * An exact generation query ignores valid guards for different generations.
    *
    * @evidence contracts/common.md#principled-implementation Any pending, unknown or malformed guard prevents reclamation.
@@ -379,7 +487,12 @@ export namespace SourceNativeRetirement {
    */
   export function isProtected(fenceRoot: string, generation?: string): boolean {
     const generations = protectedGenerations(fenceRoot);
-    return generations === undefined || (generation === undefined ? generations.size !== 0 : generations.has(generation));
+    return (
+      generations === undefined ||
+      (generation === undefined
+        ? generations.size !== 0
+        : generations.has(generation))
+    );
   }
 
   /**
@@ -397,7 +510,9 @@ export namespace SourceNativeRetirement {
    * @evidence contracts/performance.md#reuse-equivalent-work One collector pass shares this observed guard snapshot; later passes and final object-eviction admission make fresh native observations.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The returned set retains at most one token per observed guarded generation and holds no native handle; the collector owns this transient snapshot.
    */
-  export function protectedGenerations(fenceRoot: string): ReadonlySet<string> | undefined {
+  export function protectedGenerations(
+    fenceRoot: string,
+  ): ReadonlySet<string> | undefined {
     const generations = new Set<string>();
     for (const guard of readGuards(fenceRoot)) {
       if (guard.record?.generation === undefined) return undefined;
@@ -423,7 +538,9 @@ export namespace SourceNativeRetirement {
   export function assertAvailable(fenceRoot: string): void {
     for (const guard of readGuards(fenceRoot)) {
       if (guard.record?.state === "pending") continue;
-      throw new Error(`ttsc: source resource is quarantined: ${guard.file}; ${guard.record?.reason ?? "native retirement metadata is unreadable or invalid"}; retained paths: ${JSON.stringify(guard.record?.retainedPaths ?? [fenceRoot])}; qualified native closure or operator-confirmed external closure is required`);
+      throw new Error(
+        `ttsc: source resource is quarantined: ${guard.file}; ${guard.record?.reason ?? "native retirement metadata is unreadable or invalid"}; retained paths: ${JSON.stringify(guard.record?.retainedPaths ?? [fenceRoot])}; qualified native closure or operator-confirmed external closure is required`,
+      );
     }
   }
 
@@ -446,7 +563,8 @@ export namespace SourceNativeRetirement {
     return `native input ownership ${guard.record?.state ?? "invalid"} at ${guard.file}: ${guard.record?.reason ?? "native closure remains unconfirmed"}; retained paths: ${JSON.stringify(guard.record?.retainedPaths ?? [fenceRoot])}`;
   }
 
-  /** Refuse ownership completion or stealing while any native guard remains.
+  /**
+   * Refuse ownership completion or stealing while any native guard remains.
    *
    * @evidence contracts/common.md#principled-implementation Any relevant guard prohibits completion or stealing; exact differing generations do not block their independent lease release.
    * @evidence contracts/common.md#clear-and-simple-design One generation filter serves key retirement and shared Go record cleanup.
@@ -457,10 +575,20 @@ export namespace SourceNativeRetirement {
    * @evidence contracts/performance.md#reuse-equivalent-work Reclamation authority is observed anew rather than cached across filesystem mutations.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Refusal leaves the original resources and guards owned; the check holds no persistent handle.
    */
-  export function assertReleasable(fenceRoot: string, generation?: string): void {
+  export function assertReleasable(
+    fenceRoot: string,
+    generation?: string,
+  ): void {
     for (const guard of readGuards(fenceRoot)) {
-      if (generation !== undefined && guard.record?.generation !== undefined && guard.record.generation !== generation) continue;
-      throw new Error(`ttsc: native input ownership remains protected at ${guard.file}; retained paths: ${JSON.stringify(guard.record?.retainedPaths ?? [fenceRoot])}`);
+      if (
+        generation !== undefined &&
+        guard.record?.generation !== undefined &&
+        guard.record.generation !== generation
+      )
+        continue;
+      throw new Error(
+        `ttsc: native input ownership remains protected at ${guard.file}; retained paths: ${JSON.stringify(guard.record?.retainedPaths ?? [fenceRoot])}`,
+      );
     }
   }
 
@@ -481,8 +609,11 @@ export namespace SourceNativeRetirement {
   export function assertCleanable(target: string): void {
     const resolved = path.resolve(target);
     let terminalLink = false;
-    try { terminalLink = fs.lstatSync(resolved).isSymbolicLink(); }
-    catch (error) { if (!missing(error)) throw error; }
+    try {
+      terminalLink = fs.lstatSync(resolved).isSymbolicLink();
+    } catch (error) {
+      if (!missing(error)) throw error;
+    }
     let ancestor = terminalLink ? path.dirname(resolved) : resolved;
     for (;;) {
       assertReleasable(ancestor);
@@ -494,28 +625,37 @@ export namespace SourceNativeRetirement {
     while (pending.length !== 0) {
       const directory = pending.pop()!;
       let stats: fs.Stats;
-      try { stats = fs.lstatSync(directory); }
-      catch (error) { if (missing(error)) continue; throw error; }
+      try {
+        stats = fs.lstatSync(directory);
+      } catch (error) {
+        if (missing(error)) continue;
+        throw error;
+      }
       if (!stats.isDirectory() || stats.isSymbolicLink()) continue;
       assertReleasable(directory);
       for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
-        if (entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== GUARD_DIRECTORY)
+        if (
+          entry.isDirectory() &&
+          !entry.isSymbolicLink() &&
+          entry.name !== GUARD_DIRECTORY
+        )
           pending.push(path.join(directory, entry.name));
     }
   }
 }
 
 /**
- * A registered physical input root and its optional exact source/lease generation.
+ * A registered physical input root and its optional exact source/lease
+ * generation.
  *
- * Optional generation and nonce preserve existing owner authority while path lists explain retained inputs.
- * One resource combines its root, diagnostic input paths and exact generation identity.
- * A root entry never equates PID identity with native closure.
- * Field comments identify ownership and diagnostic purpose.
- * Native paths are strings whose physical root was resolved at registration.
- * This type executes no algorithm.
- * The type grants no equivalent-result reuse.
- * Runtime scope and boundary owners govern the represented resource lifetime.
+ * Optional generation and nonce preserve existing owner authority while path
+ * lists explain retained inputs. One resource combines its root, diagnostic
+ * input paths and exact generation identity. A root entry never equates PID
+ * identity with native closure. Field comments identify ownership and
+ * diagnostic purpose. Native paths are strings whose physical root was resolved
+ * at registration. This type executes no algorithm. The type grants no
+ * equivalent-result reuse. Runtime scope and boundary owners govern the
+ * represented resource lifetime.
  */
 interface Resource {
   /** Observed physical directory holding the guard. */
@@ -534,14 +674,15 @@ interface Resource {
 /**
  * One original command admission and its exact input-guard publication set.
  *
- * State separates unresolved admission from qualified joined or never-started closure.
- * One boundary stores its token, immutable snapshot and owned guard paths.
- * Unknown is represented explicitly instead of converted to successful cleanup.
- * Native prose identifies per-command ownership and publication scope.
- * File strings address native guard entries; classification comes from the native owner.
- * This type declares state without scanning or publishing.
- * A boundary identity cannot be reused for another admission.
- * The task owner retains this record and its input snapshot until qualified completion or terminal quarantine.
+ * State separates unresolved admission from qualified joined or never-started
+ * closure. One boundary stores its token, immutable snapshot and owned guard
+ * paths. Unknown is represented explicitly instead of converted to successful
+ * cleanup. Native prose identifies per-command ownership and publication scope.
+ * File strings address native guard entries; classification comes from the
+ * native owner. This type declares state without scanning or publishing. A
+ * boundary identity cannot be reused for another admission. The task owner
+ * retains this record and its input snapshot until qualified completion or
+ * terminal quarantine.
  */
 interface Boundary {
   /** Original command admission token. */
@@ -564,16 +705,18 @@ interface Boundary {
 }
 
 /**
- * Cooperating-version metadata that preserves input ownership without granting recovery authority.
+ * Cooperating-version metadata that preserves input ownership without granting
+ * recovery authority.
  *
- * Version, exact task/boundary identity and pending/unknown states distinguish the publication contract.
- * One JSON record carries diagnostic paths and optional exact generation identity.
- * Neither process identity nor a timestamp can authorize reclamation from these bytes.
- * Native prose explains cooperation and the lack of recovery authority.
- * Native path strings preserve diagnostic spellings; guard directory identity is validated separately.
- * This type executes no metadata reads or scans.
- * Guard identity does not imply compiler-result equivalence.
- * Publication and qualified settlement own record acquisition and deletion; unknown records have no age expiry.
+ * Version, exact task/boundary identity and pending/unknown states distinguish
+ * the publication contract. One JSON record carries diagnostic paths and
+ * optional exact generation identity. Neither process identity nor a timestamp
+ * can authorize reclamation from these bytes. Native prose explains cooperation
+ * and the lack of recovery authority. Native path strings preserve diagnostic
+ * spellings; guard directory identity is validated separately. This type
+ * executes no metadata reads or scans. Guard identity does not imply
+ * compiler-result equivalence. Publication and qualified settlement own record
+ * acquisition and deletion; unknown records have no age expiry.
  */
 interface GuardRecord {
   /** Cooperative JSON protocol revision. */
@@ -604,46 +747,51 @@ interface GuardRecord {
 /**
  * Encode an opaque identity into a fixed safe guard filename component.
  *
- * SHA-256 hex encoding avoids path separators in arbitrary task tokens.
- * One standard hash operation owns filename encoding.
- * No consumer or expected result is special-cased.
- * Native prose states the filename purpose rather than a security certificate.
- * Hex output is a filename component on supported Node filesystems.
- * Hashing costs token bytes and produces fixed-size output.
- * Repeated hashing is local identity encoding; no effectful work is cached.
- * The temporary hash object holds no persistent resource.
+ * SHA-256 hex encoding avoids path separators in arbitrary task tokens. One
+ * standard hash operation owns filename encoding. No consumer or expected
+ * result is special-cased. Native prose states the filename purpose rather than
+ * a security certificate. Hex output is a filename component on supported Node
+ * filesystems. Hashing costs token bytes and produces fixed-size output.
+ * Repeated hashing is local identity encoding; no effectful work is cached. The
+ * temporary hash object holds no persistent resource.
  */
 function digest(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 /**
- * Recognize only filesystem absence codes accepted by conservative guard lookup.
+ * Recognize only filesystem absence codes accepted by conservative guard
+ * lookup.
  *
- * ENOENT and ENOTDIR denote absent path components; other errors must remain visible.
- * One structural code predicate supports unknown error values.
+ * ENOENT and ENOTDIR denote absent path components; other errors must remain
+ * visible. One structural code predicate supports unknown error values.
  * Permission and malformed metadata errors cannot be mistaken for absence.
- * Native prose names the limited absence interpretation.
- * Node native error codes express absence without OS-name branching.
- * A fixed set of property/code checks takes constant work.
- * Each actual error is classified independently.
+ * Native prose names the limited absence interpretation. Node native error
+ * codes express absence without OS-name branching. A fixed set of property/code
+ * checks takes constant work. Each actual error is classified independently.
  * The predicate retains no handles or historical error registry.
  */
 function missing(error: unknown): boolean {
-  return error !== null && typeof error === "object" && "code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR");
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error.code === "ENOENT" || error.code === "ENOTDIR")
+  );
 }
 
 /**
- * Resolve an existing native root to the physical spelling used by its registration.
+ * Resolve an existing native root to the physical spelling used by its
+ * registration.
  *
- * Native realpath observes actual filesystem aliases before map indexing.
- * One Node filesystem primitive owns canonical spelling.
- * Lexical path normalization alone is not treated as physical identity.
- * Native prose explains the existing-root premise.
- * realpath.native resolves physical identity without assuming a platform case rule.
- * Native ancestor resolution and path text drive cost.
- * Mutable native identity is resolved per registration or lookup.
- * The operation holds no directory handle and cannot prevent later namespace replacement.
+ * Native realpath observes actual filesystem aliases before map indexing. One
+ * Node filesystem primitive owns canonical spelling. Lexical path normalization
+ * alone is not treated as physical identity. Native prose explains the
+ * existing-root premise. realpath.native resolves physical identity without
+ * assuming a platform case rule. Native ancestor resolution and path text drive
+ * cost. Mutable native identity is resolved per registration or lookup. The
+ * operation holds no directory handle and cannot prevent later namespace
+ * replacement.
  */
 function physicalRoot(root: string): string {
   return fs.realpathSync.native(path.resolve(root));
@@ -652,42 +800,79 @@ function physicalRoot(root: string): string {
 /**
  * Validate or create the ordinary native directory holding one root's guards.
  *
- * lstat rejects links and resolved-parent identity keeps metadata under the selected physical root.
- * One helper centralizes directory creation and boundary validation.
- * Only absence may omit lookup; unsafe aliases and I/O failures do not authorize deletion.
- * Native prose explains guard containment and lookup/create behavior.
- * Native realpath and lstat inspect actual links and parent identity on supported filesystems.
- * Directory creation and metadata resolution scale with ancestor depth and path text.
- * Native observations are refreshed because namespace identity can change.
- * No directory handle is retained; the existing namespace ownership premise remains necessary.
+ * Lstat rejects links and resolved-parent identity keeps metadata under the
+ * selected physical root. One helper centralizes directory creation and
+ * boundary validation. Only absence may omit lookup; unsafe aliases and I/O
+ * failures do not authorize deletion. Native prose explains guard containment
+ * and lookup/create behavior. Native realpath and lstat inspect actual links
+ * and parent identity on supported filesystems. Directory creation and metadata
+ * resolution scale with ancestor depth and path text. Native observations are
+ * refreshed because namespace identity can change. No directory handle is
+ * retained; the existing namespace ownership premise remains necessary.
  */
 function guardDirectory(root: string, create: boolean): string | undefined {
   const directory = path.join(root, GUARD_DIRECTORY);
   if (create) fs.mkdirSync(directory, { recursive: true });
   let stats: fs.Stats;
-  try { stats = fs.lstatSync(directory); }
-  catch (error) { if (!create && missing(error)) return undefined; throw error; }
-  if (!stats.isDirectory() || stats.isSymbolicLink() || path.dirname(fs.realpathSync.native(directory)) !== physicalRoot(root))
-    throw new Error(`ttsc: unsafe native retirement guard directory: ${directory}`);
+  try {
+    stats = fs.lstatSync(directory);
+  } catch (error) {
+    if (!create && missing(error)) return undefined;
+    throw error;
+  }
+  if (
+    !stats.isDirectory() ||
+    stats.isSymbolicLink() ||
+    path.dirname(fs.realpathSync.native(directory)) !== physicalRoot(root)
+  )
+    throw new Error(
+      `ttsc: unsafe native retirement guard directory: ${directory}`,
+    );
   return directory;
 }
 
 /**
- * Publish one boundary's metadata with exclusive initial creation or atomic replacement.
+ * Publish one boundary's metadata with exclusive initial creation or atomic
+ * replacement.
  *
- * Exclusive open owns the actual descriptor and registers an initial file before writing; a failed open never permits pathname deletion. Later updates own a unique candidate until successful rename transfers it to the guard.
- * One serializer and descriptor-based publication path preserve task, boundary and resource identity; a private aggregate distinguishes write errors from ownership cleanup failures.
- * Failed unknown replacement leaves the previous guard conservative rather than authorizing release.
- * Native prose distinguishes initial admission publication from later diagnostics.
- * Node exclusive writes and rename expose real filesystem refusal; no cross-platform shell syntax is used.
- * Serialization and writes scale with token and retained path bytes.
- * Effectful publications run anew for each native boundary transition.
- * Close is attempted once after writing and its failure is never treated as closure. Initial rollback belongs to begin; update candidates enter the owned set after exclusive open and leave it only on successful rename or removal. Failed candidate removal retains exact authority for qualified recovery. Write, close, rename and removal failures remain original aggregate members; cleanup failures are reported across legacy catches.
+ * Exclusive open owns the actual descriptor and registers an initial file
+ * before writing; a failed open never permits pathname deletion. Later updates
+ * own a unique candidate until successful rename transfers it to the guard. One
+ * serializer and descriptor-based publication path preserve task, boundary and
+ * resource identity; a private aggregate distinguishes write errors from
+ * ownership cleanup failures. Failed unknown replacement leaves the previous
+ * guard conservative rather than authorizing release. Native prose
+ * distinguishes initial admission publication from later diagnostics. Node
+ * exclusive writes and rename expose real filesystem refusal; no cross-platform
+ * shell syntax is used. Serialization and writes scale with token and retained
+ * path bytes. Effectful publications run anew for each native boundary
+ * transition. Close is attempted once after writing and its failure is never
+ * treated as closure. Initial rollback belongs to begin; update candidates
+ * enter the owned set after exclusive open and leave it only on successful
+ * rename or removal. Failed candidate removal retains exact authority for
+ * qualified recovery. Write, close, rename and removal failures remain original
+ * aggregate members; cleanup failures are reported across legacy catches.
  */
-function writeGuard(file: string, taskToken: string, boundary: Boundary, resource: Resource, state: GuardRecord["state"], initial = false): void {
-  const bytes = JSON.stringify({ version: 1, taskToken, boundaryToken: boundary.token, state, reason: boundary.reason, ...resource });
+function writeGuard(
+  file: string,
+  taskToken: string,
+  boundary: Boundary,
+  resource: Resource,
+  state: GuardRecord["state"],
+  initial = false,
+): void {
+  const bytes = JSON.stringify({
+    version: 1,
+    taskToken,
+    boundaryToken: boundary.token,
+    state,
+    reason: boundary.reason,
+    ...resource,
+  });
   const operations = current?.guardFileOperations ?? fs;
-  const candidate = initial ? file : `${file}.${crypto.randomBytes(16).toString("hex")}.tmp`;
+  const candidate = initial
+    ? file
+    : `${file}.${crypto.randomBytes(16).toString("hex")}.tmp`;
   // Open is the ownership transition. An EEXIST refusal must never cause
   // deletion of the pathname this boundary did not create.
   const descriptor = operations.openSync(candidate, "wx");
@@ -698,21 +883,41 @@ function writeGuard(file: string, taskToken: string, boundary: Boundary, resourc
   let published = false;
   try {
     operations.writeFileSync(descriptor, bytes);
-  } catch (error) { failures.push(error); }
-  try { operations.closeSync(descriptor); }
-  catch (error) { failures.push(error); cleanupFailed = true; }
+  } catch (error) {
+    failures.push(error);
+  }
+  try {
+    operations.closeSync(descriptor);
+  } catch (error) {
+    failures.push(error);
+    cleanupFailed = true;
+  }
   if (!initial) {
     if (failures.length === 0) {
-      try { operations.renameSync(candidate, file); published = true; boundary.candidates.delete(candidate); }
-      catch (error) { failures.push(error); }
+      try {
+        operations.renameSync(candidate, file);
+        published = true;
+        boundary.candidates.delete(candidate);
+      } catch (error) {
+        failures.push(error);
+      }
     }
     if (!published) {
-      try { operations.rmSync(candidate, { force: true }); boundary.candidates.delete(candidate); }
-      catch (error) { failures.push(error); cleanupFailed = true; }
+      try {
+        operations.rmSync(candidate, { force: true });
+        boundary.candidates.delete(candidate);
+      } catch (error) {
+        failures.push(error);
+        cleanupFailed = true;
+      }
     }
   }
   if (failures.length !== 0)
-    throw new GuardPublicationError(failures, `ttsc: native guard file publication failed at ${candidate}; retained paths: ${JSON.stringify(resource.retainedPaths)}`, cleanupFailed);
+    throw new GuardPublicationError(
+      failures,
+      `ttsc: native guard file publication failed at ${candidate}; retained paths: ${JSON.stringify(resource.retainedPaths)}`,
+      cleanupFailed,
+    );
 }
 
 /**
@@ -734,45 +939,68 @@ class GuardPublicationError extends AggregateError {
 }
 
 /**
- * Observe all root guards conservatively, treating invalid entries as protected.
+ * Observe all root guards conservatively, treating invalid entries as
+ * protected.
  *
- * Version, token-derived filename, states and field shapes validate the cooperative JSON protocol.
- * A single directory map serves admission, collectors and clean.
- * Unexpected entries or parse failures do not become empty ownership.
- * Native prose identifies conservative parsing and missing-directory behavior.
- * Native directory validation rejects aliased metadata roots; entry types and actual JSON bytes are observed.
- * Reading costs guard count and total metadata bytes, including validation hashing.
- * Mutable guards are reread for each ownership decision.
- * Only transient entry/JSON/path data are retained; this reader grants no recovery capability.
+ * Version, token-derived filename, states and field shapes validate the
+ * cooperative JSON protocol. A single directory map serves admission,
+ * collectors and clean. Unexpected entries or parse failures do not become
+ * empty ownership. Native prose identifies conservative parsing and
+ * missing-directory behavior. Native directory validation rejects aliased
+ * metadata roots; entry types and actual JSON bytes are observed. Reading costs
+ * guard count and total metadata bytes, including validation hashing. Mutable
+ * guards are reread for each ownership decision. Only transient entry/JSON/path
+ * data are retained; this reader grants no recovery capability.
  */
-function readGuards(root: string): Array<{ file: string; record?: GuardRecord }> {
+function readGuards(
+  root: string,
+): Array<{ file: string; record?: GuardRecord }> {
   const directory = guardDirectory(root, false);
   if (directory === undefined) return [];
   return fs.readdirSync(directory, { withFileTypes: true }).map((entry) => {
     const file = path.join(directory, entry.name);
     if (!entry.isFile() || entry.isSymbolicLink()) return { file };
     try {
-      const record = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<GuardRecord> | null;
-      if (record === null || record.version !== 1 || typeof record.taskToken !== "string" || record.taskToken.length === 0 || typeof record.boundaryToken !== "string" || record.boundaryToken.length === 0 ||
-        entry.name !== `${digest(record.taskToken)}-${digest(record.boundaryToken)}.json` || (record.reason !== undefined && typeof record.reason !== "string") ||
-        (record.state !== "pending" && record.state !== "unknown") || !Array.isArray(record.retainedPaths) || !record.retainedPaths.every((entry) => typeof entry === "string") ||
-        (record.generation !== undefined && typeof record.generation !== "string") || (record.completionNonce !== undefined && typeof record.completionNonce !== "string")) return { file };
+      const record = JSON.parse(
+        fs.readFileSync(file, "utf8"),
+      ) as Partial<GuardRecord> | null;
+      if (
+        record === null ||
+        record.version !== 1 ||
+        typeof record.taskToken !== "string" ||
+        record.taskToken.length === 0 ||
+        typeof record.boundaryToken !== "string" ||
+        record.boundaryToken.length === 0 ||
+        entry.name !==
+          `${digest(record.taskToken)}-${digest(record.boundaryToken)}.json` ||
+        (record.reason !== undefined && typeof record.reason !== "string") ||
+        (record.state !== "pending" && record.state !== "unknown") ||
+        !Array.isArray(record.retainedPaths) ||
+        !record.retainedPaths.every((entry) => typeof entry === "string") ||
+        (record.generation !== undefined &&
+          typeof record.generation !== "string") ||
+        (record.completionNonce !== undefined &&
+          typeof record.completionNonce !== "string")
+      )
+        return { file };
       return { file, record: record as GuardRecord };
-    } catch { return { file }; }
+    } catch {
+      return { file };
+    }
   });
 }
 
 /**
  * Describe unknown retirement with its boundary and exact retained input paths.
  *
- * The original boundary snapshot supplies paths without guessing a process lifetime.
- * One error message states reason, retained paths and required qualified recovery.
- * An error message does not certify closure or successful cleanup.
- * Native prose identifies diagnostic purpose.
- * JSON encoding preserves native path strings in the diagnostic.
- * Formatting scans retained paths and their text bytes.
- * Diagnostics reflect the current boundary reason, without caching a previous failure.
- * The returned string owns no native handle or cleanup authority.
+ * The original boundary snapshot supplies paths without guessing a process
+ * lifetime. One error message states reason, retained paths and required
+ * qualified recovery. An error message does not certify closure or successful
+ * cleanup. Native prose identifies diagnostic purpose. JSON encoding preserves
+ * native path strings in the diagnostic. Formatting scans retained paths and
+ * their text bytes. Diagnostics reflect the current boundary reason, without
+ * caching a previous failure. The returned string owns no native handle or
+ * cleanup authority.
  */
 function diagnostic(boundary: Boundary): string {
   return `ttsc: native retirement is unknown for ${boundary.token}: ${boundary.reason}; retained paths: ${JSON.stringify(boundary.resources.flatMap((resource) => resource.retainedPaths))}; qualified native closure or operator-confirmed external closure is required`;

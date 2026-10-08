@@ -13,13 +13,13 @@ import (
 // TestMarkdownCaptureRefreshesAfterConsumption verifies first-observation
 // ownership and renewal across Checks, including failed or withdrawn reads.
 //
-// 1. Edit a document immediately after its first bytes are consumed, then
-//    require evaluation, Hints and the retained witness to describe those bytes.
-// 2. Run another Check and require its inventory and witness to see the edit.
-// 3. Repair a failed read between phases and require the first Check to fail,
-//    while the next Check succeeds; retain explicit authority withdrawal too.
-// 4. Delete an already consumed claim before expanded reference discovery,
-//    retaining its first inventory until the next Check observes absence.
+//  1. Edit a document immediately after its first bytes are consumed, then
+//     require evaluation, Hints and the retained witness to describe those bytes.
+//  2. Run another Check and require its inventory and witness to see the edit.
+//  3. Repair a failed read between phases and require the first Check to fail,
+//     while the next Check succeeds; retain explicit authority withdrawal too.
+//  4. Delete an already consumed claim before expanded reference discovery,
+//     retaining its first inventory until the next Check observes absence.
 //
 // @evidence contracts/testing.md#behavioral-verification Direct graphRule.Check and Hints calls distinguish the first anchor from a post-consumption edit, then the next Check sees the replacement. Exact returned-byte SHA-256 witnesses, read counts, failed Corpus publication, repair and sticky Unavailable assertions exercise the supported reader boundary.
 // @evidence contracts/testing.md#independent-expectations Literal old/new anchors and independently hashed authored byte strings define the snapshot oracle. A failed first consumption cannot become a healthy inventory by a phase retry. Unavailable is one-way withdrawal; the graph cannot restore it merely because parsing succeeded.
@@ -45,19 +45,33 @@ func TestMarkdownCaptureRefreshesAfterConsumption(t *testing.T) {
     oldDigest := sha256.Sum256([]byte(oldContent))
     newDigest := sha256.Sum256([]byte(newContent))
     firstWitness := reader.hashes[document]
-    if firstWitness != hex.EncodeToString(oldDigest[:]) || firstWitness == hex.EncodeToString(newDigest[:]) { t.Fatal("consumed witness was replaced with later content") }
+    if firstWitness != hex.EncodeToString(oldDigest[:]) || firstWitness == hex.EncodeToString(newDigest[:]) {
+      t.Fatal("consumed witness was replaced with later content")
+    }
     firstInserts := targetInserts(markdownCaptureHints(root, options, first))
-    if !slices.Contains(firstInserts, "doc.md#original") || slices.Contains(firstInserts, "doc.md#changed") { t.Fatalf("first Hints=%q", firstInserts) }
-    if reader.reads[document] != 1 { t.Fatalf("first Check reads=%d", reader.reads[document]) }
+    if !slices.Contains(firstInserts, "doc.md#original") || slices.Contains(firstInserts, "doc.md#changed") {
+      t.Fatalf("first Hints=%q", firstInserts)
+    }
+    if reader.reads[document] != 1 {
+      t.Fatalf("first Check reads=%d", reader.reads[document])
+    }
     firstInventory := first.state.(*graphCycleState).Corpus.Markdown["doc.md"]
     second := runMarkdownCaptureGraph(t, root, options, reader)
     assertNoProblems(t, second.messages)
     secondInserts := targetInserts(markdownCaptureHints(root, options, second))
-    if !slices.Contains(secondInserts, "doc.md#changed") || slices.Contains(secondInserts, "doc.md#original") { t.Fatalf("next Hints=%q", secondInserts) }
-    if reader.reads[document] != 2 || reader.hashes[document] != hex.EncodeToString(newDigest[:]) { t.Fatal("next Check did not consume the edited bytes") }
+    if !slices.Contains(secondInserts, "doc.md#changed") || slices.Contains(secondInserts, "doc.md#original") {
+      t.Fatalf("next Hints=%q", secondInserts)
+    }
+    if reader.reads[document] != 2 || reader.hashes[document] != hex.EncodeToString(newDigest[:]) {
+      t.Fatal("next Check did not consume the edited bytes")
+    }
     secondInventory := second.state.(*graphCycleState).Corpus.Markdown["doc.md"]
-    if firstInventory == secondInventory || firstInventory.Units[1].Digest == secondInventory.Units[1].Digest { t.Fatal("new content retained the old inventory or review fingerprint") }
-    if firstInventory.Units[1].Target != "doc.md#original" { t.Fatal("later Check mutated the earlier published snapshot") }
+    if firstInventory == secondInventory || firstInventory.Units[1].Digest == secondInventory.Units[1].Digest {
+      t.Fatal("new content retained the old inventory or review fingerprint")
+    }
+    if firstInventory.Units[1].Target != "doc.md#original" {
+      t.Fatal("later Check mutated the earlier published snapshot")
+    }
   })
   t.Run("failed first observation stays failed", func(t *testing.T) {
     root := linkedPopulationWorkspace(t)
@@ -67,11 +81,17 @@ func TestMarkdownCaptureRefreshesAfterConsumption(t *testing.T) {
     reader.afterRead = func(name string) { delete(reader.failures, name); reader.afterRead = nil }
     first := runMarkdownCaptureGraph(t, root, options, reader)
     assertProblemContains(t, first.messages, "could not read Markdown file 'doc.md'")
-    if reader.reads[document] != 1 || !reader.unavailable { t.Fatal("failed observation was retried or certified") }
-    if first.state.(*graphCycleState).Corpus.Markdown != nil || len(markdownCaptureHints(root, options, first)) != 0 { t.Fatal("failed consumption published a completion corpus") }
+    if reader.reads[document] != 1 || !reader.unavailable {
+      t.Fatal("failed observation was retried or certified")
+    }
+    if first.state.(*graphCycleState).Corpus.Markdown != nil || len(markdownCaptureHints(root, options, first)) != 0 {
+      t.Fatal("failed consumption published a completion corpus")
+    }
     second := runMarkdownCaptureGraph(t, root, options, reader)
     assertNoProblems(t, second.messages)
-    if reader.reads[document] != 2 || !reader.unavailable { t.Fatal("next Check failed to retry or reset the reader's sticky withdrawal") }
+    if reader.reads[document] != 2 || !reader.unavailable {
+      t.Fatal("next Check failed to retry or reset the reader's sticky withdrawal")
+    }
   })
   t.Run("successful bytes cannot restore authority", func(t *testing.T) {
     root := linkedPopulationWorkspace(t)
@@ -81,7 +101,9 @@ func TestMarkdownCaptureRefreshesAfterConsumption(t *testing.T) {
     reader.afterRead = func(string) { reader.Unavailable() }
     reporter := runMarkdownCaptureGraph(t, root, options, reader)
     assertNoProblems(t, reporter.messages)
-    if !reader.unavailable || reader.reads[document] != 1 || reader.hashes[document] == "" { t.Fatal("capture lost the actual consumption or withdrawal") }
+    if !reader.unavailable || reader.reads[document] != 1 || reader.hashes[document] == "" {
+      t.Fatal("capture lost the actual consumption or withdrawal")
+    }
   })
   t.Run("expanded discovery retains a deleted captured claim", func(t *testing.T) {
     root := linkedPopulationWorkspace(t)
@@ -94,17 +116,27 @@ func TestMarkdownCaptureRefreshesAfterConsumption(t *testing.T) {
     reader := &markdownCaptureReader{}
     reader.afterRead = func(name string) {
       if name == document {
-        if err := os.Remove(document); err != nil { t.Fatal(err) }
+        if err := os.Remove(document); err != nil {
+          t.Fatal(err)
+        }
         reader.afterRead = nil
       }
     }
     first := runMarkdownCaptureGraph(t, root, options, reader)
     assertNoProblems(t, first.messages)
-    if first.state.(*graphCycleState).Corpus.Markdown["docs/claim.md"] == nil || !slices.Contains(targetInserts(markdownCaptureHints(root, options, first)), "docs/claim.md#claim") { t.Fatal("later discovery discarded the first consumed inventory") }
-    if reader.reads[document] != 1 || reader.reads[filepath.Join(root, "docs", "other.md")] != 1 { t.Fatal("expanded discovery repeated or skipped consumption") }
+    if first.state.(*graphCycleState).Corpus.Markdown["docs/claim.md"] == nil || !slices.Contains(targetInserts(markdownCaptureHints(root, options, first)), "docs/claim.md#claim") {
+      t.Fatal("later discovery discarded the first consumed inventory")
+    }
+    if reader.reads[document] != 1 || reader.reads[filepath.Join(root, "docs", "other.md")] != 1 {
+      t.Fatal("expanded discovery repeated or skipped consumption")
+    }
     second := runMarkdownCaptureGraph(t, root, options, reader)
     assertNoProblems(t, second.messages)
-    if len(second.state.(*graphCycleState).Corpus.Markdown) != 0 || len(markdownCaptureHints(root, options, second)) != 0 { t.Fatal("next Check did not observe claim deletion") }
-    if reader.reads[filepath.Join(root, "docs", "other.md")] != 1 { t.Fatal("deleted inactive claim loaded its reference on the next Check") }
+    if len(second.state.(*graphCycleState).Corpus.Markdown) != 0 || len(markdownCaptureHints(root, options, second)) != 0 {
+      t.Fatal("next Check did not observe claim deletion")
+    }
+    if reader.reads[filepath.Join(root, "docs", "other.md")] != 1 {
+      t.Fatal("deleted inactive claim loaded its reference on the next Check")
+    }
   })
 }

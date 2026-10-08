@@ -11,7 +11,8 @@ type NativeBuildContext = Parameters<typeof buildHostDeclaresPolling>[0];
  * compiler can start another session. These public capability carriers do not
  * model native event delivery or invoke a bundler.
  *
- * 1. Compare explicit intervals, boolean options and native defaults for both hosts.
+ * 1. Compare explicit intervals, boolean options and native defaults for both
+ *    hosts.
  * 2. Follow Watchpack overrides independently of unrelated Chokidar flags.
  * 3. Close and restart one carrier, then read the new session's declaration.
  *
@@ -42,17 +43,20 @@ export async function test_build_host_polling_follows_the_active_watch_session()
       [{}, false],
       ...["false", "0", "", "true", "1", "yes"].map(
         (value): [NodeJS.ProcessEnv, boolean] => [
-          { CHOKIDAR_USEPOLLING: value }, false,
+          { CHOKIDAR_USEPOLLING: value },
+          false,
         ],
       ),
       ...["true", "100", "-1", "0.5", "Infinity", "00"].map(
         (value): [NodeJS.ProcessEnv, boolean] => [
-          { WATCHPACK_POLLING: value }, true,
+          { WATCHPACK_POLLING: value },
+          true,
         ],
       ),
       ...["false", "0", "", "NaN"].map(
         (value): [NodeJS.ProcessEnv, boolean] => [
-          { WATCHPACK_POLLING: value }, false,
+          { WATCHPACK_POLLING: value },
+          false,
         ],
       ),
       [{ CHOKIDAR_USEPOLLING: "true", WATCHPACK_POLLING: "false" }, false],
@@ -101,8 +105,17 @@ export async function test_build_host_polling_follows_the_active_watch_session()
     buildHostDeclaresPolling({ framework: "farm" } as NativeBuildContext, {}),
     false,
   );
-  for (const native of [undefined, { framework: "farm" } as NativeBuildContext]) {
-    assert.equal(buildHostDeclaresPolling(native, { CHOKIDAR_USEPOLLING: "true" }), true);
-    assert.equal(buildHostDeclaresPolling(native, { CHOKIDAR_USEPOLLING: "false" }), false);
+  for (const native of [
+    undefined,
+    { framework: "farm" } as NativeBuildContext,
+  ]) {
+    assert.equal(
+      buildHostDeclaresPolling(native, { CHOKIDAR_USEPOLLING: "true" }),
+      true,
+    );
+    assert.equal(
+      buildHostDeclaresPolling(native, { CHOKIDAR_USEPOLLING: "false" }),
+      false,
+    );
   }
 }

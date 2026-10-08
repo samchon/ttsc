@@ -51,7 +51,11 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     pathToFileURL(sdkModule).href
   );
   const diagnostics: { serializeCompilerError: typeof SerializeCompilerError } =
-    await import(pathToFileURL(path.join(path.dirname(sdkModule), "serializeCompilerError.js")).href);
+    await import(
+      pathToFileURL(
+        path.join(path.dirname(sdkModule), "serializeCompilerError.js"),
+      ).href
+    );
   const sdkIndex = path.resolve(path.dirname(sdkModule), "../index.js");
   const pluginSource = options.sdkModule
     ? path.resolve(
@@ -70,7 +74,10 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
   const observer = await NativeProcessObserver.prepare({
     binary: options.observerBinary,
   }).open();
-  const observerReady = { at: Date.now(), atNs: process.hrtime.bigint().toString() };
+  const observerReady = {
+    at: Date.now(),
+    atNs: process.hrtime.bigint().toString(),
+  };
   const env = {
     ...process.env,
     TTSC_BINARY: options.binary ?? TestProject.NATIVE_BINARY,
@@ -89,8 +96,16 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
   type Target = Awaited<ReturnType<typeof observer.acquire>>;
   const targets = new Map<string, Target>();
   let events: Record<string, unknown>[] = [];
-  const record = (event: string, details: Record<string, unknown> = {}): void => {
-    events.push({ ...details, event, at: Date.now(), atNs: process.hrtime.bigint().toString() });
+  const record = (
+    event: string,
+    details: Record<string, unknown> = {},
+  ): void => {
+    events.push({
+      ...details,
+      event,
+      at: Date.now(),
+      atNs: process.hrtime.bigint().toString(),
+    });
   };
   const location = (role: string, event: string): string =>
     path.join(root, `lifetime-${role}-${event}.json`);
@@ -100,19 +115,35 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       try {
         const file = location(role, "error");
         if (!fs.existsSync(file)) {
-          record("actor-error-diagnostic", { role, status: "unavailable", reason: "No receipt at snapshot; later publication remains unknown" });
+          record("actor-error-diagnostic", {
+            role,
+            status: "unavailable",
+            reason: "No receipt at snapshot; later publication remains unknown",
+          });
           continue;
         }
         const receipt: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
         assert.ok(receipt && typeof receipt === "object");
         assert.ok("version" in receipt && receipt.version === 1);
-        assert.ok("sessionNonce" in receipt && receipt.sessionNonce === observer.sessionNonce);
+        assert.ok(
+          "sessionNonce" in receipt &&
+            receipt.sessionNonce === observer.sessionNonce,
+        );
         assert.ok("role" in receipt && receipt.role === role);
-        assert.ok("pid" in receipt && typeof receipt.pid === "number" && Number.isSafeInteger(receipt.pid) && receipt.pid > 0);
+        assert.ok(
+          "pid" in receipt &&
+            typeof receipt.pid === "number" &&
+            Number.isSafeInteger(receipt.pid) &&
+            receipt.pid > 0,
+        );
         const target = targets.get(role);
         if (target) assert.equal(receipt.pid, target.pid);
         assert.ok("error" in receipt);
-        record("actor-error-diagnostic", { role, status: "available", receipt });
+        record("actor-error-diagnostic", {
+          role,
+          status: "available",
+          receipt,
+        });
       } catch (cause) {
         record("actor-error-diagnostic", {
           role,
@@ -129,7 +160,11 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       JSON.stringify({ ...target, role, retired: event === "retired" }),
     );
     fs.renameSync(destination + ".pending", destination);
-    record("ack-published", { role, acknowledgement: event, targetId: target.targetId });
+    record("ack-published", {
+      role,
+      acknowledgement: event,
+      targetId: target.targetId,
+    });
   };
   const observe = async <T>(
     operation: (signal: AbortSignal) => Promise<T>,
@@ -206,12 +241,13 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
             assert.ok("role" in request && request.role === role);
             record("actor-retirement-request-observed", { ...request });
             const retired = await observer.retired(target);
-            record("wait0-result", { role, targetId: target.targetId, retired, boundary: "actor-request" });
-            assert.equal(
+            record("wait0-result", {
+              role,
+              targetId: target.targetId,
               retired,
-              true,
-              role + " original lifetime retired",
-            );
+              boundary: "actor-request",
+            });
+            assert.equal(retired, true, role + " original lifetime retired");
             publish(role, "retired", target);
             certified.add(role);
           }
@@ -234,7 +270,12 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         const target = targets.get(role);
         assert.ok(target, role + " enrolled before action");
         const retired = await observer.retired(target);
-        record("wait0-result", { role, targetId: target.targetId, retired, boundary: "product-settled" });
+        record("wait0-result", {
+          role,
+          targetId: target.targetId,
+          retired,
+          boundary: "product-settled",
+        });
         assert.equal(
           retired,
           true,
@@ -277,15 +318,30 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       diagnostic = diagnostics.serializeCompilerError(cause);
       failures.push(new Error(name, { cause }));
     } finally {
-      const enrolled = [...targets].filter(([role]) => !before.has(role)).map(([role, target]) => ({ role, ...target }));
-      console.error("Owned native process row: " + JSON.stringify({
-        name, outcome, failure, diagnostic,
-        observerSession: observer.sessionNonce,
-        observerReady,
-        expectedSdkTargetAdmission: ["missing target", "absent supervisor cannot admit target", "legacy supervisor cannot admit target", "invalid receipt cannot certify target retirement"].includes(name) ? "none" : "admitted",
-        enrolled,
-        events,
-      }));
+      const enrolled = [...targets]
+        .filter(([role]) => !before.has(role))
+        .map(([role, target]) => ({ role, ...target }));
+      console.error(
+        "Owned native process row: " +
+          JSON.stringify({
+            name,
+            outcome,
+            failure,
+            diagnostic,
+            observerSession: observer.sessionNonce,
+            observerReady,
+            expectedSdkTargetAdmission: [
+              "missing target",
+              "absent supervisor cannot admit target",
+              "legacy supervisor cannot admit target",
+              "invalid receipt cannot certify target retirement",
+            ].includes(name)
+              ? "none"
+              : "admitted",
+            enrolled,
+            events,
+          }),
+      );
     }
   };
   const run = async (
@@ -308,33 +364,33 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
             ? [role, "tree-grandchild"]
             : [role];
     const result = await observe(
-        (ownedSignal) =>
-          owner.OwnedNativeProcess.run(
-            process.execPath,
-            [command, mode, root, 'literal $() `" ; & | argument'],
-            {
-              cwd: root,
-              encoding: "utf8",
-              timeout: 5000,
-              ...settings,
-              env: { ...env, TTSC_LIFETIME_ROLE: role, ...settings.env },
-            },
-            ownedSignal,
-            (state, reason) => {
-              observed.push(state);
-              record("product-retirement", { state, reason });
-            },
-          ),
-        roles,
-        signal,
-      ).then(
-        (value) => ({ kind: "returned" as const, value }),
-        (error: unknown) => {
-          if (signal?.aborted !== true || error !== signal.reason)
-            retirementUnknown = true;
-          return { kind: "rejected" as const, error };
-        },
-      );
+      (ownedSignal) =>
+        owner.OwnedNativeProcess.run(
+          process.execPath,
+          [command, mode, root, 'literal $() `" ; & | argument'],
+          {
+            cwd: root,
+            encoding: "utf8",
+            timeout: 5000,
+            ...settings,
+            env: { ...env, TTSC_LIFETIME_ROLE: role, ...settings.env },
+          },
+          ownedSignal,
+          (state, reason) => {
+            observed.push(state);
+            record("product-retirement", { state, reason });
+          },
+        ),
+      roles,
+      signal,
+    ).then(
+      (value) => ({ kind: "returned" as const, value }),
+      (error: unknown) => {
+        if (signal?.aborted !== true || error !== signal.reason)
+          retirementUnknown = true;
+        return { kind: "rejected" as const, error };
+      },
+    );
     try {
       assert.deepEqual(observed, [expectedRetirement]);
     } catch (assertionError) {
@@ -431,7 +487,10 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       assert.equal(result.status, null);
       assert.ok(result.error && "code" in result.error);
       assert.equal(result.error.code, "ENOENT");
-      record("missing-target-result", { status: result.status, errorCode: result.error.code });
+      record("missing-target-result", {
+        status: result.status,
+        errorCode: result.error.code,
+      });
     });
     await check("output overflow retires command", async () => {
       const result = await run("overflow", { maxBuffer: 16 });
@@ -450,7 +509,12 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       assert.ok(target);
       assert.equal(target.pid, result.pid);
       const retired = await observer.retired(target);
-      record("wait0-result", { role: "command-" + sequence, targetId: target.targetId, retired, boundary: "overflow-pid-equality" });
+      record("wait0-result", {
+        role: "command-" + sequence,
+        targetId: target.targetId,
+        retired,
+        boundary: "overflow-pid-equality",
+      });
       assert.equal(retired, true);
     });
     await check("cancelled actual parent and grandchild", async () => {
@@ -503,10 +567,20 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         assert.equal(originalParent.pid, parent);
         assert.equal(originalChild.pid, pid);
         const parentRetired = await observer.retired(originalParent);
-        record("wait0-result", { role: "tree-parent", targetId: originalParent.targetId, retired: parentRetired, boundary: "tree-publication-equality" });
+        record("wait0-result", {
+          role: "tree-parent",
+          targetId: originalParent.targetId,
+          retired: parentRetired,
+          boundary: "tree-publication-equality",
+        });
         assert.equal(parentRetired, true);
         const childRetired = await observer.retired(originalChild);
-        record("wait0-result", { role: "tree-grandchild", targetId: originalChild.targetId, retired: childRetired, boundary: "tree-publication-equality" });
+        record("wait0-result", {
+          role: "tree-grandchild",
+          targetId: originalChild.targetId,
+          retired: childRetired,
+          boundary: "tree-publication-equality",
+        });
         assert.equal(childRetired, true);
         joined = true;
         const remaining = lateAt + 50 - Date.now();
@@ -521,7 +595,11 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
         const result = await outcome;
         if (!joined || result.kind !== "rejected" || result.error !== reason)
           retirementUnknown = true;
-        if (result.kind === "rejected" && result.error !== reason && result.error !== originalFailure)
+        if (
+          result.kind === "rejected" &&
+          result.error !== reason &&
+          result.error !== originalFailure
+        )
           throw failed
             ? new AggregateError(
                 [originalFailure, result.error],
@@ -566,17 +644,31 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
     });
     await check("explicit close withdraws queued worker command", async () => {
       const result = await observe(
-        (signal) => owner.OwnedNativeProcess.run(
-          process.execPath, [command, "rpc-close-queued", root, sdkIndex],
-          { env: { ...env, TTSC_LIFETIME_ROLE: "rpc-close-actor", NODE_OPTIONS: undefined }, encoding: "utf8", timeout: 5000 },
-          signal, (state, reason) => record("product-retirement", { state, reason }),
-        ),
+        (signal) =>
+          owner.OwnedNativeProcess.run(
+            process.execPath,
+            [command, "rpc-close-queued", root, sdkIndex],
+            {
+              env: {
+                ...env,
+                TTSC_LIFETIME_ROLE: "rpc-close-actor",
+                NODE_OPTIONS: undefined,
+              },
+              encoding: "utf8",
+              timeout: 5000,
+            },
+            signal,
+            (state, reason) => record("product-retirement", { state, reason }),
+          ),
         ["rpc-close-actor"],
       );
       assert.equal(result.error, undefined);
       assert.equal(result.signal, null);
       assert.equal(result.status, 0, String(result.stderr));
-      assert.equal(result.stdout, "queued worker command withdrawn and owner joined\n");
+      assert.equal(
+        result.stdout,
+        "queued worker command withdrawn and owner joined\n",
+      );
     });
     await check("unknown RPC retirement rejects queued admission", async () => {
       retirementUnknown = true;
@@ -649,7 +741,8 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
       async () => {
         const invalidFailures: Error[] = [];
         for (const mode of ["null", "object", "malformed"] as const) {
-          const role = mode === "null" ? "invalid-helper" : "invalid-" + mode + "-helper";
+          const role =
+            mode === "null" ? "invalid-helper" : "invalid-" + mode + "-helper";
           try {
             await expectUnknown(
               run(
@@ -682,25 +775,39 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
                     signal: null,
                     cancelled: false,
                     error: {
-                      code: mode === "malformed" ? { $ttscValue: "object" } : "AUTHORED_CLEANUP",
+                      code:
+                        mode === "malformed"
+                          ? { $ttscValue: "object" }
+                          : "AUTHORED_CLEANUP",
                       message: "authored unproved cleanup",
                     },
                     cleanup: {
                       directChildJoined: true,
                       boundaryEmpty: false,
-                      orphanReaping: mode === "malformed" ? { $ttscValue: "array" } : "owned",
+                      orphanReaping:
+                        mode === "malformed"
+                          ? { $ttscValue: "array" }
+                          : "owned",
                     },
                   });
                 }
               },
             );
-            assert.equal(fs.existsSync(path.join(root, "admitted-marker")), false);
+            assert.equal(
+              fs.existsSync(path.join(root, "admitted-marker")),
+              false,
+            );
           } catch (cause) {
-            invalidFailures.push(new Error("Invalid receipt " + mode, { cause }));
+            invalidFailures.push(
+              new Error("Invalid receipt " + mode, { cause }),
+            );
           }
         }
         if (invalidFailures.length)
-          throw new AggregateError(invalidFailures, "Invalid receipt diagnostic cases");
+          throw new AggregateError(
+            invalidFailures,
+            "Invalid receipt diagnostic cases",
+          );
       },
     );
     await check("absent supervisor cannot admit target", async () => {
@@ -733,7 +840,9 @@ export async function test_owned_native_process_joins_cancelled_command_trees(
           "Native command descendant retirement was not observed",
         );
       } catch (cause) {
-        failures.push(new Error("Native fixture input retention failed", { cause }));
+        failures.push(
+          new Error("Native fixture input retention failed", { cause }),
+        );
       }
   }
   if (failures.length !== 0)

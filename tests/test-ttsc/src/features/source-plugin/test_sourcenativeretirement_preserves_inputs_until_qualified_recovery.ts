@@ -15,8 +15,8 @@ import { pruneGoBuildCacheRoot } from "../../../../../packages/ttsc/src/plugin/i
 import { prunePluginCacheRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/prunePluginCacheRoot";
 import { reclaimPluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/reclaimPluginBuildLock";
 import { releasePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/internal/source/releasePluginBuildLock";
-import { withGoBuildCacheLease } from "../../../../../packages/ttsc/src/plugin/internal/source/withGoBuildCacheLease";
 import { waitForPluginBinary } from "../../../../../packages/ttsc/src/plugin/internal/source/waitForPluginBinary";
+import { withGoBuildCacheLease } from "../../../../../packages/ttsc/src/plugin/internal/source/withGoBuildCacheLease";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -36,7 +36,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#execution-ownership One source-unit entry owns actual temporary files, source lock/lease operations and one real Node reader without Go or an installed host. Original process close and all heartbeat retirement promises are joined. The explicit classification seam does not claim OS cleanup-refusal or actual cold MCP validation; unconfirmed closure retains the root.
  */
 export async function test_sourcenativeretirement_preserves_inputs_until_qualified_recovery(): Promise<void> {
-  const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-native-retention-"));
+  const root = TestProject.physicalPath(
+    TestProject.tmpdir("ttsc-native-retention-"),
+  );
   const plugins = path.join(root, "plugins");
   const cache = path.join(plugins, "entry");
   const lock = `${cache}.lock`;
@@ -62,38 +64,83 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
   let generation = "";
   const failures: unknown[] = [];
   const check = (name: string, task: () => void): void => {
-    try { task(); } catch (error) { failures.push(new Error(name, { cause: error })); }
+    try {
+      task();
+    } catch (error) {
+      failures.push(new Error(name, { cause: error }));
+    }
   };
   try {
-    SourceNativeRetirement.run(scope, () => OwnedSynchronousProcess.run({ cancel: new SharedArrayBuffer(4), retirements }, () => {
-      const lease = acquirePluginBuildLock(lock);
-      assert.ok(lease);
-      generation = lease.generation;
-      try {
-        SourceNativeRetirement.register({ fenceRoot: PluginBuildLockProtocol.pluginBuildLockProtocolDir(lock), retainedPaths: [scratch, cache, go] });
-        SourceNativeRetirement.register({ fenceRoot: scratch, retainedPaths: [scratch] });
-        SourceNativeRetirement.register({ fenceRoot: cache, retainedPaths: [cache] });
-        try {
-          withGoBuildCacheLease(go, true, () => {
-            SourceNativeRetirement.begin("actual-reader-boundary");
-            child = spawn(process.execPath, ["-e", `const fs=require('node:fs'); const [input,ready,lost]=process.argv.slice(1); fs.readFileSync(input); fs.writeFileSync(ready,String(process.pid)); setInterval(()=>{try{fs.readFileSync(input);}catch(error){fs.writeFileSync(lost,error.code);}},5);`, input, ready, lost], { stdio: "ignore", windowsHide: true });
-            closed = new Promise((resolve) => child!.once("close", resolve));
-            const deadline = performance.now() + 5_000;
-            while (!fs.existsSync(ready)) {
-              assert.ok(performance.now() < deadline, "Actual reader must publish readiness");
-              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    SourceNativeRetirement.run(scope, () =>
+      OwnedSynchronousProcess.run(
+        { cancel: new SharedArrayBuffer(4), retirements },
+        () => {
+          const lease = acquirePluginBuildLock(lock);
+          assert.ok(lease);
+          generation = lease.generation;
+          try {
+            SourceNativeRetirement.register({
+              fenceRoot:
+                PluginBuildLockProtocol.pluginBuildLockProtocolDir(lock),
+              retainedPaths: [scratch, cache, go],
+            });
+            SourceNativeRetirement.register({
+              fenceRoot: scratch,
+              retainedPaths: [scratch],
+            });
+            SourceNativeRetirement.register({
+              fenceRoot: cache,
+              retainedPaths: [cache],
+            });
+            try {
+              withGoBuildCacheLease(go, true, () => {
+                SourceNativeRetirement.begin("actual-reader-boundary");
+                child = spawn(
+                  process.execPath,
+                  [
+                    "-e",
+                    `const fs=require('node:fs'); const [input,ready,lost]=process.argv.slice(1); fs.readFileSync(input); fs.writeFileSync(ready,String(process.pid)); setInterval(()=>{try{fs.readFileSync(input);}catch(error){fs.writeFileSync(lost,error.code);}},5);`,
+                    input,
+                    ready,
+                    lost,
+                  ],
+                  { stdio: "ignore", windowsHide: true },
+                );
+                closed = new Promise((resolve) =>
+                  child!.once("close", resolve),
+                );
+                const deadline = performance.now() + 5_000;
+                while (!fs.existsSync(ready)) {
+                  assert.ok(
+                    performance.now() < deadline,
+                    "Actual reader must publish readiness",
+                  );
+                  Atomics.wait(
+                    new Int32Array(new SharedArrayBuffer(4)),
+                    0,
+                    0,
+                    10,
+                  );
+                }
+                SourceNativeRetirement.settle(
+                  "actual-reader-boundary",
+                  "unknown",
+                  "authored missing process-tree retirement proof",
+                );
+              });
+            } finally {
+              SourceNativeRetirement.release(() => {
+                SourceNativeRetirement.forget(scratch);
+                SourceNativeRetirement.forget(cache);
+                fs.rmSync(scratch, { recursive: true, force: true });
+              });
             }
-            SourceNativeRetirement.settle("actual-reader-boundary", "unknown", "authored missing process-tree retirement proof");
-          });
-        } finally {
-          SourceNativeRetirement.release(() => {
-            SourceNativeRetirement.forget(scratch);
-            SourceNativeRetirement.forget(cache);
-            fs.rmSync(scratch, { recursive: true, force: true });
-          });
-        }
-      } finally { releasePluginBuildLock(lock, lease); }
-    }));
+          } finally {
+            releasePluginBuildLock(lock, lease);
+          }
+        },
+      ),
+    );
     await Promise.allSettled(retirements);
     assert.ok(child?.pid);
     process.kill(child.pid, 0);
@@ -102,44 +149,136 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
     const owner = path.join(current, "owner.json");
     // Node-holder absence cannot certify an independently surviving native reader.
     const metadata = JSON.parse(fs.readFileSync(owner, "utf8"));
-    fs.writeFileSync(owner, JSON.stringify({ ...metadata, pid: 2_147_483_647 }));
+    fs.writeFileSync(
+      owner,
+      JSON.stringify({ ...metadata, pid: 2_147_483_647 }),
+    );
     const now = Date.now() + 100 * 24 * 60 * 60 * 1_000;
-    check("next key admission", () => assert.throws(() => acquirePluginBuildLock(lock), /quarantined/));
-    check("owner death observation", () => assert.throws(() => inspectPluginBuildLock(lock), /quarantined/));
+    check("next key admission", () =>
+      assert.throws(() => acquirePluginBuildLock(lock), /quarantined/),
+    );
+    check("owner death observation", () =>
+      assert.throws(() => inspectPluginBuildLock(lock), /quarantined/),
+    );
     check("unknown diagnostic left pending cannot admit or steal", () => {
       const directory = path.join(protocol, ".ttsc-native-retirements");
       const guard = path.join(directory, fs.readdirSync(directory)[0]!);
       const original = fs.readFileSync(guard);
       // Authored persisted-state input models a failed unknown update; the
       // separate protocol case owns the actual rename-refusal boundary.
-      fs.writeFileSync(guard, JSON.stringify({ ...JSON.parse(original.toString()), state: "pending", reason: undefined }));
+      fs.writeFileSync(
+        guard,
+        JSON.stringify({
+          ...JSON.parse(original.toString()),
+          state: "pending",
+          reason: undefined,
+        }),
+      );
       try {
         assert.equal(acquirePluginBuildLock(lock), null);
         assert.equal(inspectPluginBuildLock(lock).state, "active");
-        assert.throws(() => waitForPluginBinary({ binaryPath: path.join(cache, "plugin"), lockDir: lock, lockInfo: { label: "plugin", pluginName: "pending-diagnostic", quiet: true }, timeoutMs: 0 }), /timed out.*retained paths/);
-        assert.throws(() => reclaimPluginBuildLock(lock, { protocol: "v3", generation }), /protected/);
+        assert.throws(
+          () =>
+            waitForPluginBinary({
+              binaryPath: path.join(cache, "plugin"),
+              lockDir: lock,
+              lockInfo: {
+                label: "plugin",
+                pluginName: "pending-diagnostic",
+                quiet: true,
+              },
+              timeoutMs: 0,
+            }),
+          /timed out.*retained paths/,
+        );
+        assert.throws(
+          () => reclaimPluginBuildLock(lock, { protocol: "v3", generation }),
+          /protected/,
+        );
         assert.equal(fs.readFileSync(input, "utf8"), "reader input");
-      } finally { fs.writeFileSync(guard, original); }
+      } finally {
+        fs.writeFileSync(guard, original);
+      }
     });
-    check("direct retirement", () => assert.throws(() => reclaimPluginBuildLock(lock, { protocol: "v3", generation }), /protected/));
-    check("direct completion", () => assert.throws(() => releasePluginBuildLock(lock, { protocol: "v3", generation, completionNonce: metadata.completionNonce }), /protected/));
+    check("direct retirement", () =>
+      assert.throws(
+        () => reclaimPluginBuildLock(lock, { protocol: "v3", generation }),
+        /protected/,
+      ),
+    );
+    check("direct completion", () =>
+      assert.throws(
+        () =>
+          releasePluginBuildLock(lock, {
+            protocol: "v3",
+            generation,
+            completionNonce: metadata.completionNonce,
+          }),
+        /protected/,
+      ),
+    );
     check("plugin age and size", () => {
-      prunePluginCacheRoot(plugins, { force: true, now, maxBytes: 0, targetBytes: 0, protectedAgeMs: 0 });
-      assert.equal(fs.readFileSync(path.join(cache, "plugin"), "utf8"), "plugin payload");
-      assert.equal(fs.readFileSync(path.join(current, "generation"), "utf8").trim(), generation);
+      prunePluginCacheRoot(plugins, {
+        force: true,
+        now,
+        maxBytes: 0,
+        targetBytes: 0,
+        protectedAgeMs: 0,
+      });
+      assert.equal(
+        fs.readFileSync(path.join(cache, "plugin"), "utf8"),
+        "plugin payload",
+      );
+      assert.equal(
+        fs.readFileSync(path.join(current, "generation"), "utf8").trim(),
+        generation,
+      );
     });
-    check("Go lease age", () => assert.equal(GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR, now).length, 1));
+    check("Go lease age", () =>
+      assert.equal(
+        GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+          go,
+          GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR,
+          now,
+        ).length,
+        1,
+      ),
+    );
     check("expired maintenance does not serialize independent builds", () => {
-      const directory = path.join(go, GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR);
+      const directory = path.join(
+        go,
+        GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR,
+      );
       fs.mkdirSync(directory, { recursive: true });
       const record = path.join(directory, "authored-expired-maintenance.json");
-      fs.writeFileSync(record, JSON.stringify({ version: 1, pid: 2_147_483_647, hostname: os.hostname(), startedAt: 1_000, status: "active" }));
+      fs.writeFileSync(
+        record,
+        JSON.stringify({
+          version: 1,
+          pid: 2_147_483_647,
+          hostname: os.hostname(),
+          startedAt: 1_000,
+          status: "active",
+        }),
+      );
       fs.utimesSync(record, aged, aged);
-      try { assert.deepEqual(GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(go, GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR, now), []); }
-      finally { fs.rmSync(record, { force: true }); }
+      try {
+        assert.deepEqual(
+          GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+            go,
+            GoBuildCacheCoordination.GO_BUILD_CACHE_MAINTENANCE_DIR,
+            now,
+          ),
+          [],
+        );
+      } finally {
+        fs.rmSync(record, { force: true });
+      }
     });
     check("independent key shares protected Go cache", () => {
-      const otherScope = SourceNativeRetirement.createScope("independent-key-task");
+      const otherScope = SourceNativeRetirement.createScope(
+        "independent-key-task",
+      );
       const otherLock = `${path.join(plugins, "independent")}.lock`;
       SourceNativeRetirement.run(otherScope, () => {
         const other = acquirePluginBuildLock(otherLock);
@@ -150,37 +289,108 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
             SourceNativeRetirement.begin("independent-command");
             SourceNativeRetirement.settle("independent-command", "joined");
           });
-        } finally { releasePluginBuildLock(otherLock, other); }
+        } finally {
+          releasePluginBuildLock(otherLock, other);
+        }
       });
       assert.equal(SourceNativeRetirement.isProtected(go), true);
-      assert.equal(GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR, now).length, 1);
+      assert.equal(
+        GoBuildCacheCoordination.collectLiveGoBuildCacheCoordinationRecords(
+          go,
+          GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR,
+          now,
+        ).length,
+        1,
+      );
     });
     check("Go object pruning", () => {
-      pruneGoBuildCacheRoot(go, { force: true, now, maxBytes: 0, targetBytes: 0, protectedAgeMs: 0 });
+      pruneGoBuildCacheRoot(go, {
+        force: true,
+        now,
+        maxBytes: 0,
+        targetBytes: 0,
+        protectedAgeMs: 0,
+      });
       assert.equal(fs.readFileSync(object, "utf8"), "Go object payload");
     });
-    check("explicit recursive clean", () => assert.throws(() => resolveSafeCacheCleanupTargets(path.join(root, "project"), [plugins, go]), /protected/));
-    check("direct scratch clean", () => assert.throws(() => SourceNativeRetirement.assertCleanable(scratch), /protected/));
-    check("direct payload clean", () => assert.throws(() => SourceNativeRetirement.assertCleanable(cache), /protected/));
-    check("wrong recovery boundary", () => assert.throws(() => SourceNativeRetirement.recover(scope, "another-boundary", "joined"), /unresolved/));
+    check("explicit recursive clean", () =>
+      assert.throws(
+        () =>
+          resolveSafeCacheCleanupTargets(path.join(root, "project"), [
+            plugins,
+            go,
+          ]),
+        /protected/,
+      ),
+    );
+    check("direct scratch clean", () =>
+      assert.throws(
+        () => SourceNativeRetirement.assertCleanable(scratch),
+        /protected/,
+      ),
+    );
+    check("direct payload clean", () =>
+      assert.throws(
+        () => SourceNativeRetirement.assertCleanable(cache),
+        /protected/,
+      ),
+    );
+    check("wrong recovery boundary", () =>
+      assert.throws(
+        () =>
+          SourceNativeRetirement.recover(scope, "another-boundary", "joined"),
+        /unresolved/,
+      ),
+    );
     await new Promise((resolve) => setTimeout(resolve, 50));
     check("reader still owns input", () => {
       process.kill(child!.pid!, 0);
       assert.equal(fs.readFileSync(input, "utf8"), "reader input");
       assert.equal(fs.existsSync(lost), false);
     });
-    console.info("native-retention before-qualified-join", JSON.stringify({ pid: child.pid, input, bytes: fs.readFileSync(input, "utf8"), inputLossReported: fs.existsSync(lost), keyGeneration: generation, keyCurrentExists: fs.existsSync(current), goLeaseRecords: fs.readdirSync(path.join(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR)), consequenceFailures: failures.length }));
+    console.info(
+      "native-retention before-qualified-join",
+      JSON.stringify({
+        pid: child.pid,
+        input,
+        bytes: fs.readFileSync(input, "utf8"),
+        inputLossReported: fs.existsSync(lost),
+        keyGeneration: generation,
+        keyCurrentExists: fs.existsSync(current),
+        goLeaseRecords: fs.readdirSync(
+          path.join(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR),
+        ),
+        consequenceFailures: failures.length,
+      }),
+    );
     assert.equal(child.kill(), true);
     await closed;
     joined = true;
     SourceNativeRetirement.recover(scope, "actual-reader-boundary", "joined");
     assert.equal(fs.existsSync(scratch), false);
     assert.equal(fs.existsSync(current), false);
-    assert.deepEqual(fs.readdirSync(path.join(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR)), []);
+    assert.deepEqual(
+      fs.readdirSync(
+        path.join(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR),
+      ),
+      [],
+    );
     const next = acquirePluginBuildLock(lock);
     assert.ok(next);
     releasePluginBuildLock(lock, next);
-    console.info("native-retention after-qualified-join", JSON.stringify({ pid: child.pid, actualCloseJoined: joined, scratchExists: fs.existsSync(scratch), keyCurrentExists: fs.existsSync(current), goLeaseRecords: fs.readdirSync(path.join(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR)), subsequentKeyAdmissionCompleted: true }));
+    console.info(
+      "native-retention after-qualified-join",
+      JSON.stringify({
+        pid: child.pid,
+        actualCloseJoined: joined,
+        scratchExists: fs.existsSync(scratch),
+        keyCurrentExists: fs.existsSync(current),
+        goLeaseRecords: fs.readdirSync(
+          path.join(go, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR),
+        ),
+        subsequentKeyAdmissionCompleted: true,
+      }),
+    );
   } finally {
     if (child !== undefined && !joined) {
       child.kill();
@@ -188,8 +398,20 @@ export async function test_sourcenativeretirement_preserves_inputs_until_qualifi
       joined = true;
     }
     await Promise.allSettled(retirements);
-    if (!joined || SourceNativeRetirement.isProtected(PluginBuildLockProtocol.pluginBuildLockProtocolDir(lock)))
-      TestProject.retainTemporaryDirectory(root, "Native retention regression did not confirm complete qualified recovery");
+    if (
+      !joined ||
+      SourceNativeRetirement.isProtected(
+        PluginBuildLockProtocol.pluginBuildLockProtocolDir(lock),
+      )
+    )
+      TestProject.retainTemporaryDirectory(
+        root,
+        "Native retention regression did not confirm complete qualified recovery",
+      );
   }
-  if (failures.length !== 0) throw new AggregateError(failures, "Native retention consequence assertions failed");
+  if (failures.length !== 0)
+    throw new AggregateError(
+      failures,
+      "Native retention consequence assertions failed",
+    );
 }

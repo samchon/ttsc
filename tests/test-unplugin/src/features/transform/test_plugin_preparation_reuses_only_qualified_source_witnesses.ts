@@ -20,8 +20,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * still preparing native build-environment authority for each request.
  *
  * The tree validator already accepts healthy source notifications paired with
- * the environment under which that exact state was proven. Preparation must
- * use the same premises rather than enumerate that source before every reuse.
+ * the environment under which that exact state was proven. Preparation must use
+ * the same premises rather than enumerate that source before every reuse.
  *
  * 1. Establish a real native source/environment proof and count source metadata
  *    work across repeated and concurrent preparation requests.
@@ -120,29 +120,129 @@ export async function test_plugin_preparation_reuses_only_qualified_source_witne
       await preparePluginBuildEnvironments(result, filesystem, cached);
       assert.equal(matchesUniversalHostInputTrees(cached, validation), true);
     }
-    assert.equal(reads, 0, "qualified sibling deliveries must reuse source proof");
+    assert.equal(
+      reads,
+      0,
+      "qualified sibling deliveries must reuse source proof",
+    );
     await Promise.all(
       Array.from({ length: 4 }, () =>
         preparePluginBuildEnvironments(result, filesystem, cached),
       ),
     );
-    assert.equal(reads, 0, "equivalent concurrent requests retain source reuse");
+    assert.equal(
+      reads,
+      0,
+      "equivalent concurrent requests retain source reuse",
+    );
     cached.deliveryEpoch = 2;
     await preparePluginBuildEnvironments(result, filesystem, cached);
-    assert.equal(reads, 0, "a new epoch does not invalidate a still-qualified source witness");
+    assert.equal(
+      reads,
+      0,
+      "a new epoch does not invalidate a still-qualified source witness",
+    );
 
     const contrasts: [string, () => void, () => void][] = [
-      ["absent manifest", () => { cached.hostInputValidation = undefined; }, () => { cached.hostInputValidation = validation; }],
-      ["different result", () => { cached.result = { ...result }; }, () => { cached.result = result; }],
-      ["different source state", () => { validation.trees.set(source, "another state"); }, () => { validation.trees.set(source, state); }],
-      ["different environment", () => { validation.treeEnvironments!.set(source, "another environment"); }, () => { validation.treeEnvironments!.set(source, environment); }],
-      ["failed tracker", () => { tracker.failed = true; }, () => { tracker.failed = false; }],
-      ["unverified tracker", () => { tracker.unverified = true; }, () => { tracker.unverified = false; }],
-      ["omitted events", () => { tracker.changesOmitted = true; }, () => { tracker.changesOmitted = false; }],
-      ["no content authority", () => { tracker.contentAuthoritative = false; }, () => { tracker.contentAuthoritative = true; }],
-      ["uncovered source", () => { tracker.covered = new Set(); }, () => { tracker.covered = new Set([source]); }],
-      ["unproven scope", () => { tracker.unproven = new Set([root]); }, () => { tracker.unproven = undefined; }],
-      ["overlapping change", () => { tracker.changes.add(main); }, () => { tracker.changes.clear(); }],
+      [
+        "absent manifest",
+        () => {
+          cached.hostInputValidation = undefined;
+        },
+        () => {
+          cached.hostInputValidation = validation;
+        },
+      ],
+      [
+        "different result",
+        () => {
+          cached.result = { ...result };
+        },
+        () => {
+          cached.result = result;
+        },
+      ],
+      [
+        "different source state",
+        () => {
+          validation.trees.set(source, "another state");
+        },
+        () => {
+          validation.trees.set(source, state);
+        },
+      ],
+      [
+        "different environment",
+        () => {
+          validation.treeEnvironments!.set(source, "another environment");
+        },
+        () => {
+          validation.treeEnvironments!.set(source, environment);
+        },
+      ],
+      [
+        "failed tracker",
+        () => {
+          tracker.failed = true;
+        },
+        () => {
+          tracker.failed = false;
+        },
+      ],
+      [
+        "unverified tracker",
+        () => {
+          tracker.unverified = true;
+        },
+        () => {
+          tracker.unverified = false;
+        },
+      ],
+      [
+        "omitted events",
+        () => {
+          tracker.changesOmitted = true;
+        },
+        () => {
+          tracker.changesOmitted = false;
+        },
+      ],
+      [
+        "no content authority",
+        () => {
+          tracker.contentAuthoritative = false;
+        },
+        () => {
+          tracker.contentAuthoritative = true;
+        },
+      ],
+      [
+        "uncovered source",
+        () => {
+          tracker.covered = new Set();
+        },
+        () => {
+          tracker.covered = new Set([source]);
+        },
+      ],
+      [
+        "unproven scope",
+        () => {
+          tracker.unproven = new Set([root]);
+        },
+        () => {
+          tracker.unproven = undefined;
+        },
+      ],
+      [
+        "overlapping change",
+        () => {
+          tracker.changes.add(main);
+        },
+        () => {
+          tracker.changes.clear();
+        },
+      ],
     ];
     for (const [name, withdraw, restore] of contrasts) {
       withdraw();

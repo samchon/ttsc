@@ -22,19 +22,19 @@ import (
 // @evidence contracts/testing.md#execution-ownership This selectable Go unit entry owns its independent literal-delimiter variants. Scanner operations and the real graph rule execute in the native test process; helper-created Markdown fixture files require no installed consumer or native producer.
 func TestMarkdownLiteralDelimitersCannotHideProseTags(t *testing.T) {
   examples := map[string]string{
-    "fenced pre": "```html\n<pre>\n```\n",
-    "fenced mdx": "```mdx\n<Code code={`\n```\n",
-    "inline pre": "`<pre>`\n",
-    "inline mdx": "``<Code code={` ``\n",
-    "escaped pre": "\\<pre>\n",
-    "escaped mdx": "\\={`\n",
-    "indented pre": "    <pre>\n",
-    "comment pre": "<!-- <pre> ={` -->\n",
-    "comment then closed pre": "<!-- hidden --><pre>\nexample\n</pre>\n",
+    "fenced pre":                "```html\n<pre>\n```\n",
+    "fenced mdx":                "```mdx\n<Code code={`\n```\n",
+    "inline pre":                "`<pre>`\n",
+    "inline mdx":                "``<Code code={` ``\n",
+    "escaped pre":               "\\<pre>\n",
+    "escaped mdx":               "\\={`\n",
+    "indented pre":              "    <pre>\n",
+    "comment pre":               "<!-- <pre> ={` -->\n",
+    "comment then closed pre":   "<!-- hidden --><pre>\nexample\n</pre>\n",
     "pre then comment then pre": "<pre></pre><!-- hidden --><pre>\nexample\n</pre>\n",
-    "quoted opener": "<span title=\"<pre> ={`\">text</span>\n",
-    "unmatched double run": "`` unmatched ` <pre> literal\n</pre>\n",
-    "preview": "<preview>\n",
+    "quoted opener":             "<span title=\"<pre> ={`\">text</span>\n",
+    "unmatched double run":      "`` unmatched ` <pre> literal\n</pre>\n",
+    "preview":                   "<preview>\n",
   }
   for name, example := range examples {
     t.Run(name, func(t *testing.T) {
@@ -49,9 +49,9 @@ func TestMarkdownLiteralDelimitersCannotHideProseTags(t *testing.T) {
     })
   }
   for name, content := range map[string]string{
-    "inline tag": "`@evidence docs/spec/rules.md#pricing Example.`\n",
-    "inline prefix": "`code` @evidence docs/spec/rules.md#pricing Mention.\n",
-    "pre wrong mdx closer": "<pre>\n`}\n@evidence docs/spec/rules.md#pricing Example.\n</pre>\n",
+    "inline tag":            "`@evidence docs/spec/rules.md#pricing Example.`\n",
+    "inline prefix":         "`code` @evidence docs/spec/rules.md#pricing Mention.\n",
+    "pre wrong mdx closer":  "<pre>\n`}\n@evidence docs/spec/rules.md#pricing Example.\n</pre>\n",
     "mdx wrong html closer": "<Code code={`\n</pre>\n@evidence docs/spec/rules.md#pricing Example.\n`} />\n",
   } {
     t.Run(name, func(t *testing.T) {

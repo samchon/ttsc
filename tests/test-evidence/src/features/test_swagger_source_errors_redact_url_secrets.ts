@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import http from "node:http";
+import { once } from "node:events";
 import fs from "node:fs/promises";
+import http from "node:http";
 
 import { TestProject } from "../../../utils/src/TestProject";
-import { once } from "node:events";
 
 /**
  * Verifies source errors hide URL credentials without changing source identity.
@@ -28,23 +28,33 @@ export async function test_swagger_source_errors_redact_url_secrets(): Promise<v
       import.meta.url,
     ).href
   );
-  const credential = "https://fixture-user:fixture-password@example.invalid/schema?token=fixture-token#fixture-fragment";
-  const malformed = "https://fixture-user:fixture-password@bad%host/schema?token=fixture-token#fixture-fragment";
+  const credential =
+    "https://fixture-user:fixture-password@example.invalid/schema?token=fixture-token#fixture-fragment";
+  const malformed =
+    "https://fixture-user:fixture-password@bad%host/schema?token=fixture-token#fixture-fragment";
   const root = TestProject.tmpdir("evidence-url-error-presentation-");
   const local = "absent-fixture-token.json";
   const ambiguous = [
     "https://fixture-user:fixture-password?oops@bad%host/schema?token=fixture-token#fixture-fragment",
     "https://fixture-user:fixture-password#oops@bad%host/schema?token=fixture-token",
   ];
-  const other = "https://other-user:other-password@other.invalid/api?key=other-token#other-fragment";
+  const other =
+    "https://other-user:other-password@other.invalid/api?key=other-token#other-fragment";
   let reflected = "";
   const server = http.createServer((_request, response) => {
-    response.writeHead(503, `Unavailable ${reflected} again ${reflected} other ${other}`);
+    response.writeHead(
+      503,
+      `Unavailable ${reflected} again ${reflected} other ${other}`,
+    );
     response.end();
   });
   const failures: unknown[] = [];
   const check = (name: string, run: () => void): void => {
-    try { run(); } catch (cause) { failures.push(new Error(name, { cause })); }
+    try {
+      run();
+    } catch (cause) {
+      failures.push(new Error(name, { cause }));
+    }
   };
   try {
     server.listen(0, "127.0.0.1");
@@ -54,18 +64,36 @@ export async function test_swagger_source_errors_redact_url_secrets(): Promise<v
     reflected = `http://127.0.0.1:${address.port}/schema?token=fixture-token#fixture-fragment`;
     const sources = [credential, malformed, ...ambiguous, reflected, local];
     const result = await loadSwaggerOperations({ root, sources });
-    check("all problems keep source identity", () => assert.deepEqual(result.problems.map((p: { source: string }) => p.source), sources));
-    check("no successful documents", () => assert.deepEqual(result.documents, []));
+    check("all problems keep source identity", () =>
+      assert.deepEqual(
+        result.problems.map((p: { source: string }) => p.source),
+        sources,
+      ),
+    );
+    check("no successful documents", () =>
+      assert.deepEqual(result.documents, []),
+    );
     for (const source of sources) {
       check(source === local ? "local error" : "remote error", () => {
-        const problem = result.problems.find((p: { source: string }) => p.source === source);
+        const problem = result.problems.find(
+          (p: { source: string }) => p.source === source,
+        );
         assert.ok(problem);
         assert.equal(problem.digest, "");
         if (source === local) {
           assert.ok(problem.message.includes(local));
           assert.match(problem.message, /ENOENT/u);
         } else {
-          for (const secret of ["fixture-user", "fixture-password", "fixture-token", "fixture-fragment", "other-user", "other-password", "other-token", "other-fragment"])
+          for (const secret of [
+            "fixture-user",
+            "fixture-password",
+            "fixture-token",
+            "fixture-fragment",
+            "other-user",
+            "other-password",
+            "other-token",
+            "other-fragment",
+          ])
             assert.equal(problem.message.includes(secret), false, secret);
           if (source === credential) {
             assert.match(problem.message, /credentials/u);
@@ -85,7 +113,7 @@ export async function test_swagger_source_errors_redact_url_secrets(): Promise<v
     if (server.listening)
       try {
         await new Promise<void>((resolve, reject) =>
-          server.close((error) => error ? reject(error) : resolve()),
+          server.close((error) => (error ? reject(error) : resolve())),
         );
       } catch (cause) {
         failures.push(new Error("HTTP fixture cleanup", { cause }));
@@ -96,5 +124,6 @@ export async function test_swagger_source_errors_redact_url_secrets(): Promise<v
       failures.push(new Error("temporary input cleanup", { cause }));
     }
   }
-  if (failures.length) throw new AggregateError(failures, "Swagger URL error redaction failed");
+  if (failures.length)
+    throw new AggregateError(failures, "Swagger URL error redaction failed");
 }

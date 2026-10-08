@@ -17,9 +17,9 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * Go's trim marker are outside this byte policy. Missing observations or failed
  * removals can leave actual storage above its thresholds without a hard bound.
  *
- * Pending, unknown or malformed native guards skip eviction regardless of
- * lease heartbeat age. Shared-cache admission remains independent of this
- * deletion protection. Older versions do not cooperate with native guards.
+ * Pending, unknown or malformed native guards skip eviction regardless of lease
+ * heartbeat age. Shared-cache admission remains independent of this deletion
+ * protection. Older versions do not cooperate with native guards.
  *
  * @evidence contracts/common.md#principled-implementation A published maintenance intent precedes the live-lease check, so builders and deletion coordinate over the same owned physical root before object eviction.
  * @evidence contracts/common.md#clear-and-simple-design Admission, lease exclusion, eviction and marker publication occur in order; finally invokes intent finish, whose completion/removal remain best-effort.

@@ -28,8 +28,13 @@ export function test_external_source_snapshot_layout_preserves_relative_geometry
     {
       paths: path.win32,
       base: "C:\\private\\external",
-      sources: ["D:\\original\\deep\\dependency", "D:\\original\\deep\\dependency"],
-      expected: [["D:\\original\\deep\\dependency", "C:\\private\\external\\0"]],
+      sources: [
+        "D:\\original\\deep\\dependency",
+        "D:\\original\\deep\\dependency",
+      ],
+      expected: [
+        ["D:\\original\\deep\\dependency", "C:\\private\\external\\0"],
+      ],
     },
     {
       paths: path.win32,
@@ -37,7 +42,10 @@ export function test_external_source_snapshot_layout_preserves_relative_geometry
       sources: ["D:\\sdk\\ttsc", "D:\\sdk\\ttsc\\shim\\ast", "D:\\sdk\\lint"],
       expected: [
         ["D:\\sdk\\ttsc", "C:\\private\\external\\0\\ttsc"],
-        ["D:\\sdk\\ttsc\\shim\\ast", "C:\\private\\external\\0\\ttsc\\shim\\ast"],
+        [
+          "D:\\sdk\\ttsc\\shim\\ast",
+          "C:\\private\\external\\0\\ttsc\\shim\\ast",
+        ],
         ["D:\\sdk\\lint", "C:\\private\\external\\0\\lint"],
       ],
     },
@@ -54,7 +62,10 @@ export function test_external_source_snapshot_layout_preserves_relative_geometry
     {
       paths: path.win32,
       base: "C:\\private\\external",
-      sources: ["\\\\server\\one\\deep\\source", "\\\\server\\two\\deep\\source"],
+      sources: [
+        "\\\\server\\one\\deep\\source",
+        "\\\\server\\two\\deep\\source",
+      ],
       expected: [
         ["\\\\server\\one\\deep\\source", "C:\\private\\external\\0"],
         ["\\\\server\\two\\deep\\source", "C:\\private\\external\\1"],
@@ -72,26 +83,43 @@ export function test_external_source_snapshot_layout_preserves_relative_geometry
     {
       paths: path.posix,
       base: "/private/external",
-      sources: ["/checkout/packages/ttsc", "/checkout/packages/ttsc/shim/ast", "/checkout/packages/lint"],
+      sources: [
+        "/checkout/packages/ttsc",
+        "/checkout/packages/ttsc/shim/ast",
+        "/checkout/packages/lint",
+      ],
       expected: [
         ["/checkout/packages/ttsc", "/private/external/0/ttsc"],
-        ["/checkout/packages/ttsc/shim/ast", "/private/external/0/ttsc/shim/ast"],
+        [
+          "/checkout/packages/ttsc/shim/ast",
+          "/private/external/0/ttsc/shim/ast",
+        ],
         ["/checkout/packages/lint", "/private/external/0/lint"],
       ],
     },
   ];
   for (const { paths, base, sources, expected } of populations) {
     for (const population of [sources, [...sources].reverse()]) {
-      const actual = createExternalSourceSnapshotLayout(base, population, paths);
+      const actual = createExternalSourceSnapshotLayout(
+        base,
+        population,
+        paths,
+      );
       assert.equal(actual.size, expected.length);
       for (const [source, destination] of expected)
         assert.equal(actual.get(source), destination);
       for (const [first, firstCopy] of expected)
         for (const [second, secondCopy] of expected) {
           if (paths.parse(first).root !== paths.parse(second).root) continue;
-          assert.equal(paths.relative(firstCopy, secondCopy), paths.relative(first, second));
+          assert.equal(
+            paths.relative(firstCopy, secondCopy),
+            paths.relative(first, second),
+          );
         }
     }
   }
-  assert.equal(createExternalSourceSnapshotLayout("/private", [], path.posix).size, 0);
+  assert.equal(
+    createExternalSourceSnapshotLayout("/private", [], path.posix).size,
+    0,
+  );
 }

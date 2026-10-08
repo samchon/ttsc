@@ -45,14 +45,15 @@ interface ObservedGuard {
  * Observe real process generations independently of producer success.
  *
  * The public owner supplies its original close contract. OS observations add a
- * separate conservative process observation, not a replacement native retirement
- * receipt. Inputs are sampled before process identities; apparent disappearance
- * while the original generation is still reported refuses release verification.
- * A process listing alone cannot certify its original kernel lifetime. Only this actor's tree
- * is retained in the observation log. Windows creation times and POSIX ps start
- * times qualify the original numeric identities; no process is terminated or
- * adopted by its PID here. POSIX ps has second precision, so it cannot replace
- * the original native receipt; ambiguous reuse cannot establish readiness.
+ * separate conservative process observation, not a replacement native
+ * retirement receipt. Inputs are sampled before process identities; apparent
+ * disappearance while the original generation is still reported refuses release
+ * verification. A process listing alone cannot certify its original kernel
+ * lifetime. Only this actor's tree is retained in the observation log. Windows
+ * creation times and POSIX ps start times qualify the original numeric
+ * identities; no process is terminated or adopted by its PID here. POSIX ps has
+ * second precision, so it cannot replace the original native receipt; ambiguous
+ * reuse cannot establish readiness.
  */
 export class ColdArtifactObservation {
   private latest: ProcessReading[] = [];
@@ -271,7 +272,11 @@ export class ColdArtifactObservation {
               (!excluded ||
                 row.pid !== excluded.process.pid ||
                 row.identity !== excluded.process.identity) &&
-              matchesObservedProcessCommand(row.command, scratch.argv!, process.platform),
+              matchesObservedProcessCommand(
+                row.command,
+                scratch.argv!,
+                process.platform,
+              ),
           );
           const work = compilerWork(goTmp, oldWork);
           if (!go || !work) continue;

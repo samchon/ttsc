@@ -133,7 +133,8 @@ export namespace NativeProcessObserver {
       } catch (retentionFailure) {
         preparationFailure = new AggregateError(
           [cause, retentionFailure],
-          "Observer preparation failed and input retention was refused: " + allocation,
+          "Observer preparation failed and input retention was refused: " +
+            allocation,
           { cause },
         );
       }

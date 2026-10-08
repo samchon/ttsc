@@ -15,15 +15,14 @@ const asyncResults = new WeakSet<object>();
  * Prepare actual plugin toolchain authority before synchronous input proofs.
  * Cold Go/environment/SDK work stays off the host thread. A mismatch requests
  * one fresh native environment reading; observation failure remains unavailable
- * and the following admission or replay validator retains its failure policy.
- * A resident generation can reuse its exact proven source state while healthy
+ * and the following admission or replay validator retains its failure policy. A
+ * resident generation can reuse its exact proven source state while healthy
  * notifications and the still-qualified environment witness both hold. Native
  * environment preparation remains mandatory; source events cannot prove it.
  *
  * @param cached Optional resident generation whose existing source-state and
  *   environment witness may qualify source reuse. Other preparation owners
  *   retain direct source comparison.
- *
  * @evidence contracts/common.md#principled-implementation Every reported plugin directory prepares its actual current environment. The same result's matching manifest state can share source proof only with a healthy exact-source tracker and the environment under which that tree was proven. Otherwise this operation compares source state once and a mismatch refreshes environment authority for the following owning validator to compare again; failed preparation cannot qualify an input.
  * @evidence contracts/common.md#clear-and-simple-design One async boundary precedes existing synchronous generation, delivery and terminal proofs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observations stay unproved; reported binary state never substitutes for native environment preparation or source comparison.

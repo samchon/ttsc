@@ -18,14 +18,22 @@ import { OwnedNativeProcess } from "../../../../../packages/ttsc/src/internal/Ow
  */
 export async function test_owned_native_process_rejects_uncontained_admission(): Promise<void> {
   const env = {
-    TTSC_BINARY: path.join(import.meta.dirname, "absent-owned-native-supervisor"),
+    TTSC_BINARY: path.join(
+      import.meta.dirname,
+      "absent-owned-native-supervisor",
+    ),
   };
   const before = { ...env };
   const controller = new AbortController();
   const reason = new Error("authored pre-admission cancellation");
   controller.abort(reason);
   await assert.rejects(
-    OwnedNativeProcess.run("unreachable-command", [], { env }, controller.signal),
+    OwnedNativeProcess.run(
+      "unreachable-command",
+      [],
+      { env },
+      controller.signal,
+    ),
     (error) => error === reason,
   );
   const rows: readonly [SpawnSyncOptions, string][] = [
@@ -61,5 +69,8 @@ export async function test_owned_native_process_rejects_uncontained_admission():
   }
   assert.deepEqual(env, before);
   if (failures.length !== 0)
-    throw new AggregateError(failures, "Owned native admission refusal failures");
+    throw new AggregateError(
+      failures,
+      "Owned native admission refusal failures",
+    );
 }

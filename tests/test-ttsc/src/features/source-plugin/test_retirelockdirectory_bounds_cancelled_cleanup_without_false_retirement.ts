@@ -11,8 +11,9 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verifies cancelled cleanup fails without claiming refused retirement.
  *
- * Real sibling probes distinguish the shared retry policy from a source-specific
- * refusal; the resolver's actual catch must not erase ownership failure.
+ * Real sibling probes distinguish the shared retry policy from a
+ * source-specific refusal; the resolver's actual catch must not erase ownership
+ * failure.
  *
  * 1. Exercise permanent Windows retry refusals and legacy outcome conversion.
  * 2. Preserve immediate refusal identity and allow transient retirement.
@@ -209,5 +210,8 @@ export function test_retirelockdirectory_bounds_cancelled_cleanup_without_false_
     );
   });
   if (failures.length !== 0)
-    throw new AggregateError(failures, "Lock retirement cancellation cases failed");
+    throw new AggregateError(
+      failures,
+      "Lock retirement cancellation cases failed",
+    );
 }

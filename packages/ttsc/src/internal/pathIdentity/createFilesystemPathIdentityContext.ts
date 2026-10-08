@@ -395,8 +395,9 @@ function queryWindowsDirectoryCaseSensitivityBytes(
     {},
     "path-case-probe",
     () =>
-      OwnedSynchronousProcess.launch("fsutil.exe", args, { windowsHide: true }) ??
-      childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }),
+      OwnedSynchronousProcess.launch("fsutil.exe", args, {
+        windowsHide: true,
+      }) ?? childProcess.spawnSync("fsutil.exe", args, { windowsHide: true }),
   );
   return result.error === undefined &&
     result.status === 0 &&

@@ -23,11 +23,16 @@ import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/in
  * @evidence contracts/testing.md#execution-ownership This named source unit starts one isolated Node test actor and sequential actual capability children without an installation, compiler, Go build or product host. The actor's synchronous primitives return before private-root cleanup; a spawn error or signal leaves scratch retained because actor completion is unconfirmed. Unsupported native link creation is a failure, never credited as a retarget PASS. Script-body assertions are reviewed through this entry rather than separately discoverable Evidence hosts.
  */
 export function test_javascriptruntimecapabilities_avoids_ineligible_cache_proofs(): void {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-capability-proofs-"));
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ttsc-capability-proofs-"),
+  );
   const trace = path.join(root, "trace");
   fs.mkdirSync(trace);
   const actor = fileURLToPath(
-    new URL("../../internal/runtime-capability-cache-actor.ts", import.meta.url),
+    new URL(
+      "../../internal/runtime-capability-cache-actor.ts",
+      import.meta.url,
+    ),
   );
   const loader = new URL(
     "../../../../../config/register-unit-loader.mjs",

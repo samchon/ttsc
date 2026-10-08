@@ -24,13 +24,13 @@ import (
 func TestMarkdownMetadataResumesAtExactExampleClose(t *testing.T) {
   real := "<!-- @evidence docs/spec.md#rule Actual. --> <!-- @evidenceReview docs/spec.md#rule Verified. --> public body\n"
   for name, example := range map[string]string{
-    "pre": "<pre>Example.</pre>",
-    "unicode pre": "<pre>\u212a Example.</PRE>",
-    "mdx": "<Code code={`Example.`} />",
-    "mdx tail attributes": "<Code code={`Example.`} title=\"<pre> <!--\" />",
+    "pre":                     "<pre>Example.</pre>",
+    "unicode pre":             "<pre>\u212a Example.</PRE>",
+    "mdx":                     "<Code code={`Example.`} />",
+    "mdx tail attributes":     "<Code code={`Example.`} title=\"<pre> <!--\" />",
     "mdx repeated attributes": "<Code first={`Example.`} second={`literal <!-- -->`} />",
-    "inline": "`<!-- @evidence docs/spec.md#rule Example. -->` ",
-    "quoted html": "<span title=\"<!-- @evidence docs/spec.md#rule Example. -->\">text</span>",
+    "inline":                  "`<!-- @evidence docs/spec.md#rule Example. -->` ",
+    "quoted html":             "<span title=\"<!-- @evidence docs/spec.md#rule Example. -->\">text</span>",
   } {
     for _, newline := range []string{"\n", "\r\n"} {
       t.Run(name+"/"+strings.ReplaceAll(newline, "\n", "LF"), func(t *testing.T) {
@@ -47,8 +47,8 @@ func TestMarkdownMetadataResumesAtExactExampleClose(t *testing.T) {
           t.Fatalf("metadata lost exact target, line or public host: declaration=%+v review=%+v", declaration, review)
         }
         for _, change := range []struct {
-          before string
-          after string
+          before  string
+          after   string
           content bool
         }{
           {"Actual.", "Rechecked.", false},

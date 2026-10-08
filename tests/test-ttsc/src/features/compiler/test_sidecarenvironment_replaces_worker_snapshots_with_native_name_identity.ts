@@ -20,24 +20,51 @@ import { SidecarEnvironment } from "../../../../../packages/ttsc/src/compiler/in
  */
 export function test_sidecarenvironment_replaces_worker_snapshots_with_native_name_identity(): void {
   const target: NodeJS.ProcessEnv = { NODE_OPTIONS: "stale", stale: "old" };
-  const snapshot = { node_options: "--trace-warnings", ttsc_node_binary: "relative-node" };
+  const snapshot = {
+    node_options: "--trace-warnings",
+    ttsc_node_binary: "relative-node",
+  };
   SidecarEnvironment.replace(target, snapshot);
-  assert.deepEqual(snapshot, { node_options: "--trace-warnings", ttsc_node_binary: "relative-node" });
+  assert.deepEqual(snapshot, {
+    node_options: "--trace-warnings",
+    ttsc_node_binary: "relative-node",
+  });
   assert.equal(target.stale, undefined);
-  assert.equal(SidecarEnvironment.read(target, "NODE_OPTIONS"), process.platform === "win32" ? "--trace-warnings" : undefined);
-  assert.equal(SidecarEnvironment.read(target, "TTSC_NODE_BINARY"), process.platform === "win32" ? "relative-node" : undefined);
-  assert.deepEqual(Object.keys(target).sort(), process.platform === "win32" ? ["NODE_OPTIONS", "TTSC_NODE_BINARY"] : ["node_options", "ttsc_node_binary"]);
+  assert.equal(
+    SidecarEnvironment.read(target, "NODE_OPTIONS"),
+    process.platform === "win32" ? "--trace-warnings" : undefined,
+  );
+  assert.equal(
+    SidecarEnvironment.read(target, "TTSC_NODE_BINARY"),
+    process.platform === "win32" ? "relative-node" : undefined,
+  );
+  assert.deepEqual(
+    Object.keys(target).sort(),
+    process.platform === "win32"
+      ? ["NODE_OPTIONS", "TTSC_NODE_BINARY"]
+      : ["node_options", "ttsc_node_binary"],
+  );
   for (const duplicate of [
     { node_options: "lower", NODE_OPTIONS: "upper" },
     { NODE_OPTIONS: "upper", node_options: "lower" },
   ]) {
     SidecarEnvironment.replace(target, duplicate);
     assert.equal(target.NODE_OPTIONS, "upper");
-    assert.equal(target.node_options, process.platform === "win32" ? undefined : "lower");
+    assert.equal(
+      target.node_options,
+      process.platform === "win32" ? undefined : "lower",
+    );
   }
-  SidecarEnvironment.replace(target, { NODE_OPTIONS: undefined, node_options: "lower", EMPTY: "" });
+  SidecarEnvironment.replace(target, {
+    NODE_OPTIONS: undefined,
+    node_options: "lower",
+    EMPTY: "",
+  });
   assert.equal(target.NODE_OPTIONS, undefined);
-  assert.equal(target.node_options, process.platform === "win32" ? undefined : "lower");
+  assert.equal(
+    target.node_options,
+    process.platform === "win32" ? undefined : "lower",
+  );
   assert.equal(target.EMPTY, "");
   SidecarEnvironment.replace(target, target);
   assert.equal(target.EMPTY, "");

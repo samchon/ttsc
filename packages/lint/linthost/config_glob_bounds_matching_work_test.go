@@ -27,19 +27,22 @@ import (
 // @evidence contracts/testing.md#execution-ownership This discoverable Go unit invokes actual public/private selector operations in-process on authored strings and isolated JSON files; observed state maps are production duplicate-suppression storage, with no timing hook, installed artifact or product process. The test owns temporary config files and brackets each public resolution with runtime allocation observations.
 func TestConfigGlobBoundsMatchingWork(t *testing.T) {
   for _, size := range []int{16, 32, 64} {
-    rows := []struct { pattern, name string; want bool }{
-      {strings.Repeat("{a,b}", size)+".ts", strings.Repeat("a", size)+".ts", true},
-      {strings.Repeat("{a,b}", size)+".ts", strings.Repeat("b", size)+".ts", true},
-      {strings.Repeat("{a,b}", size)+".ts", strings.Repeat("a", size)+".js", false},
-      {strings.Repeat("{,a}", size)+".ts", strings.Repeat("a", size)+".ts", true},
-      {strings.Repeat("{,a}", size)+".ts", "b.ts", false},
-      {"["+strings.Repeat("{a,b}", size)+"]", "a", true},
-      {"["+strings.Repeat("{a,b}", size)+"]", "c", false},
-      {strings.Repeat("**/a/", size)+"good.ts", strings.Repeat("a/", size*2)+"good.ts", true},
-      {strings.Repeat("**/a/", size)+"good.ts", strings.Repeat("a/", size*2)+"bad.ts", false},
-      {strings.Repeat("**/a/", size)+"good.ts", strings.Repeat("a/", size)+"good.ts", true},
-      {strings.Repeat("{**,*}/a/", size)+"good.ts", strings.Repeat("a/", size*2)+"good.ts", true},
-      {strings.Repeat("{**,*}/a/", size)+"good.ts", strings.Repeat("a/", size*2)+"bad.ts", false},
+    rows := []struct {
+      pattern, name string
+      want          bool
+    }{
+      {strings.Repeat("{a,b}", size) + ".ts", strings.Repeat("a", size) + ".ts", true},
+      {strings.Repeat("{a,b}", size) + ".ts", strings.Repeat("b", size) + ".ts", true},
+      {strings.Repeat("{a,b}", size) + ".ts", strings.Repeat("a", size) + ".js", false},
+      {strings.Repeat("{,a}", size) + ".ts", strings.Repeat("a", size) + ".ts", true},
+      {strings.Repeat("{,a}", size) + ".ts", "b.ts", false},
+      {"[" + strings.Repeat("{a,b}", size) + "]", "a", true},
+      {"[" + strings.Repeat("{a,b}", size) + "]", "c", false},
+      {strings.Repeat("**/a/", size) + "good.ts", strings.Repeat("a/", size*2) + "good.ts", true},
+      {strings.Repeat("**/a/", size) + "good.ts", strings.Repeat("a/", size*2) + "bad.ts", false},
+      {strings.Repeat("**/a/", size) + "good.ts", strings.Repeat("a/", size) + "good.ts", true},
+      {strings.Repeat("{**,*}/a/", size) + "good.ts", strings.Repeat("a/", size*2) + "good.ts", true},
+      {strings.Repeat("{**,*}/a/", size) + "good.ts", strings.Repeat("a/", size*2) + "bad.ts", false},
     }
     for _, row := range rows {
       if got := matchGlob(row.pattern, row.name); got != row.want {
@@ -50,7 +53,7 @@ func TestConfigGlobBoundsMatchingWork(t *testing.T) {
         if got := matcher.matches(0, 0); got != row.want {
           t.Errorf("native size=%d: got %v want %v", size, got, row.want)
         }
-        bound := (len(matcher.pattern)+1)*(len(matcher.name)+1)
+        bound := (len(matcher.pattern) + 1) * (len(matcher.name) + 1)
         if len(matcher.states) > bound {
           t.Errorf("native states=%d exceed component-pair bound=%d", len(matcher.states), bound)
         }
@@ -65,8 +68,10 @@ func TestConfigGlobBoundsMatchingWork(t *testing.T) {
       if len(graph.nodes) > len(row.pattern)+1 {
         t.Errorf("syntax materialized alternatives: %d nodes for %d authored bytes", len(graph.nodes), len(row.pattern))
       }
-      namePositions := 2*(len(matcher.parts)+1)
-      for _, part := range matcher.parts { namePositions += len(part)+1 }
+      namePositions := 2 * (len(matcher.parts) + 1)
+      for _, part := range matcher.parts {
+        namePositions += len(part) + 1
+      }
       if len(matcher.seen) > len(graph.nodes)*namePositions {
         t.Errorf("matching revisited partitions: %d states exceed %d nodes * %d legal name positions", len(matcher.seen), len(graph.nodes), namePositions)
       }
@@ -75,18 +80,25 @@ func TestConfigGlobBoundsMatchingWork(t *testing.T) {
   }
   root := t.TempDir()
   for _, size := range []int{16, 32, 64} {
-    pattern := strings.Repeat("{a,b}", size)+".ts"
+    pattern := strings.Repeat("{a,b}", size) + ".ts"
     raw, err := json.Marshal(map[string]any{"files": []string{pattern}, "rules": map[string]any{"no-var": "error"}})
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     location := filepath.Join(root, fmt.Sprintf("braces-%d.json", size))
     writeFile(t, location, string(raw))
     resolver, err := LoadConfigResolver(&PluginEntry{Config: map[string]any{"configFile": location}}, root, filepath.Join(root, "tsconfig.json"))
-    if err != nil { t.Fatal(err) }
+    if err != nil {
+      t.Fatal(err)
+    }
     for repeat := 0; repeat < 3; repeat++ {
-      for _, row := range []struct { name, kind string; want bool }{
-        {strings.Repeat("a", size)+".ts", "first", true},
-        {strings.Repeat("b", size)+".ts", "last", true},
-        {strings.Repeat("a", size)+".js", "miss", false},
+      for _, row := range []struct {
+        name, kind string
+        want       bool
+      }{
+        {strings.Repeat("a", size) + ".ts", "first", true},
+        {strings.Repeat("b", size) + ".ts", "last", true},
+        {strings.Repeat("a", size) + ".js", "miss", false},
       } {
         runtime.GC()
         var before, after runtime.MemStats

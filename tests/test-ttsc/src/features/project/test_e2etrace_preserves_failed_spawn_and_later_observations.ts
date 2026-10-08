@@ -27,13 +27,25 @@ export function test_e2etrace_preserves_failed_spawn_and_later_observations(): v
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-trace-results-"));
   const trace = path.join(root, "trace");
   fs.mkdirSync(trace);
-  const actor = fileURLToPath(new URL("../../internal/e2e-trace-result-actor.ts", import.meta.url));
-  const loader = new URL("../../../../../config/register-unit-loader.mjs", import.meta.url).href;
-  const result = childProcess.spawnSync(process.execPath, ["--import", loader, actor, root], {
-    encoding: "utf8",
-    env: SidecarEnvironment.merge(process.env, { NODE_OPTIONS: undefined, TTSC_E2E_TRACE: trace }),
-    windowsHide: true,
-  });
+  const actor = fileURLToPath(
+    new URL("../../internal/e2e-trace-result-actor.ts", import.meta.url),
+  );
+  const loader = new URL(
+    "../../../../../config/register-unit-loader.mjs",
+    import.meta.url,
+  ).href;
+  const result = childProcess.spawnSync(
+    process.execPath,
+    ["--import", loader, actor, root],
+    {
+      encoding: "utf8",
+      env: SidecarEnvironment.merge(process.env, {
+        NODE_OPTIONS: undefined,
+        TTSC_E2E_TRACE: trace,
+      }),
+      windowsHide: true,
+    },
+  );
   const failures: unknown[] = [];
   try {
     assert.equal(result.error, undefined);
@@ -44,10 +56,18 @@ export function test_e2etrace_preserves_failed_spawn_and_later_observations(): v
   } catch (error) {
     failures.push(error);
   } finally {
-    if (result.error === undefined && result.signal === null && result.status !== null) {
-      try { fs.rmSync(root, { recursive: true, force: true }); }
-      catch (error) { failures.push(error); }
+    if (
+      result.error === undefined &&
+      result.signal === null &&
+      result.status !== null
+    ) {
+      try {
+        fs.rmSync(root, { recursive: true, force: true });
+      } catch (error) {
+        failures.push(error);
+      }
     }
   }
-  if (failures.length) throw new AggregateError(failures, `trace actor failed; scratch ${root}`);
+  if (failures.length)
+    throw new AggregateError(failures, `trace actor failed; scratch ${root}`);
 }

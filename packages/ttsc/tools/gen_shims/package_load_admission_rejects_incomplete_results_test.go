@@ -28,8 +28,8 @@ func TestPackageLoadAdmissionRejectsIncompleteResults(t *testing.T) {
   first, second := "example.com/internal/first", "example.com/internal/second"
   requested := []string{first, second}
   for _, test := range []struct {
-    name string
-    loaded []*packages.Package
+    name     string
+    loaded   []*packages.Package
     messages []string
   }{
     {"complete", []*packages.Package{{PkgPath: second}, {PkgPath: first}}, nil},

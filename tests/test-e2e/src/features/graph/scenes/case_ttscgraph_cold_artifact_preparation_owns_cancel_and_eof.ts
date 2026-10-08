@@ -5,7 +5,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { preserveColdRowDiagnostics } from "../../../../../utils/src/preserveColdRowDiagnostics";
-
 import { BatchWorkspace } from "../../../batch/BatchWorkspace";
 import {
   ColdArtifactObservation,
@@ -119,7 +118,9 @@ function closeReceipt(
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique empty source cache preserves cold admission; original product and observation actors close before resource checks or reclamation. Failed join or release retains this row and blocks ordinary batch reuse.
  * @evidence contracts/e2e.md#preserved-coverage This is the existing MCP EOF body without removed assertions; ordinary batch acquisition remains at the scene entry and narrow callers independently own prepared-input binding.
  */
-export async function observeColdMcpEof(workspace: Pick<BatchWorkspace.Workspace, "graphRoot">): Promise<void> {
+export async function observeColdMcpEof(
+  workspace: Pick<BatchWorkspace.Workspace, "graphRoot">,
+): Promise<void> {
   const row = allocation("graph-cold-eof-");
   const nativeReceipt = path.join(row.root, "native-starts.jsonl");
   fs.writeFileSync(nativeReceipt, "", { flag: "wx" });
@@ -291,7 +292,12 @@ export async function observeColdMcpEof(workspace: Pick<BatchWorkspace.Workspace
         "Cold MCP reader join or original resource release was not confirmed",
       );
     try {
-      preserveColdRowDiagnostics(row, joined && observerJoined, releaseConfirmed, client.stderrText());
+      preserveColdRowDiagnostics(
+        row,
+        joined && observerJoined,
+        releaseConfirmed,
+        client.stderrText(),
+      );
     } catch (error) {
       failures.push(error);
       retain(row.root, "Cold MCP diagnostics could not be preserved");
@@ -320,7 +326,9 @@ export async function observeColdMcpEof(workspace: Pick<BatchWorkspace.Workspace
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Empty unique source cache and old-work exclusion distinguish first cancellation from recovery. Original session/observer joins, input release and stable post-close work are required; unproved rows remain retained.
  * @evidence contracts/e2e.md#preserved-coverage The existing public cancellation body and every assertion remain shared; ordinary batch acquisition is unchanged and narrow input binding remains the caller's explicit responsibility.
  */
-export async function observeColdPublicSessionCancellation(workspace: Pick<BatchWorkspace.Workspace, "graphRoot">): Promise<void> {
+export async function observeColdPublicSessionCancellation(
+  workspace: Pick<BatchWorkspace.Workspace, "graphRoot">,
+): Promise<void> {
   const row = allocation("graph-cold-cancel-");
   const report = path.join(row.root, "actor.jsonl");
   const nativeReceipt = path.join(row.root, "native-starts.jsonl");
@@ -507,7 +515,12 @@ export async function observeColdPublicSessionCancellation(workspace: Pick<Batch
         "Cold public session reader join or original resource release was not confirmed",
       );
     try {
-      preserveColdRowDiagnostics(row, joined && observerJoined, releaseConfirmed, stderr);
+      preserveColdRowDiagnostics(
+        row,
+        joined && observerJoined,
+        releaseConfirmed,
+        stderr,
+      );
     } catch (error) {
       failures.push(error);
       retain(

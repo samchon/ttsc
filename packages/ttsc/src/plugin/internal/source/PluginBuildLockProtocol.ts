@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { retireLockDirectory } from "../../../internal/retireLockDirectory";
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
+import { retireLockDirectory } from "../../../internal/retireLockDirectory";
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 
 /**
@@ -143,11 +143,10 @@ export namespace PluginBuildLockProtocol {
    *
    * Its nonempty destination must remain while the recorded holder or any
    * registered observer can still act. A pre-rename identity read alone would
-   * not close the replacement race.
-   * Ordinary synchronous retirement retains its existing contention retries.
-   * Scoped cancellation instead permits the shared retirement helper's cleanup
-   * grace; a continuing refusal propagates as cleanup failure rather than
-   * certifying that this generation was retired.
+   * not close the replacement race. Ordinary synchronous retirement retains its
+   * existing contention retries. Scoped cancellation instead permits the shared
+   * retirement helper's cleanup grace; a continuing refusal propagates as
+   * cleanup failure rather than certifying that this generation was retired.
    *
    * @evidence contracts/common.md#principled-implementation A reserved nonempty tombstone makes the rename fail atomically for a stale generation; observer-aware collection preserves that reservation until all recorded capability holders are gone.
    * @evidence contracts/common.md#clear-and-simple-design The operation validates the token and derives one retirement destination, leaving owner proofs to observation and collection.

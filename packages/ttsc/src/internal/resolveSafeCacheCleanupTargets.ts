@@ -1,9 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { SourceNativeRetirement } from "./SourceNativeRetirement";
-
 import type { SafeCacheCleanupTarget } from "./SafeCacheCleanupTarget";
+import { SourceNativeRetirement } from "./SourceNativeRetirement";
 import { type FilesystemPathIdentityOperations } from "./pathIdentity/FilesystemPathIdentityOperations";
 import { createFilesystemPathIdentityContext } from "./pathIdentity/createFilesystemPathIdentityContext";
 import { resolveFilesystemPath } from "./pathIdentity/resolveFilesystemPath";

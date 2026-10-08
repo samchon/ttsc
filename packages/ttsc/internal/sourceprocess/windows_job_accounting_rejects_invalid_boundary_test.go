@@ -23,17 +23,35 @@ import (
 // @evidence contracts/testing.md#execution-ownership This Go package unit directly calls its owning native accounting operation without building an artifact, installing a consumer or launching a product host. It owns and closes only the job created here.
 func TestWindowsJobAccountingRejectsInvalidBoundary(t *testing.T) {
   job, err := windows.CreateJobObject(nil, nil)
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   closed := false
-  defer func() { if !closed { _ = windows.CloseHandle(job) } }()
+  defer func() {
+    if !closed {
+      _ = windows.CloseHandle(job)
+    }
+  }()
   limits := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{}
   limits.BasicLimitInformation.LimitFlags = windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-  if _, err = windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation, uintptr(unsafe.Pointer(&limits)), uint32(unsafe.Sizeof(limits))); err != nil { t.Fatal(err) }
-  if err = windows.TerminateJobObject(job, 1); err != nil { t.Fatal(err) }
+  if _, err = windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation, uintptr(unsafe.Pointer(&limits)), uint32(unsafe.Sizeof(limits))); err != nil {
+    t.Fatal(err)
+  }
+  if err = windows.TerminateJobObject(job, 1); err != nil {
+    t.Fatal(err)
+  }
   active, err := windowsJobActive(job)
-  if err != nil || active != 0 { t.Fatalf("empty job active=%d error=%v", active, err) }
-  if err = windows.CloseHandle(job); err != nil { t.Fatal(err) }
+  if err != nil || active != 0 {
+    t.Fatalf("empty job active=%d error=%v", active, err)
+  }
+  if err = windows.CloseHandle(job); err != nil {
+    t.Fatal(err)
+  }
   closed = true
-  if _, err = windowsJobActive(0); err == nil { t.Fatal("null job handle certified an empty boundary") }
-  if _, err = windowsJobActive(windows.InvalidHandle); err == nil { t.Fatal("invalid job handle certified an empty boundary") }
+  if _, err = windowsJobActive(0); err == nil {
+    t.Fatal("null job handle certified an empty boundary")
+  }
+  if _, err = windowsJobActive(windows.InvalidHandle); err == nil {
+    t.Fatal("invalid job handle certified an empty boundary")
+  }
 }

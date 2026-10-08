@@ -18,13 +18,13 @@ import type { RetireLockDirectoryOperations } from "./RetireLockDirectoryOperati
  * directory to move. Ordinary work has no retry deadline. Once scoped
  * cancellation is observed, cleanup permits one second of further contention:
  * this leaves the request owner's shutdown budget for other releases while
- * allowing transient readers to yield. Expiry reports the last real refusal
- * as the cause of cleanup failure, never successful retirement. An opted-in
- * owner also receives that failure through its scope when a legacy caller
- * catches the thrown exception. Native calls
- * and the caller's yield can exceed that between-attempt grace. When the probe
- * is refused too, the original retirement refusal is thrown; the probe failure
- * does not prove a particular permission or sharing cause.
+ * allowing transient readers to yield. Expiry reports the last real refusal as
+ * the cause of cleanup failure, never successful retirement. An opted-in owner
+ * also receives that failure through its scope when a legacy caller catches the
+ * thrown exception. Native calls and the caller's yield can exceed that
+ * between-attempt grace. When the probe is refused too, the original retirement
+ * refusal is thrown; the probe failure does not prove a particular permission
+ * or sharing cause.
  *
  * @param source The held generation's directory.
  * @param destination Its tombstone, which a successor's retire can never reuse.

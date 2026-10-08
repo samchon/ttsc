@@ -31,7 +31,7 @@ func TestDocumentationRegionsReachActualGraphConsumers(t *testing.T) {
     {"empty", "@evidence spec.md#rule\n~~~text\nexample only\n~~~", "Malformed @evidence declaration"},
   } {
     t.Run(scenario.name, func(t *testing.T) {
-      comment := "/**\n * "+strings.ReplaceAll(scenario.body, "\n", "\n * ")+"\n */\nexport function run(): void {}"
+      comment := "/**\n * " + strings.ReplaceAll(scenario.body, "\n", "\n * ") + "\n */\nexport function run(): void {}"
       messages := runIndexRule(t, map[string]string{"claim.ts": comment, "spec.md": "# Rule\n"}, config)
       if scenario.diagnostic == "" {
         assertNoProblems(t, messages)

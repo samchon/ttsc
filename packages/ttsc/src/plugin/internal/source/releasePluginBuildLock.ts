@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 
 import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
-
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
@@ -13,13 +12,14 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * Retire a held v3 generation during the holder's finally. False means the
  * generation already retired or disappeared, or native closure remains unknown
  * and the original cleanup callback was deferred; unexpected filesystem errors
- * propagate to the caller's release reporting boundary.
- * Ordinary synchronous contention retains its existing retries. Scoped
- * cancellation uses the shared retirement helper's cleanup grace and reports
- * a continuing refusal as ownership failure to the opted-in request owner.
+ * propagate to the caller's release reporting boundary. Ordinary synchronous
+ * contention retains its existing retries. Scoped cancellation uses the shared
+ * retirement helper's cleanup grace and reports a continuing refusal as
+ * ownership failure to the opted-in request owner.
  *
  * Scoped native boundaries additionally require qualified closure; unknown
- * retirement retains the exact generation and defers this callback for recovery.
+ * retirement retains the exact generation and defers this callback for
+ * recovery.
  *
  * Call only after the held payload callback has ended. Release records that
  * completion in this exact retired generation, even if a waiter retired it
@@ -45,7 +45,9 @@ export function releasePluginBuildLock(
 ): boolean {
   if (lease.protocol !== "v3") return false;
   if (!SourceNativeRetirement.canRelease()) {
-    SourceNativeRetirement.release(() => releasePluginBuildLock(lockDir, lease));
+    SourceNativeRetirement.release(() =>
+      releasePluginBuildLock(lockDir, lease),
+    );
     return false;
   }
   const protocolDir =

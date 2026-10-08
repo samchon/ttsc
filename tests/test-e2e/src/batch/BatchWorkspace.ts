@@ -770,7 +770,8 @@ export namespace BatchWorkspace {
           },
         ),
       retain,
-      observe: (event) => console.info("TTSC_COMPILER_ARCHIVE_COST " + JSON.stringify(event)),
+      observe: (event) =>
+        console.info("TTSC_COMPILER_ARCHIVE_COST " + JSON.stringify(event)),
     });
     const authoredManifest = JSON.parse(
       fs.readFileSync(path.join(root, "package.json"), "utf8"),

@@ -57,10 +57,10 @@ export namespace E2ETrace {
         ownership?: string,
         error?: unknown,
         ownerObservation?: {
-        record: string;
-        owner?: { hostname: string; pid: number };
-        result: string;
-        errorCode?: string;
+          record: string;
+          owner?: { hostname: string; pid: number };
+          result: string;
+          errorCode?: string;
         },
       ) => void)
     | undefined {

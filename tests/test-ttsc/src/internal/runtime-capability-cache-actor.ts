@@ -94,7 +94,9 @@ function probe(
       ),
     });
     observe(`${name}: capabilities`, () => assert.deepEqual(actual, expected));
-    observe(`${name}: proof count`, () => assert.equal(identities.length, proofs));
+    observe(`${name}: proof count`, () =>
+      assert.equal(identities.length, proofs),
+    );
     observe(`${name}: opened proof count`, () =>
       assert.equal(opened.length, proofs),
     );
@@ -124,7 +126,8 @@ function probe(
           if (outcome === "success") assert.equal(result.data.status, 0);
           else
             assert.ok(
-              typeof result.data.status === "number" && result.data.status !== 0,
+              typeof result.data.status === "number" &&
+                result.data.status !== 0,
             );
         }
       });
@@ -134,19 +137,34 @@ function probe(
 
 // Cache eligibility is established before any alias or relative row can warm it.
 probe(
-  "eligible empty miss", process.execPath, { NODE_OPTIONS: "" }, successful, 2, 1,
+  "eligible empty miss",
+  process.execPath,
+  { NODE_OPTIONS: "" },
+  successful,
+  2,
+  1,
 );
 probe(
-  "eligible whitespace hit", process.execPath, { NODE_OPTIONS: "  " }, successful, 1, 0,
+  "eligible whitespace hit",
+  process.execPath,
+  { NODE_OPTIONS: "  " },
+  successful,
+  1,
+  0,
 );
 for (let repeat = 0; repeat < 2; repeat++)
   probe(
-    `nonblank fresh ${repeat}`, process.execPath,
-    { NODE_OPTIONS: "--no-warnings" }, successful, 0, 1,
+    `nonblank fresh ${repeat}`,
+    process.execPath,
+    { NODE_OPTIONS: "--no-warnings" },
+    successful,
+    0,
+    1,
   );
 for (const alias of ["node_options", "Node_Options"])
   probe(
-    `native selector ${alias}`, process.execPath,
+    `native selector ${alias}`,
+    process.execPath,
     process.platform === "win32"
       ? { [alias]: "--no-warnings" }
       : { ...clean, [alias]: "--no-warnings" },
@@ -161,36 +179,68 @@ const bare = path.basename(process.execPath);
 const selectedPath = `${runtimeDirectory}${path.delimiter}${SidecarEnvironment.read(process.env, "PATH") ?? ""}`;
 for (let repeat = 0; repeat < 2; repeat++) {
   probe(
-    `bare fresh ${repeat}`, bare, { ...clean, PATH: selectedPath }, successful, 0, 1,
+    `bare fresh ${repeat}`,
+    bare,
+    { ...clean, PATH: selectedPath },
+    successful,
+    0,
+    1,
   );
   probe(
-    `relative fresh ${repeat}`, `.${path.sep}${bare}`, clean,
-    successful, 0, 1, "success", runtimeDirectory,
+    `relative fresh ${repeat}`,
+    `.${path.sep}${bare}`,
+    clean,
+    successful,
+    0,
+    1,
+    "success",
+    runtimeDirectory,
   );
 }
 probe(
-  "nonzero probe", process.execPath, { NODE_OPTIONS: "--ttsc-invalid-option" },
-  unsupported, 0, 1, "nonzero",
+  "nonzero probe",
+  process.execPath,
+  { NODE_OPTIONS: "--ttsc-invalid-option" },
+  unsupported,
+  0,
+  1,
+  "nonzero",
 );
 probe(
-  "nonzero recovery", process.execPath, { NODE_OPTIONS: "--no-warnings" },
-  successful, 0, 1,
+  "nonzero recovery",
+  process.execPath,
+  { NODE_OPTIONS: "--no-warnings" },
+  successful,
+  0,
+  1,
 );
 const malformed = path.join(root, "malformed.cjs");
 observe("malformed output preparation and probe", () => {
   fs.writeFileSync(malformed, 'process.stdout.write("not-json");\n');
   probe(
-    "malformed output", process.execPath,
-    { NODE_OPTIONS: `--require ${JSON.stringify(malformed)}` }, unsupported, 0, 1,
+    "malformed output",
+    process.execPath,
+    { NODE_OPTIONS: `--require ${JSON.stringify(malformed)}` },
+    unsupported,
+    0,
+    1,
   );
 });
 probe(
-  "malformed recovery", process.execPath, { NODE_OPTIONS: "--no-warnings" },
-  successful, 0, 1,
+  "malformed recovery",
+  process.execPath,
+  { NODE_OPTIONS: "--no-warnings" },
+  successful,
+  0,
+  1,
 );
 probe(
-  "eligible cache survives ineligible calls", process.execPath, clean,
-  successful, 1, 0,
+  "eligible cache survives ineligible calls",
+  process.execPath,
+  clean,
+  successful,
+  1,
+  0,
 );
 
 observe("native directory link retarget", () => {
@@ -233,23 +283,52 @@ observe("native directory link retarget", () => {
   assert.ok(after);
   assert.notEqual(after, before);
   assert.ok(
-    before.startsWith(`${fs.realpathSync.native(path.join(first, "candidate"))}\0`),
+    before.startsWith(
+      `${fs.realpathSync.native(path.join(first, "candidate"))}\0`,
+    ),
   );
   assert.ok(after.startsWith(`${fs.realpathSync.native(selected)}\0`));
   assert.ok(after.includes(createHash("sha256").update("abd").digest("hex")));
-  observations.push({ name: "native directory link retarget", type, before, after });
+  observations.push({
+    name: "native directory link retarget",
+    type,
+    before,
+    after,
+  });
 });
 
 probe(
-  "failed spawn", process.execPath, { NODE_OPTIONS: "--no-warnings" },
-  unsupported, 0, 1, "spawn-error", path.join(root, "absent-cwd"),
+  "failed spawn",
+  process.execPath,
+  { NODE_OPTIONS: "--no-warnings" },
+  unsupported,
+  0,
+  1,
+  "spawn-error",
+  path.join(root, "absent-cwd"),
 );
 probe(
-  "spawn recovery", process.execPath, { NODE_OPTIONS: "--no-warnings" },
-  successful, 0, 1,
+  "spawn recovery",
+  process.execPath,
+  { NODE_OPTIONS: "--no-warnings" },
+  successful,
+  0,
+  1,
 );
-probe("eligible hit after spawn failure", process.execPath, clean, successful, 1, 0);
+probe(
+  "eligible hit after spawn failure",
+  process.execPath,
+  clean,
+  successful,
+  1,
+  0,
+);
 process.stdout.write(
-  JSON.stringify({ pid: process.pid, runtime: process.version, observations, failures }) + "\n",
+  JSON.stringify({
+    pid: process.pid,
+    runtime: process.version,
+    observations,
+    failures,
+  }) + "\n",
 );
 if (failures.length !== 0) process.exitCode = 1;

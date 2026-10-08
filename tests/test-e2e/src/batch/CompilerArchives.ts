@@ -121,12 +121,21 @@ export namespace CompilerArchives {
           );
         const started = performance.now();
         props.produce(directory, archive);
-        props.observe?.({ phase: "pack", directory, elapsedMs: performance.now() - started });
+        props.observe?.({
+          phase: "pack",
+          directory,
+          elapsedMs: performance.now() - started,
+        });
         assertOutput();
         const proofStarted = performance.now();
         const cost = { files: 0, bytes: 0 };
         const proof = readFile(archive, cost);
-        props.observe?.({ phase: "qualify-archive", directory, elapsedMs: performance.now() - proofStarted, ...cost });
+        props.observe?.({
+          phase: "qualify-archive",
+          directory,
+          elapsedMs: performance.now() - proofStarted,
+          ...cost,
+        });
         return Object.freeze({
           name: manifest.name,
           directory,
@@ -161,7 +170,11 @@ export namespace CompilerArchives {
             "Compiler archive changed before reuse: " + artifact.name,
           );
       }
-      props.observe?.({ phase: "qualify-archives", elapsedMs: performance.now() - started, ...cost });
+      props.observe?.({
+        phase: "qualify-archives",
+        elapsedMs: performance.now() - started,
+        ...cost,
+      });
     };
     return {
       borrow() {
@@ -237,7 +250,10 @@ function identity(value: fs.BigIntStats): string {
   ].join(":");
 }
 
-function readFile(file: string, cost: { files: number; bytes: number }): {
+function readFile(
+  file: string,
+  cost: { files: number; bytes: number },
+): {
   physical: string;
   identity: string;
   sha256: string;

@@ -10,9 +10,10 @@ import { TestProject } from "../../../../utils/src/TestProject";
 /**
  * Verify ordinary E2E archive borrowing against real small file populations.
  *
- * These cases prove generation/content ownership decisions without pretending to
- * verify pnpm publication or installed compiler behavior. The actual E2E runner
- * retains those independent installation and generated-backend boundaries.
+ * These cases prove generation/content ownership decisions without pretending
+ * to verify pnpm publication or installed compiler behavior. The actual E2E
+ * runner retains those independent installation and generated-backend
+ * boundaries.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual filesystem inputs and archive bytes exercise the owner, producer, borrowers and release callback; fresh generations run their normal producers after source/config/manifest changes, exact immutable generations remain explicit, and missing/corrupt/replaced archives or failed release cannot grant reuse or cleanup.
  * @evidence contracts/testing.md#independent-expectations Literal distinct payloads, independent SHA-256, explicit producer/release counts and authored failure objects define expected outcomes without deriving them from the owner's verdict.
@@ -65,16 +66,21 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       optional,
       props,
       counts: () => ({ produced, retained }),
-      inputPayload: () => JSON.stringify({
-        source: fs.existsSync(path.join(source, "input.js"))
-          ? fs.readFileSync(path.join(source, "input.js"), "utf8")
-          : null,
-        manifest: fs.readFileSync(path.join(source, "package.json"), "utf8"),
-        added: fs.existsSync(path.join(source, "new.js")),
-        configuration: fs.existsSync(optional) ? fs.readFileSync(optional, "utf8") : null,
-        workspaceDependency: fs.existsSync(path.join(repository, "packages/dependency/package.json")),
-        environment,
-      }),
+      inputPayload: () =>
+        JSON.stringify({
+          source: fs.existsSync(path.join(source, "input.js"))
+            ? fs.readFileSync(path.join(source, "input.js"), "utf8")
+            : null,
+          manifest: fs.readFileSync(path.join(source, "package.json"), "utf8"),
+          added: fs.existsSync(path.join(source, "new.js")),
+          configuration: fs.existsSync(optional)
+            ? fs.readFileSync(optional, "utf8")
+            : null,
+          workspaceDependency: fs.existsSync(
+            path.join(repository, "packages/dependency/package.json"),
+          ),
+          environment,
+        }),
       changeEnvironment: () => {
         environment = "changed";
       },
@@ -87,8 +93,14 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       ...fixture.props,
       observe: (event) => observed.push(event),
     });
-    assert.equal(observed.filter((event) => event.phase === "qualify-inputs").length, 0);
-    assert.equal(observed.find((event) => event.phase === "qualify-archive")!.bytes, Buffer.byteLength("authored archive"));
+    assert.equal(
+      observed.filter((event) => event.phase === "qualify-inputs").length,
+      0,
+    );
+    assert.equal(
+      observed.find((event) => event.phase === "qualify-archive")!.bytes,
+      Buffer.byteLength("authored archive"),
+    );
     const first = owner.borrow();
     const second = owner.borrow();
     assert.equal(fixture.counts().produced, 1);
@@ -177,7 +189,10 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       assert.notEqual(changed, before);
       // An explicit existing generation remains its exact published bytes.
       loan.assertAvailable();
-      assert.equal(fs.readFileSync(loan.artifacts[0]!.archive, "utf8"), "authored archive");
+      assert.equal(
+        fs.readFileSync(loan.artifacts[0]!.archive, "utf8"),
+        "authored archive",
+      );
       const output = TestProject.tmpdir("compiler-archive-next-generation-");
       const next = CompilerArchives.create({
         ...fixture.props,
@@ -189,9 +204,15 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       });
       assert.equal(fixture.counts().produced, 2);
       const nextLoan = next.borrow();
-      assert.equal(fs.readFileSync(nextLoan.artifacts[0]!.archive, "utf8"), changed);
+      assert.equal(
+        fs.readFileSync(nextLoan.artifacts[0]!.archive, "utf8"),
+        changed,
+      );
       assert.notEqual(nextLoan.artifacts[0]!.sha256, loan.artifacts[0]!.sha256);
-      assert.notEqual(nextLoan.artifacts[0]!.archive, loan.artifacts[0]!.archive);
+      assert.notEqual(
+        nextLoan.artifacts[0]!.archive,
+        loan.artifacts[0]!.archive,
+      );
       nextLoan.release();
       loan.release();
     });
@@ -199,7 +220,6 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
     string,
     (fixture: ReturnType<typeof seed>, archive: string) => void,
   ][] = [
-
     ["missing archive", (_fixture, archive) => fs.unlinkSync(archive)],
     [
       "corrupt archive same size",
@@ -245,7 +265,10 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       (error) => error === failure,
     );
     CompilerArchives.create(fixture.props);
-    assert.throws(() => CompilerArchives.create(fixture.props), /existing destination/);
+    assert.throws(
+      () => CompilerArchives.create(fixture.props),
+      /existing destination/,
+    );
     assert.equal(fixture.counts().produced, 1);
   });
   check("retention stays sticky when delegate fails", () => {
@@ -398,7 +421,10 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       if (mode === "manifest")
         fs.writeFileSync(path.join(plugin, "package.json"), '{"name":42}');
       if (mode === "manifest-compiler")
-        fs.writeFileSync(path.join(fixture.source, "package.json"), '{"name":42}');
+        fs.writeFileSync(
+          path.join(fixture.source, "package.json"),
+          '{"name":42}',
+        );
       if (mode === "manifest-name-missing")
         fs.writeFileSync(path.join(plugin, "package.json"), "{}");
       if (mode === "manifest-file-missing")

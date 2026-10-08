@@ -21,5 +21,12 @@ import { serializeCompilerError } from "ttsc";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned diagnostic string is caller-owned; no handle or retained cache is acquired.
  */
 export function formatGraphFailure(error: unknown): string {
-  return inspect(serializeCompilerError(error), { depth: null, customInspect: false, getters: false, colors: false, maxArrayLength: null, maxStringLength: null });
+  return inspect(serializeCompilerError(error), {
+    depth: null,
+    customInspect: false,
+    getters: false,
+    colors: false,
+    maxArrayLength: null,
+    maxStringLength: null,
+  });
 }

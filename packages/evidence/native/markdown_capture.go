@@ -33,32 +33,32 @@ import (
 // and distinct file selections. A clean Corpus retains the inventories needed
 // for Hints. The capture owns no descriptor or task.
 type markdownCapture struct {
-  bases map[string]markdownCapturedBase
-  walks map[string]markdownCapturedWalk
-  inventories map[string]map[string]markdownCapturedInventory
+  bases        map[string]markdownCapturedBase
+  walks        map[string]markdownCapturedWalk
+  inventories  map[string]map[string]markdownCapturedInventory
   walkFailures map[string]error
-  walkErrors map[string]map[string]error
+  walkErrors   map[string]map[string]error
 }
 
 type markdownCapturedBase struct {
-  from string
+  from    string
   problem string
 }
 
 type markdownCapturedWalk struct {
   entries []markdownWalkObservation
-  err error
+  err     error
 }
 
 type markdownWalkObservation struct {
-  path string
+  path  string
   entry fs.DirEntry
-  err error
+  err   error
 }
 
 type markdownCapturedInventory struct {
   inventory *artifactInventory
-  err error
+  err       error
 }
 
 // resolve retains the first base resolution, including an unusable root.
@@ -76,7 +76,9 @@ func (capture *markdownCapture) resolve(base populationBase) (string, string) {
       observation.problem = unresolvedBaseProblem(base, artifactMarkdown)
     }
   }
-  if capture.bases == nil { capture.bases = map[string]markdownCapturedBase{} }
+  if capture.bases == nil {
+    capture.bases = map[string]markdownCapturedBase{}
+  }
   capture.bases[base.Absolute] = observation
   return observation.from, observation.problem
 }
@@ -94,18 +96,26 @@ func (capture *markdownCapture) walk(base populationBase, from string, config gr
     }
     return prior.err
   }
-  if err := capture.walkFailures[base.Absolute]; err != nil { return err }
+  if err := capture.walkFailures[base.Absolute]; err != nil {
+    return err
+  }
   observation := markdownCapturedWalk{}
   observedErrors := map[string]bool{}
   observation.err = base.inputs.WalkDir(from, func(path string, entry fs.DirEntry, err error) error {
     if prior := capture.walkErrors[base.Absolute][path]; prior != nil {
       err = prior
     } else if err != nil {
-      if capture.walkErrors == nil { capture.walkErrors = map[string]map[string]error{} }
-      if capture.walkErrors[base.Absolute] == nil { capture.walkErrors[base.Absolute] = map[string]error{} }
+      if capture.walkErrors == nil {
+        capture.walkErrors = map[string]map[string]error{}
+      }
+      if capture.walkErrors[base.Absolute] == nil {
+        capture.walkErrors[base.Absolute] = map[string]error{}
+      }
       capture.walkErrors[base.Absolute][path] = err
     }
-    if err != nil { observedErrors[path] = true }
+    if err != nil {
+      observedErrors[path] = true
+    }
     observation.entries = append(observation.entries, markdownWalkObservation{path: path, entry: entry, err: err})
     return visit(path, entry, err)
   })
@@ -114,7 +124,9 @@ func (capture *markdownCapture) walk(base populationBase, from string, config gr
   // it through the new phase's relevance, severity and population-health gate.
   if observation.err == nil {
     for path, err := range capture.walkErrors[base.Absolute] {
-      if observedErrors[path] { continue }
+      if observedErrors[path] {
+        continue
+      }
       observation.entries = append(observation.entries, markdownWalkObservation{path: path, err: err})
       if result := visit(path, nil, err); result != nil && result != fs.SkipDir {
         observation.err = result
@@ -123,10 +135,14 @@ func (capture *markdownCapture) walk(base populationBase, from string, config gr
     }
   }
   if observation.err != nil {
-    if capture.walkFailures == nil { capture.walkFailures = map[string]error{} }
+    if capture.walkFailures == nil {
+      capture.walkFailures = map[string]error{}
+    }
     capture.walkFailures[base.Absolute] = observation.err
   }
-  if capture.walks == nil { capture.walks = map[string]markdownCapturedWalk{} }
+  if capture.walks == nil {
+    capture.walks = map[string]markdownCapturedWalk{}
+  }
   capture.walks[key] = observation
   return observation.err
 }
@@ -145,8 +161,12 @@ func (capture *markdownCapture) read(address artifactAddress, current string) (*
   } else {
     inventory = &artifactInventory{Path: address.Display, Type: artifactMarkdown, LoadFailed: true}
   }
-  if capture.inventories == nil { capture.inventories = map[string]map[string]markdownCapturedInventory{} }
-  if capture.inventories[address.Base.Absolute] == nil { capture.inventories[address.Base.Absolute] = map[string]markdownCapturedInventory{} }
+  if capture.inventories == nil {
+    capture.inventories = map[string]map[string]markdownCapturedInventory{}
+  }
+  if capture.inventories[address.Base.Absolute] == nil {
+    capture.inventories[address.Base.Absolute] = map[string]markdownCapturedInventory{}
+  }
   capture.inventories[address.Base.Absolute][address.Relative] = markdownCapturedInventory{inventory: inventory, err: err}
   return inventory, err
 }
@@ -157,11 +177,17 @@ func (capture *markdownCapture) read(address artifactAddress, current string) (*
 func markdownWalkKey(base populationBase, config graphConfig) string {
   sets := map[string]bool{}
   add := func(candidate populationBase, files globSet) {
-    if candidate.Absolute != base.Absolute { return }
+    if candidate.Absolute != base.Absolute {
+      return
+    }
     patterns := make([]string, 0, len(files.Patterns))
     for _, pattern := range files.Patterns {
       value := strings.Join(pattern.Segments, "/")
-      if pattern.Exclude { value = "1:" + value } else { value = "0:" + value }
+      if pattern.Exclude {
+        value = "1:" + value
+      } else {
+        value = "0:" + value
+      }
       patterns = append(patterns, value)
     }
     var key strings.Builder
@@ -173,13 +199,19 @@ func markdownWalkKey(base populationBase, config graphConfig) string {
     sets[key.String()] = true
   }
   for _, claim := range config.Claims {
-    if claim.Type == artifactMarkdown { add(claim.Base, claim.Files) }
+    if claim.Type == artifactMarkdown {
+      add(claim.Base, claim.Files)
+    }
     for _, reference := range claim.References {
-      if reference.Type == artifactMarkdown { add(reference.Base, reference.Files) }
+      if reference.Type == artifactMarkdown {
+        add(reference.Base, reference.Files)
+      }
     }
   }
   keys := make([]string, 0, len(sets))
-  for key := range sets { keys = append(keys, key) }
+  for key := range sets {
+    keys = append(keys, key)
+  }
   sort.Strings(keys)
   var key strings.Builder
   for _, part := range append([]string{base.Absolute}, keys...) {

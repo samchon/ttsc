@@ -86,10 +86,7 @@ export function compile(
                   flags,
                 ),
           )
-        : new RegExp(
-            `^${part.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}$`,
-            flags,
-          );
+        : new RegExp(`^${part.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}$`, flags);
       // Unicode simple folding also belongs to literal components: lowercasing
       // alone misses equivalences such as Greek sigma/final sigma in Go.
       return {

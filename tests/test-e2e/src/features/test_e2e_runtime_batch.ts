@@ -64,28 +64,27 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * change, malformed dependency refusal and compatible workspace publication.
  * Actual Go -x must show cold helper compilation, unchanged object reuse across
  * different scratch roots and recompilation after edit; mode2 independently
- * observes embedding, logical runtime source and panic provenance. Six
- * compiled executions (four combined value/object probes, including the
- * workspace helper import, one cold-rebuild probe and one panic) replace the
- * separate source-project and object-cache
- * recipes; restored bytes reuse the original publication before the runtime
- * borrows it. The first cold request can discard two additional toolchain
- * transactions; independent before/after SDK metadata must explain every
- * discarded native attempt, and the final attempt must be stable. The static
- * comment-only main assembly input requires a real assembler command without
- * depending on cold standard-library objects. Nine further actual Go build
- * attempts distinguish one byte transition with exact restored mtime, three
- * continuously changing transactions plus recovery, simultaneous source motion,
- * native failure and failed key-lease release. Only one-shot and recovery add
- * two literal binary executions. Private publication namespaces separate
- * conflicting failure states while retaining the producer and Go object
- * storage. The existing published content key also rejects nine unstable
+ * observes embedding, logical runtime source and panic provenance. Six compiled
+ * executions (four combined value/object probes, including the workspace helper
+ * import, one cold-rebuild probe and one panic) replace the separate
+ * source-project and object-cache recipes; restored bytes reuse the original
+ * publication before the runtime borrows it. The first cold request can discard
+ * two additional toolchain transactions; independent before/after SDK metadata
+ * must explain every discarded native attempt, and the final attempt must be
+ * stable. The static comment-only main assembly input requires a real assembler
+ * command without depending on cold standard-library objects. Nine further
+ * actual Go build attempts distinguish one byte transition with exact restored
+ * mtime, three continuously changing transactions plus recovery, simultaneous
+ * source motion, native failure and failed key-lease release. Only one-shot and
+ * recovery add two literal binary executions. Private publication namespaces
+ * separate conflicting failure states while retaining the producer and Go
+ * object storage. The existing published content key also rejects nine unstable
  * version observations with restored launcher bytes and mtime, adding no native
  * build or cache adoption.
  *
  * The installed SDK also drives the platform helper's owned-command protocol
- * with one copied static Node fixture. Independent transport/error rows and
- * an actual parent/grandchild cancellation require joined process retirement,
+ * with one copied static Node fixture. Independent transport/error rows and an
+ * actual parent/grandchild cancellation require joined process retirement,
  * absent late effects and successful recovery without another installation,
  * native build or compiler Program. Unknown descendant closure retains that
  * separate fixture root; failures join the experiment's collected outcomes.

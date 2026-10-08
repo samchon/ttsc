@@ -20,7 +20,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Change content, replace an ancestor and create an absent input, notifying
  *    through uncertain names and requiring only the affected owner to reload.
  * 3. Register stale recorded bytes after an event, then reanchor to polling and
- *    dispose; require race replay, current polling and inert retired callbacks.
+ *    dispose; require race replay, current polling and inert retired
+ *    callbacks.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual createInputObserver with supported watch, poll and case-provider seams over real files. Counts queries within synchronous event callbacks and asserts actual owner reports after unchanged, changed, missing, raced and polled conditions.
  * @evidence contracts/testing.md#independent-expectations No native namespace query is needed to retain notification candidates. Literal file contents and their independently hashed recorded bytes define changed conditions; literal owner arrays require unchanged siblings to stay quiet. No elapsed performance threshold or observer key implementation supplies the oracle.

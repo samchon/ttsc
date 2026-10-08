@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { captureWatchInputBaseline } from "../../../../../packages/unplugin/src/core/transform/watch/captureWatchInputBaseline";
-import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 import type { ViteDevServerLike } from "../../../../../packages/unplugin/src/core/vite/ViteDevServerLike";
+import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -12,14 +12,14 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * watching replacements retain compile-window and recovery observation.
  *
  * A Vitest run disables server watching with null. Its deliveries have no
- * compiler-input registration channel, so an attached observer has no owner.
- * A later watching server must still open before its first compilation.
+ * compiler-input registration channel, so an attached observer has no owner. A
+ * later watching server must still open before its first compilation.
  *
  * 1. Attach watcherless and watching servers, observing actual watch/poll calls.
  * 2. Change an input between begin and replace, then disable observation and
  *    require old events and registrations to remain detached.
- * 3. Re-enable at another root, exercise native failure and polling recovery,
- *    and dispose before registering an overlapping replacement.
+ * 3. Re-enable at another root, exercise native failure and polling recovery, and
+ *    dispose before registering an overlapping replacement.
  *
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls createViteServeInputWatch through its lifecycle and registration API.
@@ -163,7 +163,11 @@ export async function test_vite_compiler_watch_releases_watcherless_servers(): P
     assert.ok(replacement);
     assert.equal(replacement.root, otherRoot);
     replacement.fail();
-    assert.equal(replacement.closes, 1, "native failure relinquishes the scope");
+    assert.equal(
+      replacement.closes,
+      1,
+      "native failure relinquishes the scope",
+    );
     assert.ok(tick, "failed coverage falls back to polling");
     watch.replace(importer, [], true);
     fs.writeFileSync(nextFile, "repair after failure");
@@ -184,7 +188,11 @@ export async function test_vite_compiler_watch_releases_watcherless_servers(): P
     watch.attach(server({ usePolling: true }, otherRoot));
     watch.replace(importer, [{ file: nextFile }]);
     assert.ok(tick, "declared polling reacquires actual input observation");
-    assert.equal(handles.length, 2, "declared polling acquires no native scope");
+    assert.equal(
+      handles.length,
+      2,
+      "declared polling acquires no native scope",
+    );
     await watch.dispose();
     assert.equal(tick, undefined);
     await watch.dispose();
@@ -201,11 +209,18 @@ export async function test_vite_compiler_watch_releases_watcherless_servers(): P
       "retained watching association supports replacement registration",
     );
     watch.forget(importer);
-    assert.equal(tick, undefined, "the final input owner releases fallback work");
+    assert.equal(
+      tick,
+      undefined,
+      "the final input owner releases fallback work",
+    );
   } finally {
     await watch.dispose();
     fs.rmSync(root, { recursive: true, force: true });
   }
   assert.equal(pollCloses, pollOpens);
-  assert.deepEqual(handles.map((handle) => handle.closes), [1, 1]);
+  assert.deepEqual(
+    handles.map((handle) => handle.closes),
+    [1, 1],
+  );
 }

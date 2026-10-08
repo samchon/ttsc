@@ -17,16 +17,16 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * Unknown closure defers record cleanup; ordinary synchronous callers acquire
  * no new native-retirement metadata.
  *
- * Protection for unguarded calls assumes the coordination heartbeat stays within its freshness
- * grace; a later suspension or refresh failure is not process-absence proof.
- * The lease covers the synchronous callback invocation, not later asynchronous
- * work it might return. Finish requests refresher shutdown and record cleanup;
- * this synchronous function does not join termination or guarantee native
- * removal. An opted-in asynchronous owner joins tracked heartbeat exit/close
- * and receives termination failures after this operation unwinds.
- * Scoped cancellation checks admission and callback completion and interrupts
- * contention sleeps. Every acquired record still requests finish before cancellation
- * leaves this operation.
+ * Protection for unguarded calls assumes the coordination heartbeat stays
+ * within its freshness grace; a later suspension or refresh failure is not
+ * process-absence proof. The lease covers the synchronous callback invocation,
+ * not later asynchronous work it might return. Finish requests refresher
+ * shutdown and record cleanup; this synchronous function does not join
+ * termination or guarantee native removal. An opted-in asynchronous owner joins
+ * tracked heartbeat exit/close and receives termination failures after this
+ * operation unwinds. Scoped cancellation checks admission and callback
+ * completion and interrupts contention sleeps. Every acquired record still
+ * requests finish before cancellation leaves this operation.
  *
  * @evidence contracts/common.md#principled-implementation Publishing before scanning maintenance makes either ordering visible to the other participant under the coordination freshness premise; startup acknowledgment does not prove continued heartbeat progress, and lease cleanup covers the scan and callback.
  * @evidence contracts/common.md#clear-and-simple-design Unmanaged caches bypass heartbeat/eviction coordination but owned native tasks register lifetime guards; one retry loop owns managed lease acquisition, maintenance negotiation and finally release.

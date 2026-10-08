@@ -8,9 +8,9 @@ import { readJsonFile } from "../../../compiler/internal/project/readJsonFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
-import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
 import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
@@ -2085,7 +2085,10 @@ function removeEvaluationTempDir(directory: string): void {
   }
 }
 
-/** Delegate an owned resolver's descriptor process without changing ordinary callers. */
+/**
+ * Delegate an owned resolver's descriptor process without changing ordinary
+ * callers.
+ */
 function spawnOwnedDescriptor(
   command: string,
   args: readonly string[],

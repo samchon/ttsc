@@ -503,12 +503,11 @@ const unpluginFactory: UnpluginFactory<
       // The bridge opened with the first pass (`buildStart`); a host that
       // opened none before its first transform gets it here.
       const bridgeStartedAt = hostWatching(this)
-        ? (passStartedAt ??= (bridge ??=
-            openHostWatchBridge(
-              hostRoot(),
-              {},
-              buildHostDeclaresPolling(this.getNativeBuildContext?.()),
-            )).begin())
+        ? (passStartedAt ??= (bridge ??= openHostWatchBridge(
+            hostRoot(),
+            {},
+            buildHostDeclaresPolling(this.getNativeBuildContext?.()),
+          )).begin())
         : undefined;
       // A build host takes the project's record, and nothing else, through
       // the same channel that watches the module itself: Farm relates a watch

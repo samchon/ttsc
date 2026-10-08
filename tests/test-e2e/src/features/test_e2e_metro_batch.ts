@@ -4439,7 +4439,13 @@ async function runResidentLoaderPool(): Promise<void> {
       );
       const metadataDelivery = await Promise.all(
         workers.map((worker) =>
-          worker.request("", undefined, undefined, undefined, "metadata-inputs"),
+          worker.request(
+            "",
+            undefined,
+            undefined,
+            undefined,
+            "metadata-inputs",
+          ),
         ),
       );
       for (const reply of metadataDelivery) assertHostObservation(reply);

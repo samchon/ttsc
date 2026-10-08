@@ -2,8 +2,8 @@ import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
-import { type TtscGraphReadonly } from "./TtscGraphReadonly";
 import { TtscGraphProjection } from "./TtscGraphProjection";
+import { type TtscGraphReadonly } from "./TtscGraphReadonly";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
 
 type SnapshotNode = TtscGraphReadonly<ITtscGraphNode>;
@@ -93,7 +93,8 @@ export class TtscGraphMemory {
           symbols:
             node.kind === "file"
               ? []
-              : node.qualifiedName !== undefined && node.qualifiedName !== node.name
+              : node.qualifiedName !== undefined &&
+                  node.qualifiedName !== node.name
                 ? [node.name, node.qualifiedName]
                 : [node.name],
           targets: docTagTargetsOf(node),
@@ -390,7 +391,6 @@ export function leadingToken(text: string | undefined): string | undefined {
   const stop = trimmed.search(/\s/u);
   return stop < 0 ? trimmed : trimmed.slice(0, stop);
 }
-
 
 /**
  * Build an ordered index, copying a bucket only after its membership differs.

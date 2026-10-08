@@ -47,21 +47,33 @@ import (
 // and retains its directory; job and control handles close on return.
 func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (completed result) {
   dir, err := os.MkdirTemp("", "ttsc-source-process-")
-  if err != nil { return failure("EIO", err.Error()) }
+  if err != nil {
+    return failure("EIO", err.Error())
+  }
   boundaryAcquired := false
   defer func() {
-    if boundaryAcquired && !completed.Cleanup.BoundaryEmpty { return }
+    if boundaryAcquired && !completed.Cleanup.BoundaryEmpty {
+      return
+    }
     if cleanupErr := os.RemoveAll(dir); cleanupErr != nil {
       completed.Error = &processError{Code: "EIO", Message: cleanupErr.Error()}
     }
   }()
   data, err := json.Marshal(req)
-  if err != nil { return failure("EINVAL", err.Error()) }
-  if err = os.WriteFile(filepath.Join(dir, "request.json"), data, 0600); err != nil { return failure("EIO", err.Error()) }
+  if err != nil {
+    return failure("EINVAL", err.Error())
+  }
+  if err = os.WriteFile(filepath.Join(dir, "request.json"), data, 0600); err != nil {
+    return failure("EIO", err.Error())
+  }
   name, err := windows.UTF16PtrFromString("Local\\" + filepath.Base(dir))
-  if err != nil { return failure("EINVAL", err.Error()) }
+  if err != nil {
+    return failure("EINVAL", err.Error())
+  }
   job, err := windows.CreateJobObject(nil, name)
-  if err != nil { return failure("EJOB", err.Error()) }
+  if err != nil {
+    return failure("EJOB", err.Error())
+  }
   defer func() {
     if closeErr := windows.CloseHandle(job); closeErr != nil {
       completed.Error = &processError{Code: "EJOB", Message: closeErr.Error()}
@@ -69,14 +81,20 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
   }()
   limits := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{}
   limits.BasicLimitInformation.LimitFlags = windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-  if _, err = windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation, uintptr(unsafe.Pointer(&limits)), uint32(unsafe.Sizeof(limits))); err != nil { return failure("EJOB", err.Error()) }
+  if _, err = windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation, uintptr(unsafe.Pointer(&limits)), uint32(unsafe.Sizeof(limits))); err != nil {
+    return failure("EJOB", err.Error())
+  }
   executable, err := os.Executable()
-  if err != nil { return failure("EIO", err.Error()) }
-  cmd := exec.Command(executable, "__source-process", "--inner", "Local\\" + filepath.Base(dir), dir)
+  if err != nil {
+    return failure("EIO", err.Error())
+  }
+  cmd := exec.Command(executable, "__source-process", "--inner", "Local\\"+filepath.Base(dir), dir)
   cmd.Dir, cmd.Env = req.Cwd, environment(req.Env)
   cmd.Stdout, cmd.Stderr = out, errOut
   control, err := cmd.StdinPipe()
-  if err != nil { return failure("EIO", err.Error()) }
+  if err != nil {
+    return failure("EIO", err.Error())
+  }
   defer control.Close()
   if err = cmd.Start(); err != nil {
     value := commandResult(cmd, err)
@@ -84,7 +102,9 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
     active, queryErr := windowsJobActive(job)
     value.Cleanup.BoundaryEmpty = queryErr == nil && active == 0
     value.Cleanup.OrphanReaping = "windows-job"
-    if queryErr != nil { value.Error = &processError{Code: "EJOB", Message: queryErr.Error()} }
+    if queryErr != nil {
+      value.Error = &processError{Code: "EJOB", Message: queryErr.Error()}
+    }
     return value
   }
   boundaryAcquired = true
@@ -110,9 +130,15 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
       value = failure("ETIMEDOUT", "source command exceeded its requested timeout")
     case waitErr := <-joined:
       helperJoined, finished = true, true
-      if readErr := readWindowsResult(dir, &value); readErr != nil { value = commandResult(cmd, waitErr); value.Error = &processError{Code: "EPROTOCOL", Message: readErr.Error()} }
+      if readErr := readWindowsResult(dir, &value); readErr != nil {
+        value = commandResult(cmd, waitErr)
+        value.Error = &processError{Code: "EPROTOCOL", Message: readErr.Error()}
+      }
     case <-ticker.C:
-      if readWindowsResult(dir, &value) == nil { finished = true; break }
+      if readWindowsResult(dir, &value) == nil {
+        finished = true
+        break
+      }
       if !started {
         if _, readyErr := os.Stat(filepath.Join(dir, "ready")); readyErr == nil {
           // A tick must not admit a target after cancellation was already
@@ -126,8 +152,15 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
             value = failure("ETIMEDOUT", "source command exceeded its requested timeout")
           default:
           }
-          if finished { break }
-          if _, err = control.Write([]byte{1}); err != nil { value = failure("EPIPE", err.Error()); finished = true } else { started = true }
+          if finished {
+            break
+          }
+          if _, err = control.Write([]byte{1}); err != nil {
+            value = failure("EPIPE", err.Error())
+            finished = true
+          } else {
+            started = true
+          }
         }
       }
       if started && !running && !finished {
@@ -143,7 +176,12 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
           default:
           }
           if !finished {
-            if _, err = control.Write([]byte{2}); err != nil { value = failure("EPIPE", err.Error()); finished = true } else { running = true }
+            if _, err = control.Write([]byte{2}); err != nil {
+              value = failure("EPIPE", err.Error())
+              finished = true
+            } else {
+              running = true
+            }
             control.Close()
           }
         }
@@ -152,25 +190,44 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
   }
   // A helper not yet assigned cannot have created a target. Killing it first
   // closes the only race with a zero accounting observation before assignment.
-  if !started && !helperJoined { _ = cmd.Process.Kill() }
+  if !started && !helperJoined {
+    _ = cmd.Process.Kill()
+  }
   terminationErr := windows.TerminateJobObject(job, 1)
-  if !helperJoined { <-joined; helperJoined = true }
+  if !helperJoined {
+    <-joined
+    helperJoined = true
+  }
   value.Cancelled = cancelled
-  if cancelled && value.Error != nil && value.Error.Code == "EPROTOCOL" { value = failure("ECANCELED", "source command cancelled"); value.Cancelled = true }
+  if cancelled && value.Error != nil && value.Error.Code == "EPROTOCOL" {
+    value = failure("ECANCELED", "source command cancelled")
+    value.Cancelled = true
+  }
   if value.Pid == 0 {
     if targetPid == 0 {
       var target result
-      if readWindowsRecord(filepath.Join(dir, "started.json"), &target) == nil && target.Version == 1 { targetPid = target.Pid }
+      if readWindowsRecord(filepath.Join(dir, "started.json"), &target) == nil && target.Version == 1 {
+        targetPid = target.Pid
+      }
     }
     value.Pid = targetPid
   }
   value.Cleanup.DirectChildJoined = helperJoined
   value.Cleanup.OrphanReaping = "windows-job"
-  if terminationErr != nil { value.Error = &processError{Code: "EJOB", Message: terminationErr.Error()}; return value }
+  if terminationErr != nil {
+    value.Error = &processError{Code: "EJOB", Message: terminationErr.Error()}
+    return value
+  }
   for {
     active, queryErr := windowsJobActive(job)
-    if queryErr != nil { value.Error = &processError{Code: "EJOB", Message: queryErr.Error()}; return value }
-    if active == 0 { value.Cleanup.BoundaryEmpty = true; return value }
+    if queryErr != nil {
+      value.Error = &processError{Code: "EJOB", Message: queryErr.Error()}
+      return value
+    }
+    if active == 0 {
+      value.Cleanup.BoundaryEmpty = true
+      return value
+    }
     <-ticker.C
   }
 }
@@ -182,28 +239,53 @@ func runCommand(req request, cancel <-chan struct{}, out, errOut io.Writer) (com
 // before the outer joins the tree. A pre-RUN cancellation can lack a PID only
 // when the suspended identity was not published; no target code then ran.
 func runInner(args []string, in io.Reader, out, errOut io.Writer) int {
-  if len(args) != 2 { return 2 }
+  if len(args) != 2 {
+    return 2
+  }
   name, err := windows.UTF16PtrFromString(args[0])
-  if err != nil { return 2 }
+  if err != nil {
+    return 2
+  }
   openJob := windows.NewLazySystemDLL("kernel32.dll").NewProc("OpenJobObjectW")
-  handle, _, callErr := openJob.Call(0x0001 | 0x0004, 0, uintptr(unsafe.Pointer(name)))
-  if handle == 0 { fmt.Fprintln(errOut, callErr); return 2 }
+  handle, _, callErr := openJob.Call(0x0001|0x0004, 0, uintptr(unsafe.Pointer(name)))
+  if handle == 0 {
+    fmt.Fprintln(errOut, callErr)
+    return 2
+  }
   job := windows.Handle(handle)
-  if err = windows.AssignProcessToJobObject(job, windows.CurrentProcess()); err != nil { _ = windows.CloseHandle(job); fmt.Fprintln(errOut, err); return 2 }
+  if err = windows.AssignProcessToJobObject(job, windows.CurrentProcess()); err != nil {
+    _ = windows.CloseHandle(job)
+    fmt.Fprintln(errOut, err)
+    return 2
+  }
   // Membership survives handle closure. Only the outer retains a job handle,
   // so an unexpected outer exit also closes the last handle and kills this
   // helper and every inherited descendant.
-  if err = windows.CloseHandle(job); err != nil { fmt.Fprintln(errOut, err); return 2 }
+  if err = windows.CloseHandle(job); err != nil {
+    fmt.Fprintln(errOut, err)
+    return 2
+  }
   dir := args[1]
   data, err := os.ReadFile(filepath.Join(dir, "request.json"))
-  if err != nil { return 2 }
+  if err != nil {
+    return 2
+  }
   var req request
-  if json.Unmarshal(data, &req) != nil { return 2 }
-  if err = os.WriteFile(filepath.Join(dir, "ready"), nil, 0600); err != nil { return 2 }
+  if json.Unmarshal(data, &req) != nil {
+    return 2
+  }
+  if err = os.WriteFile(filepath.Join(dir, "ready"), nil, 0600); err != nil {
+    return 2
+  }
   var start [1]byte
-  if _, err = io.ReadFull(in, start[:]); err != nil || start[0] != 1 { return 2 }
+  if _, err = io.ReadFull(in, start[:]); err != nil || start[0] != 1 {
+    return 2
+  }
   input, _, err := openInput(req, dir)
-  if err != nil { _ = writeResult(filepath.Join(dir, "result.json"), failure("EINVAL", err.Error())); return 2 }
+  if err != nil {
+    _ = writeResult(filepath.Join(dir, "result.json"), failure("EINVAL", err.Error()))
+    return 2
+  }
   owner, launchErr := startWindowsTarget(req, input)
   if launchErr != nil {
     _ = input.Close()
@@ -212,16 +294,30 @@ func runInner(args []string, in io.Reader, out, errOut io.Writer) int {
   }
   defer owner.close()
   value := result{Version: 1, Pid: int(owner.info.ProcessId)}
-  if err = writeResult(filepath.Join(dir, "started.json"), value); err != nil { fmt.Fprintln(errOut, err); _ = input.Close(); return 2 }
+  if err = writeResult(filepath.Join(dir, "started.json"), value); err != nil {
+    fmt.Fprintln(errOut, err)
+    _ = input.Close()
+    return 2
+  }
   var run [1]byte
-  if _, err = io.ReadFull(in, run[:]); err != nil || run[0] != 2 { _ = input.Close(); return 2 }
+  if _, err = io.ReadFull(in, run[:]); err != nil || run[0] != 2 {
+    _ = input.Close()
+    return 2
+  }
   if err = owner.resume(); err != nil {
     value.Error = &processError{Code: "EPROCESS", Message: err.Error()}
-  } else { value = owner.wait() }
+  } else {
+    value = owner.wait()
+  }
   // Descendants may retain this file without FILE_SHARE_DELETE. The outer
   // removes it after joining the job, instead of deleting it here.
-  if inputErr := input.Close(); inputErr != nil { value.Error = &processError{Code: "EIO", Message: inputErr.Error()} }
-  if err = writeResult(filepath.Join(dir, "result.json"), value); err != nil { fmt.Fprintln(errOut, err); return 2 }
+  if inputErr := input.Close(); inputErr != nil {
+    value.Error = &processError{Code: "EIO", Message: inputErr.Error()}
+  }
+  if err = writeResult(filepath.Join(dir, "result.json"), value); err != nil {
+    fmt.Fprintln(errOut, err)
+    return 2
+  }
   return 0
 }
 
@@ -231,9 +327,13 @@ func readWindowsResult(dir string, value *result) error {
 
 func readWindowsRecord(file string, value *result) error {
   data, err := os.ReadFile(file)
-  if err != nil { return err }
+  if err != nil {
+    return err
+  }
   var decoded result
-  if err := json.Unmarshal(data, &decoded); err != nil { return err }
+  if err := json.Unmarshal(data, &decoded); err != nil {
+    return err
+  }
   *value = decoded
   return nil
 }
@@ -241,11 +341,13 @@ func readWindowsRecord(file string, value *result) error {
 func windowsJobActive(job windows.Handle) (uint32, error) {
   // A null job can query the ambient job on Windows. Only an explicitly
   // acquired job handle may establish this command's owned boundary.
-  if job == 0 || job == windows.InvalidHandle { return 0, windows.ERROR_INVALID_HANDLE }
+  if job == 0 || job == windows.InvalidHandle {
+    return 0, windows.ERROR_INVALID_HANDLE
+  }
   // JOBOBJECT_BASIC_ACCOUNTING_INFORMATION has four LARGE_INTEGER fields
   // followed by four DWORD counters, with ActiveProcesses the seventh field.
   accounting := struct {
-    UserTime, KernelTime, PeriodUserTime, PeriodKernelTime int64
+    UserTime, KernelTime, PeriodUserTime, PeriodKernelTime           int64
     PageFaults, TotalProcesses, ActiveProcesses, TerminatedProcesses uint32
   }{}
   err := windows.QueryInformationJobObject(job, windows.JobObjectBasicAccountingInformation, uintptr(unsafe.Pointer(&accounting)), uint32(unsafe.Sizeof(accounting)), nil)

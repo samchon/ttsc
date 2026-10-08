@@ -33,11 +33,16 @@ func TestLoadConfigResolverCompactGlobsPreserveEntryPolicy(t *testing.T) {
   writeFile(t, final, `{"extends":"./child.config.json","files":["{src,test}/**/{main,unit}.ts"],"rules":{"no-restricted-syntax":"error"}}`)
   load := func(location string) RuleResolver {
     resolver, err := LoadConfigResolver(&PluginEntry{Config: map[string]any{"configFile": location}}, root, filepath.Join(root, "tsconfig.json"))
-    if err != nil { t.Fatalf("load %s: %v", location, err) }
+    if err != nil {
+      t.Fatalf("load %s: %v", location, err)
+    }
     return resolver
   }
   childResolver, resolver := load(child), load(final)
-  rows := []struct { name, syntax, semi string; childSeverity Severity }{
+  rows := []struct {
+    name, syntax, semi string
+    childSeverity      Severity
+  }{
     {"src/main.ts", `"DebuggerStatement"`, `{"prefer":"never"}`, SeverityWarn},
     {"test/deep/unit.ts", `"DebuggerStatement"`, `{"prefer":"never"}`, SeverityWarn},
     {"src/local/main.ts", `"VariableDeclaration"`, `{"prefer":"always"}`, SeverityError},

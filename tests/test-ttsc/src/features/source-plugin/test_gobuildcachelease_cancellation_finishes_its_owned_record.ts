@@ -30,7 +30,10 @@ export async function test_gobuildcachelease_cancellation_finishes_its_owned_rec
   const cancel = new SharedArrayBuffer(4);
   const retirements = new Set<Promise<unknown>>();
   const scope = { cancel, retirements };
-  const leases = path.join(root, GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR);
+  const leases = path.join(
+    root,
+    GoBuildCacheCoordination.GO_BUILD_CACHE_LEASE_DIR,
+  );
   const remaining = (): string[] =>
     fs.existsSync(leases) ? fs.readdirSync(leases) : [];
   let calls = 0;
@@ -47,7 +50,10 @@ export async function test_gobuildcachelease_cancellation_finishes_its_owned_rec
   assert.equal(calls, 0);
   assert.equal(fs.existsSync(leases), false);
   const value = {};
-  assert.equal(withGoBuildCacheLease(root, false, () => value), value);
+  assert.equal(
+    withGoBuildCacheLease(root, false, () => value),
+    value,
+  );
   Atomics.store(new Int32Array(cancel), 0, 0);
   try {
     assert.throws(
@@ -203,7 +209,8 @@ export async function test_gobuildcachelease_cancellation_finishes_its_owned_rec
       "--allow-fs-write=*",
       "--allow-child-process",
       "--import",
-      pathToFileURL(path.join(repository, "config/register-unit-loader.mjs")).href,
+      pathToFileURL(path.join(repository, "config/register-unit-loader.mjs"))
+        .href,
       "--input-type=module",
     ],
     { cwd: repository, stdio: ["pipe", "pipe", "pipe"], windowsHide: true },

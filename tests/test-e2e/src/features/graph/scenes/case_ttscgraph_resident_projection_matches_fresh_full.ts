@@ -11,17 +11,26 @@ import { installedTargetBoundary } from "../../../internal/graph/internal/instal
 type Model = ReturnType<typeof loadGraph>;
 const require_ = createRequire(import.meta.url);
 const lib = path.dirname(require_.resolve("@ttsc/graph"));
-const { TtscGraphSessionState } = require_(path.join(lib, "model/TtscGraphSessionState.js")) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphSessionState");
-const { TtscGraphLinePeer } = require_(path.join(lib, "model/TtscGraphLinePeer.js")) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphLinePeer");
-const { TtscGraphNativeArguments } = require_(path.join(lib, "model/TtscGraphNativeArguments.js")) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphNativeArguments");
-const { TtscGraphProtocol } = require_(path.join(lib, "model/TtscGraphProtocol.js")) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphProtocol");
+const { TtscGraphSessionState } = require_(
+  path.join(lib, "model/TtscGraphSessionState.js"),
+) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphSessionState");
+const { TtscGraphLinePeer } = require_(
+  path.join(lib, "model/TtscGraphLinePeer.js"),
+) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphLinePeer");
+const { TtscGraphNativeArguments } = require_(
+  path.join(lib, "model/TtscGraphNativeArguments.js"),
+) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphNativeArguments");
+const { TtscGraphProtocol } = require_(
+  path.join(lib, "model/TtscGraphProtocol.js"),
+) as typeof import("../../../../../../packages/graph/lib/model/TtscGraphProtocol");
 
 /**
  * Verifies resident projection reuse against fresh real native full snapshots.
  *
  * Authored transaction units cannot establish the checker/delta/runtime
  * connection. This small multi-file project uses the same unmodified native
- * binary for the built resident state owner and each independent public full load.
+ * binary for the built resident state owner and each independent public full
+ * load.
  *
  * 1. Load initial and unchanged facts, then apply body and public API edits.
  * 2. Delete, rename and change config/root membership, comparing every fact and
@@ -43,7 +52,11 @@ export async function case_ttscgraph_resident_projection_matches_fresh_full(): P
   const originals = FixtureFiles.read(
     "graph/ttscgraph_resident_projection_matches_fresh_full/inputs-1",
   );
-  assert.equal(fs.existsSync(directory), false, "oracle population must be new");
+  assert.equal(
+    fs.existsSync(directory),
+    false,
+    "oracle population must be new",
+  );
   fs.mkdirSync(directory);
   for (const [file, text] of Object.entries(originals))
     fs.writeFileSync(path.join(directory, file), text);
@@ -81,12 +94,19 @@ export async function case_ttscgraph_resident_projection_matches_fresh_full(): P
     artifacts: () => "",
     close: async () => {},
   });
-  const retained: Array<{ model: Model; facts: string; lines: readonly string[] | undefined }> = [];
+  const retained: Array<{
+    model: Model;
+    facts: string;
+    lines: readonly string[] | undefined;
+  }> = [];
   const failures: unknown[] = [];
   let blocked = false;
   let previous: Model | undefined;
   let stableId: string | undefined;
-  const observe = async (phase: string, mode: ITtscGraphSnapshot.Mode): Promise<Model> => {
+  const observe = async (
+    phase: string,
+    mode: ITtscGraphSnapshot.Mode,
+  ): Promise<Model> => {
     const before = frames.length;
     let graph: Model;
     try {
@@ -97,7 +117,11 @@ export async function case_ttscgraph_resident_projection_matches_fresh_full(): P
       blocked = true;
       throw error;
     }
-    assert.equal(frames.length, before + 1, phase + " must observe one actual native frame");
+    assert.equal(
+      frames.length,
+      before + 1,
+      phase + " must observe one actual native frame",
+    );
     const frame = frames.at(-1)!;
     fs.appendFileSync(receiptFile, JSON.stringify({ phase, frame }) + "\n");
     assert.equal(frame.mode, mode, phase);
@@ -108,79 +132,180 @@ export async function case_ttscgraph_resident_projection_matches_fresh_full(): P
     } else {
       assert.ok(frame.snapshot, phase + " requires an actual shard frame");
       assert.ok(frame.snapshot.manifest.length > 1);
-      if (previous !== undefined) assert.ok(frame.snapshot.baseSequence !== undefined);
+      if (previous !== undefined)
+        assert.ok(frame.snapshot.baseSequence !== undefined);
     }
-    const full = loadGraph({ cwd: target.root, tsconfig, binary: target.binary });
+    const full = loadGraph({
+      cwd: target.root,
+      tsconfig,
+      binary: target.binary,
+    });
     equalModel(graph, full);
     for (const old of retained) {
       assert.equal(JSON.stringify(answers(old.model)), old.facts);
-      assert.equal(old.model.source.lines("projection-oracle/model.ts"), old.lines);
+      assert.equal(
+        old.model.source.lines("projection-oracle/model.ts"),
+        old.lines,
+      );
     }
     if (phase === "initial") {
       stableId = graph.named("UnrelatedStableControl")[0]!.id;
-      assert.equal(graph.named("Model").filter((node) => node.kind === "class").length, 1);
-      assert.ok(graph.edges.some((edge) => edge.kind === "exports" && edge.from === "projection-oracle/barrel.ts"));
+      assert.equal(
+        graph.named("Model").filter((node) => node.kind === "class").length,
+        1,
+      );
+      assert.ok(
+        graph.edges.some(
+          (edge) =>
+            edge.kind === "exports" &&
+            edge.from === "projection-oracle/barrel.ts",
+        ),
+      );
       assert.ok(graph.edges.some((edge) => edge.kind === "calls"));
     }
     if (mode === "incremental" && previous !== undefined) {
       assert.equal(graph.node(stableId!), previous.node(stableId!));
-      assert.equal(graph.named("UnrelatedStableControl"), previous.named("UnrelatedStableControl"));
-      assert.equal(graph.outgoing("projection-oracle/stable.ts"), previous.outgoing("projection-oracle/stable.ts"));
-      assert.equal(graph.citing("docs/stable.md#control"), previous.citing("docs/stable.md#control"));
-      assert.ok(frame.snapshot!.upserts.length < frame.snapshot!.manifest.length, "small edit must retain native shards");
+      assert.equal(
+        graph.named("UnrelatedStableControl"),
+        previous.named("UnrelatedStableControl"),
+      );
+      assert.equal(
+        graph.outgoing("projection-oracle/stable.ts"),
+        previous.outgoing("projection-oracle/stable.ts"),
+      );
+      assert.equal(
+        graph.citing("docs/stable.md#control"),
+        previous.citing("docs/stable.md#control"),
+      );
+      assert.ok(
+        frame.snapshot!.upserts.length < frame.snapshot!.manifest.length,
+        "small edit must retain native shards",
+      );
     }
-    retained.push({ model: graph, facts: JSON.stringify(answers(graph)), lines: graph.source.lines("projection-oracle/model.ts") });
+    retained.push({
+      model: graph,
+      facts: JSON.stringify(answers(graph)),
+      lines: graph.source.lines("projection-oracle/model.ts"),
+    });
     previous = graph;
     return graph;
   };
   const phases: Array<[string, () => Promise<void>]> = [
-    ["initial", async () => { await observe("initial", "initial"); }],
-    ["no-op", async () => { await observe("no-op", "unchanged"); }],
-    ["body edit", async () => {
-      write("model.ts", originals["model.ts"]!.replace("return this.value;", "return this.value + 1;"));
-      const body = await observe("body edit", "incremental");
-      assert.equal(body.named("read")[0]!.signature?.includes("number"), true);
-    }],
-    ["API edit", async () => {
-      write("model.ts", originals["model.ts"]!.replace("read(): number { return this.value; }", 'read(): string { return String(this.value); }'));
-      write("consumer.ts", originals["consumer.ts"]!.replace(": number", ": string"));
-      const api = await observe("API edit", "incremental");
-      assert.equal(api.named("read")[0]!.signature?.includes("string"), true);
-    }],
-    ["delete", async () => {
-      fs.unlinkSync(path.join(directory, "removed.ts"));
-      config.files = config.files.filter((file) => file !== "removed.ts");
-      configure();
-      const deleted = await observe("delete", "reload");
-      assert.equal(deleted.named("RemovedControl").length, 0);
-      assert.ok(frames.at(-1)!.snapshot!.deletes.some((key) => key.includes("removed.ts")));
-    }],
-    ["rename", async () => {
-      write("renamed.ts", fs.readFileSync(path.join(directory, "model.ts"), "utf8"));
-      fs.unlinkSync(path.join(directory, "model.ts"));
-      write("barrel.ts", originals["barrel.ts"]!.replace('"./model"', '"./renamed"'));
-      config.files = config.files.map((file) => file === "model.ts" ? "renamed.ts" : file);
-      configure();
-      const renamed = await observe("rename", "reload");
-      assert.equal(renamed.nodes.some((node) => node.file === "projection-oracle/model.ts"), false);
-      assert.equal(renamed.named("Model")[0]!.file, "projection-oracle/renamed.ts");
-    }],
-    ["configuration", async () => {
-      config.compilerOptions.strict = false;
-      configure();
-      await observe("configuration", "reload");
-    }],
-    ["root membership", async () => {
-      config.files.push("independent.ts");
-      configure();
-      const roots = await observe("root membership", "reload");
-      assert.equal(roots.named("IndependentRootControl").length, 1);
-    }],
+    [
+      "initial",
+      async () => {
+        await observe("initial", "initial");
+      },
+    ],
+    [
+      "no-op",
+      async () => {
+        await observe("no-op", "unchanged");
+      },
+    ],
+    [
+      "body edit",
+      async () => {
+        write(
+          "model.ts",
+          originals["model.ts"]!.replace(
+            "return this.value;",
+            "return this.value + 1;",
+          ),
+        );
+        const body = await observe("body edit", "incremental");
+        assert.equal(
+          body.named("read")[0]!.signature?.includes("number"),
+          true,
+        );
+      },
+    ],
+    [
+      "API edit",
+      async () => {
+        write(
+          "model.ts",
+          originals["model.ts"]!.replace(
+            "read(): number { return this.value; }",
+            "read(): string { return String(this.value); }",
+          ),
+        );
+        write(
+          "consumer.ts",
+          originals["consumer.ts"]!.replace(": number", ": string"),
+        );
+        const api = await observe("API edit", "incremental");
+        assert.equal(api.named("read")[0]!.signature?.includes("string"), true);
+      },
+    ],
+    [
+      "delete",
+      async () => {
+        fs.unlinkSync(path.join(directory, "removed.ts"));
+        config.files = config.files.filter((file) => file !== "removed.ts");
+        configure();
+        const deleted = await observe("delete", "reload");
+        assert.equal(deleted.named("RemovedControl").length, 0);
+        assert.ok(
+          frames
+            .at(-1)!
+            .snapshot!.deletes.some((key) => key.includes("removed.ts")),
+        );
+      },
+    ],
+    [
+      "rename",
+      async () => {
+        write(
+          "renamed.ts",
+          fs.readFileSync(path.join(directory, "model.ts"), "utf8"),
+        );
+        fs.unlinkSync(path.join(directory, "model.ts"));
+        write(
+          "barrel.ts",
+          originals["barrel.ts"]!.replace('"./model"', '"./renamed"'),
+        );
+        config.files = config.files.map((file) =>
+          file === "model.ts" ? "renamed.ts" : file,
+        );
+        configure();
+        const renamed = await observe("rename", "reload");
+        assert.equal(
+          renamed.nodes.some(
+            (node) => node.file === "projection-oracle/model.ts",
+          ),
+          false,
+        );
+        assert.equal(
+          renamed.named("Model")[0]!.file,
+          "projection-oracle/renamed.ts",
+        );
+      },
+    ],
+    [
+      "configuration",
+      async () => {
+        config.compilerOptions.strict = false;
+        configure();
+        await observe("configuration", "reload");
+      },
+    ],
+    [
+      "root membership",
+      async () => {
+        config.files.push("independent.ts");
+        configure();
+        const roots = await observe("root membership", "reload");
+        assert.equal(roots.named("IndependentRootControl").length, 1);
+      },
+    ],
   ];
   try {
     for (const [phase, run] of phases) {
       if (blocked) {
-        failures.push(new Error(phase + " blocked by unresolved prior native request"));
+        failures.push(
+          new Error(phase + " blocked by unresolved prior native request"),
+        );
         continue;
       }
       try {
@@ -193,12 +318,18 @@ export async function case_ttscgraph_resident_projection_matches_fresh_full(): P
     let released = false;
     try {
       await session.close();
-      assert.equal(peer?.alive() ?? false, false, "original resident child must join");
+      assert.equal(
+        peer?.alive() ?? false,
+        false,
+        "original resident child must join",
+      );
       released = true;
     } catch (error) {
       failures.push(error);
       try {
-        target.retainUnjoined("Projection oracle resident closure was not established");
+        target.retainUnjoined(
+          "Projection oracle resident closure was not established",
+        );
       } catch (retentionError) {
         failures.push(retentionError);
       }
@@ -212,12 +343,23 @@ export async function case_ttscgraph_resident_projection_matches_fresh_full(): P
       }
     }
     try {
-      fs.appendFileSync(receiptFile, JSON.stringify({ event: "retirement", released, peerAlive: peer?.alive() ?? false }) + "\n");
+      fs.appendFileSync(
+        receiptFile,
+        JSON.stringify({
+          event: "retirement",
+          released,
+          peerAlive: peer?.alive() ?? false,
+        }) + "\n",
+      );
     } catch (error) {
       failures.push(error);
     }
   }
-  if (failures.length) throw new AggregateError(failures, "Resident projection/full native oracle failed");
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Resident projection/full native oracle failed",
+    );
 }
 
 /** Compare complete current answers and independently derived source witnesses. */
@@ -228,19 +370,31 @@ function equalModel(actual: Model, full: Model): void {
   for (const node of full.nodes) {
     assert.deepEqual(actual.node(node.id), node);
     assert.deepEqual(actual.named(node.name), full.named(node.name));
-    for (const handle of [node.name, node.qualifiedName].filter((x): x is string => x !== undefined))
+    for (const handle of [node.name, node.qualifiedName].filter(
+      (x): x is string => x !== undefined,
+    ))
       assert.deepEqual(actual.symbols(handle), full.symbols(handle));
     assert.deepEqual(actual.incoming(node.id), full.incoming(node.id));
     assert.deepEqual(actual.outgoing(node.id), full.outgoing(node.id));
   }
-  for (const target of ["docs/model.md#model", "docs/model.md#read", "docs/stable.md#control"])
+  for (const target of [
+    "docs/model.md#model",
+    "docs/model.md#read",
+    "docs/stable.md#control",
+  ])
     assert.deepEqual(actual.citing(target), full.citing(target));
-  const source = (model: Model) => (model.source as unknown as { digests: ReadonlyMap<string, unknown> }).digests;
+  const source = (model: Model) =>
+    (model.source as unknown as { digests: ReadonlyMap<string, unknown> })
+      .digests;
   assert.deepEqual([...source(actual)], [...source(full)]);
-  for (const file of source(full).keys()) assert.deepEqual(actual.source.lines(file), full.source.lines(file));
+  for (const file of source(full).keys())
+    assert.deepEqual(actual.source.lines(file), full.source.lines(file));
 }
 
-/** Retain query answers by value so later assertions cannot share a mutated index. */
+/**
+ * Retain query answers by value so later assertions cannot share a mutated
+ * index.
+ */
 function answers(model: Model) {
   return {
     nodes: model.nodes,
@@ -253,6 +407,10 @@ function answers(model: Model) {
       incoming: model.incoming(node.id),
       outgoing: model.outgoing(node.id),
     })),
-    citations: ["docs/model.md#model", "docs/model.md#read", "docs/stable.md#control"].map((target) => model.citing(target)),
+    citations: [
+      "docs/model.md#model",
+      "docs/model.md#read",
+      "docs/stable.md#control",
+    ].map((target) => model.citing(target)),
   };
 }

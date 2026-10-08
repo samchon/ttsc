@@ -18,15 +18,26 @@ type Row = {
   pid: number | null;
   data: Record<string, unknown>;
 };
-type Payload = { text: string; representation: "returned-string" } |
-  { path: string; bytes: number };
-const rows = (): Row[] => fs.readdirSync(trace)
-  .filter((name) => name.endsWith(".jsonl"))
-  .flatMap((name) => fs.readFileSync(path.join(trace, name), "utf8")
-    .split("\n").filter(Boolean).map((line) => JSON.parse(line) as Row));
+type Payload =
+  | { text: string; representation: "returned-string" }
+  | { path: string; bytes: number };
+const rows = (): Row[] =>
+  fs
+    .readdirSync(trace)
+    .filter((name) => name.endsWith(".jsonl"))
+    .flatMap((name) =>
+      fs
+        .readFileSync(path.join(trace, name), "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as Row),
+    );
 const check = (name: string, operation: () => void): void => {
-  try { operation(); }
-  catch (error) { failures.push({ name, error: String(error) }); }
+  try {
+    operation();
+  } catch (error) {
+    failures.push({ name, error: String(error) });
+  }
 };
 const readPayload = (reference: unknown): Buffer | string | null => {
   if (reference === null) return null;
@@ -41,8 +52,12 @@ const readPayload = (reference: unknown): Buffer | string | null => {
   return bytes;
 };
 
-function run(name: string, command: string, options: childProcess.SpawnSyncOptions,
-  args = ["-e", 'process.stdout.write("out");process.stderr.write("err");']): void {
+function run(
+  name: string,
+  command: string,
+  options: childProcess.SpawnSyncOptions,
+  args = ["-e", 'process.stdout.write("out");process.stderr.write("err");'],
+): void {
   let native: ReturnType<typeof childProcess.spawnSync> | undefined;
   const before = rows().length;
   const returned = E2ETrace.synchronous(command, args, options, name, () => {
@@ -50,28 +65,49 @@ function run(name: string, command: string, options: childProcess.SpawnSyncOptio
     return native;
   });
   const observed = rows().slice(before);
-  observations.push({ name, pid: returned.pid, status: returned.status,
-    signal: returned.signal, error: returned.error?.message,
-    stdoutType: typeof returned.stdout, stderrType: typeof returned.stderr,
-    events: observed });
+  observations.push({
+    name,
+    pid: returned.pid,
+    status: returned.status,
+    signal: returned.signal,
+    error: returned.error?.message,
+    stdoutType: typeof returned.stdout,
+    stderrType: typeof returned.stderr,
+    events: observed,
+  });
   check(`${name}: native identity`, () => assert.equal(returned, native));
   check(`${name}: actual result`, () => {
     const result = observed.find((row) => row.event === "process-result")!;
     assert.ok(result);
-    assert.equal(observed.filter((row) => row.event === "process-attempt").length, 1);
-    assert.equal(observed.filter((row) => row.event === "process-result").length, 1);
+    assert.equal(
+      observed.filter((row) => row.event === "process-attempt").length,
+      1,
+    );
+    assert.equal(
+      observed.filter((row) => row.event === "process-result").length,
+      1,
+    );
     assert.equal(result.writerPid, process.pid);
     assert.equal(result.pid, returned.pid > 0 ? returned.pid : null);
     assert.equal(result.data.started, returned.pid > 0);
     assert.equal(result.data.status, returned.status);
     assert.equal(result.data.signal, returned.signal);
-    assert.equal(result.data.exitObserved, returned.status !== null || returned.signal !== null);
-    assert.deepEqual(result.data.error, returned.error === undefined ? null : {
-      name: returned.error.name, message: returned.error.message,
-      code: (returned.error as NodeJS.ErrnoException).code,
-      errno: (returned.error as NodeJS.ErrnoException).errno,
-      syscall: (returned.error as NodeJS.ErrnoException).syscall,
-    });
+    assert.equal(
+      result.data.exitObserved,
+      returned.status !== null || returned.signal !== null,
+    );
+    assert.deepEqual(
+      result.data.error,
+      returned.error === undefined
+        ? null
+        : {
+            name: returned.error.name,
+            message: returned.error.message,
+            code: (returned.error as NodeJS.ErrnoException).code,
+            errno: (returned.error as NodeJS.ErrnoException).errno,
+            syscall: (returned.error as NodeJS.ErrnoException).syscall,
+          },
+    );
     assert.deepEqual(readPayload(result.data.stdout), returned.stdout ?? null);
     assert.deepEqual(readPayload(result.data.stderr), returned.stderr ?? null);
     assert.ok(observed.every((row) => row.event !== "integrity-failure"));
@@ -86,8 +122,14 @@ function run(name: string, command: string, options: childProcess.SpawnSyncOptio
       assert.equal(returned.error, undefined);
       assert.equal(returned.status, name === "nonzero" ? 7 : 0);
       if (name.startsWith("recovery")) {
-        assert.deepEqual(returned.stdout, options.encoding === "utf8" ? "out" : Buffer.from("out"));
-        assert.deepEqual(returned.stderr, options.encoding === "utf8" ? "err" : Buffer.from("err"));
+        assert.deepEqual(
+          returned.stdout,
+          options.encoding === "utf8" ? "out" : Buffer.from("out"),
+        );
+        assert.deepEqual(
+          returned.stderr,
+          options.encoding === "utf8" ? "err" : Buffer.from("err"),
+        );
       }
       if (name === "ignored-streams") {
         assert.equal(returned.stdout, null);
@@ -101,13 +143,21 @@ function run(name: string, command: string, options: childProcess.SpawnSyncOptio
   });
 }
 
-run("failed-cwd", process.execPath, { cwd: path.join(root, "absent-cwd"), encoding: "utf8" });
+run("failed-cwd", process.execPath, {
+  cwd: path.join(root, "absent-cwd"),
+  encoding: "utf8",
+});
 run("recovery-text", process.execPath, { encoding: "utf8" });
-run("failed-executable", path.join(root, "absent-runtime"), { encoding: "utf8" });
+run("failed-executable", path.join(root, "absent-runtime"), {
+  encoding: "utf8",
+});
 run("recovery-buffer", process.execPath, {});
 run("ignored-streams", process.execPath, { stdio: "ignore" });
 run("empty-buffer", process.execPath, {}, ["-e", ""]);
-run("nonzero", process.execPath, { encoding: "utf8" }, ["-e", "process.exitCode=7"]);
+run("nonzero", process.execPath, { encoding: "utf8" }, [
+  "-e",
+  "process.exitCode=7",
+]);
 
 // Force a genuine payload IO error without patching filesystem methods. The
 // attempt's actual writer identity determines the next owned payload pathname.
@@ -115,7 +165,10 @@ const token = E2ETrace.begin(process.execPath, ["-e", ""], {}, "payload-io");
 const attempt = rows().findLast((row) => row.event === "process-attempt");
 let blocked: string | undefined;
 if (token && attempt) {
-  blocked = path.join(trace, `${process.pid}-${attempt.instance}-${token.invocation}-stdout.bin`);
+  blocked = path.join(
+    trace,
+    `${process.pid}-${attempt.instance}-${token.invocation}-stdout.bin`,
+  );
   fs.mkdirSync(blocked);
 }
 const native = childProcess.spawnSync(process.execPath, ["-e", ""]);
@@ -124,17 +177,31 @@ check("payload IO failure metadata", () => {
   assert.ok(token);
   assert.equal(native.status, 0);
   assert.equal(native.error, undefined);
-  assert.equal(rows().findLast((row) => row.event === "integrity-failure")?.data.outcome, "payload-io-failed");
+  assert.equal(
+    rows().findLast((row) => row.event === "integrity-failure")?.data.outcome,
+    "payload-io-failed",
+  );
 });
 if (blocked) fs.rmdirSync(blocked);
 const before = rows();
-const later = E2ETrace.synchronous(process.execPath, ["-e", ""], {}, "after-io",
-  () => childProcess.spawnSync(process.execPath, ["-e", ""]));
+const later = E2ETrace.synchronous(
+  process.execPath,
+  ["-e", ""],
+  {},
+  "after-io",
+  () => childProcess.spawnSync(process.execPath, ["-e", ""]),
+);
 check("genuine IO failure stays closed", () => {
   assert.equal(later.status, 0);
   assert.equal(later.error, undefined);
   assert.deepEqual(rows(), before);
 });
-observations.push({ name: "genuine payload IO failure", events: rows().slice(-3), laterStatus: later.status });
-process.stdout.write(JSON.stringify({ pid: process.pid, observations, failures }) + "\n");
+observations.push({
+  name: "genuine payload IO failure",
+  events: rows().slice(-3),
+  laterStatus: later.status,
+});
+process.stdout.write(
+  JSON.stringify({ pid: process.pid, observations, failures }) + "\n",
+);
 if (failures.length) process.exitCode = 1;

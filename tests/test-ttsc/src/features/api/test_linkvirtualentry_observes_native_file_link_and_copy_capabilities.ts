@@ -16,7 +16,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * 1. Read a genuine regular-file entry and observe occupied-output link refusal.
  * 2. Mirror it, then verify copied bytes, source preservation and copy isolation.
- * 3. Probe file-symlink creation and exercise its live fallback when representable.
+ * 3. Probe file-symlink creation and exercise its live fallback when
+ *    representable.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls source linkVirtualEntry with native readdir Dirents and actual files. Occupied output must receive the authored payload while later writes leave the source unchanged. A permitted live symlink additionally reaches the final symlink/hard-link/copy route.
  * @evidence contracts/testing.md#independent-expectations Literal payload and stale bytes differ. Independent native link attempts establish occupied-destination refusal before the product call; subsequent writes distinguish independent copies from shared hard links. The symlink prerequisite is observed through actual creation, not fabricated Dirent metadata.
@@ -72,8 +73,13 @@ export function test_linkvirtualentry_observes_native_file_link_and_copy_capabil
       const destination = path.join(root, "symbolic-copy.txt");
       fs.writeFileSync(destination, "stale symbolic output\n", { flag: "wx" });
       assert.throws(() => fs.symlinkSync(realLink, destination));
-      assert.throws(() => fs.linkSync(realLink, destination), { code: "EEXIST" });
-      assert.equal(fs.readFileSync(destination, "utf8"), "stale symbolic output\n");
+      assert.throws(() => fs.linkSync(realLink, destination), {
+        code: "EEXIST",
+      });
+      assert.equal(
+        fs.readFileSync(destination, "utf8"),
+        "stale symbolic output\n",
+      );
       linkVirtualEntry(realLink, destination, symbolic);
       assert.ok(fs.lstatSync(destination).isFile());
       assert.equal(fs.readFileSync(destination, "utf8"), "authored payload\n");
@@ -93,5 +99,8 @@ export function test_linkvirtualentry_observes_native_file_link_and_copy_capabil
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1)
-    throw new AggregateError(failures, "Native file fallback and cleanup failed");
+    throw new AggregateError(
+      failures,
+      "Native file fallback and cleanup failed",
+    );
 }

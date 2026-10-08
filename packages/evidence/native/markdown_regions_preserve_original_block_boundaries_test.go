@@ -24,35 +24,35 @@ func TestMarkdownRegionsPreserveOriginalBlockBoundaries(t *testing.T) {
   real := "<!-- @evidence docs/spec.md#rule Actual. -->"
   fake := "<!-- @evidence docs/spec.md#fake Example. -->"
   for _, row := range []struct {
-    name string
-    body string
+    name         string
+    body         string
     declarations int
-    units int
-    unreadable int
+    units        int
+    unreadable   int
   }{
     {"comment then indented code", "<!-- ordinary -->\n    " + fake + "\n" + real + "\n", 1, 2, 0},
     {"nested quote fence", "> > ~~~md\n> > " + fake + "\n> > ~~~\n\n" + real + "\n", 1, 2, 0},
     {"quoted ordered list fence", "> 1. ```md\n>    " + fake + "\n>    ```\n\n" + real + "\n", 1, 2, 0},
- {"comment before MDX",real+" <Code code={`\n```md\n`} /> "+real+"\n",2,2,0},
- {"blank MDX paragraph","``pre <Code code={`\n\n`} /> "+real+" post``\n",1,2,0},
- {"malformed pre name","<pre.foo>\n"+real+"\n@evidence docs/spec.md#rule Bare.\n",1,2,1},
- {"incomplete generic quote","<span title=\"\n"+real+"\n",1,2,0},
- {"inline HTML before heading marker","<b># Hidden\n"+real+"\n",1,2,0},
- {"inline HTML before mention","<i> @evidence docs/spec.md#rule Mention.\n"+real+"\n",1,2,0},
- {"MDX blank before fence","<Code code={`\n\n```md\n"+fake+"\n```\n`} /> "+real+"\n",1,2,0},
- {"MDX headed interior fence","# Detail <Code code={`\n```md\n"+fake+"\n`} /> "+real+"\n",1,3,0},
- {"MDX plain prefix interior fence","body <Code code={`\n```md\n"+fake+"\n`} /> "+real+"\n",1,2,0},
- {"MDX quoted blank fence","> <Code code={`\n>\n> ```md\n> "+fake+"\n> ```\n> `} />\n"+real+"\n",1,2,0},
- {"MDX quoted tail fence","<Code code={`ok`} tail=\"\n```md\n\" />\n"+real+"\n",1,2,0},
- {"plain quoted attribute fence","<Code tail=\"\n```md\n\" />\n"+real+"\n",1,2,0},
- {"MDX quoted tail tilde","<Code code={`ok`} tail=\"\n~~~md\n\" />\n"+real+"\n",1,2,0},
- {"list MDX missing prefix","- <Code code={`\n```md\n`} />\n"+real+"\n",1,2,0},
- {"quote MDX missing prefix","> <Code code={`\n```md\n`} />\n"+real+"\n",1,2,0},
- {"same-line close comment","<Code code={`\n```md\n`} />"+real+"\n",1,2,0},
- {"same-line close inline code","<Code code={`\n```md\n`} /> `"+fake+"` "+real+"\n",1,2,0},
- {"preceding code owns MDX","``first\nx <Code code={`\nlast``\n"+real+"\n",1,2,0},
- {"two actual templates","<Code code={`\n```md\n`} /><Code code={`\n~~~md\n`} />"+real+"\n",1,2,0},
- {"code after template owns MDX","<Code code={`\n~~~md\n`} /> ``<Code code={` literal`` "+real+"\n",1,2,0},
+    {"comment before MDX", real + " <Code code={`\n```md\n`} /> " + real + "\n", 2, 2, 0},
+    {"blank MDX paragraph", "``pre <Code code={`\n\n`} /> " + real + " post``\n", 1, 2, 0},
+    {"malformed pre name", "<pre.foo>\n" + real + "\n@evidence docs/spec.md#rule Bare.\n", 1, 2, 1},
+    {"incomplete generic quote", "<span title=\"\n" + real + "\n", 1, 2, 0},
+    {"inline HTML before heading marker", "<b># Hidden\n" + real + "\n", 1, 2, 0},
+    {"inline HTML before mention", "<i> @evidence docs/spec.md#rule Mention.\n" + real + "\n", 1, 2, 0},
+    {"MDX blank before fence", "<Code code={`\n\n```md\n" + fake + "\n```\n`} /> " + real + "\n", 1, 2, 0},
+    {"MDX headed interior fence", "# Detail <Code code={`\n```md\n" + fake + "\n`} /> " + real + "\n", 1, 3, 0},
+    {"MDX plain prefix interior fence", "body <Code code={`\n```md\n" + fake + "\n`} /> " + real + "\n", 1, 2, 0},
+    {"MDX quoted blank fence", "> <Code code={`\n>\n> ```md\n> " + fake + "\n> ```\n> `} />\n" + real + "\n", 1, 2, 0},
+    {"MDX quoted tail fence", "<Code code={`ok`} tail=\"\n```md\n\" />\n" + real + "\n", 1, 2, 0},
+    {"plain quoted attribute fence", "<Code tail=\"\n```md\n\" />\n" + real + "\n", 1, 2, 0},
+    {"MDX quoted tail tilde", "<Code code={`ok`} tail=\"\n~~~md\n\" />\n" + real + "\n", 1, 2, 0},
+    {"list MDX missing prefix", "- <Code code={`\n```md\n`} />\n" + real + "\n", 1, 2, 0},
+    {"quote MDX missing prefix", "> <Code code={`\n```md\n`} />\n" + real + "\n", 1, 2, 0},
+    {"same-line close comment", "<Code code={`\n```md\n`} />" + real + "\n", 1, 2, 0},
+    {"same-line close inline code", "<Code code={`\n```md\n`} /> `" + fake + "` " + real + "\n", 1, 2, 0},
+    {"preceding code owns MDX", "``first\nx <Code code={`\nlast``\n" + real + "\n", 1, 2, 0},
+    {"two actual templates", "<Code code={`\n```md\n`} /><Code code={`\n~~~md\n`} />" + real + "\n", 1, 2, 0},
+    {"code after template owns MDX", "<Code code={`\n~~~md\n`} /> ``<Code code={` literal`` " + real + "\n", 1, 2, 0},
   } {
     for _, newline := range []string{"\n", "\r\n"} {
       t.Run(row.name+"/"+strings.ReplaceAll(newline, "\n", "LF"), func(t *testing.T) {
@@ -91,7 +91,9 @@ func TestMarkdownRegionsPreserveOriginalBlockBoundaries(t *testing.T) {
         content := strings.ReplaceAll(strings.Repeat("#", level)+" Public ``pre <Code code={`\n`} /> "+real+" post``\n", "\n", newline)
         inventory, problems := scanProjectMarkdown("docs/claim.md", content)
         expectedUnits := 1
-        if level <= 4 { expectedUnits++ }
+        if level <= 4 {
+          expectedUnits++
+        }
         if len(problems) != 0 || len(inventory.Units) != expectedUnits || len(inventory.Declarations) != 1 ||
           inventory.Declarations[0].Target != "docs/spec.md#rule" || inventory.Declarations[0].Line != 2 ||
           !strings.HasSuffix(inventory.Declarations[0].HostID, ":h"+decimal(level)+":1") {

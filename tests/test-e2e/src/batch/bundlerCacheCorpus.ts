@@ -102,8 +102,10 @@ export async function bundlerCacheCorpus(
     }
   };
   const diagnosticError = (error: unknown): string =>
-    (error instanceof Error ? error.name + ": " + error.message : String(error))
-      .slice(0, 1024);
+    (error instanceof Error
+      ? error.name + ": " + error.message
+      : String(error)
+    ).slice(0, 1024);
   const observedCompilerCalls = (): number => {
     const events = fs
       .readdirSync(traceRoot)
@@ -224,15 +226,12 @@ export async function bundlerCacheCorpus(
       try {
         await new Promise<void>((resolve, reject) => {
           observeWatch("watch-start", { deadlineMs: 120_000 });
-          timer = setTimeout(
-            () => {
-              observeWatch("deadline", { phase, callbacks });
-              reject(
-                new Error("webpack watch frontier did not settle within 120s"),
-              );
-            },
-            120_000,
-          );
+          timer = setTimeout(() => {
+            observeWatch("deadline", { phase, callbacks });
+            reject(
+              new Error("webpack watch frontier did not settle within 120s"),
+            );
+          }, 120_000);
           watching = compiler.watch(
             { aggregateTimeout: 100, poll: 100 },
             (error, stats) => {

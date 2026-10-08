@@ -73,10 +73,11 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * bounded build owner starts again.
  *
  * Explicit worker scopes check cancellation between build phases, copied source
- * entries and native commands, including reader admission and final publication.
- * Observed cancellation releases held leases and scratch without starting a
- * new post-build maintenance pass. Native calls and delegated hashing can delay
- * observation; these checkpoints do not impose a hard execution deadline.
+ * entries and native commands, including reader admission and final
+ * publication. Observed cancellation releases held leases and scratch without
+ * starting a new post-build maintenance pass. Native calls and delegated
+ * hashing can delay observation; these checkpoints do not impose a hard
+ * execution deadline.
  *
  * @evidence contracts/common.md#principled-implementation Each of at most three toolchain epochs compares materialized source digests and checks its own pre-read witness before build, publication or cache adoption. A changed epoch publishes nothing and starts again only after its scratch and key lease finish; first source readings and request variables remain fixed. Caller digest maps receive only successful authority. Opted-in cancellation guards stage, copy-entry, native-command, reader and publication admission, while cleanup still finishes. Metadata observations are not an atomic snapshot, and existing executable bytes remain trusted cache-producer output.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
@@ -1009,10 +1010,10 @@ const EXTERNAL_SOURCES_DIRECTORY = path.join(".ttsc", "external");
  *
  * The copies translate each volume's common source ancestor below one root,
  * omitting unrelated absolute ancestry that can exceed a native cwd limit.
- * Uniform translation preserves relative paths
- * between two of them, such as a driver's `replace` of the shims beside it,
- * still names the copy of what it named. A directory below another is copied
- * with it and again on its own path, which is the same place.
+ * Uniform translation preserves relative paths between two of them, such as a
+ * driver's `replace` of the shims beside it, still names the copy of what it
+ * named. A directory below another is copied with it and again on its own path,
+ * which is the same place.
  */
 function snapshotExternalSources(
   scratchDir: string,

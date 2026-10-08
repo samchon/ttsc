@@ -14,9 +14,10 @@ import { copyGraphSnapshot } from "./copyGraphSnapshot";
  *
  * Node refinement and containment depend on all declarations in the same file;
  * export reanchoring depends on the source node's module declaration. Grouping
- * both raw nodes and source-owned edges by that file captures these dependencies,
- * including metadata/artifact nodes sharing it. Global metadata invalidates all
- * components, and complete generation order is reconstructed independently.
+ * both raw nodes and source-owned edges by that file captures these
+ * dependencies, including metadata/artifact nodes sharing it. Global metadata
+ * invalidates all components, and complete generation order is reconstructed
+ * independently.
  *
  * @evidence contracts/common.md#principled-implementation Frozen raw reference sequences prove unchanged component inputs; all same-file declarations and source edges participate, so lexical collisions, module folding and artifact parents cannot borrow stale derived facts.
  * @evidence contracts/common.md#clear-and-simple-design Full synthesis remains one implementation used by cold construction and invalidated components; create owns dependency partitioning and immutable component reuse.
@@ -75,7 +76,8 @@ export namespace TtscGraphProjection {
    *
    * The caller supplies store-owned frozen facts after complete validation.
    * Same-file declarations determine lexical owners and module anchors; source
-   * edges belong to that same component. Output ordering remains generation-wide.
+   * edges belong to that same component. Output ordering remains
+   * generation-wide.
    *
    * @evidence contracts/common.md#principled-implementation Complete ordered raw inputs and global metadata qualify each component. Synthesis dependencies are local to a node's file, while cross-file edge target existence has already been validated by the store.
    * @evidence contracts/common.md#clear-and-simple-design Partitioning, component selection and global output ordering are separate stages; full owns the shared synthesis implementation.
@@ -115,7 +117,9 @@ export namespace TtscGraphProjection {
     const components = new Map<string, Component>();
     for (const [file, input] of inputs) {
       const old =
-        metadata === previous?.metadata ? previous.components.get(file) : undefined;
+        metadata === previous?.metadata
+          ? previous.components.get(file)
+          : undefined;
       if (
         old !== undefined &&
         same(input.nodes, old.rawNodes) &&
@@ -132,10 +136,18 @@ export namespace TtscGraphProjection {
       components.set(file, {
         rawNodes: Object.freeze(input.nodes),
         rawEdges: Object.freeze(input.edges),
-        nodes: new Map(projected.nodes.slice(0, count).map((node) => [node.id, node])),
+        nodes: new Map(
+          projected.nodes.slice(0, count).map((node) => [node.id, node]),
+        ),
         file: projected.nodes[count],
-        edges: new Map(input.edges.map((edge, index) => [edge, projected.edges[index]!])),
-        structural: new Map(projected.edges.slice(input.edges.length).map((edge) => [edge.to, edge])),
+        edges: new Map(
+          input.edges.map((edge, index) => [edge, projected.edges[index]!]),
+        ),
+        structural: new Map(
+          projected.edges
+            .slice(input.edges.length)
+            .map((edge) => [edge.to, edge]),
+        ),
       });
     }
     const nodes: TtscGraphReadonly<ITtscGraphNode>[] = [];
@@ -180,7 +192,10 @@ interface Component {
 
 /** Reference order is part of synthesis and query result identity. */
 function same<T>(left: readonly T[], right: readonly T[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 /** Append to a construction-local bucket; published outputs are frozen later. */

@@ -26,19 +26,39 @@ func TestConfigGlobPreservesStoredCaseRecovery(t *testing.T) {
   canonical := filepath.Join(root, "src", "_directory", "index.ts")
   alias := filepath.Join(root, "SRC", "_DIRECTORY", "index.ts")
   patterns := []string{"{src,test}/[A-z]directory/**"}
-  if matchAnyPattern(root, patterns, alias) { t.Error("absent case alias matched") }
+  if matchAnyPattern(root, patterns, alias) {
+    t.Error("absent case alias matched")
+  }
   writeFile(t, canonical, "export {};\n")
-  if !matchAnyPattern(root, patterns, canonical) { t.Error("canonical underscore path missed A-z") }
-  if matchAnyPattern(root, []string{"{src,test}/[a-z]directory/**"}, canonical) { t.Error("underscore matched a-z") }
+  if !matchAnyPattern(root, patterns, canonical) {
+    t.Error("canonical underscore path missed A-z")
+  }
+  if matchAnyPattern(root, []string{"{src,test}/[a-z]directory/**"}, canonical) {
+    t.Error("underscore matched a-z")
+  }
   _, err := os.Stat(alias)
   aliasExists := err == nil
-  if err != nil && !os.IsNotExist(err) { t.Fatalf("observe alias: %v", err) }
-  if got := matchAnyPattern(root, patterns, alias); got != aliasExists { t.Errorf("created alias: got %v, actual alias exists=%v", got, aliasExists) }
+  if err != nil && !os.IsNotExist(err) {
+    t.Fatalf("observe alias: %v", err)
+  }
+  if got := matchAnyPattern(root, patterns, alias); got != aliasExists {
+    t.Errorf("created alias: got %v, actual alias exists=%v", got, aliasExists)
+  }
   directory := filepath.Dir(canonical)
   neighbor := filepath.Join(root, "src", "_neighbor")
-  if err := os.Rename(directory, neighbor); err != nil { t.Fatal(err) }
-  if matchAnyPattern(root, patterns, alias) { t.Error("removed alias retained cached spelling") }
-  if matchAnyPattern(root, patterns, filepath.Join(neighbor, "index.ts")) { t.Error("neighbor directory matched original selector") }
-  if err := os.Rename(neighbor, directory); err != nil { t.Fatal(err) }
-  if got := matchAnyPattern(root, patterns, alias); got != aliasExists { t.Errorf("recovered alias: got %v want %v", got, aliasExists) }
+  if err := os.Rename(directory, neighbor); err != nil {
+    t.Fatal(err)
+  }
+  if matchAnyPattern(root, patterns, alias) {
+    t.Error("removed alias retained cached spelling")
+  }
+  if matchAnyPattern(root, patterns, filepath.Join(neighbor, "index.ts")) {
+    t.Error("neighbor directory matched original selector")
+  }
+  if err := os.Rename(neighbor, directory); err != nil {
+    t.Fatal(err)
+  }
+  if got := matchAnyPattern(root, patterns, alias); got != aliasExists {
+    t.Errorf("recovered alias: got %v want %v", got, aliasExists)
+  }
 }

@@ -116,11 +116,10 @@ export namespace ITtscCompilerResult {
    * causes, aggregate failures and enumerable outcome fields are retained.
    *
    * Repeated objects use `$ttscReference` JSON-pointer markers. Source objects
-   * shaped like reference or literal-object envelopes are escaped as
-   * `{ $ttscValue: "object", $ttscProperties: ... }`. Exceptional
-   * scalar values, accessors and failed inspection use `$ttscValue` markers.
-   * Serialization does not invoke getters or copy foreign class internal
-   * slots.
+   * shaped like reference or literal-object envelopes are escaped as `{
+   * $ttscValue: "object", $ttscProperties: ... }`. Exceptional scalar values,
+   * accessors and failed inspection use `$ttscValue` markers. Serialization
+   * does not invoke getters or copy foreign class internal slots.
    *
    * @evidence contracts/common.md#principled-implementation Unknown accommodates finite causal descriptions, outcome data and exceptional-value markers; the optional classifier labels recognized message families without authenticating the native failure cause.
    * @evidence contracts/common.md#clear-and-simple-design The exception variant exposes only error and optional origin; completed outputs and diagnostic arrays remain with the completed variants.

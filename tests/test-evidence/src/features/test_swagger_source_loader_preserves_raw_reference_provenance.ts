@@ -527,7 +527,11 @@ export async function test_swagger_source_loader_preserves_raw_reference_provena
   };
   const hash = (text: string): string =>
     createHash("sha256")
-      .update('{"operation":' + text + ',"security":[],"securitySchemes":{},"servers":[{"url":"/"}]}')
+      .update(
+        '{"operation":' +
+          text +
+          ',"security":[],"securitySchemes":{},"servers":[{"url":"/"}]}',
+      )
       .digest("hex");
   const sibling = hash('{"responses":{"200":{"description":"OK"}}}');
   try {

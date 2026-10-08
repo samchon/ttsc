@@ -16,7 +16,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
- * Verifies root wildcards merge equivalent searches and preserve Unicode policy.
+ * Verifies root wildcards merge equivalent searches and preserve Unicode
+ * policy.
  *
  * Repeated star/literal pairs used to enumerate many partitions on a late miss.
  * Counted literal predicates measure actual component comparisons; the bound
@@ -24,8 +25,8 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  *
  * 1. Match both native grammars and case policies against literal semantic rows
  *    and the previous short-pattern regular-expression language.
- * 2. Count component literal comparisons on increasingly repeated stars, with
- *    both a matching suffix and a late missing suffix.
+ * 2. Count component literal comparisons on increasingly repeated stars, with both
+ *    a matching suffix and a late missing suffix.
  * 3. Exercise walk/event admission, cached absence and referenced-project
  *    selection on one real project, then edit and restore its recorded input.
  *
@@ -87,32 +88,148 @@ export function test_root_component_matching_has_bounded_unicode_states(): void 
     ];
     for (const [spec, name, sensitive, expected] of rows)
       assert.equal(
-        matchesProjectRootFile(`${base}/${name}`, policy([spec], sensitive), false, platform),
+        matchesProjectRootFile(
+          `${base}/${name}`,
+          policy([spec], sensitive),
+          false,
+          platform,
+        ),
         expected,
         `${platform} ${spec} ${JSON.stringify(name)} sensitive=${sensitive}`,
       );
-    assert.equal(matchesProjectRootFile(`${base}/literal*?.json`, policy([], false, ["literal*?.json"]), false, platform), true);
-    assert.equal(matchesProjectRootFile(`${base}/literalXX.json`, policy([], false, ["literal*?.json"]), false, platform), false);
-    assert.equal(matchesProjectRootFile(`${base}/artifact.ts`, policy(["*.ts"], true), true, platform), false);
-    assert.equal(matchesProjectRootFile(`${base}/lib`, policy(["lib"], true), true, platform), true);
+    assert.equal(
+      matchesProjectRootFile(
+        `${base}/literal*?.json`,
+        policy([], false, ["literal*?.json"]),
+        false,
+        platform,
+      ),
+      true,
+    );
+    assert.equal(
+      matchesProjectRootFile(
+        `${base}/literalXX.json`,
+        policy([], false, ["literal*?.json"]),
+        false,
+        platform,
+      ),
+      false,
+    );
+    assert.equal(
+      matchesProjectRootFile(
+        `${base}/artifact.ts`,
+        policy(["*.ts"], true),
+        true,
+        platform,
+      ),
+      false,
+    );
+    assert.equal(
+      matchesProjectRootFile(
+        `${base}/lib`,
+        policy(["lib"], true),
+        true,
+        platform,
+      ),
+      true,
+    );
     assert.equal(compile(`${base}/**`, false, true, platform), undefined);
-    assert.equal(matchesProjectRootFile(`${base}/anything.ts`, { ...policy([], true), rootFileSpecs: undefined }, false, platform), true);
+    assert.equal(
+      matchesProjectRootFile(
+        `${base}/anything.ts`,
+        { ...policy([], true), rootFileSpecs: undefined },
+        false,
+        platform,
+      ),
+      true,
+    );
     const aliases = policy(["src/*a*b.ts"], true);
     const physical = `${base}-physical`;
-    const aliased = { ...aliases, rootFileSpecs: { ...aliases.rootFileSpecs!, root: { path: base, realpath: physical } } };
-    assert.equal(matchesProjectRootFile(`${physical}/src/aaab.ts`, aliased, false, platform), true);
-    assert.equal(matchesProjectRootFile(`${physical}/src/aaa.ts`, aliased, false, platform), false);
+    const aliased = {
+      ...aliases,
+      rootFileSpecs: {
+        ...aliases.rootFileSpecs!,
+        root: { path: base, realpath: physical },
+      },
+    };
+    assert.equal(
+      matchesProjectRootFile(
+        `${physical}/src/aaab.ts`,
+        aliased,
+        false,
+        platform,
+      ),
+      true,
+    );
+    assert.equal(
+      matchesProjectRootFile(
+        `${physical}/src/aaa.ts`,
+        aliased,
+        false,
+        platform,
+      ),
+      false,
+    );
 
     for (const sensitive of [true, false])
-      for (const spec of ["*", "?", "***", "*a*", "a??b", "*a*a*b", "[a]*", "a.b?", "\u03a3*", "\u{10400}?", "?*?", ".*"])
-        for (const name of ["", "a", "b", "aaab", "a.bx", "[a]", ".a", "a\n", "a\r\n", "\u03c2", "\u{10428}a", "\u{1f600}", "\ud800", "e\u0301"] ) {
-          const pattern = compile(`${base}/${spec}`, false, sensitive, platform)!;
+      for (const spec of [
+        "*",
+        "?",
+        "***",
+        "*a*",
+        "a??b",
+        "*a*a*b",
+        "[a]*",
+        "a.b?",
+        "\u03a3*",
+        "\u{10400}?",
+        "?*?",
+        ".*",
+      ])
+        for (const name of [
+          "",
+          "a",
+          "b",
+          "aaab",
+          "a.bx",
+          "[a]",
+          ".a",
+          "a\n",
+          "a\r\n",
+          "\u03c2",
+          "\u{10428}a",
+          "\u{1f600}",
+          "\ud800",
+          "e\u0301",
+        ]) {
+          const pattern = compile(
+            `${base}/${spec}`,
+            false,
+            sensitive,
+            platform,
+          )!;
           const component = pattern.components.at(-1)!;
           assert.notEqual(typeof component, "string");
-          if (typeof component === "string") throw new Error("Expected a wildcard component");
-          const escaped = [...spec].map((char) => char === "*" ? "[^/]*" : char === "?" ? "[^/]" : char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")).join("");
-          const reference = new RegExp(`^${spec.startsWith("*") || spec.startsWith("?") ? "(?!\\.)" : ""}${escaped}$`, sensitive ? "u" : "iu");
-          assert.equal(matchesRootComponent(name, component.expression), reference.test(name), `${platform} ${spec} ${JSON.stringify(name)}`);
+          if (typeof component === "string")
+            throw new Error("Expected a wildcard component");
+          const escaped = [...spec]
+            .map((char) =>
+              char === "*"
+                ? "[^/]*"
+                : char === "?"
+                  ? "[^/]"
+                  : char.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&"),
+            )
+            .join("");
+          const reference = new RegExp(
+            `^${spec.startsWith("*") || spec.startsWith("?") ? "(?!\\.)" : ""}${escaped}$`,
+            sensitive ? "u" : "iu",
+          );
+          assert.equal(
+            matchesRootComponent(name, component.expression),
+            reference.test(name),
+            `${platform} ${spec} ${JSON.stringify(name)}`,
+          );
         }
   }
 
@@ -125,23 +242,54 @@ export function test_root_component_matching_has_bounded_unicode_states(): void 
       }
     }
     const tokens: ("*" | "?" | RegExp)[] = [];
-    for (let i = 0; i < stars; i++) tokens.push("*", new CountedLiteral("^a$", "u"));
+    for (let i = 0; i < stars; i++)
+      tokens.push("*", new CountedLiteral("^a$", "u"));
     tokens.push(new CountedLiteral("^b$", "u"));
-    for (const [candidate, expected] of [[`${"a".repeat(128)}b`, true], ["a".repeat(128), false]] as const) {
+    for (const [candidate, expected] of [
+      [`${"a".repeat(128)}b`, true],
+      ["a".repeat(128), false],
+    ] as const) {
       comparisons = 0;
       assert.equal(matchesRootComponent(candidate, tokens), expected);
       assert.ok(comparisons > 0);
-      assert.ok(comparisons <= tokens.length * [...candidate].length, `literal comparisons ${comparisons} exceed the token/character bound`);
+      assert.ok(
+        comparisons <= tokens.length * [...candidate].length,
+        `literal comparisons ${comparisons} exceed the token/character bound`,
+      );
     }
     const policy: ITtscProjectMembershipPolicy = {
-      rootFileSpecs: { files: [], include: [`/project/${"*a".repeat(stars)}b.ts`] },
-      excludedDirectories: [], inputExtensions: [".ts"], sources: [], useCaseSensitiveFileNames: true,
+      rootFileSpecs: {
+        files: [],
+        include: [`/project/${"*a".repeat(stars)}b.ts`],
+      },
+      excludedDirectories: [],
+      inputExtensions: [".ts"],
+      sources: [],
+      useCaseSensitiveFileNames: true,
     };
-    assert.equal(matchesProjectRootFile(`/project/${"a".repeat(128)}b.ts`, policy, false, "linux"), true);
-    assert.equal(matchesProjectRootFile(`/project/${"a".repeat(128)}.ts`, policy, false, "linux"), false);
+    assert.equal(
+      matchesProjectRootFile(
+        `/project/${"a".repeat(128)}b.ts`,
+        policy,
+        false,
+        "linux",
+      ),
+      true,
+    );
+    assert.equal(
+      matchesProjectRootFile(
+        `/project/${"a".repeat(128)}.ts`,
+        policy,
+        false,
+        "linux",
+      ),
+      false,
+    );
   }
 
-  const root = fs.realpathSync.native(TestProject.tmpdir("ttsc-bounded-root-component-"));
+  const root = fs.realpathSync.native(
+    TestProject.tmpdir("ttsc-bounded-root-component-"),
+  );
   const admitted = `${"a".repeat(30)}b.ts`;
   const rejected = `${"a".repeat(30)}.ts`;
   const source = "export const value = 1;\n";
@@ -150,26 +298,91 @@ export function test_root_component_matching_has_bounded_unicode_states(): void 
     [`src/${admitted}`]: source,
     [`src/${rejected}`]: "export const unrelated = 1;\n",
     "tsconfig.json": config,
-    "solution.json": JSON.stringify({ files: [], references: [{ path: "./declines.json" }, { path: "./tsconfig.json" }] }),
-    "declines.json": JSON.stringify({ include: [`src/${"*a".repeat(12)}z.ts`] }),
+    "solution.json": JSON.stringify({
+      files: [],
+      references: [{ path: "./declines.json" }, { path: "./tsconfig.json" }],
+    }),
+    "declines.json": JSON.stringify({
+      include: [`src/${"*a".repeat(12)}z.ts`],
+    }),
   });
   const cached = observeValidationUnitGeneration(root, {
-    type: "success", typescript: { [`src/${admitted}`]: source },
+    type: "success",
+    typescript: { [`src/${admitted}`]: source },
   });
   const included = path.join(root, "src", admitted);
   const excluded = path.join(root, "src", rejected);
-  assert.deepEqual(walkProjectInputs(root, DEFAULT_FILESYSTEM_OPERATIONS, cached.membershipPolicy).files, [included]);
-  for (const [file, expected] of [[included, true], [excluded, false]] as const) {
-    assert.equal(isProjectWalkPath(root, file, undefined, DEFAULT_FILESYSTEM_OPERATIONS, cached.membershipPolicy), expected);
-    assert.equal(reportsProgramMembership(root, file, path.basename(file), cached.membershipPolicy, DEFAULT_FILESYSTEM_OPERATIONS), expected);
+  assert.deepEqual(
+    walkProjectInputs(
+      root,
+      DEFAULT_FILESYSTEM_OPERATIONS,
+      cached.membershipPolicy,
+    ).files,
+    [included],
+  );
+  for (const [file, expected] of [
+    [included, true],
+    [excluded, false],
+  ] as const) {
+    assert.equal(
+      isProjectWalkPath(
+        root,
+        file,
+        undefined,
+        DEFAULT_FILESYSTEM_OPERATIONS,
+        cached.membershipPolicy,
+      ),
+      expected,
+    );
+    assert.equal(
+      reportsProgramMembership(
+        root,
+        file,
+        path.basename(file),
+        cached.membershipPolicy,
+        DEFAULT_FILESYSTEM_OPERATIONS,
+      ),
+      expected,
+    );
   }
-  assert.equal(matchesCachedSource(cached, excluded, fs.readFileSync(excluded, "utf8"), undefined), true);
+  assert.equal(
+    matchesCachedSource(
+      cached,
+      excluded,
+      fs.readFileSync(excluded, "utf8"),
+      undefined,
+    ),
+    true,
+  );
   fs.writeFileSync(included, "export const value = 2;\n");
-  assert.equal(matchesCachedSource(cached, excluded, fs.readFileSync(excluded, "utf8"), undefined), false);
+  assert.equal(
+    matchesCachedSource(
+      cached,
+      excluded,
+      fs.readFileSync(excluded, "utf8"),
+      undefined,
+    ),
+    false,
+  );
   fs.writeFileSync(included, source);
-  assert.equal(matchesCachedSource(cached, excluded, fs.readFileSync(excluded, "utf8"), undefined), true);
-  const selection = selectReferencedProject(included, path.join(root, "solution.json"));
+  assert.equal(
+    matchesCachedSource(
+      cached,
+      excluded,
+      fs.readFileSync(excluded, "utf8"),
+      undefined,
+    ),
+    true,
+  );
+  const selection = selectReferencedProject(
+    included,
+    path.join(root, "solution.json"),
+  );
   assert.equal(selection.tsconfig, path.join(root, "tsconfig.json"));
   assert.ok(selection.consulted.includes(path.join(root, "declines.json")));
-  assert.equal(selectReferencedProject(excluded, path.join(root, "solution.json")).tsconfig, path.join(root, "solution.json"));
+  assert.equal(
+    selectReferencedProject(excluded, path.join(root, "solution.json"))
+      .tsconfig,
+    path.join(root, "solution.json"),
+  );
 }

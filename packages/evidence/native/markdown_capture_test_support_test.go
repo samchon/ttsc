@@ -17,25 +17,31 @@ import (
 // read failures and post-consumption hooks model the transitions a case owns.
 // Witnesses record returned bytes, never a later filesystem read.
 type markdownCaptureReader struct {
-  reads map[string]int
-  hashes map[string]string
-  failures map[string]error
-  walkFailures map[string]error
+  reads         map[string]int
+  hashes        map[string]string
+  failures      map[string]error
+  walkFailures  map[string]error
   entryFailures map[string]error
-  stats map[string]int
-  afterRead func(string)
-  afterWalk func()
-  walks []string
-  unavailable bool
+  stats         map[string]int
+  afterRead     func(string)
+  afterWalk     func()
+  walks         []string
+  unavailable   bool
 }
 
 func (reader *markdownCaptureReader) ReadFile(name string) ([]byte, error) {
-  if reader.reads == nil { reader.reads = map[string]int{} }
-  if reader.hashes == nil { reader.hashes = map[string]string{} }
+  if reader.reads == nil {
+    reader.reads = map[string]int{}
+  }
+  if reader.hashes == nil {
+    reader.hashes = map[string]string{}
+  }
   reader.reads[name]++
   if err := reader.failures[name]; err != nil {
     reader.Unavailable()
-    if reader.afterRead != nil { reader.afterRead(name) }
+    if reader.afterRead != nil {
+      reader.afterRead(name)
+    }
     return nil, err
   }
   content, err := os.ReadFile(name)
@@ -43,19 +49,25 @@ func (reader *markdownCaptureReader) ReadFile(name string) ([]byte, error) {
     digest := sha256.Sum256(content)
     reader.hashes[name] = hex.EncodeToString(digest[:])
   }
-  if reader.afterRead != nil { reader.afterRead(name) }
+  if reader.afterRead != nil {
+    reader.afterRead(name)
+  }
   return content, err
 }
 
 func (reader *markdownCaptureReader) Stat(name string) (os.FileInfo, error) {
-  if reader.stats == nil { reader.stats = map[string]int{} }
+  if reader.stats == nil {
+    reader.stats = map[string]int{}
+  }
   reader.stats[name]++
   return os.Stat(name)
 }
-func (*markdownCaptureReader) Lstat(name string) (os.FileInfo, error) { return os.Lstat(name) }
+func (*markdownCaptureReader) Lstat(name string) (os.FileInfo, error)     { return os.Lstat(name) }
 func (*markdownCaptureReader) ReadDir(name string) ([]os.DirEntry, error) { return os.ReadDir(name) }
-func (*markdownCaptureReader) Readlink(name string) (string, error) { return os.Readlink(name) }
-func (*markdownCaptureReader) EvalSymlinks(name string) (string, error) { return filepath.EvalSymlinks(name) }
+func (*markdownCaptureReader) Readlink(name string) (string, error)       { return os.Readlink(name) }
+func (*markdownCaptureReader) EvalSymlinks(name string) (string, error) {
+  return filepath.EvalSymlinks(name)
+}
 func (reader *markdownCaptureReader) Unavailable() { reader.unavailable = true }
 func (reader *markdownCaptureReader) WalkDir(name string, visit fs.WalkDirFunc) error {
   reader.walks = append(reader.walks, name)
@@ -65,11 +77,16 @@ func (reader *markdownCaptureReader) WalkDir(name string, visit fs.WalkDirFunc) 
     result = visit(name, nil, err)
   } else {
     result = filepath.WalkDir(name, func(current string, entry fs.DirEntry, err error) error {
-      if failure := reader.entryFailures[current]; failure != nil { err = failure; reader.Unavailable() }
+      if failure := reader.entryFailures[current]; failure != nil {
+        err = failure
+        reader.Unavailable()
+      }
       return visit(current, entry, err)
     })
   }
-  if reader.afterWalk != nil { reader.afterWalk() }
+  if reader.afterWalk != nil {
+    reader.afterWalk()
+  }
   return result
 }
 
@@ -77,8 +94,12 @@ func writeMarkdownCaptureFiles(t *testing.T, root string, files map[string]strin
   t.Helper()
   for relative, content := range files {
     name := filepath.Join(root, filepath.FromSlash(relative))
-    if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil { t.Fatal(err) }
-    if err := os.WriteFile(name, []byte(content), 0o644); err != nil { t.Fatal(err) }
+    if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.WriteFile(name, []byte(content), 0o644); err != nil {
+      t.Fatal(err)
+    }
   }
 }
 
@@ -92,6 +113,8 @@ func runMarkdownCaptureGraph(t *testing.T, root, options string, reader *markdow
 }
 
 func markdownCaptureHints(root, options string, reporter *capturedProjectReporter) []rule.Hint {
-  if reporter.failed { return nil }
+  if reporter.failed {
+    return nil
+  }
   return graphRule{}.Hints(&rule.HintContext{Identity: rule.ProjectIdentity{PhysicalProjectRoot: root}, State: reporter.state, Severity: rule.SeverityError, Options: json.RawMessage(options)})
 }

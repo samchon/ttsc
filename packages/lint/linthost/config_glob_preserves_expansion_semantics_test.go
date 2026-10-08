@@ -24,21 +24,24 @@ import (
 // @evidence contracts/testing.md#execution-ownership This discoverable Go unit calls the owning matcher and standard-library oracle in-process on authored strings; no filesystem fixture, compiler host, installation or product child executes.
 func TestConfigGlobPreservesExpansionSemantics(t *testing.T) {
   names := []string{"a", "b", "c", "aa", "ab", "ba", "bb", "abc", "ab]", "ac", "bc", "x", "x.ts", "a.ts", "b.ts", "a.js", ".hidden", "_", "-", "]", "[", "*", "?", "\\", "\\a", "a\\b", "é", "界", "éa", "aé", string([]byte{0xff}), string([]byte{'a', 0xff})}
-  native := []string{"a", "*", "?", "??", "***", "*a", "a*", "*a*b", "a?", "?a", "[ab]", "[^ab]", "[a-c]", "[c-a]", "[A-z]", "[[]", "[\\]]", "[\\-]", "[a-]", "[]", "[^]", "[", "[a", "[a\\]", "[é界]", "[é-界]", "\\*", "\\?", "\\", "a\\b", "é?", "?é", "*é", "["+string([]byte{0xff})+"]"}
+  native := []string{"a", "*", "?", "??", "***", "*a", "a*", "*a*b", "a?", "?a", "[ab]", "[^ab]", "[a-c]", "[c-a]", "[A-z]", "[[]", "[\\]]", "[\\-]", "[a-]", "[]", "[^]", "[", "[a", "[a\\]", "[é界]", "[é-界]", "\\*", "\\?", "\\", "a\\b", "é?", "?é", "*é", "[" + string([]byte{0xff}) + "]"}
   names = append(names, "\u00f1", "\U00010000", "\U00011000")
   native = append(native, "*[ab]", "*[ab]*a", "*[a-c]?", "[^a-c]*[ab]", "[\U00010000-\U00011000]", "?\U00010000", "*\U00010000")
   for _, pattern := range native {
     for _, name := range names {
       want, err := filepath.Match(pattern, name)
       want = want && err == nil
-      for _, selector := range []string{pattern, "{"+pattern+"}"} {
+      for _, selector := range []string{pattern, "{" + pattern + "}"} {
         if got := matchGlob(selector, name); got != want {
           t.Errorf("native selector=%q pattern=%q name=%q: got %v, filepath.Match=%v error=%v", selector, pattern, name, got, want, err)
         }
       }
     }
   }
-  cases := []struct { pattern string; expanded []string }{
+  cases := []struct {
+    pattern  string
+    expanded []string
+  }{
     {"{a,b}", []string{"a", "b"}},
     {"{a,{b,c}}{,x}", []string{"a", "ax", "b", "bx", "c", "cx"}},
     {"{a}", []string{"a"}},
@@ -81,7 +84,10 @@ func TestConfigGlobPreservesExpansionSemantics(t *testing.T) {
       }
     }
   }
-  for _, row := range []struct { pattern, name string; want bool }{
+  for _, row := range []struct {
+    pattern, name string
+    want          bool
+  }{
     {"", "", true}, {"///", "/", true}, {"", "a", false}, {"{}", "", false},
     {"**", "", true}, {"**/a", "a", true}, {"a/**", "a", true},
     {"a/**/b", "a/b", true}, {"a/**/b", "a/x/y/b", true}, {"a/**/b", "a/x/c", false},
@@ -96,19 +102,27 @@ func TestConfigGlobPreservesExpansionSemantics(t *testing.T) {
 
 func configGlobReferenceName(name string) []string {
   name = strings.Trim(name, "/")
-  if name == "" { return nil }
+  if name == "" {
+    return nil
+  }
   return strings.Split(name, "/")
 }
 
 func referenceConfigGlobParts(pattern, name []string) bool {
-  if len(pattern) == 0 { return len(name) == 0 }
+  if len(pattern) == 0 {
+    return len(name) == 0
+  }
   if pattern[0] == "**" {
     for consumed := 0; consumed <= len(name); consumed++ {
-      if referenceConfigGlobParts(pattern[1:], name[consumed:]) { return true }
+      if referenceConfigGlobParts(pattern[1:], name[consumed:]) {
+        return true
+      }
     }
     return false
   }
-  if len(name) == 0 { return false }
+  if len(name) == 0 {
+    return false
+  }
   matched, err := filepath.Match(pattern[0], name[0])
   return err == nil && matched && referenceConfigGlobParts(pattern[1:], name[1:])
 }
