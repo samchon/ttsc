@@ -7,6 +7,7 @@ import { performance } from "node:perf_hooks";
 const [mode, root, metroUrl, loaderUrl, prepareNative, prepareApi] = process.argv.slice(2);
 const projectViewArgument = process.argv.find((argument) => argument.startsWith("--metro-project-view="));
 const projectView = projectViewArgument === undefined ? undefined : JSON.parse(projectViewArgument.slice("--metro-project-view=".length));
+const metroRoot = projectView?.hostRoot ?? root;
 const pluginLockSession = createRequire(import.meta.url)(path.join(root, "plugin-lock-session.cjs"));
 const project = path.join(root, "tsconfig.json");
 const rootPaths = JSON.parse(fs.readFileSync(project, "utf8")).compilerOptions.paths;
@@ -22,10 +23,10 @@ if (mode === "metro") {
   const require = createRequire(import.meta.url);
   const index = require(path.join(path.dirname(fileURLToPath(metroUrl)), "index.js"));
   metroOptions = { ...(projectView?.implicitProject ? {} : { project }), ...(projectView === undefined ? {} : { projectRoot: projectView.projectRoot }), compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") };
-  const configured = index.withTtsc({ projectRoot: root, transformer: {} }, metroOptions);
+  const configured = index.withTtsc({ projectRoot: metroRoot, transformer: {} }, metroOptions);
   transformer = require(configured.transformer.babelTransformerPath);
-  const cacheKey = transformer.getCacheKey({ projectRoot: root });
-  metroConfiguration = { transformerPath: configured.transformer.babelTransformerPath, cacheKey, withTtscType: typeof index.withTtsc, transformType: typeof transformer.transform, getCacheKeyType: typeof transformer.getCacheKey };
+  const cacheKey = transformer.getCacheKey({ projectRoot: metroRoot });
+  metroConfiguration = { hostRoot: metroRoot, transformerPath: configured.transformer.babelTransformerPath, cacheKey, withTtscType: typeof index.withTtsc, transformType: typeof transformer.transform, getCacheKeyType: typeof transformer.getCacheKey };
 } else loader = (await import(loaderUrl)).default;
 async function deliver(sourceSuffix = "", deliveredSource) {
   const before = Object.fromEntries(["TEMP", "TMP", "TMPDIR"].map((name) => [name, process.env[name] ?? null]));
@@ -37,24 +38,26 @@ async function deliver(sourceSuffix = "", deliveredSource) {
   adapterCalls = [];
   callbackObservation = undefined;
   if (mode === "metro") {
-    const filename = "src/bundle.ts";
+    const resourcePath = path.join(root, "src/bundle.ts");
+    const filename = path.relative(metroRoot, resourcePath).split(path.sep).join("/");
     const primaryCall = { mode, pid: process.pid, filename, startedAt: new Date().toISOString(), finishedAt: undefined, outcome: "pending" };
     adapterCalls.push(primaryCall);
     let result;
     try {
-      result = await transformer.transform({ src: (deliveredSource ?? fs.readFileSync(path.join(root, filename), "utf8")) + sourceSuffix, filename, options: { projectRoot: root, platform: "ios" }, plugins: ["authored-babel-plugin"] });
+      result = await transformer.transform({ src: (deliveredSource ?? fs.readFileSync(resourcePath, "utf8")) + sourceSuffix, filename, options: { projectRoot: metroRoot, platform: "ios" }, plugins: ["authored-babel-plugin"] });
       primaryCall.outcome = "returned";
     } catch (error) { primaryCall.outcome = "threw"; throw error; }
     finally { primaryCall.finishedAt = new Date().toISOString(); }
     let outsideProgram;
     if (!outsideProgramObserved && !sourceSuffix && deliveredSource === undefined) {
-      const outsideFilename = "passthrough/tool.ts";
-      const outsideSource = fs.readFileSync(path.join(root, outsideFilename), "utf8");
+      const outsidePath = path.join(root, "passthrough/tool.ts");
+      const outsideFilename = path.relative(metroRoot, outsidePath).split(path.sep).join("/");
+      const outsideSource = fs.readFileSync(outsidePath, "utf8");
       const outsideCall = { mode, pid: process.pid, filename: outsideFilename, startedAt: new Date().toISOString(), finishedAt: undefined, outcome: "pending" };
       adapterCalls.push(outsideCall);
       let outside;
       try {
-        outside = await transformer.transform({ src: outsideSource, filename: outsideFilename, options: { projectRoot: root, platform: "ios" }, plugins: ["authored-babel-plugin"] });
+        outside = await transformer.transform({ src: outsideSource, filename: outsideFilename, options: { projectRoot: metroRoot, platform: "ios" }, plugins: ["authored-babel-plugin"] });
         outsideCall.outcome = "returned";
       } catch (error) { outsideCall.outcome = "threw"; throw error; }
       finally { outsideCall.finishedAt = new Date().toISOString(); }

@@ -82,8 +82,12 @@ export function createLoaderPoolWorker(props: {
   traceRoot: string;
   /** API module URL anchoring the first consumer's native preparation. */
   prepareNative?: string;
-  /** Final resident's public Metro options; host root remains independent. */
-  metroProjectView?: { implicitProject: boolean; projectRoot: string };
+  /** Final resident's distinct public Metro host and compiler roots. */
+  metroProjectView?: {
+    hostRoot: string;
+    implicitProject: boolean;
+    projectRoot: string;
+  };
 }) {
   const child = spawn(
     process.execPath,
