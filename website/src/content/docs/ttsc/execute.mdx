@@ -141,7 +141,7 @@ npx ttsx src/server.ts --port 3000 --watch
 
 `ttsx` reads options only before the entry, so `--help`, `--version`, `-r`, or `--watch` after it reach the script's `process.argv` unchanged. The entry is the first argument that is not an option's value, whatever its extension: whether an option takes a value comes from `ttsx`'s own options and from the compiler's option table, so in `ttsx --target es2020 src/server.ts` the entry is `src/server.ts`. A `--` directly after the entry is accepted as an optional separator and dropped (`ttsx src/server.ts -- --port 3000` passes `--port 3000`). Any later `--` is an ordinary argument, so `ttsx src/args.ts a -- b` passes `a -- b`.
 
-`ttsx` has no watch mode. `--watch` before the entry is refused with a pointer to `ttsc --watch --noEmit`, for a watching type-check, and to `node --watch --require ttsc/register src/index.ts`, which restarts the program on changes and checks each start.
+`ttsx` has no watch mode. `--watch` before the entry, including inside a compiler response file, is refused with a pointer to `ttsc --watch --noEmit`, for a watching type-check, and to `node --watch --require ttsc/register src/index.ts`, which restarts the program on changes and checks each start. Compiler response paths are relative to the selected project's directory; a response token after the entry is the program's own argument.
 
 ## Preload modules
 

@@ -6,6 +6,7 @@ import { parseFlags } from "../../flags/parseFlags";
 import { readCompilerOptionOccurrence } from "../../flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
+import { assertTtsxNoWatch } from "./assertTtsxNoWatch";
 
 /**
  * Parse ttsx options while preserving the program's own argument boundary.
@@ -13,9 +14,10 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  * Compiler flags before the first entry, repeated preloads and launcher-owned
  * settings are separated once through the shared flag schema. Terminal requests
  * are recognized only before the entry; unsupported watch/build requests fail
- * before a compiler or program is started. These decisions inspect the supplied
+ * before a check, build or program is started. These decisions inspect the supplied
  * argv frame; this parser does not read response-file contents or certify their
- * eventual native effects.
+ * eventual native effects. Preparation inspects response frames at the selected
+ * project's actual compiler directory before requesting its build.
  *
  * @param argv Command tokens as received from the launcher.
  * @returns A terminal request or the launcher's typed option record.
@@ -83,7 +85,9 @@ export function parseTtsxCLI(argv: readonly string[]) {
   terminal ??= terminalRequest(result.passthrough);
   if (terminal !== null) return terminal;
   assertNoSolutionBuild(result, "ttsx:");
-  assertNoWatch(result);
+  assertTtsxNoWatch(
+    result.values.has("--watch") ? ["--watch"] : result.passthrough,
+  );
 
   const entry = result.positional[0];
   if (entry === undefined) {
@@ -155,28 +159,6 @@ function firstPositionalIndex(argv: readonly string[]): number {
     index += ttsxOptionWidth(argv, index) - 1;
   }
   return argv.length;
-}
-
-/**
- * Refuse `--watch` (or `-w`) given to ttsx itself, before any compiler starts.
- *
- * Forwarded to the type-check, it turned the check into a process that never
- * returns, so the entry never ran and the command hung with no output. ttsx
- * runs the entry once after one check, and a watch that restarts the program is
- * a different feature; the message names the two tools that already provide the
- * halves. A `--watch` after the entry is the program's own flag and never
- * reaches here.
- */
-function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
-  let watching = result.values.has("--watch");
-  for (let index = 0; !watching && index < result.passthrough.length; ) {
-    watching = resolveFlagSpec(result.passthrough[index]!)?.name === "--watch";
-    index += readCompilerOptionOccurrence(result.passthrough, index).width;
-  }
-  if (!watching) return;
-  throw new Error(
-    "ttsx: --watch is not supported; ttsx type-checks once and then runs the entry. For a watching type-check use `ttsc --watch --noEmit`; to restart the program on changes use `node --watch --require ttsc/register <entry.ts>`. Arguments after the entry, including --watch, go to the program.",
-  );
 }
 
 /**

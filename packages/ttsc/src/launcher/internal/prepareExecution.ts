@@ -14,6 +14,7 @@ import { createFilesystemPathIdentityContext } from "../../internal/pathIdentity
 import { SourceBuildCacheLayout } from "../../plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resolveSourceBuildCachePaths";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { assertTtsxNoWatch } from "./assertTtsxNoWatch";
 import { buildSingleRootProject } from "./buildSingleRootProject";
 import { linkVirtualEntry } from "./linkVirtualEntry";
 import { resolveCacheDir } from "./resolveCacheDir";
@@ -304,6 +305,10 @@ function createProjectContext(
     : discoverOwningProject(cwd, discoveryFile, options);
   const tsconfig = project.path;
   const root = project.root;
+  // Relative response requests use the selected project's compiler cwd, which
+  // can differ from the invocation directory or a solution's nearest config.
+  // Refuse watch before effective-option reporting, cache writes or compilation.
+  assertTtsxNoWatch(options.passthrough ?? [], root);
   const explicitCacheDir = resolveCacheDir(cwd, options.cacheDir);
   const env = SidecarEnvironment.merge(process.env, options.env);
   const defaultCache =
