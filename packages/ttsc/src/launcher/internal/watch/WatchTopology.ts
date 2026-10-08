@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { CompilerArgumentsInspection } from "../../../compiler/internal/CompilerArgumentsInspection";
 import { outputText } from "../../../compiler/internal/outputText";
 import { readJsoncFile } from "../../../compiler/internal/project/readJsoncFile";
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
@@ -46,6 +47,11 @@ import { watchDirectory } from "./watchDirectory";
  * same absolute-path membership and failure contract for each resolved project.
  * Configuration files, project-reference roots, output inference and native
  * filesystem identity remain this topology's responsibility.
+ * Response frames are observed once per project refresh at its compiler cwd;
+ * that option view serves all project-output queries while the original argv
+ * reaches compiler membership. A second observation rejects response changes
+ * across membership resolution. Response files join the config reload set;
+ * these observations do not pin files or detect a change restored in between.
  *
  * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas
  * and reload decision. These diagnostics reuse the decision's existing inputs;
@@ -163,7 +169,7 @@ export class WatchTopology {
    * @evidence contracts/common.md#meaningful-documentation Native prose states notification gating, thrown errors and registration error ownership following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Compiler processes use explicit argv/env; native APIs own path grammar and backend differences. Lexical membership uses measured component case policy, keeping unknown names and symlink aliases distinct instead of folding all Windows paths.
    * @evidence contracts/performance.md#efficient-algorithms Project/reference configuration discovery, output inference and supplied/native compiler listing precede file/key snapshot passes. Native path/case/ancestor work and newly admitted file hashing add text/byte costs; broad reconciliation stats tracked files and strongly reads metadata/owner movement, while named/gap events request strong reads. Windows directory pruning is pairwise, and extra/project watcher reconciliation adds its own scans and backend callback costs without a file-count or deadline cap.
-   * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
+   * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. One current response inspection per project serves its output queries; response observations are checked again after membership and never cached across refreshes. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Current snapshots prune removed members and synchronization attempts obsolete handle closure, keeping old coverage after incomplete registration. Current/recovery populations and observations have no size cap; supplied close/error callbacks can throw and close does not await backend completion. State remains owner-held until released.
    */
   public refresh(notify: boolean): void {
@@ -1754,7 +1760,10 @@ function resolveWatchTopology(
       projectRoot: options.projectRoot,
       tsconfig: options.tsconfig,
     });
+    const inspected = watchCompilerOptions(project, options);
     analysisOnly = watchTopologyAnalysisOnly(options, project);
+    addPaths(files, inspected.responseFiles, identities);
+    addPaths(reloadFiles, inspected.responseFiles, identities);
     roots.push(project.root);
     addPaths(files, project.configPaths, identities);
     addPaths(reloadFiles, project.configPaths, identities);
@@ -1782,21 +1791,30 @@ function resolveWatchTopology(
     addPaths(files, positionalInputs, identities);
   } else {
     const projects = readReferencedProjects(options, identities);
-    if (projects[0] !== undefined) {
-      analysisOnly = watchTopologyAnalysisOnly(options, projects[0]);
-    }
     for (const project of projects) {
+      const inspected = watchCompilerOptions(project, options);
+      if (project === projects[0]) {
+        analysisOnly = watchTopologyAnalysisOnly(inspected.options, project);
+      }
       roots.push(project.root);
       addPaths(files, project.configPaths, identities);
       addPaths(reloadFiles, project.configPaths, identities);
+      addPaths(files, inspected.responseFiles, identities);
+      addPaths(reloadFiles, inspected.responseFiles, identities);
       const compilerInputs = getCompilerInputs(project, options);
-      const compilerOutputs = resolveCompilerOutputs(project, options);
+      for (const [file, observation] of inspected.observations) {
+        if (CompilerArgumentsInspection.observeInputFile(file) !== observation)
+          throw new Error(
+            `Compiler response file changed during topology refresh: ${file}`,
+          );
+      }
+      const compilerOutputs = resolveCompilerOutputs(project, inspected.options);
       addPaths(outputFiles, compilerOutputs.files, identities);
       addPaths(
         outputFiles,
         inferPerSourceCompilerOutputs(
           project,
-          options,
+          inspected.options,
           compilerInputs,
           identities,
         ),
@@ -1817,16 +1835,44 @@ function resolveWatchTopology(
   };
 }
 
+/**
+ * Observe response options once per project refresh at the native compiler cwd.
+ * The original request still reaches the compiler-input operation. Positional
+ * output placement remains the single-file launcher's own copy policy.
+ */
+function watchCompilerOptions(
+  project: ITtscParsedProjectConfig,
+  options: WatchTopologyOptions,
+): {
+  observations: ReadonlyMap<string, string>;
+  options: WatchTopologyOptions;
+  responseFiles: readonly string[];
+} {
+  if (readCompilerOptionValues(options.passthrough).responseFiles.length === 0)
+    return { observations: new Map(), options, responseFiles: [] };
+  const inspected = CompilerArgumentsInspection.inspect(
+    options.passthrough ?? [],
+    project.root,
+  );
+  return {
+    observations: inspected.observations,
+    options: { ...options, passthrough: inspected.args },
+    responseFiles: [...inspected.observations.keys()],
+  };
+}
+
 function watchTopologyAnalysisOnly(
   options: WatchTopologyOptions,
   project: ITtscParsedProjectConfig,
 ): boolean {
-  if (options.emit !== undefined) return options.emit === false;
   const noEmit =
     passthroughBooleanOption(
       readCompilerOptionValues(options.passthrough).values,
       "--noEmit",
-    ) ?? project.compilerOptions.noEmit === true;
+    ) ??
+    (options.emit === undefined
+      ? project.compilerOptions.noEmit === true
+      : options.emit === false);
   return noEmit;
 }
 

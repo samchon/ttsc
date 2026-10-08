@@ -5,6 +5,7 @@ import path from "node:path";
 import type { WatchInputChange } from "../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
+import { case_watch_topology_preserves_response_file_products } from "../features/ttsc/watch/case_watch_topology_preserves_response_file_products";
 import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
 
 /**
@@ -16,11 +17,13 @@ import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFo
  *    products.
  * 3. Exercise external references, reload targets and config recovery, then select
  *    the immutable execution-root and capability-gated case profiles.
+ * 4. Emit response-selected products in the staged sibling and distinguish
+ *    their quiet writes from data/source changes and response reload.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual built WatchTopology uses its native listFilesOnly reader and native observer. Explicit declaration/JS inputs survive predicted products; JSON/JS/declaration/build-info products stay out of the project lane, adjacent external data and referenced-project data deliver, and config deletion/recreation/replacement preserves subscription.
  * @evidence contracts/testing.md#independent-expectations Authored files/configuration define literal roles and filenames; each positive changes only its target after a settled ledger, while each quiet negative declares that precise predicted product. Filesystem identity is independently read for named delivery rather than assumed from platform spelling.
  * @evidence contracts/testing.md#distinguishing-cases Explicit declaration collision and mjs/cjs extension neighbors are compiler inputs; root/reference products contrast with adjacent JSON/document inputs. Missing config must report an error and still notify, then recreation/atomic replacement/ordinary edit must remain live. Available reload file aliases distinguish target edit and retarget.
- * @evidence contracts/testing.md#execution-ownership Selected esbuild starts one owned Node observer host to execute this helper. Up to three actual topology lifetimes serve mutable output configuration, immutable forwarded arguments and admitted case sensitivity. Native compiler-list refreshes remain actual costs, not one Program or zero preparation. Windows may perform two actual fsutil capability commands on owned directories.
+ * @evidence contracts/testing.md#execution-ownership Selected esbuild starts one owned Node observer host to execute this helper. Up to four actual topology lifetimes serve response-selected native products, mutable output configuration, immutable forwarded arguments and admitted case sensitivity. Two ordinary native emits establish response-selected products; native compiler-list refreshes remain actual costs, not one Program or zero preparation. Windows may perform two actual fsutil capability commands on owned directories.
  * @evidence contracts/e2e.md#necessary-boundary Native compiler membership and operating-system notification classification must agree across real subscriptions, products and config failures. Captured list/watch units own portable decision tables but do not establish these connections.
  * @evidence contracts/e2e.md#shared-execution One upfront project/reference graph serves all compatible distinctions. Constructors with different immutable forwarded arguments or output/case policies have distinct actual topology lifetimes in this same worker. No per-file host or installation is created. The separate Node owner allows the parent to join actual process termination because topology.close alone exposes no backend join.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This owned copied subtree and its allocated tools/src/main.js and tools/native-topology-javascript ancestor-output coordinates change; no other corpus claims those coordinates. Every transition settles prior attention, fixes the ledger boundary and distinguishes its own target or kind. Independent assertions collect failures; finally attempts each topology.close and records refusal without overwriting previous failures. The owning worker exits only after this body settles, and its parent independently observes ordinary status and PID departure before releasing the shared graph.
@@ -61,6 +64,11 @@ export async function nativeCompilerTopologyCorpus(
       failures.push(new Error(name, { cause: error }));
     }
   };
+  await capture("response-selected native products", () =>
+    case_watch_topology_preserves_response_file_products(
+      path.join(path.dirname(root), "native-response-topology"),
+    ),
+  );
   const count = (kind: WatchInputChange["kind"]) =>
     changes.filter((change) => change.kind === kind).length;
   const delivered = async (
