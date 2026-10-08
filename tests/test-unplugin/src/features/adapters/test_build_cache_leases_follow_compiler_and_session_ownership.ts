@@ -104,12 +104,13 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
     assert.equal(cache.size, 0);
 
     const options = { project: "ownership-only-never-compiled.tsconfig.json" };
-    const plugins = (["webpack", "rspack"] as const).map((framework) =>
-      unplugin.raw(options, {
+    const plugins = (["webpack", "rspack"] as const).map((framework) => ({
+      framework,
+      plugin: unplugin.raw(options, {
         framework,
         [framework]: { compiler: {} },
       } as never),
-    );
+    }));
     const key = JSON.stringify(resolveOptions(options));
     const shared = sharedBuildTransformCache(key);
     assert.equal(sharedBuildTransformCache(key), shared);
@@ -117,7 +118,7 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
     assert.notEqual(distinct, shared);
     runIdle();
     shared.cache.set("consumer", pending);
-    for (const plugin of plugins) {
+    for (const { framework, plugin } of plugins) {
       const rules: unknown[] = [];
       const names: string[] = [];
       let watchClose: (() => void) | undefined;
@@ -144,7 +145,7 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
           },
         },
       };
-      const register = plugin.webpack ?? plugin.rspack;
+      const register = plugin[framework];
       assert.equal(typeof register, "function");
       (register as (compiler: unknown) => void)(compiler);
       assert.deepEqual(names, [

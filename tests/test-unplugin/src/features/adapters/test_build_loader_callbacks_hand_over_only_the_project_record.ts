@@ -178,7 +178,8 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
         },
       },
     };
-    const register = raw.webpack ?? raw.rspack;
+    const register = raw[framework];
+    assert.equal(typeof register, "function");
     (register as (compiler: unknown) => void)(compiler);
     const context = {
       addWatchFile: () =>
