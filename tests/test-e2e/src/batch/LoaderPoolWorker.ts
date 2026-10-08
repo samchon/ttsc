@@ -57,6 +57,9 @@ export interface LoaderPoolOutcome {
  * 256 ordinary rows plus its actual close row; no source or reply payload is
  * copied. A failed diagnostic sink reports once on stderr without replacing
  * transport outcomes or certifying closure.
+ * Complete child stderr is retained beside that JSONL file at actual close,
+ * including an error reply followed by a normal exit. Close drains the stream
+ * before writing; retained diagnostics do not establish a successful delivery.
  *
  * The final resident may receive a private project-view argument carrying
  * public Metro options. This keeps Metro's host root independent of its
@@ -69,7 +72,7 @@ export interface LoaderPoolOutcome {
  * @evidence contracts/testing.md#execution-ownership The loader-pool experiment initially owns Metro and Turbopack workers, then acquires one fresh Metro worker only after both actually join, to distinguish offline edits from old in-memory validation. Other request calls reuse their existing process; native preparation totals are not certified.
  * @evidence contracts/e2e.md#necessary-boundary Actual built adapter processes and their session-native producer must communicate before publication sharing can be observed.
  * @evidence contracts/e2e.md#shared-execution The initial Metro resident owns one additional public prepare call and descriptor/admission re-observation before bounded delivery; it does not acquire a Program or certify a cache hit. One command stream keeps each adapter module/cache owner resident across the same project states.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit owned cwd/cache/session and complete close receipts bound reuse; unresolved delivery/close is failure, never release proof or forced process termination. A unique parent-owned JSONL file in the existing trace root bounds observations to 256 ordinary rows plus actual close, truncates phase/error text and reports a sink failure once on stderr without replacing transport errors. An optional runtime-inputs object-cache coordinate is command data only; worker environment, binary namespace and request deadline remain intact. It is supplied only after native-name inspection finds no nonempty inherited dedicated/external cache.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit owned cwd/cache/session and complete close receipts bound reuse; unresolved delivery/close is failure, never release proof or forced process termination. A unique parent-owned JSONL file in the existing trace root bounds observations to 256 ordinary rows plus actual close, truncates phase/error text and reports a sink failure once on stderr without replacing transport errors. Actual close retains complete child stderr in a separate exclusive file after stream drainage, for success, error replies and nonzero exit; retention failure is reported independently and does not certify delivery or closure. An optional runtime-inputs object-cache coordinate is command data only; worker environment, binary namespace and request deadline remain intact. It is supplied only after native-name inspection finds no nonempty inherited dedicated/external cache.
  * @evidence contracts/e2e.md#preserved-coverage The caller retains initial Metro forwarding/Turbopack map and dependency controls while extending actual failure sharing/replay/repair; no legacy case/profile loop is invoked.
  */
 export function createLoaderPoolWorker(props: {
@@ -123,6 +126,7 @@ export function createLoaderPoolWorker(props: {
     props.traceRoot,
     `${process.pid}-loader-pool-${observationInstance}.jsonl`,
   );
+  const diagnosticsFile = observationFile.replace(/\.jsonl$/, ".stderr");
   let observationSequence = 0;
   let observationFailed = false;
   let omittedObservations = 0;
@@ -267,6 +271,13 @@ export function createLoaderPoolWorker(props: {
   });
   const closed = new Promise<void>((resolve, reject) =>
     child.once("close", (code, signal) => {
+      try {
+        fs.writeFileSync(diagnosticsFile, stderr, {
+          flag: "wx",
+        });
+      } catch (error) {
+        console.error("Loader-pool stderr retention failed: " + String(error));
+      }
       observe("closed", { code, signal, pending: pending.size });
       const error =
         processError ??
@@ -288,6 +299,7 @@ export function createLoaderPoolWorker(props: {
   void closed.catch(() => undefined);
   return {
     ready,
+    diagnosticsFile,
     request: (
       sourceSuffix = "",
       deliveredSource?: string,

@@ -5132,7 +5132,7 @@ async function runResidentLoaderPool(): Promise<void> {
         assert.ok(fs.statSync(compilerRoot).isDirectory());
         const finalSession = session + "-offline-restart";
         const nativeDirectory = fs.mkdtempSync(
-          path.join(workspace.cache, "metro-native-kind-"),
+          path.join(compilerRoot, "metro-native-kind-"),
         );
         const nativeHelper = path.join(nativeDirectory, "dependency.cjs");
         const configReceiptOffset =
@@ -5144,8 +5144,10 @@ async function runResidentLoaderPool(): Promise<void> {
           assert.equal(fs.existsSync(finalSession), false);
           fs.mkdirSync(finalSession);
           // Reuse an existing authored module as a real lint-config dependency.
-          // Its raw parent listing is outside Metro's project walk and is observed
-          // by the lint evaluator's supported module-resolution hooks.
+          // Its raw parent listing is outside Metro's source-host walk and is
+          // observed by the lint evaluator's supported module-resolution hooks.
+          // Keep executable dependencies on the installed project's volume so
+          // the evaluator's ordinary rootDir/outDir mapping can emit them.
           fs.copyFileSync(path.join(workspace.root, "upstream.cjs"), nativeHelper);
           fs.writeFileSync(
             lintConfig,
@@ -5235,6 +5237,16 @@ async function runResidentLoaderPool(): Promise<void> {
             failures.push(error);
           }
           if (restartJoined) {
+            if (restarted !== undefined)
+              try {
+                assert.equal(
+                  fs.readFileSync(restarted.diagnosticsFile, "utf8"),
+                  restarted.diagnostics(),
+                  "joined final resident retains its complete stderr independently of delivery success",
+                );
+              } catch (error) {
+                failures.push(error);
+              }
             if (restarted !== undefined && freshDeliveryAccepted) {
               try {
                 const fingerprint = createRequire(import.meta.url)(

@@ -566,10 +566,10 @@ export namespace MetroResidentBoundary {
   }
 
   /**
-   * Check the joined resident stderr markers for real descriptor and mixed lint
-   * evaluations.
+   * Check the persisted joined resident stderr for real descriptor and mixed
+   * lint evaluations, including negative deliveries followed by a normal exit.
    *
-   * @evidence contracts/testing.md#behavioral-verification Check the joined resident stderr markers for real descriptor and mixed lint evaluations.
+   * @evidence contracts/testing.md#behavioral-verification Read the actual close-owned stderr artifact, compare it with the drained transport buffer and require independent real descriptor and mixed lint markers.
    * @evidence contracts/testing.md#independent-expectations Literal marker text and exact three healthy or one package/failure log counts distinguish forwarding from synthesized records.
    * @evidence contracts/testing.md#distinguishing-cases Actual stdout routing, ambient-env rejection and joined stderr must retain every original positive and negative log marker.
    * @evidence contracts/testing.md#execution-ownership The caller joins worker close and then invokes this same assertion owner on full and local paths; a blocked body still exposes missing markers.
@@ -581,12 +581,13 @@ export namespace MetroResidentBoundary {
   export function assertDiagnostics(
     worker: ReturnType<typeof createLoaderPoolWorker>,
   ): void {
-    assert.match(worker.diagnostics(), /DESCRIPTOR_STDOUT_MARKER loaded/);
+    const lintStderr = fs.readFileSync(worker.diagnosticsFile, "utf8");
+    assert.equal(lintStderr, worker.diagnostics());
+    assert.match(lintStderr, /DESCRIPTOR_STDOUT_MARKER loaded/);
     assert.equal(
-      /factory-env:ambient|absent-ambient/.test(worker.diagnostics()),
+      /factory-env:ambient|absent-ambient/.test(lintStderr),
       false,
     );
-    const lintStderr = worker.diagnostics();
     for (const marker of [
       "loading executable lint config",
       "executable lint config warning",
