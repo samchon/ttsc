@@ -63,7 +63,7 @@ export namespace BatchWorkspace {
     casePolicyReceipt: string;
     projectAlias: string;
     installationOnly: boolean;
-    /** Run-owned SDK/platform archives; borrowers cannot remove this root. */
+    /** Run-owned archives isolated from file entries mirrored by runtime hosts. */
     compilerArchives: CompilerArchives.Owner;
     sourcePublication?: { binary: string; root: string };
     expected: readonly { title: string; units: number[] }[];
@@ -389,7 +389,7 @@ export namespace BatchWorkspace {
    * failures. The copied main module's assembly input guarantees a real SDK
    * assembler execution while preserving reuse of unrelated Go objects.
    *
-   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication.
+   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. A private archive directory stays opaque to runtime ancestor mirroring, which hard-links regular file entries and changes their native version metadata; the archive identity and content guards remain intact. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication.
    * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence. Actual wrapper writes and a nonempty native completion-marker directory exercise strict witness rejection and lease cleanup failure without replacing foreign filesystem methods. Initial cold attempts require independent before/after tool metadata evidence for every discarded build and a stable final epoch; they are not accepted merely because a retry passed.
    * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it. It also identifies the Windows exit boundary needed by the self-rewriting adapter.
@@ -755,9 +755,14 @@ export namespace BatchWorkspace {
       "The E2E runner must be launched through pnpm",
     );
     const compilerDirectories = ["packages/ttsc", `packages/ttsc-${target}`];
+    // Runtime layouts mirror root files through hardlinks. Keep immutable
+    // archives inside an opaque directory so those links cannot change their
+    // native version metadata before another installation borrows them.
+    const compilerArchiveRoot = path.join(root, ".compiler-archives");
+    fs.mkdirSync(compilerArchiveRoot);
     const compilerArchives = CompilerArchives.create({
       repository: TestProject.WORKSPACE_ROOT,
-      output: root,
+      output: compilerArchiveRoot,
       directories: compilerDirectories,
       produce: (directory, archive) =>
         E2eProcessTrace.execFileSync(
@@ -783,15 +788,15 @@ export namespace BatchWorkspace {
         private: true,
         type: "commonjs",
         dependencies: {
-          ttsc: "file:./ttsc.tgz",
-          [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+          ttsc: "file:./.compiler-archives/ttsc.tgz",
+          [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
           typescript: "7.0.2",
         },
         pnpm: {
           ...authoredManifest.pnpm,
           overrides: {
             ...authoredManifest.pnpm?.overrides,
-            [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+            [`@ttsc/${target}`]: `file:./.compiler-archives/ttsc-${target}.tgz`,
           },
         },
       }),

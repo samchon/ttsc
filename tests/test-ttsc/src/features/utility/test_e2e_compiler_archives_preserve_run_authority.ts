@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/internal/linkVirtualEntry";
 import { CompilerArchives } from "../../../../test-e2e/src/batch/CompilerArchives";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -17,7 +18,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual filesystem inputs and archive bytes exercise the owner, producer, borrowers and release callback; fresh generations run their normal producers after source/config/manifest changes, exact immutable generations remain explicit, and missing/corrupt/replaced archives or failed release cannot grant reuse or cleanup.
  * @evidence contracts/testing.md#independent-expectations Literal distinct payloads, independent SHA-256, explicit producer/release counts and authored failure objects define expected outcomes without deriving them from the owner's verdict. Actual corrupt, equal-byte replaced and metadata-only archive mutations independently determine which finite refusal facts must appear in CI stderr and the error cause.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures. Actual runtime entry mirroring contrasts a root archive's native hardlink transition with an opaque archive directory; mirror removal preserves isolated borrowing, while replacing that directory with an alias refuses reuse and deletion.
  * @evidence contracts/testing.md#execution-ownership The existing test-ttsc runner discovers this utility test; explicit producer/release callbacks operate only small authored allocations without native builds, packs, installs or foreign-method replacement.
  */
 export async function test_e2e_compiler_archives_preserve_run_authority(): Promise<void> {
@@ -86,6 +87,114 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       },
     };
   };
+  const archiveState = (archive: string) => {
+    const stat = fs.statSync(archive, { bigint: true });
+    return {
+      dev: stat.dev,
+      ino: stat.ino,
+      nlink: stat.nlink,
+      size: stat.size,
+      mode: stat.mode,
+      mtimeNs: stat.mtimeNs,
+      ctimeNs: stat.ctimeNs,
+    };
+  };
+  for (const isolated of [false, true])
+    check(
+      "runtime mirroring " + (isolated ? "isolated directory" : "root file"),
+      () => {
+        const fixture = seed();
+        const root = TestProject.tmpdir("compiler-archive-project-");
+        const output = isolated ? path.join(root, ".compiler-archives") : root;
+        if (isolated) fs.mkdirSync(output);
+        const owner = CompilerArchives.create({ ...fixture.props, output });
+        const initial = owner.borrow();
+        const artifact = initial.artifacts[0]!;
+        initial.release();
+        const before = archiveState(artifact.archive);
+        const virtual = TestProject.tmpdir("compiler-archive-virtual-");
+        const entry = fs.readdirSync(root, { withFileTypes: true })[0]!;
+        assert.equal(entry.name, isolated ? ".compiler-archives" : "compiler.tgz");
+        const mirrored = path.join(virtual, entry.name);
+        linkVirtualEntry(path.join(root, entry.name), mirrored, entry);
+        const after = archiveState(artifact.archive);
+        assert.equal(
+          crypto
+            .createHash("sha256")
+            .update(fs.readFileSync(artifact.archive))
+            .digest("hex"),
+          crypto.createHash("sha256").update("authored archive").digest("hex"),
+        );
+        if (isolated) {
+          assert.equal(fs.lstatSync(mirrored).isSymbolicLink(), true);
+          assert.equal(
+            fs.realpathSync.native(mirrored),
+            fs.realpathSync.native(output),
+          );
+          assert.deepEqual(after, before);
+          const loan = owner.borrow();
+          assert.throws(
+            () => owner.close(() => assert.fail("active mirror borrower")),
+            /borrowers/,
+          );
+          fs.unlinkSync(mirrored);
+          assert.deepEqual(archiveState(artifact.archive), before);
+          loan.assertAvailable();
+          loan.release();
+          const next = owner.borrow();
+          next.release();
+          owner.close(() => fs.rmSync(root, { recursive: true, force: true }));
+          assert.equal(fs.existsSync(root), false);
+        } else {
+          const target = fs.statSync(mirrored, { bigint: true });
+          if (target.dev === before.dev && target.ino === before.ino) {
+            assert.equal(after.nlink, before.nlink + 1n);
+            if (after.ctimeNs !== before.ctimeNs)
+              assert.throws(
+                () => owner.borrow(),
+                /Compiler archive changed before reuse/,
+              );
+            else {
+              // Native timestamp resolution can coalesce adjacent operations.
+              const loan = owner.borrow();
+              loan.release();
+            }
+          } else {
+            // The actual helper can copy when the filesystem refuses hardlinks.
+            assert.deepEqual(after, before);
+            const loan = owner.borrow();
+            loan.release();
+          }
+          fs.unlinkSync(mirrored);
+          if (archiveState(artifact.archive).ctimeNs !== before.ctimeNs)
+            assert.throws(
+              () => owner.borrow(),
+              /Compiler archive changed before reuse/,
+            );
+          owner.close(() => fs.rmSync(root, { recursive: true, force: true }));
+          assert.equal(fs.existsSync(root), false);
+        }
+      },
+    );
+  check("isolated archive directory alias refuses reuse and removal", () => {
+    const fixture = seed();
+    const root = TestProject.tmpdir("compiler-archive-island-");
+    const output = path.join(root, ".compiler-archives");
+    fs.mkdirSync(output);
+    const owner = CompilerArchives.create({ ...fixture.props, output });
+    const moved = path.join(root, "moved");
+    fs.renameSync(output, moved);
+    fs.symlinkSync(moved, output, "junction");
+    assert.throws(() => owner.borrow(), /allocation was replaced/);
+    assert.throws(
+      () => owner.close(() => assert.fail("aliased removal")),
+      /allocation was replaced/,
+    );
+    assert.equal(
+      fs.readFileSync(path.join(moved, "compiler.tgz"), "utf8"),
+      "authored archive",
+    );
+  });
   check("unchanged borrowing and release", () => {
     const fixture = seed();
     const observed: { phase: string; files?: number; bytes?: number }[] = [];
