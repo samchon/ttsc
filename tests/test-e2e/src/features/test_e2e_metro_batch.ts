@@ -86,12 +86,14 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * allocation is its child so the artifact owner can collect the native
  * receipts. It retains no copied fixture or Go cache. Retention failure
  * accompanies the original error rather than replacing it. Descriptor and
- * capability reuse additionally require the selected Node evaluator's actual
- * public resolve-hook capability, independently probed by the existing
- * recorder. Supported observation retains exact cache-hit and publication
- * assertions. Missing capability instead requires fresh factory calls, explicit
- * incomplete proof and no reusable answer publication. Default maintenance
- * borrows one upfront normal package outside prior cache consumers; neither
+ * capability reuse require the owned resolver observation contract. When native
+ * require.resolve bypasses public hooks, the runtime supplies module-local
+ * require.resolve and createRequire adaptation through that resolver. The
+ * existing recorder independently contrasts the actual native hook capability;
+ * its absence does not withdraw observed reuse. Exact cache-hit and publication
+ * assertions remain, while undeclared or unproved reads require fresh factory
+ * evaluation. Default maintenance borrows one upfront normal package outside
+ * prior cache consumers; neither
  * runtime versions nor operating-system names select these assertions. The
  * existing scripted Go protocol producer also rewrites and restores its
  * selected launcher during every build. Its three bounded transactions must all
