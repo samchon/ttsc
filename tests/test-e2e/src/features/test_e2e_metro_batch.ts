@@ -5121,6 +5121,7 @@ async function runResidentLoaderPool(): Promise<void> {
         const lintConfig = path.join(workspace.root, "lint.config.cjs");
         const originalLintConfig = fs.readFileSync(lintConfig);
         const compilerRoot = path.dirname(workspace.root);
+        const finalSession = session + "-offline-restart";
         const nativeDirectory = fs.mkdtempSync(
           path.join(workspace.cache, "metro-native-kind-"),
         );
@@ -5130,6 +5131,8 @@ async function runResidentLoaderPool(): Promise<void> {
         let restarted: ReturnType<typeof createLoaderPoolWorker> | undefined;
         let restartJoined = true;
         try {
+          assert.equal(fs.existsSync(finalSession), false);
+          fs.mkdirSync(finalSession);
           // Reuse an existing authored module as a real lint-config dependency.
           // Its raw parent listing is outside Metro's project walk and is observed
           // by the lint evaluator's supported module-resolution hooks.
@@ -5151,7 +5154,7 @@ async function runResidentLoaderPool(): Promise<void> {
             mode: "metro",
             root: workspace.root,
             cache: workspace.cache,
-            session: session + "-offline-restart",
+            session: finalSession,
             traceRoot,
             metro: pathToFileURL(path.join(lib, "transformer.js")).href,
             turbopack: TestUnpluginRuntime.libUrl("turbopack"),
@@ -5236,13 +5239,12 @@ async function runResidentLoaderPool(): Promise<void> {
                   false,
                   "compiler-visible listings must not supply this native-only proof",
                 );
-                const freshSession = session + "-offline-restart";
                 const nativePredicates = fs
-                  .readdirSync(freshSession)
+                  .readdirSync(finalSession)
                   .filter((name) => name.endsWith(".json"))
                   .flatMap((name) => {
                     const publication = JSON.parse(
-                      fs.readFileSync(path.join(freshSession, name), "utf8"),
+                      fs.readFileSync(path.join(finalSession, name), "utf8"),
                     );
                     return Object.entries(
                       publication.result.graph?.inputObservations ?? {},
