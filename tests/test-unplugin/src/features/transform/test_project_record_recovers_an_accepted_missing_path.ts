@@ -108,12 +108,16 @@ export function test_project_record_recovers_an_accepted_missing_path(): void {
       assert.equal(state.deliver(), true);
       state.verify();
       assert.equal(state.reads(), 1);
+      const recoveredDigest = state.handed.at(-1)!.digest;
       fs.unlinkSync(state.record);
       assert.equal(
-        notifyProjectRecord(state.project, { ...state.cached }, false, () => []),
+        notifyProjectRecord(state.project, { ...state.cached }, false, () => [
+          { file: fixture.good.tsconfig },
+        ]),
         true,
       );
       state.verify();
+      assert.equal(state.handed.at(-1)!.digest, recoveredDigest);
     });
     run("removed primary and fallback recover independently", () => {
       const state = scenario("fallback");

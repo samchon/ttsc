@@ -1,5 +1,7 @@
 import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
+import type { TtscProjectRegistration } from "@ttsc/unplugin/api";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -22,14 +24,19 @@ const webpack = createRequire(import.meta.url)(
  * observations belong to the fixture cache. Marker booleans and bounded error
  * text distinguish callbacks, delivery and closure without dumping output.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual webpack polling rebuild proves loader redelivery through builtModules while same bytes keep the observed TtscCompiler.transformAsync call count stable; content change publishes AGE:NUMBER. Fresh closed webpack compilers preserve filesystem cache across a changed compiler-only input, with a graph-free stale control. Rollup's retained cache skips unchanged transform and refreshes changed helper bytes.
- * @evidence contracts/testing.md#independent-expectations Authored interface bytes prescribe ID:STRING versus AGE:NUMBER. Actual webpack builtModules distinguishes no delivery from cached native work; existing private bridge-lookup receipts count observed API calls, never Programs or fixture-defined compile ticks. Rollup's real public transform hook counts adapter host delivery.
- * @evidence contracts/testing.md#distinguishing-cases Same-byte timestamp versus changed content, filesystem cache versus active watch, declared graph versus omitted graph, and Rollup unchanged versus changed retained cache remain distinct.
- * @evidence contracts/testing.md#execution-ownership The selected webpack batch calls one consolidated body. One watch compiler, four separately closed filesystem-cache compiler lifetimes and three closed Rollup builds share one upfront source island/available native fixture artifact. These are actual additional host/build costs, not zero executions or one Program.
- * @evidence contracts/e2e.md#necessary-boundary Real webpack loader/watch/filesystem-cache restoration and Rollup's cached module delivery must consult the actual adapter frontier. The native producer reads filesystem bytes and emits an envelope; its uppercase result does not prove native typechecker inference.
- * @evidence contracts/e2e.md#shared-execution One upfront project replaces separate watch/type/cache/control/Rollup fixtures. Ordered cases restore original type/config only after their actual host closes; cache-positive and negative controls use different owned cache namespaces without deleting caches.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Mutable source/config belongs only to this tools subtree. Actual watcher/compiler/bundle closes precede restoration or the next host; failed close retains the shared graph and blocks further mutations. A unique runner-owned trace child keeps observations outside compiler inputs; fixture-cache fallback retains standalone ownership. At most 384 bounded diagnostic rows plus one terminal row use synchronous append-close IO; sink failure is collected independently and cannot replace body or release failures. Trace/environment authority restores in finally.
- * @evidence contracts/e2e.md#preserved-coverage Restores original valid adapter invalidation/cache/loader-redelivery meanings. Fake compile/Program counts are not restored; private receipts observe real compiler API calls only. This does not certify development serve/HMR behavior.
+ * Before those hosts run, a public polling delivery retains its native
+ * generation while a separate empty-entry webpack host opens the shared record
+ * directory with its config absent. Exact restoration must recover the record
+ * without another compiler API call or a replacement generation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Public native delivery retains its exact generation and Promise across actual empty-entry webpack opening deletion and config restoration, recovers a matching readable record/digest, repeats callbacks and remains cacheable with one observed compiler API request. Actual webpack polling rebuild proves loader redelivery through builtModules while same bytes keep the observed TtscCompiler.transformAsync call count stable; content change publishes AGE:NUMBER. Fresh closed webpack compilers preserve filesystem cache across a changed compiler-only input, with a graph-free stale control. Rollup's retained cache skips unchanged transform and refreshes changed helper bytes.
+ * @evidence contracts/testing.md#independent-expectations Authored interface bytes prescribe ID:STRING versus AGE:NUMBER. The retained Promise/object and snapshot identities distinguish persistence recovery from recapture; independent SHA-256 of returned record bytes checks its published digest. Actual webpack builtModules distinguishes no delivery from cached native work; existing private bridge-lookup receipts count observed API calls, never Programs or fixture-defined compile ticks. Rollup's real public transform hook counts adapter host delivery.
+ * @evidence contracts/testing.md#distinguishing-cases Same-byte timestamp versus changed content, filesystem cache versus active watch, declared graph versus omitted graph, and Rollup unchanged versus changed retained cache remain distinct. An accepted existing record contrasts with actual opening-host deletion and same-content restoration; repeated public delivery must retain the exact Promise and resolved native generation while publishing a valid record digest.
+ * @evidence contracts/testing.md#execution-ownership The selected webpack batch calls one consolidated body. A public native delivery/cache and one empty-entry webpack opening, one watch compiler, four separately closed filesystem-cache compiler lifetimes and three closed Rollup builds share one upfront source island/available native fixture artifact. These are actual additional host/build costs, not zero executions or one Program. Nested collector scenarios are reviewed here rather than independently selected by Evidence.
+ * @evidence contracts/e2e.md#necessary-boundary Real webpack loader/watch/filesystem-cache restoration and Rollup's cached module delivery must consult the actual adapter frontier. The recovery case requires an actual native generation and an independent host's real buildStart; direct notify/refresh calls cannot prove admitted native reuse or this opening order. The native producer reads filesystem bytes and emits an envelope; its uppercase result does not prove native typechecker inference.
+ * @evidence contracts/e2e.md#shared-execution One upfront project replaces separate watch/type/cache/control/Rollup fixtures. The recovery case reuses its native producer source/artifact and root; its separate empty-entry compiler is necessary to exercise actual buildStart without compiling the temporarily absent project. Ordered cases restore original type/config only after their actual host closes; cache-positive and negative controls use different owned cache namespaces without deleting caches.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Mutable source/config belongs only to this tools subtree. Actual watcher/compiler/bundle closes precede restoration or the next host; failed close retains the shared graph and blocks further mutations. The recovery cache resets in finally and yields to settled generation disposer reactions before restoring its declared polling environment and native cwd; reset attempts cleanup rather than certifying native release. Empty-entry output stays in excluded .ttsc. A unique runner-owned trace child keeps observations outside compiler inputs; fixture-cache fallback retains standalone ownership. At most 384 bounded diagnostic rows plus one terminal row use synchronous append-close IO; sink failure is collected independently and cannot replace body or release failures. Trace/environment authority restores in finally.
+ * @evidence contracts/e2e.md#preserved-coverage Retains original valid adapter invalidation/cache/loader-redelivery meanings and adds actual opening-host deletion followed by same-generation persistence recovery. Pure record decisions remain in the new accepted-missing-path source unit. Fake compile/Program counts are not restored; private receipts observe real compiler API calls only. This does not certify development serve/HMR behavior.
  */
 export async function bundlerCacheCorpus(
   workspace: BatchWorkspace.Workspace,
@@ -209,6 +216,126 @@ export async function bundlerCacheCorpus(
     }
   };
   try {
+    await collect("accepted record cross-host recovery", async () => {
+      const {
+        createTtscTransformCache,
+        resetTtscTransformCache,
+        resolveOptions,
+        transformTtsc,
+      } = await TestUnpluginRuntime.loadUnpluginApi();
+      const previousPolling = process.env.WATCHPACK_POLLING;
+      const previousDirectory = process.cwd();
+      const cache = createTtscTransformCache();
+      const handed: TtscProjectRegistration[] = [];
+      let opening: Compiler | undefined;
+      let volatile = 0;
+      const errors: unknown[] = [];
+      try {
+        process.env.WATCHPACK_POLLING = "true";
+        // Generic build hosts own records below their actual working root.
+        process.chdir(root);
+        const options = resolveOptions({ project: configFile });
+        const deliver = () =>
+          transformTtsc(
+            mainFile,
+            originalMain.toString("utf8"),
+            options,
+            undefined,
+            cache,
+            {
+              markVolatile: () => {
+                volatile++;
+              },
+              project: {
+                toolDirectory: path.join(root, ".ttsc"),
+                watching: true,
+                register: (registration: TtscProjectRegistration) => {
+                  handed.push(registration);
+                },
+              },
+            },
+          );
+        const beforeCalls = observedCompilerCalls();
+        const first = await deliver();
+        assert.ok(first);
+        assert.match(first.code, /ID: STRING/);
+        assert.equal(observedCompilerCalls() - beforeCalls, 1);
+        assert.equal(cache.size, 1);
+        const owner = [...cache.values()][0]!;
+        const generation = await owner;
+        assert.equal(handed.length, 1);
+        const record = handed[0]!.record;
+        const snapshot = handed[0]!.inputs();
+        assert.equal(fs.statSync(record).isFile(), true);
+        fs.unlinkSync(configFile);
+        opening = webpack({
+          context: root,
+          mode: "development",
+          entry: {},
+          cache: false,
+          plugins: [unpluginWebpack({ project: configFile })],
+          output: { path: path.join(root, ".ttsc/record-refresh-output") },
+        });
+        const stats = await new Promise<Stats>((resolve, reject) =>
+          opening!.run((error, value) =>
+            error
+              ? reject(error)
+              : value
+                ? resolve(value)
+                : reject(new Error("opening webpack returned no stats")),
+          ),
+        );
+        assert.equal(stats.hasErrors(), false, stats.toString({ errors: true }));
+        assert.equal(stats.compilation.entries.size, 0);
+        assert.equal(fs.existsSync(record), false);
+        const opened = opening;
+        opening = undefined;
+        await closeCompiler(opened);
+        fs.writeFileSync(configFile, originalConfig);
+        assert.equal((await deliver())?.code, first.code);
+        assert.equal([...cache.values()][0], owner);
+        assert.equal(await owner, generation);
+        assert.equal(observedCompilerCalls() - beforeCalls, 1);
+        assert.equal(handed.length, 2);
+        assert.equal(handed[1]!.record, record);
+        assert.equal(handed[1]!.inputs(), snapshot);
+        const bytes = fs.readFileSync(record);
+        assert.equal(
+          JSON.parse(bytes.toString("utf8")).tsconfig,
+          generation.tsconfig,
+        );
+        assert.equal(
+          handed[1]!.digest,
+          createHash("sha256").update(bytes).digest("hex"),
+        );
+        assert.equal(volatile, 0);
+        assert.equal((await deliver())?.code, first.code);
+        assert.equal(handed.length, 3);
+        assert.equal(handed[2]!.digest, handed[1]!.digest);
+        assert.equal(handed[2]!.inputs(), snapshot);
+        assert.equal([...cache.values()][0], owner);
+        assert.equal(observedCompilerCalls() - beforeCalls, 1);
+      } catch (error) {
+        errors.push(error);
+      } finally {
+        if (opening !== undefined) {
+          try {
+            await closeCompiler(opening);
+          } catch (error) {
+            errors.push(error);
+          }
+        }
+        resetTtscTransformCache(cache);
+        // Settled generation disposal is scheduled by the public reset.
+        await Promise.resolve();
+        if (!releaseUnconfirmed) fs.writeFileSync(configFile, originalConfig);
+        process.chdir(previousDirectory);
+        if (previousPolling === undefined) delete process.env.WATCHPACK_POLLING;
+        else process.env.WATCHPACK_POLLING = previousPolling;
+      }
+      if (errors.length)
+        throw new AggregateError(errors, "accepted record host recovery failed");
+    });
     await collect("webpack watch delivery and content frontier", async () => {
       const configuration = config("watch");
       configuration.cache = false;
