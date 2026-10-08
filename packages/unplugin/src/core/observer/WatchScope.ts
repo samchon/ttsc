@@ -9,9 +9,9 @@ import type { InputEntry } from "./InputEntry";
  * retains named-event uncertainty for registrations racing a compilation.
  *
  * @evidence contracts/common.md#principled-implementation Scope root, start sequence, capability failure, and covered entries describe the observation authority registration can actually rely on.
- * @evidence contracts/common.md#clear-and-simple-design One scope owns its native handle while shared entries own conditions; external root identity supports topology checking without duplicating each input's watch.
+ * @evidence contracts/common.md#clear-and-simple-design One scope owns its native handle while shared entries own conditions; native root identity supports topology checking for pinned and external scopes without duplicating each input's watch.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed or newly opened scope cannot certify a prior compile's unchanged inputs solely because a handle exists.
- * @evidence contracts/common.md#meaningful-documentation Member comments explain pinned ownership, directory admission, external root identity, and the optional directory-backend track capability.
+ * @evidence contracts/common.md#meaningful-documentation Member comments explain pinned ownership, directory admission, physical root identity, and the optional directory-backend track capability.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Native root identity, failure and optional directory-backend capabilities
  *   remain explicit; event sequence does not certify canonical native naming.
@@ -45,10 +45,12 @@ export interface WatchScope {
   root: string;
 
   /**
-   * The device and file id `root` resolved to when an external observer opened,
-   * re-checked by the bounded poll. A replaced root leaves an inotify or
-   * FSEvents observer watching the old directory, so a mismatch fails the scope
-   * and hands its entries to the poll (samchon/ttsc#1384).
+   * The device and file id `root` resolved to when this observer opened,
+   * including the pinned project root. Absence cannot authorize coverage.
+   * Registration, native callbacks and the bounded poll verify this location:
+   * a moved watch can keep following the old directory while its spelling names
+   * a replacement. A mismatch fails the scope and hands its entries to the poll
+   * (samchon/ttsc#1384).
    */
   identity?: string;
 

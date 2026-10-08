@@ -46,10 +46,13 @@ import { someSet } from "./someSet";
  *
  * One recursive scope observes the project root, pinned once the observer
  * opens, and at most 16 external scopes the inputs outside it, each closed when
- * its last input leaves. A healthy external recursive scope also admits newly
- * registered descendants while its root identity and physical containment still
- * hold; the scope cap is checked only when no existing scope covers them.
- * Ordinary files use events after their initial subscription is observed.
+ * its last input leaves. Every native scope retains authority only while its
+ * physical root still matches its configured spelling. A healthy external
+ * scope admits newly registered descendants while its root identity and
+ * physical containment still hold; the scope cap is checked only when no
+ * existing scope covers them.
+ * Ordinary files use events after their initial subscription is observed;
+ * one shared poll verifies each occupied scope's location, not each file.
  * Missing spellings and directory predicates use the recursive observer for
  * their nearest available scope. Inputs a native scope cannot safely cover
  * share one bounded fallback poll; linked files also share topology checks
@@ -132,7 +135,9 @@ import { someSet } from "./someSet";
  *   population and owner-result maps until completion or disposal. Poll scope
  *   and link fanout beyond the immediate slice joins that yielding queue.
  *   Named-event history uses at most three lexical keys per path without native
- *   namespace queries. An external registration scans at most the bounded scope
+ *   namespace queries. Each replacement validates at most 17 native
+ *   roots once before binding inputs; each poll and native callback validates
+ *   its current locations afresh. An external registration scans the bounded scope
  *   population for exact lexical ancestors, validating their current identity
  *   and physical containment before sharing native coverage.
  *
@@ -143,6 +148,9 @@ import { someSet } from "./someSet";
  *   probes are shared across contributors. Recursive external coverage is
  *   shared only for exact lexical descendants still physically below a healthy
  *   observer's unchanged root; failed or replaced roots confer no coverage.
+ *   Pinned roots follow the same identity rule. Same-root reattachment rebuilds
+ *   failed coverage while retaining owner conditions; until then one shared
+ *   fallback poll checks uncovered inputs.
  *   Changed condition keys lose their
  *   previous ownership, and rename/removal/reanchor boundaries retire stale
  *   path memos. One clock reference is minted per selected plugin-tree batch.
@@ -154,7 +162,10 @@ import { someSet } from "./someSet";
  *   Last-owner removal and dispose attempt watch/poll cleanup, suppressing close
  *   failures; a thrown backend close is not certified as released. Conditions
  *   remove their directory contributions when they leave; root or polling
- *   policy changes rebuild scopes without retaining old admission history.
+ *   policy changes and lost project-root authority rebuild scopes on attachment
+ *   without retaining old admission history. Failed scopes relinquish callback
+ *   authority before attempting close, even when close throws. Retired poll
+ *   callbacks cannot act on a later observer lifetime.
  *   Conditions and owners still require input-proportional memory, and a capped
  *   scope count does not bound the number of admitted descendant subscriptions
  *   or input/path/evidence bytes. Change history clears above 100,000 keys;
@@ -358,13 +369,17 @@ export function createInputObserver(
   };
 
   const closeScope = (scope: WatchScope): void => {
-    scopes.delete(watchPathKey(scope.root));
+    // The root's case policy may have changed with its physical location.
+    // Retire by owned scope identity rather than recomputing its old map key.
+    for (const [key, candidate] of scopes)
+      if (candidate === scope) scopes.delete(key);
+    const watcher = scope.watcher;
+    scope.watcher = undefined;
     try {
-      scope.watcher?.close();
+      watcher?.close();
     } catch {
       // The generation no longer trusts this scope, so cleanup is best effort.
     }
-    scope.watcher = undefined;
     scopesToPrune.delete(scope);
   };
 
@@ -606,7 +621,9 @@ export function createInputObserver(
   ): WatchScope | undefined => {
     root = path.resolve(root);
     const key = watchPathKey(root);
-    let scope = scopes.get(key);
+    let scope =
+      scopes.get(key) ??
+      [...scopes.values()].find((candidate) => candidate.root === root);
     if (external && scope === undefined) {
       // A recursive observer can admit more descendants without another
       // native handle. Require exact lexical descent as well as current
@@ -669,14 +686,7 @@ export function createInputObserver(
         directories: new Map(),
         entries: new Set(),
         failed: false,
-        ...(external
-          ? {
-              identity: watchLocationIdentity(
-                root,
-                DEFAULT_FILESYSTEM_OPERATIONS,
-              ),
-            }
-          : {}),
+        identity: watchLocationIdentity(root, DEFAULT_FILESYSTEM_OPERATIONS),
         pinned,
         root,
         lastEventAt: 0,
@@ -688,7 +698,12 @@ export function createInputObserver(
         scope.watcher = open(
           root,
           (eventType, file) => {
-            if (scopes.get(key) !== owned) return;
+            if (scopes.get(key) !== owned || owned.failed) return;
+            if (!scopeLocationHolds(owned)) {
+              failScope(owned);
+              updatePoller();
+              return;
+            }
             if (file === null) {
               resetPathIdentityMemos();
               changeSequence += 1;
@@ -709,7 +724,7 @@ export function createInputObserver(
             );
           },
           () => {
-            if (scopes.get(key) !== owned) return;
+            if (scopes.get(key) !== owned || owned.failed) return;
             failScope(owned);
             updatePoller();
           },
@@ -721,13 +736,16 @@ export function createInputObserver(
           // its tool cache; an external one is not the adapter's to write in.
           external ? undefined : root,
         );
-        if (scope.failed) {
+        if (scope.failed || !scopeLocationHolds(scope)) {
           // An injected or platform watcher may report failure synchronously
           // during construction, before its handle can be assigned above.
-          try {
-            scope.watcher?.close();
-          } catch {}
-          scope.watcher = undefined;
+          if (scope.failed) {
+            const watcher = scope.watcher;
+            scope.watcher = undefined;
+            try {
+              watcher?.close();
+            } catch {}
+          } else failScope(scope);
         }
       } catch {
         scope.failed = true;
@@ -758,7 +776,7 @@ export function createInputObserver(
     ) {
       return false;
     }
-    const scope = ensureScope(root, external);
+    const scope = ensureScope(root, external, !external);
     if (scope === undefined) return false;
     if (external && scope.root !== path.resolve(root)) {
       // Admission is new even though the ancestor handle predates the
@@ -798,21 +816,42 @@ export function createInputObserver(
 
   /** Hand a scope that can no longer observe its root to the bounded poll. */
   function failScope(scope: WatchScope): void {
+    if (scope.failed) return;
     scope.failed = true;
+    const watcher = scope.watcher;
+    scope.watcher = undefined;
+    resetPathIdentityMemos();
+    changeSequence += 1;
+    scope.lastEventAt = changeSequence;
+    historyFloor = changeSequence;
+    changes.clear();
     try {
-      scope.watcher?.close();
+      watcher?.close();
     } catch {
       // The fallback owns validation now; a failed native handle is no
       // longer useful, and cleanup must not replace that recovery.
     }
-    scope.watcher = undefined;
-    for (const entry of scope.entries) requirePolling(entry);
+    for (const entry of scope.entries) {
+      requirePolling(entry);
+      entry.changedAt = changeSequence;
+      pending.add(entry);
+    }
+    scheduleFlush();
   }
 
-  /** External observers whose root the poll re-checks each tick. */
+  /** Native authority requires a readable, unchanged physical directory. */
+  function scopeLocationHolds(scope: WatchScope): boolean {
+    return (
+      scope.identity !== undefined &&
+      watchLocationIdentity(scope.root, DEFAULT_FILESYSTEM_OPERATIONS) ===
+        scope.identity
+    );
+  }
+
+  /** Occupied native scopes whose locations need verification. */
   function verifiableScopes(): WatchScope[] {
     return [...scopes.values()].filter(
-      (scope) => !scope.failed && scope.identity !== undefined,
+      (scope) => !scope.failed && scope.entries.size !== 0,
     );
   }
 
@@ -897,16 +936,15 @@ export function createInputObserver(
       return;
     }
     if (poller !== undefined) return;
-    poller = openPoller(() => {
+    let active = true;
+    const ownedPoller = openPoller(() => {
+      if (!active) return;
       const selected = new Set<InputEntry>();
-      // One metadata call per external observer, at most the scope bound: a
+      // One metadata call per occupied observer, at most 17 locations: a
       // root replaced since it opened is watched no longer, so its entries are
       // checked now and polled from then on.
       for (const scope of verifiableScopes()) {
-        if (
-          watchLocationIdentity(scope.root, DEFAULT_FILESYSTEM_OPERATIONS) !==
-          scope.identity
-        ) {
+        if (!scopeLocationHolds(scope)) {
           failScope(scope);
           for (const entry of scope.entries) selected.add(entry);
         }
@@ -962,6 +1000,12 @@ export function createInputObserver(
         pending.add(entry);
       scheduleFlush();
     });
+    poller = {
+      close() {
+        active = false;
+        ownedPoller.close();
+      },
+    };
   }
 
   // The entry under the project root's own name, when the project contains
@@ -1076,14 +1120,23 @@ export function createInputObserver(
   return {
     open(root, declaredPolling) {
       const nextRoot = path.resolve(root);
+      const currentRoot = [...scopes.values()].find((scope) => scope.pinned);
+      const lostRoot =
+        !polling &&
+        currentRoot !== undefined &&
+        (currentRoot.failed || !scopeLocationHolds(currentRoot));
       const reanchor =
-        opened && (projectRoot !== nextRoot || polling !== declaredPolling);
+        opened &&
+        (projectRoot !== nextRoot || polling !== declaredPolling || lostRoot);
       const retained = reanchor ? [...entries.values()] : [];
       if (reanchor) {
         // Conditions and owner registrations survive a host restart, while
         // their old native scopes and lexical indexes belong to the old root.
         for (const entry of retained) remove(entry);
         for (const scope of [...scopes.values()]) closeScope(scope);
+        pending.clear();
+        if (flushTimer !== undefined) clearTimeout(flushTimer);
+        flushTimer = undefined;
         resetPathIdentityMemos();
         changeSequence += 1;
         historyFloor = changeSequence;
@@ -1110,6 +1163,9 @@ export function createInputObserver(
         observe(entry);
       }
       updatePoller();
+      // A reattachment can replace physical coverage without producing a
+      // native event. Prove retained conditions after the new watch opens.
+      if (lostRoot && retained.length !== 0) check(retained);
     },
     begin() {
       return changeSequence;
@@ -1167,6 +1223,11 @@ export function createInputObserver(
     },
     replace(owner, inputs, failed = false, startedAt) {
       if (!opened) return;
+      // Validate once per location at this synchronous registration boundary,
+      // never once per compiler input bound below. No observation survives
+      // into a later registration or event turn.
+      for (const scope of scopes.values())
+        if (!scope.failed && !scopeLocationHolds(scope)) failScope(scope);
       owner = path.resolve(owner);
       ownerRegistrations.set(owner, {});
       const previous = ownerInputs.get(owner) ?? new Map<string, string>();

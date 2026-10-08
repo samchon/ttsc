@@ -19,8 +19,11 @@ import { settleFilesystemNotifications } from "../../../../internal/unplugin/int
  * the isolated broker process on Windows, which reports a write below a
  * directory as a content change of that directory's own entry. On Linux and
  * macOS a watch follows the directory it opened on, so replacing that directory
- * produces no event at all and only the location identity check can notice it;
- * Windows refuses to rename a watched directory, so that row is POSIX only.
+ * can leave the watch on its old target, so location identity must qualify its
+ * authority. The replacement row here is POSIX only; Windows root replacement
+ * with process cwd outside the watched directory is covered by the Vite native
+ * subscription-boundary case. This exclusion makes no Windows rename-refusal
+ * claim.
  *
  * 1. Track a presence-only `node_modules`, a listed type root, and a read
  *    declaration through the real backend.
@@ -31,7 +34,7 @@ import { settleFilesystemNotifications } from "../../../../internal/unplugin/int
  *    withdraws the tracker's authority.
  *
  * @evidence contracts/testing.md#behavioral-verification createHostInputMutationTracker must ignore writes beneath presence-only node_modules, record a new child of a listed type root and an edited declaration, then on POSIX withdraw authority when the watched declaration directory is replaced.
- * @evidence contracts/testing.md#independent-expectations Explicit presence/children/content scopes independently determine which mutations matter. Collected relative event paths and failed flags distinguish native-backend misclassification; the expectation is not computed by the shared classifier. POSIX replacement is excluded on Windows where renaming a watched directory is refused.
+ * @evidence contracts/testing.md#independent-expectations Explicit presence/children/content scopes independently determine which mutations matter. Collected relative event paths and failed flags distinguish native-backend misclassification; the expectation is not computed by the shared classifier. This body retains its POSIX-only tracker replacement row; the Vite native subscription-boundary case independently exercises watched project-root replacement on Windows with cwd outside the moved root.
  * @evidence contracts/testing.md#distinguishing-cases Nested runner-cache writes are the no-op control, a new direct type-root child and read declaration edit are positive mutations, and unchanged versus replaced watched-directory identity tests authority. Backend events are settled before each assertion rather than assumed immediate.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_host_input_tracker_real_backends_agree in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
  * @evidence contracts/e2e.md#necessary-boundary Actual inotify/FSEvents/broker notifications reach host-input scope classification and location verification. A watch seam alone cannot establish the filename and directory-event shapes delivered by each operating-system backend.
