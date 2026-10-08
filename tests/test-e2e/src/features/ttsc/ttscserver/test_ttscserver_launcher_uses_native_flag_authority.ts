@@ -33,7 +33,9 @@ type TraceEvent = {
  * installed lint producer/cache serve two sequential sessions; changed startup
  * argv requires another session but no additional consumer install or build.
  * Native trace records expose the real upstream cwd and sidecar context, while
- * editor diagnostics retain the client's logical URI spelling.
+ * editor diagnostics retain the client's logical URI spelling. The two runtime
+ * receipt sessions opt out of lint config caching because their receipt is an
+ * environment-dependent side effect rather than a module-graph result.
  *
  * 1. Launch with existing A values followed by B overrides in equals/space form.
  * 2. Require B's actual upstream cwd, plugin physical context and no-console
@@ -46,12 +48,12 @@ type TraceEvent = {
  *    isolated config-free project must initialize and join its actual upstream.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual built JavaScript launcher/native LSP sessions must select B for startup/plugin/upstream contexts and publish B's no-console at the client's URI without A's no-var. Native trace observes selected cwd/context argv and private-manifest cleanup; B's CJS configuration records the actual Node executable. Separate real launcher controls require native statuses/diagnostics before unrelated project preparation and ordinary final missing-value errors.
- * @evidence contracts/testing.md#independent-expectations Authored A no-var versus B no-console configs, literal final argv assignments and realpath of the authored B root/config independently prescribe selection. Expected client URI derives from the caller's logical B spelling, and runtime identity compares filesystem dev/ino with a realpath fallback. Native FlagSet's documented stop rules and literal diagnostic/status categories prescribe control results; traces observe actual primitives rather than predicting behavior from a reconstructed command.
+ * @evidence contracts/testing.md#independent-expectations Authored A no-var versus B no-console configs, literal final argv assignments and realpath of the authored B root/config independently prescribe selection. Expected client URI derives from the caller's logical B spelling, and runtime identity compares filesystem dev/ino with a realpath fallback. Omitted cwd may be returned through any native alias, so its physical directory must equal the authored empty root; explicit alias argv and diagnostic URI stay exact. Native FlagSet's documented stop rules and literal diagnostic/status categories prescribe control results; traces observe actual primitives rather than predicting behavior from a reconstructed command.
  * @evidence contracts/testing.md#distinguishing-cases Two sessions distinguish existing superseded A from missing superseded cwd/config/binary, double/single dash and equals/space, physical B from logical alias B and ignored terminator-tail values. Unknown flag, invalid duration, missing string value, false stdio, help/version with invalid tails and missing final config/binary remain individually collected controls. Portable default/equal-duplicate/first-positional/blank/string-value semantics belong to the owning Go unit.
  * @evidence contracts/testing.md#execution-ownership The selected lspSelectionCorpus calls this exported scenario with the shared upfront static fixture root/cache. Real launcher/native/upstream and lint sidecars execute; control subprocesses also enter the actual launcher. The callback bodies and private trace/control helpers are covered by this scenario's assertions rather than separately discovered test entries.
  * @evidence contracts/e2e.md#necessary-boundary Only the actual native query, JavaScript project preparation, manifest transport, native upstream/sidecar launches and editor protocol can establish their agreement. Go units own parser decisions but cannot certify this assembly, logical diagnostic URI or runtime received by config evaluation.
  * @evidence contracts/e2e.md#shared-execution Both initialized sessions borrow the suite's installed lint producer and cache and the same upfront A/B files; their different immutable startup argv require distinct server lifetimes. Native refusal/metadata controls finish without a server lifetime. The initialized empty-project lifetime needs a config-free root outside the shared ancestor config; it requires no installation or plugin build. No per-case native build or copied lint producer is introduced; the project runtime copy changes executable location while retaining Node bytes.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The shared owner retains roots/cache before launch. Alias/runtime files are prepared before either session, receipts/traces live outside watched projects, and runTtscserverSession joins each direct close while preserving body and shutdown errors. Sessions use disjoint trace/receipt paths and unchanged source/config bytes; all controls run even after session assertion failures. Failure retains the shared inputs rather than removing an unresolved reader; direct close and trace returns do not claim arbitrary descendant settlement.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Alias/runtime files are prepared before either session, receipts/traces live outside watched projects, and runTtscserverSession joins each direct close while preserving body and shutdown errors. The existing lint config cache opt-out is scoped to the two child environments whose actual runtime receipt depends on external environment/filesystem state; their unchanged module bytes alone cannot prescribe re-evaluation. Sessions use disjoint tracked trace/receipt roots under the configured absolute collection sink, retained before launch for CI observations, or under the shared cache when no sink is configured. All controls run even after session assertion failures. Failure retains the shared project inputs; the cache fallback follows its existing owner rather than promising post-exit retention. Direct close and trace returns do not claim arbitrary descendant settlement.
  * @evidence contracts/e2e.md#preserved-coverage Adds actual argument-authority assembly while retaining the batch's existing ordinary editor, lifecycle, fingerprint and terminal-selection scenarios. Actual inline tsgo selection and project-relative Node receipt carry the meaningful assertions formerly reached through the recording-host inline-tsgo case; opaque arbitrary Node-as-ttscserver forwarding is not a native server contract.
  */
 export async function test_ttscserver_launcher_uses_native_flag_authority(prepared: {
@@ -59,6 +61,12 @@ export async function test_ttscserver_launcher_uses_native_flag_authority(prepar
   cache: string;
   retain: (reason: string) => void;
 }): Promise<void> {
+  const traceSink = process.env.TTSC_E2E_TRACE;
+  if (traceSink)
+    assert.ok(
+      path.isAbsolute(traceSink), "the configured trace sink must be absolute",
+    );
+  const traceParent = traceSink || prepared.cache;
   const a = path.join(prepared.root, "a");
   const b = path.join(prepared.root, "b");
   const alias = path.join(prepared.root, "b-alias");
@@ -116,9 +124,11 @@ export async function test_ttscserver_launcher_uses_native_flag_authority(prepar
     },
   ];
   for (const [index, session] of sessions.entries()) {
-    const trace = fs.mkdtempSync(
-      path.join(prepared.cache, "lsp-launch-authority-"),
-    );
+    const trace = TestProject.tmpdir("lsp-launch-authority-", traceParent);
+    if (traceSink)
+      TestProject.retainTemporaryDirectory(
+        trace, "LSP launch authority diagnostic observations",
+      );
     const receipt = path.join(trace, "runtime.json");
     try {
       const client = new TtscserverClient(launcher, session.cwd, {
@@ -128,6 +138,7 @@ export async function test_ttscserver_launcher_uses_native_flag_authority(prepar
           TTSC_CACHE_DIR: prepared.cache,
           TTSC_E2E_TRACE: trace,
           TTSC_LAUNCH_AUTHORITY_RUNTIME_RECEIPT: receipt,
+          TTSC_LINT_DISABLE_CONFIG_CACHE: "1",
           TTSC_NODE_BINARY: session.node,
         },
       });
@@ -219,7 +230,11 @@ export async function test_ttscserver_launcher_uses_native_flag_authority(prepar
       assert.equal(fs.existsSync(path.join(directory, "jsconfig.json")), false, "the no-config control must have no inherited jsconfig");
       if (path.dirname(directory) === directory) break;
     }
-    const trace = fs.mkdtempSync(path.join(prepared.cache, "lsp-empty-launch-"));
+    const trace = TestProject.tmpdir("lsp-empty-launch-", traceParent);
+    if (traceSink)
+      TestProject.retainTemporaryDirectory(
+        trace, "LSP empty-project diagnostic observations",
+      );
     const client = TtscserverClient.startLauncher(emptyRoot, {
       implicitCwd: true,
       env: {
@@ -236,7 +251,10 @@ export async function test_ttscserver_launcher_uses_native_flag_authority(prepar
     assert.ok(upstream, "the actual empty-project upstream must return");
     assert.equal(upstream.data?.started, true);
     assert.equal(upstream.data?.exitObserved, true);
-    assert.equal(upstream.cwd, emptyRoot);
+    assert.ok(typeof upstream.cwd === "string");
+    assert.equal(
+      fs.realpathSync.native(upstream.cwd), fs.realpathSync.native(emptyRoot),
+    );
     assert.equal(events.some((event) => event.argv?.includes("--lsp-plugins-file")), false, "no implicit config creates no private plugin manifest");
     fs.rmdirSync(emptyRoot);
   } catch (cause) {
