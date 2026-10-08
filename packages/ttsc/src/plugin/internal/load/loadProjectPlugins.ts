@@ -72,8 +72,8 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * @param options.entries - Explicit plugin entries; `false` disables all
  *   plugins (skips both tsconfig entries and package auto-discovery).
  * @param options.env - Effective environment for source-plugin builds and
- *   isolated descriptor evaluators, including the `ttsx` fallback (`{
- *   ...process.env, ...context.env }`). Defaults to `process.env` for CLI
+ *   isolated descriptor evaluators, including the `ttsx` fallback, merged with
+ *   native environment-name identity. Defaults to `process.env` for CLI
  *   callers, so ambient behavior is unchanged.
  * @param options.file - Path to the tsconfig/jsconfig file.
  * @param options.pluginConfigDir - Caller-declared anchor for plugin

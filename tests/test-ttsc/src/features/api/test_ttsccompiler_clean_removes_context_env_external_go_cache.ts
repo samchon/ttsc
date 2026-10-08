@@ -10,8 +10,9 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  * external Go build cache while preserving a user `GOCACHE`.
  *
  * `clean()` must derive its removal targets from the same effective environment
- * (`{ ...process.env, ...context.env }`) that `prepare()`/`compile()` build
- * with, so a `TTSC_GO_CACHE_DIR` supplied only in `context.env` is owned and
+ * (constructor overrides merged using native-name identity) that
+ * `prepare()`/`compile()` build with, so a `TTSC_GO_CACHE_DIR` supplied only in
+ * `context.env` is owned and
  * removed by that instance. A `GOCACHE` value is the caller's broader Go
  * toolchain cache and must never be removed. Reading the ambient `process.env`
  * instead — which never held `TTSC_GO_CACHE_DIR` here — would leave the

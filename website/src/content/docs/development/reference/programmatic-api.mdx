@@ -215,6 +215,10 @@ The service is resident within one process. It does not share a host across sepa
 | `cacheDir` | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR`, else the workspace-local `node_modules/.cache/ttsc`. |
 | `plugins` | `undefined` = read project plugins. `false` = ignore project plugins for this instance. Array = explicit entries. |
 
+Environment overrides are copied at construction and merged over the invocation's current environment for preparation, compilation, transformation and cleanup. On Windows, names are case-insensitive, so a constructor `ttsc_cache_dir` overrides inherited `TTSC_CACHE_DIR`; within one supplied environment object, the lexicographically first spelling wins. On POSIX, differently cased names remain distinct.
+
+An own `undefined` entry overrides the inherited entry, after which selectors apply their normal fallback. Empty cache selectors also use their normal fallback. An explicit `cacheDir` takes precedence over environment cache selectors. Cleanup protects the selected caller `GOCACHE`, including when it overlaps an explicit whole-cache target.
+
 ## Filesystem path identity
 
 Tool hosts that deduplicate watch inputs, cache keys, or workspace roots can use the same filesystem identity contract as ttsc through the `ttsc/path-identity` subpath.
