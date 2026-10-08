@@ -109,11 +109,13 @@ export async function test_vite_compiler_watch_releases_watcherless_servers(): P
 
     watch.attach(server());
     assert.equal(handles.length, 1, "watching opens before compilation begins");
+    const initial = handles[0];
+    assert.ok(initial);
     const startedAt = watch.begin();
     const baseline = captureWatchInputBaseline(file);
     assert.ok(baseline);
     fs.writeFileSync(file, "during compilation");
-    handles[0].emit("change", file);
+    initial.emit("change", file);
     watch.replace(
       importer,
       [
@@ -138,13 +140,13 @@ export async function test_vite_compiler_watch_releases_watcherless_servers(): P
     watch.replace(importer, [{ file }]);
     watch.attach(server(null));
     assert.equal(
-      handles[0].closes,
+      initial.closes,
       1,
       "disabling notifications retires the existing scope",
     );
     watch.replace(importer, [{ file }], true);
     fs.writeFileSync(file, "disabled");
-    handles[0].emit("change", file);
+    initial.emit("change", file);
     assert.deepEqual(
       await settled(),
       [],
@@ -157,9 +159,11 @@ export async function test_vite_compiler_watch_releases_watcherless_servers(): P
     fs.writeFileSync(nextFile, "recovered");
     watch.replace(importer, [{ file: nextFile }]);
     assert.equal(handles.length, 2, "a replacement observes only its new root");
-    assert.equal(handles[1].root, otherRoot);
-    handles[1].fail();
-    assert.equal(handles[1].closes, 1, "native failure relinquishes the scope");
+    const replacement = handles[1];
+    assert.ok(replacement);
+    assert.equal(replacement.root, otherRoot);
+    replacement.fail();
+    assert.equal(replacement.closes, 1, "native failure relinquishes the scope");
     assert.ok(tick, "failed coverage falls back to polling");
     watch.replace(importer, [], true);
     fs.writeFileSync(nextFile, "repair after failure");
