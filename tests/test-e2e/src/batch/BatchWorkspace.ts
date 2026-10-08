@@ -22,11 +22,11 @@ import { pluginBuildEnvironment } from "../../../../packages/ttsc/lib/plugin/int
 import { resolveGoCompiler } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
 import { spawnGoTool } from "../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool.js";
+import { CompilerArchives } from "../../../utils/src/CompilerArchives";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
 import { shellQuote } from "../internal/ttsc/internal/source-build";
-import { CompilerArchives } from "./CompilerArchives";
 
 /**
  * Owns the one corpus all nine real boundary sessions consume. The authored

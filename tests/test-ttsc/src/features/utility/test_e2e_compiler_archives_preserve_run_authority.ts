@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 
 import { linkVirtualEntry } from "../../../../../packages/ttsc/src/launcher/internal/linkVirtualEntry";
-import { CompilerArchives } from "../../../../test-e2e/src/batch/CompilerArchives";
+import { CompilerArtifactPreparation } from "../../../../utils/src/CompilerArtifactPreparation";
+import { CompilerArchives } from "../../../../utils/src/CompilerArchives";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -19,7 +19,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification Actual filesystem inputs and archive bytes exercise the owner, producer, borrowers and release callback; fresh generations run their normal producers after source/config/manifest changes, exact immutable generations remain explicit, and missing/corrupt/replaced archives or failed release cannot grant reuse or cleanup.
  * @evidence contracts/testing.md#independent-expectations Literal distinct payloads, independent SHA-256, explicit producer/release counts and authored failure objects define expected outcomes without deriving them from the owner's verdict. Actual corrupt, equal-byte replaced and metadata-only archive mutations independently determine which finite refusal facts must appear in CI stderr and the error cause.
  * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures. Actual runtime entry mirroring contrasts a root archive's native hardlink transition with an opaque archive directory. Child replacement and outer replacement with the original child both refuse reuse and cleanup; initial native aliases remain valid until retargeted, while escaped or non-directory allocations refuse before production.
- * @evidence contracts/testing.md#execution-ownership The existing test-ttsc runner discovers this utility test; explicit producer/release callbacks operate only small authored allocations without native builds, packs, installs or foreign-method replacement.
+ * @evidence contracts/testing.md#execution-ownership The existing test-ttsc runner discovers this utility test; it calls the shared CompilerArchives owner and CompilerArtifactPreparation facade, whose CommonJS runtime also serves the actual E2E child. Explicit producer/release callbacks operate only small authored allocations without native builds, packs, installs or foreign-method replacement.
  */
 export async function test_e2e_compiler_archives_preserve_run_authority(): Promise<void> {
   const failures: unknown[] = [];
@@ -594,28 +594,6 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       "keep",
     );
   });
-  const { prepareArtifacts } = createRequire(import.meta.url)(
-    "../../../../test-e2e/fixtures/evidence/backend-activation/prepare.cjs",
-  ) as {
-    prepareArtifacts: (
-      request: Record<string, unknown>,
-      toolchain: {
-        directories: readonly string[];
-        pack: (
-          repository: string,
-          output: string,
-        ) => Promise<{ name: string; archive: string }[]>;
-        packPackage: (
-          repository: string,
-          directory: string,
-          archive: string,
-        ) => Promise<void>;
-      },
-    ) => Promise<{
-      toolchain: { name: string; archive: string }[];
-      artifact: { name: string; archive: string };
-    }>;
-  };
   for (const mode of [
     "standalone",
     "borrow",
@@ -654,7 +632,7 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       };
       const full = [{ name: "already-packed", archive: "caller-owned" }];
       const artifact = { name: "@ttsc/evidence", archive: "caller-evidence" };
-      const request: Record<string, unknown> = {
+      const request: Parameters<typeof CompilerArtifactPreparation.prepare>[0] = {
         repository: fixture.repository,
         root: TestProject.tmpdir("compiler-archive-route-"),
       };
@@ -667,20 +645,20 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       if (mode === "missing") fs.unlinkSync(loan.artifacts[0]!.archive);
       if (mode === "duplicate")
         request.borrowedCompilerArchives = [
-          loan.artifacts[0],
-          loan.artifacts[0],
+          loan.artifacts[0]!,
+          loan.artifacts[0]!,
         ];
       if (mode === "foreign")
         request.borrowedCompilerArchives = [
-          { ...loan.artifacts[0], directory: "packages/foreign" },
+          { ...loan.artifacts[0]!, directory: "packages/foreign" },
         ];
       if (mode === "hash")
         request.borrowedCompilerArchives = [
-          { ...loan.artifacts[0], sha256: "different authored digest" },
+          { ...loan.artifacts[0]!, sha256: "different authored digest" },
         ];
       if (mode === "name")
         request.borrowedCompilerArchives = [
-          { ...loan.artifacts[0], name: "wrong package" },
+          { ...loan.artifacts[0]!, name: "wrong package" },
         ];
       if (mode === "manifest")
         fs.writeFileSync(path.join(plugin, "package.json"), '{"name":42}');
@@ -703,7 +681,7 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
         fs.renameSync(replacement, archive);
       }
       const run = () =>
-        prepareArtifacts(request, {
+        CompilerArtifactPreparation.prepare(request, {
           directories: ["packages/compiler", "packages/plugin"],
           pack: async (_repository, output) => {
             packed.push("whole toolchain");

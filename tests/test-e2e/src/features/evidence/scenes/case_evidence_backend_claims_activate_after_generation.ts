@@ -5,9 +5,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { sanitizeBenchmarkEnvironment } from "../../../../../../benchmarks/evidence/src/sanitizeBenchmarkEnvironment";
+import { CompilerArtifactPreparation } from "../../../../../utils/src/CompilerArtifactPreparation";
+import type { CompilerArchives } from "../../../../../utils/src/CompilerArchives";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { EvidenceProcessOwnership } from "../../../../../utils/src/evidence/EvidenceProcessOwnership";
-import type { CompilerArchives } from "../../../batch/CompilerArchives";
 import { BackendActivation } from "../../../internal/evidence/BackendActivation";
 
 /**
@@ -192,6 +193,7 @@ export async function case_evidence_backend_claims_activate_after_generation(
         preparation,
         ...artifacts,
         borrowedCompilerArchives: borrowed?.artifacts,
+        artifactPreparationRuntime: CompilerArtifactPreparation.runtimePath,
       }),
     );
     const prepared = run(
