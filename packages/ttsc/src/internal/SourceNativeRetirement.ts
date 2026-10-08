@@ -410,6 +410,67 @@ export namespace SourceNativeRetirement {
   }
 
   /**
+   * Release one destructible resource using its observed registration identity.
+   *
+   * Capture the original scope, physical key and registration while the root
+   * still exists. Cleanup can then remove that root without another realpath.
+   * Only successful cleanup drops the exact captured registration; a failed
+   * cleanup or a replacement registration remains owned. Unknown boundaries
+   * defer the same callback and identity through the original release protocol.
+   *
+   * The optional task failure distinguishes an earlier thrown undefined from
+   * no earlier failure. It is combined with a cleanup refusal, never rethrown
+   * after successful cleanup or deferred recovery. Ordinary unscoped callers
+   * perform cleanup without observing or inventing a registration.
+   *
+   * @evidence contracts/common.md#principled-implementation Physical identity and the exact resource object are captured before destruction; only successful cleanup removes that identical registration from the original scope, while failure and replacement retain ownership.
+   * @evidence contracts/common.md#clear-and-simple-design One operation combines destructive cleanup with registration release, using the existing release/recover protocol instead of making each caller order physical lookup around removal.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing scoped root fails its real observation without guessing an identity or weakening forget; ordinary unscoped calls acquire no protocol state, and original task/cleanup errors remain separate aggregate members when both fail.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain capture timing, replacement and failure retention, unknown deferral, thrown undefined and successful recovery; they do not claim an atomic namespace or retained directory handle.
+   * @evidence contracts/portability.md#os-neutral-implementation Native realpath observes aliases before destruction and the captured map key avoids resolving a removed path; later namespace replacement remains outside the caller's ownership premise.
+   * @evidence contracts/performance.md#efficient-algorithms Scoped capture performs one native physical lookup and map observation before the existing boundary safety scan; cleanup costs are delegated and the final identity comparison/map removal does not enumerate resources.
+   * @evidence contracts/performance.md#reuse-equivalent-work The captured object proves only this release's original registration, never reusable compiler results; a reentrant replacement is retained rather than treated as equivalent ownership.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Failed cleanup retains its registration; unknown boundaries retain the original callback through FIFO recovery, whose failed callback remains queued. Immediate cleanup failure follows release's reporting contract without creating a new automatic retry, and successful cleanup drops only its original entry.
+   */
+  export function releaseResource(
+    fenceRoot: string,
+    cleanup: () => void,
+    taskFailure?: { error: unknown },
+  ): void {
+    const scope = current;
+    const failure = (error: unknown): unknown =>
+      taskFailure === undefined
+        ? error
+        : new AggregateError(
+            [taskFailure.error, error],
+            "ttsc: task and resource cleanup failed",
+            { cause: taskFailure.error },
+          );
+    let root: string | undefined;
+    try {
+      root = scope === undefined ? undefined : physicalRoot(fenceRoot);
+    } catch (error) {
+      const combined = failure(error);
+      OwnedSynchronousProcess.reportFailure(combined);
+      throw combined;
+    }
+    const resource = root === undefined ? undefined : scope!.resources.get(root);
+    release(() => {
+      try {
+        cleanup();
+      } catch (error) {
+        throw failure(error);
+      }
+      if (
+        scope !== undefined &&
+        root !== undefined &&
+        scope.resources.get(root) === resource
+      )
+        scope.resources.delete(root);
+    });
+  }
+
+  /**
    * Observe the installed task's native closure authority without throwing.
    *
    * @evidence contracts/common.md#principled-implementation Every boundary must be joined or never started before cleanup is safe.

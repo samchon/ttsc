@@ -6,6 +6,7 @@ import { resolveNativeSource } from "../../../../../packages/ttsc/src/plugin/int
 import { GoToolResolution } from "../../../../../packages/ttsc/src/plugin/internal/source/GoToolResolution";
 import { resolveGoCompiler } from "../../../../../packages/ttsc/src/plugin/internal/source/resolveGoCompiler";
 import { NativeSourcePackages } from "../../../../../packages/ttsc/src/plugin/internal/source/NativeSourcePackages";
+import { SourceNativeRetirement } from "../../../../../packages/ttsc/src/internal/SourceNativeRetirement";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
@@ -24,7 +25,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual source/module resolution, batched Go metadata and ownership admission; compares literal main/library outcomes, preserves Go mixed-package/build-constraint errors and rejects test-only packages. Changed effective contexts and a selected-host source-only package are independently asserted.
  * @evidence contracts/testing.md#independent-expectations Authored static package declarations, Go build constraints, platform filename suffixes and production-file presence determine expected results; no second classifier calculates the oracle. The impossible outer module version and missing ancestor workspace are explicit negative controls.
- * @evidence contracts/testing.md#distinguishing-cases Owns excluded/selected tags, switched library/main, foreign/selected OS and architecture, ignored underscore/dot names, explicit cgo constraint versus unguarded cgo mixed error, valid external test versus invalid main test, no eligible/test-only/mixed packages, nested entry, direct go.mod, GOENV-selected tags, source-relative overlays and missing-host overlay refusal, plus both opposing real forwarding-wrapper contexts and equal-context controls. These wrappers forward to unchanged Go and alter supported tags; they do not simulate release-toolchain differences. Cross-target observations concern compiler selection metadata only.
+ * @evidence contracts/testing.md#distinguishing-cases Owns excluded/selected tags, switched library/main, foreign/selected OS and architecture, ignored underscore/dot names, explicit cgo constraint versus unguarded cgo mixed error, valid external test versus invalid main test, no eligible/test-only/mixed packages, nested entry, direct go.mod, GOENV-selected tags, source-relative overlays and missing-host overlay refusal, plus both opposing real forwarding-wrapper contexts and equal-context controls. Existing hosted success and missing-overlay error run inside active retirement scopes and must release their scratch registrations while preserving the actual Go error. These wrappers forward to unchanged Go and alter supported tags; they do not simulate release-toolchain differences. Cross-target observations concern compiler selection metadata only.
  * @evidence contracts/testing.md#execution-ownership The named source-unit invokes actual Go list/mod edit/work use through the source owners with copied package-owned fixtures; it prepares no native compiler, plugin binary or host session. Maintained linked pipeline and explicit-host effects remain in the shared unplugin E2E producer.
  */
 export function test_native_source_classification_uses_go_build_context(): void {
@@ -105,9 +106,11 @@ export function test_native_source_classification_uses_go_build_context(): void 
       assert.equal(NativeSourcePackages.kind(NativeSourcePackages.propose([
         { source, label: "no-overlay" },
       ], env)[0]!.observation, "no-overlay"), "linked");
-      assert.throws(() => NativeSourcePackages.inspect({ source: root, pluginName: "missing-overlay", env: changed,
+      const scope = SourceNativeRetirement.createScope("missing-overlay-context");
+      assert.throws(() => SourceNativeRetirement.run(scope, () => NativeSourcePackages.inspect({ source: root, pluginName: "missing-overlay", env: changed,
         packages: [{ entry: "./contrib/overlay", source, name: "overlay" }],
-      }), /reading overlay|relative.json/);
+      })), /reading overlay|relative.json/);
+      assert.equal(scope.resources.size, 0);
     },
     () => {
       const compiler = resolveGoCompiler(env);
@@ -136,10 +139,12 @@ export function test_native_source_classification_uses_go_build_context(): void 
       }
     },
     () => {
-      const packages = NativeSourcePackages.inspect({ source: root, pluginName: "source-only", env,
+      const scope = SourceNativeRetirement.createScope("successful-host-context");
+      const packages = SourceNativeRetirement.run(scope, () => NativeSourcePackages.inspect({ source: root, pluginName: "source-only", env,
         packages: [{ entry: "./contrib/linked", source: path.join(root, "source-only/package"), name: "linked" }],
-      });
+      }));
       assert.equal(NativeSourcePackages.kind(packages[0]!, "source-only"), "linked");
+      assert.equal(scope.resources.size, 0);
     },
   ];
   for (const check of cases) try { check(); } catch (error) { failures.push(error); }

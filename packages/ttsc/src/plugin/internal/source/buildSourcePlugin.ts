@@ -433,6 +433,7 @@ function compileSourcePlugin(opts: {
   }
 
   const scratchDir = createCanonicalTempDirectory(`ttsc-plugin-${opts.key}-`);
+  let taskFailure: { error: unknown } | undefined;
   try {
     SourceNativeRetirement.register({
       fenceRoot: scratchDir,
@@ -624,12 +625,14 @@ function compileSourcePlugin(opts: {
     publishBuiltBinary(builtBinary, opts.binaryPath);
     touchCacheEntry(opts.cacheDir);
     return opts.binaryPath;
+  } catch (error) {
+    taskFailure = { error };
+    throw error;
   } finally {
-    SourceNativeRetirement.release(() => {
-      SourceNativeRetirement.forget(scratchDir);
+    SourceNativeRetirement.releaseResource(scratchDir, () => {
       fs.rmSync(scratchDir, { recursive: true, force: true });
       SourceNativeRetirement.forget(opts.cacheDir);
-    });
+    }, taskFailure);
   }
 }
 

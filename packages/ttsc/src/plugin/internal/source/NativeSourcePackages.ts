@@ -89,6 +89,7 @@ export namespace NativeSourcePackages {
     );
     ensureExecutableGoToolchain(goBinary, compiler.bundled);
     const scratch = createCanonicalTempDirectory("ttsc-package-selection-");
+    let taskFailure: { error: unknown } | undefined;
     try {
       SourceNativeRetirement.register({
         fenceRoot: scratch,
@@ -137,11 +138,13 @@ export namespace NativeSourcePackages {
         goBinary,
         pluginName: opts.pluginName,
       });
+    } catch (error) {
+      taskFailure = { error };
+      throw error;
     } finally {
-      SourceNativeRetirement.release(() => {
+      SourceNativeRetirement.releaseResource(scratch, () => {
         fs.rmSync(scratch, { recursive: true, force: true });
-        SourceNativeRetirement.forget(scratch);
-      });
+      }, taskFailure);
     }
   }
 
