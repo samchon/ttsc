@@ -10,7 +10,9 @@ import { BatchWorkspace } from "./BatchWorkspace";
 
 /**
  * Verifies mapped-resolution witnesses through ordinary descriptor loading and
- * capability persistence, without a preload or a separate native producer.
+ * capability persistence, with empty NODE_OPTIONS and no authored phase hook.
+ * The ordinary evaluator may install its standard runtime preload; this corpus
+ * introduces no separate native producer.
  *
  * The static descriptor resolves the far package before creating a nearer one.
  * This after-resolution change contrasts with the direct owning operation's
