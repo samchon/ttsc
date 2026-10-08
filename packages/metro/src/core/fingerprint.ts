@@ -68,6 +68,7 @@ import {
   readProjectMembershipPolicy,
   readTsconfigSourceSnapshot,
   searchedReferencedProjects,
+  selectReferencedProject,
   watchInputEvidenceMatchesBaseline,
 } from "@ttsc/unplugin/api";
 import type {
@@ -347,14 +348,17 @@ interface TtscMetroFingerprintProjectMap {
 /**
  * Resolve one transform's project view, once, for every watch input it reports.
  *
- * Discovery and membership policy are resolved once per delivered module and
- * shared by its recorder batch. The policy is read from source rather than
- * trusting a cached mtime/size observation, which could miss same-stamp edits.
+ * Discovery, referenced-project selection and membership policy are resolved
+ * once per delivered module and shared by its recorder batch. The policy is
+ * read from source rather than trusting a cached mtime/size observation, which
+ * could miss same-stamp edits.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Shared project discovery and membership-policy APIs select the same config
- *   as the transform core, retaining positive and negative discovery
- *   predicates. Compiler-option overlays are merged through that owner.
+ *   Shared project discovery, reference selection and membership-policy APIs
+ *   select the same config as the transform core, retaining positive and
+ *   negative discovery predicates. Consulted routing configs retain current
+ *   content, since their references or admission rules can change the owner.
+ *   Compiler-option overlays are merged through that owner.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Selection records the predicates that chose the project, then one
@@ -362,10 +366,12 @@ interface TtscMetroFingerprintProjectMap {
  *   in the module's recorder batch.
  *
  * @evidence contracts/performance.md#efficient-algorithms
- *   Discovery follows the ancestor candidates and config ancestry; the
+ *   Discovery follows the ancestor candidates and reference graph; the
  *   resulting policy and roots are assembled once for the delivered module.
- *   Each candidate gets one captured predicate rather than recorder-time
- *   rediscovery for every derived input.
+ *   Candidate predicates and consulted config content are captured once for
+ *   this view, with a lexical-key map merging their overlapping paths in
+ *   linear map operations. Capturing content performs the shared baseline's
+ *   two observations and scales with the consulted config bytes.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The returned view is reused by the module's recorder batch; its selected
@@ -411,10 +417,15 @@ export function resolveProjectView(props: {
     explicitProject === undefined
       ? discoverNearestProjectTsconfig(start, props.projectDiscoveryFilesystem)
       : undefined;
-  const tsconfig =
+  const nearest =
     discovery === undefined
       ? resolveProjectTsconfig(start, explicitProject)
       : (discovery.file ?? path.resolve(process.cwd(), "tsconfig.json"));
+  const selection =
+    explicitProject === undefined && props.filename !== undefined
+      ? selectReferencedProject(path.resolve(props.filename), nearest)
+      : { consulted: [], tsconfig: nearest };
+  const tsconfig = selection.tsconfig;
   const discoveryInputs =
     discovery === undefined
       ? [captureProjectDiscoveryInput(tsconfig)]
@@ -423,6 +434,32 @@ export function resolveProjectView(props: {
         );
   if (!discoveryInputs.some((input) => samePath(input.file, tsconfig))) {
     discoveryInputs.push(captureProjectDiscoveryInput(tsconfig));
+  }
+  const discoveryIndexes = new Map(
+    discoveryInputs.map((input, index) => [snapshotPathKey(input.file), index]),
+  );
+  for (const config of selection.consulted) {
+    const baseline = captureWatchInputBaseline(config);
+    const input: TtscWatchInput =
+      baseline === undefined
+        ? { file: config }
+        : {
+            evidence: {
+              identity: baseline.identity,
+              missing: !baseline.fileExists,
+              state: { codec: "host", hash: baseline.hostHash },
+              ...(!baseline.fileExists
+                ? { unavailable: "missing" as const }
+                : {}),
+            },
+            file: config,
+          };
+    const key = snapshotPathKey(config);
+    const index = discoveryIndexes.get(key);
+    if (index === undefined) {
+      discoveryIndexes.set(key, discoveryInputs.length);
+      discoveryInputs.push(input);
+    } else discoveryInputs[index] = input;
   }
   return createProjectView({
     base,

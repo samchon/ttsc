@@ -142,8 +142,9 @@ export function resolveAbsoluteFilename(
  * (samchon/ttsc#1392).
  *
  * An explicit `project` option selects its tsconfig. Otherwise the adapter
- * discovers the nearest tsconfig from the file's absolute path, using Metro's
- * `projectRoot` or the current working directory to resolve a relative file.
+ * discovers the nearest tsconfig and follows its references to the project
+ * admitting the file, using Metro's `projectRoot` or the current working
+ * directory to resolve a relative file.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Metro's transformer callback composes the shared Unplugin transform core

@@ -59,7 +59,7 @@ The value is resolved from your `projectRoot`, exactly as Metro resolves it, so 
 
 ## Options
 
-By default `@ttsc/metro` finds the nearest `tsconfig.json` from the file being transformed and runs the plugins configured there, the standard `ttsc` model. If that is what you want, wrapping the default config is the whole setup.
+By default `@ttsc/metro` finds the nearest `tsconfig.json` from the file being transformed and runs the plugins configured there. If that config does not include the file, it follows `references` in declaration order, depth-first, and selects the first project that does. This supports solution configs with `files: []`. If no project includes the file, it retains the nearest config and reports the missing output. An explicit `project` keeps its own selection.
 
 Options are the second argument and mirror `@ttsc/unplugin`, plus a few Metro-specific knobs:
 
