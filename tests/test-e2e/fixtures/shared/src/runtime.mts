@@ -11,6 +11,7 @@ import { helperMain, observeNodeCompatibleCorpus } from "./runtime-corpus/node-c
 import { observeRequireBindings } from "./runtime-corpus/require-shadow.mjs";
 import { observed as nativeFactory } from "./runtime-corpus/native-factory.js";
 import "./runtime-corpus/declared-entry.js";
+await (await import(new URL("../tools/runtime-owned-descendant.cjs", import.meta.url).href)).default();
 const host = createMemFS();
 observeEmittedEffects();
 host.writeFile("/main.ts", "export const value = 1;\n");

@@ -146,8 +146,10 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * descendant releases, the actual compiler API must report and remove the whole
  * nonempty runtime. This adds one runtime pair and one clean launcher, without
  * another project, installation or native plugin producer. The descendant's
- * fixture-only 120s budget includes a shared 90s sibling phase and the existing
- * 30s release wait; it does not bound arbitrary native IO.
+ * controller connection owns the detached worker until release or actual EOF.
+ * Awaited close events and yielding native liveness observations join the
+ * killed pair without a fixture performance deadline. API cleanup explicitly
+ * removes ambient cache selectors while retaining the caller's Go cache.
  *
  * @evidence contracts/testing.md#execution-ownership The main graph invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant), one abandoned sibling launcher/program pair, its clean launcher and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
@@ -324,8 +326,6 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         "-r",
         "./tools/native-source-borrower.cjs",
         "-r",
-        "./tools/runtime-owned-descendant.cjs",
-        "-r",
         "./tools/runtime-declared-flow.cjs",
         "-r",
         "./tools/runtime-clean-flow.cjs",
@@ -463,6 +463,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   }
   try {
     assert.ok(result);
+    // Retention may deliberately keep renamed inputs. Preserve the original
+    // process diagnostic before checking those dependent success invariants.
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 0, result.stderr);
     if (readonlyInputs)
       assert.deepEqual(
         await FileSystemIterator.read(readonlyRoot),
@@ -484,9 +489,6 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         .sort(),
       baseline,
     );
-    assert.equal(result.error, undefined);
-    assert.equal(result.signal, null);
-    assert.equal(result.status, 0, result.stderr);
     if (!workspace.installationOnly) {
       assert.equal(
         result.stdout
@@ -1081,8 +1083,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     combinedFailures.push(error);
   }
   if (!workspace.installationOnly) {
-    await BatchWorkspace.open();
     try {
+      await BatchWorkspace.open();
       runtimeMapsCorpus(workspace);
     } catch (error) {
       combinedFailures.push(error);
