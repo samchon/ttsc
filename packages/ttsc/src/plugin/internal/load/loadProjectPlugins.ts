@@ -62,6 +62,10 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * Main proposals must agree in their full owning module; linked proposals must
  * agree inside every selected transform host. Errors or disagreement terminate
  * the load rather than changing the proposed kind.
+ * Watch callers first receive structurally selected source/module/contributor
+ * repair interests, before metadata can reject them. Valid records then narrow
+ * those interests to the exact build directories; interests alone never admit
+ * a plugin, certify a kind or supply reusable source-state proof.
  * Returns the ordered native plugins, parsed project config, recorded
  * JavaScript-host inputs and unresolved selection candidates, and the keyed
  * state of reported Go source directories supplied to the builds
@@ -90,12 +94,12 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  *   config-file discovery (see `ITtscPluginFactoryContext.pluginConfigDir`).
  * @param options.projectRoot - Override the project root directory.
  * @param options.tsconfig - Alias for `file`.
- * @evidence contracts/common.md#principled-implementation The loader brackets project discovery observations, evaluates descriptors in isolated processes, validates declared inputs/stages/composition and builds native sources; contradictory content or physical observations are omitted from proof rather than retroactively blessed.
+ * @evidence contracts/common.md#principled-implementation The loader brackets project discovery observations, evaluates descriptors in isolated processes and validates declarations before publishing conservative source repair interests. Metadata refusal remains terminal; valid records narrow watch interests before final admission/build, while contradictory content or physical observations are omitted from proof rather than retroactively blessed.
  * @evidence contracts/common.md#clear-and-simple-design The operation owns one ordered load generation; private helpers separate discovery, evaluation, validation, composition and proof merging, while package resolution and source building remain their own modules.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor module caches are isolated rather than deleting application singletons. ttsx retry occurs only for explicit supported TypeScript loader incompatibility, with plugins disabled to avoid recursive self-hosting; arbitrary descriptor failures are not retried into false success.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains result provenance, environment and path options; helper comments explain input races, conservative proof omission, fallback authority and cleanup. Member/tag spacing and separated concepts follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL conversion, createRequire and hidden spawn with explicit argv/environment implement OS-neutral selection and process execution. Physical identities are preserved separately from lexical candidates; Bun-specific differences are capability decisions, not OS guesses.
- * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Package selection groups equivalent module contexts and batches entries through Go list without dependency compilation; per-load selected-tool manifest readers share overlay readings. Builds delegate source/environment hashing, copying, cold materialized ownership admission and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
+ * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Watch-only preliminary publication can temporarily digest/watch the full admitted module as well as its package before kind is known; callbacks delegate topology reconciliation. Load-local replacement readings serve preliminary and final publication. Package selection groups equivalent module contexts and batches entries through Go list without dependency compilation; per-load selected-tool manifest readers share overlay readings. Builds delegate source/environment hashing, copying, cold materialized ownership admission and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
  * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits. Per-load source/environment maps share directory-keyed digests and one selected transform host serves linked contributors; these identities do not certify every undeclared read or atomic filesystem stability.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Finally restores injected environment locators, attempts evaluator directory removal and closes direct-evaluator diagnostic descriptors. Close/removal can fail; synchronous completion concerns the selected evaluator and does not certify arbitrary descendants are gone. Generation maps/results scale with observed data, and disk diagnostics/result/observation files have no independent byte ceiling here. Default disk pruning has its own interval/protection/failure policy; explicit roots remain caller-owned.
  */
@@ -333,14 +337,42 @@ export function loadProjectPlugins(options: {
     const label = pluginLabel(plugin, entries[index]!.config, index);
     requirePluginSource(source, label);
     return { plugin, index, stage, contributors, source, label };
-  });
+  }).map((candidate) => ({
+    ...candidate,
+    ...resolvePluginGoModule(candidate.source, candidate.label),
+  }));
+  const watchReplacements = options.onWatchInputs === undefined
+    ? undefined
+    : new Map<string, readonly string[]>();
+  if (options.onWatchInputs !== undefined) {
+    // The prospective context reads the admitted module layout and anchors its
+    // tool there before kind exists. Keep both possible final-root baselines:
+    // a linked package keeps packageDir, and an executable keeps moduleRoot.
+    const interests = new Set(candidates.flatMap((candidate) => [
+      candidate.moduleRoot,
+      candidate.packageDir,
+      ...(candidate.contributors ?? []).map((input) => input.source),
+    ]).filter(reportsPluginSource));
+    options.onWatchInputs([...interests].sort());
+    const initialSize = interests.size;
+    for (const candidate of candidates) {
+      // Nested source-only proposals replace the outer root manifests. Do not
+      // activate their irrelevant module graph just to discover watch inputs.
+      if (candidate.stage === "transform" && candidate.entry !== ".") continue;
+      for (const directory of pluginReplacementWatchDirectories(
+        candidate.moduleRoot, effectiveEnv, watchReplacements,
+      )) if (reportsPluginSource(directory)) interests.add(directory);
+    }
+    if (interests.size !== initialSize)
+      options.onWatchInputs([...interests].sort());
+  }
   const packageReaders = new Map<string, SourcePluginWorkspace.GoModReader>();
   const proposals = NativeSourcePackages.propose(
     candidates.map((candidate) => ({
       ...candidate, ownModule: candidate.stage !== "transform",
     })), effectiveEnv, packageReaders,
   );
-  const records = candidates.map(({ plugin, index, stage, contributors, source }) => {
+  const records = candidates.map(({ plugin, index, stage, contributors, source, packageDir }) => {
     const { kind, moduleRoot } = resolveNativeSource(source, plugin, entries[index]!.config, index, {
       env: effectiveEnv, observation: proposals[index]!.observation,
     });
@@ -389,15 +421,16 @@ export function loadProjectPlugins(options: {
       ),
       hostInputs: [...loadedEntries[index]!.hostInputs, ...hostInputs],
       moduleRoot,
+      packageDir,
       source,
       stage,
     };
   });
   const executableCandidates = candidates.filter((candidate) =>
     records[candidate.index]!.kind === "executable" && !proposals[candidate.index]!.ownModule);
-  // Reported before any build runs, so a build that fails still has its inputs
-  // observed and its repair heard.
-  options.onWatchInputs?.(pluginBuildDirectories(records, effectiveEnv));
+  // Admission can now narrow the provisional interests without restamping the
+  // retained package/module baselines. Final host errors still keep these roots.
+  options.onWatchInputs?.(pluginBuildDirectories(records, effectiveEnv, watchReplacements));
   const linkedContributors = records
     .filter((record) => record.stage === "transform")
     .flatMap((record) =>
@@ -2099,33 +2132,52 @@ function pluginBuildDirectories(
     contributors?: readonly { source: string }[];
     kind: "executable" | "linked";
     moduleRoot: string;
-    source: string;
+    packageDir: string;
   }[],
   env: NodeJS.ProcessEnv,
+  replacements?: Map<string, readonly string[]>,
 ): string[] {
   const directories = new Set<string>();
   for (const record of records) {
     directories.add(
       path.resolve(
-        record.kind === "linked" ? record.source : record.moduleRoot,
+        record.kind === "linked" ? record.packageDir : record.moduleRoot,
       ),
     );
     if (record.kind === "executable") {
-      let replacements: readonly { directory: string }[];
-      try {
-        replacements = pluginModuleReplaceDirectories(record.moduleRoot, env);
-      } catch {
-        // A `go.mod` Go cannot read fails the build below; its repair lands in
-        // the module root, which is observed already.
-        replacements = [];
-      }
-      for (const replacement of replacements)
-        directories.add(replacement.directory);
+      for (const directory of pluginReplacementWatchDirectories(
+        record.moduleRoot, env, replacements,
+      )) directories.add(directory);
     }
     for (const contributor of record.contributors ?? [])
       directories.add(path.resolve(contributor.source));
   }
   return [...directories].filter(reportsPluginSource).sort();
+}
+
+/**
+ * Discover known external replacement interests after the module is observed.
+ * The load shares this best-effort watch projection, not package validity or a
+ * cross-load manifest cache. Go metadata/build admission still owns errors.
+ */
+function pluginReplacementWatchDirectories(
+  moduleRoot: string,
+  env: NodeJS.ProcessEnv,
+  observed?: Map<string, readonly string[]>,
+): readonly string[] {
+  const previous = observed?.get(moduleRoot);
+  if (previous !== undefined) return previous;
+  let directories: readonly string[];
+  try {
+    directories = pluginModuleReplaceDirectories(moduleRoot, env)
+      .map((replacement) => replacement.directory);
+  } catch {
+    // An unreadable manifest/tool is not valid metadata. The already observed
+    // module retains its repair path; actual proposal/build refusal propagates.
+    directories = [];
+  }
+  observed?.set(moduleRoot, directories);
+  return directories;
 }
 
 /**
