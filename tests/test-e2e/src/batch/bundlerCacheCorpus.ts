@@ -35,7 +35,7 @@ const webpack = createRequire(import.meta.url)(
  * @evidence contracts/testing.md#execution-ownership The selected webpack batch calls one consolidated body. A public native delivery/cache and one empty-entry webpack opening, one watch compiler, four separately closed filesystem-cache compiler lifetimes and three closed Rollup builds share one upfront source island/available native fixture artifact. These are actual additional host/build costs, not zero executions or one Program. Nested collector scenarios are reviewed here rather than independently selected by Evidence.
  * @evidence contracts/e2e.md#necessary-boundary Real webpack loader/watch/filesystem-cache restoration and Rollup's cached module delivery must consult the actual adapter frontier. The recovery case requires an actual native generation and an independent host's real buildStart; direct notify/refresh calls cannot prove admitted native reuse or this opening order. The native producer reads filesystem bytes and emits an envelope; its uppercase result does not prove native typechecker inference.
  * @evidence contracts/e2e.md#shared-execution One upfront project replaces separate watch/type/cache/control/Rollup fixtures. The recovery case reuses its native producer source/artifact and root; its separate empty-entry compiler is necessary to exercise actual buildStart without compiling the temporarily absent project. Ordered cases restore original type/config only after their actual host closes; cache-positive and negative controls use different owned cache namespaces without deleting caches.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Mutable source/config belongs only to this tools subtree. Actual watcher/compiler/bundle closes precede restoration or the next host; failed close retains the shared graph and blocks further mutations. The recovery cache resets in finally and yields to settled generation disposer reactions before restoring its declared polling environment and native cwd; reset attempts cleanup rather than certifying native release. Empty-entry output stays in excluded .ttsc. A unique runner-owned trace child keeps observations outside compiler inputs; fixture-cache fallback retains standalone ownership. At most 384 bounded diagnostic rows plus one terminal row use synchronous append-close IO; sink failure is collected independently and cannot replace body or release failures. Trace/environment authority restores in finally.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Mutable source/config belongs only to this tools subtree. Actual watcher/compiler/bundle closes precede restoration or the next host; failed close or fixture restoration retains the shared graph and blocks further mutations. Independent cleanup errors are collected; recovery config restoration cannot prevent native cwd and declared polling environment restoration attempts. The recovery cache resets in finally and yields to settled generation disposer reactions; reset attempts cleanup rather than certifying native release. Empty-entry output stays in excluded .ttsc. Each compiler-call assertion uses its case's baseline within the shared trace root. A unique runner-owned trace child keeps observations outside compiler inputs; fixture-cache fallback retains standalone ownership. At most 384 bounded diagnostic rows plus one terminal row use synchronous append-close IO; sink failure is collected independently and cannot replace body or release failures. Trace/environment authority restores in finally.
  * @evidence contracts/e2e.md#preserved-coverage Retains original valid adapter invalidation/cache/loader-redelivery meanings and adds actual opening-host deletion followed by same-generation persistence recovery. Pure record decisions remain in the new accepted-missing-path source unit. Fake compile/Program counts are not restored; private receipts observe real compiler API calls only. This does not certify development serve/HMR behavior.
  */
 export async function bundlerCacheCorpus(
@@ -203,15 +203,32 @@ export async function bundlerCacheCorpus(
     name: string,
     operation: () => Promise<void>,
   ): Promise<void> => {
-    if (releaseUnconfirmed) return;
+    if (releaseUnconfirmed) {
+      failures.push(
+        new Error(name + " blocked by unconfirmed host release or fixture state"),
+      );
+      return;
+    }
     try {
       await operation();
     } catch (error) {
       failures.push(new Error(name, { cause: error }));
     } finally {
       if (!releaseUnconfirmed) {
-        fs.writeFileSync(typeFile, originalType);
-        fs.writeFileSync(configFile, originalConfig);
+        for (const [file, bytes] of [
+          [typeFile, originalType],
+          [configFile, originalConfig],
+        ] as const) {
+          try {
+            fs.writeFileSync(file, bytes);
+          } catch (error) {
+            failures.push(
+              new Error(name + " fixture restoration", { cause: error }),
+            );
+            releaseUnconfirmed = true;
+            BatchWorkspace.retain("bundler cache fixture restoration failed");
+          }
+        }
       }
     }
   };
@@ -325,18 +342,36 @@ export async function bundlerCacheCorpus(
             errors.push(error);
           }
         }
-        resetTtscTransformCache(cache);
-        // Settled generation disposal is scheduled by the public reset.
-        await Promise.resolve();
-        if (!releaseUnconfirmed) fs.writeFileSync(configFile, originalConfig);
-        process.chdir(previousDirectory);
-        if (previousPolling === undefined) delete process.env.WATCHPACK_POLLING;
-        else process.env.WATCHPACK_POLLING = previousPolling;
+        try {
+          resetTtscTransformCache(cache);
+          // Settled generation disposal is scheduled by the public reset.
+          await Promise.resolve();
+        } catch (error) {
+          errors.push(error);
+        }
+        if (!releaseUnconfirmed) {
+          try {
+            fs.writeFileSync(configFile, originalConfig);
+          } catch (error) {
+            errors.push(error);
+          }
+        }
+        try {
+          process.chdir(previousDirectory);
+        } catch (error) {
+          errors.push(error);
+          releaseUnconfirmed = true;
+          BatchWorkspace.retain("bundler cache cwd restoration failed");
+        } finally {
+          if (previousPolling === undefined) delete process.env.WATCHPACK_POLLING;
+          else process.env.WATCHPACK_POLLING = previousPolling;
+        }
       }
       if (errors.length)
         throw new AggregateError(errors, "accepted record host recovery failed");
     });
     await collect("webpack watch delivery and content frontier", async () => {
+      const beforeCalls = observedCompilerCalls();
       const configuration = config("watch");
       configuration.cache = false;
       configuration.snapshot = {
@@ -393,7 +428,7 @@ export async function bundlerCacheCorpus(
                   assert.match(code, /ID: STRING/);
                   firstCalls = observedCompilerCalls();
                   assert.equal(
-                    firstCalls,
+                    firstCalls - beforeCalls,
                     1,
                     "one actual compiler API request owns the cold adapter delivery",
                   );
