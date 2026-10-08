@@ -19,7 +19,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual source WatchTopology reads real configs and response files, then admits data callbacks and suppresses independently named products through its public project-input boundary. Edits, deletion and repair exercise response reload ownership.
  * @evidence contracts/testing.md#independent-expectations Literal path/report pairs follow final ordered compiler assignments and the configured controls; neither topology output inference nor private state generates an expected result.
- * @evidence contracts/testing.md#distinguishing-cases Moving outDir, noEmit true/false/null, declarations/maps, incremental/build-info paths, JSX defaults and resets, inline-map suppression, literal @ scalar operands, nested/repeated frames, UTF encodings and final direct overrides distinguish expanded options from top-level token projection. A compiler-source overlap remains a genuine input. Response-selected project and reference configs keep their own products, then a same-session selector edit admits the former product as data. Positional launchers retain their own one-file copy destination and emit authority rather than treating private native products as project-mode outputs.
+ * @evidence contracts/testing.md#distinguishing-cases Moving outDir, noEmit true/false/null, declarations/maps, incremental/build-info paths, JSX defaults and resets, inline-map suppression, literal @ scalar operands, nested/repeated frames, UTF encodings and final direct overrides distinguish expanded options from top-level token projection. A compiler-source overlap remains a genuine input. Response-selected project and reference configs keep their own products, then a same-session selector edit admits the former product as data. Positional launchers use the response-selected project for their one copied JavaScript path, then reclassify former copied paths after response reload; their explicit destination and emit authority remain separate from private native products.
  * @evidence contracts/testing.md#execution-ownership One tracked temporary project owns real bytes and recorded source-adapter subscriptions. The explicit membership callback asserts the original unexpanded request. finally closes every supplied handle; TestProject removes the allocation at process exit. Actual native emit, watcher transport and compiler processes remain E2E responsibilities.
  */
 export async function test_watch_topology_preserves_response_file_output_options(): Promise<void> {
@@ -468,6 +468,74 @@ export async function test_watch_topology_preserves_response_file_output_options
   } finally {
     selectedTopology.close();
     assert.ok(selectedWatchers.watchers.every((watcher) => !watcher.active));
+  }
+  // The positional lane copies only one file, using the same selected config
+  // as its producer. Neither the old locator nor private side products own it.
+  const positionalProducts = [
+    path.join(root, "configured/view.js"),
+    path.join(other, "products/view.js"),
+  ];
+  for (const file of positionalProducts) fs.writeFileSync(file, "copied product");
+  fs.writeFileSync(response, "--project other/tsconfig.json");
+  const positionalChanges: WatchInputChange[] = [];
+  const positionalWatchers = recordWatchers(watchDirectoryThroughFsWatch);
+  const positionalTopology = new WatchTopology(
+    { cwd: root, files: [source], passthrough: ["@flags.rsp"] },
+    {
+      onError: (location, cause) => failures.push(new Error(location, { cause })),
+      onInputChange: (change) => positionalChanges.push(change),
+      onTopologyChange: () => undefined,
+    },
+    positionalWatchers.openDirectoryWatch,
+    positionalWatchers.openFileWatch,
+    fs.readdirSync,
+    () => { throw new Error("positional lane requested project membership"); },
+  );
+  try {
+    positionalTopology.refresh(false);
+    const data = path.join(other, "data.md");
+    const inputs = [...positionalProducts, data];
+    positionalTopology.setProjectInputs({ root, files: inputs, globs: [] });
+    await settleWatchEvents();
+    for (const selected of [1, 0]) {
+      if (selected === 0) {
+        const beforeReload = positionalChanges.length;
+        fs.writeFileSync(response, "--project tsconfig.json");
+        deliverWatchEvent(positionalWatchers.watchers, response, "change");
+        await settleWatchEvents();
+        assert.ok(positionalChanges.slice(beforeReload).some(
+          (change) => change.kind === "config" && change.path === response,
+        ));
+        positionalTopology.refresh(false);
+        positionalTopology.setProjectInputs({ root, files: inputs, globs: [] });
+        await settleWatchEvents();
+        fs.appendFileSync(data, "new membership baseline");
+        deliverWatchEvent(positionalWatchers.watchers, data, "change");
+        await settleWatchEvents();
+      }
+      for (const [index, file] of positionalProducts.entries()) {
+        try {
+          const before = positionalChanges.length;
+          fs.appendFileSync(file, "independent copied-path edit");
+          deliverWatchEvent(positionalWatchers.watchers, file, "change");
+          await settleWatchEvents();
+          assert.equal(
+            positionalChanges.slice(before).some(
+              (change) => change.kind === "project" && change.path === file,
+            ),
+            index !== selected,
+            file,
+          );
+        } catch (cause) {
+          failures.push(new Error("positional selected copied path " + file, { cause }));
+        }
+      }
+    }
+  } catch (cause) {
+    failures.push(new Error("positional selected project reload", { cause }));
+  } finally {
+    positionalTopology.close();
+    assert.ok(positionalWatchers.watchers.every((watcher) => !watcher.active));
   }
   if (failures.length !== 0)
     throw new AggregateError(failures, "response output callback matrix failed");

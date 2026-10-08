@@ -26,7 +26,9 @@ export namespace CompilerProjectSelection {
    * Validated visible selectors retain their positions beside original response
    * tokens. The existing observed inspector projects those frames for selection;
    * the native producer still receives their original bytes and owns validation.
-   * Explicit resolvedProject callers retain their independent API authority.
+   * Positional discovery starts at the supplied file until an observed project
+   * assignment selects another config. Explicit resolvedProject callers retain
+   * their independent API authority.
    * Observations are sequential and do not pin bytes across a later producer.
    *
    * @evidence contracts/common.md#principled-implementation Existing schema occurrence metadata and observed response inspection establish ordered canonical project assignments; one selected config is returned separately from the retained compiler argument cwd.
@@ -40,16 +42,20 @@ export namespace CompilerProjectSelection {
    */
   export function read(
     options: TtscCommonOptions & {
+      file?: string;
+      files?: readonly string[];
       tsconfig?: string;
       resolvedProject?: ITtscParsedProjectConfig;
     },
   ) {
     const cwd = path.resolve(options.cwd ?? process.cwd());
+    const file = options.file ??
+      (options.files?.length === 1 ? options.files[0] : undefined);
     let initial = options.resolvedProject?.identity;
     let initialError: unknown;
     if (initial === undefined) {
       try {
-        initial = resolveProjectIdentity(options);
+        initial = resolveProjectIdentity({ ...options, file });
       } catch (error) {
         // An earlier locator is not necessarily the native-selected project.
         // With no resolved anchor, preserve invocation cwd rather than guessing
@@ -99,6 +105,7 @@ export namespace CompilerProjectSelection {
       options.resolvedProject ??
       readProjectConfig({
         cwd: assignments.has("project") ? compilerArgsCwd : cwd,
+        file: assignments.has("project") ? undefined : file,
         projectRoot: options.projectRoot,
         tsconfig: assignments.has("project")
           ? typeof selected === "string"

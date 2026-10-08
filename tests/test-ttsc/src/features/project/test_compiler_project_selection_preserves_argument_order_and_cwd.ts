@@ -17,7 +17,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual parseTtscBuildArgs and CompilerProjectSelection.read resolve real configuration/response inputs; assertions inspect selected config/root, compiler cwd, forwarded frames and observation changes.
  * @evidence contracts/testing.md#independent-expectations Authored A/B configurations and literal argument orders independently require the last project occurrence to select that configuration while response paths retain A as their original base.
- * @evidence contracts/testing.md#distinguishing-cases Visible aliases before and after a response, repeated and nested frames, explicit resolvedProject authority, scalar @ operands, response deletion/repair and changed bytes separate selection from option transport and response lifetime.
+ * @evidence contracts/testing.md#distinguishing-cases Visible aliases before and after a response, repeated and nested frames, positional nearest-file discovery versus response selection, explicit resolvedProject authority, scalar @ operands, response deletion/repair and changed bytes separate selection from option transport and response lifetime.
  * @evidence contracts/testing.md#execution-ownership The source operations read one tracked temporary filesystem fixture in this unit process. No native compiler, installed host, watcher or child process runs; TestProject owns exit cleanup.
  */
 export function test_compiler_project_selection_preserves_argument_order_and_cwd(): void {
@@ -52,6 +52,27 @@ export function test_compiler_project_selection_preserves_argument_order_and_cwd
     assert.equal(later.project.path, configA);
     assert.equal(later.compilerArgsCwd, a);
   }
+  const positionalFile = path.join(a, "entry.ts");
+  fs.writeFileSync(positionalFile, "export const value = 1;\n");
+  const discovered = CompilerProjectSelection.read({
+    cwd: root,
+    file: positionalFile,
+  });
+  assert.equal(discovered.project.path, configA);
+  assert.equal(discovered.compilerArgsCwd, a);
+  const nearestWatch = CompilerProjectSelection.read({
+    ...parseTtscBuildArgs(["--watch", positionalFile]),
+    cwd: root,
+  });
+  assert.equal(nearestWatch.project.path, configA);
+  assert.equal(nearestWatch.compilerArgsCwd, a);
+  const positional = CompilerProjectSelection.read({
+    cwd: root,
+    file: positionalFile,
+    passthrough: ["@selector.rsp"],
+  });
+  assert.equal(positional.project.path, configB);
+  assert.equal(positional.compilerArgsCwd, a);
   const repeated = select(["-p", configA, "@nested.rsp", "@selector.rsp"]);
   assert.equal(repeated.project.path, configB);
   assert.deepEqual([...repeated.observations.keys()], [nested, response]);

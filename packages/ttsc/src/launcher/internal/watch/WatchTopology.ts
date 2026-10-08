@@ -1783,13 +1783,16 @@ function resolveWatchTopology(
       addPaths(
         outputFiles,
         [
-          resolveSingleFileOutput({
-            cliOutDir: options.outDir,
-            cwd: options.cwd,
-            file: positionalInputs[0]!,
-            passthrough: options.passthrough,
-            tsconfig: options.tsconfig,
-          }),
+          resolveSingleFileOutput(
+            {
+              cliOutDir: options.outDir,
+              cwd: options.cwd,
+              file: positionalInputs[0]!,
+              passthrough: options.passthrough,
+              tsconfig: options.tsconfig,
+            },
+            project,
+          ),
         ],
         identities,
       );

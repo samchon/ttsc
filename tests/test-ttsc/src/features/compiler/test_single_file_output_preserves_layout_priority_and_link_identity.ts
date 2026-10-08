@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/internal/project/readProjectConfig";
 import { resolveSingleFileOutput } from "../../../../../packages/ttsc/src/launcher/internal/resolveSingleFileOutput";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -17,8 +18,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Resolve the same source through a junction and outside the configured layout.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual resolveSingleFileOutput against authored config/source files and a real directory junction. Literal paths distinguish project-rootDir mirroring from CLI-cwd mirroring, absent-rootDir layout, adjacent fallback, native module suffixes and basename placement outside the selected layout.
- * @evidence contracts/testing.md#independent-expectations Expected path components encode the supported output contract directly: project dist/nested differs from CLI single/src/nested, a missing rootDir uses the project root, absent outDir leaves source-adjacent output, mts/cts use mjs/cjs, and an outside-layout source uses its basename. Physical project output and lexical CLI cwd output have independently authored expected roots.
- * @evidence contracts/testing.md#distinguishing-cases Covers configured and CLI output priority, nested sources, mts/cts suffixes, absent rootDir, absent outDir, malformed config fallback, a junction alias, an external file with explicit config and a src-prefix near miss outside rootDir. It checks path selection only; the native compiler's project membership refusal and actual copy/runtime remain E2E responsibilities.
+ * @evidence contracts/testing.md#independent-expectations Expected path components encode the supported output contract directly: project dist/nested differs from CLI single/src/nested, a missing rootDir uses the project root, absent outDir leaves source-adjacent output, mts/cts use mjs/cjs, and an outside-layout source uses its basename, including explicit output when the source is above cwd or on another volume. Physical project output and lexical CLI cwd output have independently authored expected roots.
+ * @evidence contracts/testing.md#distinguishing-cases Covers configured and CLI output priority, nested sources, mts/cts suffixes, absent rootDir, absent outDir, parent/sibling sources with relative and absolute explicit destinations, multiple parent components and native module suffixes, malformed config fallback, an already-selected project instead of a stale locator, a junction alias, an external file with explicit config and a src-prefix near miss outside rootDir. It checks path selection only; the native compiler's project membership refusal and actual copy/runtime remain E2E responsibilities.
  * @evidence contracts/testing.md#execution-ownership This discoverable source unit invokes the output resolver directly with one temporary workspace and a real filesystem alias. It starts no native producer or consumer process and removes its owned workspace in finally after collecting independent case failures.
  */
 export function test_single_file_output_preserves_layout_priority_and_link_identity(): void {
@@ -107,6 +108,70 @@ export function test_single_file_output_preserves_layout_priority_and_link_ident
       check(name, () =>
         assert.equal(resolveSingleFileOutput(options), expected),
       );
+    for (const cwd of [path.join(root, "tools"), path.join(root, "tools/deep")]) {
+      for (const cliOutDir of ["single", path.join(workspace, "explicit")]) {
+        check("explicit root contains source above cwd / " + cwd + cliOutDir, () => {
+          assert.equal(
+            resolveSingleFileOutput({ cwd, file, cliOutDir, tsconfig: configPath }),
+            path.resolve(cwd, cliOutDir, "main.js"),
+          );
+        });
+      }
+    }
+    for (const [file, name] of [
+      [path.join(workspace, "external/other.ts"), "other.js"],
+      [path.join(root, "src-extra.ts"), "src-extra.js"],
+      [path.join(root, "src/nested/module.mts"), "module.mjs"],
+      [path.join(root, "src/nested/module.cts"), "module.cjs"],
+    ]) {
+      check("explicit outside-layout basename / " + name, () => {
+        assert.equal(
+          resolveSingleFileOutput({
+            cwd: path.join(root, "src/nested-prefix"),
+            file: file!,
+            cliOutDir: "single",
+            tsconfig: configPath,
+          }),
+          path.join(root, "src/nested-prefix/single", name!),
+        );
+      });
+    }
+    if (process.platform === "win32") {
+      const volume = path.parse(root).root.toLowerCase() === "z:\\" ? "Y:\\" : "Z:\\";
+      check("explicit cross-volume basename", () => {
+        assert.equal(
+          resolveSingleFileOutput({
+            cwd: root,
+            file: path.join(volume, "external/main.ts"),
+            cliOutDir: "single",
+            tsconfig: configPath,
+          }),
+          path.join(root, "single/main.js"),
+        );
+      });
+    }
+    check("selected project owns placement without reparsing old locator", () => {
+      const selectedConfig = path.join(workspace, "selected", "tsconfig.json");
+      fs.mkdirSync(path.dirname(selectedConfig));
+      fs.writeFileSync(
+        selectedConfig,
+        JSON.stringify({
+          compilerOptions: { outDir: "products", rootDir: "../project/src" },
+          files: ["../project/src/nested/main.ts"],
+        }),
+      );
+      const selected = readProjectConfig({ cwd: root, tsconfig: selectedConfig });
+      const options = { cwd: root, file, tsconfig: "missing.json" };
+      assert.equal(
+        resolveSingleFileOutput(options, selected),
+        path.join(workspace, "selected/products/nested/main.js"),
+      );
+      assert.equal(
+        resolveSingleFileOutput({ ...options, cliOutDir: "single" }, selected),
+        path.join(root, "single/src/nested/main.js"),
+      );
+      assert.equal(options.tsconfig, "missing.json");
+    });
     for (const [name, config, expected] of [
       [
         "absent rootDir",

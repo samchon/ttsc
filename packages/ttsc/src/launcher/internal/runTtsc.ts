@@ -575,6 +575,14 @@ function printCacheHelp(): void {
   process.stdout.write("\n");
 }
 
+/**
+ * Adapt one normalized CLI request to its selected private producer and public
+ * copy. The existing selection owns config and original argument anchoring;
+ * the full request retains cache, reporting and watch callbacks. Only the
+ * private helper writes the selected public file. Success presentation follows
+ * that completed copy and describes public emission, without private products
+ * or a fabricated transform-site count. Watch supplies quiet true itself.
+ */
 function runSingleFile(
   options: ReturnType<typeof parseTtscBuildArgs> &
     Pick<TtscSingleFileEmitOptions, "onProjectInputs" | "onWatchInputs">,
@@ -586,57 +594,35 @@ function runSingleFile(
   }
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const file = path.resolve(cwd, options.files[0]!);
-  const emit = singleFileShouldEmit(options, cwd, file);
+  const selection = CompilerProjectSelection.read({ ...options, cwd, file });
+  const project = selection.project;
+  const emit = options.emit ?? project.compilerOptions.noEmit !== true;
   const out = emit
-    ? resolveSingleFileOutput({
-        cliOutDir: options.outDir,
-        cwd,
-        file,
-        passthrough: options.passthrough,
-        tsconfig: options.tsconfig,
-      })
+    ? resolveSingleFileOutput(
+        {
+          cliOutDir: options.outDir,
+          cwd,
+          file,
+          passthrough: options.passthrough,
+          tsconfig: options.tsconfig,
+        },
+        project,
+      )
     : undefined;
-  const text = runSingleFileEmit({
-    binary: options.binary,
-    checkers: options.checkers,
-    cwd,
-    file,
-    onProjectInputs: options.onProjectInputs,
-    onWatchInputs: options.onWatchInputs,
-    out,
-    passthrough: options.passthrough,
-    singleThreaded: options.singleThreaded,
-    tsconfig: options.tsconfig,
-  });
-  if (out !== undefined && !fs.existsSync(out)) {
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, text, "utf8");
+  runSingleFileEmit({ ...options, cwd, file, out }, selection);
+  if (options.quiet === false) {
+    process.stdout.write(
+      `// ttsc: tsconfig=${project.path} cwd=${cwd} emit=${emit}\n`,
+    );
+    if (out !== undefined) {
+      process.stdout.write(`// ttsc: emitted=1 files\n`);
+      process.stdout.write(`  + ${relativeToCwd(cwd, out) || out}\n`);
+    }
   }
   if (out !== undefined) {
     process.stdout.write(`${relativeToCwd(cwd, out) || path.basename(out)}\n`);
   }
   return 0;
-}
-
-/**
- * Resolve the same effective emit decision used by the project lane before
- * entering the single-file compatibility path. The compatibility path still
- * emits into a private temporary directory to obtain transformed text and
- * diagnostics, but only this boundary is allowed to write into the user's
- * tree.
- */
-function singleFileShouldEmit(
-  options: ReturnType<typeof parseTtscBuildArgs>,
-  cwd: string,
-  file: string,
-): boolean {
-  if (options.emit !== undefined) return options.emit;
-  const project = readProjectConfig({
-    cwd,
-    file,
-    tsconfig: options.tsconfig,
-  });
-  return project.compilerOptions.noEmit !== true;
 }
 
 function runWatch(
