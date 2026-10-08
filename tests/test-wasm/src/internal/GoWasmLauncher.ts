@@ -31,7 +31,7 @@ export namespace GoWasmLauncher {
    * @evidence contracts/common.md#clear-and-simple-design The shape carries observations only; run owns process authority and tests own expected values.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No field substitutes a fabricated process result or encodes a fixture-specific expected answer.
    * @evidence contracts/common.md#meaningful-documentation Each member identifies the process value being observed, preserving native path and argument meanings.
-   * @evidence contracts/portability.md#os-neutral-implementation Cwd retains native path spelling and argv retains vector entries; the guest root stays a separate environment value.
+   * @evidence contracts/portability.md#os-neutral-implementation Cwd retains native spelling while live filesystem readings resolve cwd and TMPDIR physically; argv retains vector entries and guest environment spelling remains separate.
    * @evidenceExclude contracts/performance.md#efficient-algorithms This observation shape selects no algorithm.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The shape defines no cache or computation sharing.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The reading owns only copied data; the producing call owns process and descriptor lifetimes.
@@ -42,6 +42,12 @@ export namespace GoWasmLauncher {
 
     /** Native current directory after the launcher prepared the runtime. */
     cwd: string;
+
+    /** Physical directory observed while the fixture's cwd still exists. */
+    cwdRealpath: string;
+
+    /** Physical TMPDIR when that environment path exists in the fixture. */
+    tmpdirRealpath?: string;
 
     /** Runner entry followed by its uninterpreted argument entries. */
     argv: string[];
@@ -60,7 +66,7 @@ export namespace GoWasmLauncher {
    * @evidence contracts/common.md#clear-and-simple-design Fixture preparation, readiness, cancellation and result collection belong to one call; each test owns its expected status, environment and argument values.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The static fixture executes as the real runner entry. No native method or global is replaced, and PID equality is observed rather than inferred from wrapper source.
    * @evidence contracts/common.md#meaningful-documentation The namespace explains retained inputs and cancellation authority; the operation documents readiness as the cancellation boundary.
-   * @evidence contracts/portability.md#os-neutral-implementation Spawn receives native executable/argument vectors, file URLs resolve maintained entries and native temporary parents/prefixes constrain recursive cleanup. The launcher owns the guest path conversion.
+   * @evidence contracts/portability.md#os-neutral-implementation The acquired input directory is resolved physically before it becomes spawn cwd or the explicit-root oracle. Native executable/argument vectors and file URLs preserve their meanings; physical temporary parents and owned prefixes constrain cleanup. The fixture observes live cwd/TMPDIR identities and the launcher owns guest spelling.
    * @evidence contracts/performance.md#efficient-algorithms Output collection and parsing scale with the static fixture's report and supplied arguments; streams are appended until one original child closes. No process table, historical output or repeated filesystem traversal is retained.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every call executes independent process and filesystem effects, so results cannot replace later cases.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One child and input directory are held through original exit and pipe closure. The fixture release gate covers cancellation failure; a mismatched runtime retains inputs and leaves descendant containment to the enclosing bounded verification command. The result records ordinary cleanup before this helper removes a remaining known-owned directory.
@@ -71,7 +77,7 @@ export namespace GoWasmLauncher {
     cancel?: boolean;
     missingRunner?: boolean;
   } = {}) {
-    const owner = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-runner-fixture-"));
+    const owner = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-go-runner-fixture-")));
     const gate = path.join(owner, "release");
     const fixture = fileURLToPath(new URL("../../fixtures/go-wasm-runner.cjs", import.meta.url));
     const runner = props.missingRunner ? path.join(owner, "missing-runner.cjs") : fixture;

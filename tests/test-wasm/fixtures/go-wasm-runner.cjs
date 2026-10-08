@@ -4,6 +4,10 @@ if (process.argv[2] === "throw") throw new Error("authored runner failure");
 fs.writeSync(1, JSON.stringify({
   pid: process.pid,
   cwd: process.cwd(),
+  cwdRealpath: fs.realpathSync("."),
+  tmpdirRealpath: process.env.TMPDIR && fs.existsSync(process.env.TMPDIR)
+    ? fs.realpathSync(process.env.TMPDIR)
+    : undefined,
   argv: process.argv.slice(1),
   execArgv: process.execArgv,
   env: { ...process.env },
