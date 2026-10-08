@@ -94,9 +94,9 @@ Any flag `ttsc` does not own is forwarded as-is to `tsc`, so classic `tsc` compi
 
 `incremental` and `composite` make `tsc` write a `.tsbuildinfo` next to the tsconfig, or wherever `tsBuildInfoFile` points. `ttsc` writes the same file, in the same format and at the same path, on both lanes: a plain build, and a build a ttsc plugin owns.
 
-What `ttsc` does not do is read one back to skip work. A plugin's output is not a function of the source text alone, and a `.tsbuildinfo` records only what `tsc` knows about: file versions, resolved options, and signatures. It has no room for the plugin binary, its config file, or its contributors, so reusing a previous run's record could serve output produced by a plugin that has since changed. Every `ttsc` build therefore emits every file, and the build information it leaves behind is a record for other consumers — a CI cache key, a later `tsc` run that should treat the outputs as current — rather than an input to the next `ttsc` run.
+`ttsc` does not use `.tsbuildinfo` to skip compilation: the file does not record plugin binaries, configuration, or contributors. Each build emits every file; other tools may consume the resulting build information.
 
-One consequence is worth knowing if you inspect the file: on a build where the plugin assembled the JavaScript itself, the record marks the JavaScript emit of each file as still pending, because `tsc`'s own emitter never ran for it. The error is one-directional — a consumer can only decide to emit again, never to skip a file the plugin actually transformed.
+When a plugin assembles JavaScript, the build information marks that emit as pending because the compiler's emitter did not run. Another consumer may emit again.
 
 ## Exit codes
 
@@ -108,9 +108,7 @@ One consequence is worth knowing if you inspect the file: on a build where the p
 
 ## Plugin cache
 
-For a new plugin-cache key, ttsc reads the selected Go compiler's version and bytes under a metadata witness. If execution changes that metadata, it discards the reading and takes a fresh one, up to three attempts. This permits first-use native metadata changes without accepting a reading that changed underneath it. A compiler that keeps changing refuses the witness. Subsequent changes, including a rewrite with restored modification time, still prevent cache publication under the earlier toolchain key.
-
-The build also witnesses the SDK tools and files. If a tool changes while a successful Go build runs, ttsc discards that binary and its scratch directory, releases the build lock, and starts again with a fresh toolchain reading and key. It permits at most three build attempts. This covers first execution of copied SDK tools without accepting the earlier witness. Source readings and request variables remain fixed across attempts; native compiler errors, source changes and cleanup failures stay failures. Only a successful attempt reports its digests to the caller. Repeated commands can repeat external tool effects; ttsc discards its own failed outputs rather than rolling back those effects. Go's object cache keeps its own tool and action identity rules.
+The cache key includes the Go compiler and toolchain inputs. If they change during a successful plugin build, `ttsc` discards the result and retries, up to three attempts. A toolchain that keeps changing fails the build. Source changes, native compiler errors, and cleanup failures are returned directly.
 
 The plugin binary cache is **project-local**. By default it lives in the workspace's `node_modules/.cache/ttsc` (the `find-cache-dir` convention). In a monorepo it resolves to the workspace root's `node_modules`, so every package builds a given plugin once and shares it; `rm -rf node_modules` (or deleting the repo) reclaims everything and ttsc keeps no machine-global cache. Plugin binaries live under `<cache-dir>/plugins` and ttsc's Go object cache under `<cache-dir>/go-build`, unless `TTSC_GO_CACHE_DIR` or a user `GOCACHE` redirects it.
 

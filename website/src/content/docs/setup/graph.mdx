@@ -3,7 +3,7 @@ import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph
 
 # Compiler Knowledge Graph
 
-`@ttsc/graph` is an MCP server that hands your coding agent a compiler-resolved graph of the project: what calls what, what a change would touch, where to start reading. Without it, an agent reconstructs that picture by opening files and chasing imports, spending tokens on every hop and guessing at the relationships. With it, the agent asks the type checker.
+`@ttsc/graph` gives a coding agent a compiler-resolved graph of calls, dependencies, and declarations.
 
 Median tokens on the shared onboarding question, against no MCP and the three comparators; lower is better:
 
@@ -36,13 +36,13 @@ Median tokens on the shared onboarding question, against no MCP and the three co
 
 `@ttsc/graph` resolves the native `ttscgraph` binary from the `ttsc` platform package installed in the project it graphs, which is why `ttsc` is on that line.
 
-Keep the two versions together. They talk over a versioned protocol, and because the binary comes from the target project — or from `TTSC_GRAPH_BINARY`, if you point it at a build of your own — the pair can end up mismatched. When it does, the server says so and stops:
+Keep `@ttsc/graph` and `ttsc` versions together. The server uses the target project's binary, or `TTSC_GRAPH_BINARY` when set, and stops on a protocol mismatch:
 
 ```
 @ttsc/graph: ttscgraph speaks serve protocol v2, this client speaks v1.
 ```
 
-Upgrading both packages together clears it. The check is there so a mismatch is a sentence rather than a wrong answer.
+Upgrade both packages together to resolve the mismatch.
 
 ## Connect an agent
 
@@ -61,13 +61,13 @@ For Claude Code, a `.mcp.json` in the project root:
 
 Any other MCP client works the same way, the command is always `npx -y @ttsc/graph`. Start the agent from the project root so the server finds your `tsconfig.json`, or name the project explicitly with `--cwd` and `--tsconfig`.
 
-That is the whole setup. The agent picks the tool up from the MCP handshake, and the usage guidance travels in the `initialize` response, so the server never writes into your `CLAUDE.md`, `AGENTS.md`, or any other file in your repository.
+The server supplies tool guidance in the MCP `initialize` response. It does not write to `CLAUDE.md`, `AGENTS.md`, or other repository files.
 
 ## What you get back
 
-The agent gains one tool, `inspect_typescript_graph`, and stops fanning out across files. Because the graph comes from the real checker, the edges are right exactly where text search guesses: `workspace:*` dependencies, path aliases, barrel re-exports.
+The agent gains one tool, `inspect_typescript_graph`. The compiler resolves workspace dependencies, path aliases, and barrel re-exports.
 
-It pays measurable rent. Across both lanes of the agent-cost benchmark, the shared onboarding prompt and codegraph's own per-repository questions, Claude agents answer reading zero source files, with median token cuts of 87% to 92% and tool-call cuts of 93% to 96%. The method and per-repository numbers are in the [benchmark](/docs/benchmark/graph).
+See the [benchmark](/docs/benchmark/graph) for token usage, tool calls, and per-repository results.
 
 ## Next
 

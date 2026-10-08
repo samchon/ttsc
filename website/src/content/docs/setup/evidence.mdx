@@ -67,9 +67,9 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-That claim reads as one sentence. The components under `src` claim to implement the requirements, so every H2 and H3 under `docs/requirements` must be cited by a component.
+Every H2 and H3 under `docs/requirements` must be cited by a component under `src/components`.
 
-Read every claim in that direction: `files` and `symbol` pick who owes the answers, `reference` picks the questions they owe.
+`files` and `symbol` select the declarations that must acknowledge targets selected by `reference`.
 
 ## See it fail
 
@@ -114,7 +114,7 @@ Or record that this population deliberately does not serve it, with a reason a r
 export const SCREEN_EVIDENCE_EXCLUDE = true;
 ```
 
-An exclusion has to sit on a public export in a file the claim already selects, so this one lives under `src/components/` like any other selected file. Gathering them in one named ledger is what [`evidenceExcludeCarriers`](/docs/evidence/claims#exclusion-carriers) is for, and it is worth declaring before the first exclusion is written.
+An exclusion must be on a public export in a file the claim selects. Use [`evidenceExcludeCarriers`](/docs/evidence/claims#exclusion-carriers) to collect exclusions in one file.
 
 Findings arrive in every `ttsc` build, every `--noEmit` check, every `ttsx` run, and in the editor. The CI step that already runs `ttsc --noEmit` gates the graph without a second job.
 
@@ -143,7 +143,7 @@ rules: {
 - `evidence/documented` requires a JSDoc block on every selected export, because a block is the only place a citation can live.
 - `evidence/singular` keeps one public identity per file, named after the file.
 - `evidence/todo` fails the build on every remaining JSDoc `@todo`, so a stub cannot be mistaken for finished work.
-- `evidence/review` requires an `@evidenceReview` beside every acknowledgement. A false tag removes the error, not the problem, and the review is what resolves it.
+- `evidence/review` requires an `@evidenceReview` beside every acknowledgement, recording that its citation was checked.
 
 Start with `evidence/graph` alone and add the others once the graph is green.
 
@@ -169,7 +169,7 @@ A claim you are not ready to enforce carries `disabled: true`. Its shape is stil
 }
 ```
 
-Declaring the whole graph up front and enabling one claim at a time is the intended adoption path, not a workaround.
+Declare the graph up front and enable one claim at a time.
 
 ## Next
 

@@ -48,11 +48,11 @@ import { value } from "./modules/value.js";
 
 ## What it does and doesn't do
 
-- Reads the same `compilerOptions.paths`, `rootDir`, and `outDir` that `ttsc` already uses. When `rootDir` is omitted, output paths anchor at the tsconfig's directory — exactly where TypeScript-Go anchors its own emit.
+- Reads `compilerOptions.paths`, `rootDir`, and `outDir`. When `rootDir` is omitted, output paths anchor at the tsconfig directory.
 - When several patterns match one specifier, an exact pattern wins, then the longest literal prefix: the same order tsc uses to resolve the import.
 - Rewrites JavaScript-family emit (`.js`, `.mjs`, `.cjs`, `.jsx`) and `.d.ts` declarations.
 - Resolves extensionless path targets against `.ts`, `.tsx`, `.mts`, `.cts`, then `.js`, `.jsx`, `.mjs`, and `.cjs` source files.
-- Preserves the extension of assets the compiler copies rather than transpiles: an exact alias to a `.json` source pulled in by `resolveJsonModule` rewrites to `./data.json`, the file TypeScript-Go actually copies, keeping any `import ... with { type: "json" }` attribute intact — never an invented `./data.js`.
+- Preserves copied asset extensions. An alias to a `.json` source included through `resolveJsonModule` becomes a relative `.json` import, retaining any `with { type: "json" }` attribute.
 - No separate plugin config.
 - Only rewrites specifiers that match `compilerOptions.paths`; relative, absolute, and non-matching package specifiers are left alone.
 - Uses TypeScript-Go's emitted runtime suffix for matched targets (`.js`, `.mjs`, `.cjs`, or `.jsx` depending on the source file and `jsx` mode).

@@ -206,7 +206,7 @@ async function bad(): Promise<number> {
 
 Reject `@ts-<directive>` comments or require descriptions after directives.
 
-The rule follows `@typescript-eslint`'s recommended defaults: `@ts-ignore` and `@ts-nocheck` are reported, `@ts-check` is allowed, and `@ts-expect-error` is allowed when followed by a description of at least three characters. `@ts-nocheck` is only reported where the compiler honors it — before the first statement. A reported `@ts-ignore` offers an opt-in `quickfix.ttsc` action that replaces it with `@ts-expect-error`. `ttsc fix` and `source.fixAll.ttsc` do not apply the replacement because an error-free following line would start producing TS2578.
+The rule follows `@typescript-eslint`'s recommended defaults: `@ts-ignore` and `@ts-nocheck` are reported, `@ts-check` is allowed, and `@ts-expect-error` is allowed when followed by a description of at least three characters. `@ts-nocheck` is only reported where the compiler honors it, before the first statement. A reported `@ts-ignore` offers an opt-in `quickfix.ttsc` action that replaces it with `@ts-expect-error`. `ttsc fix` and `source.fixAll.ttsc` do not apply the replacement because an error-free following line would start producing TS2578.
 
 Options:
 
@@ -419,7 +419,7 @@ Reject `delete arr[i]` against array elements.
 
 `delete` leaves a hole; use `arr.splice` to shrink the array.
 
-Type-aware via the Checker. `delete target[key]` is spelled identically whether the target is an array or a `Record` / index-signature object, and on the latter it is the correct way to remove an entry — so the target's type is the only thing that separates them, and the subscript's syntactic shape says nothing.
+Type-aware via the Checker. `delete target[key]` is spelled identically whether the target is an array or a `Record` / index-signature object, and on the latter it is the correct way to remove an entry, so the target's type is the only thing that separates them, and the subscript's syntactic shape says nothing.
 
 Example:
 
@@ -647,7 +647,7 @@ Type-aware via the Checker. A floating promise loses its rejection channel and r
 
 The scalar defaults ignore structural thenables, async IIFEs remain checked, and `void` is an explicit escape hatch. `checkThenables`, `ignoreIIFE`, `ignoreVoid`, `allowForKnownSafeCalls`, and `allowForKnownSafePromises` expose the upstream option boundary through typed rule tuples.
 
-`checkThenables` selects what the rule examines, exactly as upstream does: it defaults to `false`, and turning it on reports more rather than less. Left off, a structural thenable is outside the rule entirely — neither a floating thenable nor a handled chain on one is reported. So a configuration carried over from a typescript-eslint project produces the same findings here.
+`checkThenables` selects what the rule examines, exactly as upstream does: it defaults to `false`, and turning it on reports more rather than less. Left off, a structural thenable is outside the rule entirely: neither a floating thenable nor a handled chain on one is reported. So a configuration carried over from a typescript-eslint project produces the same findings here.
 
 Acceptable sinks are `await`, a callable rejection handler, assignment, the configured `void` escape, and `return`.
 
@@ -1100,9 +1100,9 @@ class Repeated {
 
 ### `typescript/no-unnecessary-qualifier`
 
-Reject `Foo.Bar` references written inside `namespace Foo { ... }` or `enum Foo { ..., X = Foo.Y, ... }` where the `Foo.` qualifier is redundant — the unqualified name already resolves to the same binding.
+Reject `Foo.Bar` references written inside `namespace Foo { ... }` or `enum Foo { ..., X = Foo.Y, ... }` where the `Foo.` qualifier is redundant: the unqualified name already resolves to the same binding.
 
-Type-aware via the Checker. The qualifier is flagged only when the head resolves to a namespace or enum symbol declared by one of the enclosing declarations, and the member name — looked up unqualified from the same location — resolves to that same symbol.
+Type-aware via the Checker. The qualifier is flagged only when the head resolves to a namespace or enum symbol declared by one of the enclosing declarations, and the member name (looked up unqualified from the same location) resolves to that same symbol.
 
 A shadowed member (a local `bar` hiding `Foo.bar`) or a shadowed namespace name (a local `Foo` object) keeps its qualifier: dropping it would silently change which binding the code reads.
 
@@ -1875,7 +1875,7 @@ Reject `async` functions that have no `await` expression and return no promise.
 
 An async function with no `await` only inflates the return type to `Promise<T>` without doing any asynchronous work; collapse it to a sync function.
 
-Type-aware via the Checker, which upstream uses for the same purpose: a function that returns a promise is accepted without an `await`, because marking it `async` states the contract for callers and forwards the inner promise. A `for await` loop counts as an await — it is spelled as a for-of carrying an await modifier rather than as an await expression.
+Type-aware via the Checker, which upstream uses for the same purpose: a function that returns a promise is accepted without an `await`, because marking it `async` states the contract for callers and forwards the inner promise. A `for await` loop counts as an await; it is spelled as a for-of carrying an await modifier rather than as an await expression.
 
 Async generators are accepted as long as they have at least one `yield`.
 

@@ -157,7 +157,7 @@ export default function TtscWebsiteBenchmarkGraphIndex() {
         eyebrow="Index"
         title="Cold index build time"
         description="What readiness costs before a tool can answer its first question: the tool's index deleted, rebuilt once, wall clock. Repositories are ordered by program size."
-        aside="Every tool is given the index its own documentation prescribes: codegraph init, codebase-memory in its default full mode, and serena project index — which the harness had never run until now."
+        aside="Every tool is given the index its own documentation prescribes: codegraph init, codebase-memory in its default full mode, and serena project index."
       />
       <div className="space-y-4 px-5 py-4">
         {rows.map((row) => (

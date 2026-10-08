@@ -10,9 +10,9 @@ Source: [`eslint-plugin-regexp`](https://github.com/ota-meshi/eslint-plugin-rege
 
 ## Corrections
 
-A rule in this family offers an automatic fix only where the rewrite provably matches the same strings — reordering flags, swapping a count quantifier for its shorthand, deleting a flag the pattern cannot exercise. Where the correction changes what the literal matches, or where more than one repair is valid, the rule offers editor suggestions instead; `ttsc fix` and `source.fixAll.ttsc` never apply those.
+A rule in this family offers an automatic fix only where the rewrite provably matches the same strings: reordering flags, swapping a count quantifier for its shorthand, deleting a flag the pattern cannot exercise. Where the correction changes what the literal matches, or where more than one repair is valid, the rule offers editor suggestions instead; `ttsc fix` and `source.fixAll.ttsc` never apply those.
 
-Every candidate rewrite is re-parsed by the compiler's own regexp parser before it is offered. A regex repair is a splice into live syntax, so an edit that is locally right can still leave a pattern the engine rejects: `/{1,}/` has no atom in front of the brace run, which makes it four literal characters rather than a quantifier, and rewriting it would produce `/+/`. Such a literal keeps its diagnostic and is left untouched. A rule may also decline an individual edit whose neighbours make it unsafe even though the result would parse — see [`regexp/no-useless-quantifier`](#rule-regexp-no-useless-quantifier).
+Every candidate rewrite is re-parsed by the compiler's own regexp parser before it is offered. A regex repair is a splice into live syntax, so an edit that is locally right can still leave a pattern the engine rejects: `/{1,}/` has no atom in front of the brace run, which makes it four literal characters rather than a quantifier, and rewriting it would produce `/+/`. Such a literal keeps its diagnostic and is left untouched. A rule may also decline an individual edit whose neighbours make it unsafe even though the result would parse; see [`regexp/no-useless-quantifier`](#rule-regexp-no-useless-quantifier).
 
 ## Rule index
 
@@ -191,9 +191,9 @@ Cleans up flag combos that suggest behavior the pattern can never trigger.
 
 A character is case-variable when the `i` flag widens what it matches, wherever it sits: `/[a-z]/i`, `/[abc]/i` and `/^[a-z]+$/i` all keep their flag, as do escapes that decode to a cased character (`/[\x41]/i`), non-ASCII case pairs, and `\w`/`\b` under `u` or `v`. A `^` or `$` inside a character class is a plain character, so it does not save the `m` flag.
 
-Undecidable patterns are left alone rather than reported: a Unicode property escape (`/\p{Nd}/iu`), a backreference (`i` makes the backreference comparison itself case-insensitive, so `/(.)\1/i` genuinely needs the flag), and a `v`-mode set-notation class all count as using the flag.
+Undecidable patterns are left alone rather than reported: a Unicode property escape (`/\p{Nd}/iu`), a backreference (`i` makes the backreference comparison itself case-insensitive, so `/(.)\1/i` needs the flag), and a `v`-mode set-notation class all count as using the flag.
 
-The diagnostic names the dead flags, and the autofix deletes exactly those, leaving the live flags in place (`/\d+/gim` becomes `/\d+/g`). Because the analysis is one-sided — anything it cannot settle counts as using the flag — a flag it does report is provably inert.
+The diagnostic names the dead flags, and the autofix deletes exactly those, leaving the live flags in place (`/\d+/gim` becomes `/\d+/g`). Because the analysis is one-sided (anything it cannot settle counts as using the flag) a flag it does report is provably inert.
 
 Example:
 

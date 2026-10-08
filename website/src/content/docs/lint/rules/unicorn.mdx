@@ -176,7 +176,7 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 - [`unicorn/switch-case-braces`](#rule-unicorn-switch-case-braces): Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
 - [`unicorn/switch-case-break-position`](#rule-unicorn-switch-case-break-position): Require terminating statements to sit inside a `case` clause's sole block.
 - [`unicorn/template-indent`](#rule-unicorn-template-indent): Normalize selected multiline template bodies while preserving substitutions and raw escapes.
-- [`unicorn/text-encoding-identifier-case`](#rule-unicorn-text-encoding-identifier-case): Enforce a canonical case for text-encoding identifiers — the dash-less `"utf8"` by default.
+- [`unicorn/text-encoding-identifier-case`](#rule-unicorn-text-encoding-identifier-case): Enforce a canonical case for text-encoding identifiers, the dash-less `"utf8"` by default.
 - [`unicorn/throw-new-error`](#rule-unicorn-throw-new-error): Require `throw new Error(...)` over `throw Error(...)`.
 
 ## Rules
@@ -187,7 +187,7 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 
 Rewrite regex literals into shorter, consistent, and safer form (character-class shorthands, redundant ranges).
 
-Each regex literal is optimized the way [`regexp-tree`](https://github.com/DmitrySoshnikov/regexp-tree) canonicalizes it: character classes collapse to their shorthands (`[0-9]` → `\d`, `[^A-Za-z0-9_]` → `\W`), ranges are deduplicated and sorted, flags are alphabetized, and redundant quantifiers merge (`\s?\s?\s?` → `\s{0,3}`). The autofix replaces the whole literal, except when it is the object of a `.source` or `.toString` member access — those are reported without a fix so a serialized-source consumer is not rewritten under it. Literals carrying the `u` or `v` flag are skipped, matching upstream, because `regexp-tree` does not handle Unicode / Unicode-sets mode reliably. A `new RegExp("pattern", "flags")` string constructor rewrites its pattern argument through the same character-class shorthands; the rewritten pattern keeps the argument's original quote character and is re-escaped for it, so a pattern carrying a newline, a control character, or the delimiter quote comes back as a valid string literal.
+Each regex literal is optimized the way [`regexp-tree`](https://github.com/DmitrySoshnikov/regexp-tree) canonicalizes it: character classes collapse to their shorthands (`[0-9]` → `\d`, `[^A-Za-z0-9_]` → `\W`), ranges are deduplicated and sorted, flags are alphabetized, and redundant quantifiers merge (`\s?\s?\s?` → `\s{0,3}`). The autofix replaces the whole literal, except when it is the object of a `.source` or `.toString` member access. Those are reported without a fix so a serialized-source consumer is not rewritten under it. Literals carrying the `u` or `v` flag are skipped, matching upstream, because `regexp-tree` does not handle Unicode / Unicode-sets mode reliably. A `new RegExp("pattern", "flags")` string constructor rewrites its pattern argument through the same character-class shorthands; the rewritten pattern keeps the argument's original quote character and is re-escaped for it, so a pattern carrying a newline, a control character, or the delimiter quote comes back as a valid string literal.
 
 The one option, `sortCharacterClasses` (default `true`), turns off only the class range sort/merge step when set to `false`; the length-reducing shorthands still apply.
 
@@ -429,9 +429,9 @@ if (
 
 Enforce a single case style (kebab / camel / snake / pascal) for source filenames and directory names.
 
-Every segment of a file's project-relative path is checked — directories first, then the filename, then a lowercase check on the file extension — and the first offending segment produces the file's single diagnostic with concrete rename samples. Files outside the project directory are judged by basename alone. `$`-prefixed segments, the default `index.js` / `index.mjs` / `index.cjs` / `index.ts` / `index.tsx` / `index.vue` basenames, and characters outside `[a-zA-Z0-9_-]` are exempt from case conversion.
+Every segment of a file's project-relative path is checked (directories first, then the filename, then a lowercase check on the file extension) and the first offending segment produces the file's single diagnostic with concrete rename samples. Files outside the project directory are judged by basename alone. `$`-prefixed segments, the default `index.js` / `index.mjs` / `index.cjs` / `index.ts` / `index.tsx` / `index.vue` basenames, and characters outside `[a-zA-Z0-9_-]` are exempt from case conversion.
 
-The option object supports `case` (one enforced style: `kebabCase` — the default — `camelCase`, `camelCaseWithAcronyms`, `snakeCase`, or `pascalCase`), `cases` (a map of allowed styles; `case` and `cases` are mutually exclusive, and enabling none falls back to kebab-case), `ignore` (regular-expression strings matched against each path segment), `multipleFileExtensions` (default `true`: only the stem before the first dot is checked), and `checkDirectories` (default `true`).
+Use `case` to enforce one style: `kebabCase` by default, `camelCase`, `camelCaseWithAcronyms`, `snakeCase`, or `pascalCase`. Alternatively, `cases` maps allowed styles; enabling none falls back to kebab-case. `case` and `cases` are mutually exclusive. `ignore` accepts regular-expression strings matched against each path segment. `multipleFileExtensions` defaults to `true`, checking only the stem before the first dot, and `checkDirectories` defaults to `true`.
 
 Example:
 
@@ -462,7 +462,7 @@ export default {
 
 Restrict each module's allowed import styles (named only, default only, namespace only).
 
-Every reference to a configured module — static `import`, dynamic `import()`, `require(…)`, and (opt-in) `export … from` — is classified into the styles it actually uses (`unassigned`, `default`, `namespace`, `named`) and reported when any of them falls outside the module's allowed set. `node:`-prefixed specifiers inherit the bare module name's policy. The built-in table allows only default imports of `chalk` and `path` and only named imports of `util`.
+Every reference to a configured module (static `import`, dynamic `import()`, `require(…)`, and (opt-in) `export … from`) is classified into the styles it actually uses (`unassigned`, `default`, `namespace`, `named`) and reported when any of them falls outside the module's allowed set. `node:`-prefixed specifiers inherit the bare module name's policy. The built-in table allows only default imports of `chalk` and `path` and only named imports of `util`.
 
 The option object supports `styles` (per-module maps of style-name booleans, or `false` to lift a module's restrictions), `extendDefaultStyles`, and the `checkImport`, `checkDynamicImport`, `checkExportFrom`, and `checkRequire` toggles. `checkExportFrom` defaults to `false`; the other toggles default to `true`. For `require`, an allowed `default` style also accepts whole-object bindings because CommonJS offers no interop that distinguishes them.
 
@@ -1117,7 +1117,7 @@ Every static `import`, dynamic `import()`, and static `require(…)` of a bare s
 
 The target environments are resolved in the same order as the upstream rule:
 
-1. The `targets` option, when present — a [Browserslist](https://github.com/browserslist/browserslist) query string, an array of queries, or a Browserslist targets object (for example `{ "node": "18" }`). Query forms are resolved under the `production` environment.
+1. The `targets` option, when present: a [Browserslist](https://github.com/browserslist/browserslist) query string, an array of queries, or a Browserslist targets object (for example `{ "node": "18" }`). Query forms are resolved under the `production` environment.
 2. Otherwise, standard Browserslist config discovery from the linted file's directory: a `browserslist` / `.browserslistrc` file, a `package.json` `browserslist` field or section, custom `browserslist-stats.json`, and the `BROWSERSLIST*` environment overrides.
 3. Otherwise, the `engines` field of the nearest `package.json`.
 
@@ -1188,7 +1188,7 @@ const r = (() => Math.random())();
 
 Reject object properties that are never read after definition.
 
-The rule follows every reference to a variable bound to an object literal (or annotated with an inline `{...}` type, including function parameters) and reports the properties no reference can reach. Static accesses must name the key, destructuring must bind it, and matching references recurse into nested objects. Any escape — aliasing, passing, returning, spreading, exporting, mutating, or a dynamic key access — conservatively keeps every property.
+The rule follows every reference to a variable bound to an object literal (or annotated with an inline `{...}` type, including function parameters) and reports the properties no reference can reach. Static accesses must name the key, destructuring must bind it, and matching references recurse into nested objects. Any escape (aliasing, passing, returning, spreading, exporting, mutating, or a dynamic key access) conservatively keeps every property.
 
 Example:
 
@@ -2108,7 +2108,7 @@ const b = Array.from(a);
 
 Prefer `String.raw` for path literals and other strings that would otherwise need backslash escapes.
 
-The rule only reports when a `String.raw` template would reproduce the value exactly, so a literal is left alone when it carries any escape other than `\\` (`"\\d\t"` would turn its tab into the two characters `\t`), when its value ends with a backslash (a raw template cannot end in one), when it contains a backtick or `${` (the template would close early or interpolate), or when a line continuation spreads it over two lines. A no-substitution template is reported under the same value-preserving condition, except that its newlines are already literal, so a multi-line template stays reportable; the quasi of a tagged template — including `` String.raw`…` `` itself — is never reported. The report carries no autofix.
+The rule only reports when a `String.raw` template would reproduce the value exactly, so a literal is left alone when it carries any escape other than `\\` (`"\\d\t"` would turn its tab into the two characters `\t`), when its value ends with a backslash (a raw template cannot end in one), when it contains a backtick or `${` (the template would close early or interpolate), or when a line continuation spreads it over two lines. A no-substitution template is reported under the same value-preserving condition, except that its newlines are already literal, so a multi-line template stays reportable; the quasi of a tagged template (including `` String.raw`…` `` itself) is never reported. The report carries no autofix.
 
 Example:
 
@@ -2476,9 +2476,9 @@ WHERE active = true
 
 ### `unicorn/text-encoding-identifier-case`
 
-Enforce a canonical case for text-encoding identifiers — the dash-less `"utf8"` by default (so `"UTF-8"`, `"utf-8"`, and `"Utf8"` all report toward `"utf8"`).
+Enforce a canonical case for text-encoding identifiers, the dash-less `"utf8"` by default (so `"UTF-8"`, `"utf-8"`, and `"Utf8"` all report toward `"utf8"`).
 
-Only `utf-8` / `utf8` and `ascii` are recognized; every other label (`"latin1"`, `"UTF-16LE"`, …) passes through untouched. `ascii` is always the lowercase form. The dashed WHATWG spelling `"utf-8"` is enforced instead of the default in the contexts that echo the label back verbatim: the first argument of `new TextDecoder(...)`, a JSX `<meta charset>` attribute, and a JSX `<form accept-charset>` attribute — or everywhere when the `withDash: true` option is set.
+Only `utf-8` / `utf8` and `ascii` are recognized; every other label (`"latin1"`, `"UTF-16LE"`, …) passes through untouched. `ascii` is always the lowercase form. The dashed WHATWG spelling `"utf-8"` is enforced instead of the default in the contexts that echo the label back verbatim: the first argument of `new TextDecoder(...)`, a JSX `<meta charset>` attribute, and a JSX `<form accept-charset>` attribute, or everywhere when the `withDash: true` option is set.
 
 Only the encoding argument of `fs.readFile()` / `fs.readFileSync()` is autofixed; every other position reports an opt-in editor suggestion instead.
 

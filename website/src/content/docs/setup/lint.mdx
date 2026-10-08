@@ -2,7 +2,7 @@ import { Tabs } from "nextra/components";
 
 # Lint & Format
 
-`@ttsc/lint` folds ESLint's job and Prettier's job into the compile you already run. No plugin resolution ceremony, no formatter fighting the linter: one config file, one pass, one exit code.
+`@ttsc/lint` runs lint and format rules during compilation, with one configuration file and compiler diagnostics.
 
 ## Install
 
@@ -77,7 +77,7 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
   ~~~~~~~~~~~~~~
 ```
 
-Lint violations arrive as compiler diagnostics, in the same stream as type errors, with the rule name in brackets. The CI step that already runs `ttsc --noEmit` now gates lint too, for free.
+Lint violations appear alongside type errors, with the rule name in brackets. Running `ttsc --noEmit` checks both.
 
 ## Cleaning up
 

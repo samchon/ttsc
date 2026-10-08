@@ -95,9 +95,9 @@ should apply to it.
 
 This is not a build error. The file is simply not this project's to transform, and the usual cause is a Metro graph reaching past the `tsconfig`'s `include`, such as a source beside `src` rather than inside it or one in a sibling workspace folder. Add it to that project's `include` if `ttsc` plugins should apply to it.
 
-The report matters because passing through is not the same as leaving alone: a file that skips the `ttsc` pass keeps whatever plugin-driven syntax it carries, which fails at runtime rather than at build time. Declaration and JavaScript files never reach the pass at all, so they are not reported; they are filtered before it, as `include` / `exclude` above describes.
+A skipped file retains its plugin-driven calls, which may fail at runtime. Declaration and JavaScript files are filtered before this check.
 
-This answer belongs to the shared transform core rather than to Metro, so every [`@ttsc/unplugin`](/docs/setup/unplugin) adapter gives the identical one.
+The same pass-through behavior applies to [`@ttsc/unplugin`](/docs/setup/unplugin).
 
 ## Cache invalidation
 
@@ -105,19 +105,15 @@ The upstream transformer's cache key contributes to the adapter's key. If loadin
 
 Compiler overlays and plugin options retain their transmitted JSON property order in the key. Reordering a `paths` map can change wildcard precedence, and a plugin may interpret its own option order, so those records do not share cached output solely because their key/value pairs match.
 
-The exact filesystem inputs consulted by TypeScript-Go resolution are recorded as fingerprint inputs, with importer-owned probes following their reference closure and automatic type discovery remaining universal. A missing input remains recorded even when it lies under the project root, so creating it changes the next Metro cache key even though the first project walk could not hash a path that did not yet exist. Existing unsuccessful probes are already part of the ordinary project walk or the recorded input set.
-
-Metro keys its transform cache on each file's own content plus one static transformer key evaluated once per run, and its babel-transformer contract offers no per-file dependency registration. A `ttsc` transform can depend on a type declared in another file, so `@ttsc/metro` folds a project fingerprint into the static key: every regular file reached by the project walk, every effective config source, and transform inputs recorded under `node_modules/.cache/ttsc-metro`. In a workspace with nested or directory-linked `tsconfig.json` projects, each lexical subtree is walked under the nearest config that transformed files use; the project-map traversal follows symlinks and Windows junctions while a physical ancestor set cuts cycles without collapsing independent aliases. The project map itself is hashed so adding or removing a nested or linked project config also changes the key. Worker discovery retains the exact candidate predicates that selected its project instead of reconstructing them after selection. A module passed through because its Program has no output still records those candidates and the universal config inputs that can later admit it. `withTtsc` gives each run a private identity, `getCacheKey` records the exact file state and static coverage that identity hashed, and workers compare every derived input's compiler-generation hash, realpath, or resolution predicate with that baseline. Inputs outside proven static coverage stay in one batched worker snapshot. A missing input, an out-of-root `watchFolders` project, a symlink or Windows junction transition, an `extends` change, or any A-to-B-to-A change between static keying and transformation taints the observation and rotates the next snapshot epoch, so it cannot collide with the earlier A key. A plugin's Go source directory is recorded as one, and the key carries the state its binary was built from, its sources and its Go build environment, so a plugin edited in place, or a run under another `GOFLAGS` or Go toolchain, re-keys the next run while a write below its `node_modules` or `.git` does not. Editing any fingerprinted input re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes, `tsconfig` edits, plugin configuration changes, and plugin source edits without `--reset-cache`.
-
-Worker snapshots are merged into the main record before their files are removed. If Windows temporarily holds a claimed worker file open, the main record remembers it was merged; a later preparation retries removal without merging that observation or rotating the epoch again.
+The cache fingerprint includes project files, effective configs, resolution inputs, plugin dependencies, and plugin Go sources and build environment. Nested and linked projects are tracked under their own configs. Changes to those inputs invalidate the next run, including newly created resolution targets and retargeted symlinks or Windows junctions. Restarting a bundle or dev server picks up these changes without `--reset-cache`.
 
 The recorded input set follows what the transform core derives per file, so a plugin that declares its reported dependency list [complete](/docs/development/concepts/protocol#dependency-completeness) for a file narrows what that file contributes to the fingerprint. Files under the project root are walked regardless of any declaration.
 
-The granularity is project-level because Metro's contract admits nothing finer: one key per run means any fingerprinted change re-transforms every file on the next run. Two behaviors sit outside the mechanism's reach:
+Metro uses one transformer key per run, so a fingerprint change re-transforms every file on the next run. During development and recovery:
 
 - **Within a running dev server**, Metro re-transforms only files its watcher reports changed, so editing a type in file B refreshes a dependent file A on A's next transform. Save A, or restart the dev server; no `--reset-cache` is needed in either case.
 - **Files a plugin declares [`volatile`](/docs/development/concepts/protocol#transform)** depend on non-file inputs no fingerprint can represent; while a volatile declaration is recorded, cross-run cache reuse is disabled entirely.
-- **If snapshot persistence fails**, a recovery document beside `node_modules/.cache/ttsc-metro` makes every later key non-reusable until the pending observations are compacted under a fresh epoch. If preparation cannot persist even that document, its run token forces a nonce across bundle and process boundaries. A worker whose run token authorized a reusable key fails the transform if neither location accepts its observation, even when the old main snapshot is temporarily unreadable.
+- **Snapshot persistence failures** disable reusable keys until pending observations can be saved. A worker fails the transform if it cannot persist the inputs required by an already reusable key.
 
 ## Caveats (v1)
 

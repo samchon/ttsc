@@ -1,6 +1,6 @@
 # Strip debug code
 
-`@ttsc/strip` removes configured function calls and `debugger` statements from the emit. It's not a minifier or tree-shaker, it removes **exactly** the patterns you list, nothing else.
+`@ttsc/strip` removes configured function calls and `debugger` statements from emitted code.
 
 ## Install
 
@@ -25,8 +25,6 @@ With no extra configuration, the defaults are:
 - `console.debug`
 - `assert.*`
 - `debugger`
-
-So `console.log(...)` and `debugger;` disappear from your emit by default.
 
 ## Custom patterns
 
@@ -72,7 +70,7 @@ console.log(result);         // ← removed
 const data = console.log("x"); // ← NOT removed (the call is an expression)
 ```
 
-This is intentional, silently changing expressions can break code that depends on the call's return value, however unusual that is.
+Calls used within expressions are retained because removing them could change the expression's value.
 
 ## Use cases
 
