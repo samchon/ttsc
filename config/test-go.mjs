@@ -36,6 +36,7 @@ if (toolchain.status === 0) {
   // slashes and quoted words preserve Windows drive paths and spaces there.
   const command = [
     process.execPath,
+    "--stack-size=8192",
     fileURLToPath(new URL("../packages/wasm/test/go-js-wasm-exec.mjs", import.meta.url)),
     path.join(toolchain.stdout.trim(), "lib", "wasm", "wasm_exec_node.js"),
   ].map((word) => {
@@ -44,9 +45,11 @@ if (toolchain.status === 0) {
     if (value.includes(quote)) throw new Error("Go -exec cannot quote a path containing both quote characters");
     return `${quote}${value}${quote}`;
   }).join(" ");
+  // This Node process is also the actual WASM runtime. Prevent inherited
+  // preload/options from taking effect before its launcher trims the env.
   wasm = run([
     "-C", "packages/wasm", "test", "-count=1", "-exec", command, "./test/host",
-  ], { ...process.env, GOOS: "js", GOARCH: "wasm" });
+  ], { ...process.env, NODE_OPTIONS: "", GOOS: "js", GOARCH: "wasm" });
 } else {
   console.error(toolchain.error ?? `Cannot locate the Go WASM runner (go env GOROOT exited ${toolchain.status}): ${toolchain.stderr}`);
 }
