@@ -3,7 +3,6 @@
 package sourceprocess
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -89,18 +88,21 @@ func runCommand(req request, cancel <-chan struct{}, out, stderr io.Writer) (com
 	}
 	// The direct child has not been reaped, even if it already exited. Its PID
 	// therefore still reserves this group identity during the final signal.
-	terminationErr := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-	if !observed { observationErr = <-exited }
-	runErr := cmd.Wait()
+	runErr, retirementErr := completeGroup(cmd.Process.Pid, groupOperations{
+		signal: syscall.Kill,
+		wait: func() error {
+			if !observed { observationErr = <-exited }
+			return cmd.Wait()
+		},
+		reap: reapGroup,
+		now: time.Now,
+		sleep: time.Sleep,
+	})
 	value := commandResult(cmd, runErr)
 	value.Cancelled = cancelled
 	value.Cleanup.OrphanReaping = orphanReaping()
-	if terminationErr != nil && !errors.Is(terminationErr, syscall.ESRCH) {
-		value.Error = &processError{Code: "EPROCESS", Message: terminationErr.Error()}
-		return value
-	}
-	if err := retireGroup(cmd.Process.Pid); err != nil {
-		value.Error = &processError{Code: "EPROCESS", Message: err.Error()}
+	if retirementErr != nil {
+		value.Error = &processError{Code: "EPROCESS", Message: retirementErr.Error()}
 		return value
 	}
 	value.Cleanup.BoundaryEmpty = true
@@ -108,18 +110,6 @@ func runCommand(req request, cancel <-chan struct{}, out, stderr io.Writer) (com
 	if timedOut { value.Error = &processError{Code: "ETIMEDOUT", Message: "source command exceeded its requested timeout"} }
 	if cancelled && !timedOut { value.Error = &processError{Code: "ECANCELED", Message: "source command cancelled"} }
 	return value
-}
-
-func retireGroup(group int) error {
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		if err := reapGroup(group); err != nil { return err }
-		err := syscall.Kill(-group, 0)
-		if errors.Is(err, syscall.ESRCH) { return nil }
-		if err != nil { return err }
-		if !time.Now().Before(deadline) { return fmt.Errorf("source process group %d still exists after termination", group) }
-		time.Sleep(10 * time.Millisecond)
-	}
 }
 
 func commandSignal(state *os.ProcessState) *string {
