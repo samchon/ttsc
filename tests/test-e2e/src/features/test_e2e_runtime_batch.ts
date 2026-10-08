@@ -165,9 +165,13 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * package's own transform and a physical workspace target. Both the main host
  * and retained register actor observe that authority; the latter starts from
  * its actually loaded TypeScript parent and retains the normal entry gate.
+ * Orphan maps identify all three authored sources through native physical
+ * paths, permitting the loader's URL spelling. Fixture byte snapshots exclude
+ * only the installed store's independently expected default ttsc build cache;
+ * all authored files and the remaining population still detect adjacent emit.
  *
  *
- * @evidence contracts/testing.md#behavioral-verification Native static ESM linking must expose all six literal package-star bindings while default/require values and one-evaluation counters agree. Installed-boundary plugin effects must match the authored JSON oracle in both public runtime and retained register output; fixture trees remain byte-identical without adjacent emission. Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
+ * @evidence contracts/testing.md#behavioral-verification Native static ESM linking must expose all six literal package-star bindings while default/require values and one-evaluation counters agree. Installed-boundary plugin effects must match the authored JSON oracle in both public runtime and retained register output; authored fixture bytes and the complete non-cache population remain unchanged; only the independently expected default plugin cache is omitted before traversal, and orphan maps identify all three authored sources by native physical paths. Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
  * @evidence contracts/testing.md#independent-expectations Authored require/import targets have distinct literal values, and consumerEffect versus ownEffect independently distinguishes isolated, consumer-owned and package-owned compilation. The static expected.json is authored before execution, never derived from emitted code or runtime results. The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
  * @evidence contracts/testing.md#distinguishing-cases Bare, conditional, source-only, relative and cycle edges coexist with direct exports, type-only erasure and blocked/missing native failures. A proven native NODE_MODULES alias contrasts with its own nearer config and a linked physical workspace outside the store; explicit cts/mts sources leave compiler module-format policy unchanged. Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
  * The existing rejection actor also consumes one upfront readonly namespace. Native permission denial is required before its default-cache success, explicit-cache excluded refusal and included success; restored writes and complete input bytes establish release and nonmutation. Root privilege supplies zero readonly coverage. The two successful dispatches launch two real entry children, while the three former CLI parent launches and separate readonly staging disappear.
@@ -242,9 +246,28 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     "tools/runtime-package-boundary",
     "src/runtime-corpus/export-population/package-stars",
   ].map((relative) => path.join(workspace.root, relative));
-  const runtimeBoundaryInputs = await Promise.all(
-    runtimeBoundaryRoots.map((root) => FileSystemIterator.read(root)),
+  const runtimeBoundaryCache = path.join(
+    workspace.root,
+    "tools/runtime-package-boundary/app/NODE_MODULES/.cache/ttsc",
   );
+  const readRuntimeBoundaryInputs = (root: string): Map<string, Buffer> => {
+    const files = new Map<string, Buffer>();
+    const cache = fs.existsSync(runtimeBoundaryCache)
+      ? fs.realpathSync.native(runtimeBoundaryCache)
+      : undefined;
+    const visit = (directory: string): void => {
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const file = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          if (cache === undefined || fs.realpathSync.native(file) !== cache)
+            visit(file);
+        } else if (entry.isFile()) files.set(file, fs.readFileSync(file));
+      }
+    };
+    visit(root);
+    return files;
+  };
+  const runtimeBoundaryInputs = runtimeBoundaryRoots.map(readRuntimeBoundaryInputs);
   const jsxRuntimeRoot = path.join(workspace.root, "node_modules/myjsx");
   const jsxOrphanRoot = path.join(workspace.root, "node_modules/orphan-view");
   const jsxInputs = workspace.installationOnly
@@ -1178,7 +1201,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     }
     for (const [index, root] of runtimeBoundaryRoots.entries()) {
       try {
-        assert.deepEqual(await FileSystemIterator.read(root), runtimeBoundaryInputs[index], "runtime package fixtures retain all input bytes and contain no adjacent emit");
+        assert.deepEqual(readRuntimeBoundaryInputs(root), runtimeBoundaryInputs[index], "runtime package fixtures retain all input bytes and contain no adjacent emit outside the selected build cache");
       } catch (error) { combinedFailures.push(error); }
     }
   }

@@ -25,12 +25,21 @@ const inputs = new Map([
   "tools/api-environment-layers.cjs", "tools/api-env-descriptor.cjs",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
 const boundaryRoot = path.join(root, "tools/runtime-package-boundary");
-const readBoundaryTree = (directory = boundaryRoot, files = new Map()) => {
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const file = path.join(directory, entry.name);
-    if (entry.isDirectory()) readBoundaryTree(file, files);
-    else if (entry.isFile()) files.set(file, fs.readFileSync(file));
-  }
+// Unoverridden builds for these package projects select this installation's
+// documented default plugin cache. Its binaries are not authored fixture input.
+const boundaryCache = path.join(boundaryRoot, "app/NODE_MODULES/.cache/ttsc");
+const readBoundaryTree = () => {
+  const files = new Map();
+  const cache = fs.existsSync(boundaryCache) ? fs.realpathSync.native(boundaryCache) : undefined;
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (cache === undefined || fs.realpathSync.native(file) !== cache) visit(file);
+      } else if (entry.isFile()) files.set(file, fs.readFileSync(file));
+    }
+  };
+  visit(boundaryRoot);
   return files;
 };
 const boundaryInputs = readBoundaryTree();
@@ -422,12 +431,12 @@ try {
     assert.ok(inline, "each retained isolated emit must preserve its original source-map identity");
     return JSON.parse(Buffer.from(inline[1], "base64").toString("utf8")).sources;
   });
-  const { pathToFileURL } = require("node:url");
-  assert.deepEqual(loweredSources.sort(), [
+  const { fileURLToPath } = require("node:url");
+  assert.deepEqual(loweredSources.map((source) => fs.realpathSync.native(fileURLToPath(source))).sort(), [
     configlessPlacement,
     path.join(boundaryRoot, "app/NODE_MODULES/boundary-no-config/index.cts"),
     path.join(boundaryRoot, "app/NODE_MODULES/boundary-no-config/esm.mts"),
-  ].map((file) => pathToFileURL(fs.realpathSync.native(file)).href).sort());
+  ].map((file) => fs.realpathSync.native(file)).sort());
   assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
   assert.equal(fs.existsSync(path.join(configlessDirectory, "runtime-placement.js")), false);
   assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
