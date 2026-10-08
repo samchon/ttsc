@@ -311,7 +311,7 @@ export async function observeColdMcpEof(workspace: Pick<BatchWorkspace.Workspace
  * batch keeps its acquisition fence; this shared body owns original actors,
  * guarded cold preparation, queued recovery and terminal session closure.
  *
- * @evidence contracts/testing.md#behavioral-verification The built public Session actor aborts an independently admitted cold producer, recovers through its real queue, reuses the resulting graph and refuses admission after terminal close.
+ * @evidence contracts/testing.md#behavioral-verification The built public Session actor aborts an independently admitted cold producer, recovers through its real queue, reuses the resulting graph and refuses admission after terminal close. Passive operation/close failure messages are preserved from IPC before resource waits or close acknowledgment, without reading unjoined inputs.
  * @evidence contracts/testing.md#independent-expectations Authored AbortError/reason and Markdown node address define cancellation and recovery; source/process identities, guard release and native spawn/close receipts independently establish lifetime outcomes.
  * @evidence contracts/testing.md#distinguishing-cases Abort differs from EOF; queued recovery must start a new preparation while preserving no late artifacts from the old one, unchanged warm identity and closed-session rejection.
  * @evidence contracts/testing.md#execution-ownership Ordinary and narrow callers share this exact public actor/OS observation/assertion body; no caller replaces the product resolver or native worker.
@@ -367,8 +367,17 @@ export async function observeColdPublicSessionCancellation(workspace: Pick<Batch
       failures.push(error);
     }
   });
-  child.on("message", (message: { event?: string }) => {
+  child.on("message", (message: { event?: string; diagnostic?: string }) => {
     if (message.event) events.add(message.event);
+    if (message.event === "failed" || message.event === "close-failed") {
+      try {
+        // IPC has already detached this plain diagnostic record. Export it
+        // before resource waits or successful-close acknowledgment can fail.
+        preserveColdRowDiagnostics(row, false, false, stderr, message);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
   });
   let exited = false;
   child.once("close", () => {

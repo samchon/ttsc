@@ -13,13 +13,14 @@ import { preserveColdRowDiagnostics } from "../../../../utils/src/preserveColdRo
  * still needed, while neither diagnostic text nor a vanished PID grants input
  * copying or reclamation. Closed rows retain their exact receipt bytes.
  *
- * 1. Export a partial row whose source does not exist and retain its stderr.
+ * 1. Export a partial row whose source does not exist and retain stderr and
+ *    independently captured operation/close IPC failure records.
  * 2. Contrast a closed row containing an authored receipt and exact hash.
  * 3. Require original source bytes unchanged and disabled output to do no IO.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the actual diagnostic snapshot owner with partial and closed rows, reads the produced metadata and copied receipt bytes, and requires failed join/release flags and captured stderr to survive unchanged.
- * @evidence contracts/testing.md#independent-expectations A nonexistent partial source must never be enumerated; literal stderr and receipt bytes are authored independently, and the expected SHA is computed from those authored bytes rather than the generated copy.
- * @evidence contracts/testing.md#distinguishing-cases Partial unknown closure exports metadata only; closed but unsuccessful release remains false while copies are permitted by confirmed reader join. Disabled diagnostics do not create a destination or read a nonexistent source.
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual diagnostic snapshot owner with partial and closed rows, reads the produced metadata and copied receipt bytes, and requires failed join/release flags, captured stderr and operation/close IPC failure records to survive unchanged.
+ * @evidence contracts/testing.md#independent-expectations A nonexistent partial source must never be enumerated; literal stderr, nested IPC diagnostic text and receipt bytes are authored independently, and the expected SHA is computed from those authored bytes rather than the generated copy.
+ * @evidence contracts/testing.md#distinguishing-cases Partial unknown closure exports supplied metadata only, including distinct operation and close failures; closed but unsuccessful release remains false while copies are permitted by confirmed reader join. Disabled diagnostics do not create a destination or read a nonexistent source.
  * @evidence contracts/testing.md#execution-ownership The test-ttsc runner calls a shared test helper against one temporary filesystem root; it starts no product host, native producer or consumer installation. Cold E2E remains the owner of original process lifetime assertions.
  */
 export function test_partial_cold_diagnostics_preserve_stderr_without_copying_unknown_inputs(): void {
@@ -36,6 +37,18 @@ export function test_partial_cold_diagnostics_preserve_stderr_without_copying_un
     assert.equal(metadata.partial, true);
     assert.deepEqual(metadata.files, []);
     assert.equal(fs.existsSync(missing), false);
+    for (const event of ["failed", "close-failed"]) {
+      const actorMessage = { event, diagnostic: "outer cleanup failure\n  cause: authored native refusal\n  errors: [authored guard refusal]" };
+      const captured = preserveColdRowDiagnostics({ root: missing, diagnosticRoot: root }, false, false, stderr, actorMessage);
+      assert.ok(captured);
+      const receipt = JSON.parse(fs.readFileSync(path.join(captured, "row.jsonl"), "utf8"));
+      assert.deepEqual(receipt.actorMessage, actorMessage);
+      assert.equal(receipt.joined, false);
+      assert.equal(receipt.releaseConfirmed, false);
+      assert.equal(receipt.partial, true);
+      assert.deepEqual(receipt.files, []);
+      assert.equal(fs.existsSync(missing), false);
+    }
     const source = path.join(root, "closed");
     fs.mkdirSync(source);
     const bytes = Buffer.from('{"receipt":"authored original bytes"}\n');

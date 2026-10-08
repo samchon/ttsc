@@ -1,7 +1,9 @@
 // Use the built public facade under the actor's explicit cache environment.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const { TtscGraphSession } = require(process.argv[2]);
+const { formatGraphFailure } = require(path.join(path.dirname(process.argv[2]), "server/formatGraphFailure.js"));
 const root = process.argv[3];
 const binary = process.argv[4];
 const report = process.argv[5];
@@ -15,6 +17,13 @@ const record = (event, data = {}) => {
   fs.appendFileSync(report, JSON.stringify({ event, pid: process.pid, ...data }) + "\n");
   process.send?.({ event, ...data });
 };
+// Report passive nested diagnostics over both already-owned channels. Neither
+// the message nor stderr certifies the original session's successful closure.
+const failure = (event, error) => {
+  const diagnostic = formatGraphFailure(error);
+  process.stderr.write(diagnostic + "\n");
+  record(event, { diagnostic });
+};
 process.on("message", (message) => {
   if (message === "abort") { controller.abort(reason); return; }
   if (message === "close") {
@@ -27,7 +36,7 @@ process.on("message", (message) => {
       await session.close();
       record("closed");
     })().catch((error) => {
-      record("close-failed", { message: String(error) });
+      failure("close-failed", error);
       process.exitCode = 1;
     }).finally(() => { if (process.connected) process.disconnect(); });
     return;
@@ -48,10 +57,10 @@ process.on("message", (message) => {
       record("recovered", { nodes: graph.nodes.length });
     }
   }).catch(async (error) => {
-    record("failed", { message: String(error), stack: error.stack });
+    failure("failed", error);
     controller.abort(reason);
     try { await session.close(); record("closed-after-failure"); }
-    catch (cleanup) { record("close-failed", { message: String(cleanup) }); }
+    catch (cleanup) { failure("close-failed", cleanup); }
     process.exitCode = 1;
     if (process.connected) process.disconnect();
   });

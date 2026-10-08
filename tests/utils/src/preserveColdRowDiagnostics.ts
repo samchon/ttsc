@@ -5,16 +5,16 @@ import path from "node:path";
 /**
  * Preserve closed process receipts and an explicitly partial stderr snapshot.
  *
- * Unknown readers keep their input files untouched. Their captured stderr is
- * diagnostic text only; it cannot certify join or resource release. Closed
+ * Unknown readers keep their input files untouched. Captured stderr and IPC
+ * failure records cannot certify join or resource release. Closed
  * readers permit copying receipt bytes with a manifest for later verification.
  *
- * @evidence contracts/common.md#principled-implementation Caller-supplied closure controls receipt copying; captured stderr is exported independently while partial and release flags retain their original meanings.
+ * @evidence contracts/common.md#principled-implementation Caller-supplied closure controls receipt copying; captured stderr and plain IPC failure records are exported independently while partial and release flags retain their original meanings.
  * @evidence contracts/common.md#clear-and-simple-design One helper owns diagnostic snapshot files and their integrity manifest; the scenario continues to own actual join, resource release and retention.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Partial metadata never grants reclamation or converts an unsuccessful child exit to success; no changing input is read when closure is unknown.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes passive stderr snapshots from closed receipt copies and native lifetime authority.
  * @evidence contracts/portability.md#os-neutral-implementation Node filesystem/path APIs preserve native paths and bytes without shell quoting or process-liveness inference.
- * @evidence contracts/performance.md#efficient-algorithms A closed row scans its receipt tree once and hashes each copied file once; partial rows write only supplied metadata and stderr text.
+ * @evidence contracts/performance.md#efficient-algorithms A closed row scans its receipt tree once and hashes each copied file once; partial rows write only supplied metadata, stderr text and an already-captured IPC record.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each diagnostic occurrence needs its own immutable destination; earlier snapshots cannot represent later process states.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The runner owns snapshot reclamation; this helper closes synchronous writes and retains no handles or history. Original input release stays with the caller.
  */
@@ -23,6 +23,7 @@ export function preserveColdRowDiagnostics(
   joined: boolean,
   releaseConfirmed: boolean,
   stderr?: string,
+  actorMessage?: { event?: string; diagnostic?: string },
 ): string | undefined {
   if (!row.diagnosticRoot) return;
   const destination = fs.mkdtempSync(
@@ -74,6 +75,7 @@ export function preserveColdRowDiagnostics(
       releaseConfirmed,
       partial: !joined,
       ...(stderr === undefined ? {} : { stderr }),
+      ...(actorMessage === undefined ? {} : { actorMessage }),
       files,
     }) + "\n",
     { flag: "wx" },
