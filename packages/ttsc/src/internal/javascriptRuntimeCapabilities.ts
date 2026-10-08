@@ -17,13 +17,15 @@ import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
  * Successful absolute candidates can be reused only while their actual bytes,
  * lexical link and physical target agree. Preloaded, relative and wrapper
  * candidates are probed anew because those inputs can select mutable behavior.
+ * Cache-ineligible candidates do not acquire executable proofs used only by
+ * cache lookup and publication.
  *
  * @evidence contracts/common.md#principled-implementation A child reports its own feature availability and executable; byte-aware before/after identity and same-executable proof authorize reuse only for a stable absolute runtime without NODE_OPTIONS preload authority.
  * @evidence contracts/common.md#clear-and-simple-design One probe owner coordinates identity, spawning and parsing; the shared fingerprint helper owns file-content proof and the low-descriptor helper owns the POSIX launch distinction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Feature availability comes from the actual interpreter rather than its name; descriptor fallback handles a supported kernel constraint and failures produce unsupported capabilities, not fabricated success.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain measured capabilities, reuse restrictions and freshness, with comments separating platform launch and cache permission from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Shared environment merge and lookup apply native name identity to caller precedence and NODE_OPTIONS preload authority, including Windows aliases; Node spawn receives an executable and argv without shell syntax, and only POSIX descriptor exhaustion uses the isolated broker.
- * @evidence contracts/performance.md#efficient-algorithms Environment merge/name handling precedes native executable identity validation; a cache hit still reads B executable bytes. An uncached probe additionally spawns/parses reported stdout and observes executable identity again, with a possible descriptor-exhaustion retry and capture-file reads. Text/environment/byte/native lookup costs and transient output storage contribute beyond the fixed feature shape; this adapter sets no explicit byte quota.
+ * @evidence contracts/performance.md#efficient-algorithms Environment merge/name handling first decides cache eligibility. Eligible hits read B executable bytes; eligible misses acquire before/after content proofs around the actual probe. Ineligible calls retain the fresh child without reading executable bytes solely for the forbidden cache. Probe spawning/parsing, a possible descriptor-exhaustion retry and capture-file reads add text/environment/native lookup costs and transient output storage; this adapter sets no explicit byte quota.
  * @evidence contracts/performance.md#reuse-equivalent-work Stable absolute candidates that report their own executable share measured capability results, including false feature flags; changed executable bytes, link/target identity, preload options or wrapper identity require another probe, while failed probes without executable identity are not reused.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous probe owns child completion and fallback captures; finally attempts capture close/removal, whose helper suppresses cleanup failures, so native/file release is unconfirmed on failure. Capability entries retain absolute spellings and path/identity text with no eviction quota; failed identity validation can remove an entry. Returned capability copies transfer to callers.
  */
@@ -34,7 +36,8 @@ export function javascriptRuntimeCapabilities(
 ): IJavaScriptRuntimeCapabilities {
   const effectiveEnv = SidecarEnvironment.merge(process.env, env);
   const cacheKey = runtimeCapabilityCacheKey(runtime, effectiveEnv);
-  const beforeIdentity = runtimeExecutableIdentity(runtime);
+  const beforeIdentity =
+    cacheKey === undefined ? undefined : runtimeExecutableIdentity(runtime);
   if (cacheKey !== undefined && beforeIdentity !== undefined) {
     const cached = runtimeCapabilityCache.get(cacheKey);
     if (cached?.identity === beforeIdentity) return { ...cached.capabilities };
@@ -109,7 +112,8 @@ export function javascriptRuntimeCapabilities(
   // false for either feature and still be reused under the executable proof.
   // This removes a process spawn from the common path without
   // authorizing a replaced or redirected runtime in a long-lived host.
-  const afterIdentity = runtimeExecutableIdentity(runtime);
+  const afterIdentity =
+    cacheKey === undefined ? undefined : runtimeExecutableIdentity(runtime);
   if (
     cacheKey !== undefined &&
     capabilities.executable !== undefined &&
