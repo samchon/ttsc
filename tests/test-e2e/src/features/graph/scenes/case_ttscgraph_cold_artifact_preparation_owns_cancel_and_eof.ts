@@ -44,8 +44,8 @@ export async function case_ttscgraph_cold_artifact_preparation_owns_cancel_and_e
 ): Promise<void> {
   const failures: unknown[] = [];
   for (const [name, run] of [
-    ["cold MCP EOF", mcp],
-    ["cold public Session cancellation", session],
+    ["cold MCP EOF", observeColdMcpEof],
+    ["cold public Session cancellation", observeColdPublicSessionCancellation],
   ] as const) {
     try {
       await BatchWorkspace.open();
@@ -101,7 +101,24 @@ function closeReceipt(
   return result;
 }
 
-async function mcp(workspace: BatchWorkspace.Workspace): Promise<void> {
+/**
+ * Exercise EOF against an already prepared publisher input graph.
+ *
+ * The ordinary batch and narrow owning experiment share this exact actor and
+ * all readiness, source-lease and original-close assertions. A narrow caller
+ * owns verification and retention of its prepared immutable graphRoot; this
+ * function does not install, warm or reclaim that shared input population.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The built MCP actor handles tools/list during an independently observed cold source build, then EOF joins its actual producer before guarded inputs retire.
+ * @evidence contracts/testing.md#independent-expectations A fresh process-query nonce, exact source invocation and guards establish admission; original successful actor close and absence/resource checks establish retirement, never a fabricated empty graph.
+ * @evidence contracts/testing.md#distinguishing-cases The request must remain pending before EOF and fail after EOF without late graph admission, artifact publication or post-close Go work; incomplete observation retains inputs.
+ * @evidence contracts/testing.md#execution-ownership The graph batch and explicit prepared-input experiment call the same MCP/OS actors and assertion body with one selected graphRoot.
+ * @evidence contracts/e2e.md#necessary-boundary Actual event-loop responsiveness, stdin EOF, native preparation and input leases cross SDK worker/native boundaries that portable units cannot certify.
+ * @evidence contracts/e2e.md#shared-execution Borrows prepared publisher sources and dependencies, creates only this cold plugin profile and Go work directory, and reuses the ordinary shared Go object cache without another installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique empty source cache preserves cold admission; original product and observation actors close before resource checks or reclamation. Failed join or release retains this row and blocks ordinary batch reuse.
+ * @evidence contracts/e2e.md#preserved-coverage This is the existing MCP EOF body without removed assertions; ordinary batch acquisition remains at the scene entry and narrow callers independently own prepared-input binding.
+ */
+export async function observeColdMcpEof(workspace: Pick<BatchWorkspace.Workspace, "graphRoot">): Promise<void> {
   const row = allocation("graph-cold-eof-");
   const nativeReceipt = path.join(row.root, "native-starts.jsonl");
   fs.writeFileSync(nativeReceipt, "", { flag: "wx" });
@@ -286,7 +303,23 @@ async function mcp(workspace: BatchWorkspace.Workspace): Promise<void> {
     );
 }
 
-async function session(workspace: BatchWorkspace.Workspace): Promise<void> {
+/**
+ * Exercise public cancellation and recovery on prepared publisher inputs.
+ *
+ * Callers own the immutable graphRoot and its preparation proof. The ordinary
+ * batch keeps its acquisition fence; this shared body owns original actors,
+ * guarded cold preparation, queued recovery and terminal session closure.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The built public Session actor aborts an independently admitted cold producer, recovers through its real queue, reuses the resulting graph and refuses admission after terminal close.
+ * @evidence contracts/testing.md#independent-expectations Authored AbortError/reason and Markdown node address define cancellation and recovery; source/process identities, guard release and native spawn/close receipts independently establish lifetime outcomes.
+ * @evidence contracts/testing.md#distinguishing-cases Abort differs from EOF; queued recovery must start a new preparation while preserving no late artifacts from the old one, unchanged warm identity and closed-session rejection.
+ * @evidence contracts/testing.md#execution-ownership Ordinary and narrow callers share this exact public actor/OS observation/assertion body; no caller replaces the product resolver or native worker.
+ * @evidence contracts/e2e.md#necessary-boundary Public AbortSignal propagation, actual producer containment, queued recovery and guarded source lifetime require real SDK/native execution.
+ * @evidence contracts/e2e.md#shared-execution Reuses supplied publisher sources/dependencies and ordinary Go object storage; only the conflicting cold profile and public actor are isolated, with recovery sharing that actor's cache.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Empty unique source cache and old-work exclusion distinguish first cancellation from recovery. Original session/observer joins, input release and stable post-close work are required; unproved rows remain retained.
+ * @evidence contracts/e2e.md#preserved-coverage The existing public cancellation body and every assertion remain shared; ordinary batch acquisition is unchanged and narrow input binding remains the caller's explicit responsibility.
+ */
+export async function observeColdPublicSessionCancellation(workspace: Pick<BatchWorkspace.Workspace, "graphRoot">): Promise<void> {
   const row = allocation("graph-cold-cancel-");
   const report = path.join(row.root, "actor.jsonl");
   const nativeReceipt = path.join(row.root, "native-starts.jsonl");
