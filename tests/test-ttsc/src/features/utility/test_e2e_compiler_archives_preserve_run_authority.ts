@@ -16,8 +16,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * boundaries.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual filesystem inputs and archive bytes exercise the owner, producer, borrowers and release callback; fresh generations run their normal producers after source/config/manifest changes, exact immutable generations remain explicit, and missing/corrupt/replaced archives or failed release cannot grant reuse or cleanup.
- * @evidence contracts/testing.md#independent-expectations Literal distinct payloads, independent SHA-256, explicit producer/release counts and authored failure objects define expected outcomes without deriving them from the owner's verdict.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures.
+ * @evidence contracts/testing.md#independent-expectations Literal distinct payloads, independent SHA-256, explicit producer/release counts and authored failure objects define expected outcomes without deriving them from the owner's verdict. Actual corrupt, equal-byte replaced and metadata-only archive mutations independently determine which finite refusal facts must appear in CI stderr and the error cause.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures.
  * @evidence contracts/testing.md#execution-ownership The existing test-ttsc runner discovers this utility test; explicit producer/release callbacks operate only small authored allocations without native builds, packs, installs or foreign-method replacement.
  */
 export async function test_e2e_compiler_archives_preserve_run_authority(): Promise<void> {
@@ -222,6 +222,13 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
   ][] = [
     ["missing archive", (_fixture, archive) => fs.unlinkSync(archive)],
     [
+      "metadata-only archive change",
+      (_fixture, archive) => {
+        const stat = fs.statSync(archive);
+        fs.utimesSync(archive, stat.atime, new Date(stat.mtimeMs + 2_000));
+      },
+    ],
+    [
       "corrupt archive same size",
       (_fixture, archive) => {
         const stat = fs.statSync(archive);
@@ -247,7 +254,51 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       mutate(fixture, borrower.artifacts[0]!.archive);
       const refusal =
         label === "missing archive" ? /ENOENT/ : /changed before reuse/;
-      assert.throws(() => owner.borrow(), refusal);
+      assert.throws(() => owner.borrow(), (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, refusal);
+        if (label !== "missing archive") {
+          const details = error.cause as {
+            expected: { physical: string; identity: string; sha256: string };
+            current: { physical: string; identity: string; sha256: string };
+            changed: { physical: boolean; identity: boolean; sha256: boolean };
+          };
+          assert.ok(
+            details,
+            "A rejected archive must expose its actual mismatch",
+          );
+          assert.equal(
+            details.expected.physical,
+            borrower.artifacts[0]!.physical,
+          );
+          assert.equal(
+            details.expected.sha256,
+            crypto.createHash("sha256").update("authored archive").digest("hex"),
+          );
+          assert.equal(
+            details.current.physical,
+            fs.realpathSync.native(borrower.artifacts[0]!.archive),
+          );
+          assert.equal(
+            details.current.sha256,
+            crypto
+              .createHash("sha256")
+              .update(fs.readFileSync(borrower.artifacts[0]!.archive))
+              .digest("hex"),
+          );
+          assert.deepEqual(details.changed, {
+            physical: false,
+            identity: true,
+            sha256: label === "corrupt archive same size",
+          });
+          assert.notEqual(details.expected.identity, details.current.identity);
+          assert.ok(
+            error.message.includes(JSON.stringify(details)),
+            "CI stderr must retain the finite mismatch facts",
+          );
+        }
+        return true;
+      });
       assert.throws(() => borrower.assertAvailable(), refusal);
       borrower.release();
     });

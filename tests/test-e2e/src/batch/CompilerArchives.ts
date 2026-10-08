@@ -67,7 +67,7 @@ export namespace CompilerArchives {
    * @evidence contracts/common.md#principled-implementation Each fresh owner runs the normal pack producers and owns their exact immutable archive generation. Borrowers consume that explicit generation, as the existing materializer contract permits, rather than asking for a cached result of packing a possibly changed source tree.
    * @evidence contracts/common.md#clear-and-simple-design The owner grants read lifetimes and alone admits allocation removal. Detached archive proofs cross the preparation process boundary; one private streaming reader qualifies their physical identity and bytes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Real producers remain explicit operations. Content hashes accompany native file identity; matching names, versions, timestamps or a historical invocation never authorize reuse.
-   * @evidence contracts/common.md#meaningful-documentation The headline identifies one invocation, the interfaces distinguish borrowing from removal authority, and member comments explain sticky retention and required return boundaries.
+   * @evidence contracts/common.md#meaningful-documentation The headline identifies one invocation, the interfaces distinguish borrowing from removal authority, and member comments explain sticky retention and required return boundaries. Refusal records the already observed expected/current path, native signature and digest so a changed generation is distinguishable from a metadata-only mismatch.
    * @evidence contracts/portability.md#os-neutral-implementation Node's native realpath and bigint descriptor metadata observe actual allocations and regular files without OS case assumptions. Selected package roots must be native directories within the repository; linked or nonregular archives refuse qualification.
    * @evidence contracts/performance.md#efficient-algorithms The owner reads selected package manifests once and streams each produced archive with a fixed 64 KiB buffer at publication and reader boundaries. Work follows archive bytes and consumers, without whole-source scans, configuration subprocesses or a second packlist implementation; no wall-time speedup is assumed.
    * @evidence contracts/performance.md#reuse-equivalent-work The finite run shares one producer's exact immutable bytes with independent installations. Every new owner runs fresh normal production, even when names and versions match. Borrowing validates this published generation and its allocation, not equivalence to a new pack of today's source; changed or replaced archive bytes refuse reuse.
@@ -165,10 +165,28 @@ export namespace CompilerArchives {
           current.physical !== artifact.physical ||
           current.identity !== artifact.identity ||
           current.sha256 !== artifact.sha256
-        )
+        ) {
+          const details = {
+            expected: {
+              physical: artifact.physical,
+              identity: artifact.identity,
+              sha256: artifact.sha256,
+            },
+            current,
+            changed: {
+              physical: current.physical !== artifact.physical,
+              identity: current.identity !== artifact.identity,
+              sha256: current.sha256 !== artifact.sha256,
+            },
+          };
           throw new Error(
-            "Compiler archive changed before reuse: " + artifact.name,
+            "Compiler archive changed before reuse: " +
+              artifact.name +
+              "; " +
+              JSON.stringify(details),
+            { cause: details },
           );
+        }
       }
       props.observe?.({
         phase: "qualify-archives",
