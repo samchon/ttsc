@@ -3993,7 +3993,9 @@ async function runResidentLoaderPool(): Promise<void> {
       nativeProbe.raceContent = nonInputRaceContent;
       fs.writeFileSync(configPath, JSON.stringify(poolConfig));
       const outcomes = await Promise.allSettled(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "initial"),
+        ),
       );
       const assertHostObservation = (reply: LoaderPoolOutcome): void => {
         const observation = reply.hostObservation;
@@ -4436,7 +4438,9 @@ async function runResidentLoaderPool(): Promise<void> {
         "the same resident record to repeat its unacknowledged move",
       );
       const metadataDelivery = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "metadata-inputs"),
+        ),
       );
       for (const reply of metadataDelivery) assertHostObservation(reply);
       for (const reply of metadataDelivery)
@@ -4685,7 +4689,9 @@ async function runResidentLoaderPool(): Promise<void> {
         "export type PooledExternalBroken = NotARealExternalType;\n",
       );
       const failed = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "native-failure"),
+        ),
       );
       for (const [index, reply] of failed.entries()) {
         assertHostObservation(reply);
@@ -4762,7 +4768,9 @@ async function runResidentLoaderPool(): Promise<void> {
           }),
       );
       const replay = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "failure-replay"),
+        ),
       );
       for (const reply of replay) {
         assertHostObservation(reply);
@@ -4777,7 +4785,9 @@ async function runResidentLoaderPool(): Promise<void> {
       fs.writeFileSync(contractPath, originalContract);
       fs.writeFileSync(declaration, healthyDeclaration);
       const repaired = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "repaired"),
+        ),
       );
       for (const reply of repaired) assertHostObservation(reply);
       const repairFailure = repaired.some((reply) => reply.error !== undefined)
@@ -4846,7 +4856,13 @@ async function runResidentLoaderPool(): Promise<void> {
       const externalCursor = traceCursor();
       const external = await Promise.all(
         workers.map((worker, index) =>
-          worker.request("", originalDelivered[index]),
+          worker.request(
+            "",
+            originalDelivered[index],
+            undefined,
+            undefined,
+            "external-config-and-disk-source",
+          ),
         ),
       );
       for (const reply of external) {
@@ -4885,7 +4901,15 @@ async function runResidentLoaderPool(): Promise<void> {
       );
       const rootMembershipCursor = traceCursor();
       const externalReplay = await Promise.all(
-        workers.map((worker) => worker.request(divergentSuffix)),
+        workers.map((worker) =>
+          worker.request(
+            divergentSuffix,
+            undefined,
+            undefined,
+            undefined,
+            "root-membership",
+          ),
+        ),
       );
       for (const reply of externalReplay) assert.equal(reply.error, undefined);
       assert.equal(
@@ -4943,7 +4967,15 @@ async function runResidentLoaderPool(): Promise<void> {
       }
       const repeatedCursor = traceCursor();
       const repeatedDivergence = await Promise.all(
-        workers.map((worker) => worker.request(divergentSuffix)),
+        workers.map((worker) =>
+          worker.request(
+            divergentSuffix,
+            undefined,
+            undefined,
+            undefined,
+            "excluded-output-replay",
+          ),
+        ),
       );
       const repeatedCaptures = Object.entries(failureTrace())
         .flatMap(([name, rows]) => rows.slice(repeatedCursor[name] ?? 0))
@@ -5081,7 +5113,13 @@ async function runResidentLoaderPool(): Promise<void> {
             metro: pathToFileURL(path.join(lib, "transformer.js")).href,
             turbopack: TestUnpluginRuntime.libUrl("turbopack"),
           });
-          const reply = await restarted.request();
+          const reply = await restarted.request(
+            "",
+            undefined,
+            undefined,
+            undefined,
+            "fresh-resident-offline-edit",
+          );
           assert.equal(reply.error, undefined);
           assert.ok(reply.value !== undefined);
           assert.match(reply.value.ast.source, /offline-restart-marker/);
