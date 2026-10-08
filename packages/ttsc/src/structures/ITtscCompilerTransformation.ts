@@ -520,7 +520,9 @@ export namespace ITtscCompilerTransformation {
    * Error name, message, stack, causes, aggregate failures and enumerable
    * outcome data are preserved in a finite description.
    *
-   * Repeated objects use `$ttscReference` JSON-pointer markers. Exceptional
+   * Repeated objects use `$ttscReference` JSON-pointer markers. Source objects
+   * shaped like reference or literal-object envelopes are escaped as
+   * `{ $ttscValue: "object", $ttscProperties: ... }`. Exceptional
    * scalars, accessors and failed inspection use `$ttscValue` markers. Error
    * serialization invokes no getters and copies no foreign class internal
    * slots; the separate kind classifier may read Error.message.

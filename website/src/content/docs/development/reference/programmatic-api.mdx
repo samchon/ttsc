@@ -93,7 +93,7 @@ type ITtscCompilerResult =
 - `failure`: Compilation produced error-class diagnostics or a plugin failed after ttsc could establish a build result. Before returning a plugin-backed failure, ttsc runs an independent no-emit TypeScript check so pure TypeScript errors remain in `diagnostics`; `output` may still be partial.
 - `exception`: The host or plugin setup failed before ttsc could establish a build result (cache lockup, missing binary, invalid project setup, etc.). Treat the `error` field as opaque diagnostic material; do not assume it's an `Error` instance.
 
-Exception transport retains a finite description of the failure: Error name, message, stack, cause and aggregate errors, together with enumerable outcome data. Repeated objects use `$ttscReference` JSON-pointer markers. Values that JSON cannot represent, accessors and objects that cannot be inspected use `$ttscValue` markers. The description does not invoke getters or preserve foreign class internal slots.
+Exception transport retains a finite description of the failure: Error name, message, stack, cause and aggregate errors, together with enumerable outcome data. Repeated objects use `$ttscReference` JSON-pointer markers. Source objects shaped like reference or literal-object envelopes are escaped as `{ $ttscValue: "object", $ttscProperties: ... }` so their fields remain distinguishable from transport markers. Values that JSON cannot represent, accessors and objects that cannot be inspected use `$ttscValue` markers. The description does not invoke getters or preserve foreign class internal slots.
 
 ### `transform()`
 

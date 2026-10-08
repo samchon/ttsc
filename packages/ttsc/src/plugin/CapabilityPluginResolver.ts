@@ -3,10 +3,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
+import { serialize } from "node:v8";
 
 import { OwnedNativeProcess } from "../internal/OwnedNativeProcess";
 import { serializeCompilerError } from "../internal/serializeCompilerError";
 import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
+import { receiveCapabilityFailure } from "./internal/receiveCapabilityFailure";
 
 /**
  * Own asynchronous capability discovery and its opaque freshness proofs.
@@ -238,7 +240,7 @@ export class CapabilityPluginResolver {
           }
           clear();
           if (reply.thrown !== undefined) {
-            const error = restoreError(reply.thrown);
+            const error = receiveCapabilityFailure(reply, (failure) => this.failures.push(failure));
             if (signal.aborted && error.name === "AbortError") reject(signal.reason);
             else if (signal.aborted) reject(new AggregateError([signal.reason, error], "ttsc: cancellation cleanup failed"));
             else reject(error);
@@ -380,6 +382,7 @@ interface WorkerReply {
   kind: "reply" | "command";
   value?: unknown;
   thrown?: unknown;
+  ownershipFailed?: boolean;
   command: string;
   args: string[];
   options: SpawnSyncOptions;
@@ -389,22 +392,9 @@ interface WorkerReply {
 
 function writeCommandReply(reply: WorkerReply, value: unknown): void {
   try {
-    fs.writeFileSync(reply.responseFile, JSON.stringify(value, (_key, item: unknown) => Buffer.isBuffer(item) ? { type: "Buffer", data: [...item] } : item));
+    fs.writeFileSync(reply.responseFile, serialize(value));
   } finally {
     Atomics.store(new Int32Array(reply.done), 0, 1);
     Atomics.notify(new Int32Array(reply.done), 0);
   }
-}
-
-function restoreError(value: unknown): Error {
-  const data = typeof value === "object" && value !== null ? value as { message?: string; name?: string; stack?: string; cause?: unknown; errors?: unknown[] } : {};
-  const error = Array.isArray(data.errors)
-    ? new AggregateError(data.errors.map(restoreError), data.message, { cause: data.cause })
-    : new Error(data.message ?? String(value), { cause: data.cause });
-  Object.defineProperties(error, Object.getOwnPropertyDescriptors(data));
-  if (Array.isArray(data.errors))
-    Object.defineProperty(error, "errors", { value: data.errors.map(restoreError), configurable: true, writable: true });
-  error.name = data.name ?? "Error";
-  if (data.stack !== undefined) error.stack = data.stack;
-  return error;
 }

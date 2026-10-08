@@ -291,8 +291,10 @@ export namespace SourceNativeRetirement {
   /**
    * Run safe cleanup now or retain its original capability after unknown
    * retirement. Deferred callbacks are not treated as completed cleanup.
+   * A cleanup refusal is recorded for the task owner before it is rethrown,
+   * so a surrounding discovery catch cannot turn resource loss into success.
    *
-   * @evidence contracts/common.md#principled-implementation Cleanup executes only when all admitted boundaries certify safety; otherwise its original callback is retained.
+   * @evidence contracts/common.md#principled-implementation Cleanup executes only when all admitted boundaries certify safety; otherwise its original callback is retained. An immediate refusal remains the same thrown error and is recorded in the asynchronous task owner's failure ledger.
    * @evidence contracts/common.md#clear-and-simple-design One predicate chooses immediate execution or FIFO deferral.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Deferral is never reported as completed cleanup.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes retained authority from successful release.
@@ -303,7 +305,13 @@ export namespace SourceNativeRetirement {
    */
   export function release(cleanup: () => void): void {
     if (current !== undefined && !canRelease()) current.deferred.push(cleanup);
-    else cleanup();
+    else {
+      try { cleanup(); }
+      catch (error) {
+        OwnedSynchronousProcess.reportFailure(error);
+        throw error;
+      }
+    }
   }
 
   /** Observe the installed task's native closure authority without throwing.
@@ -329,7 +337,7 @@ export namespace SourceNativeRetirement {
    * The caller must supply actual qualified native closure, not a timer or PID
    * observation. No disk-only recovery capability is created by this API.
    *
-   * @evidence contracts/common.md#principled-implementation Only the original scope and exact boundary token can apply qualified closure and retry original cleanup.
+   * @evidence contracts/common.md#principled-implementation Only the original scope and exact boundary token can apply qualified closure and retry original cleanup. Failed callbacks remain at the FIFO head, preserve their original thrown error and report it to the current asynchronous task owner before propagation.
    * @evidence contracts/common.md#clear-and-simple-design Certified settlement precedes FIFO cleanup, and a throwing callback remains at the head for retry.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Timers and PID observations cannot manufacture recovery authority; losing it leaves terminal quarantine.
    * @evidence contracts/common.md#meaningful-documentation Native prose states caller proof requirements and excludes disk-only recovery.
@@ -347,7 +355,11 @@ export namespace SourceNativeRetirement {
       if (!canRelease()) return;
       while (scope.deferred.length !== 0) {
         const cleanup = scope.deferred[0]!;
-        cleanup();
+        try { cleanup(); }
+        catch (error) {
+          OwnedSynchronousProcess.reportFailure(error);
+          throw error;
+        }
         scope.deferred.shift();
       }
     });
