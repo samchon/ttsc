@@ -32,12 +32,14 @@ import type { ViteDevServerLike } from "./ViteDevServerLike";
  */
 export interface ViteServeInputWatch {
   /**
-   * Bind the dev server whose graphs are invalidated, and open the pinned
-   * project-root scope.
+   * Bind the dev server whose graphs are invalidated. A watching server opens
+   * the pinned project-root scope; null watching releases prior registrations
+   * and notification resources instead.
    *
    * @evidence contracts/common.md#principled-implementation
    *   The supplied server defines the graph recipient and configured root for
    *   compiler observation; binding occurs before module registrations use it.
+   *   Null watching withdraws notification ownership and cannot register inputs.
    * @evidence contracts/common.md#clear-and-simple-design
    *   One attach transition keeps server association and project scope together.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
