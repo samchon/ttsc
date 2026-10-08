@@ -6,7 +6,6 @@ import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
 import { TtscGraphReadonly } from "./TtscGraphReadonly";
-import { copyGraphRecords } from "./copyGraphRecords";
 import { copyGraphSnapshot } from "./copyGraphSnapshot";
 
 /**
@@ -23,7 +22,7 @@ import { copyGraphSnapshot } from "./copyGraphSnapshot";
  * @evidence contracts/common.md#clear-and-simple-design Full synthesis remains one implementation used by cold construction and invalidated components; create owns dependency partitioning and immutable component reuse.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The store still validates the complete generation first. No content witness, owner or raw edge is skipped to obtain reuse, and public DTOs are never frozen by borrowing.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains actual synthesis dependencies, metadata invalidation and generation ordering rather than claiming universally delta-only work.
- * @evidence contracts/performance.md#efficient-algorithms Grouping and generation ordering scan all raw references. Only changed file components copy/freeze/synthesize nested facts; metadata changes rebuild all. Reference arrays/maps remain linear in generation size.
+ * @evidence contracts/performance.md#efficient-algorithms Grouping and generation ordering scan all raw references. Only changed file components synthesize outer records and detach/freeze nested facts once; metadata changes rebuild all. Reference arrays/maps remain linear in generation size.
  * @evidence contracts/performance.md#reuse-equivalent-work Equal frozen node/edge sequences and equal project/config/producer/capability/universe metadata retain the component. Cross-file edge changes invalidate their owning component; target absence remains a store validation error.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Returned state retains only current file components and generation arrays; deleted components are omitted and no previous State reference is stored.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation In-memory fact coordinates and reference identity select reuse; no native filesystem or process operation runs here.
@@ -58,16 +57,22 @@ export namespace TtscGraphProjection {
   /**
    * Detach a caller's full dump before exposing synthesized immutable facts.
    *
-   * @evidence contracts/common.md#principled-implementation Full synthesis derives only structural facts and owned recursive copying isolates every nested record from caller mutation.
+   * Synthesis borrows nested facts synchronously and changes only new outer
+   * records. Final recursive copying detaches those facts before freezing or
+   * exposing the result, for mutable callers and frozen resident inputs alike.
+   *
+   * @evidence contracts/common.md#principled-implementation Readonly borrowed synthesis inputs preserve caller ownership; only fresh outer records change, and final recursive copying isolates every nested record before freezing and publication.
    * @evidence contracts/common.md#clear-and-simple-design Cold models and invalidated components use the same synthesis implementation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native export relations remain authoritative and no caller-owned DTO is frozen in place.
-   * @evidence contracts/common.md#meaningful-documentation The headline states caller ownership and immutable output.
-   * @evidence contracts/performance.md#efficient-algorithms Synthesis scans facts and indexes owner handles; only colliding handles require candidate scans. Recursive copying costs the selected fact population's nested bytes.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states caller ownership, synchronous borrowing, construction-local changes and the final immutable publication boundary.
+   * @evidence contracts/performance.md#efficient-algorithms Synthesis scans facts and indexes owner handles; only colliding handles require candidate scans. One final recursive copy costs the selected fact population's nested bytes, without an intermediate mutable DTO copy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation constructs a supplied population; create selects components requiring construction.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The returned frozen facts transfer to the model/component owner; no historical state is retained here.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation In-memory synthesis and copying perform no native operations.
    */
-  export function full(dump: Pick<ITtscGraphDump, "nodes" | "edges">) {
+  export function full(
+    dump: TtscGraphReadonly<Pick<ITtscGraphDump, "nodes" | "edges">>,
+  ) {
     return copyGraphSnapshot(synthesize(dump));
   }
 
@@ -83,7 +88,7 @@ export namespace TtscGraphProjection {
    * @evidence contracts/common.md#clear-and-simple-design Partitioning, component selection and global output ordering are separate stages; full owns the shared synthesis implementation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Every raw node and source edge participates; no ownership, provenance or manifest validation is skipped and no native relation is invented.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the frozen-input premise and why same-file declarations and source edges form the dependency boundary.
-   * @evidence contracts/performance.md#efficient-algorithms Linear reference grouping/equality and generation ordering remain necessary. Only invalidated components copy nested records and synthesize structure, with temporary maps/arrays proportional to current facts.
+   * @evidence contracts/performance.md#efficient-algorithms Linear reference grouping/equality and generation ordering remain necessary. Invalidated components borrow nested inputs during synthesis and detach/freeze once at full's publication boundary, with temporary maps/arrays proportional to current facts.
    * @evidence contracts/performance.md#reuse-equivalent-work Exact raw reference sequences plus project/config/schema/capability/producer/universe metadata retain equivalent components. Changed owner declarations or source relations invalidate the whole dependent file component.
    * @evidence contracts/performance.md#bound-retention-and-release-resources New state retains only current components and output arrays; deleted components disappear and no previous state is linked.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation Fact coordinates select in-memory groups; no filesystem or process operation interprets them.
@@ -128,10 +133,7 @@ export namespace TtscGraphProjection {
         components.set(file, old);
         continue;
       }
-      const projected = full({
-        nodes: copyGraphRecords<ITtscGraphDump.INode[]>(input.nodes),
-        edges: copyGraphRecords<ITtscGraphDump.IEdge[]>(input.edges),
-      });
+      const projected = full(input);
       const count = input.nodes.filter((node) => node.kind !== "module").length;
       components.set(file, {
         rawNodes: Object.freeze(input.nodes),
@@ -180,6 +182,10 @@ export namespace TtscGraphProjection {
 
 type RawNode = TtscGraphReadonly<ITtscGraphDump.INode>;
 type RawEdge = TtscGraphReadonly<ITtscGraphDump.IEdge>;
+/** Fresh outer node whose borrowed nested facts stay readonly until detachment. */
+type SynthesizedNode = Omit<TtscGraphReadonly<ITtscGraphNode>, "kind"> & {
+  kind: ITtscGraphNode["kind"];
+};
 /** One file's complete immutable raw dependencies and derived output. */
 interface Component {
   readonly rawNodes: readonly RawNode[];
@@ -210,7 +216,7 @@ function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
  * (`Class.method`), else its simple name. Merged declarations can share this
  * handle; declaration ranges disambiguate their member ownership.
  */
-function keyOf(node: ITtscGraphNode): string {
+function keyOf(node: TtscGraphReadonly<ITtscGraphNode>): string {
   return node.qualifiedName ?? node.name;
 }
 
@@ -223,7 +229,7 @@ function keyOf(node: ITtscGraphNode): string {
  * Object keys containing dots, brackets or no characters carry a JSON bracket
  * suffix, keeping their identity distinct from nested object ownership.
  */
-function ownerKey(node: ITtscGraphNode): string | undefined {
+function ownerKey(node: TtscGraphReadonly<ITtscGraphNode>): string | undefined {
   if (node.qualifiedName === undefined || node.qualifiedName === node.name)
     return undefined;
   const suffix = `.${node.name}`;
@@ -260,8 +266,8 @@ function ownerKey(node: ITtscGraphNode): string | undefined {
 
 /** Prove lexical ownership using complete same-file declaration coordinates. */
 function enclosesDeclaration(
-  owner: ITtscGraphNode,
-  member: ITtscGraphNode,
+  owner: TtscGraphReadonly<ITtscGraphNode>,
+  member: TtscGraphReadonly<ITtscGraphNode>,
 ): boolean {
   const outer = owner.evidence;
   const inner = member.evidence;
@@ -296,7 +302,10 @@ function fileNodeId(file: string): string {
  * reader has it, or the one it kept because it could not be derived (an
  * implementation in another file).
  */
-function spanIn(span: ITtscGraphSpan, file: string): ITtscGraphEvidence {
+function spanIn(
+  span: TtscGraphReadonly<ITtscGraphSpan>,
+  file: string,
+): ITtscGraphEvidence {
   return { ...span, file: span.file ?? file };
 }
 
@@ -318,9 +327,11 @@ function basename(file: string): string {
  * variables to properties, add a `file` node per workspace source, connect the
  * `contains` ownership tree, and re-anchor compiler-owned `exports` edges.
  */
-function synthesize(dump: Pick<ITtscGraphDump, "nodes" | "edges">): {
-  nodes: ITtscGraphNode[];
-  edges: ITtscGraphEdge[];
+function synthesize(
+  dump: TtscGraphReadonly<Pick<ITtscGraphDump, "nodes" | "edges">>,
+): {
+  nodes: TtscGraphReadonly<ITtscGraphNode>[];
+  edges: TtscGraphReadonly<ITtscGraphEdge>[];
 } {
   // A module node is the dump's name for a source file's export surface, and a
   // file node is this layer's name for the same file. Fold the two: the module
@@ -333,14 +344,14 @@ function synthesize(dump: Pick<ITtscGraphDump, "nodes" | "edges">): {
   const moduleIds = new Map(
     dump.nodes.filter((n) => n.kind === "module").map((n) => [n.id, n.file]),
   );
-  // Clone nodes so property refinement does not mutate the caller's dump, and
+  // Create outer nodes so property refinement does not mutate the caller's dump, and
   // put back the file the builder left out of every span: a node's span is in
   // the node's file, an edge's span is in the file its `from` id names. The
   // builder omits both because they are exactly reconstructible and they are not
   // small — the two copies are 17% of the document, 55 MB of VS Code's 323 MB,
   // paid again in the encode, the pipe, the parse and the validation. Nothing
   // downstream of this line sees a span without its file.
-  const nodes: ITtscGraphNode[] = dump.nodes.flatMap((n): ITtscGraphNode[] => {
+  const nodes: SynthesizedNode[] = dump.nodes.flatMap((n): SynthesizedNode[] => {
     if (n.kind === "module") return [];
     const { evidence, implementation, ...rest } = n;
     return [
@@ -356,7 +367,7 @@ function synthesize(dump: Pick<ITtscGraphDump, "nodes" | "edges">): {
       },
     ];
   });
-  const edges: ITtscGraphEdge[] = dump.edges.map((edge) => {
+  const edges: TtscGraphReadonly<ITtscGraphEdge>[] = dump.edges.map((edge) => {
     const { evidence, ...rest } = edge;
     const from = moduleIds.get(edge.from);
     return {
@@ -370,12 +381,12 @@ function synthesize(dump: Pick<ITtscGraphDump, "nodes" | "edges">): {
 
   // Index workspace nodes by (file, within-file key) so ownership can resolve a
   // member to its declaring class/namespace.
-  const byFileKey = new Map<string, ITtscGraphNode[]>();
+  const byFileKey = new Map<string, SynthesizedNode[]>();
   for (const node of nodes) {
     if (!node.external) push(byFileKey, node.file + "\0" + keyOf(node), node);
   }
-  const owners = new Map<ITtscGraphNode, ITtscGraphNode | undefined>();
-  const owner = (node: ITtscGraphNode): ITtscGraphNode | undefined => {
+  const owners = new Map<SynthesizedNode, SynthesizedNode | undefined>();
+  const owner = (node: SynthesizedNode): SynthesizedNode | undefined => {
     if (owners.has(node)) return owners.get(node);
     const parent = ownerKey(node);
     const candidates =
