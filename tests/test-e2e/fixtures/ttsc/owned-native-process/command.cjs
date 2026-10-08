@@ -90,27 +90,39 @@ if (mode === "echo") {
       );
       assert.equal(results[1].status, "rejected");
       assert.match(results[1].reason.message, /closed/);
+      const admissions = fs
+        .readFileSync(process.env.TTSC_OWNED_HELPER_ADMISSIONS, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      assert.equal(admissions.length, 1);
+      assert.ok(Number.isSafeInteger(admissions[0].pid));
+      assert.ok(admissions[0].pid > 0);
+      const resultFile = admissions[0].resultFile;
+      assert.ok(path.isAbsolute(resultFile));
+      const directory = path.dirname(resultFile);
+      const requireUnknown = (failure) => {
+        assert.ok(failure instanceof Error);
+        assert.equal(failure.message, "ttsc: native retirement is unknown; retained protocol " + directory);
+        assert.ok(failure.cause instanceof Error);
+        assert.match(failure.cause.message, /did not publish a completion receipt/);
+        assert.ok(failure.cause.cause instanceof Error);
+        assert.equal(failure.cause.cause.code, "ENOENT");
+        assert.equal(failure.cause.cause.path, resultFile);
+      };
       await assert.rejects(owner.close(), (error) => {
         assert.ok(error instanceof AggregateError);
-        assert.equal(error.errors.length, 1);
-        const failure = error.errors[0];
-        assert.match(
-          failure.message,
-          /native retirement is unknown; retained protocol /,
-        );
-        assert.match(failure.cause.message, /did not publish a completion receipt/);
-        const directory = failure.message.split("retained protocol ")[1];
-        assert.ok(path.isAbsolute(directory));
+        assert.equal(error.errors.length, 2);
+        requireUnknown(error.errors[0]);
+        const background = error.errors[1];
+        assert.ok(background instanceof AggregateError);
+        assert.equal(background.message, "ttsc: resolver background cleanup failed");
+        assert.equal(background.errors.length, 1);
+        const relay = background.errors[0];
+        assert.ok(relay instanceof Error);
+        assert.equal(relay.message, "ttsc: native relay did not certify retirement");
+        requireUnknown(relay.cause);
         assert.ok(fs.statSync(directory).isDirectory());
-        const admissions = fs
-          .readFileSync(process.env.TTSC_OWNED_HELPER_ADMISSIONS, "utf8")
-          .trim()
-          .split("\n")
-          .map((line) => JSON.parse(line));
-        assert.equal(admissions.length, 1);
-        assert.equal(path.dirname(admissions[0].resultFile), directory);
-        assert.ok(Number.isSafeInteger(admissions[0].pid));
-        assert.ok(admissions[0].pid > 0);
         process.stderr.write(
           "Retained RPC native protocol input: " + directory + "\n",
         );

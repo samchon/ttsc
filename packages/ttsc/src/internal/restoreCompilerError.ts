@@ -69,7 +69,11 @@ export function restoreCompilerError(value: unknown): Error {
     const members = aggregate !== null && typeof aggregate === "object" ? target(aggregate) : aggregate;
     if (Array.isArray(members) && !aggregateArrays.has(members)) {
       aggregateArrays.add(members);
-      for (const member of members) {
+      for (const [name, descriptor] of Object.entries(fields.get(members)!)) {
+        // Array members are canonical indices, not holes or custom metadata.
+        const index = Number(name);
+        if (!Number.isInteger(index) || index < 0 || index >= 0xffffffff || String(index) !== name || !("value" in descriptor)) continue;
+        const member = descriptor.value;
         if (member === null || typeof member !== "object") continue;
         const candidate = target(member);
         const candidateFields = fields.get(candidate);

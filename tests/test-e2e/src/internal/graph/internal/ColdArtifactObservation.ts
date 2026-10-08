@@ -5,6 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { matchesObservedProcessCommand } from "../../../../../utils/src/matchesObservedProcessCommand";
+
 interface ProcessReading {
   pid: number;
   parent: number;
@@ -43,9 +45,10 @@ interface ObservedGuard {
  * Observe real process generations independently of producer success.
  *
  * The public owner supplies its original close contract. OS observations add a
- * separate absence oracle, not a replacement native retirement receipt. Inputs
- * are sampled before process identities, so an absent scratch followed by its
- * live original native owner proves premature release. Only this actor's tree
+ * separate conservative process observation, not a replacement native retirement
+ * receipt. Inputs are sampled before process identities; apparent disappearance
+ * while the original generation is still reported refuses release verification.
+ * A process listing alone cannot certify its original kernel lifetime. Only this actor's tree
  * is retained in the observation log. Windows creation times and POSIX ps start
  * times qualify the original numeric identities; no process is terminated or
  * adopted by its PID here. POSIX ps has second precision, so it cannot replace
@@ -268,15 +271,7 @@ export class ColdArtifactObservation {
               (!excluded ||
                 row.pid !== excluded.process.pid ||
                 row.identity !== excluded.process.identity) &&
-              path
-                .basename(row.name)
-                .toLowerCase()
-                .replace(/\.exe$/u, "") ===
-                path
-                  .basename(scratch.argv![0]!)
-                  .toLowerCase()
-                  .replace(/\.exe$/u, "") &&
-              row.command?.endsWith(` ${scratch.argv!.slice(1).join(" ")}`),
+              matchesObservedProcessCommand(row.command, scratch.argv!, process.platform),
           );
           const work = compilerWork(goTmp, oldWork);
           if (!go || !work) continue;

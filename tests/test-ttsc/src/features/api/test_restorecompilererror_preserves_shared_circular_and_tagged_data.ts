@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { deserialize, serialize } from "node:v8";
 
 import { restoreCompilerError } from "../../../../../packages/ttsc/src/internal/restoreCompilerError";
 import { serializeCompilerError } from "../../../../../packages/ttsc/src/internal/serializeCompilerError";
@@ -16,7 +17,7 @@ import { serializeCompilerError } from "../../../../../packages/ttsc/src/interna
  *
  * @evidence contracts/testing.md#behavioral-verification Actual serializeCompilerError and restoreCompilerError restore messages, errno fields, shared identity, self causes/aggregate members and non-Error outcome data; getter counts and literal tagged values verify restoration does not execute or fabricate exceptional values.
  * @evidence contracts/testing.md#independent-expectations Original authored object relationships define which received references must be identical, while literal messages, errno and tag shapes define their values independently of the restoring traversal.
- * @evidence contracts/testing.md#distinguishing-cases Shared versus independent Error objects, escaped forward targets, root cycles, nested aggregates, plain cyclic outcomes, primitive members and tagged/accessor fields cover meaningful transport branches. Literal reference and envelope shapes, reserved Error metadata and cycles/shared targets inside escaped objects distinguish user data from generated control markers. Worker ownership classification remains in the dedicated cleanup-reply unit.
+ * @evidence contracts/testing.md#distinguishing-cases Shared versus independent Error objects, escaped forward targets, root cycles, nested aggregates, plain cyclic outcomes, primitive members and tagged/accessor fields cover meaningful transport branches. Literal reference and envelope shapes, reserved Error metadata and cycles/shared targets inside escaped objects distinguish user data from generated control markers. A real V8 roundtrip with sparse aggregate members requires zero hole reads and preserves own member identity, length and non-index metadata without promoting metadata to Error. Worker ownership classification remains in the dedicated cleanup-reply unit.
  * @evidence contracts/testing.md#execution-ownership One discoverable same-process unit calls maintained serializer/receiver directly with authored objects and no worker, compiler, filesystem, installed consumer or foreign replacement.
  */
 export function test_restorecompilererror_preserves_shared_circular_and_tagged_data(): void {
@@ -120,4 +121,36 @@ export function test_restorecompilererror_preserves_shared_circular_and_tagged_d
     assert.equal(commonResult.errors[index].message, `shared-${index}`);
     assert.equal(commonResult.errors[index].errors, commonResult.errors);
   }
+  const sparseMembers = new Array(5000) as unknown[] & Record<string, unknown>;
+  const oneMember = new Error("sparse member");
+  sparseMembers[0] = oneMember;
+  sparseMembers[4998] = oneMember;
+  sparseMembers["01"] = { name: "Error", message: "custom metadata" };
+  sparseMembers["-0"] = "negative zero metadata";
+  sparseMembers["4294967295"] = "non-index upper boundary";
+  const sparseAggregate = new AggregateError([], "sparse aggregate");
+  sparseAggregate.errors = sparseMembers;
+  sparseAggregate.cause = oneMember;
+  const wire = deserialize(serialize(serializeCompilerError(sparseAggregate)));
+  let holeReads = 0;
+  wire.errors = new Proxy(wire.errors, {
+    get(target, key, receiver) {
+      if (typeof key === "string" && /^(0|[1-9][0-9]*)$/u.test(key) && !Object.hasOwn(target, key)) holeReads++;
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  const sparseResult = restoreCompilerError(wire) as AggregateError;
+  const restoredMembers = sparseResult.errors as typeof sparseMembers;
+  assert.equal(holeReads, 0);
+  assert.equal(sparseResult.errors.length, 5000);
+  assert.deepEqual(Object.keys(sparseResult.errors), ["0", "4998", "01", "-0", "4294967295"]);
+  assert.ok(sparseResult.errors[0] instanceof Error);
+  assert.equal(sparseResult.errors[0].message, "sparse member");
+  assert.equal(sparseResult.errors[0], sparseResult.cause);
+  assert.equal(sparseResult.errors[4998], sparseResult.cause);
+  assert.equal(4999 in sparseResult.errors, false);
+  assert.deepEqual(restoredMembers["01"], { name: "Error", message: "custom metadata" });
+  assert.equal(restoredMembers["01"] instanceof Error, false);
+  assert.equal(restoredMembers["-0"], "negative zero metadata");
+  assert.equal(restoredMembers["4294967295"], "non-index upper boundary");
 }
