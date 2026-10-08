@@ -17,10 +17,12 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  * 2. Clean each captured instance and collect every independent outcome.
  * 3. Clean two captured instances independently and protect a user cache
  *    inside an explicit whole root.
+ * 4. Distinguish requested reports from physical deletion through a real parent
+ *    alias, including relative selectors and protected overlap.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual TtscCompiler.clean on seeded disposable directories and asserts exact removed paths, surviving unselected caches, captured constructor values, unchanged ambient state and preserved user GOCACHE overlap.
- * @evidence contracts/testing.md#independent-expectations Literal native-name layer precedence and the public explicit/default cache ownership contract select independently seeded paths. Node realpaths captured before deletion establish physical reporting without using the cleanup planner as an oracle.
- * @evidence contracts/testing.md#distinguishing-cases Exact, lowercase, mixed, absent, undefined, blank and duplicate spelling rows distinguish layer authority and within-layer lexical selection. POSIX expects differently cased names to remain independent. Sequential instances retain their own captured selections; an explicit root overlapping selected user GOCACHE remains intact while an unrelated legacy cache is removed.
+ * @evidence contracts/testing.md#independent-expectations Literal native-name layer precedence and the public explicit/default cache ownership contract select independently seeded paths. Absolute selectors retain their requested reporting spelling; project-derived defaults and relative selectors use the independently observed physical project. Node realpaths captured before deletion separately establish deletion and survival identities without using the cleanup planner as an oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Exact, lowercase, mixed, absent, undefined, blank and duplicate spelling rows distinguish layer authority and within-layer lexical selection. POSIX expects differently cased names to remain independent. Sequential instances retain their own captured selections; an explicit root overlapping selected user GOCACHE remains intact while an unrelated legacy cache is removed. A native parent symlink/junction makes requested and physical cache paths differ on every platform; absolute reports preserve the alias, relative reports use the physical project, and caller-cache overlap still protects the same physical tree.
  * @evidence contracts/testing.md#execution-ownership A discoverable source unit invokes cleanup in process without a compiler, native producer, installed consumer or host. Only owned os.tmpdir fixtures can be removed; scoped ambient test inputs restore in finally and the product must leave them unchanged.
  */
 export function test_ttsccompiler_clean_preserves_native_environment_layers(): void {
@@ -123,7 +125,14 @@ export function test_ttsccompiler_clean_preserves_native_environment_layers(): v
             : reset
               ? path.join(defaults, "go-build")
               : selectedGo;
-        const expected = [pluginPaths.get(chosen)!, goPaths.get(chosenGo)!];
+        const expected = [
+          chosen === defaults
+            ? pluginPaths.get(chosen)!
+            : path.join(chosen, "plugins"),
+          chosenGo === path.join(defaults, "go-build")
+            ? goPaths.get(chosenGo)!
+            : chosenGo,
+        ];
         const removed = instance.clean();
         assert.deepEqual(removed, expected);
         for (const [cache, physical] of pluginPaths)
@@ -180,10 +189,10 @@ export function test_ttsccompiler_clean_preserves_native_environment_layers(): v
       secondEnv.TTSC_CACHE_DIR = firstRoot;
       assert.deepEqual(
         first.clean(),
-        [process.platform === "win32" ? firstPlugin : ambientPlugin],
+        [path.join(process.platform === "win32" ? firstRoot : ambientRoot, "plugins")],
       );
       assert.equal(fs.existsSync(secondPlugin), true);
-      assert.deepEqual(second.clean(), [secondPlugin]);
+      assert.deepEqual(second.clean(), [path.join(secondRoot, "plugins")]);
       assert.equal(fs.existsSync(firstPlugin), process.platform !== "win32");
       assert.equal(fs.existsSync(ambientPlugin), process.platform === "win32");
       assert.equal(process.env.TTSC_CACHE_DIR, ambientRoot);
@@ -215,6 +224,78 @@ export function test_ttsccompiler_clean_preserves_native_environment_layers(): v
         "preserve unselected\n",
       );
       assert.equal(process.env.GOCACHE, ambientUser);
+    });
+    check("linked parent separates reporting and deletion", () => {
+      const project = path.join(root, "linked-project");
+      fs.mkdirSync(project);
+      fs.writeFileSync(path.join(project, "package.json"), '{"private":true}');
+      fs.writeFileSync(path.join(project, "tsconfig.json"), "{}");
+      const source = path.join(project, "main.ts");
+      fs.writeFileSync(source, "export const intact = 42;\n");
+      const physicalProject = fs.realpathSync(project);
+      const alias = path.join(root, "project-alias");
+      fs.symlinkSync(
+        physicalProject,
+        alias,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+      assert.equal(fs.lstatSync(alias).isSymbolicLink(), true);
+      assert.equal(fs.realpathSync(alias), physicalProject);
+      assert.notEqual(alias, physicalProject);
+      const selected = path.join(alias, "selected");
+      const selectedGo = path.join(alias, "selected-go");
+      const unselected = path.join(alias, "unselected");
+      const user = path.join(unselected, "user-go");
+      const physicalPlugin = seed(path.join(selected, "plugins"));
+      const physicalGo = seed(selectedGo);
+      const physicalUnselected = seed(path.join(unselected, "plugins"));
+      const physicalUser = seed(user);
+      assert.notEqual(path.join(selected, "plugins"), physicalPlugin);
+      assert.notEqual(selectedGo, physicalGo);
+      const ambient = names.map((name) => process.env[name]);
+      assert.deepEqual(
+        new TtscCompiler({
+          cwd: alias,
+          env: {
+            TTSC_CACHE_DIR: selected,
+            TTSC_GO_CACHE_DIR: selectedGo,
+            GOCACHE: user,
+          },
+        }).clean(),
+        [path.join(selected, "plugins"), selectedGo],
+      );
+      assert.equal(fs.existsSync(physicalPlugin), false);
+      assert.equal(fs.existsSync(physicalGo), false);
+      seed(path.join(selected, "plugins"));
+      seed(selectedGo);
+      assert.deepEqual(
+        new TtscCompiler({
+          cwd: alias,
+          env: {
+            TTSC_CACHE_DIR: "selected",
+            TTSC_GO_CACHE_DIR: "selected-go",
+            GOCACHE: user,
+          },
+        }).clean(),
+        [physicalPlugin, physicalGo],
+      );
+      assert.equal(fs.existsSync(physicalPlugin), false);
+      assert.equal(fs.existsSync(physicalGo), false);
+      assert.deepEqual(
+        new TtscCompiler({
+          cwd: alias,
+          cacheDir: unselected,
+          env: { TTSC_GO_CACHE_DIR: undefined, GOCACHE: user },
+        }).clean(),
+        [],
+      );
+      for (const directory of [physicalUnselected, physicalUser])
+        assert.equal(
+          fs.readFileSync(path.join(directory, "sentinel"), "utf8"),
+          "preserve unselected\n",
+        );
+      assert.equal(fs.readFileSync(source, "utf8"), "export const intact = 42;\n");
+      assert.deepEqual(names.map((name) => process.env[name]), ambient);
     });
     if (failures.length)
       throw new AggregateError(failures, "native environment cleanup rows");
