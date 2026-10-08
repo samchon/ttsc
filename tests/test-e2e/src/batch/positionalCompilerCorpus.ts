@@ -23,7 +23,7 @@ import { BatchWorkspace } from "./BatchWorkspace";
  * 3. Reuse one installed watch for source and response edits, then join its
  *    actual nonce-bound close before restoring any shared input bytes.
  *
- * @evidence contracts/testing.md#behavioral-verification Real installed ttsc commands require selected B summaries, transformed marker100 and the single public JSX path, contrast default/explicit quiet with verbose, and retain analysis and failed-copy absence. Actual binary bytes/mtime and absent competing cache distinguish preserved relative cache selection from a discarded field. One installed watch retains native transformation after a source edit and stops public emission after response selection returns to A.
+ * @evidence contracts/testing.md#behavioral-verification Real installed ttsc commands require selected B summaries, transformed marker100 and the single public JSX path, contrast default/explicit quiet with verbose, and retain analysis and failed-copy absence. Actual binary bytes/mtime and absent competing compiled-plugin cache distinguish preserved relative cache selection from a discarded field. Independent nested ttsx invocations may use inherited TTSC_CACHE_DIR for transient runtime generations. One installed watch retains native transformation after a source edit and stops public emission after response selection returns to A.
  * @evidence contracts/testing.md#independent-expectations Static A/B configurations independently set noEmit and products-a/products-b; the authored marker0 must become the existing native probe's literal100. Relative/absolute explicit roots name view.jsx directly, and the failed string-to-number assignment requires TS2322 without a public copy. No product result supplies another request's expected output.
  * @evidence contracts/testing.md#distinguishing-cases Safe later B supersedes missing A; later visible A supersedes B. Default/true quiet contrast with verbose/false quiet; emitting and analysis requests share the same private native pipeline. Parent-cwd source paths contrast with contained roots, and successful copies contrast with real type-check failure. Response and source edits share one immutable watch argv.
  * @evidence contracts/testing.md#execution-ownership The selected Runtime batch calls this corpus after its existing receipt assertions. It uses that batch's installed SDK, upfront static island and existing native source/cache. Eleven one-shot requests and one watch with source/response transitions are real additional work; nested native checks, showConfig queries and cache validation are not counted as one Program or zero preparation.
@@ -83,6 +83,7 @@ export async function positionalCompilerCorpus(
   Object.assign(automatic.ttsc.plugin, reporting);
   const selectedCache = path.relative(root, workspace.cache);
   const competingCache = path.join(root, "competing-cache");
+  const competingPluginCache = path.join(competingCache, "plugins");
   const launcher = path.join(path.dirname(workspace.installedTtsx), "ttsc.js");
   const env = { ...process.env, TTSC_CACHE_DIR: competingCache };
   const failures: unknown[] = [];
@@ -207,7 +208,11 @@ export async function positionalCompilerCorpus(
           if (emit) assert.match(result.stdout, /emitted=1 files/);
           else assert.doesNotMatch(result.stdout, /emitted=/);
         } else assert.doesNotMatch(result.stdout, /\/\/ ttsc:/);
-        assert.equal(fs.existsSync(competingCache), false);
+        assert.equal(
+          fs.existsSync(competingPluginCache),
+          false,
+          "explicit --cache-dir must own the compiled-plugin cache",
+        );
         assert.doesNotMatch(result.stderr, /building source plugin/);
         assert.deepEqual(binaries(), beforeBinaries);
       });
@@ -307,7 +312,11 @@ export async function positionalCompilerCorpus(
           assert.equal(fs.existsSync(copied), false);
           assert.equal(fs.existsSync(path.join(root, "products-a/view.jsx")), false);
           assert.doesNotMatch(watch.transcript(), /\/\/ ttsc:|building source plugin/);
-          assert.equal(fs.existsSync(competingCache), false);
+          assert.equal(
+            fs.existsSync(competingPluginCache),
+            false,
+            "explicit --cache-dir must own the compiled-plugin cache",
+          );
           assert.deepEqual(binaries(), beforeBinaries);
         });
       } finally {
