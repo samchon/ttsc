@@ -15,10 +15,10 @@ const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
 };
 
 /**
- * Discovers and runs the named feature exports of the package-shaped suites.
+ * Runs package-shaped suites and collects their ordered named operations.
  *
  * @evidence contracts/common.md#principled-implementation The namespace exposes the existing runner and its location contract as one package entry.
- * @evidence contracts/common.md#clear-and-simple-design Discovery, invocation and failure reporting remain together under main rather than independent runners.
+ * @evidence contracts/common.md#clear-and-simple-design Main owns suite discovery/invocation, while collectPhases owns callback settlement without discovering or retrying tests.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Named exports execute normally; tracing observes actual invocation without substituting results.
  * @evidence contracts/common.md#meaningful-documentation The headline identifies the suite runner and main documents failure isolation and unfinished-run detection.
  * @evidence contracts/portability.md#os-neutral-implementation Native directory paths and module URLs are separated by main through Node path and URL APIs.
@@ -27,6 +27,100 @@ const trace = createRequire(import.meta.url)(E2eProcessTrace.runtimePath) as {
  * @evidence contracts/performance.md#bound-retention-and-release-resources Run-local paths and failures are released after settlement; the exit guard is removed on completion. Actual test resources remain with case owners.
  */
 export namespace TestExecutor {
+  /**
+   * One ordered operation and the unmet prerequisites that forbid its entry.
+   *
+   * @evidence contracts/common.md#principled-implementation Owners supply concrete callbacks and explicit unmet prerequisites, rather than treating an unrelated error as a dependency.
+   * @evidence contracts/common.md#clear-and-simple-design The name, entry restrictions and operation describe one phase without a scheduler or dependency graph.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A callback must perform its actual work; this shape does not certify readiness or resource closure.
+   * @evidence contracts/common.md#meaningful-documentation Member comments distinguish diagnostic identity, unmet authority and actual execution.
+   * @evidence contracts/portability.md#os-neutral-implementation The contract contains no platform-specific paths or readiness assumptions.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This interface defines data and a callback, not an algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This interface defines no result cache.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Actual resources remain owned by the callback.
+   */
+  export interface IPhase {
+    /** Identity retained in the result and the owner's failure report. */
+    name: string;
+
+    /** Concrete unmet prerequisites; a nonempty list forbids callback entry. */
+    blockedBy?: readonly string[];
+
+    /**
+     * Actual operation, including any owner-specific concurrent cleanup.
+     *
+     * Settle only after the operation's required work has finished. A thrown
+     * value is retained unchanged; the owner must separately establish any
+     * resource closure or readiness needed by later operations.
+     *
+     * @evidence contracts/common.md#principled-implementation The callback signature accepts synchronous completion or an awaited Promise and preserves arbitrary rejection values through collectPhases.
+     * @evidence contracts/common.md#clear-and-simple-design One parameterless callback owns the named operation; concrete inputs and concurrent cleanup remain in its closure.
+     * @evidence contracts/common.md#prohibited-implementation-shortcuts The signature supplies actual work rather than an expected outcome, and does not certify readiness or resource closure.
+     * @evidence contracts/common.md#meaningful-documentation Native prose identifies settlement, unchanged failure identity and the owner's separate lifetime obligations.
+     * @evidence contracts/portability.md#os-neutral-implementation Completion and rejection use JavaScript callback and Promise semantics without platform-specific assumptions.
+     * @evidenceExclude contracts/performance.md#efficient-algorithms This callable signature chooses no algorithm; the callback implementation owns its work.
+     * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature establishes no result reuse; collectPhases invokes each eligible callback once per collection.
+     * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This signature acquires no resource; the implementing operation owns acquisition, concurrent cleanup and actual closure.
+     */
+    run: () => unknown | Promise<unknown>;
+  }
+
+  /**
+   * Actual settlement or explicit non-entry of one named operation.
+   *
+   * @evidence contracts/common.md#principled-implementation Returned, failed and blocked outcomes distinguish completed work, original failure and unavailable work.
+   * @evidence contracts/common.md#clear-and-simple-design A discriminated union retains only the payload meaningful for each outcome.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts A blocked operation is never reported as returned, and failed errors retain their original identity.
+   * @evidence contracts/common.md#meaningful-documentation The headline identifies the three actual outcomes; fields preserve their operation identity and failure or prerequisite payload.
+   * @evidence contracts/portability.md#os-neutral-implementation Results describe execution independently of an operating system.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This union represents results without computation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This union defines no result reuse policy.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Callback-owned resources are not represented as closed by a result.
+   */
+  export type PhaseResult =
+    | { name: string; status: "returned" }
+    | { name: string; status: "failed"; error: unknown }
+    | { name: string; status: "blocked"; blockedBy: readonly string[] };
+
+  /**
+   * Settle every eligible operation in order, retaining failures and non-entry.
+   *
+   * Independent operations still run after a rejection. Owners must supply
+   * their real readiness restrictions and retain resource-lifetime authority;
+   * returning from a callback is not a certificate of descendant closure.
+   *
+   * @evidence contracts/common.md#principled-implementation Each eligible callback is awaited once; explicit unmet prerequisites prevent entry without replacing earlier failures.
+   * @evidence contracts/common.md#clear-and-simple-design One ordered loop collects settlements, with no retries, graph traversal or implicit readiness inference.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Original thrown values survive unchanged and blocked callbacks are not executed or labeled successful.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states continuation, prerequisite and lifetime responsibilities.
+   * @evidence contracts/portability.md#os-neutral-implementation Promise settlement and explicit owner-supplied prerequisites require no OS-specific branch.
+   * @evidence contracts/performance.md#efficient-algorithms Each of P phases is visited once, with O(P + B) result storage including copied blocked-reason entries B; callback costs remain with their owners.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Every eligible callback executes anew; outcomes are not cached or reused.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Results last with their caller and no timer, handle or background operation is created. Concurrent close attempts belong inside the owning callback and must actually settle before it returns.
+   */
+  export const collectPhases = async (
+    phases: readonly IPhase[],
+  ): Promise<PhaseResult[]> => {
+    const results: PhaseResult[] = [];
+    for (const phase of phases) {
+      if (phase.blockedBy?.length) {
+        results.push({
+          name: phase.name,
+          status: "blocked",
+          blockedBy: [...phase.blockedBy],
+        });
+        continue;
+      }
+      try {
+        await phase.run();
+        results.push({ name: phase.name, status: "returned" });
+      } catch (error) {
+        results.push({ name: phase.name, status: "failed", error });
+      }
+    }
+    return results;
+  };
+
   /**
    * Feature-module trees selected by the owning test package.
    *
