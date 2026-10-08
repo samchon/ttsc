@@ -79,9 +79,11 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
     ctx.Sources,
     claimPopulationConfig(config, artifactTypeScript),
   )
+  markdownSnapshot := &markdownCapture{}
   markdownClaims, markdownClaimProblems := loadMarkdownInventories(
     root,
     claimPopulationConfig(config, artifactMarkdown),
+    markdownSnapshot,
   )
   prismaClaims, prismaClaimProblems := loadPrismaInventories(
     root,
@@ -107,7 +109,7 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   governed := map[string]bool{}
   extendTypeScriptInventories(root, ctx.Sources, config, typescript, nil)
   recordGovernedTypeScriptFiles(root, ctx.Sources, declared, governed)
-  markdown, markdownProblems := loadMarkdownInventories(root, config)
+  markdown, markdownProblems := loadMarkdownInventories(root, config, markdownSnapshot)
   prisma, prismaProblems := loadPrismaInventories(root, config)
   swagger, swaggerProblems := loadSwaggerInventories(root, config)
   diagnostics = append(diagnostics, markdownProblems...)

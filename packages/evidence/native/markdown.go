@@ -428,13 +428,16 @@ func markdownTemplateEnd(content string, from int) int {
 func loadMarkdownInventories(
   root string,
   config graphConfig,
+  captures ...*markdownCapture,
 ) (map[string]*artifactInventory, graphDiagnostics) {
+  capture := &markdownCapture{}
+  if len(captures) != 0 && captures[0] != nil { capture = captures[0] }
   inventories := map[string]*artifactInventory{}
   problems := graphDiagnostics{}
   for _, base := range configuredBases(config, artifactMarkdown) {
     problems = append(
       problems,
-      loadMarkdownBase(base, config, inventories)...,
+      loadMarkdownBase(base, config, inventories, capture)...,
     )
   }
   return inventories, problems
@@ -444,19 +447,35 @@ func loadMarkdownBase(
   base populationBase,
   config graphConfig,
   inventories map[string]*artifactInventory,
+  capture *markdownCapture,
 ) graphDiagnostics {
   problems := graphDiagnostics{}
   severity := populationSeverity(config, artifactMarkdown, base, "", "*", false)
-  if problem := baseDirectoryProblem(base, artifactMarkdown); problem != "" {
+  from, problem := capture.resolve(base)
+  if problem != "" {
     recordPopulationFailure(inventories, artifactMarkdown, base)
     return problems.add(severity, problem)
   }
-  from, resolved := resolvedBaseDirectory(base)
-  if !resolved {
-    recordPopulationFailure(inventories, artifactMarkdown, base)
-    return problems.add(severity, unresolvedBaseProblem(base, artifactMarkdown))
+  project := func(relative string, inventory *artifactInventory, readErr error) {
+    address := base.addressOf(relative)
+    inventories[address.Key] = inventory
+    severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
+    if readErr != nil {
+      problems = problems.add(severity,
+        "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.",
+      )
+      return
+    }
+    for _, inventoryProblem := range inventory.Problems {
+      if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
+        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, inventoryProblem.Symbol, false), inventoryProblem.Message)
+      }
+    }
+    // Unreadable tags concern the selected file, independently of its symbols
+    // or health. They retain the same phase-specific file severity.
+    problems = problems.add(severity, inventory.Unreadable...)
   }
-  err := base.inputs.WalkDir(from, func(current string, entry fs.DirEntry, walkErr error) error {
+  err := capture.walk(base, from, config, func(current string, entry fs.DirEntry, walkErr error) error {
     if walkErr != nil {
       // The walk root belongs to its population by construction, so a failure
       // to list it is a failure of the population and is never decided by what
@@ -512,35 +531,20 @@ func loadMarkdownBase(
     if !matchesConfiguredMarkdownFile(config, base, relative) {
       return nil
     }
-    severity := populationSeverity(config, artifactMarkdown, base, relative, "*", false)
     address := base.addressOf(relative)
-    content, readErr := base.inputs.ReadFile(current)
-    if readErr != nil {
-      inventories[address.Key] = &artifactInventory{
-        Path:       address.Display,
-        Type:       artifactMarkdown,
-        LoadFailed: true,
-      }
-      problems = problems.add(
-        severity,
-        "Evidence graph could not read Markdown file '"+address.Display+"': "+causeText(readErr)+". Fix filesystem access or exclude the file from configured globs.",
-      )
-      return nil
-    }
-    inventory, _ := scanMarkdownInventory(address, string(content))
-    inventories[address.Key] = inventory
-    for _, inventoryProblem := range inventory.Problems {
-      if selectedByMarkdownPopulation(config, base, relative, inventoryProblem.Symbol) {
-        problems = problems.add(populationSeverity(config, artifactMarkdown, base, relative, inventoryProblem.Symbol, false), inventoryProblem.Message)
-      }
-    }
-    // An unreadable tag is not a health question and not a symbol question
-    // either: the file loaded, its units are complete, and the tag reaches no
-    // host whichever symbol a reference selects. The walk already refuses a
-    // path no configured glob takes, so reaching here is enough to report.
-    problems = problems.add(severity, inventory.Unreadable...)
+    inventory, readErr := capture.read(address, current)
+    project(relative, inventory, readErr)
     return nil
   })
+  // An expanded reference selection may need fresh discovery. Files already
+  // consumed remain part of this Check's snapshot even if that later walk no
+  // longer sees them. Reproject their original inventory and failures only
+  // where this phase selects the same address.
+  for relative, captured := range capture.inventories[base.Absolute] {
+    if _, seen := inventories[base.address(relative)]; !seen && matchesConfiguredMarkdownFile(config, base, relative) {
+      project(relative, captured.inventory, captured.err)
+    }
+  }
   if err != nil {
     recordPopulationFailure(inventories, artifactMarkdown, base)
     problems = problems.add(severity, unlistableBaseProblem(base, "Markdown", err))
