@@ -58,8 +58,9 @@ const compiled = new WeakMap<
  *   Cold queries compile all configured specs and resolve the case rule,
  *   retaining the predictor's native placement/probe cost when needed. JSON
  *   queries filter the pattern list. Root-spelling conversion, path text and
- *   each candidate's component-state/RegExp traversal remain per-query costs;
- *   a bounded state count does not bound path bytes or RegExp matching time.
+ *   each candidate's path/component state traversal remain per-query costs.
+ *   Wildcard component work is bounded by its token and candidate code-point
+ *   dimensions; literal expressions and path conversion retain text costs.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The WeakMap shares compiled patterns across queries of the same immutable
  *   policy and filesystem-view platform. Producers replace policies when
