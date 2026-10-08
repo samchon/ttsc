@@ -12,12 +12,12 @@ type NativeBuildContext = Parameters<typeof buildHostDeclaresPolling>[0];
  * model native event delivery or invoke a bundler.
  *
  * 1. Compare explicit intervals, boolean options and native defaults for both hosts.
- * 2. Preserve existing environment overrides and ignore configuration without a session.
+ * 2. Follow Watchpack overrides independently of unrelated Chokidar flags.
  * 3. Close and restart one carrier, then read the new session's declaration.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual buildHostDeclaresPolling selector with Webpack/Rspack public session carriers and explicit environments, including session replacement and absence after closure.
- * @evidence contracts/testing.md#independent-expectations Literal expected booleans follow watch() session authority and the established Chokidar/Watchpack environment precedence; compiler configuration is deliberately contradictory.
- * @evidence contracts/testing.md#distinguishing-cases Both hosts cover true, false, absent, zero, positive and negative numeric options, NaN, explicit environment on/off and restart. Non-matching hosts and absent native context retain environment-only policy.
+ * @evidence contracts/testing.md#independent-expectations Literal expected booleans follow active watch() options and Watchpack's positive-only environment forcing; Chokidar flags do not govern these hosts. Compiler configuration is deliberately contradictory.
+ * @evidence contracts/testing.md#distinguishing-cases Both hosts cross true, false, absent, zero, positive and negative numeric options, NaN and infinity with Watchpack numeric/string on/off declarations and unrelated Chokidar on/off flags. Closure and restart remove prior session policy; non-matching hosts and absent native context retain generic environment policy.
  * @evidence contracts/testing.md#execution-ownership Only the policy selector executes; authored structural capability carriers acquire no compiler, watcher, process or filesystem fixture.
  */
 export async function test_build_host_polling_follows_the_active_watch_session(): Promise<void> {
@@ -36,17 +36,43 @@ export async function test_build_host_polling_follows_the_active_watch_session()
       [100, true],
       [-1, true],
       [NaN, false],
+      [Infinity, true],
+    ];
+    const environments: [NodeJS.ProcessEnv, boolean][] = [
+      [{}, false],
+      ...["false", "0", "", "true", "1", "yes"].map(
+        (value): [NodeJS.ProcessEnv, boolean] => [
+          { CHOKIDAR_USEPOLLING: value }, false,
+        ],
+      ),
+      ...["true", "100", "-1", "0.5", "Infinity", "00"].map(
+        (value): [NodeJS.ProcessEnv, boolean] => [
+          { WATCHPACK_POLLING: value }, true,
+        ],
+      ),
+      ...["false", "0", "", "NaN"].map(
+        (value): [NodeJS.ProcessEnv, boolean] => [
+          { WATCHPACK_POLLING: value }, false,
+        ],
+      ),
+      [{ CHOKIDAR_USEPOLLING: "true", WATCHPACK_POLLING: "false" }, false],
+      [{ CHOKIDAR_USEPOLLING: "false", WATCHPACK_POLLING: "true" }, true],
     ];
     for (const [poll, expected] of rows) {
       compiler.watching = { watchOptions: { poll } };
-      assert.equal(buildHostDeclaresPolling(native, {}), expected, framework);
+      for (const [env, forcesPolling] of environments)
+        assert.equal(
+          buildHostDeclaresPolling(native, env),
+          expected || forcesPolling,
+          `${framework} poll=${poll} env=${JSON.stringify(env)}`,
+        );
     }
     compiler.options.watchOptions.poll = false;
     compiler.watching = { watchOptions: { poll: 100 } };
     assert.equal(buildHostDeclaresPolling(native, {}), true);
     assert.equal(
       buildHostDeclaresPolling(native, { CHOKIDAR_USEPOLLING: "false" }),
-      false,
+      true,
     );
     assert.equal(
       buildHostDeclaresPolling(native, {
@@ -56,9 +82,11 @@ export async function test_build_host_polling_follows_the_active_watch_session()
       true,
     );
     compiler.watching = undefined;
-    assert.equal(buildHostDeclaresPolling(native, {}), false);
+    for (const [env, forcesPolling] of environments)
+      assert.equal(buildHostDeclaresPolling(native, env), forcesPolling);
     compiler.watching = { watchOptions: { poll: false } };
-    assert.equal(buildHostDeclaresPolling(native, {}), false);
+    for (const [env, forcesPolling] of environments)
+      assert.equal(buildHostDeclaresPolling(native, env), forcesPolling);
     assert.equal(
       buildHostDeclaresPolling(native, { WATCHPACK_POLLING: "100" }),
       true,
@@ -73,4 +101,8 @@ export async function test_build_host_polling_follows_the_active_watch_session()
     buildHostDeclaresPolling({ framework: "farm" } as NativeBuildContext, {}),
     false,
   );
+  for (const native of [undefined, { framework: "farm" } as NativeBuildContext]) {
+    assert.equal(buildHostDeclaresPolling(native, { CHOKIDAR_USEPOLLING: "true" }), true);
+    assert.equal(buildHostDeclaresPolling(native, { CHOKIDAR_USEPOLLING: "false" }), false);
+  }
 }

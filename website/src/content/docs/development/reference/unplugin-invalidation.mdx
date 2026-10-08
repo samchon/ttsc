@@ -159,6 +159,8 @@ The listing of a directory the walk enumerates is the program's membership there
 
 ## When the record moves, and what each host does with it
 
+Webpack and Rspack bridge observation follows the active `compiler.watch()` session: a polling session or a positive `WATCHPACK_POLLING` declaration selects the adapter's bounded poll. `CHOKIDAR_USEPOLLING` governs Chokidar hosts and does not override these sessions. Closing a watch session releases its bridge; a later session on the same compiler reads its own options. The compiler's shared transform-cache lease ends at compiler shutdown.
+
 The record moves at four places and nowhere else: a delivery writes its generation's state (`watch/notifyProjectRecord.ts`), a watching session's bridge signals at once and, while the host's watcher observes the record, again with a growing delay (`bridge/openHostWatchBridge.ts`), and a proof before a host restores a module signals a record whose state moved or that it cannot read (`bridge/refreshProjectRecordFile.ts`).
 
 It is read at four: that proof, the signal's own read before it increments, the writer's byte comparison, and Rollup's cache answer, which compares the record's bytes with those a cached module's delivery wrote (`rollup/createRollupCachedModuleProof.ts`).
