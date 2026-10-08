@@ -3,6 +3,7 @@ import { PluginBuildEnvironmentReadings } from "ttsc/plugin-source";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 import { selectPluginSourceInputs } from "../envelope/selectPluginSourceInputs";
 import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransformFilesystemOperations";
+import { trackerProvesInputUnchanged } from "../validation/trackerProvesInputUnchanged";
 import { pluginSourceHolds } from "./pluginSourceHolds";
 
 // A result's async owner records its execution responsibility even when native
@@ -15,27 +16,45 @@ const asyncResults = new WeakSet<object>();
  * Cold Go/environment/SDK work stays off the host thread. A mismatch requests
  * one fresh native environment reading; observation failure remains unavailable
  * and the following admission or replay validator retains its failure policy.
+ * A resident generation can reuse its exact proven source state while healthy
+ * notifications and the still-qualified environment witness both hold. Native
+ * environment preparation remains mandatory; source events cannot prove it.
  *
- * @evidence contracts/common.md#principled-implementation Every reported plugin directory prepares its actual current environment. This operation compares source state once and a mismatch refreshes environment authority for the following owning validator to compare again; failed preparation cannot qualify an input.
+ * @param cached Optional resident generation whose existing source-state and
+ *   environment witness may qualify source reuse. Other preparation owners
+ *   retain direct source comparison.
+ *
+ * @evidence contracts/common.md#principled-implementation Every reported plugin directory prepares its actual current environment. The same result's matching manifest state can share source proof only with a healthy exact-source tracker and the environment under which that tree was proven. Otherwise this operation compares source state once and a mismatch refreshes environment authority for the following owning validator to compare again; failed preparation cannot qualify an input.
  * @evidence contracts/common.md#clear-and-simple-design One async boundary precedes existing synchronous generation, delivery and terminal proofs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observations stay unproved; reported binary state never substitutes for native environment preparation or source comparison.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies off-thread work, mismatch refresh and preserved downstream failure ownership.
  * @evidence contracts/portability.md#os-neutral-implementation The same native toolchain/environment reader and caller filesystem source digest qualify each directory without platform guesses.
- * @evidence contracts/performance.md#efficient-algorithms The envelope selector builds its directory map once per result, and preparation visits each reported directory once. Environment requests build keys from effective variables and qualify native dependencies; source comparison enumerates and sorts files, checks metadata and hashes bytes when its digest cannot be reused. A mismatch requests one environment refresh rather than a second source comparison here.
- * @evidence contracts/performance.md#reuse-equivalent-work The environment owner shares equivalent in-flight requests and still-qualified readings; each generation retains its own source-state comparison.
+ * @evidence contracts/performance.md#efficient-algorithms The envelope selector builds its directory map once per result, and preparation visits each reported directory once. Environment requests build keys from effective variables and qualify native dependencies. A qualified source witness avoids enumeration; other source comparisons enumerate and sort files, check metadata and hash bytes when the digest cannot be reused. A mismatch requests one environment refresh rather than a second source comparison here.
+ * @evidence contracts/performance.md#reuse-equivalent-work The environment owner shares equivalent in-flight requests and still-qualified readings. Resident source proof is reused only for the exact result and manifest digest, unchanged qualified environment and currently healthy covered source notifications; absent, dirty, replaced or unavailable witnesses retain direct proof. No epoch or quiet watcher alone authorizes reuse, and subsequent admission still owns its current validation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources This module records asynchronous execution ownership in a WeakSet before preparation, including failures, so disposed results are not retained. Requests and worker lifetimes remain with the environment owner; this sequential operation awaits each request and acquires no native observer or independent cancellation handle.
  */
 export async function preparePluginBuildEnvironments(
   result: TtscCachedProjectTransform["result"],
   filesystem: TtscTransformFilesystemOperations,
+  cached?: TtscCachedProjectTransform,
 ): Promise<void> {
   asyncResults.add(result);
   for (const [directory, state] of selectPluginSourceInputs(result)) {
     try {
       await PluginBuildEnvironmentReadings.prepare(directory);
+      const environment = PluginBuildEnvironmentReadings.cached(directory);
+      if (
+        cached?.result === result &&
+        cached.hostInputValidation?.trees.get(directory) === state &&
+        environment !== undefined &&
+        cached.hostInputValidation.treeEnvironments?.get(directory) ===
+          environment &&
+        trackerProvesInputUnchanged(cached.hostInputMutationTracker, directory)
+      )
+        continue;
       if (
         !pluginSourceHolds(directory, state, filesystem, {
-          environment: PluginBuildEnvironmentReadings.cached(directory),
+          environment,
         })
       )
         await PluginBuildEnvironmentReadings.prepare(directory, true);

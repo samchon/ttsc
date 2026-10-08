@@ -218,7 +218,7 @@ export async function transformTtsc(
       if (!transformCacheTrustsNotifications(cache)) {
         withdrawGenerationNotifications(cached);
       }
-      await preparePluginBuildEnvironments(cached.result, filesystem);
+      await preparePluginBuildEnvironments(cached.result, filesystem, cached);
       if (cache?.get(key) !== transformed) continue;
       if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
