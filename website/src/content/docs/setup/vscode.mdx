@@ -58,3 +58,7 @@ Work through these in order:
 5. For full LSP tracing, set `ttsc.trace.server` to `"verbose"`, then run **Developer: Set Log Level...**, select **ttsc (trace)**, and choose **Trace**. Tracing starts immediately; do not reload the window.
 
 The full extension reference, including the uninstall command, is in the [`@ttsc/vscode` README](https://github.com/samchon/ttsc/tree/master/packages/vscode). See [Lint in VS Code](/docs/lint/editor) for completion, diagnostics, suggestions, fixes, and formatting in one workflow.
+
+For editors that start `ttscserver` themselves, the native host interprets arguments before the launcher prepares project plugins. Both `--cwd <dir>` and `-cwd=<dir>` work; the last assignment selects the project, config or TypeScript-Go binary. Parsing stops at `--` or the first positional argument. Use a matching native `ttscserver` with the JavaScript launcher when overriding `TTSCSERVER_BINARY`.
+
+Omitting `--tsconfig` keeps nearest-ancestor `tsconfig.json` or `jsconfig.json` discovery for plugins. An empty project without either config can still start the language server.
