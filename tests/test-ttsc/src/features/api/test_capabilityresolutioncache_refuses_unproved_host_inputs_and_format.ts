@@ -46,11 +46,12 @@ interface IEntry extends Omit<IAnswer, "pluginSources"> {
  * 2. Re-record a valid entry before each change, then change the tsconfig, change
  *    and delete the manifest, delete the binary, corrupt the entry and empty
  *    its recorded inputs, requiring the cache to decline each time.
- * 3. Read the entry under another ttsc version and require a miss.
+ * 3. Refuse the prior producer proof generation even at the same product
+ *    version, then contrast a new-generation hit and another-version miss.
  *
- * @evidence contracts/testing.md#behavioral-verification writeCapabilityResolution then readCapabilityResolution run over real files in a temp cache: an unchanged entry hits and returns the recorded graphNodes declaration, while a changed tsconfig, a changed manifest, a deleted manifest, a deleted plugin binary, unparseable JSON and an entry rewritten with empty hostInputs/hashes/realpaths each make the reader return null.
+ * @evidence contracts/testing.md#behavioral-verification writeCapabilityResolution then readCapabilityResolution run over real files in a temp cache: an unchanged entry hits and returns the recorded graphNodes declaration, while changed/deleted host inputs, a deleted binary, malformed/empty proof and the prior producer format each return null. Rewriting through the current producer restores a hit without changing the product version.
  * @evidence contracts/testing.md#independent-expectations The expected outcomes follow from the cache's fail-closed rule rather than from its code: every authored mutation (rewritten file bytes, rmSync, a literal '{not json', a hand-emptied entry, version 1.2.3 versus 1.2.4) must produce null, and verifyWalksAgain first asserts the re-recorded entry is non-null so each null is attributable to that one change.
- * @evidence contracts/testing.md#distinguishing-cases The positive case is the unchanged entry (a hit with graphNodes true, and again before every mutation); the negatives differ by property: input content, input presence, binary presence, entry syntax, an empty input proof and the product version. Entries that record pluginSources are not exercised here because every entry this test records carries an empty pluginSources; test_capabilityresolutioncache_refuses_a_plugin_source_whose_state_no_longer_holds owns that refusal.
+ * @evidence contracts/testing.md#distinguishing-cases The positive case is the unchanged entry (a hit with graphNodes true, and again before every mutation); the negatives differ by property: input content, input presence, binary presence, entry syntax, an empty input proof, prior producer proof format and product version. Entries carry empty pluginSources; test_capabilityresolutioncache_refuses_a_plugin_source_whose_state_no_longer_holds owns that refusal.
  * @evidence contracts/testing.md#execution-ownership A unit test: it calls the TypeScript reader, writer and host-input hashing helpers directly over files in a private temp directory with TTSC_CACHE_DIR pointing at it; it starts no process, Go build or ttsc host.
  */
 export function test_capabilityresolutioncache_refuses_unproved_host_inputs_and_format() {
@@ -141,6 +142,13 @@ export function test_capabilityresolutioncache_refuses_unproved_host_inputs_and_
     entry.hostInputRealpaths = {};
     entry.pluginSources = {};
     write(entryFile(cache), JSON.stringify(entry));
+  });
+
+  verifyWalksAgain(record, read, "the prior producer proof generation", () => {
+    const file = entryFile(cache);
+    const entry = JSON.parse(fs.readFileSync(file, "utf8")) as IEntry;
+    entry.version = `ttsc-capability-resolution-v6:${key.version}`;
+    write(file, JSON.stringify(entry));
   });
 
   record();

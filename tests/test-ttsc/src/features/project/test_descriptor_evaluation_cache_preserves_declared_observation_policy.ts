@@ -20,7 +20,7 @@ import { declaresHostInputReads } from "../../../../../packages/ttsc/src/plugin/
  *
  * @evidence contracts/testing.md#behavioral-verification Calls actual declaresHostInputReads and PluginDescriptorEvaluationCache.write/read on private files. Literal declaration booleans, exact returned evaluations, absent publication and null misses distinguish declaration, persistence and currentness.
  * @evidence contracts/testing.md#independent-expectations Independent SHA-256 over authored bytes and native realpath over owned inputs supply observations; unchanged inputs permit the exact authored answer, changed bytes/candidate existence/physical target require null. Explicit declaration tables and writer refusals are contract expectations, not outputs copied from cache helpers.
- * @evidence contracts/testing.md#distinguishing-cases Includes empty/absent/malformed declarations, missing input keys, invalid declared values, incomplete observations, conflicting declared content, empty proof, extra external content without invented realpath, unchanged hits, content movement/restoration, missing candidate appearance, identical-content directory-link retargeting, corrupt/foreign-format entries and a directory at the entry path. Directory read refusal is not certification of permission-denied input behavior.
+ * @evidence contracts/testing.md#distinguishing-cases Includes empty/absent/malformed declarations, missing input keys, invalid declared values, incomplete observations, conflicting declared content, empty proof, extra external content without invented realpath, unchanged hits, content movement/restoration, missing candidate appearance, identical-content directory-link retargeting, prior proof-generation and foreign-format refusal, corrupt entries and a directory at the entry path. Directory read refusal is not certification of permission-denied input behavior.
  * @evidence contracts/testing.md#execution-ownership One matching source unit directly invokes production-used policies without locate, evaluator, Go, compiler, installation or product host. Native files and a Windows junction/POSIX directory link are owned inputs; failures are aggregated and final root cleanup errors retained. Authored observation completeness is a premise, not producer or atomic-snapshot certification; selection/runtime remain unexecuted.
  */
 export function test_descriptor_evaluation_cache_preserves_declared_observation_policy(): void {
@@ -174,6 +174,20 @@ export function test_descriptor_evaluation_cache_preserves_declared_observation_
       } finally {
         fs.writeFileSync(input, bytes, "utf8");
       }
+    });
+    check("prior producer proof generation", () => {
+      const entry = path.join(root, "previous-generation.json");
+      const value = evaluation();
+      PluginDescriptorEvaluationCache.write(entry, value);
+      assert.deepEqual(PluginDescriptorEvaluationCache.read(entry), value);
+      const stored = JSON.parse(fs.readFileSync(entry, "utf8")) as {
+        format: string;
+      };
+      stored.format = "ttsc-descriptor-evaluation-v6";
+      fs.writeFileSync(entry, JSON.stringify(stored));
+      assert.equal(PluginDescriptorEvaluationCache.read(entry), null);
+      PluginDescriptorEvaluationCache.write(entry, value);
+      assert.deepEqual(PluginDescriptorEvaluationCache.read(entry), value);
     });
     check("missing candidate appearance", () => {
       const entry = path.join(root, "candidate.json");

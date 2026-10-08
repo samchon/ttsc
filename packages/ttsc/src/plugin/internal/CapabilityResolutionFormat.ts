@@ -37,9 +37,11 @@ export namespace CapabilityResolutionFormat {
    * factory's capability declarations. It requires an explicit completed
    * runtime observation envelope, so a partial side channel cannot authorize an
    * answer for reuse, and the shared module recorder's independent completion
-   * proof, including its public require.resolve hook capability.
+   * proof, including its public require.resolve hook capability. Mapped import
+   * candidates retain their pre-resolution witnesses; entries from before that
+   * producer rule must be discovered again even when their later hashes match.
    */
-  const FORMAT = "ttsc-capability-resolution-v6";
+  const FORMAT = "ttsc-capability-resolution-v7";
 
   /**
    * The character that joins fields a path could otherwise forge.

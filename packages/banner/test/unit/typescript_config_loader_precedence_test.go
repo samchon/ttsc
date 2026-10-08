@@ -24,6 +24,8 @@ import (
 // exported values making incorrect default selection or unwrapping observable.
 // A fourth compatible loader owns actual package selection and cutoff proofs
 // while the selected module mutates an unrelated directory beside the fixture.
+// Two mapped-import loaders contrast stable absence with a nearer scoped
+// package created by a supported resolve hook after Node selects the far copy.
 // The real compiler/launcher transport remains in the other loader boundaries.
 //
 //  1. Generate loaders for export conflicts and a selected package that churns
@@ -31,10 +33,10 @@ import (
 //  2. Execute those loaders in one Node process and decode each actual envelope.
 //  3. Execute an invalid-export control separately and require its error envelope.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual bannerTypeScriptConfigLoaderSource and resolutioninputs.Recorder select the authored default/outer/nested texts and evaluate selection's installed module despite root-sibling mkdir/rmdir churn. Its actual envelope retains selected-module/manifest byte hashes and physical identities, both proof keys for every input and no selection candidate beyond the selected root. The invalid export retains its supported failure requirement.
-// @evidence contracts/testing.md#independent-expectations Conflicting export literals define precedence. Authored package/module bytes independently define SHA-256; native Stat and SameFile identify the fixture root, selected inputs and physical proof targets even when the temporary root has an alias. A candidate's parent before node_modules/selection must identify the authored root, so absent candidates cannot escape the cutoff. Actual stdout is decoded without deriving expected results from loader source or recorder output.
-// @evidence contracts/testing.md#distinguishing-cases Default/outer/nested precedence and invalid export remain; bare package selection contrasts the selected local package with irrelevant higher search roots changed during evaluation. Nil proofs for stable absent candidates are allowed but absent proof keys fail. This does not certify compiler emit, native TypeScript launcher transport or every plugin/config-format combination.
-// @evidence contracts/testing.md#execution-ownership Generated loader modules and the embedded recorder run in the existing two real Node children: one shared positive cohort now contains four loaders, and one invalid control remains. Package selection adds no child, compiler Program, host or native artifact. The positive fixture's sibling is removed by its module and testing cleanup owns any remaining empty sibling.
+// @evidence contracts/testing.md#behavioral-verification Actual bannerTypeScriptConfigLoaderSource and resolutioninputs.Recorder select the authored precedence and bare-package values. Supported preinstalled hooks create a nearer scoped mapped target after Node selects FAR: its actual envelope keeps the changed candidates without reusable hash/physical proof, while stable mapped absence keeps null proofs. Existing bare selection retains authored hashes, physical identities and selected-root cutoff despite unrelated sibling churn; invalid export still fails.
+// @evidence contracts/testing.md#independent-expectations Conflicting export literals define precedence. Authored bytes independently define SHA-256; native Stat/SameFile identify selected inputs and root boundaries. An independent temporary public resolve hook supplies actual require.resolve coverage, so mapped-envelope completeness is not guessed from a Node version. Changed NEAR must lose proof while FAR's literal answer survives. Actual stdout is decoded without deriving expectations from generated loader text.
+// @evidence contracts/testing.md#distinguishing-cases Default/outer/nested precedence and invalid export remain; bare package selection contrasts the selected local package with irrelevant higher search roots. Mapped scoped stable/created targets differ only by the phase-window mutation, which must preserve FAR's answer but withdraw NEAR proof. This does not certify compiler emit, native launcher transport or every config format.
+// @evidence contracts/testing.md#execution-ownership Generated loaders and the actual embedded recorder run in the existing two Node children: six compatible loaders share one positive cohort and one invalid control remains. Public hooks belong to that isolated cohort's process lifetime. No new child, compiler Program, product host or native artifact is added; testing owns fresh roots and remaining sibling cleanup.
 func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
   root := t.TempDir()
   rootInfo, rootErr := os.Stat(root)
@@ -74,19 +76,89 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
     loaders = append(loaders, loader)
     expected[fixture.expected]++
   }
+  mapped := map[string]struct {
+    near, far, module string
+    changed           bool
+  }{}
+  mappedRoot, mappedRootErr := filepath.EvalSymlinks(root)
+  if mappedRootErr != nil {
+    t.Fatal(mappedRootErr)
+  }
+  var windows []map[string]any
+  for _, changed := range []bool{false, true} {
+    label := "MAPPED STABLE"
+    if changed {
+      label = "MAPPED CREATED"
+    }
+    directory := filepath.Join(mappedRoot, strings.ReplaceAll(label, " ", "-"))
+    app := filepath.Join(directory, "app")
+    config := filepath.Join(app, "config.mjs")
+    shared.WriteFile(t, filepath.Join(app, "package.json"), `{"type":"module","imports":{"#dep":"@scope/pkg"}}`)
+    shared.WriteFile(t, config, `import value from "#dep"; export default value;`)
+    near := filepath.Join(app, "node_modules", "@scope", "pkg")
+    if err := os.MkdirAll(filepath.Dir(near), 0o755); err != nil {
+      t.Fatal(err)
+    }
+    far := filepath.Join(directory, "node_modules", "@scope", "pkg")
+    text := "module.exports = { text: " + mustJSON(t, label) + " };"
+    shared.WriteFile(t, filepath.Join(far, "package.json"), `{"main":"index.cjs"}`)
+    shared.WriteFile(t, filepath.Join(far, "index.cjs"), text)
+    loader := filepath.Join(app, "loader.mts")
+    shared.WriteFile(t, loader, bannerTypeScriptConfigLoaderSource(`"./config.mjs"`, mustJSON(t, recorder)))
+    loaders = append(loaders, loader)
+    expected[label]++
+    mapped[label] = struct {
+      near, far, module string
+      changed           bool
+    }{near, far, text, changed}
+    windows = append(windows, map[string]any{"config": config, "near": near, "changed": changed})
+  }
   wrapper := filepath.Join(root, "positive.mjs")
-  shared.WriteFile(t, wrapper, `import { pathToFileURL } from "node:url"; for (const file of `+mustJSON(t, loaders)+`) await import(pathToFileURL(file).href);`)
+  capabilityReceipt := filepath.Join(root, "resolve-capability.json")
+  shared.WriteFile(t, wrapper, `import fs from "node:fs";
+import path from "node:path";
+import { createRequire, registerHooks } from "node:module";
+import { pathToFileURL } from "node:url";
+let requireResolveObserved = false;
+const sentinel = "ttsc-config-loader-capability-probe";
+const probe = registerHooks({ resolve(specifier, context, nextResolve) {
+  if (specifier !== sentinel) return nextResolve(specifier, context);
+  requireResolveObserved = true;
+  return { shortCircuit: true, url: pathToFileURL(process.execPath).href };
+}});
+try { createRequire(import.meta.url).resolve(sentinel); } catch {}
+finally { probe.deregister(); }
+fs.writeFileSync(`+mustJSON(t, capabilityReceipt)+`, JSON.stringify(requireResolveObserved));
+const windows = `+mustJSON(t, windows)+`;
+registerHooks({ resolve(specifier, context, nextResolve) {
+  const selected = nextResolve(specifier, context);
+  const window = windows.find(item => specifier === "#dep" && context.parentURL === pathToFileURL(item.config).href);
+  if (window?.changed) {
+    window.changed = false;
+    fs.mkdirSync(window.near);
+    fs.writeFileSync(path.join(window.near, "package.json"), '{"main":"index.cjs"}');
+    fs.writeFileSync(path.join(window.near, "index.cjs"), 'module.exports = { text: "NEAR" };');
+  }
+  return selected;
+}});
+for (const file of `+mustJSON(t, loaders)+`) await import(pathToFileURL(file).href);`)
   command := exec.Command("node", "--disable-warning=ExperimentalWarning", "--experimental-strip-types", wrapper)
   var stdout, stderr bytes.Buffer
   command.Stdout, command.Stderr = &stdout, &stderr
   if err := command.Run(); err != nil || stderr.Len() != 0 {
     t.Fatalf("generated positive loaders failed: err=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
   }
+  capabilityBytes, capabilityErr := os.ReadFile(capabilityReceipt)
+  var requireResolveObserved bool
+  if capabilityErr != nil || json.Unmarshal(capabilityBytes, &requireResolveObserved) != nil {
+    t.Fatalf("missing actual require.resolve hook capability: %v", capabilityErr)
+  }
   decoder := json.NewDecoder(&stdout)
   actual := map[string]int{}
   for {
     var result struct {
       Inputs    []string           `json:"inputs"`
+      Complete  bool               `json:"complete"`
       Hashes    map[string]*string `json:"hashes"`
       Realpaths map[string]*string `json:"realpaths"`
       Value     struct {
@@ -101,6 +173,38 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
       t.Fatalf("invalid generated envelope: %v", err)
     }
     actual[result.Value.Text]++
+    if window, exists := mapped[result.Value.Text]; exists {
+      if result.Complete != requireResolveObserved {
+        t.Errorf("mapped loader %s completeness=%v differs from actual public require.resolve hook capability=%v", result.Value.Text, result.Complete, requireResolveObserved)
+      }
+      for _, name := range []string{"package.json", "index.cjs"} {
+        file := filepath.Join(window.near, name)
+        inputFound := false
+        for _, input := range result.Inputs {
+          if filepath.Clean(input) == filepath.Clean(file) {
+            inputFound = true
+          }
+        }
+        if !inputFound {
+          t.Errorf("mapped loader omitted nearer candidate %s", file)
+        }
+        hash, hashPresent := result.Hashes[file]
+        physical, physicalPresent := result.Realpaths[file]
+        if window.changed {
+          if hashPresent || physicalPresent {
+            t.Errorf("mapped loader refreshed changed candidate %s: hash=%v physical=%v", file, hash, physical)
+          }
+        } else if !hashPresent || !physicalPresent || hash != nil || physical != nil {
+          t.Errorf("stable mapped absence lost its null proofs: %s", file)
+        }
+      }
+      file := filepath.Join(window.far, "index.cjs")
+      hash := result.Hashes[file]
+      expectedHash := fmt.Sprintf("%x", sha256.Sum256([]byte(window.module)))
+      if hash == nil || *hash != expectedHash {
+        t.Errorf("mapped loader selected-module proof %s does not match authored FAR bytes", file)
+      }
+    }
     if result.Value.Text == "INSTALLED SELECTION" {
       for _, input := range result.Inputs {
         if _, exists := result.Hashes[input]; !exists {

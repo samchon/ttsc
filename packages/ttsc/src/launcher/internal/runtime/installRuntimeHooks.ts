@@ -20,8 +20,6 @@ import { E2ETrace } from "../../../internal/E2ETrace";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { runtimeExecutableIdentity } from "../../../internal/runtimeExecutableIdentity";
 import { moduleResolutionBaseSelects } from "../../../plugin/internal/load/moduleResolutionBaseSelects";
-import { observeImportSearchRoots } from "../../../plugin/internal/load/observeImportSearchRoots";
-import { visitImportMappedCandidates } from "../../../plugin/internal/load/visitImportMappedCandidates";
 import { recordCacheFileUse } from "../../../plugin/internal/source/recordCacheFileUse";
 import { buildSingleRootProject } from "../buildSingleRootProject";
 import { inlineServedSourceMap } from "../inlineServedSourceMap";
@@ -47,6 +45,7 @@ import { commonJsExportNames } from "./commonJsExportNames";
 import { commonJsImportFacade } from "./commonJsImportFacade";
 import { dependencyCacheKey } from "./dependencyCacheKey";
 import { dependencyCacheRoot } from "./dependencyCacheRoot";
+import { observeMappedDescriptorResolution } from "./observeMappedDescriptorResolution";
 import { projectModuleOptions } from "./projectModuleOptions";
 import { readDependencyCache } from "./readDependencyCache";
 import { realPath } from "./realPath";
@@ -376,31 +375,23 @@ function observePluginDescriptorResolutionCandidates(
   if (isBuiltin(specifier) || specifier.startsWith("node:")) return inactive;
   const parent = runtimeFilePath(parentURL);
   if (parent === undefined) return inactive;
-  // A `#` specifier is looked up in the importer's own package `imports`, whose
-  // manifest was recorded with the importer. When that maps it to a bare
-  // package, the package's candidates up to the root that selected it are
-  // inputs, named once the resolution settles.
+  // Mapped targets use the shared recorder's earlier witnesses. A later
+  // candidate read cannot replace a proof withdrawn during this window.
   if (specifier.startsWith("#")) {
-    const witnesses = observeImportSearchRoots(parent);
+    const observation = observeMappedDescriptorResolution(
+      specifier,
+      parent,
+      DESCRIPTOR_PROBE_EXTENSIONS,
+    );
     return {
       commit: (selectedURL) => {
-        const lines: string[] = [];
-        visitImportMappedCandidates(
-          parent,
-          selectedURL === undefined ? undefined : runtimeFilePath(selectedURL),
-          DESCRIPTOR_PROBE_EXTENSIONS,
-          witnesses,
-          (file, moved) => {
-            lines.push(
-              ...observePluginDescriptorInput({
-                parent,
-                resolved: file,
-                ...(moved ? { unstable: true } : {}),
-              }),
-            );
-          },
+        appendPluginDescriptorInputs(
+          observation
+            .commit(
+              selectedURL === undefined ? undefined : runtimeFilePath(selectedURL),
+            )
+            .map((record) => `${JSON.stringify({ parent, ...record })}\n`),
         );
-        appendPluginDescriptorInputs(lines);
       },
     };
   }
