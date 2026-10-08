@@ -28,6 +28,10 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * that could change selection. Package/import-map `extends` uses Node's
  * resolver, whose complete search authority is not exposed here; such a chain
  * marks `configInputsComplete` false and cannot authorize persistent reuse.
+ * Completed ancestors are shared only within this read. Each incoming extends
+ * edge still selects and observes its lexical candidates before reuse; config
+ * bytes, canonical declaring directories and the final configDir are shared
+ * within the invocation. Another read performs fresh discovery and evaluation.
  *
  * @param opts Config selection, invocation directory and optional project root.
  * @returns Resolved options, plugin origins, selected identity and config
@@ -35,14 +39,13 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * @throws When selection, parsing or inheritance fails, including circular
  *   extends chains. Native read failures propagate from the shared reader.
  * @evidence contracts/common.md#principled-implementation Recursive left-to-right option merging retains each declaring directory and final configDir substitution; selected and missing config candidates are recorded, while module inheritance explicitly lacks complete freshness proof.
- * @evidence contracts/common.md#clear-and-simple-design Identity selection, extends resolution and JSONC parsing stay with their shared owners; one recursive merge returns options, plugin origins and config observations together.
+ * @evidence contracts/common.md#clear-and-simple-design Identity selection, extends resolution and JSONC parsing stay with their shared owners; one recursive merge returns options, plugin origins and config observations together. Separate active and completed collections distinguish circular dependencies from reusable ancestors.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing candidates are real selection premises, and incomplete Node module topology is marked unproved instead of imitated by a guessed package resolver or cache bypass.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc separates option inheritance, path anchors and observation limitations; native member comments and separated tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native resolution and realpath preserve distinct lexical and physical config identities; option separators and configDir substitution use the shared host-neutral config rule rather than POSIX concatenation.
- * @evidence contracts/performance.md#efficient-algorithms Each inheritance occurrence performs native selection/realpath/read, parses config bytes and copies accumulated option records and config path lists; shared ancestors may be revisited across branches. Active-chain membership detects cycles but is not a result cache. Repeated uniquePaths rebuilding can copy quadratic accumulated path volume along a long chain; candidate observations are deduplicated separately before a final string sort. Path normalization and comparisons cost their text lengths, and native resolution/Node module search costs are delegated rather than constant-time.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This reader performs a current filesystem lookup and owns no cross-call cache; safe reuse belongs to the loader proof consuming its observations and completeness flag.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Sets and merged records are invocation-owned data with no retained history or live handle; the active chain is removed in finally.
+ * @evidence contracts/performance.md#efficient-algorithms Each distinct canonical config is read, parsed and merged once; each outgoing extends edge of those configs performs native selection and realpath before completed lookup, so shared diamonds no longer expand by inheritance-path count. Record merging and ordered configPaths copies still scale with accumulated option/path volume and can be quadratic along long chains or wide arrays. Candidate observations use a Set and one final sort; native resolution and path-text processing retain their delegated costs.
+ * @evidence contracts/performance.md#reuse-equivalent-work One invocation-owned Map shares completed canonical results after incoming lexical selection observations and active-stack cycle checks. Outgoing resolution always uses the canonical declaring file and all entries share the invocation's final configDir, so aliases do not change the merge context. Observed outgoing premises and incomplete module authority are retained with the shared result. No entry survives the read, and independent loader stability reads remain fresh; this synchronous operation does not claim an atomic filesystem snapshot.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The active Set and completed Map belong to one read and retain at most its distinct reachable configs, with merged records/path lists proportional to each reachable subtree. They become reclaimable on return or failure; finally removes active membership, and no historical cache or live handle survives the invocation.
  */
 export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
@@ -57,6 +60,7 @@ export function readProjectConfig(
   const compilerOptions = readResolvedCompilerOptions(
     tsconfig,
     new Set(),
+    new Map(),
     path.dirname(tsconfig),
     onInput,
   );
@@ -155,15 +159,17 @@ function resolveAbsolutePath(cwd: string, target: string): string {
 
 /**
  * Recursively read and merge `compilerOptions` from `tsconfig` and all configs
- * in its `extends` chain. `seen` tracks canonical paths to detect circular
- * `extends` references; the current config is removed from `seen` in the
- * `finally` block so sibling-referenced configs can be visited again via a
- * different parent.
+ * in its `extends` chain. Active canonical paths reject circular references
+ * before completed results are considered. Incoming selection observations
+ * happen before this call; each completed canonical file has already observed
+ * its outgoing edges under the same canonical anchor and final configDir.
+ * Parent merges copy records and never mutate the shared completed result.
  */
 function readResolvedCompilerOptions(
   tsconfig: string,
-  seen: Set<string> = new Set(),
-  configDir = path.dirname(tsconfig),
+  seen: Set<string>,
+  completed: Map<string, ResolvedCompilerOptions>,
+  configDir: string,
   onInput?: (file: string) => void,
 ): ResolvedCompilerOptions {
   onInput?.(tsconfig);
@@ -171,6 +177,8 @@ function readResolvedCompilerOptions(
   if (seen.has(canonical)) {
     throw new Error(`ttsc: circular tsconfig extends detected: ${canonical}`);
   }
+  const cached = completed.get(canonical);
+  if (cached !== undefined) return cached;
   seen.add(canonical);
   try {
     const parsed = readJsoncFile(canonical) as {
@@ -184,6 +192,7 @@ function readResolvedCompilerOptions(
       canonical,
       parsed.extends,
       seen,
+      completed,
       configDir,
       onInput,
     );
@@ -211,7 +220,7 @@ function readResolvedCompilerOptions(
     const plugins = pluginsDeclared
       ? ownPlugins.filter(isProjectPluginConfig)
       : base.plugins;
-    return {
+    const resolved: ResolvedCompilerOptions = {
       configInputsComplete: base.configInputsComplete,
       configPaths: uniquePaths([...base.configPaths, canonical]),
       optionBaseDirs,
@@ -222,6 +231,8 @@ function readResolvedCompilerOptions(
       pluginsDeclared: pluginsDeclared || base.pluginsDeclared,
       plugins,
     };
+    completed.set(canonical, resolved);
+    return resolved;
   } finally {
     seen.delete(canonical);
   }
@@ -242,6 +253,7 @@ function resolveBaseCompilerOptions(
   tsconfig: string,
   extended: unknown,
   seen: Set<string>,
+  completed: Map<string, ResolvedCompilerOptions>,
   configDir: string,
   onInput?: (file: string) => void,
 ): ResolvedCompilerOptions {
@@ -249,6 +261,7 @@ function resolveBaseCompilerOptions(
     const inherited = readResolvedCompilerOptions(
       resolveTsconfigExtends(tsconfig, extended, onInput),
       seen,
+      completed,
       configDir,
       onInput,
     );
@@ -286,6 +299,7 @@ function resolveBaseCompilerOptions(
     const current = readResolvedCompilerOptions(
       resolveTsconfigExtends(tsconfig, specifier, onInput),
       seen,
+      completed,
       configDir,
       onInput,
     );
