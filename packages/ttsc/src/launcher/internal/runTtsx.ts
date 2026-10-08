@@ -509,7 +509,14 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
       stage = "relinquish";
       ProcessOwnedDirectory.relinquish(directory);
       stage = "ownership";
-      const ownership = ProcessOwnedDirectory.ownership(directory);
+      const ownership = ProcessOwnedDirectory.ownership(
+        directory,
+        false,
+        observe === undefined
+          ? undefined
+          : (observation) =>
+              observe("owner-observation", undefined, undefined, observation),
+      );
       observe?.("ownership", ownership);
       if (ownership === "abandoned" || ownership === "unowned") {
         stage = "remove";

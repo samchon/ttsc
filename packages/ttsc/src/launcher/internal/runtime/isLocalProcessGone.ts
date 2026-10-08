@@ -15,6 +15,8 @@ import os from "node:os";
  * Hostname comparison is a host-label convention, not machine authentication:
  * shared-cache participants need distinct labels under this comparison. ESRCH
  * is an observation at probe time, not a lease preventing later state changes.
+ * An optional diagnostic receives this same observation without another probe;
+ * a diagnostic failure cannot change the ownership decision.
  *
  * @evidence contracts/common.md#principled-implementation Reclamation requires both the recorded local hostname and ESRCH from the native pid probe; permission, invalid-pid and unknown failures cannot establish that an owner is gone.
  * @evidence contracts/common.md#clear-and-simple-design One conservative predicate supplies the same owner-liveness decision to lock recovery and directory sweeping.
@@ -25,20 +27,41 @@ import os from "node:os";
  * @evidence contracts/performance.md#efficient-algorithms Native hostname lookup and two lowercase string constructions/comparison process host-label text before at most one native pid probe; the fixed probe count is not a fixed text or operating-system cost.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Host labels and native process existence are current observations; this predicate coordinates no cross-call cache or reusable liveness proof.
  */
-export function isLocalProcessGone(owner: {
+export function isLocalProcessGone(
+  owner: {
   /** The process id the owner recorded. */
   pid: number;
 
   /** The `os.hostname()` of the machine the owner ran on. */
   hostname: string;
-}): boolean {
+  },
+  observe?: (
+    result: "remote" | "present" | "absent" | "unknown",
+    errorCode?: string,
+  ) => void,
+): boolean {
+  const report = (
+    result: "remote" | "present" | "absent" | "unknown",
+    errorCode?: string,
+  ): void => {
+    try {
+      observe?.(result, errorCode);
+    } catch {
+      // Diagnostics own no policy.
+    }
+  };
   if (owner.hostname.toLowerCase() !== os.hostname().toLowerCase()) {
+    report("remote");
     return false;
   }
   try {
     process.kill(owner.pid, 0);
+    report("present");
     return false;
   } catch (error) {
-    return (error as NodeJS.ErrnoException | null)?.code === "ESRCH";
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    const absent = code === "ESRCH";
+    report(absent ? "absent" : "unknown", code);
+    return absent;
   }
 }

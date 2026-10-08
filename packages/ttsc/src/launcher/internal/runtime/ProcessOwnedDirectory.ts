@@ -28,6 +28,34 @@ import { isLocalProcessGone } from "./isLocalProcessGone";
  */
 export namespace ProcessOwnedDirectory {
   /**
+   * One already-performed owner observation. A present numeric PID does not
+   * authenticate the original process incarnation; unknown and remote outcomes
+   * remain conservative non-absence evidence.
+   *
+   * @evidence contracts/common.md#principled-implementation Fixed record, validated owner and native-observation fields preserve the reason for a decision without turning a diagnostic into ownership authority.
+   * @evidence contracts/common.md#clear-and-simple-design A single record describes either invalid owner evidence or the existing host/process probe result.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Numeric presence is not called original-process liveness, and unknown or remote outcomes are not absence.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states incarnation uncertainty and distinguishes diagnostic provenance from policy authority.
+   * @evidence contracts/portability.md#os-neutral-implementation Owner coordinates and native errno text retain their actual host/pid boundary without a platform-specific lookup.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This data representation selects no observation algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A record does not cache or share process observations.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The diagnostic carries values only; callers own its sink and lifetime.
+   */
+  export interface Observation {
+    /** Basename of the record actually read in the existing scan. */
+    record: string;
+
+    /** Validated host/pid values, absent for malformed or unreadable records. */
+    owner?: { hostname: string; pid: number };
+
+    /** Result of the existing decoding, hostname comparison or native probe. */
+    result: "invalid-record" | "remote" | "present" | "absent" | "unknown";
+
+    /** Native code already caught by the operation, if it supplied one. */
+    errorCode?: string;
+  }
+
+  /**
    * How an owned directory relates to its owners. Only abandoned permits
    * reclamation; unknown and unowned preserve the entry. `live` includes a
    * recognized record whose process is not proven gone (including remote-host
@@ -137,6 +165,7 @@ export namespace ProcessOwnedDirectory {
   export function ownership(
     directory: string,
     legacyProcessRoot = false,
+    observe?: (observation: Observation) => void,
   ): Ownership {
     let names: string[];
     try {
@@ -153,12 +182,26 @@ export namespace ProcessOwnedDirectory {
         !(legacyProcessRoot && name === "owner.json")
       )
         continue;
-      const owner = readRecord(path.join(directory, name));
+      const owner = readRecord(path.join(directory, name), observe);
       if (owner === null) {
         unknown = true;
         continue;
       }
-      if (!isLocalProcessGone(owner)) return "live";
+      if (
+        !isLocalProcessGone(
+          owner,
+          observe === undefined
+            ? undefined
+            : (result, errorCode) =>
+                report(observe, {
+                  record: name,
+                  owner,
+                  result,
+                  ...(errorCode === undefined ? {} : { errorCode }),
+                }),
+        )
+      )
+        return "live";
       owned = true;
     }
     return unknown ? "unknown" : owned ? "abandoned" : "unowned";
@@ -221,7 +264,10 @@ export namespace ProcessOwnedDirectory {
     return path.join(directory, `${RECORD_PREFIX}${pid}${RECORD_SUFFIX}`);
   }
 
-  function readRecord(file: string): { hostname: string; pid: number } | null {
+  function readRecord(
+    file: string,
+    observe?: (observation: Observation) => void,
+  ): { hostname: string; pid: number } | null {
     try {
       const owner = JSON.parse(fs.readFileSync(file, "utf8")) as {
         hostname?: unknown;
@@ -250,11 +296,30 @@ export namespace ProcessOwnedDirectory {
         namedPid === undefined ||
         owner.pid !== namedPid
       ) {
+        report(observe, { record: name, result: "invalid-record" });
         return null;
       }
       return { hostname: owner.hostname, pid: owner.pid };
-    } catch {
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | null)?.code;
+      report(observe, {
+        record: path.basename(file),
+        result: "invalid-record",
+        ...(typeof code === "string" ? { errorCode: code } : {}),
+      });
       return null;
+    }
+  }
+
+  /** Diagnostics preserve observed values but cannot change classification. */
+  function report(
+    observe: ((observation: Observation) => void) | undefined,
+    observation: Observation,
+  ): void {
+    try {
+      observe?.(observation);
+    } catch {
+      // Diagnostics own no policy.
     }
   }
 }
