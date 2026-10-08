@@ -18,7 +18,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * 3. Verify a failing watcher close preserves its error and cancels updates.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the installed shared Rollup TypeScript plugin's lifecycle hooks and actual classic compiler. After closing, draining real compiler callbacks must create no watchers; the live watch case must emit changed values before close.
- * @evidence contracts/testing.md#independent-expectations Closing ends ownership of pending work; literal zero pending timers and watchers distinguish the known reopen defect. Literal emitted values 42, 43 and 44 follow the authored source, independently of timer tracking.
+ * @evidence contracts/testing.md#independent-expectations Closing ends ownership of pending work; literal zero pending timers and watchers distinguish the known reopen defect. Replacing a timer first requires an actual queued initial timer. Literal emitted values 42, 43 and 44 follow the authored source, independently of timer tracking.
  * @evidence contracts/testing.md#distinguishing-cases Covers no event, queued update, replaced timer, already completed update, continuing watch rebuilds, repeated close, absent timer capabilities, original close failure and a fresh subsequent program. Failed native watcher closure remains observable rather than claiming that foreign failure released its handle.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this direct in-process build-dependency unit. A private temporary project and supported compiler System injection exercise actual TypeScript and plugin hooks without installation, native compilation, child process or real filesystem subscription; separate local child experiments verify natural process exit.
  */
@@ -164,6 +164,7 @@ export const test_rollup_typescript_releases_queued_program_updates = async (): 
         if (!["quiet", "repeated-close"].includes(scenario)) change();
         if (scenario === "rescheduled") {
           const previous = [...timers][0];
+          assert.ok(previous, "rescheduled: first update queued a timer");
           change();
           assert.equal(timers.has(previous), false);
           assert.equal(timers.size, 1);
