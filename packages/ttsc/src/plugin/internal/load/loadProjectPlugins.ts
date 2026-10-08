@@ -21,6 +21,9 @@ import type { ITtscLoadedNativePlugin } from "../../../structures/internal/ITtsc
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import { pluginDescriptorFailureReason } from "../pluginDescriptorFailureReason";
 import { pluginDescriptorProcessFailure } from "../pluginDescriptorProcessFailure";
+import { NativeSourcePackages } from "../source/NativeSourcePackages";
+import { SourcePluginWorkspace } from "../source/SourcePluginWorkspace";
+import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { buildSourcePlugin } from "../source/buildSourcePlugin";
 import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
@@ -41,6 +44,7 @@ import { pluginLabel } from "./pluginLabel";
 import { realpathHostInput } from "./realpathHostInput";
 import { realpathHostInputPaths } from "./realpathHostInputPaths";
 import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
+import { requirePluginSource } from "./requirePluginSource";
 import { resolveNativeSource } from "./resolveNativeSource";
 import { validatePluginContributors } from "./validatePluginContributors";
 import { validatePluginSource } from "./validatePluginSource";
@@ -52,6 +56,12 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * Reads the project config, discovers plugin entries (from tsconfig and package
  * auto-discovery), validates and composes their descriptors, then invokes
  * `buildSourcePlugin` to compile each Go source package into a cached binary.
+ * Native ownership comes from the selected Go packages in generated build
+ * workspaces. The source-selected tool proposes nested transform ownership
+ * under generic host manifests while preserving source-relative input layout.
+ * Main proposals must agree in their full owning module; linked proposals must
+ * agree inside every selected transform host. Errors or disagreement terminate
+ * the load rather than changing the proposed kind.
  * Returns the ordered native plugins, parsed project config, recorded
  * JavaScript-host inputs and unresolved selection candidates, and the keyed
  * state of reported Go source directories supplied to the builds
@@ -85,7 +95,7 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor module caches are isolated rather than deleting application singletons. ttsx retry occurs only for explicit supported TypeScript loader incompatibility, with plugins disabled to avoid recursive self-hosting; arbitrary descriptor failures are not retried into false success.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains result provenance, environment and path options; helper comments explain input races, conservative proof omission, fallback authority and cleanup. Member/tag spacing and separated concepts follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL conversion, createRequire and hidden spawn with explicit argv/environment implement OS-neutral selection and process execution. Physical identities are preserved separately from lexical candidates; Bun-specific differences are capability decisions, not OS guesses.
- * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Builds delegate source/environment hashing, copying and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
+ * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Package selection groups equivalent module contexts and batches entries through Go list without dependency compilation; per-load selected-tool manifest readers share overlay readings. Builds delegate source/environment hashing, copying, cold materialized ownership admission and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
  * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits. Per-load source/environment maps share directory-keyed digests and one selected transform host serves linked contributors; these identities do not certify every undeclared read or atomic filesystem stability.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Finally restores injected environment locators, attempts evaluator directory removal and closes direct-evaluator diagnostic descriptors. Close/removal can fail; synchronous completion concerns the selected evaluator and does not certify arbitrary descendants are gone. Generation maps/results scale with observed data, and disk diagnostics/result/observation files have no independent byte ceiling here. Default disk pruning has its own interval/protection/failure policy; explicit roots remain caller-owned.
  */
@@ -315,17 +325,25 @@ export function loadProjectPlugins(options: {
   const { ttsc: ttscVersion, tsgo: tsgoVersion } = pluginBuildVersions(
     context.projectRoot,
   );
-  const records = plugins.map((plugin, index) => {
+  const candidates = plugins.map((plugin, index) => {
     const stage = PluginDescriptorAdmission.stage(plugin);
     validatePluginSource(plugin);
     const contributors = validatePluginContributors(plugin);
     const source = resolvePluginSource(plugin.source, context.projectRoot);
-    const { kind, moduleRoot } = resolveNativeSource(
-      source,
-      plugin,
-      entries[index]!.config,
-      index,
-    );
+    const label = pluginLabel(plugin, entries[index]!.config, index);
+    requirePluginSource(source, label);
+    return { plugin, index, stage, contributors, source, label };
+  });
+  const packageReaders = new Map<string, SourcePluginWorkspace.GoModReader>();
+  const proposals = NativeSourcePackages.propose(
+    candidates.map((candidate) => ({
+      ...candidate, ownModule: candidate.stage !== "transform",
+    })), effectiveEnv, packageReaders,
+  );
+  const records = candidates.map(({ plugin, index, stage, contributors, source }) => {
+    const { kind, moduleRoot } = resolveNativeSource(source, plugin, entries[index]!.config, index, {
+      env: effectiveEnv, observation: proposals[index]!.observation,
+    });
     if (kind === "linked" && stage !== "transform") {
       throw new Error(
         `ttsc: plugin "${pluginLabel(plugin, entries[index]!.config, index)}" source is a linked Go package, but only transform-stage plugins can be linked into a compiler host`,
@@ -375,6 +393,8 @@ export function loadProjectPlugins(options: {
       stage,
     };
   });
+  const executableCandidates = candidates.filter((candidate) =>
+    records[candidate.index]!.kind === "executable" && !proposals[candidate.index]!.ownModule);
   // Reported before any build runs, so a build that fails still has its inputs
   // observed and its repair heard.
   options.onWatchInputs?.(pluginBuildDirectories(records, effectiveEnv));
@@ -390,6 +410,65 @@ export function loadProjectPlugins(options: {
   );
   const hostContributors =
     linkedContributors.length === 0 ? undefined : linkedContributors;
+  // Every host compiles the linked sources under its own module/tool context.
+  // Equivalent entries in one module share this metadata command and reader;
+  // a second executable host can select a genuinely different Go context.
+  const admittedExecutables = new Set<string>();
+  if (linkedContributors.length !== 0) {
+    const hosts = transformHosts.length === 0
+      ? [{ source: path.join(ttscPackageRoot(), "cmd", "utility-host"), label: "linked-plugin-host" }]
+      : transformHosts;
+    const contexts = new Map<string, { source: string; label: string; records: typeof transformHosts }>();
+    for (const host of hosts) {
+      const moduleRoot = resolvePluginGoModule(host.source, host.label).moduleRoot;
+      let context = contexts.get(moduleRoot);
+      if (context === undefined) {
+        context = { source: host.source, label: host.label, records: [] };
+        contexts.set(moduleRoot, context);
+      }
+    }
+    for (const record of transformHosts) contexts.get(record.moduleRoot)!.records.push(record);
+    for (const host of contexts.values()) {
+      const moduleHosts = host.records;
+      const hostEntries = moduleHosts.map((record) => ({
+        entry: resolvePluginGoModule(record.source, record.label).entry,
+      }));
+      const observations = NativeSourcePackages.inspect({
+        source: host.source, pluginName: host.label, env: effectiveEnv,
+        readers: packageReaders,
+        packages: [
+          ...hostEntries,
+          ...linkedContributors.map((input) => ({
+            ...input, entry: `./contrib/${input.name}`,
+          })),
+        ],
+      });
+      moduleHosts.forEach((record, index) => {
+        NativeSourcePackages.kind(observations[index]!, record.label, "executable");
+        admittedExecutables.add(record.source);
+      });
+      linkedContributors.forEach((input, index) => {
+        NativeSourcePackages.kind(observations[hostEntries.length + index]!, `${input.name} inside host ${host.label}`, "linked");
+      });
+    }
+  }
+  // A nested main proposal still needs its actual owning manifests. Hosts
+  // with linked contributors were admitted together above; other equivalent
+  // entries share one standalone observation, with no repeated host copy.
+  const standaloneCandidates = executableCandidates.filter((candidate) =>
+    !admittedExecutables.has(candidate.source));
+  const executablePackages = NativeSourcePackages.ownPackages(
+    standaloneCandidates, effectiveEnv, packageReaders,
+  );
+  standaloneCandidates.forEach((candidate, index) => {
+    NativeSourcePackages.kind(executablePackages[index]!, candidate.label, "executable");
+  });
+  const packageOwnership = (source: string, label: string, linked: boolean) => [
+    { entry: resolvePluginGoModule(source, label).entry, kind: "executable" as const },
+    ...(linked ? linkedContributors.map((input) => ({
+      entry: `./contrib/${input.name}`, kind: "linked" as const,
+    })) : []),
+  ];
   // One reading of each source directory, shared by every build below and
   // reported as the state the binaries were keyed on.
   const sourceDigests = new Map<string, string>();
@@ -406,6 +485,7 @@ export function loadProjectPlugins(options: {
         contributors: mergeContributors(record.contributors, hostContributors),
         env: effectiveEnv,
         pluginName: record.label,
+        packageOwnership: packageOwnership(record.source, record.label, true),
         source: record.source,
         environmentDigests,
         sourceDigests,
@@ -424,6 +504,9 @@ export function loadProjectPlugins(options: {
           label: "linked plugin host",
           pluginName: "linked-plugin-host",
           source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
+          packageOwnership: packageOwnership(
+            path.join(ttscPackageRoot(), "cmd", "utility-host"), "linked-plugin-host", true,
+          ),
           environmentDigests,
           sourceDigests,
           ttscVersion,
@@ -446,6 +529,7 @@ export function loadProjectPlugins(options: {
               contributors: record.contributors,
               env: effectiveEnv,
               pluginName: record.label,
+              packageOwnership: packageOwnership(record.source, record.label, false),
               source: record.source,
               environmentDigests,
               sourceDigests,

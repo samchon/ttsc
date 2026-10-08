@@ -17,7 +17,10 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  * identity, Go build environment variables, overlay module sources, plugin
  * source files, the local directories outside the module that its `go.mod`
  * replaces modules with (`pluginModuleReplaceDirectories`), and contributor
- * source files. Contributors are sorted by name; unique names remove input
+ * source files. An optional required package-ownership population also frames
+ * the key, separating binaries admitted by the matching cold producer from
+ * legacy artifacts; requests without that authority retain their existing key.
+ * Contributors are sorted by name; unique names remove input
  * order dependence, while equal-name rows retain the sort's input order.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
@@ -33,7 +36,7 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  *
  * The `ttsc cache` CLI and plugin build pipeline share this key computation.
  *
- * @evidence contracts/common.md#principled-implementation The key frames versions, platform, entry, environment and labeled source digests; sorted overlays/contributors remove irrelevant order while local replacements remain actual compiler inputs.
+ * @evidence contracts/common.md#principled-implementation The key frames versions, platform, entry, environment and labeled source digests; sorted overlays/contributors and required package ownership remove irrelevant order while local replacements remain actual compiler inputs.
  * @evidence contracts/common.md#clear-and-simple-design Source identity and toolchain serialization are delegated to their shared owners; optional maps carry one load's readings instead of adding an independent cache policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts All contributors and local module replacements participate; filesystem injection is an explicit byte-reading boundary rather than foreign monkey patching.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain input coverage and the provenance of reported digests; documented optional output maps have blank separation between members.
@@ -48,6 +51,9 @@ export function computeCacheKey(inputs: {
   dir: string;
   entry: string;
   env?: NodeJS.ProcessEnv;
+
+  /** Required package ownership, admitted by the matching cold producer. */
+  packageOwnership?: readonly { entry: string; kind: "executable" | "linked" }[];
 
   /**
    * Digests of the environment each build directory is keyed on
@@ -95,6 +101,12 @@ export function computeCacheKey(inputs: {
   hash.update(JSON.stringify(["tsgo", inputs.tsgoVersion]));
   hash.update(JSON.stringify(["platform", process.platform, process.arch]));
   hash.update(JSON.stringify(["entry", inputs.entry]));
+  if (inputs.packageOwnership !== undefined)
+    hash.update(JSON.stringify(["package-ownership", 1,
+      [...inputs.packageOwnership].sort((left, right) =>
+        left.entry < right.entry ? -1 : left.entry > right.entry ? 1 :
+          left.kind < right.kind ? -1 : left.kind > right.kind ? 1 : 0),
+    ]));
   // Private materialization changes native package working directories. Keep
   // binaries produced by the former absolute-ancestry layout out of this
   // layout's cache admissions, including callers with no SDK overlays.

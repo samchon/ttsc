@@ -1,0 +1,3 @@
+//go:build !ttsc_selected
+
+package library

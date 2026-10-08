@@ -1,95 +1,42 @@
-import fs from "node:fs";
-import path from "node:path";
-
+import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
+import { NativeSourcePackages } from "../source/NativeSourcePackages";
 import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { pluginLabel } from "./pluginLabel";
 import { requirePluginSource } from "./requirePluginSource";
 
 /**
- * Resolve the Go module and executable or linked ownership of a source.
+ * Resolve the Go module and Go-owned proposed native kind of a source.
  *
- * Classification uses the first scanned regular non-test .go file yielding a
- * package-clause prefix. It does not validate full package syntax, build
- * constraints, ignored filename prefixes or platform suffixes; Go compilation
- * remains authoritative for actual buildability.
+ * Nested transform proposals preserve admitted source layout under the generic
+ * host's root manifests, with the tool pinned at the original module. Root and
+ * check sources retain their own manifests. The loader must confirm executable
+ * proposals in their full owning module and linked proposals inside each chosen
+ * actual host; this adapter cannot choose that host. Go errors and empty
+ * production-file selections are terminal.
  *
- * @evidence contracts/common.md#principled-implementation Actual module discovery and the first accepted leading package-clause prefix determine executable versus linked classification independently of the diagnostic label. Comments, initial BOM and Unicode identifiers are recognized, but filename/prefix admission is not full Go package validation.
- * @evidence contracts/common.md#clear-and-simple-design Module discovery, directory admission and package parsing are separate owning operations; the private scanner reads immediate regular non-test .go candidates.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification invokes the real source resolver and native filesystem rather than a guessed kind or cached filename.
- * @evidence contracts/common.md#meaningful-documentation The headline explains native ownership and the Go module returned to the loader.
- *
- * @evidence contracts/portability.md#os-neutral-implementation The module resolver and native fs/path queries use caller-selected native spelling and regular-file metadata without blanket case folding or separator guessing. These preflight queries do not freeze physical identity or certify platform-specific Go build eligibility.
- * @evidence contracts/performance.md#efficient-algorithms After ancestor module discovery, the scanner visits immediate entries and reads candidate production Go files until it finds a package clause. Full immediate-directory materialization and candidate file reads/UTF-8 decoding scale with entry/path and file bytes; lexical scanning visits leading trivia and two identifiers without line arrays or recursive payload traversal. Ancestor path queries and label/property text handling remain part of the delegated cost.
- * @evidence contracts/performance.md#reuse-equivalent-work Classification reobserves the supplied source because its files and package declaration can change between loads; the label is selected once for this query and shared across its source/module diagnostics; no cross-load classification cache is established.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Directory entries and candidate file strings are invocation-local, growing with the immediate population and complete file sizes; returned classification/module strings transfer to the loader. Synchronous filesystem calls retain no source handle here, and no population ceiling or global classification history is owned.
+ * @evidence contracts/common.md#principled-implementation Real source admission and module discovery precede actual prospective-context Go metadata; only an error-free production package proposes executable or linked ownership, while final actual-context admission belongs to the loader/build.
+ * @evidence contracts/common.md#clear-and-simple-design Source/module admission and selected package observation have separate owners; callers may supply this load's batched observation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts No lexical scanner, filename exception or partial constraint parser substitutes for the selected Go tool.
+ * @evidence contracts/common.md#meaningful-documentation Native prose describes Go-owned package selection and erroneous-name rejection.
+ * @evidence contracts/portability.md#os-neutral-implementation Native module/path and effective-environment owners preserve platform identity; Go interprets target selection.
+ * @evidence contracts/performance.md#efficient-algorithms Module discovery is bounded; a missing supplied observation delegates contextual copy/workspace setup and one metadata command, without dependency compilation.
+ * @evidence contracts/performance.md#reuse-equivalent-work Loader-supplied observations batch equivalent packages within one load; direct calls reobserve current inputs and retain no cross-load cache.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Delegated metadata scratch has retirement-aware cleanup; returned module/kind strings transfer to the caller and no source handle is retained here.
  */
 export function resolveNativeSource(
   source: string,
   plugin: ITtscPlugin,
   config: ITtscProjectPluginConfig,
   index: number,
+  options?: { env?: NodeJS.ProcessEnv; observation?: NativeSourcePackages.Package },
 ): { kind: "executable" | "linked"; moduleRoot: string } {
   const label = pluginLabel(plugin, config, index);
   requirePluginSource(source, label);
-  const { moduleRoot, packageDir } = resolvePluginGoModule(source, label);
-  const packageName = readGoPackageName(packageDir);
-  if (packageName === null) {
-    throw new Error(
-      `ttsc: plugin "${label}" source must contain at least one non-test ".go" file with a package declaration: ${packageDir}`,
-    );
-  }
-  return {
-    kind: packageName === "main" ? "executable" : "linked",
-    moduleRoot,
-  };
-}
-
-function readGoPackageName(dir: string): string | null {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (
-      !entry.isFile() ||
-      !entry.name.endsWith(".go") ||
-      entry.name.endsWith("_test.go")
-    ) {
-      continue;
-    }
-    const file = path.join(dir, entry.name);
-    const packageName = readGoPackageClause(fs.readFileSync(file, "utf8"));
-    if (packageName !== null) return packageName;
-  }
-  return null;
-}
-
-/** Read only the package-clause prefix; Go compilation validates the file body. */
-function readGoPackageClause(source: string): string | null {
-  const identifier = /[_\p{L}][_\p{L}\p{Nd}]*/uy;
-  let offset = skipGoTrivia(source, source.charCodeAt(0) === 0xfeff ? 1 : 0);
-  if (offset < 0) return null;
-  identifier.lastIndex = offset;
-  if (identifier.exec(source)?.[0] !== "package") return null;
-  offset = skipGoTrivia(source, identifier.lastIndex);
-  if (offset < 0) return null;
-  identifier.lastIndex = offset;
-  return identifier.exec(source)?.[0] ?? null;
-}
-
-/** Go whitespace and non-nesting comments separate the first two tokens. */
-function skipGoTrivia(source: string, start: number): number {
-  let offset = start;
-  while (offset < source.length) {
-    const code = source.charCodeAt(offset);
-    if (code === 0x20 || code === 0x09 || code === 0x0d || code === 0x0a) {
-      offset += 1;
-    } else if (source.startsWith("//", offset)) {
-      const end = source.indexOf("\n", offset + 2);
-      offset = end < 0 ? source.length : end + 1;
-    } else if (source.startsWith("/*", offset)) {
-      const end = source.indexOf("*/", offset + 2);
-      if (end < 0) return -1;
-      offset = end + 2;
-    } else break;
-  }
-  return offset;
+  const { moduleRoot } = resolvePluginGoModule(source, label);
+  const observation = options?.observation ?? NativeSourcePackages.propose([
+    { source, label, ownModule: plugin.stage === "check" },
+  ], SidecarEnvironment.merge(options?.env ?? process.env))[0]!.observation;
+  return { kind: NativeSourcePackages.kind(observation, label), moduleRoot };
 }
