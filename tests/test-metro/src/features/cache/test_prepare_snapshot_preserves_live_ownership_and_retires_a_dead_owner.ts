@@ -14,7 +14,7 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  * dead owner retires only its lock; that discovery run still takes a private
  * token, leaving the next preparation to publish the worker observation.
  *
- * 1. Prepare a bare project and write one version-four worker document.
+ * 1. Prepare a bare project and write one version-five worker document.
  * 2. Hold the lock with this process's PID and assert a private token without
  *    changing the epoch or pending worker.
  * 3. Replace the owner with an actually exited Node PID, verify retirement and
@@ -22,7 +22,7 @@ import { TestMetroRuntime } from "../../internal/metro-runtime";
  *    merge.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls source fingerprint.prepareSnapshot directly over a real temporary directory. Live ownership produces nonce: plus 32 hex digits without rewriting the main epoch or removing the worker. A proven-dead owner produces the same token grammar, retires the fixed lock to its token-named quarantine and retains the worker; a later preparation keeps the epoch, includes the recorded path and removes every worker document.
- * @evidence contracts/testing.md#independent-expectations The current PID and an owned Node child that exited with status zero and no signal establish native ownership inputs independently of prepareSnapshot. Only ESRCH from a separate signal-zero query establishes the departed PID is absent; success, EPERM and every other error fail that premise. Literal version-four document fields, owner tokens, nonce grammar and the recorded path establish the expected state transitions. Epoch equality checks preservation, not the implementation's epoch-generation algorithm.
+ * @evidence contracts/testing.md#independent-expectations The current PID and an owned Node child that exited with status zero and no signal establish native ownership inputs independently of prepareSnapshot. Only ESRCH from a separate signal-zero query establishes the departed PID is absent; success, EPERM and every other error fail that premise. Literal version-five document fields, owner tokens, nonce grammar and the recorded path establish the expected state transitions. Epoch equality checks preservation, not the implementation's epoch-generation algorithm.
  * @evidence contracts/testing.md#distinguishing-cases Live ownership contrasts proven-dead ownership and the subsequent successful merge. The dead-owner discovery itself must not consume the worker. PID reuse or an inconclusive native query fails preparation of this case rather than being treated as death or skipped. Malformed owner records, competing reapers and real concurrent 150-round compaction are not exercised here.
  * @evidence contracts/testing.md#execution-ownership Source unit discovered as this exported test under src/features/cache. It invokes the authored fingerprint operation in-process through TestMetroRuntime; a trivial synchronous Node child supplies only the native PID input and does not run Metro, a compactor protocol, an installed consumer or a compiler. The owned temporary root is removed in finally. This case does not replace the shipped-package or concurrent-process E2E boundaries.
  */
@@ -46,7 +46,8 @@ export const test_prepare_snapshot_preserves_live_ownership_and_retires_a_dead_o
           tainted: false,
           trees: [],
           accessibleEntries: [],
-          version: 4,
+          nativePredicates: {},
+          version: 5,
           volatile: false,
         }),
         "utf8",

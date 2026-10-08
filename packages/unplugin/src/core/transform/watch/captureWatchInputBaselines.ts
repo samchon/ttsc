@@ -8,6 +8,7 @@ import { compilerAccessibleEntries } from "../inputs/compilerAccessibleEntries";
 import { compilerInputRealpathObservation } from "../inputs/compilerInputRealpathObservation";
 import { compilerInputTextHash } from "../inputs/compilerInputTextHash";
 import { compilerStatKind } from "../inputs/compilerStatKind";
+import { nativeInputPredicateState } from "../inputs/nativeInputPredicateState";
 import { pluginSourceState } from "../inputs/pluginSourceState";
 import { hashText } from "../utils/hashText";
 import { stableStringify } from "../utils/stableStringify";
@@ -25,6 +26,9 @@ import type { TtscWatchInputBaseline } from "./TtscWatchInputBaseline";
  * One current byte read supplies raw-host and compiler-text hashes in each
  * phase. Failed reads retain native kind fallbacks; optional tree and listing
  * observations keep their original owners and are captured in both phases.
+ * Requested native codecs share that phase's raw byte read and separately
+ * observe their own entry/listing/physical-target facts. Unsupported or failed
+ * native observations decline that path; equality still cannot exclude ABA.
  *
  * @evidence contracts/common.md#principled-implementation Each returned input has equal before/after facts from independent identity contexts and actual reads. Sharing directory resolution within a phase never supplies the second phase or a later batch; failed captures remain undefined independently of siblings.
  * @evidence contracts/common.md#clear-and-simple-design Two phase maps surround one per-path fact collector, sharing the existing decoder, native predicates and optional tree/listing owners.
@@ -38,7 +42,13 @@ import type { TtscWatchInputBaseline } from "./TtscWatchInputBaseline";
 export function captureWatchInputBaselines(
   files: Iterable<string>,
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,
-  options: { tree?: boolean; accessibleEntries?: boolean } = {},
+  options: {
+    tree?: boolean;
+    accessibleEntries?: boolean;
+    nativePredicates?: readonly (keyof NonNullable<
+      TtscWatchInputBaseline["nativePredicates"]
+    >)[];
+  } = {},
 ): Map<string, TtscWatchInputBaseline | undefined> {
   const selected = [...new Set(files)];
   const observe = (): Map<string, TtscWatchInputBaseline | undefined> => {
@@ -73,13 +83,21 @@ function capture(
   file: string,
   filesystem: TtscTransformFilesystemOperations,
   identities: FilesystemPathIdentityContext,
-  options: { tree?: boolean; accessibleEntries?: boolean },
+  options: {
+    tree?: boolean;
+    accessibleEntries?: boolean;
+    nativePredicates?: readonly (keyof NonNullable<
+      TtscWatchInputBaseline["nativePredicates"]
+    >)[];
+  },
 ): TtscWatchInputBaseline {
   const stat = compilerStatKind(file, filesystem);
   let bytes: Buffer | undefined;
+  let readError: unknown;
   try {
     bytes = filesystem.readFile(file);
-  } catch {
+  } catch (error) {
+    readError = error;
     // Failed reads keep their explicit codec fallbacks.
   }
   const graphReadHash =
@@ -93,7 +111,23 @@ function capture(
         ? directoryHash
         : MISSING_INPUT_STATE
       : hashText(bytes);
+  const nativePredicates: NonNullable<
+    TtscWatchInputBaseline["nativePredicates"]
+  > = {};
+  for (const kind of new Set(options.nativePredicates ?? [])) {
+    const observed = nativeInputPredicateState(file, kind, filesystem, {
+      readFile() {
+        if (bytes === undefined) throw readError;
+        return bytes;
+      },
+    });
+    if (observed === undefined) {
+      throw new Error("Unable to observe a requested native input predicate.");
+    }
+    nativePredicates[kind] = observed;
+  }
   return {
+    ...(Object.keys(nativePredicates).length === 0 ? {} : { nativePredicates }),
     ...(options.accessibleEntries === true
       ? { accessibleEntries: compilerAccessibleEntries(file, filesystem) }
       : {}),

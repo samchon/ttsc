@@ -16,7 +16,7 @@ import type { TtscWatchInputKeyBaseline } from "./TtscWatchInputKeyBaseline";
  * @evidence contracts/common.md#meaningful-documentation Native prose states the persisted-key trust boundary and validation scope, with separated tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Both POSIX and Windows absolute path syntaxes are accepted for serialized identity payloads without assuming the current machine's OS establishes filesystem identity.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
- * @evidence contracts/performance.md#efficient-algorithms Enumerating K supplied keys across the outer and nested records rejects unsupported counts before sorting each fixed-size group (at most ten keys). Comparisons and serialization still process the supplied key text, including long invalid names. Remaining work scales with path/hash text and total listing-name UTF-8 bytes, including byte-prefix order comparisons. Temporary space holds O(K) key references, serialized key text and at most two adjacent encoded names. No native observation or whole-project walk is performed.
+ * @evidence contracts/performance.md#efficient-algorithms Enumerating K supplied keys across the outer and nested records rejects unsupported counts before sorting each fixed-size group (at most eleven outer keys and four native kinds). Comparisons and serialization still process the supplied key text, including long invalid names. Remaining work scales with path/hash text and total listing-name UTF-8 bytes, including byte-prefix order comparisons. Temporary space holds O(K) key references, serialized key text and at most two adjacent encoded names. No native observation or whole-project walk is performed.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A structural validation of one value; nothing is shared.
  */
 export function isWatchInputKeyBaseline(
@@ -24,7 +24,7 @@ export function isWatchInputKeyBaseline(
 ): baseline is TtscWatchInputKeyBaseline {
   if (!isPlainRecord(baseline)) return false;
   const keys = Object.keys(baseline);
-  if (keys.length !== 2 && (keys.length < 8 || keys.length > 10)) {
+  if (keys.length !== 2 && (keys.length < 8 || keys.length > 11)) {
     return false;
   }
   keys.sort();
@@ -55,15 +55,21 @@ export function isWatchInputKeyBaseline(
     baseline,
     "accessibleEntries",
   );
+  const nativePredicates = Object.prototype.hasOwnProperty.call(
+    baseline,
+    "nativePredicates",
+  );
   const expected = [
     ...broad,
     ...(tree ? ["tree"] : []),
     ...(accessibleEntries ? ["accessibleEntries"] : []),
+    ...(nativePredicates ? ["nativePredicates"] : []),
   ].sort();
   if (
     stableStringify(keys) !== stableStringify(expected) ||
     (accessibleEntries &&
-      !isAccessibleEntriesBaseline(baseline.accessibleEntries))
+      !isAccessibleEntriesBaseline(baseline.accessibleEntries)) ||
+    (nativePredicates && !isNativePredicateBaselines(baseline.nativePredicates))
   ) {
     return false;
   }
@@ -92,6 +98,31 @@ export function isWatchInputKeyBaseline(
     baseline.fileExists === (baseline.stat === "file") &&
     baseline.directoryExists === (baseline.stat === "directory")
   );
+}
+
+/** Validate exact supported native codec facts without accepting extra fields. */
+function isNativePredicateBaselines(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  const keys = Object.keys(value);
+  if (keys.length === 0 || keys.length > 4) return false;
+  for (const key of keys) {
+    if (!["file", "optional-file", "entry", "directory"].includes(key)) {
+      return false;
+    }
+    const state = value[key];
+    if (
+      !isPlainRecord(state) ||
+      stableStringify(Object.keys(state).sort()) !==
+        stableStringify(["digest", "realpath"]) ||
+      !isContentHash(state.digest) ||
+      !(state.realpath === null ||
+        (typeof state.realpath === "string" &&
+          isAbsoluteFilesystemPath(state.realpath)))
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** Validate exact sorted entry groups emitted by the compiler listing owner. */
