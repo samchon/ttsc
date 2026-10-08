@@ -612,7 +612,7 @@ func (functionalTypeDeclarationImmutability) Check(ctx *Context, node *shimast.N
   if functionalShouldIgnore(ctx, opts.functionalPatternOptions, node, name) {
     return
   }
-  if !functionalDeclarationRuleApplies(opts, name) {
+  if !functionalDeclarationRuleApplies(ctx, opts, name) {
     return
   }
   if functionalDeclarationIsMutable(node) {
@@ -629,11 +629,11 @@ func isMemberMutationTarget(node *shimast.Node) bool {
 }
 
 func functionalShouldIgnore(ctx *Context, opts functionalPatternOptions, node *shimast.Node, identifiers ...string) bool {
-  if functionalPatternOptionMatches(opts.IgnoreCodePattern, strings.TrimSpace(nodeText(ctx.File, node))) {
+  if functionalPatternOptionMatches(ctx, opts.IgnoreCodePattern, strings.TrimSpace(nodeText(ctx.File, node))) {
     return true
   }
   for _, name := range identifiers {
-    if functionalPatternOptionMatches(opts.IgnoreIdentifierPattern, name) {
+    if functionalPatternOptionMatches(ctx, opts.IgnoreIdentifierPattern, name) {
       return true
     }
   }
@@ -1117,25 +1117,25 @@ func functionalTypeDeclarationName(node *shimast.Node) string {
   return ""
 }
 
-func functionalDeclarationRuleApplies(opts functionalImmutabilityDeclarationOptions, name string) bool {
+func functionalDeclarationRuleApplies(ctx *Context, opts functionalImmutabilityDeclarationOptions, name string) bool {
   if len(opts.Rules) == 0 {
     return true
   }
   for _, rule := range opts.Rules {
-    if functionalPatternOptionMatches(rule.Identifiers, name) {
+    if functionalPatternOptionMatches(ctx, rule.Identifiers, name) {
       return true
     }
   }
   return false
 }
 
-func functionalPatternOptionMatches(raw interface{}, text string) bool {
+func functionalPatternOptionMatches(ctx *Context, raw interface{}, text string) bool {
   switch value := raw.(type) {
   case string:
-    return functionalPatternMatches(value, text)
+    return functionalPatternMatches(ctx, value, text)
   case []interface{}:
     for _, item := range value {
-      if pattern, ok := item.(string); ok && functionalPatternMatches(pattern, text) {
+      if pattern, ok := item.(string); ok && functionalPatternMatches(ctx, pattern, text) {
         return true
       }
     }
@@ -1143,14 +1143,14 @@ func functionalPatternOptionMatches(raw interface{}, text string) bool {
   return false
 }
 
-func functionalPatternMatches(pattern, name string) bool {
+func functionalPatternMatches(ctx *Context, pattern, name string) bool {
   if pattern == "" || name == "" {
     return false
   }
   if pattern == name {
     return true
   }
-  re, err := compileUserPattern(pattern)
+  re, err := ctx.compileUserPattern(pattern)
   return err == nil && re.MatchString(name)
 }
 

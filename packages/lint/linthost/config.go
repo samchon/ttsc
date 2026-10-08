@@ -387,6 +387,7 @@ func resolvedRuleOptionsVariants(resolver RuleResolver, name string) []json.RawM
 type boundProjectRuleResolver struct {
   RuleResolver
   settings map[string]ProjectRuleSetting
+  patterns *userPatternCache
 }
 
 func bindProjectRuleResolver(resolver RuleResolver) (RuleResolver, error) {
@@ -397,7 +398,11 @@ func bindProjectRuleResolver(resolver RuleResolver) (RuleResolver, error) {
   if err != nil {
     return nil, err
   }
-  return boundProjectRuleResolver{RuleResolver: resolver, settings: settings}, nil
+  return boundProjectRuleResolver{
+    RuleResolver: resolver,
+    settings:     settings,
+    patterns:     patternCacheForResolver(resolver),
+  }, nil
 }
 
 func (r boundProjectRuleResolver) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
@@ -719,6 +724,8 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // Extends-target entries precede the extending file's entries so local rules
 // win on collision; format settings join the same scoped rule entry.
 // Duplicate aliases within one rules object are rejected before entries are stored.
+// Parsed stores share an option-regex cache through a pointer, so read-only
+// value copies preserve reuse without copying synchronization state.
 //
 // @evidence contracts/common.md#principled-implementation Ordered entries preserve extends precedence and matching-file ownership of severities and options; global-ignore entries distinguish whole-file exclusion from local selection.
 // @evidence contracts/common.md#clear-and-simple-design Parsed entries are the policy source of truth, while paths and fingerprints separately carry watch and resident-cache provenance.
@@ -729,6 +736,7 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ConfigStore is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ConfigStore is a declaration of data shape; the code that holds its values owns their lifetime.
 type ConfigStore struct {
+  patterns          *userPatternCache
   cacheDependencies []configDependencyFingerprint
   cacheFiles        []string
   directories       []string
@@ -1264,7 +1272,10 @@ func collectConfigStoreWithin(
   rootPath string,
   resolutionRoot string,
 ) (*ConfigStore, error) {
-  store := &ConfigStore{resolutionRoot: filepath.Clean(resolutionRoot)}
+  store := &ConfigStore{
+    patterns:       &userPatternCache{},
+    resolutionRoot: filepath.Clean(resolutionRoot),
+  }
   var chain []string
   if rootPath != "" {
     rootPath = filepath.Clean(rootPath)

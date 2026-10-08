@@ -53,6 +53,8 @@ The lint pass reads the TypeScript the type-check pass reads: your `tsconfig.jso
 
 Your config decides what runs there. A `files` selector scopes an entry to the paths it names, and a path outside the config's own directory matches no selector, so a config written as `files: ["src/**/*.ts"]` reports nothing on an imported sibling. A config with no selector applies its rules everywhere it reads, including that sibling. A global `ignores` entry removes a file from the walk as well, and its patterns anchor at the config's directory the same way, so it reaches an imported file inside your project rather than a sibling above it.
 
+Rules reuse compiled custom regular expressions, including compilation errors, while their loaded configuration remains in use. In an editor session, reloading a configuration releases its old pattern cache once nothing still uses that loaded configuration.
+
 Declaration files and JavaScript stay selection-driven. A `.d.ts` is typings rather than authored source, and JavaScript enters the Program only through `allowJs`, so both are linted only when your own `tsconfig.json` selects them. An import never pulls either into scope.
 
 Bundled standard libraries follow the same selection rule. Loading a library for type checking does not make it project-owned. An explicitly selected bundled library keeps its compiler virtual address; native file aliases continue to resolve to their physical project ownership.
