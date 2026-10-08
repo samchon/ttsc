@@ -18,14 +18,20 @@ import (
 // observation belongs to a later Check; downstream reusable delivery still
 // validates the original witnesses. Hints projects the same captured snapshot.
 //
-// @evidence contracts/common.md#principled-implementation Check-local maps preserve first observations, with base and artifact-address keys keeping declared citation spaces separate. Walk keys describe ordered file-glob semantics rather than symbol or severity policy.
-// @evidence contracts/common.md#clear-and-simple-design One owner shares base resolution, traversal and parsed inventories; existing loaders still own selection, diagnostics and health.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts All initial operations use the existing reader. Replays retain actual failed observations and do not replace consumed witnesses with later metadata or hashes.
-// @evidence contracts/common.md#meaningful-documentation The comment states ownership, failure retention, the timing limit and the independent downstream proof obligation.
-// @evidence contracts/portability.md#os-neutral-implementation Native paths and fs.DirEntry values come from the reader. Artifact-address identity remains distinct from physical file identity; no case policy or symlink capability is inferred from an OS name.
-// @evidence contracts/performance.md#efficient-algorithms Capturing visits the selected traversal and parses each addressed file once. Replay visits the recorded entries and projects diagnostics without raw file reads or parsing; additional glob selections may require another traversal. Key construction and sorting depend on population and glob text sizes.
-// @evidence contracts/performance.md#reuse-equivalent-work Activation and evaluation share the first captured inventory only within one Check and reader. Equal file selections share their recorded traversal; symbols and severity are applied anew by the loader. The next Check constructs a new owner.
-// @evidence contracts/performance.md#bound-retention-and-release-resources Check owns the maps, parsed inventories and traversal records until evaluation ends; a clean Corpus retains only inventories needed for Hints. Storage grows with addressed files, parsed bytes, selected traversal entries and distinct file-selection sets; no descriptor or task is retained.
+// Base and artifact-address keys keep citation spaces distinct, while ordered
+// file-glob semantics determine traversal sharing. Loaders apply symbol and
+// severity policy anew. Native paths and directory entries come from the
+// ordinary input reader without an inferred case or symlink policy.
+//
+// A capture parses each addressed file once. Replaying recorded entries costs
+// a traversal of those entries without raw reads or parsing; new file selections
+// may require another discovery. Key construction depends on glob text and
+// population sizes, including sorting distinct ordered glob sets.
+//
+// Check releases its maps and traversal records when evaluation ends. Their
+// storage grows with addressed files, parsed bytes, selected traversal entries
+// and distinct file selections. A clean Corpus retains the inventories needed
+// for Hints. The capture owns no descriptor or task.
 type markdownCapture struct {
   bases map[string]markdownCapturedBase
   walks map[string]markdownCapturedWalk
