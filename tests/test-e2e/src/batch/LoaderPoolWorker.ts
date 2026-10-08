@@ -58,6 +58,11 @@ export interface LoaderPoolOutcome {
  * copied. A failed diagnostic sink reports once on stderr without replacing
  * transport outcomes or certifying closure.
  *
+ * The final resident may receive a private project-view argument carrying
+ * public Metro options. This keeps Metro's host root independent of its
+ * compiler root and omits the explicit project only for that existing owner.
+ * Its positive and diagnostic deliveries share the same process and closure.
+ *
  * @evidence contracts/testing.md#behavioral-verification An opt-in readiness result carries actual public preparation binaries and elapsed time before delivery; preparation error or child error/close rejects that owner. The caller submits normal/failure/replay/repair observations to one actual adapter child, collects its line replies and joins close before releasing shared inputs.
  * @evidence contracts/testing.md#independent-expectations Authored command ids route literal child outcomes; the caller compares native outputs, diagnostic markers and publication identities independently of this transport. Caller-authored phase labels identify the unchanged commands in bounded parent observations; they are not native result or timing oracles.
  * @evidence contracts/testing.md#distinguishing-cases Concurrent outstanding ids, fragmented lines, delivery deadline, child error/nonzero close and unresolved close are explicit ownership states; none invents a native result.
@@ -77,6 +82,8 @@ export function createLoaderPoolWorker(props: {
   traceRoot: string;
   /** API module URL anchoring the first consumer's native preparation. */
   prepareNative?: string;
+  /** Final resident's public Metro options; host root remains independent. */
+  metroProjectView?: { implicitProject: boolean; projectRoot: string };
 }) {
   const child = spawn(
     process.execPath,
@@ -87,6 +94,9 @@ export function createLoaderPoolWorker(props: {
       props.metro,
       props.turbopack,
       ...(props.prepareNative ? ["prepare-native", props.prepareNative] : []),
+      ...(props.metroProjectView
+        ? ["--metro-project-view=" + JSON.stringify(props.metroProjectView)]
+        : []),
     ],
     {
       cwd: props.root,

@@ -5,6 +5,8 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 const [mode, root, metroUrl, loaderUrl, prepareNative, prepareApi] = process.argv.slice(2);
+const projectViewArgument = process.argv.find((argument) => argument.startsWith("--metro-project-view="));
+const projectView = projectViewArgument === undefined ? undefined : JSON.parse(projectViewArgument.slice("--metro-project-view=".length));
 const pluginLockSession = createRequire(import.meta.url)(path.join(root, "plugin-lock-session.cjs"));
 const project = path.join(root, "tsconfig.json");
 const rootPaths = JSON.parse(fs.readFileSync(project, "utf8")).compilerOptions.paths;
@@ -12,13 +14,15 @@ const compilerOptions = { paths: Object.fromEntries(Object.entries(rootPaths).ma
 let transformer, loader;
 let outsideProgramObserved = false;
 let metroConfiguration;
+let metroOptions;
 let adapterCalls = [];
 let callbackObservation;
 let hostObservation;
 if (mode === "metro") {
   const require = createRequire(import.meta.url);
   const index = require(path.join(path.dirname(fileURLToPath(metroUrl)), "index.js"));
-  const configured = index.withTtsc({ projectRoot: root, transformer: {} }, { project, compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") });
+  metroOptions = { ...(projectView?.implicitProject ? {} : { project }), ...(projectView === undefined ? {} : { projectRoot: projectView.projectRoot }), compilerOptions, upstreamTransformer: path.join(root, "upstream.cjs") };
+  const configured = index.withTtsc({ projectRoot: root, transformer: {} }, metroOptions);
   transformer = require(configured.transformer.babelTransformerPath);
   const cacheKey = transformer.getCacheKey({ projectRoot: root });
   metroConfiguration = { transformerPath: configured.transformer.babelTransformerPath, cacheKey, withTtscType: typeof index.withTtsc, transformType: typeof transformer.transform, getCacheKeyType: typeof transformer.getCacheKey };
@@ -57,7 +61,7 @@ async function deliver(sourceSuffix = "", deliveredSource) {
       outsideProgram = { filename: outside.ast.filename, source: outside.ast.source };
       outsideProgramObserved = true;
     }
-    return { mode, adapterCalls, ast: result.ast, outsideProgram, metroConfiguration, requestedOptions: { project, compilerOptions } };
+    return { mode, adapterCalls, ast: result.ast, outsideProgram, metroConfiguration, requestedOptions: metroOptions };
   }
   const resourcePath = path.join(root, "src/pool-routing/map.ts");
   const dependencies = [], contextDependencies = [], cacheability = [], errors = [];
