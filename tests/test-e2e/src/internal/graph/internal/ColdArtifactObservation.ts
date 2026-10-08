@@ -130,6 +130,18 @@ export class ColdArtifactObservation {
               changed = true;
             }
           }
+          // Preserve the offending observation even when an invariant below
+          // rejects it; a failed assertion must not erase its own evidence.
+          fs.appendFileSync(
+            path.join(directory, "process-scans.jsonl"),
+            JSON.stringify({
+              request: scan.request,
+              inputs: scan.inputs,
+              rows: scan.rows.filter(
+                (row) => this.tracked.get(row.pid)?.identity === row.identity,
+              ),
+            }) + "\n",
+          );
           for (const admission of this.admissions) {
             if (
               !scan.rows.some((row) =>
@@ -156,16 +168,6 @@ export class ColdArtifactObservation {
                 `Source/cache input released before original native owner joined: ${input.path}`,
               );
           }
-          fs.appendFileSync(
-            path.join(directory, "process-scans.jsonl"),
-            JSON.stringify({
-              request: scan.request,
-              inputs: scan.inputs,
-              rows: scan.rows.filter(
-                (row) => this.tracked.get(row.pid)?.identity === row.identity,
-              ),
-            }) + "\n",
-          );
         } catch (error) {
           this.failure =
             error instanceof Error ? error : new Error(String(error));
