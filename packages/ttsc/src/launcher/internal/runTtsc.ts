@@ -4,6 +4,7 @@ import path from "node:path";
 import { TtscCompiler } from "../../TtscCompiler";
 import { ResidentCheckWatchSession } from "../../compiler/internal/build/ResidentCheckWatchSession";
 import { runBuild } from "../../compiler/internal/build/runBuild";
+import { CompilerProjectSelection } from "../../compiler/internal/project/CompilerProjectSelection";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
@@ -655,12 +656,7 @@ function runWatch(
     },
     quiet: true,
   };
-  const root = path.dirname(
-    resolveProjectConfig({
-      cwd,
-      tsconfig: options.tsconfig,
-    }),
-  );
+  const root = CompilerProjectSelection.read(invocation).project.root;
   let running = false;
   let closed = false;
   let active: Promise<void> | undefined;

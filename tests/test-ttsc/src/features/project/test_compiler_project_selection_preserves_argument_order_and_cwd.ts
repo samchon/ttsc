@@ -15,7 +15,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 2. Select through actual launcher parsing and the shared source operation.
  * 3. Assert ordered selection, original frame transport and fresh observations.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual parseTtscBuildArgs and readCompilerProjectSelection resolve real configuration/response inputs; assertions inspect selected config/root, compiler cwd, forwarded frames and observation changes.
+ * @evidence contracts/testing.md#behavioral-verification Actual parseTtscBuildArgs and CompilerProjectSelection.read resolve real configuration/response inputs; assertions inspect selected config/root, compiler cwd, forwarded frames and observation changes.
  * @evidence contracts/testing.md#independent-expectations Authored A/B configurations and literal argument orders independently require the last project occurrence to select that configuration while response paths retain A as their original base.
  * @evidence contracts/testing.md#distinguishing-cases Visible aliases before and after a response, repeated and nested frames, explicit resolvedProject authority, scalar @ operands, response deletion/repair and changed bytes separate selection from option transport and response lifetime.
  * @evidence contracts/testing.md#execution-ownership The source operations read one tracked temporary filesystem fixture in this unit process. No native compiler, installed host, watcher or child process runs; TestProject owns exit cleanup.
@@ -106,6 +106,17 @@ export function test_compiler_project_selection_preserves_argument_order_and_cwd
     cwd: a, tsconfig: "missing.json", passthrough: ["@selector.rsp"],
   });
   assert.equal(supersededMissing.project.path, configB);
+  for (const locator of [configA, path.join(a, "missing.json")]) {
+    const watch = CompilerProjectSelection.read({
+      ...parseTtscBuildArgs(["--watch", "-p", locator, "@selector.rsp"]),
+      cwd: a,
+    });
+    assert.equal(watch.project.root, b);
+  }
+  assert.throws(
+    () => CompilerProjectSelection.read({ cwd: a, tsconfig: "missing.json" }),
+    /tsconfig not found/,
+  );
   const explicitRoot = CompilerProjectSelection.read({
     cwd: a, tsconfig: configA, projectRoot: root,
     compilerArgsCwd: a, passthrough: ["@selector.rsp"],
