@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { parentPort } from "node:worker_threads";
 
 import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEnvironment";
+import { E2ETrace } from "../../internal/E2ETrace";
 import { OwnedSynchronousProcess } from "../../internal/OwnedSynchronousProcess";
 import { SourceNativeRetirement } from "../../internal/SourceNativeRetirement";
 import { serializeCompilerError } from "../../internal/serializeCompilerError";
@@ -94,6 +95,7 @@ function commandRelay(request: Request, command: string, args: readonly string[]
   parentPort!.postMessage({ kind: "command", id: request.id, command, args,
     options: { ...options, ...(options.cwd instanceof URL ? { cwd: fileURLToPath(options.cwd) } : {}) },
     done, responseFile });
+  E2ETrace.capabilityResolution("command-relay-queued", { request: request.id, boundary, responseFile });
   const state = new Int32Array(done);
   while (Atomics.load(state, 0) === 0) Atomics.wait(state, 0, 0);
   const response = decodeCapabilityCommandReply(fs.readFileSync(responseFile));

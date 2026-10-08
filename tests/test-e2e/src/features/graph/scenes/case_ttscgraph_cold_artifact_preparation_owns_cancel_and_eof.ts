@@ -1,9 +1,10 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+
+import { preserveColdRowDiagnostics } from "../../../../../utils/src/preserveColdRowDiagnostics";
 
 import { BatchWorkspace } from "../../../batch/BatchWorkspace";
 import {
@@ -290,7 +291,7 @@ export async function observeColdMcpEof(workspace: Pick<BatchWorkspace.Workspace
         "Cold MCP reader join or original resource release was not confirmed",
       );
     try {
-      preserveDiagnostics(row, joined && observerJoined, releaseConfirmed);
+      preserveColdRowDiagnostics(row, joined && observerJoined, releaseConfirmed, client.stderrText());
     } catch (error) {
       failures.push(error);
       retain(row.root, "Cold MCP diagnostics could not be preserved");
@@ -497,7 +498,7 @@ export async function observeColdPublicSessionCancellation(workspace: Pick<Batch
         "Cold public session reader join or original resource release was not confirmed",
       );
     try {
-      preserveDiagnostics(row, joined && observerJoined, releaseConfirmed);
+      preserveColdRowDiagnostics(row, joined && observerJoined, releaseConfirmed, stderr);
     } catch (error) {
       failures.push(error);
       retain(
@@ -548,64 +549,5 @@ function recordOutcome(root: string, data: Record<string, unknown>): void {
   fs.appendFileSync(
     path.join(root, "transport-outcomes.jsonl"),
     JSON.stringify({ at: new Date().toISOString(), ...data }) + "\n",
-  );
-}
-
-/** Copy only this closed row's receipts to the runner-owned upload root. */
-function preserveDiagnostics(
-  row: ReturnType<typeof allocation>,
-  joined: boolean,
-  releaseConfirmed: boolean,
-): void {
-  if (!row.diagnosticRoot) return;
-  const destination = fs.mkdtempSync(
-    path.join(row.diagnosticRoot, `${path.basename(row.root)}-`),
-  );
-  const files: { file: string; size: number; sha256: string }[] = [];
-  const copy = (source: string, target: string): void => {
-    for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
-      const original = path.join(source, entry.name);
-      const output = path.join(target, entry.name);
-      if (
-        entry.isDirectory() &&
-        source === row.root &&
-        entry.name === "trace"
-      ) {
-        fs.mkdirSync(output);
-        copy(original, output);
-      } else if (
-        entry.isFile() &&
-        /\.(jsonl|json|log|bin)$/u.test(entry.name)
-      ) {
-        const bytes = fs.readFileSync(original);
-        const retained = entry.name.endsWith(".log")
-          ? path.join(
-              target,
-              `${path.basename(row.root)}-${entry.name.slice(0, -4)}.bin`,
-            )
-          : output;
-        fs.writeFileSync(retained, bytes, { flag: "wx" });
-        files.push({
-          file: path.relative(destination, retained),
-          size: bytes.length,
-          sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
-        });
-      }
-    }
-  };
-  // Live/unknown readers keep their original inputs. Metadata explicitly
-  // records partial diagnostics instead of copying a changing authority.
-  if (joined) copy(row.root, destination);
-  fs.writeFileSync(
-    path.join(destination, "row.jsonl"),
-    JSON.stringify({
-      at: new Date().toISOString(),
-      original: row.root,
-      joined,
-      releaseConfirmed,
-      partial: !joined,
-      files,
-    }) + "\n",
-    { flag: "wx" },
   );
 }

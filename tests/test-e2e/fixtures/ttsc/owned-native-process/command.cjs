@@ -47,6 +47,48 @@ if (mode === "echo") {
   setInterval(() => {}, 1000);
 } else if (mode === "marker") {
   fs.writeFileSync(path.join(root, "admitted-marker"), "admitted");
+} else if (mode === "rpc-close-queued") {
+  const { CapabilityPluginResolver } = require(args[0]);
+  const trace = path.join(root, "queued-command-trace");
+  fs.mkdirSync(trace);
+  process.env.TTSC_E2E_TRACE = trace;
+  const owner = new CapabilityPluginResolver();
+  (async () => {
+    const operation = owner.resolve({ capability: "graph", cwd: root, tsconfig: "tsconfig.json" });
+    const outcome = operation.then(value => ({ value }), error => ({ error }));
+    // Deliver the request, then hold the main event loop while the actual
+    // worker queues its normal runtime command. No message handler is replaced.
+    await Promise.resolve();
+    await Promise.resolve();
+    const until = Date.now() + 5000;
+    let queued;
+    const readEvents = (complete = false) => fs.readdirSync(trace).filter(file => file.endsWith(".jsonl")).flatMap(file => fs.readFileSync(path.join(trace, file), "utf8").split("\n").filter(Boolean).flatMap(line => { try { return [JSON.parse(line)]; } catch (error) { if (complete) throw error; return []; } }));
+    while (!queued) {
+      queued = readEvents().find(event => event.event === "capability-resolution" && event.data?.phase === "command-relay-queued");
+      assert.ok(Date.now() < until, "real worker queued command readiness");
+      if (!queued) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+    }
+    const closing = owner.close();
+    void closing.catch(() => {});
+    const result = await outcome;
+    assert.ok(result.error instanceof Error);
+    assert.equal(result.error.name, "AbortError");
+    assert.equal(result.error.message, "ttsc: capability resolver closed");
+    await closing;
+    const finalEvents = readEvents(true);
+    assert.equal(finalEvents.some(event => event.event === "integrity-failure"), false);
+    const withdrawn = finalEvents.filter(event => event.event === "capability-resolution" && event.data?.phase === "command-admission-withdrawn");
+    assert.equal(withdrawn.length, 1);
+    assert.equal(withdrawn[0].data.request, queued.data.request);
+    assert.equal(withdrawn[0].data.responseFile, queued.data.responseFile);
+    assert.equal(withdrawn[0].data.explicitClose, true);
+    assert.equal(withdrawn[0].data.retirement, "not-started");
+    await assert.rejects(owner.resolve({ capability: "graph", cwd: root }), /closed/);
+    await owner.close();
+    process.stdout.write("queued worker command withdrawn and owner joined\n");
+  })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
+    await owner.close().catch(error => { console.error(error); process.exitCode = 1; });
+  });
 } else if (mode === "rpc-unknown" || mode === "rpc-cancel") {
   if (process.env.TTSC_OWNED_RPC_BINARY)
     process.env.TTSC_BINARY = process.env.TTSC_OWNED_RPC_BINARY;

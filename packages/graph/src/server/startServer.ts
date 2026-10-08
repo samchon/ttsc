@@ -2,6 +2,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 
 import { TtscGraphSession } from "../model/TtscGraphSession";
 import { createServer } from "./createServer";
+import { formatGraphFailure } from "./formatGraphFailure";
 
 /**
  * Serve the graph tools over MCP on stdio. The server answers the MCP handshake
@@ -18,7 +19,7 @@ import { createServer } from "./createServer";
  * @evidence contracts/portability.md#os-neutral-implementation The stdio transport and native session abstracts process handling across hosts; cwd and tsconfig are passed as project coordinates without shell interpolation.
  * @evidence contracts/performance.md#efficient-algorithms Startup registers one tool and transport without scanning the project; index work occurs only when the provider is requested.
  * @evidence contracts/performance.md#reuse-equivalent-work One resident session is shared by all tool calls for the selected project and refreshes its generation before use.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The server owns at most one session; transport close or stdin end releases its child processes and pending requests.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The server owns at most one session; transport close or stdin end joins its child processes and pending requests; shutdown failure retains its nonzero exit and nested passive diagnostic.
  */
 export async function startServer(options: {
   /** Project working directory, defaulting to the process directory. */
@@ -48,7 +49,7 @@ export async function startServer(options: {
     closed = true;
     void session?.close().catch((error: unknown) => {
       process.stderr.write(
-        `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,
+        `@ttsc/graph: ${formatGraphFailure(error)}\n`,
       );
       process.exitCode = 1;
     });

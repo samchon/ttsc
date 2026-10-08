@@ -5,6 +5,7 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 import { serialize } from "node:v8";
 
+import { E2ETrace } from "../internal/E2ETrace";
 import { OwnedNativeProcess } from "../internal/OwnedNativeProcess";
 import { serializeCompilerError } from "../internal/serializeCompilerError";
 import type { ITtscCapabilityPlugin } from "./ITtscCapabilityPlugin";
@@ -203,10 +204,14 @@ export class CapabilityPluginResolver {
           if (reply.id !== id) return;
           if (reply.kind === "command") {
             if (this.closed) {
+              const explicitClose = this.closing !== undefined;
+              E2ETrace.capabilityResolution("command-admission-withdrawn", { request: id, responseFile: reply.responseFile, explicitClose, retirement: "not-started" });
               const rejection = Promise.resolve().then(() => writeCommandReply(reply, {
                 retirement: "not-started",
                 thrown: serializeCompilerError(
-                  new Error("ttsc: capability resolver is closed"),
+                  explicitClose
+                    ? Object.assign(new Error("ttsc: capability resolver closed before command admission"), { name: "AbortError" })
+                    : new Error("ttsc: capability resolver is closed"),
                 ),
               }));
               commands.add(rejection);
