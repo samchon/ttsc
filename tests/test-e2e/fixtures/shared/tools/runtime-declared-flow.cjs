@@ -21,7 +21,20 @@ const inputs = new Map([
   "tools/native-emission/src/main.ts", "tools/native-emission/src/lib/value.ts",
   "tools/native-emission/src/package-entry.ts",
   "tools/runtime-negative/args.txt", "tools/runtime-negative/script.js", "tools/runtime-negative/preload.cjs",
+  "src/runtime-corpus/package-boundary.cts",
+  "tools/api-environment-layers.cjs", "tools/api-env-descriptor.cjs",
 ].map((relative) => [path.join(root, relative), fs.readFileSync(path.join(root, relative))]));
+const boundaryRoot = path.join(root, "tools/runtime-package-boundary");
+const readBoundaryTree = (directory = boundaryRoot, files = new Map()) => {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) readBoundaryTree(file, files);
+    else if (entry.isFile()) files.set(file, fs.readFileSync(file));
+  }
+  return files;
+};
+const boundaryInputs = readBoundaryTree();
+const boundaryExpected = JSON.parse(fs.readFileSync(path.join(boundaryRoot, "expected.json"), "utf8"));
 assert.equal(fs.existsSync(artifacts), false);
 const missingDescriptor = path.join(root, "missing-plugin.cjs");
 assert.equal(fs.existsSync(missingDescriptor), false);
@@ -124,6 +137,7 @@ try {
   for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes);
 } catch (cause) { apiFailures.push(new Error("public API isolation: restored capture", { cause })); }
 const unchanged = () => {
+  assert.deepEqual(readBoundaryTree(), boundaryInputs, "installed-boundary sources/configs must stay unchanged without adjacent output");
   for (const [file, bytes] of seed) assert.deepEqual(fs.readFileSync(file), bytes, "actual runtime delivery must preserve every produced declaration, map and build-info byte");
   for (const [file, bytes] of inputs) assert.deepEqual(fs.readFileSync(file), bytes, "each delivery must preserve its authored source and compiler configuration");
   for (const relative of ["src/runtime-corpus/native-factory.js", "src/runtime-corpus/declared-owned.cjs", "src/runtime-corpus/declaration-entry.cjs", "tools/runtime-declared-script.js", "tools/runtime-placement.js"])
@@ -145,6 +159,7 @@ const nativeConfigFile = path.join(nativeProject, "tsconfig.json");
 const nativeConfiguration = fs.readFileSync(nativeConfigFile);
 const nativeOptions = JSON.parse(nativeConfiguration);
 const rootEntries = JSON.parse(fs.readFileSync(path.join(root, "runtime-base.json"), "utf8")).compilerOptions.plugins;
+const apiEnvironmentReceipts = require("./api-environment-layers.cjs")({ root, launcher, rootEntries, apiFailures });
 // Reporting is scoped to the Program that this dispatch actually loads. The
 // shared root's bundle/map inputs do not belong to this nested source owner.
 const emissionReports = {
@@ -394,8 +409,25 @@ try {
   assert.equal(registered.status, 0, registered.stderr);
   assert.ok(registered.pid > 0);
   assert.throws(() => process.kill(registered.pid, 0), (error) => error.code === "ESRCH");
-  assert.equal(registered.stdout.trim(), 'TTSC_REGISTER_VIEW:<div>hello</div><b>world</b>\nlowered\nentry\nTTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}');
-  assert.equal(lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name)).length, 1, "the manifestless register entry must prepare a default project-local cache and lower its configless input there");
+  const registerLines = registered.stdout.trim().split(/\r?\n/);
+  assert.deepEqual(registerLines.slice(0, -1), ['TTSC_REGISTER_VIEW:<div>hello</div><b>world</b>', 'lowered', 'entry', 'TTSC_DECLARED_REGISTER:{"generated":42,"neighbor":43,"payload":42}']);
+  const boundaryPrefix = "TTSC_INSTALLED_BOUNDARY_REGISTER:";
+  assert.ok(registerLines.at(-1).startsWith(boundaryPrefix), registered.stdout);
+  assert.deepEqual(JSON.parse(registerLines.at(-1).slice(boundaryPrefix.length)), boundaryExpected);
+  const defaultAdded = lowerings(defaultOrphans).filter((name) => !defaultBefore.has(name));
+  assert.equal(defaultAdded.length, 3, "default placement and the two configless installed targets each own one lowering");
+  const loweredSources = defaultAdded.flatMap((name) => {
+    const text = fs.readFileSync(path.join(defaultOrphans, name), "utf8");
+    const inline = /sourceMappingURL=data:application\/json;charset=utf-8;base64,([A-Za-z0-9+/=]+)/.exec(text);
+    assert.ok(inline, "each retained isolated emit must preserve its original source-map identity");
+    return JSON.parse(Buffer.from(inline[1], "base64").toString("utf8")).sources;
+  });
+  const { pathToFileURL } = require("node:url");
+  assert.deepEqual(loweredSources.sort(), [
+    configlessPlacement,
+    path.join(boundaryRoot, "app/NODE_MODULES/boundary-no-config/index.cts"),
+    path.join(boundaryRoot, "app/NODE_MODULES/boundary-no-config/esm.mts"),
+  ].map((file) => pathToFileURL(fs.realpathSync.native(file)).href).sort());
   assert.deepEqual(fs.readFileSync(configlessPlacement), configlessBytes);
   assert.equal(fs.existsSync(path.join(configlessDirectory, "runtime-placement.js")), false);
   assert.equal(fs.existsSync(path.join(temporary, "ttsc-orphan")), false, "neither placement may retain its lowering in the temporary directory");
@@ -439,4 +471,4 @@ if (descendantFailures.length) throw new AggregateError(descendantFailures, "reg
 }
 assert.deepEqual(fs.readFileSync(automaticManifestFile), automaticManifestBytes, "register reporting must restore the root discovery contributor after its descendant closes");
 unchanged();
-fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));
+fs.writeFileSync(path.join(__dirname, "runtime-declared-observed.json"), JSON.stringify({ apiEnvironmentBefore: apiEnvironmentReceipts.before, apiEnvironmentAfter: apiEnvironmentReceipts.after, apiFailures: apiFailures.map((error) => ({ name: error.message, detail: String(error.cause), stack: error.cause?.stack })), produced: [...seed.keys()].map((file) => path.relative(artifacts, file)).sort(), nativeEmitBefore, nativeEmitAfter, driverEmitBefore, driverEmitAfter, driverEmitStatus, driverEmitStderr, rejectedOutputAbsent: !fs.existsSync(rejectedOutput), emitManifestAbsent: !fs.existsSync(emitManifest), registerStatus: registered.status, registerPid: registered.pid, descendantPid: childReport.child, descendantResult: fs.readFileSync(path.join(descendant, "result"), "utf8"), descendantClosed: !childIsRunning(), registerBefore, registerAfter: receiptCount() }));

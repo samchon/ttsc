@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ESNext","module":"NodeNext","strict":true,"types":[],"rootDir":".","outDir":"dist"},"files":["source.cts"]}

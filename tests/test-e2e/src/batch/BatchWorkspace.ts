@@ -389,11 +389,11 @@ export namespace BatchWorkspace {
    * failures. The copied main module's assembly input guarantees a real SDK
    * assembler execution while preserving reuse of unrelated Go objects.
    *
-   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. A private archive directory stays opaque to runtime ancestor mirroring, which hard-links regular file entries and changes their native version metadata; the archive identity and content guards remain intact. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication.
+   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. A private archive directory stays opaque to runtime ancestor mirroring, which hard-links regular file entries and changes their native version metadata; the archive identity and content guards remain intact. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication. Runtime package-star inputs are linked from their authored package root. The installed-boundary island uses native realpath equality to prove that its lowercase package spelling reaches its physical uppercase store, and links a workspace to its actual outside-store source; no runtime resolution method is replaced.
    * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence. Actual wrapper writes and a nonempty native completion-marker directory exercise strict witness rejection and lease cleanup failure without replacing foreign filesystem methods. Initial cold attempts require independent before/after tool metadata evidence for every discarded build and a stable final epoch; they are not accepted merely because a retry passed.
    * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it. It also identifies the Windows exit boundary needed by the self-rewriting adapter.
-   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines after clearing its case-insensitive ERRORLEVEL environment shadow, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner.
+   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines after clearing its case-insensitive ERRORLEVEL environment shadow, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner. Existing native lowercase aliasing is preserved; otherwise a supported directory link establishes that identity explicitly. No OS-wide case folding establishes project ownership, and explicit cts/mts inputs keep module-format inference out of the boundary experiment.
    * @evidence contracts/performance.md#efficient-algorithms Preparation copies complete selected fixture and installed payloads, hashes candidate executable bytes, installs packages, prints the authored value matrix, and runs its real source-publication builds and toolchain observations. Compiler archives additionally stream their exact bytes at publication and actual reader boundaries; their immutable generation avoids another SDK/platform pack without scanning source trees or querying package configuration. Population and byte sizes drive IO, buffers and native subprocess cost. The status regression runs twelve real Go processes across absent/0/999 status shadows. The epoch matrix adds nine actual builds using the existing source and Go object storage, plus nine version observations for the persistently moving reader; the initial cold producer permits at most three independently witnessed build epochs. Each build receipt traverses selected SDK bin/tool metadata. These checks add no installation or native host profile.
    * @evidence contracts/performance.md#reuse-equivalent-work The process-owned preparation Promise shares this fixture population. Epoch cases isolate plugin namespaces while sharing the existing Go object root; only the first unique dependency action compiles cold, and a stable recovered publication is reused with zero additional Go builds. Native metadata and binary execution establish validity rather than expected retry counts alone.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Observation files and isolated epoch roots belong to the allocated project's cleanup/retention lifecycle. Each matrix case restores its owned launcher/source bytes in finally; ordinary paths assert removed scratch inputs, released current leases and absent pending candidates. The deliberately poisoned release retains its failed native coordination state for project cleanup and proves no second epoch begins. Reader tokens remain product process-owned until exit; partial failures retain actual receipts.
@@ -1023,6 +1023,27 @@ export namespace BatchWorkspace {
           path.join(modules, name!),
           "junction",
         );
+      fs.symlinkSync(
+        path.join(root, "tools/runtime-package-stars"),
+        path.join(modules, "batch-package-stars"),
+        "junction",
+      );
+      // A physical differently-spelled store is a boundary only when Node can
+      // reach that same directory through its installed-package spelling.
+      const boundaryApp = path.join(root, "tools/runtime-package-boundary/app");
+      const boundaryStore = path.join(boundaryApp, "NODE_MODULES");
+      const boundaryAlias = path.join(boundaryApp, "node_modules");
+      if (!fs.existsSync(boundaryAlias))
+        fs.symlinkSync(boundaryStore, boundaryAlias, "junction");
+      assert.equal(
+        fs.realpathSync.native(boundaryAlias),
+        fs.realpathSync.native(boundaryStore),
+      );
+      fs.symlinkSync(
+        path.join(boundaryApp, "workspace"),
+        path.join(boundaryStore, "boundary-workspace"),
+        "junction",
+      );
       const configPath = path.join(root, "tsconfig.json");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       const producerModule = path.join(root, "native-source");

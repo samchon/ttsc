@@ -22,3 +22,9 @@ while (!nativeFs.existsSync(nativePath.join(descendant, "ready.json"))) {
   if (Date.now() > readyDeadline) throw new Error("registered descendant did not become ready");
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
 }
+// This parent is actually loaded through register; no synthetic parent skips
+// its normal preparation gate. Native ESM loading remains asynchronous.
+void (require("./package-boundary.cjs") as any).observePackageBoundary().then(
+  (value: unknown) => console.log("TTSC_INSTALLED_BOUNDARY_REGISTER:" + JSON.stringify(value)),
+  (error: unknown) => { console.log(String(error)); nativeProcess.exitCode = 1; },
+);

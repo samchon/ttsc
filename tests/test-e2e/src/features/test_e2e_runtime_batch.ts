@@ -46,6 +46,19 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * installed actor and native seed are reused; recovery-only checks add native
  * compiler invocations, and a restored plugin-free capture verifies recovery.
  *
+ * The same installed declaration preload also checks constructor environment
+ * authority. Two Windows prepares reject a selected lowercase missing Go tool
+ * and mixed-case missing descriptor runtime. A captured mixed-spelling context
+ * then reaches actual preparation, compilation and transformation through an
+ * environment-checking wrapper around the unchanged descriptor factory and
+ * native composition. Its relative cache selector resolves the existing
+ * physical cache; real source/tool/environment witnesses decide reuse. These
+ * five API loads add descriptor/probe/native work without another actor,
+ * installation or source producer. Direct cleanup units own distinct cache
+ * roots, undefined/blank/duplicate selectors, instance isolation and caller
+ * Go-cache protection. The fixture bodies are excluded from Evidence selection
+ * and are covered by the owning experiment and review.
+ *
  * The actual same-file compiler rewrite emits opt-in attempt/result or original
  * error observations using its existing stat and the shared test trace runtime;
  * these records identify the caller thread, not an OS image-lock owner.
@@ -132,9 +145,20 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * This adds no actor; package/root fallback and native plugin work remain
  * additional unmeasured work. Authored installed bytes/no-write checks remain.
  *
- * @evidence contracts/testing.md#behavioral-verification Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
- * @evidence contracts/testing.md#independent-expectations The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
- * @evidence contracts/testing.md#distinguishing-cases Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
+ * The same ESM entry statically imports named bindings from a CommonJS star
+ * barrel spanning native package require conditions, owned TypeScript source
+ * and a relative/bare cycle. Literal named/default values, repeated namespace
+ * and require identity, one evaluation per leaf, erased type-only metadata and
+ * native blocked/missing errors distinguish discovery from execution. A native
+ * installed-store alias additionally separates consumer transforms from a
+ * package's own transform and a physical workspace target. Both the main host
+ * and retained register actor observe that authority; the latter starts from
+ * its actually loaded TypeScript parent and retains the normal entry gate.
+ *
+ *
+ * @evidence contracts/testing.md#behavioral-verification Native static ESM linking must expose all six literal package-star bindings while default/require values and one-evaluation counters agree. Installed-boundary plugin effects must match the authored JSON oracle in both public runtime and retained register output; fixture trees remain byte-identical without adjacent emission. Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
+ * @evidence contracts/testing.md#independent-expectations Authored require/import targets have distinct literal values, and consumerEffect versus ownEffect independently distinguishes isolated, consumer-owned and package-owned compilation. The static expected.json is authored before execution, never derived from emitted code or runtime results. The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation.
+ * @evidence contracts/testing.md#distinguishing-cases Bare, conditional, source-only, relative and cycle edges coexist with direct exports, type-only erasure and blocked/missing native failures. A proven native NODE_MODULES alias contrasts with its own nearer config and a linked physical workspace outside the store; explicit cts/mts sources leave compiler module-format policy unchanged. Quoted/expression/ordinary JSX strings, JSON alias versus unchanged neighbor and configured throwing call versus retained console.info share the same module graph. The same Program preserves an enum through direct/barrel CommonJS-to-ESM loading with named/default identity, erased interface absence, repeated import identity, one source effect and live default getter42-to43; no extra producer/profile loop is introduced. Static if(false) reexport metadata yields an undefined namespace slot while the real CommonJS object owns no hidden property; template-only ghost metadata yields neither slot nor value. Both throwing helpers must remain inert. The existing ESNext owner additionally imports a literal node_modules CommonJS package and a miscased Node_Modules project source; their different physical parents prevent a case-insensitive filesystem from aliasing the two directory spellings.
  * The existing rejection actor also consumes one upfront readonly namespace. Native permission denial is required before its default-cache success, explicit-cache excluded refusal and included success; restored writes and complete input bytes establish release and nonmutation. Root privilege supplies zero readonly coverage. The two successful dispatches launch two real entry children, while the three former CLI parent launches and separate readonly staging disappear.
  * Those same two entries carry complete standard-decorator effects, opposite optional-chain emission and configured automatic versus direct/response-preserved JSX HTML. The included CommonJS entry also carries an actual import preload, main-module identity, physical argv1 and native shared require.cache identity without another entry child. Nested response before/after visible target flags selects ESNext versus ES2019; an invalid response is a failed dispatcher call with no extra entry child. Privileged runs use an explicit external cache for these two controls while retaining zero permission coverage. The existing register actor starts in the upfront legacy owner's preserve-mode TSX graph and then loads the original declared/descendant graph, keeping its native preparations as explicit work.
  * The already retained lock-holder actor installs public registration, rejects an included number-to-string error before its marker and leaves an empty register project index. Repairing that same source permits FIRST from one excluded index; the next same-basename index fails its entry check before its marker. The final missing owned output still causes actual exit1 and dead-holder cleanup. These checked loads retain native work but introduce no extra host or private profile.
@@ -150,11 +174,11 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * killed pair without a fixture performance deadline. API cleanup explicitly
  * removes ambient cache selectors while retaining the caller's Go cache.
  *
- * @evidence contracts/testing.md#execution-ownership The main graph invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant), one abandoned sibling launcher/program pair, its clean launcher and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
- * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
- * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Legacy/default/explicit dispatch controls share that consumer. Selective live/dead generation cleanup additionally reuses the inherited descendant's namespace with one plugin-free sibling launcher/program pair and one actual clean launcher; final all-dead API cleanup reuses that state. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The private compiler copy is the actual delegate of those two required race lowerings before its identity/cache controls; the witness waits for that compiler child to close, with no additional preparation CLI or claim that kernel metadata writers are quiescent. The first identity artifact, unchanged marked reuse and same-physical same-byte rewrite remain distinct expectations. Observation-only preparation receipts stay outside the exact five-field behavior report. The authored sibling runtimeCliCache independently names the CLI-selected cache for explicit orphan placement; the shared plugin cache remains a separate environment authority, while the manifestless register still selects the project-local default cache. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
- * @evidence contracts/e2e.md#preserved-coverage Keeps the native factory value matrix and combined utility alias/strip/runtime observations in one real loaded graph. The standard class/method warning-removal composition and original ESNext member-initialization effects run in both .mts/.cts modules in the same upfront Program; the contrary module-package .cts value is loaded alongside the .mts public entry. Source dirname, imported class root and both asset reads preserve their independent physical identities. The export population additionally observes real tslib IIFE reexports, inert throwing/template negatives, computed dynamic default exports, live default getters and bare-package versus project basename ownership, all from upfront inputs in the same host. Direct commonjs preparation/metadata and emit ownership units own their detailed portable distinctions. Dependency profile recipes are not repeated; isolated orphan lowering and other compiler-mode/lifetime transitions remain outside this population. TestFormatSortImportsPreservesBindingImportEvaluationOrder now splits its zero-findings invariant into TestFormatSortImportsPreservesSideEffectImports and its unchanged raw ESM bytes into this actual runtime; existing status, payload and markers remain asserted.
+ * @evidence contracts/testing.md#execution-ownership Both new families borrow the existing main ttsx host, installed consumer, upfront Program and retained register actor. Source-only package compilation, two configless isolated emits, package-own and consumer/workspace Programs are real internal work in each process that reaches them; this test does not claim one Program or measure their counts. No new installation, native plugin producer or host is added. The main graph invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant), one abandoned sibling launcher/program pair, its clean launcher and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
+ * @evidence contracts/e2e.md#necessary-boundary Static name units cannot establish native ESM linking and shared CommonJS evaluation through served compiler output. Ownership units cannot establish which installed transform actually runs through ttsx and register. Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
+ * @evidence contracts/e2e.md#shared-execution Static fixtures join the existing runtime graph and register actor; one package-own project supplies both sibling sources, and one consumer project supplies its physical workspace. No per-case launcher or new native producer is introduced. One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Legacy/default/explicit dispatch controls share that consumer. Selective live/dead generation cleanup additionally reuses the inherited descendant's namespace with one plugin-free sibling launcher/program pair and one actual clean launcher; final all-dead API cleanup reuses that state. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Batch setup proves the lowercase installed spelling aliases the authored uppercase store, creating a link only where native spelling is distinct. Physical workspace links retain native source identity. Complete authored input trees are captured before consumers and compared after joins; no private cache reset or source rewrite manufactures the result. Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The private compiler copy is the actual delegate of those two required race lowerings before its identity/cache controls; the witness waits for that compiler child to close, with no additional preparation CLI or claim that kernel metadata writers are quiescent. The first identity artifact, unchanged marked reuse and same-physical same-byte rewrite remain distinct expectations. Observation-only preparation receipts stay outside the exact five-field behavior report. The authored sibling runtimeCliCache independently names the CLI-selected cache for explicit orphan placement; the shared plugin cache remains a separate environment authority, while the manifestless register still selects the project-local default cache. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
+ * @evidence contracts/e2e.md#preserved-coverage Existing runtime observations remain unchanged. New runtime observers attempt each independent family even after a linking/load failure, and their assertions collect outside the older payload assertion block. Existing own-property/getter/main identity and direct parser units retain their distinct boundaries. Keeps the native factory value matrix and combined utility alias/strip/runtime observations in one real loaded graph. The standard class/method warning-removal composition and original ESNext member-initialization effects run in both .mts/.cts modules in the same upfront Program; the contrary module-package .cts value is loaded alongside the .mts public entry. Source dirname, imported class root and both asset reads preserve their independent physical identities. The export population additionally observes real tslib IIFE reexports, inert throwing/template negatives, computed dynamic default exports, live default getters and bare-package versus project basename ownership, all from upfront inputs in the same host. Direct commonjs preparation/metadata and emit ownership units own their detailed portable distinctions. Dependency profile recipes are not repeated; isolated orphan lowering and other compiler-mode/lifetime transitions remain outside this population. TestFormatSortImportsPreservesBindingImportEvaluationOrder now splits its zero-findings invariant into TestFormatSortImportsPreservesSideEffectImports and its unchanged raw ESM bytes into this actual runtime; existing status, payload and markers remain asserted.
  */
 export async function test_e2e_runtime_batch(): Promise<void> {
   const workspace = await BatchWorkspace.open();
@@ -202,6 +226,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   const receiptOffset = BatchWorkspace.readContextReceipts(workspace).length;
   const configuredRoot = path.join(workspace.root, "tools/configured-owners");
   const configuredInputs = await FileSystemIterator.read(configuredRoot);
+  const runtimeBoundaryRoots = [
+    "tools/runtime-package-stars",
+    "tools/runtime-package-boundary",
+    "src/runtime-corpus/export-population/package-stars",
+  ].map((relative) => path.join(workspace.root, relative));
+  const runtimeBoundaryInputs = await Promise.all(
+    runtimeBoundaryRoots.map((root) => FileSystemIterator.read(root)),
+  );
   const jsxRuntimeRoot = path.join(workspace.root, "node_modules/myjsx");
   const jsxOrphanRoot = path.join(workspace.root, "node_modules/orphan-view");
   const jsxInputs = workspace.installationOnly
@@ -632,6 +664,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       ) as {
         apiFailures: { name: string; detail: string; stack?: string }[];
         produced: string[];
+        apiEnvironmentBefore: number;
+        apiEnvironmentAfter: number;
         nativeEmitBefore: number;
         nativeEmitAfter: number;
         driverEmitBefore: number;
@@ -736,10 +770,28 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         declarationObservation.registerAfter,
         "every later native context must remain accounted for after the register actor closes",
       );
-      const nativeReceipts = allNativeReceipts.slice(
-        receiptOffset,
-        declarationObservation.nativeEmitBefore,
+      assert.ok(Number.isSafeInteger(declarationObservation.apiEnvironmentBefore));
+      assert.ok(Number.isSafeInteger(declarationObservation.apiEnvironmentAfter));
+      assert.ok(declarationObservation.apiEnvironmentBefore >= receiptOffset);
+      assert.ok(declarationObservation.apiEnvironmentAfter >= declarationObservation.apiEnvironmentBefore);
+      assert.ok(declarationObservation.apiEnvironmentAfter <= declarationObservation.nativeEmitBefore);
+      const apiEnvironmentRecords = allNativeReceipts.slice(
+        declarationObservation.apiEnvironmentBefore,
+        declarationObservation.apiEnvironmentAfter,
       );
+      BatchWorkspace.assertContextReceipts(apiEnvironmentRecords);
+      assert.deepEqual(
+        apiEnvironmentRecords.filter((receipt) => receipt.name === "native-auto-discovery"),
+        [
+          { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },
+          { name: "native-auto-discovery", operation: "identity", prefix: null, suffix: null },
+        ],
+        "the constructor environment compile and transform each retain real automatic native discovery",
+      );
+      const nativeReceipts = [
+        ...allNativeReceipts.slice(receiptOffset, declarationObservation.apiEnvironmentBefore),
+        ...allNativeReceipts.slice(declarationObservation.apiEnvironmentAfter, declarationObservation.nativeEmitBefore),
+      ];
       BatchWorkspace.assertContextReceipts(
         allNativeReceipts.slice(
           declarationObservation.nativeEmitBefore,
@@ -1080,6 +1132,44 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     );
   } catch (error) {
     combinedFailures.push(error);
+  }
+  // These new families collect independently even when an older payload
+  // assertion fails; each runtime observer already attempts every case.
+  if (!workspace.installationOnly) {
+    for (const verify of [
+      () => {
+        assert.ok(result);
+        const payload = BatchWorkspace.readPayload(result.stdout) as { packageStars: any };
+        assert.deepEqual(payload.packageStars.named, {
+          named: ["package-foo", "require-condition", "owned-source", "cycle-a", "cycle-b", "direct"],
+          defaults: ["package-foo", "require-condition", "owned-source", "cycle-a", "cycle-b", "direct"],
+          identity: true, loads: [1, 1], typeOnlyAbsent: true, importConditionAbsent: true,
+        });
+      },
+      () => {
+        assert.ok(result);
+        const payload = BatchWorkspace.readPayload(result.stdout) as { packageStars: any };
+        assert.equal(payload.packageStars.blocked.code, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+      },
+      () => {
+        assert.ok(result);
+        const payload = BatchWorkspace.readPayload(result.stdout) as { packageStars: any };
+        assert.equal(payload.packageStars.missing.code, "MODULE_NOT_FOUND");
+      },
+      () => {
+        assert.ok(result);
+        const payload = BatchWorkspace.readPayload(result.stdout) as { installedBoundary: unknown };
+        const expected = JSON.parse(fs.readFileSync(path.join(workspace.root, "tools/runtime-package-boundary/expected.json"), "utf8"));
+        assert.deepEqual(payload.installedBoundary, expected);
+      },
+    ]) {
+      try { verify(); } catch (error) { combinedFailures.push(error); }
+    }
+    for (const [index, root] of runtimeBoundaryRoots.entries()) {
+      try {
+        assert.deepEqual(await FileSystemIterator.read(root), runtimeBoundaryInputs[index], "runtime package fixtures retain all input bytes and contain no adjacent emit");
+      } catch (error) { combinedFailures.push(error); }
+    }
   }
   if (!workspace.installationOnly) {
     try {
