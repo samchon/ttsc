@@ -6,6 +6,7 @@ import {
 } from "unplugin";
 
 import type { HostWatchBridge } from "./bridge/HostWatchBridge";
+import { buildHostDeclaresPolling } from "./bridge/buildHostDeclaresPolling";
 import {
   resolveConfiguredHostRoot,
   selectBuildHostRoot,
@@ -61,6 +62,11 @@ const name = "ttsc-unplugin";
  * `buildStart` spans later HMR edits and so cannot mark a pass, while a dev
  * server configured without a watcher takes the pass lifecycle with them,
  * having declared it will observe no edit at all.
+ *
+ * Build-host observation belongs to its active watch session. Watch closure
+ * retires that bridge before a reused compiler can begin another session with
+ * different polling options; the shared generation lease still belongs to the
+ * compiler and ends at shutdown.
  */
 const unpluginFactory: UnpluginFactory<
   TtscUnpluginOptions | undefined,
@@ -360,6 +366,10 @@ const unpluginFactory: UnpluginFactory<
           stats.compilation.fileDependencies,
         );
       });
+      compiler.hooks.watchClose.tap(name, () => {
+        // A compiler can watch again with different session options.
+        closeBridge().catch(() => undefined);
+      });
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
         // lease resets it once no compiler has used it for its grace.
@@ -375,6 +385,10 @@ const unpluginFactory: UnpluginFactory<
           bridge,
           stats.compilation.fileDependencies,
         );
+      });
+      compiler.hooks.watchClose.tap(name, () => {
+        // A compiler can watch again with different session options.
+        closeBridge().catch(() => undefined);
       });
       compiler.hooks.shutdown.tap(name, () => {
         // The shared generation outlives this compiler for the next one; the
@@ -453,7 +467,11 @@ const unpluginFactory: UnpluginFactory<
         // by module, or that keeps none, has nothing for either to cover.
         const opening = bridge === undefined;
         if (opening && hostWatching(this)) {
-          bridge = openHostWatchBridge(hostRoot());
+          bridge = openHostWatchBridge(
+            hostRoot(),
+            {},
+            buildHostDeclaresPolling(this.getNativeBuildContext?.()),
+          );
         }
         passStartedAt = bridge?.begin();
         if (opening && restoresUnanswered(this)) {
@@ -486,7 +504,11 @@ const unpluginFactory: UnpluginFactory<
       // opened none before its first transform gets it here.
       const bridgeStartedAt = hostWatching(this)
         ? (passStartedAt ??= (bridge ??=
-            openHostWatchBridge(hostRoot())).begin())
+            openHostWatchBridge(
+              hostRoot(),
+              {},
+              buildHostDeclaresPolling(this.getNativeBuildContext?.()),
+            )).begin())
         : undefined;
       // A build host takes the project's record, and nothing else, through
       // the same channel that watches the module itself: Farm relates a watch
