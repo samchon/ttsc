@@ -763,6 +763,7 @@ export namespace BatchWorkspace {
     const compilerArchives = CompilerArchives.create({
       repository: TestProject.WORKSPACE_ROOT,
       output: compilerArchiveRoot,
+      allocation: root,
       directories: compilerDirectories,
       produce: (directory, archive) =>
         E2eProcessTrace.execFileSync(

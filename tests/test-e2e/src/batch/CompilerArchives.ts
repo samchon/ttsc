@@ -62,20 +62,26 @@ export namespace CompilerArchives {
    * inputs. A fresh owner cannot adopt an existing destination. Once published,
    * its archive bytes define this generation; changed source inputs require a
    * new producer when another generation is requested. The caller owns failed
-   * or partially produced allocations.
+   * or partially produced allocations. An explicit containing allocation pins
+   * the caller's removal root as well as the archive output directory; it does
+   * not grant removal authority over a root the caller does not own.
    *
    * @evidence contracts/common.md#principled-implementation Each fresh owner runs the normal pack producers and owns their exact immutable archive generation. Borrowers consume that explicit generation, as the existing materializer contract permits, rather than asking for a cached result of packing a possibly changed source tree.
-   * @evidence contracts/common.md#clear-and-simple-design The owner grants read lifetimes and alone admits allocation removal. Detached archive proofs cross the preparation process boundary; one private streaming reader qualifies their physical identity and bytes.
+   * @evidence contracts/common.md#clear-and-simple-design The owner grants read lifetimes and alone admits the caller's allocation-removal callback. Output and optional containing allocation are pinned together, keeping archive placement separate from the root that cleanup removes. Detached archive proofs cross the preparation process boundary; one private streaming reader qualifies their physical identity and bytes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Real producers remain explicit operations. Content hashes accompany native file identity; matching names, versions, timestamps or a historical invocation never authorize reuse.
    * @evidence contracts/common.md#meaningful-documentation The headline identifies one invocation, the interfaces distinguish borrowing from removal authority, and member comments explain sticky retention and required return boundaries. Refusal records the already observed expected/current path, native signature and digest so a changed generation is distinguishable from a metadata-only mismatch.
    * @evidence contracts/portability.md#os-neutral-implementation Node's native realpath and bigint descriptor metadata observe actual allocations and regular files without OS case assumptions. Selected package roots must be native directories within the repository; linked or nonregular archives refuse qualification.
-   * @evidence contracts/performance.md#efficient-algorithms The owner reads selected package manifests once and streams each produced archive with a fixed 64 KiB buffer at publication and reader boundaries. Work follows archive bytes and consumers, without whole-source scans, configuration subprocesses or a second packlist implementation; no wall-time speedup is assumed.
+   * @evidence contracts/performance.md#efficient-algorithms The owner reads selected package manifests once and streams each produced archive with a fixed 64 KiB buffer at publication and reader boundaries. At most two directory allocations require native metadata observations; coincident physical roots share one stat observation. Work follows archive bytes and consumers, without whole-source scans, configuration subprocesses or a second packlist implementation; no wall-time speedup is assumed.
    * @evidence contracts/performance.md#reuse-equivalent-work The finite run shares one producer's exact immutable bytes with independent installations. Every new owner runs fresh normal production, even when names and versions match. Borrowing validates this published generation and its allocation, not equivalence to a new pack of today's source; changed or replaced archive bytes refuse reuse.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Retained proofs grow with selected packages, not historical runs; streams close synchronously and only fixed-size buffers hold file bytes. Active loans block owner removal, unknown readers and failed removal remain sticky, and actual allocation cleanup stays with the caller.
    */
   export function create(props: {
     repository: string;
     output: string;
+
+    /** Caller-owned cleanup root containing output; defaults to output itself. */
+    allocation?: string;
+
     directories: readonly string[];
     produce: (directory: string, archive: string) => void;
     retain: (reason: string) => void;
@@ -89,15 +95,42 @@ export namespace CompilerArchives {
   }): Owner {
     const repository = fs.realpathSync.native(props.repository);
     const output = fs.realpathSync.native(props.output);
-    const outputIdentity = fs.statSync(output, { bigint: true });
+    const allocations = [
+      {
+        physical: output,
+        spellings: [props.output],
+        identity: fs.statSync(output, { bigint: true }),
+      },
+    ];
+    if (props.allocation !== undefined && props.allocation !== props.output) {
+      const allocation = fs.realpathSync.native(props.allocation);
+      if (allocation !== output && !inside(allocation, output))
+        throw new Error("Compiler archive output must be inside its allocation");
+      if (allocation === output)
+        allocations[0]!.spellings.push(props.allocation);
+      else
+        allocations.push({
+          physical: allocation,
+          spellings: [props.allocation],
+          identity: fs.statSync(allocation, { bigint: true }),
+        });
+    }
+    if (allocations.some((allocation) => !allocation.identity.isDirectory()))
+      throw new Error("Compiler archive allocation must be a directory");
     const assertOutput = (): void => {
-      const current = fs.statSync(output, { bigint: true });
-      if (
-        fs.realpathSync.native(props.output) !== output ||
-        current.dev !== outputIdentity.dev ||
-        current.ino !== outputIdentity.ino
-      )
-        throw new Error("Compiler archive allocation was replaced");
+      for (const allocation of allocations) {
+        const current = fs.statSync(allocation.physical, { bigint: true });
+        if (
+          !current.isDirectory() ||
+          allocation.spellings.some(
+            (spelling) =>
+              fs.realpathSync.native(spelling) !== allocation.physical,
+          ) ||
+          current.dev !== allocation.identity.dev ||
+          current.ino !== allocation.identity.ino
+        )
+          throw new Error("Compiler archive allocation was replaced");
+      }
     };
     const selected = props.directories.map((directory) => {
       const root = path.resolve(repository, directory);

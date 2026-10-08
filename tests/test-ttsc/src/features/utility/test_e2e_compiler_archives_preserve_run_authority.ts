@@ -18,7 +18,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual filesystem inputs and archive bytes exercise the owner, producer, borrowers and release callback; fresh generations run their normal producers after source/config/manifest changes, exact immutable generations remain explicit, and missing/corrupt/replaced archives or failed release cannot grant reuse or cleanup.
  * @evidence contracts/testing.md#independent-expectations Literal distinct payloads, independent SHA-256, explicit producer/release counts and authored failure objects define expected outcomes without deriving them from the owner's verdict. Actual corrupt, equal-byte replaced and metadata-only archive mutations independently determine which finite refusal facts must appear in CI stderr and the error cause.
- * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures. Actual runtime entry mirroring contrasts a root archive's native hardlink transition with an opaque archive directory; mirror removal preserves isolated borrowing, while replacing that directory with an alias refuses reuse and deletion.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged two-consumer reuse differs from new-owner production, new production after same-size/restored-mtime source changes, configuration/package selection and environment changes, missing/corrupt/replaced archives, metadata-only refusal distinct from changed bytes, malformed or missing borrowed/remaining package manifests, retained readers and producer/release failures. Actual runtime entry mirroring contrasts a root archive's native hardlink transition with an opaque archive directory. Child replacement and outer replacement with the original child both refuse reuse and cleanup; initial native aliases remain valid until retargeted, while escaped or non-directory allocations refuse before production.
  * @evidence contracts/testing.md#execution-ownership The existing test-ttsc runner discovers this utility test; explicit producer/release callbacks operate only small authored allocations without native builds, packs, installs or foreign-method replacement.
  */
 export async function test_e2e_compiler_archives_preserve_run_authority(): Promise<void> {
@@ -107,7 +107,11 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
         const root = TestProject.tmpdir("compiler-archive-project-");
         const output = isolated ? path.join(root, ".compiler-archives") : root;
         if (isolated) fs.mkdirSync(output);
-        const owner = CompilerArchives.create({ ...fixture.props, output });
+        const owner = CompilerArchives.create({
+          ...fixture.props,
+          output,
+          allocation: root,
+        });
         const initial = owner.borrow();
         const artifact = initial.artifacts[0]!;
         initial.release();
@@ -181,7 +185,11 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
     const root = TestProject.tmpdir("compiler-archive-island-");
     const output = path.join(root, ".compiler-archives");
     fs.mkdirSync(output);
-    const owner = CompilerArchives.create({ ...fixture.props, output });
+    const owner = CompilerArchives.create({
+      ...fixture.props,
+      output,
+      allocation: root,
+    });
     const moved = path.join(root, "moved");
     fs.renameSync(output, moved);
     fs.symlinkSync(moved, output, "junction");
@@ -194,6 +202,102 @@ export async function test_e2e_compiler_archives_preserve_run_authority(): Promi
       fs.readFileSync(path.join(moved, "compiler.tgz"), "utf8"),
       "authored archive",
     );
+  });
+  check("replaced outer allocation with original archive child", () => {
+    const fixture = seed();
+    const container = TestProject.tmpdir("compiler-archive-outer-");
+    const allocation = path.join(container, "project");
+    const original = path.join(container, "original");
+    fs.mkdirSync(allocation);
+    const output = path.join(allocation, ".compiler-archives");
+    fs.mkdirSync(output);
+    const owner = CompilerArchives.create({
+      ...fixture.props,
+      output,
+      allocation,
+    });
+    const loan = owner.borrow();
+    loan.release();
+    const before = archiveState(loan.artifacts[0]!.archive);
+    fs.renameSync(allocation, original);
+    fs.mkdirSync(allocation);
+    fs.writeFileSync(path.join(allocation, "foreign"), "keep");
+    fs.renameSync(path.join(original, ".compiler-archives"), output);
+    assert.deepEqual(archiveState(loan.artifacts[0]!.archive), before);
+    assert.throws(() => owner.borrow(), /allocation was replaced/);
+    assert.throws(
+      () => owner.close(() => assert.fail("foreign outer removal")),
+      /allocation was replaced/,
+    );
+    assert.equal(
+      fs.readFileSync(path.join(allocation, "foreign"), "utf8"),
+      "keep",
+    );
+  });
+  check("archive output cannot escape explicit allocation", () => {
+    const fixture = seed();
+    assert.throws(
+      () =>
+        CompilerArchives.create({
+          ...fixture.props,
+          allocation: fixture.repository,
+        }),
+      /output must be inside its allocation/,
+    );
+    assert.equal(fixture.counts().produced, 0);
+  });
+  check("linked archive output cannot escape explicit allocation", () => {
+    const fixture = seed();
+    const output = path.join(fixture.repository, "linked-output");
+    fs.symlinkSync(fixture.output, output, "junction");
+    assert.throws(
+      () =>
+        CompilerArchives.create({
+          ...fixture.props,
+          output,
+          allocation: fixture.repository,
+        }),
+      /output must be inside its allocation/,
+    );
+    assert.equal(fixture.counts().produced, 0);
+  });
+  check("native allocation alias remains valid until retargeted", () => {
+    const fixture = seed();
+    const container = TestProject.tmpdir("compiler-archive-alias-");
+    const output = path.join(fixture.output, ".compiler-archives");
+    fs.mkdirSync(output);
+    const allocation = path.join(container, "allocation");
+    fs.symlinkSync(fixture.output, allocation, "junction");
+    const owner = CompilerArchives.create({
+      ...fixture.props,
+      output,
+      allocation,
+    });
+    const loan = owner.borrow();
+    loan.assertAvailable();
+    loan.release();
+    fs.unlinkSync(allocation);
+    fs.symlinkSync(fixture.repository, allocation, "junction");
+    assert.throws(() => owner.borrow(), /allocation was replaced/);
+    assert.throws(
+      () => owner.close(() => assert.fail("retargeted allocation removal")),
+      /allocation was replaced/,
+    );
+    assert.equal(
+      fs.readFileSync(loan.artifacts[0]!.archive, "utf8"),
+      "authored archive",
+    );
+  });
+  check("non-directory output refuses before production", () => {
+    const fixture = seed();
+    const output = path.join(fixture.output, "file");
+    fs.writeFileSync(output, "keep");
+    assert.throws(
+      () => CompilerArchives.create({ ...fixture.props, output }),
+      /allocation must be a directory/,
+    );
+    assert.equal(fixture.counts().produced, 0);
+    assert.equal(fs.readFileSync(output, "utf8"), "keep");
   });
   check("unchanged borrowing and release", () => {
     const fixture = seed();
