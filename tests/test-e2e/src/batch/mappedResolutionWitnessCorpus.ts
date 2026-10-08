@@ -80,7 +80,7 @@ export function mappedResolutionWitnessCorpus(options: {
     fs.copyFileSync(path.join(fixtures, "descriptor.cjs"), descriptor);
     fs.copyFileSync(
       path.join(fixtures, "package.json"),
-      path.join(cwd, "package.json"),
+      path.join(path.dirname(descriptor), "package.json"),
     );
     fs.copyFileSync(
       path.join(fixtures, "far-package.json"),
