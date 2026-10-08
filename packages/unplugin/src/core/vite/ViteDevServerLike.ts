@@ -39,7 +39,8 @@ import type { ViteModuleNodeLike } from "./ViteModuleNodeLike";
  */
 export interface ViteDevServerLike {
   /**
-   * Resolved config. `root` anchors the project scope,
+   * Resolved config. `root` anchors the project scope, `server.watch: null`
+   * disables compiler-input notification resources,
    * `server.watch.usePolling` declares that native notifications cannot be
    * trusted on this filesystem, and `server.hmr: false` selects the adapter's
    * invalidation/full-reload fallback instead of HMR propagation.

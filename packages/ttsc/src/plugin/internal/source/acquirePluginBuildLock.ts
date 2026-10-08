@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
@@ -24,6 +25,10 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * build serialization. Legacy clients also cannot provide a cross-path
  * compare-and-swap.
  *
+ * Pending native guards return null so existing same-key bounded waiters
+ * continue without acquiring or stealing. Unknown or malformed guards refuse
+ * admission explicitly. Independent keys and shared Go caches stay concurrent.
+ *
  * Opt-in diagnostics retain the already-observed destination and v3-layout
  * decisions when initialization rename fails. They perform no extra filesystem
  * query and do not classify an unknown layout as a successful peer.
@@ -33,7 +38,7 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A lost publication race returns null; it never force-removes a holder or substitutes uncoordinated success for failed acquisition.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain atomic publication, null, lease cleanup and the actual older-version serialization limits before the tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node paths and directory operations preserve native naming, reject symlink legacy lock paths and distinguish rename contention through the platform error adapter.
- * @evidence contracts/performance.md#efficient-algorithms Acquisition uses a fixed number of metadata operations without scanning sibling generations or enumerating processes. Work includes native path construction/resolution, protocol marker bytes and host/PID/generation JSON construction and writes; initialization and attempt cleanup recursively remove their candidate contents.
+ * @evidence contracts/performance.md#efficient-algorithms Acquisition scans native guard metadata before a fixed set of lock operations; it neither scans sibling generations nor enumerates processes. Work includes native path construction/resolution, protocol marker bytes and host/PID/generation JSON construction and writes; initialization and attempt cleanup recursively remove their candidate contents.
  * @evidence contracts/performance.md#reuse-equivalent-work A cache-key lock selects one producer among v3 consumers; binary identity and under-lock publication rechecking remain the build caller's responsibility, not assumptions made by a matching lock path.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Candidates have finally-based removal, which can fail or override the result. Successful return transfers a winning generation to the caller; cleanup failure after publication can leave ownership without a returned lease. Persistent roots remain per historical key for fencing, with no constant historical-key bound here.
  */
@@ -48,6 +53,8 @@ export function acquirePluginBuildLock(
   }
   const protocolDir =
     PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
+  SourceNativeRetirement.assertAvailable(protocolDir);
+  if (SourceNativeRetirement.isProtected(protocolDir)) return null;
   ensurePluginBuildLockProtocol(protocolDir);
   // Close the initialization window as far as the legacy protocol permits. A
   // legacy holder that appeared while v3 was initialized still blocks this
@@ -87,6 +94,12 @@ export function acquirePluginBuildLock(
       }
       throw error;
     }
+    SourceNativeRetirement.register({
+      fenceRoot: protocolDir,
+      retainedPaths: [lockDir, lockDir.slice(0, -".lock".length)],
+      generation,
+      completionNonce,
+    });
     return { protocol: "v3", generation, completionNonce };
   } finally {
     // The candidate name contains this process's random generation and can
@@ -132,23 +145,32 @@ function ensurePluginBuildLockProtocol(protocolDir: string): void {
         PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocolDir);
       if (process.env.TTSC_E2E_TRACE) {
         try {
-          E2ETrace.capabilityResolution("plugin-build-lock-protocol-rename-refused", {
-            protocolDir,
-            candidateDir,
-            destinationOccupied: occupied,
-            protocolV3: occupied ? recognized : null,
-            outcome: recognized ? "peer-initialized" : "rethrow",
-            errorName: error instanceof Error ? error.name : null,
-            errorMessage: error instanceof Error ? error.message : null,
-            errorCode:
-              typeof error === "object" && error !== null &&
-              "code" in error && typeof error.code === "string"
-                ? error.code : null,
-            errorErrno:
-              typeof error === "object" && error !== null &&
-              "errno" in error && typeof error.errno === "number"
-                ? error.errno : null,
-          });
+          E2ETrace.capabilityResolution(
+            "plugin-build-lock-protocol-rename-refused",
+            {
+              protocolDir,
+              candidateDir,
+              destinationOccupied: occupied,
+              protocolV3: occupied ? recognized : null,
+              outcome: recognized ? "peer-initialized" : "rethrow",
+              errorName: error instanceof Error ? error.name : null,
+              errorMessage: error instanceof Error ? error.message : null,
+              errorCode:
+                typeof error === "object" &&
+                error !== null &&
+                "code" in error &&
+                typeof error.code === "string"
+                  ? error.code
+                  : null,
+              errorErrno:
+                typeof error === "object" &&
+                error !== null &&
+                "errno" in error &&
+                typeof error.errno === "number"
+                  ? error.errno
+                  : null,
+            },
+          );
         } catch {
           // Diagnostics cannot replace either peer acceptance or this error.
         }

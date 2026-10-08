@@ -25,7 +25,6 @@ import type { TtscTransformedOutput } from "./envelope/TtscTransformedOutput";
 import { TtscMissingProgramOutputError } from "./errors/TtscMissingProgramOutputError";
 import { TtscUnstableGenerationError } from "./errors/TtscUnstableGenerationError";
 import { transformProject } from "./generation/transformProject";
-import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDirectories";
 import { preparePluginBuildEnvironments } from "./inputs/preparePluginBuildEnvironments";
 import { TRANSFORM_CACHE_SESSIONS } from "./session/TRANSFORM_CACHE_SESSIONS";
 import { settleProjectMutationEvents } from "./tracker/settleProjectMutationEvents";
@@ -42,6 +41,7 @@ import { notifyFailedGenerationInputs } from "./watch/notifyFailedGenerationInpu
 import { notifyRejectedGenerationInputs } from "./watch/notifyRejectedGenerationInputs";
 import { notifyVolatileDelivery } from "./watch/notifyVolatileDelivery";
 import { notifyWatchInputs } from "./watch/notifyWatchInputs";
+import { prepareProjectRecordDirectories } from "./watch/prepareProjectRecordDirectories";
 
 /**
  * Apply the ttsc plugin transform to a single source file.
@@ -133,6 +133,9 @@ export async function transformTtsc(
 
   const selection = resolveProjectSelection(file, options.project, filesystem);
   const tsconfig = selection.tsconfig;
+  const selectedProjectRoot = path.resolve(
+    options.projectRoot ?? path.dirname(tsconfig),
+  );
   // Reported config reads and failed discovery candidates are watch inputs:
   // editing a solution's
   // `references`, or the `include` of a project searched before the selected
@@ -149,6 +152,7 @@ export async function transformTtsc(
     aliasPaths,
     compilerOptions: options.compilerOptions,
     plugins: options.plugins,
+    projectRoot: selectedProjectRoot,
     tsconfig,
   });
 
@@ -214,7 +218,7 @@ export async function transformTtsc(
       if (!transformCacheTrustsNotifications(cache)) {
         withdrawGenerationNotifications(cached);
       }
-      await preparePluginBuildEnvironments(cached.result, filesystem);
+      await preparePluginBuildEnvironments(cached.result, filesystem, cached);
       if (cache?.get(key) !== transformed) continue;
       if (epoch === undefined) {
         await settleProjectMutationEvents(cached);
@@ -273,6 +277,7 @@ export async function transformTtsc(
       transformed = transformProject({
         aliasPaths,
         compilerOptions: options.compilerOptions,
+        projectRoot: selectedProjectRoot,
         currentFile: file,
         currentSource: source,
         // Stamp the pass this compile was started for, not the one it happens

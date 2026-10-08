@@ -6,10 +6,10 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/
 import { createHostPathIdentityContext } from "../../../../../packages/unplugin/src/core/transform/filesystem/createHostPathIdentityContext";
 import { projectWalkStable } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkStable";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
-import { createProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createProjectMutationTracker";
 import { isProjectWalkPath } from "../../../../../packages/unplugin/src/core/transform/project/isProjectWalkPath";
 import { reportsProgramMembership } from "../../../../../packages/unplugin/src/core/transform/project/reportsProgramMembership";
 import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import { createProjectMutationTracker } from "../../../../../packages/unplugin/src/core/transform/tracker/createProjectMutationTracker";
 import type { ITtscProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/ITtscProjectMembershipPolicy";
 import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/unplugin/src/core/tsconfig/PERMISSIVE_PROJECT_MEMBERSHIP_POLICY";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
@@ -38,7 +38,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    output under ignored names is never membership.
  * 4. Deliver recursive content callbacks through the real tracker: excluded
  *    generated writes do not refute whole-walk stability, while admitted input
- *    A-B-A, a native alias, missing ancestry and unknown/overflow stay visible.
+ *    A-B-A, a native alias, missing ancestry and unknown/overflow stay
+ *    visible.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual walk, isProjectWalkPath and reportsProgramMembership select the independently specified planted corpus under readable policy and permissive fallback. The actual recursive tracker callback records admitted content and native aliases, excludes only proven out-of-walk content, retains unknown/overflow, and feeds the real whole-walk stability verdict.
  * @evidence contracts/testing.md#independent-expectations Two literal expected file populations define ordinary source, explicitly pinned package input and fallback hidden-path admission independently of all three product operations. Those same literal populations define callback content expectations; actual changed/restored source bytes, an authored directory link, absent ancestors and null notifications independently distinguish required witnesses from excluded generation output.
@@ -149,7 +150,11 @@ export async function test_membership_walk_predicate_and_tracker_agree_on_ignore
         watch: (directory, listener) => {
           assert.equal(directory, root);
           notify = listener;
-          return { close: () => { ++closed; } };
+          return {
+            close: () => {
+              ++closed;
+            },
+          };
         },
       },
       policy,
@@ -159,7 +164,9 @@ export async function test_membership_walk_predicate_and_tracker_agree_on_ignore
       assert.equal(tracker.contentAuthoritative, false);
       const emit = notify;
       assert.ok(emit);
-      for (const relative of planted.filter((file) => !expected.includes(file))) {
+      for (const relative of planted.filter(
+        (file) => !expected.includes(file),
+      )) {
         const file = path.join(root, relative);
         const bytes = fs.readFileSync(file);
         fs.writeFileSync(file, "export const generated = 2;\n");
@@ -167,7 +174,11 @@ export async function test_membership_walk_predicate_and_tracker_agree_on_ignore
         fs.writeFileSync(file, bytes);
         assert.equal(tracker.changes.has(file), false, label + ": " + relative);
       }
-      assert.equal(tracker.unverified, true, "lexical rejection still withdraws authority");
+      assert.equal(
+        tracker.unverified,
+        true,
+        "lexical rejection still withdraws authority",
+      );
       const after = collectProjectInputSnapshot(
         root,
         createHostPathIdentityContext(),
@@ -177,8 +188,12 @@ export async function test_membership_walk_predicate_and_tracker_agree_on_ignore
       );
       assert.equal(
         projectWalkStable({
-          before, snapshot: after, configStable: true,
-          declared: undefined, projectRoot: root, tracker,
+          before,
+          snapshot: after,
+          configStable: true,
+          declared: undefined,
+          projectRoot: root,
+          tracker,
         }),
         true,
         "excluded recursive content does not refute the whole failure walk",
@@ -188,22 +203,46 @@ export async function test_membership_walk_predicate_and_tracker_agree_on_ignore
       fs.writeFileSync(source, "export const value = 2;\n");
       emit("change", "src/main.ts");
       fs.writeFileSync(source, original);
-      assert.equal(tracker.changes.has(source), true, "admitted A-B-A stays recorded");
+      assert.equal(
+        tracker.changes.has(source),
+        true,
+        "admitted A-B-A stays recorded",
+      );
       const alias = path.join(aliasDirectory, "main.ts");
       emit("change", path.relative(root, alias));
-      assert.equal(tracker.changes.has(alias), true, "excluded spelling cannot hide a native input alias");
+      assert.equal(
+        tracker.changes.has(alias),
+        true,
+        "excluded spelling cannot hide a native input alias",
+      );
       const absent = path.join(root, "unobserved", "missing", "input.ts");
       emit("change", path.relative(root, absent));
-      assert.equal(tracker.changes.has(absent), true, "missing ancestry remains conservative");
+      assert.equal(
+        tracker.changes.has(absent),
+        true,
+        "missing ancestry remains conservative",
+      );
       for (let index = 0; index < 12; index++)
         emit("change", path.join("unobserved", `unknown-${index}.ts`));
-      assert.equal(tracker.changesOmitted, true, "overflow still refutes silence");
+      assert.equal(
+        tracker.changesOmitted,
+        true,
+        "overflow still refutes silence",
+      );
       emit("rename", null);
-      assert.equal(tracker.membershipChanged, true, "unknown notification remains structural");
+      assert.equal(
+        tracker.membershipChanged,
+        true,
+        "unknown notification remains structural",
+      );
       assert.equal(
         projectWalkStable({
-          before, snapshot: after, configStable: true,
-          declared: undefined, projectRoot: root, tracker,
+          before,
+          snapshot: after,
+          configStable: true,
+          declared: undefined,
+          projectRoot: root,
+          tracker,
         }),
         false,
         "input and unknown/overflow witnesses still refute whole-walk stability",

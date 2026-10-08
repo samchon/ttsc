@@ -14,11 +14,14 @@ import vm from "node:vm";
 
 import factory, { TsPrinter } from "../../../../packages/factory/src/index";
 import { resolveGraphBinary } from "../../../../packages/graph/src/resolveGraphBinary";
+import { PluginBuildEnvironmentWitness } from "../../../../packages/ttsc/lib/plugin/internal/source/PluginBuildEnvironmentWitness.js";
 import { buildSourcePlugin } from "../../../../packages/ttsc/lib/plugin/internal/source/buildSourcePlugin.js";
 import { copiesPluginSourceEntry } from "../../../../packages/ttsc/lib/plugin/internal/source/copiesPluginSourceEntry.js";
 import { ensureExecutableGoToolchain } from "../../../../packages/ttsc/lib/plugin/internal/source/ensureExecutableGoToolchain.js";
+import { pluginBuildEnvironment } from "../../../../packages/ttsc/lib/plugin/internal/source/pluginBuildEnvironment.js";
 import { resolveGoCompiler } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveGoCompiler.js";
 import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/lib/plugin/internal/source/resolveSourceBuildCachePaths.js";
+import { spawnGoTool } from "../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool.js";
 import { E2eProcessTrace } from "../../../utils/src/E2eProcessTrace";
 import { prepareEvidenceDependencies } from "../../../utils/src/evidence/prepareEvidenceDependencies";
 import { isOrdinarilyClosedReadonlyLauncher } from "../../../utils/src/isOrdinarilyClosedReadonlyLauncher";
@@ -365,15 +368,24 @@ export namespace BatchWorkspace {
    * population before consumers acquire compiler input snapshots. Empty Program
    * receipts describe the initial output state; only native appends establish
    * executions and context. They remain at the existing consumer coordinates.
+   * The source-publication preparation also retains real Go failure statuses
+   * before and after its self-rewriting toolchain witness experiment. Windows
+   * exits from the wrapper immediately after Node, so appended comments cannot
+   * change the compiler's verdict. The wrapper clears an inherited ERRORLEVEL
+   * environment shadow before Node runs, retaining the dynamic child status.
+   * Actual toolchain epochs distinguish a one-time transition, persistent
+   * motion and stable recovery from terminal source, native and cleanup
+   * failures. The copied main module's assembly input guarantees a real SDK
+   * assembler execution while preserving reuse of unrelated Go objects.
    *
-   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts.
+   * @evidence contracts/common.md#principled-implementation Packed installed artifacts and authored source/config inputs establish the shared consumer graph. Exclusively creating the five observation files empty before snapshot acquisition preserves stable root membership without pretending a native Program ran; actual O_APPEND calls still produce all ticks and receipts. The Go adapter returns Node's actual exit immediately on Windows and uses exec on POSIX. Unsupported-help status 2 and version status 0 under absent/0/999 inherited status shadows before and after byte rewrites independently distinguishes failed tool execution from successful publication.
    * @evidence contracts/common.md#clear-and-simple-design One preparation owns the installation and fixture population, while consumers own operations and assertions. The existing five output coordinates remain Workspace fields so their native writers and runtime readers keep one identity.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence, and no input predicate, compiler guard or native Program count is bypassed.
-   * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it.
-   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics rather than shell commands or platform-specific default paths.
-   * @evidence contracts/performance.md#efficient-algorithms Preparation's existing copies, package installation and authored graphs retain their actual IO costs. This addition performs five constant-size empty writes and does not introduce a process, compilation or recursive discovery.
-   * @evidence contracts/performance.md#reuse-equivalent-work The process-owned preparation Promise shares this fixture population; empty outputs establish an initial state only. Native appends and consumer generation guards still determine whether later observations can be reused.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The five files belong to the existing allocated root and its tracked cleanup/retention lifecycle. Partial initialization on failure is not success evidence, and retained failures keep the actual subsequent appends rather than inventing or dropping them.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Output initialization neither warms a compiler nor substitutes a cached result. Exclusive creation refuses prior content rather than truncating evidence. Actual wrapper writes and a nonempty native completion-marker directory exercise strict witness rejection and lease cleanup failure without replacing foreign filesystem methods. Initial cold attempts require independent before/after tool metadata evidence for every discarded build and a stable final epoch; they are not accepted merely because a retry passed.
+   * @evidence contracts/common.md#meaningful-documentation The setup comment distinguishes an empty owned output from an execution receipt and explains why its directory member exists before a reader snapshots it. It also identifies the Windows exit boundary needed by the self-rewriting adapter.
+   * @evidence contracts/portability.md#os-neutral-implementation The canonical native root and Node path/file APIs author the same five output spellings on each supported OS. Exclusive wx creation uses filesystem ownership semantics. Windows wrappers return the Node child status with exit /b before appended batch lines after clearing its case-insensitive ERRORLEVEL environment shadow, while POSIX exec replaces the shell; both retain the underlying Go command verdict through the existing native quoting owner.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation copies complete selected fixture and installed payloads, hashes candidate executable bytes, installs packages, prints the authored value matrix, and runs its real source-publication builds and toolchain observations. Population and byte sizes drive IO, buffers and native subprocess cost. The status regression runs twelve real Go processes across absent/0/999 status shadows. The epoch matrix adds nine actual builds using the existing source and Go object storage, plus nine version observations for the persistently moving reader; the initial cold producer permits at most three independently witnessed build epochs. Each build receipt traverses selected SDK bin/tool metadata. These checks add no installation or native host profile.
+   * @evidence contracts/performance.md#reuse-equivalent-work The process-owned preparation Promise shares this fixture population. Epoch cases isolate plugin namespaces while sharing the existing Go object root; only the first unique dependency action compiles cold, and a stable recovered publication is reused with zero additional Go builds. Native metadata and binary execution establish validity rather than expected retry counts alone.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Observation files and isolated epoch roots belong to the allocated project's cleanup/retention lifecycle. Each matrix case restores its owned launcher/source bytes in finally; ordinary paths assert removed scratch inputs, released current leases and absent pending candidates. The deliberately poisoned release retains its failed native coordination state for project cleanup and proves no second epoch begins. Reader tokens remain product process-owned until exit; partial failures retain actual receipts.
    */
   async function prepare(): Promise<Workspace> {
     // Choose one native spelling before authoring absolute config/cwd inputs.
@@ -1185,6 +1197,8 @@ export namespace BatchWorkspace {
       assert.equal(fs.existsSync(container), false);
       fs.mkdirSync(container, { recursive: true });
       const source = path.join(container, "project");
+      // The authored root assembly input executes the SDK assembler; the
+      // unique dependency import also gives this main package a cold action.
       const fixture = path.join(
         TestProject.WORKSPACE_ROOT,
         "packages",
@@ -1203,7 +1217,7 @@ export namespace BatchWorkspace {
         TestProject.WORKSPACE_ROOT,
         "packages/ttsc/test/fixtures/e2e",
       );
-      for (const filename of ["main.go", "go.mod", "asset.txt"])
+      for (const filename of ["main.go", "go.mod", "asset.txt", "witness.s"])
         fs.copyFileSync(
           path.join(
             materializationInputs,
@@ -1314,6 +1328,53 @@ export namespace BatchWorkspace {
         TTSC_GO_BINARY: "",
       });
       ensureExecutableGoToolchain(actualGo.binary, actualGo.bundled);
+      // A new executable supplies a real first-image-load boundary. Reusing the
+      // already executed compiler would never distinguish #1596.
+      const freshGo = path.join(tools, path.basename(actualGo.binary));
+      fs.copyFileSync(actualGo.binary, freshGo);
+      const freshGoEnv = {
+        ...process.env,
+        TTSC_GO_BINARY: freshGo,
+        GOROOT: execFileSync(actualGo.binary, ["env", "GOROOT"], {
+          encoding: "utf8",
+          windowsHide: true,
+        }).trim(),
+      };
+      const freshGoBytes = fs.readFileSync(freshGo);
+      const firstWitness = new Map<string, string>();
+      const firstEnvironment = pluginBuildEnvironment(
+        source,
+        freshGoEnv,
+        firstWitness,
+      );
+      assert.ok(
+        PluginBuildEnvironmentWitness.holds(firstWitness),
+        "first Go execution must establish a usable toolchain witness",
+      );
+      assert.deepEqual(fs.readFileSync(freshGo), freshGoBytes);
+      const warmWitness = new Map<string, string>();
+      assert.equal(
+        pluginBuildEnvironment(source, freshGoEnv, warmWitness),
+        firstEnvironment,
+      );
+      assert.ok(PluginBuildEnvironmentWitness.holds(warmWitness));
+      const originalTime = fs.statSync(freshGo);
+      fs.writeFileSync(
+        freshGo,
+        Buffer.concat([freshGoBytes, Buffer.from("changed")]),
+      );
+      assert.equal(
+        PluginBuildEnvironmentWitness.holds(firstWitness),
+        false,
+        "changed compiler bytes must refute the build witness",
+      );
+      fs.writeFileSync(freshGo, freshGoBytes);
+      fs.utimesSync(freshGo, originalTime.atime, originalTime.mtime);
+      assert.equal(
+        PluginBuildEnvironmentWitness.holds(firstWitness),
+        false,
+        "restoring bytes and mtime must not erase a changed compiler witness",
+      );
       const go = path.join(
         tools,
         process.platform === "win32" ? "go.cmd" : "go",
@@ -1321,7 +1382,7 @@ export namespace BatchWorkspace {
       fs.writeFileSync(
         go,
         process.platform === "win32"
-          ? `@echo off\r\n"${process.execPath}" "%~dp0actual-go.cjs" %*\r\n`
+          ? `@echo off\r\nset "ERRORLEVEL="\r\n"${process.execPath}" "%~dp0actual-go.cjs" %*\r\nexit /b %errorlevel%\r\n`
           : `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(script)} "$@"\n`,
       );
       if (process.platform !== "win32") fs.chmodSync(go, 0o755);
@@ -1336,8 +1397,63 @@ export namespace BatchWorkspace {
         TTSC_TEST_ACTUAL_GO: actualGo.binary,
         TTSC_TEST_GO_INVOCATIONS: invocations,
         TTSC_TEST_GO_BUILD_TRACE: buildTrace,
+        TTSC_TEST_GO_TOOL_ROOT: freshGoEnv.GOROOT,
         GOFLAGS: "-trimpath=false",
       };
+      // The self-rewriting witness probe must not make the Windows wrapper
+      // hide a failed real Go command behind its appended comment commands.
+      const assertGoCommandExits = (): void => {
+        for (const errorlevel of [undefined, "0", "999"]) {
+          const commandEnv = { ...env, ERRORLEVEL: errorlevel };
+          const rejected = spawnGoTool(go, ["help", "ttsc-e2e-no-such-topic"], {
+            cwd: tools,
+            encoding: "utf8",
+            env: commandEnv,
+            windowsHide: true,
+          });
+          assert.equal(rejected.error, undefined);
+          assert.equal(rejected.signal, null);
+          assert.equal(rejected.status, 2);
+          assert.match(rejected.stderr, /unknown help topic/);
+          const accepted = spawnGoTool(go, ["version"], {
+            cwd: tools,
+            encoding: "utf8",
+            env: commandEnv,
+            windowsHide: true,
+          });
+          assert.equal(accepted.error, undefined);
+          assert.equal(accepted.signal, null);
+          assert.equal(accepted.status, 0);
+          assert.match(accepted.stdout, /^go version /);
+        }
+      };
+      assertGoCommandExits();
+      // No changing attempt may populate the compiler memo or replace an
+      // earlier witness. The existing real Go launcher changes its own bytes
+      // during each version query, then returns to ordinary stable operation.
+      for (let reading = 0; reading < 2; reading += 1) {
+        const moving = new Map<string, string>();
+        pluginBuildEnvironment(
+          source,
+          {
+            ...env,
+            TTSC_TEST_GO_REWRITE_LAUNCHER: go,
+          },
+          moving,
+        );
+        assert.equal(
+          PluginBuildEnvironmentWitness.holds(moving),
+          false,
+          "a compiler that changes during every version query must remain refused",
+        );
+      }
+      const recovered = new Map<string, string>();
+      pluginBuildEnvironment(source, env, recovered);
+      assert.ok(
+        PluginBuildEnvironmentWitness.holds(recovered),
+        "a fresh stable reading must recover without discarding earlier refusal",
+      );
+      assertGoCommandExits();
       const expected = path.join(source, "node_modules", ".cache", "ttsc");
       assert.equal(
         resolveSourceBuildCachePaths(source, undefined, env).root,
@@ -1375,6 +1491,10 @@ export namespace BatchWorkspace {
         stderr: string;
         status: number | null;
         signal: string | null;
+        toolchainBefore: Record<string, string>;
+        toolchainAfter: Record<string, string>;
+        rewroteLauncher: boolean;
+        poisonedRelease: boolean;
       }[] =>
         fs
           .readFileSync(buildTrace, "utf8")
@@ -1415,6 +1535,46 @@ export namespace BatchWorkspace {
         );
       };
       const first = request(source);
+      const coldActions = buildActions();
+      const coldBuildCount = countBuilds();
+      assert.equal(coldActions.length, coldBuildCount);
+      assert.ok(coldBuildCount > 0 && coldBuildCount <= 3);
+      const changedToolchain = (
+        record: (typeof coldActions)[number],
+      ): boolean => {
+        const keys = new Set([
+          ...Object.keys(record.toolchainBefore),
+          ...Object.keys(record.toolchainAfter),
+        ]);
+        return [...keys].some(
+          (key) => record.toolchainBefore[key] !== record.toolchainAfter[key],
+        );
+      };
+      for (const [index, record] of coldActions.entries()) {
+        assert.equal(record.status, 0, record.stderr);
+        assert.equal(record.signal, null);
+        assert.equal(
+          changedToolchain(record),
+          index !== coldActions.length - 1,
+          "each discarded native epoch needs a changed tool witness; publication needs a stable final epoch",
+        );
+        assert.equal(
+          compiledDependency(record),
+          index === 0,
+          "only the first epoch compiles the unique dependency; retries retain valid Go object reuse",
+        );
+      }
+      assert.ok(
+        coldActions[0]!.stderr
+          .split(/\r?\n/)
+          .some(
+            (line) =>
+              /[\\/]asm(?:\.exe)?\b/.test(line) &&
+              /(?:^|\s)-p main(?:\s|$)/.test(line) &&
+              /[\\/]witness\.s(?:"|\s|$)/.test(line),
+          ),
+        "the cold main package must execute its authored witness.s with the actual assembler",
+      );
       const physicalPlugins = fs.realpathSync.native(
         path.join(expected, "plugins"),
       );
@@ -1436,8 +1596,8 @@ export namespace BatchWorkspace {
       assert.ok(fs.existsSync(first));
       assert.equal(
         countBuilds(),
-        1,
-        "the cold request must compile exactly once",
+        coldBuildCount,
+        "the cold request's actual epochs are independently witnessed",
       );
       const execution = E2eProcessTrace.spawnSync(first, [], {
         encoding: "utf8",
@@ -1494,7 +1654,7 @@ export namespace BatchWorkspace {
       );
       assert.equal(
         countBuilds(),
-        1,
+        coldBuildCount,
         "the relocated request must not compile again",
       );
       assert.deepEqual(fs.readFileSync(second), fs.readFileSync(first));
@@ -1527,19 +1687,22 @@ export namespace BatchWorkspace {
         physicalFirst,
         "binary-only deletion must rebuild the unchanged content identity",
       );
-      assert.equal(countBuilds(), 2);
+      assert.equal(countBuilds(), coldBuildCount + 1);
       objectOutput(rebuilt, "first");
       const rebuiltBytes = fs.readFileSync(rebuilt);
       const initialActions = buildActions();
-      assert.equal(initialActions.length, 2);
-      assert.notEqual(initialActions[0]!.cwd, initialActions[1]!.cwd);
+      assert.equal(initialActions.length, coldBuildCount + 1);
+      assert.notEqual(
+        initialActions[0]!.cwd,
+        initialActions[coldBuildCount]!.cwd,
+      );
       assert.equal(
         compiledDependency(initialActions[0]!),
         true,
         "the unique dependency must compile cold",
       );
       assert.equal(
-        compiledDependency(initialActions[1]!),
+        compiledDependency(initialActions[coldBuildCount]!),
         false,
         "unchanged dependency objects must survive a genuinely cold binary rebuild",
       );
@@ -1561,7 +1724,7 @@ export namespace BatchWorkspace {
         const absolutePublication = request(source, expected);
         assert.equal(
           countBuilds(),
-          3,
+          coldBuildCount + 2,
           "the changed authored replace spelling is a distinct source identity",
         );
         const absoluteExecution = E2eProcessTrace.spawnSync(
@@ -1606,11 +1769,11 @@ export namespace BatchWorkspace {
         );
         assert.equal(
           countBuilds(),
-          4,
+          coldBuildCount + 3,
           "one shared source graph rebuilds once for the external input transition",
         );
         assert.equal(
-          compiledDependency(buildActions()[3]!),
+          compiledDependency(buildActions()[coldBuildCount + 2]!),
           true,
           "changed dependency bytes must produce a new Go object action",
         );
@@ -1647,7 +1810,7 @@ export namespace BatchWorkspace {
         assert.throws(() => request(source, expected), /syntax error/);
         assert.equal(
           countBuilds(),
-          5,
+          coldBuildCount + 4,
           "the malformed dependency must reach one real rejected build",
         );
         fs.writeFileSync(
@@ -1669,16 +1832,57 @@ export namespace BatchWorkspace {
             .filter((line) => line !== replaceLines[0])
             .join("\n"),
         );
-        const workspacePublication = request(source, expected, {}, [
-          dependency,
-        ]);
+        // Both workspace modules participate in the import graph. Their common
+        // ancestor preserves the deep dependency's necessary relative geometry;
+        // a single external root remains free to use its compact snapshot.
+        const workspaceHelper = path.join(container, "workspace-helper");
+        fs.mkdirSync(workspaceHelper);
+        for (const filename of ["dep.go", "go.mod"])
+          fs.copyFileSync(
+            path.join(
+              materializationInputs,
+              "source-materialization-dependency",
+              filename,
+            ),
+            path.join(workspaceHelper, filename),
+          );
+        const workspaceHelperName = dependencyName + "-workspace-helper";
+        fs.writeFileSync(
+          path.join(workspaceHelper, "go.mod"),
+          fs
+            .readFileSync(path.join(workspaceHelper, "go.mod"), "utf8")
+            .replace(
+              "example.com/batch-materialization-dependency",
+              workspaceHelperName,
+            ),
+        );
+        fs.writeFileSync(
+          path.join(workspaceHelper, "dep.go"),
+          dependencyText.replace('"first"', '"second"'),
+        );
+        fs.writeFileSync(
+          dependencySource,
+          dependencyText
+            .replace(
+              "package dependency",
+              'package dependency\n\nimport helper "' + workspaceHelperName + '"',
+            )
+            .replace('return "first"', "return helper.Value()"),
+        );
+        const workspaceRoots = [dependency, workspaceHelper];
+        const workspacePublication = request(
+          source,
+          expected,
+          {},
+          workspaceRoots,
+        );
         assert.ok(
           fs.existsSync(workspacePublication),
           "the actual patch-qualified modules must build together as workspace use entries",
         );
         assert.equal(
           countBuilds(),
-          6,
+          coldBuildCount + 5,
           "the replacement-to-workspace role transition has one distinct native build",
         );
         // Metadata reads the workspace's proven external copy. The prior
@@ -1693,7 +1897,7 @@ export namespace BatchWorkspace {
           .split(/\r?\n/)
           .map((line) => JSON.parse(line) as string[]);
         const dependencyLayout = path.relative(
-          path.parse(dependency).root,
+          container,
           path.join(dependency, "go.mod"),
         );
         const externalCopies = path.join(
@@ -1701,22 +1905,23 @@ export namespace BatchWorkspace {
           ".ttsc",
           "external",
         );
+        const copiedDependencyMod = observedGoArguments.find((args) => {
+          if (args[0] !== "mod" || args[1] !== "edit" || args[2] !== "-json")
+            return false;
+          const filename = args[3];
+          if (typeof filename !== "string" || !path.isAbsolute(filename))
+            return false;
+          const relative = path.relative(externalCopies, filename);
+          return (
+            filename.length > 180 &&
+            relative !== ".." &&
+            !relative.startsWith(".." + path.sep) &&
+            !path.isAbsolute(relative) &&
+            relative.endsWith(path.sep + dependencyLayout)
+          );
+        })?.[3];
         assert.ok(
-          observedGoArguments.some((args) => {
-            if (args[0] !== "mod" || args[1] !== "edit" || args[2] !== "-json")
-              return false;
-            const filename = args[3];
-            if (typeof filename !== "string" || !path.isAbsolute(filename))
-              return false;
-            const relative = path.relative(externalCopies, filename);
-            return (
-              filename.length > 180 &&
-              relative !== ".." &&
-              !relative.startsWith(".." + path.sep) &&
-              !path.isAbsolute(relative) &&
-              relative.endsWith(path.sep + dependencyLayout)
-            );
-          }),
+          copiedDependencyMod,
           "the actual workspace metadata process must accept its deeply nested absolute copied module filename: " +
             JSON.stringify({
               buildCwd: workspaceBuild.cwd,
@@ -1724,6 +1929,35 @@ export namespace BatchWorkspace {
               observedGoArguments,
             }),
         );
+        assert.notEqual(
+          path.resolve(copiedDependencyMod),
+          path.resolve(dependencyMod),
+          "metadata must consume the private copied module, never its live authored path",
+        );
+        const workspaceExecution = E2eProcessTrace.spawnSync(
+          workspacePublication,
+          [],
+          {
+            encoding: "utf8",
+            windowsHide: true,
+            env: {
+              ...process.env,
+              TTSC_E2E_SOURCE_MATERIALIZATION_PROBE: "2",
+              ORPHAN_RACE_SOURCE: undefined,
+              ORPHAN_RACE_DONE: undefined,
+              ORPHAN_RACE_COMPILER: undefined,
+            },
+          },
+        );
+        assert.ok(isOrdinarilyClosedReadonlyLauncher(workspaceExecution));
+        assert.equal(workspaceExecution.error, undefined);
+        assert.equal(workspaceExecution.signal, null);
+        assert.equal(workspaceExecution.status, 0, workspaceExecution.stderr);
+        assert.equal(
+          workspaceExecution.stdout,
+          'second|"embedded bytes\\n"|example.com/plugin/main.go\n',
+        );
+        assert.equal(workspaceExecution.stderr.trim(), "second");
         const dependencyModText = originalDependencyMod.toString("utf8");
         assert.ok(dependencyModText.includes("go 1.26.0"));
         fs.writeFileSync(
@@ -1732,13 +1966,13 @@ export namespace BatchWorkspace {
         );
         assert.throws(
           () =>
-            request(source, expected, { GOTOOLCHAIN: "local" }, [dependency]),
+            request(source, expected, { GOTOOLCHAIN: "local" }, workspaceRoots),
           /go >= 1\.99\.0/,
           "the real Go workspace must reject an incompatible imported overlay instead of guessing a lower version",
         );
         assert.equal(
           countBuilds(),
-          6,
+          coldBuildCount + 5,
           "the incompatible workspace must fail before native build publication",
         );
       } finally {
@@ -1751,12 +1985,332 @@ export namespace BatchWorkspace {
         physicalFirst,
         "restored dependency bytes must reuse the original publication",
       );
-      assert.equal(countBuilds(), 6);
+      assert.equal(countBuilds(), coldBuildCount + 5);
       assert.deepEqual(
         fs.readFileSync(first),
         rebuiltBytes,
         "restored warm reuse must preserve the independently captured rebuilt publication; the deleted first publication is a different artifact lifetime",
       );
+      // Transition cases own fresh plugin namespaces and share the proven Go
+      // object storage; the moving-reader contrast reuses the original binary.
+      // A failed epoch must not acquire a publication or silently replace the
+      // caller's source/environment authority.
+      const epochFailures: Error[] = [];
+      const stableLauncher = fs.readFileSync(go);
+      const stableSource = fs.readFileSync(path.join(source, "main.go"));
+      const objectCache = resolveSourceBuildCachePaths(
+        source,
+        undefined,
+        env,
+      ).goBuildRoot;
+      const epochCase = (name: string, run: (cache: string) => void): void => {
+        const cache = path.join(container, "epoch-" + name);
+        assert.equal(fs.existsSync(cache), false);
+        const launcherTime = new Date("2020-01-01T00:00:00.000Z");
+        fs.utimesSync(go, launcherTime, launcherTime);
+        try {
+          run(cache);
+        } catch (cause) {
+          epochFailures.push(new Error(name, { cause }));
+        } finally {
+          fs.writeFileSync(go, stableLauncher);
+          fs.writeFileSync(path.join(source, "main.go"), stableSource);
+        }
+      };
+      const epochRequest = (
+        cache: string,
+        extraEnv: NodeJS.ProcessEnv,
+        sourceDigests = new Map<string, string>(),
+        environmentDigests = new Map<string, string>(),
+      ): string =>
+        buildSourcePlugin({
+          baseDir: source,
+          source,
+          overlayDirs: [],
+          env: {
+            ...env,
+            TTSC_CACHE_DIR: cache,
+            TTSC_GO_CACHE_DIR: objectCache,
+            ...extraEnv,
+          },
+          pluginName: "canonical-source-epoch",
+          quiet: true,
+          sourceDigests,
+          environmentDigests,
+          ttscVersion: "1.0.0",
+          tsgoVersion: "7.0.0-dev",
+        });
+      const published = (cache: string): string[] => {
+        const plugins = path.join(cache, "plugins");
+        if (!fs.existsSync(plugins)) return [];
+        return fs
+          .readdirSync(plugins)
+          .filter((key) => /^[a-f0-9]{32}$/.test(key))
+          .flatMap((key) => {
+            const filename = path.join(
+              plugins,
+              key,
+              process.platform === "win32" ? "plugin.exe" : "plugin",
+            );
+            return fs.existsSync(filename) ? [filename] : [];
+          });
+      };
+      const noPendingEpoch = (
+        cache: string,
+        actions: ReturnType<typeof buildActions>,
+      ): void => {
+        for (const action of actions)
+          assert.equal(
+            fs.existsSync(action.cwd),
+            false,
+            "discarded or completed scratch input must be removed",
+          );
+        const visit = (directory: string): void => {
+          if (!fs.existsSync(directory)) return;
+          for (const entry of fs.readdirSync(directory, {
+            withFileTypes: true,
+          })) {
+            assert.equal(/^plugin(?:\.exe)?\..*\.tmp$/.test(entry.name), false);
+            assert.notEqual(
+              entry.name,
+              "current",
+              "the owned build lease must be released",
+            );
+            if (entry.isDirectory()) visit(path.join(directory, entry.name));
+          }
+        };
+        visit(path.join(cache, "plugins"));
+      };
+      const mutation = (
+        cache: string,
+        mode: "once" | "always",
+      ): NodeJS.ProcessEnv => ({
+        TTSC_TEST_GO_REWRITE_BUILD_LAUNCHER: go,
+        TTSC_TEST_GO_REWRITE_BUILD_MODE: mode,
+        TTSC_TEST_GO_REWRITE_BUILD_MARKER: path.join(cache, "rewrite-once"),
+      });
+      epochCase("one-shot", (cache) => {
+        const baseline = countBuilds();
+        const oldWitness = new Map<string, string>();
+        pluginBuildEnvironment(
+          source,
+          { ...env, TTSC_GO_CACHE_DIR: objectCache },
+          oldWitness,
+        );
+        assert.ok(PluginBuildEnvironmentWitness.holds(oldWitness));
+        const binary = epochRequest(cache, mutation(cache, "once"));
+        assert.equal(countBuilds() - baseline, 2);
+        const actions = buildActions().slice(baseline);
+        assert.equal(actions[0]!.rewroteLauncher, true);
+        assert.equal(changedToolchain(actions[0]!), true);
+        assert.equal(
+          actions[0]!.toolchainBefore[go]!.split(":")[3],
+          actions[0]!.toolchainAfter[go]!.split(":")[3],
+          "the actual byte transition restores the independent exact modification time",
+        );
+        assert.equal(changedToolchain(actions[1]!), false);
+        assert.equal(PluginBuildEnvironmentWitness.holds(oldWitness), false);
+        assert.deepEqual(
+          published(cache),
+          [binary],
+          "only the fresh content key may own a binary",
+        );
+        const entries = fs
+          .readdirSync(path.join(cache, "plugins"))
+          .filter((key) => /^[a-f0-9]{32}$/.test(key));
+        assert.equal(
+          entries.length,
+          2,
+          "the rewritten launcher must produce a distinct fresh key",
+        );
+        objectOutput(binary, "first");
+        noPendingEpoch(cache, actions);
+      });
+      epochCase("continuous-and-recovery", (cache) => {
+        const baseline = countBuilds();
+        const sources = new Map<string, string>();
+        const environments = new Map<string, string>();
+        assert.throws(
+          () =>
+            epochRequest(
+              cache,
+              mutation(cache, "always"),
+              sources,
+              environments,
+            ),
+          /Go toolchain.*changed/s,
+        );
+        assert.equal(
+          countBuilds() - baseline,
+          3,
+          "persistent motion must stop after three actual epochs",
+        );
+        assert.deepEqual([...sources], []);
+        assert.deepEqual([...environments], []);
+        const actions = buildActions().slice(baseline);
+        assert.ok(
+          actions.every(
+            (record) => record.rewroteLauncher && changedToolchain(record),
+          ),
+        );
+        assert.deepEqual(published(cache), []);
+        noPendingEpoch(cache, actions);
+        const recovered = epochRequest(cache, {});
+        assert.equal(countBuilds() - baseline, 4);
+        objectOutput(recovered, "first");
+        assert.equal(epochRequest(cache, {}), recovered);
+        assert.equal(
+          countBuilds() - baseline,
+          4,
+          "stable cache admission must add no native build",
+        );
+        assert.deepEqual(published(cache), [recovered]);
+        noPendingEpoch(cache, buildActions().slice(baseline));
+      });
+      epochCase("source-motion", (cache) => {
+        const baseline = countBuilds();
+        const sources = new Map<string, string>();
+        const environments = new Map<string, string>();
+        assert.throws(
+          () =>
+            epochRequest(
+              cache,
+              {
+                ...mutation(cache, "once"),
+                TTSC_TEST_GO_REWRITE_SOURCE: path.join(source, "main.go"),
+              },
+              sources,
+              environments,
+            ),
+          /source.*changed|changed.*source|inputs.*changed/s,
+        );
+        assert.equal(
+          countBuilds() - baseline,
+          1,
+          "retry must preserve the initial source authority",
+        );
+        assert.deepEqual([...sources], []);
+        assert.deepEqual([...environments], []);
+        assert.deepEqual(published(cache), []);
+        noPendingEpoch(cache, buildActions().slice(baseline));
+      });
+      epochCase("native-failure", (cache) => {
+        const baseline = countBuilds();
+        fs.appendFileSync(
+          path.join(source, "main.go"),
+          "\ninvalid native syntax\n",
+        );
+        assert.throws(
+          () => epochRequest(cache, mutation(cache, "once")),
+          /syntax error/,
+        );
+        assert.equal(
+          countBuilds() - baseline,
+          1,
+          "native failure must remain terminal despite tool motion",
+        );
+        const actions = buildActions().slice(baseline);
+        assert.notEqual(actions[0]!.status, 0);
+        assert.equal(actions[0]!.rewroteLauncher, true);
+        assert.deepEqual(published(cache), []);
+        noPendingEpoch(cache, actions);
+      });
+      epochCase("release-failure", (cache) => {
+        const baseline = countBuilds();
+        const sources = new Map<string, string>();
+        const environments = new Map<string, string>();
+        let failure: unknown;
+        try {
+          epochRequest(
+            cache,
+            {
+              ...mutation(cache, "once"),
+              TTSC_TEST_GO_FAIL_RELEASE_ROOT: path.join(cache, "plugins"),
+            },
+            sources,
+            environments,
+          );
+        } catch (error) {
+          failure = error;
+        }
+        assert.ok(failure instanceof Error);
+        assert.match(String(failure), /Go toolchain.*changed/s);
+        assert.equal(
+          countBuilds() - baseline,
+          1,
+          "failed lease cleanup must prohibit another epoch",
+        );
+        const actions = buildActions().slice(baseline);
+        assert.equal(actions[0]!.poisonedRelease, true);
+        assert.deepEqual(published(cache), []);
+        assert.deepEqual([...sources], []);
+        assert.deepEqual([...environments], []);
+        for (const action of actions)
+          assert.equal(fs.existsSync(action.cwd), false);
+        // The deliberately failed lease is retained for the owning project to
+        // reclaim; it cannot certify the ordinary successful-cleanup path.
+      });
+      epochCase("moving-reader", (cache) => {
+        const baseline = countBuilds();
+        // Reuse an actual already-published content key. Version observations
+        // restore both launcher bytes and the independently fixed mtime, so
+        // rejecting this read cannot rely on a different content key.
+        const binary = epochRequest(expected, { TTSC_GO_CACHE_DIR: "" });
+        assert.equal(countBuilds(), baseline);
+        const binaryBytes = fs.readFileSync(binary);
+        const launcherBytes = fs.readFileSync(go);
+        const launcherMtime = fs.statSync(go, { bigint: true }).mtimeNs;
+        const oldWitness = new Map<string, string>();
+        pluginBuildEnvironment(source, env, oldWitness);
+        assert.ok(PluginBuildEnvironmentWitness.holds(oldWitness));
+        const before = fs
+          .readFileSync(invocations, "utf8")
+          .trim()
+          .split(/\r?\n/).length;
+        const sources = new Map<string, string>();
+        const environments = new Map<string, string>();
+        assert.throws(
+          () =>
+            epochRequest(
+              expected,
+              {
+                TTSC_GO_CACHE_DIR: "",
+                TTSC_TEST_GO_REWRITE_LAUNCHER: go,
+                TTSC_TEST_GO_RESTORE_LAUNCHER_BYTES: "1",
+              },
+              sources,
+              environments,
+            ),
+          /Go toolchain.*changed/s,
+        );
+        const observed = fs
+          .readFileSync(invocations, "utf8")
+          .trim()
+          .split(/\r?\n/)
+          .slice(before)
+          .map((line) => JSON.parse(line) as string[]);
+        assert.equal(
+          observed.filter((args) => args[0] === "version").length,
+          9,
+        );
+        assert.equal(countBuilds(), baseline);
+        assert.deepEqual([...sources], []);
+        assert.deepEqual([...environments], []);
+        assert.deepEqual(published(cache), []);
+        assert.deepEqual(fs.readFileSync(binary), binaryBytes);
+        assert.deepEqual(fs.readFileSync(go), launcherBytes);
+        assert.equal(fs.statSync(go, { bigint: true }).mtimeNs, launcherMtime);
+        assert.equal(
+          PluginBuildEnvironmentWitness.holds(oldWitness),
+          false,
+          "restoring compiler bytes and mtime must not rehabilitate the earlier observation",
+        );
+      });
+      if (epochFailures.length)
+        throw new AggregateError(
+          epochFailures,
+          "actual Go toolchain epoch regressions",
+        );
       sourcePublication = { binary: physicalFirst, root };
       const runtimeRace = path.join(
         root,

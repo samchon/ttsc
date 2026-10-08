@@ -268,7 +268,7 @@ type Rule interface {
 
 Three methods. `Name()` is the user-facing rule name (`"no-debugger"`, `"demo/no-demo"`); `Visits()` returns the AST kinds the rule cares about; `Check` is invoked once per relevant node. The optional `FormatRule` extension adds an `IsFormat() bool` method that tags the rule as belonging to the format-class.
 
-Declaration files (`.d.ts`, `.d.mts`, `.d.cts`) are dispatched selectively. Executable grammar cannot appear in a declaration file, so the engine skips built-in value-level rules there instead of paying the dispatch on declaration-heavy projects. Three doors stay open: format rules always run (so `ttsc format` / `ttsc fix` keep covering hand-written `.d.ts`), built-in type/comment/naming rules participate through the curated allowlist in `linthost/declaration_rules.go`, and contributor rules run by default. A contributor whose rule only inspects executable code can implement the optional `rule.DeclarationFileRule` marker — `VisitsDeclarationFiles() bool { return false }` — to opt out of declaration files and skip the wasted dispatch.
+Declaration files (`.d.ts`, `.d.mts`, `.d.cts`) are dispatched selectively. Executable grammar cannot appear in a declaration file, so the engine skips built-in value-level rules there instead of paying the dispatch on declaration-heavy projects. Three doors stay open: format rules always run (so `ttsc format` / `ttsc fix` keep covering hand-written `.d.ts`), built-in type/comment/naming rules participate through the curated allowlist in `linthost/declaration_rules.go`, and contributor rules run by default. A contributor whose rule only inspects executable code can implement the optional `rule.DeclarationFileRule` marker (`VisitsDeclarationFiles() bool { return false }`) to opt out of declaration files and skip the wasted dispatch.
 
 A rule can classify its findings with the optional `rule.TaggedRule` marker: `DiagnosticTags() []rule.DiagnosticTag`. The tags reach the editor as LSP `DiagnosticTag` values, so a rule flagging unused code declares `DiagnosticTagUnnecessary` and the editor fades the finding; `DiagnosticTagDeprecated` strikes it through. Every finding a tagged rule produces carries its tags, read once at dispatch and stamped onto each finding. The grain fits the rules that want it. A rule that flags unused code flags only unused code, so there is no per-finding tag. Tag by what the code is, not how severe the finding is: `Unnecessary` says "safe to delete", so a rule whose findings mean "not done yet" must return none rather than tell the author to delete unfinished work. A rule that implements no marker, or returns nil, produces untagged findings, which is what most findings are. Among the built-ins, `solid/no-react-deps`, `storybook/no-redundant-story-name`, and `storybook/no-title-property-in-meta` declare `Unnecessary`; `storybook/no-stories-of` and `storybook/hierarchy-separator` declare `Deprecated`. The name-based security rules stay untagged because a user-defined `Buffer` constructor or `crypto` object can match the same syntax as the deprecated Node APIs.
 
@@ -472,7 +472,7 @@ Emit the narrowest edits that express the rewrite. Several small non-overlapping
 
 ## A rule with a choice of fixes: `ReportSuggestion`
 
-`ReportFix` imposes one rewrite. When a rule knows several valid repairs and cannot choose among them for the author — three plausible renames for an abbreviation, two types that could replace a banned one — it offers them instead, and the editor presents the choice:
+`ReportFix` imposes one rewrite. When a rule knows several valid repairs and cannot choose among them for the author (three plausible renames for an abbreviation, two types that could replace a banned one) it offers them instead, and the editor presents the choice:
 
 ```go
 ctx.ReportSuggestion(node, "avoid the abbreviation `frm`",
@@ -483,9 +483,9 @@ ctx.ReportSuggestion(node, "avoid the abbreviation `frm`",
 
 There is a `ReportRangeSuggestion` for a sub-token range, mirroring `ReportRangeFix`.
 
-The distinction is not cosmetic: a fix is applied automatically in a `ttsc fix` pass, a suggestion never is. Suggestions are surfaced only in an editor, as code actions the author invokes. A `Suggestion` with empty `Edits` is a label — a "did you mean" the author acts on by hand.
+The distinction is not cosmetic: a fix is applied automatically in a `ttsc fix` pass, a suggestion never is. Suggestions are surfaced only in an editor, as code actions the author invokes. A `Suggestion` with empty `Edits` is a label, a "did you mean" the author acts on by hand.
 
-Like `ReportFix`, this degrades gracefully: a host that does not implement `SuggestionReporter` still receives the diagnostic, without the choices. Design the rule so the message alone is useful, and reach for suggestions only when there genuinely is a choice — a single correct rewrite is a fix, and imposing it is the right thing.
+A host without `SuggestionReporter` still receives the diagnostic. Keep its message useful without the choices. Use suggestions for alternatives the author must choose between, and a fix for a single correct rewrite.
 
 ## Fix cascade (`linthost/fix.go`)
 
@@ -544,7 +544,7 @@ Two adapters, not one, `contributorAdapter` for lint-class rules, `formatContrib
 
 **Why two parallel interfaces?** The engine's internal `Rule` is allowed to evolve freely; the public `rule.Rule` is the stability boundary contributors compile against. By separating the two and bridging through an adapter, we can refactor the internal engine without breaking every published contributor.
 
-`registerContributors` evaluates `Name`, `Visits`, `IsFormat`, `VisitsDeclarationFiles`, and the optional `OptionsRule` capability once behind a recover barrier and stores the results in the adapter. Existing contributors default to accepting options because the public `Context.Options` field predates this capability. A genuinely optionless contributor returns `false` from `AcceptsTtscLintOptions`; the host then rejects a payload before linting. The domain-specific method name does not capture an unrelated `AcceptsOptions` method from an older contributor API. A panic in those startup methods drops only that contributor entry with a stderr warning. A panic in `Check` becomes an error finding for that rule, and the engine continues running the remaining contributor and built-in rules.
+`registerContributors` evaluates `Name`, `Visits`, `IsFormat`, `VisitsDeclarationFiles`, and the optional `OptionsRule` capability once behind a recover barrier and stores the results in the adapter. Existing contributors default to accepting options because the public `Context.Options` field predates this capability. An optionless contributor returns `false` from `AcceptsTtscLintOptions`; the host then rejects a payload before linting. The domain-specific method name does not capture an unrelated `AcceptsOptions` method from an older contributor API. A panic in those startup methods drops only that contributor entry with a stderr warning. A panic in `Check` becomes an error finding for that rule, and the engine continues running the remaining contributor and built-in rules.
 
 The collision policy is "later wins is dangerous; prefer determinism." A contributor whose cached name collides with an existing rule is dropped with a stderr warning, not panicked-on. This is the same trade-off `@ttsc/lint` makes for the panic barrier: keep the build going whenever possible, surface the problem clearly.
 
@@ -733,7 +733,7 @@ Each `ProjectResult` value is a snapshot of status and findings at the time of t
 
 The host serializes status transitions, deduplicates equal messages, and sorts distinct messages before finalization, including when AST-only file rules dispatch concurrently. Project findings are finalized after all file rules return but are placed before file findings in CLI, API, watch, and LSP results. The contributor owns synchronization for mutable fields inside its state value; the host only synchronizes the result wrapper.
 
-Project contributors follow the same options compatibility boundary as file contributors. They accept options by default, while a genuinely optionless implementation can add `AcceptsTtscLintOptions() bool { return false }` to reject accidental payloads.
+Project contributors follow the same options compatibility boundary as file contributors. They accept options by default, while an optionless implementation can add `AcceptsTtscLintOptions() bool { return false }` to reject accidental payloads.
 
 The same boundary applies to the checker. A `ProjectContext` carries a live `Checker`, so a declared project rule is treated as type-aware and the engine creates the standalone checker for it. That decision is engine-wide rather than per-rule: one type-aware project rule also puts every file rule in the run on the serial walk, so a project rule that reads only `ctx.Sources` or the filesystem would silently spend a file rule's own `NeedsTypeChecker() bool { return false }`. Such a rule can add the same marker to opt out, and it then receives a nil `ctx.Checker`:
 
@@ -768,17 +768,17 @@ func (myRule) Hints(ctx *rule.HintContext) []rule.Hint {
 }
 ```
 
-The corpus travels; the rule does not. The lint engine is a separate process that reloads the Program on every invocation, so nothing can ask a rule a question per keystroke — which is why a trigger is declarative data rather than the Go predicate the API obviously wants. A closure does not survive the process boundary.
+The host receives completion data from the separate lint process. Triggers must be declarative because a Go predicate cannot cross that process boundary.
 
-`Hints` is pull, not push: the host calls it at most once per Program, always after `Check`, and only when a consumer asks for the corpus — never during `ttsc check`. It is not called unless the rule passed and published state, so a rule configured `off` publishes nothing with no code of its own, and a rule's options shape its corpus for free because the corpus is a projection of the state `Check` built under them.
+The host calls `Hints` at most once per Program, after `Check`, and only when a consumer requests completion data and the rule passed with published state. It is not called during `ttsc check` or for a disabled rule. The corpus reflects the state and options used by `Check`.
 
-A trigger applies when the cursor sits inside `Scope` and the line prefix contains `After`; the text following the last occurrence of `After` is what the editor filters on. **`After` must end exactly where the completed token begins** — `"@evidence "` with its trailing space, not `"@evidence"` — or the token swallows the separator and nothing filters. When several triggers match one line, the occurrence nearest the cursor wins; at that occurrence the longest `After` wins and only hints naming that same trigger are offered. That is what lets a corpus be layered — `"@"`, `"@evidence "`, and `"@evidence docs/spec.md#"` can all be published at once — while a later trigger, such as a second `"@"` further along the line, is never eclipsed by an earlier, longer one.
+A trigger applies when the cursor sits inside `Scope` and the line prefix contains `After`; the text following the last occurrence of `After` is what the editor filters on. **`After` must end exactly where the completed token begins** (`"@evidence "` with its trailing space, not `"@evidence"`) or the token swallows the separator and nothing filters. When several triggers match one line, the occurrence nearest the cursor wins; at that occurrence the longest `After` wins and only hints naming that same trigger are offered. That is what lets a corpus be layered (`"@"`, `"@evidence "`, and `"@evidence docs/spec.md#"` can all be published at once) while a later trigger, such as a second `"@"` further along the line, is never eclipsed by an earlier, longer one.
 
 Slice order is the ranking. The corpus outlives the process, so there is no other channel; return what should be offered first, first.
 
 ttscserver fetches the corpus in the background and answers from memory. It merges its trigger characters into whatever tsgo advertised rather than replacing them, and appends its items to tsgo's completion response rather than answering in its place. Until the first fetch lands the corpus is empty and the editor sees exactly what it sees without the plugin.
 
-The corpus is refetched after a saved document, a configuration change, or a watched-file change, so a rule enabled mid-session or an index rebuilt from a saved file reaches the editor without restarting the server. The previous corpus keeps answering completion until the new one is stored. Trigger characters are the exception: they were merged into the `initialize` response the editor already holds, so a trigger character published for the first time by a later fetch needs a restart before the editor opens completion on it — its items are still reachable through explicit completion, and the server logs the character to the editor's output channel.
+The corpus is refetched after a saved document, a configuration change, or a watched-file change, so a rule enabled mid-session or an index rebuilt from a saved file reaches the editor without restarting the server. The previous corpus keeps answering completion until the new one is stored. Trigger characters are the exception: they were merged into the `initialize` response the editor already holds, so a trigger character published for the first time by a later fetch needs a restart before the editor opens completion on it. Its items are still reachable through explicit completion, and the server logs the character to the editor's output channel.
 
 Only `ProjectRule` may publish hints. File rules run in a parallel walk, so their hints would rank nondeterministically, and a corpus keyed to one file cannot answer a keystroke in another.
 
@@ -815,7 +815,7 @@ For more autofix shapes, [`rule/astutil`](https://github.com/samchon/ttsc/tree/m
 
 ### Pointing at a second location
 
-A finding can name a related source location with `ctx.ReportRelated(node, message, related...)` (or `ctx.ReportRangeRelated`), passing `rule.RelatedInformation{ Pos, End, Message }` values. The editor renders each as a clickable line beneath the diagnostic — this is how the built-in `no-redeclare` leads "'x' is already defined." to where `x` was first declared. `ReportRelated` shares `ReportFix`'s contract: it forwards to the host's `RelatedReporter` via a type assertion and, on a host that predates it, degrades to a plain `Report` so the diagnostic still lands without the locations. The `Pos`/`End` offsets index the file being linted and the host attaches that file's URI, so a related location stays within the finding's own file; a cross-file location would need a URI the rule API does not yet carry.
+A finding can name a related source location with `ctx.ReportRelated(node, message, related...)` (or `ctx.ReportRangeRelated`), passing `rule.RelatedInformation{ Pos, End, Message }` values. The editor renders each as a clickable line beneath the diagnostic. This is how the built-in `no-redeclare` leads "'x' is already defined." to where `x` was first declared. `ReportRelated` shares `ReportFix`'s contract: it forwards to the host's `RelatedReporter` via a type assertion and, on a host that predates it, degrades to a plain `Report` so the diagnostic still lands without the locations. The `Pos`/`End` offsets index the file being linted and the host attaches that file's URI, so a related location stays within the finding's own file; a cross-file location would need a URI the rule API does not yet carry.
 
 ## Config object and per-file overrides
 
@@ -835,7 +835,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-`files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`. When `files` is present, `ignores` only refines that selection — the excluded files are still linted by other entries. Without `files`, a top-level `ignores` is a **global ignore**: a config file is a single object, so this is the only way to say "never lint these files", and the matched paths are excluded from every rule in the resolved chain, including rules inherited through `extends`. `extends` points at one base config file (path relative to this file's directory): the base is loaded first, then this object's `plugins`, `rules`, and `format` fields override it.
+`files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`. When `files` is present, `ignores` only refines that selection; the excluded files are still linted by other entries. Without `files`, a top-level `ignores` is a **global ignore**: a config file is a single object, so this is the only way to say "never lint these files", and the matched paths are excluded from every rule in the resolved chain, including rules inherited through `extends`. `extends` points at one base config file (path relative to this file's directory): the base is loaded first, then this object's `plugins`, `rules`, and `format` fields override it.
 
 ## What to copy, what to ignore for your own plugin
 

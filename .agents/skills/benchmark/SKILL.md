@@ -12,7 +12,7 @@ This skill owns the two harnesses this repository wrote for itself, one package 
 
 Read both only when changing shared fixture infrastructure or a surface that affects both systems.
 
-`benchmarks/evidence` is a third package and a different kind of measurement: it runs one coding engine against itself rather than ttsc against a competitor, it is vendored from `samchon/lint-plugin-evidence`, and it keeps that project's conventions. Nothing below applies to it. Its operation is [evidence/SKILL.md](evidence/SKILL.md).
+`benchmarks/evidence` is a third package with a separate measurement contract: it runs one coding engine against itself rather than ttsc against a competitor. Its procedures are maintained here from `samchon/lint-plugin-evidence`; the [instruction layout](../documentation/skills.md#skill-file-format) owns their provenance and host paths. Nothing below applies to it. Read [evidence/SKILL.md](evidence/SKILL.md) for its operation.
 
 ## Measurement Integrity
 

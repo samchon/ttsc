@@ -21,8 +21,14 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * stderr's exact own descriptor without resetting the reporter's private
  * state.
  *
+ * 1. Read authored file and package presets and materialize their alias/plugin
+ *    overlay.
+ * 2. Assert inherited anchors, ordered payloads and separate override channels.
+ * 3. Allocate scratch through native parent aliases and verify physical ownership
+ *    and cleanup while restoring the exact temporary environment.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls readTransformTsconfigState/createAliasPaths/createTransformTsconfig/resolveOptions over real JSONC and package-manifest presets. Actual wrapper JSON must extend the selected config, preserve inherited and inline mappings, add absolute bundler exact/subtree mappings, avoid invented baseUrl and anchor plugin config/configFile/transform paths at the project rather than scratch.
- * @evidence contracts/testing.md#independent-expectations Literal inherited #lib/#preset, inline #inline and bundler @lib mappings identify expected addresses. Authored prefix/upper/suffix entries and untouched payload fields fix order and preservation independently; expected values never call the materializer, paths reader or normalization under test.
+ * @evidence contracts/testing.md#independent-expectations Literal inherited #lib/#preset, inline #inline and bundler @lib mappings identify expected addresses. Authored prefix/upper/suffix entries and untouched payload fields fix order and preservation independently; expected values never call the materializer, paths reader or normalization under test. File extends keep authored lexical anchors; package-preset anchors use independently observed Node realpath spelling, preserving Windows short-name semantics.
  * @evidence contracts/testing.md#distinguishing-cases JSONC inheritance and package.json tsconfig selection contrast with an unchanged no-overlay config. Relative path-typed plugin fields contrast with opaque payload and package specifiers; top-level ordered plugin options contrast with inline compilerOptions plugins. Top-level-only caller props keep the original config; combined caller props materialize only the normalized inline list and leave the separate native override channel unchanged. Find-only trailing slash retains its distinct grammar while both-sided trailing slashes normalize together. Actual allocator rows contrast direct/aliased project temp parents with an outside native alias; independently observed realpaths prove physical refusal and canonical returned ownership without compiler capture. Saved temp environment and owned empty children are restored/released in finally.
  * @evidence contracts/testing.md#execution-ownership One discoverable source unit owns these actual filesystem/configuration operations in process. It installs nothing and starts no compiler, Go peer, plugin binary or host. Native type errors, banner output, plugin execution order and forwarded configFile evidence remain E2E producer/consumer connections; JSON preparation is not their certificate.
  */
@@ -102,9 +108,14 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
       );
     const tsconfig = path.join(root, "tsconfig.json");
     const slash = (file: string): string => file.replace(/\\/g, "/");
+    // File extends retain their lexical anchor; Node package lookup resolves
+    // the installed preset physically, independently observed before the read.
+    const inheritedDirectory = preset
+      ? fs.realpathSync(baseDirectory)
+      : baseDirectory;
     const state = readTransformTsconfigState(tsconfig, true, root);
     assert.deepEqual(state.effectivePaths, {
-      [inheritedKey]: [slash(path.join(baseDirectory, "types", "*"))],
+      [inheritedKey]: [slash(path.join(inheritedDirectory, "types", "*"))],
     });
     const target = path.join(root, "src", "modules");
     const aliases = createAliasPaths({ "@lib": target });
@@ -145,7 +156,7 @@ export function test_generated_tsconfig_preserves_alias_and_plugin_option_bounda
       false,
     );
     assert.deepEqual(wrapper.compilerOptions.paths, {
-      [inheritedKey]: [slash(path.join(baseDirectory, "types", "*"))],
+      [inheritedKey]: [slash(path.join(inheritedDirectory, "types", "*"))],
       "#inline/*": [slash(path.join(root, "inline", "*"))],
       "@lib": [slash(target)],
       "@lib/*": [slash(path.join(target, "*"))],

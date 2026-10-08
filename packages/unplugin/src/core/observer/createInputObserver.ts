@@ -13,8 +13,8 @@ import { validateGraphInputObservation } from "../transform/inputs/validateGraph
 import { isProjectWalkDirectory } from "../transform/project/isProjectWalkDirectory";
 import { projectMembershipMatches } from "../transform/project/projectMembershipMatches";
 import { watchLocationIdentity } from "../transform/tracker/watchLocationIdentity";
-import type { TtscWatchInputBaseline } from "../transform/watch/TtscWatchInputBaseline";
 import { captureWatchInputBaseline } from "../transform/watch/captureWatchInputBaseline";
+import { captureWatchInputBaselines } from "../transform/watch/captureWatchInputBaselines";
 import { watchInputEvidenceMatchesBaseline } from "../transform/watch/watchInputEvidenceMatchesBaseline";
 import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembershipPolicy";
 import type { InputEntry } from "./InputEntry";
@@ -46,17 +46,23 @@ import { someSet } from "./someSet";
  *
  * One recursive scope observes the project root, pinned once the observer
  * opens, and at most 16 external scopes the inputs outside it, each closed when
- * its last input leaves. Ordinary files use events after their initial
- * subscription is observed. Missing spellings and directory predicates use the
- * recursive observer for their nearest available scope. Inputs a native scope
- * cannot safely cover share one bounded fallback poll; linked files also share
- * topology checks because retargeting a junction need not emit events on its
- * old descendants. Every event is re-checked against the input's recorded
- * condition before an owner hears it, so an event that changed nothing the
- * compile observed is silent. Native event names can have aliases missing from
- * lexical indexes. Each settled event batch therefore rechecks all registered
- * conditions of the reporting scope; directory admission still limits native
- * watch coverage.
+ * its last input leaves. A healthy external recursive scope also admits newly
+ * registered descendants while its root identity and physical containment still
+ * hold; the scope cap is checked only when no existing scope covers them.
+ * Ordinary files use events after their initial subscription is observed.
+ * Missing spellings and directory predicates use the recursive observer for
+ * their nearest available scope. Inputs a native scope cannot safely cover
+ * share one bounded fallback poll; linked files also share topology checks
+ * because retargeting a junction need not emit events on its old descendants.
+ * Every event is re-checked against the input's recorded condition before an
+ * owner hears it, so an event that changed nothing the compile observed is
+ * silent. Native event names can have aliases missing from lexical indexes.
+ * Each settled event batch therefore rechecks all registered conditions of the
+ * reporting scope; directory admission still limits native watch coverage.
+ *
+ * Large event waves yield between bounded entry slices so native IPC and host
+ * requests can advance. Each slice reads current facts with its own fresh
+ * contexts; only callback results retain the registration they belong to.
  *
  * A project's root-file membership is one entry for the project root
  * (samchon/ttsc#1419). Its scope admits every directory the project walk
@@ -102,7 +108,9 @@ import { someSet } from "./someSet";
  *   Filesystem identity comes from ttsc/path-identity and directory
  *   capabilities rather than a universal lowercase path. Unknown case policy
  *   keeps exact identity, routes both case candidates and requires polling;
- *   an observed or supplied insensitive-directory answer folds event keys.
+ *   an observed or supplied insensitive-directory answer folds registration
+ *   aliases. Event history includes all alias key forms without claiming that
+ *   their spellings identify the same filesystem object.
  *   The actual host chooses the default broker on Windows/macOS and Linux
  *   recursive backend otherwise; the injected platform selects identity grammar,
  *   not a foreign filesystem implementation. Native path reads remain native.
@@ -120,14 +128,27 @@ import { someSet } from "./someSet";
  *   membership/tree conditions; one prune per changed scope avoids repeated
  *   retirement scans. Poll slices bound selected probes, not dependent fanout,
  *   native read bytes or proof duration.
+ *   Native event waves also bound entries per turn, retaining their fixed
+ *   population and owner-result maps until completion or disposal. Poll scope
+ *   and link fanout beyond the immediate slice joins that yielding queue.
+ *   Named-event history uses at most three lexical keys per path without native
+ *   namespace queries. An external registration scans at most the bounded scope
+ *   population for exact lexical ancestors, validating their current identity
+ *   and physical containment before sharing native coverage.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Owners with the same resolved lexical input and recorded condition key
  *   share one entry/condition; event aliases help route native spellings but do
  *   not merge every physical alias into one entry. Scopes and linked topology
- *   probes are shared across contributors. Changed condition keys lose their
+ *   probes are shared across contributors. Recursive external coverage is
+ *   shared only for exact lexical descendants still physically below a healthy
+ *   observer's unchanged root; failed or replaced roots confer no coverage.
+ *   Changed condition keys lose their
  *   previous ownership, and rename/removal/reanchor boundaries retire stale
  *   path memos. One clock reference is minted per selected plugin-tree batch.
+ *   Ordinary checks share namespace facts only within each fresh synchronous
+ *   phase, never between phases or turns. Delayed reports retain registration
+ *   identity, so a replaced or forgotten owner cannot receive an old effect.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Last-owner removal and dispose attempt watch/poll cleanup, suppressing close
@@ -137,10 +158,12 @@ import { someSet } from "./someSet";
  *   Conditions and owners still require input-proportional memory, and a capped
  *   scope count does not bound the number of admitted descendant subscriptions
  *   or input/path/evidence bytes. Change history clears above 100,000 keys;
- *   unknown-case ancestor memos live until their reset boundary. Dispose clears
- *   registrations/timers but retains the opened root and permits later delivery
- *   to reacquire scopes. Callback/proof/poll-construction exceptions can escape;
- *   this operation provides no general rollback of effects already performed.
+ *   unknown-case ancestor memos live until their reset boundary. Named events
+ *   retain history keys without adding unrelated directories to those memos.
+ *   Dispose clears registrations/timers but retains the opened root and permits
+ *   later delivery to reacquire scopes. Callback/proof/poll-construction
+ *   exceptions can escape; this operation provides no general rollback of
+ *   effects already performed.
  */
 export function createInputObserver(
   onChanged: (change: InputObserverChange) => void,
@@ -150,6 +173,7 @@ export function createInputObserver(
   const aliases = new Map<string, Set<InputEntry>>();
   const renameAliases = new Map<string, Set<InputEntry>>();
   const ownerInputs = new Map<string, Map<string, string>>();
+  const ownerRegistrations = new Map<string, object>();
   const pending = new Set<InputEntry>();
   // Entries holding a project's root-file membership (samchon/ttsc#1419).
   const memberships = new Set<InputEntry>();
@@ -262,6 +286,15 @@ export function createInputObserver(
       : [key];
   };
 
+  /**
+   * Candidate history covers every registration key without querying its case
+   * policy. Extra matches only request proof; they never establish identity.
+   */
+  const watchChangeKeys = (absolute: string): string[] => {
+    const folded = absolute.toLowerCase();
+    return [absolute, folded, `unknown-case\0${folded}`];
+  };
+
   const unbindAlias = (alias: string, entry: InputEntry): void => {
     const indexed = aliases.get(alias);
     indexed?.delete(entry);
@@ -365,8 +398,8 @@ export function createInputObserver(
       topologyChanged = true;
     }
     changeSequence += 1;
-    for (const key of watchEventKeys(absolute)) direct.add(key);
-    for (const key of watchEventKeys(parent)) parents.add(key);
+    for (const key of watchChangeKeys(absolute)) direct.add(key);
+    for (const key of watchChangeKeys(parent)) parents.add(key);
     for (const key of direct) {
       componentLinks.delete(key);
       missingComponents.delete(key);
@@ -421,7 +454,27 @@ export function createInputObserver(
     if (topologyChanged) pathIdentityMemosDirty = true;
   };
 
-  const check = (selected: Iterable<InputEntry>): void => {
+  const check = (
+    selected: Iterable<InputEntry>,
+    report: (change: InputObserverChange) => void = onChanged,
+  ): void => {
+    const current = [...selected].filter(
+      (entry) => entries.get(entry.file) === entry,
+    );
+    const baselines = captureWatchInputBaselines(
+      current
+        .filter((entry) =>
+          [...entry.conditions.values()].some((condition) => {
+            const codec = condition.evidence?.state?.codec;
+            return (
+              codec !== "membership" &&
+              codec !== "tree" &&
+              codec !== "predicates"
+            );
+          }),
+        )
+        .map((entry) => entry.file),
+    );
     const reloaded = new Set<string>();
     const invalidated = new Set<string>();
     // Minted before the first plugin source this check proves, as a delivery
@@ -429,9 +482,9 @@ export function createInputObserver(
     // only against a reference minted since any rollback. The observer holds no
     // generation, so it mints in the probe directory this process keeps.
     let referenceMinted = false;
-    for (const entry of selected) {
+    for (const entry of current) {
       if (entries.get(entry.file) !== entry) continue;
-      let baseline: TtscWatchInputBaseline | undefined;
+      const baseline = baselines.get(entry.file);
       let removedCondition = false;
       for (const [key, condition] of entry.conditions) {
         const state = condition.evidence?.state;
@@ -469,7 +522,6 @@ export function createInputObserver(
             validateGraphInputObservation(entry.file, state.observation)
               .length !== 0;
         } else {
-          baseline ??= captureWatchInputBaseline(entry.file);
           changed =
             baseline === undefined ||
             (condition.evidence?.state !== undefined
@@ -492,7 +544,7 @@ export function createInputObserver(
     updatePoller();
     for (const owner of reloaded) invalidated.delete(owner);
     if (reloaded.size !== 0 || invalidated.size !== 0) {
-      onChanged({ invalidate: invalidated, reload: reloaded });
+      report({ invalidate: invalidated, reload: reloaded });
     }
   };
 
@@ -555,6 +607,52 @@ export function createInputObserver(
     root = path.resolve(root);
     const key = watchPathKey(root);
     let scope = scopes.get(key);
+    if (external && scope === undefined) {
+      // A recursive observer can admit more descendants without another
+      // native handle. Require exact lexical descent as well as current
+      // physical descent: an unknown case policy or an escaping junction
+      // cannot lend a different directory the old observer's authority.
+      let physicalRoot: string | undefined;
+      for (const candidate of scopes.values()) {
+        if (
+          candidate.pinned ||
+          candidate.failed ||
+          candidate.watcher === undefined ||
+          !root.startsWith(`${candidate.root}${path.sep}`)
+        )
+          continue;
+        if (
+          candidate.identity === undefined ||
+          watchLocationIdentity(
+            candidate.root,
+            DEFAULT_FILESYSTEM_OPERATIONS,
+          ) !== candidate.identity
+        ) {
+          failScope(candidate);
+          continue;
+        }
+        const physicalScope = realpath(candidate.root);
+        physicalRoot ??= realpath(root);
+        if (
+          physicalScope !== undefined &&
+          physicalRoot !== undefined &&
+          (physicalRoot === physicalScope ||
+            physicalRoot.startsWith(`${physicalScope}${path.sep}`))
+        ) {
+          if (
+            watchLocationIdentity(
+              candidate.root,
+              DEFAULT_FILESYSTEM_OPERATIONS,
+            ) !== candidate.identity
+          ) {
+            failScope(candidate);
+            continue;
+          }
+          scope = candidate;
+          break;
+        }
+      }
+    }
     if (scope === undefined) {
       if (
         external &&
@@ -662,6 +760,13 @@ export function createInputObserver(
     }
     const scope = ensureScope(root, external);
     if (scope === undefined) return false;
+    if (external && scope.root !== path.resolve(root)) {
+      // Admission is new even though the ancestor handle predates the
+      // compilation. Replay this entry's condition over that subscription
+      // window; later deliveries can share the established coverage.
+      changeSequence += 1;
+      entry.changedAt = changeSequence;
+    }
     scope.entries.add(entry);
     entry.scopes.add(scope);
     let contributed = entry.scopeDirectories.get(scope);
@@ -719,12 +824,52 @@ export function createInputObserver(
 
   const scheduleFlush = (): void => {
     if (pending.size === 0 || flushTimer !== undefined) return;
-    flushTimer = setTimeout(() => {
+    // Freeze this wave, leaving events arriving between turns in pending for
+    // the next wave. No path observation or identity context crosses a yield.
+    let selected: InputEntry[] | undefined;
+    const reload = new Map<string, object>();
+    const invalidate = new Map<string, object>();
+    let offset = 0;
+    const flush = (): void => {
+      if (selected === undefined) {
+        selected = [...pending];
+        pending.clear();
+      }
+      const chunk = selected.slice(offset, offset + MAX_EVENT_PROBES_PER_TURN);
+      offset += chunk.length;
+      check(chunk, (change) => {
+        for (const owner of change.reload) {
+          const registration = ownerRegistrations.get(owner);
+          if (registration !== undefined) reload.set(owner, registration);
+        }
+        for (const owner of change.invalidate) {
+          const registration = ownerRegistrations.get(owner);
+          if (registration !== undefined) invalidate.set(owner, registration);
+        }
+      });
+      if (offset < selected.length) {
+        flushTimer = setTimeout(flush, 0);
+        flushTimer.unref();
+        return;
+      }
       flushTimer = undefined;
-      const selected = [...pending];
-      pending.clear();
-      check(selected);
-    }, 0);
+      // A replacement can answer the old registration while this wave yields.
+      // Only its own still-current registration may receive a delayed effect.
+      for (const [owner, registration] of reload) {
+        if (ownerRegistrations.get(owner) !== registration)
+          reload.delete(owner);
+      }
+      for (const [owner, registration] of invalidate)
+        if (ownerRegistrations.get(owner) !== registration || reload.has(owner))
+          invalidate.delete(owner);
+      if (reload.size !== 0 || invalidate.size !== 0)
+        onChanged({
+          invalidate: new Set(invalidate.keys()),
+          reload: new Set(reload.keys()),
+        });
+      scheduleFlush();
+    };
+    flushTimer = setTimeout(flush, 0);
     flushTimer.unref();
   };
 
@@ -808,7 +953,14 @@ export function createInputObserver(
           }
         }
       }
-      check(selected);
+      const probes = [...selected];
+      // Preserve the poll's immediate bounded slice. A replaced scope or one
+      // retargeted link can fan out beyond that slice; only its remainder must
+      // yield through the same current-state event queue.
+      check(probes.slice(0, MAX_FALLBACK_PROBES_PER_TICK));
+      for (const entry of probes.slice(MAX_FALLBACK_PROBES_PER_TICK))
+        pending.add(entry);
+      scheduleFlush();
     });
   }
 
@@ -969,6 +1121,7 @@ export function createInputObserver(
       aliases.clear();
       renameAliases.clear();
       ownerInputs.clear();
+      ownerRegistrations.clear();
       pending.clear();
       polled.clear();
       links.clear();
@@ -998,6 +1151,7 @@ export function createInputObserver(
       const previous = ownerInputs.get(owner);
       if (previous === undefined) return;
       ownerInputs.delete(owner);
+      ownerRegistrations.delete(owner);
       for (const [file, key] of previous) {
         const entry = entries.get(file);
         const condition = entry?.conditions.get(key);
@@ -1014,6 +1168,7 @@ export function createInputObserver(
     replace(owner, inputs, failed = false, startedAt) {
       if (!opened) return;
       owner = path.resolve(owner);
+      ownerRegistrations.set(owner, {});
       const previous = ownerInputs.get(owner) ?? new Map<string, string>();
       if (failed) {
         // An exception can omit the dependency whose deletion caused it.
@@ -1114,8 +1269,10 @@ export function createInputObserver(
         }
       }
       if (pathIdentityMemosDirty) resetPathIdentityMemos();
-      if (current.size === 0) ownerInputs.delete(owner);
-      else ownerInputs.set(owner, current);
+      if (current.size === 0) {
+        ownerInputs.delete(owner);
+        ownerRegistrations.delete(owner);
+      } else ownerInputs.set(owner, current);
       // Registration and removal can each touch thousands of compiler inputs.
       // Decide the one shared poller's state once per atomic replacement,
       // rather than rescanning the whole graph once per input.
@@ -1171,5 +1328,7 @@ const MAX_EXTERNAL_WATCH_SCOPES = 16;
 const MAX_CHANGE_HISTORY = 100_000;
 
 const MAX_FALLBACK_PROBES_PER_TICK = 64;
+
+const MAX_EVENT_PROBES_PER_TURN = 64;
 
 const MAX_LINK_PROBES_PER_TICK = 64;

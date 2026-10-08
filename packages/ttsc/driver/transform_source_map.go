@@ -73,13 +73,15 @@ func (p *Program) AuthoredSourceMap(file *ast.SourceFile, sourceMap string) (aut
 // applicable segment-shape failures return errors. This is not a complete map
 // validator: without a discovered region mapping validation is skipped, and
 // non-null sourcesContent restoration follows the captured InlineSources policy.
-// Non-map outputs, programs without a source preamble and programs with no
-// enabled map option pass through unchanged without map validation. Inline maps
+// The compiler-selected build-information artifact passes through regardless
+// of its configured extension. Non-map outputs, programs without a source
+// preamble and programs with no enabled map option pass through unchanged
+// without map validation. Inline maps
 // use the last literal trailer marker, without parsing JavaScript comment syntax.
 // Calls must be serialized, and the captured compiler generation must remain
 // unchanged until that emit finishes.
 //
-// @evidence contracts/common.md#principled-implementation Recognized original compiler source regions qualify native emitted coordinates for the captured generation. Unknown output association and required decoding or applicable segment-shape failure return errors; unresolved/non-region sources are not independently validated by this corrector.
+// @evidence contracts/common.md#principled-implementation Recognized original compiler source regions qualify native emitted coordinates for the captured generation. Exact compiler-selected build-information identity excludes metadata before map-carrier classification. Unknown output association and required decoding or applicable segment-shape failure return errors; unresolved/non-region sources are not independently validated by this corrector.
 // @evidence contracts/common.md#clear-and-simple-design One output-directory index and shared exact map correction serve external and inline artifacts without another line-offset implementation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler output paths and SourceMapDirectory provide lookup anchors, and recognized byte regions replace fixed line-offset guesses. No full map-validation claim is inferred from a successful passthrough or unresolved source.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs specify generation ownership, supported map carriers, directory policy, single application, and error behavior following the documentation skill.
@@ -130,6 +132,9 @@ func (p *Program) NewSourceMapCorrector() func(fileName, text string) (string, e
     return region
   }
   return func(fileName, text string) (string, error) {
+    if p.isBuildInfoOutput(fileName) {
+      return text, nil
+    }
     lower := strings.ToLower(fileName)
     external := strings.HasSuffix(lower, ".map")
     if !external && !isInlineSourceMapCarrier(lower) {

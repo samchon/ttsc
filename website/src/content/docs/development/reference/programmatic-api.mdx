@@ -11,7 +11,7 @@ For browser embedding (running `ttsc` inside a Web Worker / WebAssembly), see th
 Reach for the programmatic API when you need to:
 
 - Compile or type-check a project from inside another Node tool and consume the result as structured data, not parsed terminal output.
-- Capture every emitted text artifact in memory without writing JS or `.d.ts` files into the user's project tree.
+- Capture every emitted text artifact in memory without writing JavaScript, declarations, maps or incremental state into the user's project tree.
 - Pay the lazy plugin-build cost ahead of time in CI warmup steps.
 - Manage the ttsc cache directory from your tool's own lifecycle.
 - Compare watched or cached filesystem paths with the same physical-path and per-directory case rules as ttsc.
@@ -53,6 +53,8 @@ if (result.type === "success") {
 }
 ```
 
+Plugin-backed `compile()` keeps all compiler outputs in a private temporary lifetime, including incremental metadata from diagnostic recovery after a plugin fails. Separate declaration directories and bundled outputs retain their original returned keys. Source maps use their original output coordinates. Existing caller output and build-info files remain untouched; compiler/plugin caches and arbitrary plugin effects retain their normal ownership.
+
 ## Lifecycle
 
 `TtscCompiler` is **construct-once, reuse**. The constructor captures one project context (working directory, tsconfig, plugin list, cache root, env) and every operation runs against that context. The context is intentionally not replaceable per call, create another instance to compile a different project.
@@ -76,7 +78,7 @@ Plugin payload capture uses JSON serialization, including `Date` and custom `toJ
 
 Runs the configured project through the TypeScript-Go pipeline and returns the structured result as a discriminated union.
 
-For projects with no plugins, ttsc starts its native TypeScript-Go host in a separate process. That host captures `WriteFile` callbacks and returns the `output` map through `api-compile`. For projects with plugins, ttsc runs the plugin pipeline against a temporary output directory under the configured cache root, reads the generated text back into memory, and removes the temp directory before returning.
+For projects with no plugins, ttsc starts its native TypeScript-Go host in a separate process. That host captures `WriteFile` callbacks and returns the `output` map through `api-compile`. For projects with plugins, ttsc runs the plugin pipeline against a private system temporary directory, reads the generated text back into memory, and removes the temp directory before returning.
 
 **Result shape** ([`ITtscCompilerResult`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerResult.ts)):
 
@@ -91,7 +93,7 @@ type ITtscCompilerResult =
 - `failure`: Compilation produced error-class diagnostics or a plugin failed after ttsc could establish a build result. Before returning a plugin-backed failure, ttsc runs an independent no-emit TypeScript check so pure TypeScript errors remain in `diagnostics`; `output` may still be partial.
 - `exception`: The host or plugin setup failed before ttsc could establish a build result (cache lockup, missing binary, invalid project setup, etc.). Treat the `error` field as opaque diagnostic material; do not assume it's an `Error` instance.
 
-Exception transport retains a finite description of the failure: Error name, message, stack, cause and aggregate errors, together with enumerable outcome data. Repeated objects use `$ttscReference` JSON-pointer markers. Values that JSON cannot represent, accessors and objects that cannot be inspected use `$ttscValue` markers. The description does not invoke getters or preserve foreign class internal slots.
+Exception transport retains a finite description of the failure: Error name, message, stack, cause and aggregate errors, together with enumerable outcome data. Repeated objects use `$ttscReference` JSON-pointer markers. Source objects shaped like reference or literal-object envelopes are escaped as `{ $ttscValue: "object", $ttscProperties: ... }` so their fields remain distinguishable from transport markers. Values that JSON cannot represent, accessors and objects that cannot be inspected use `$ttscValue` markers. The description does not invoke getters or preserve foreign class internal slots.
 
 ### `transform()`
 

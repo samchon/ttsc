@@ -12,7 +12,7 @@ import { serializeCompilerError } from "../../../../../packages/ttsc/src/interna
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual serializer on an AggregateError with a nested cause, an aliased cyclic graph, accessor data, exceptional scalars and a revoked Proxy; compares returned descriptions and getter count.
  * @evidence contracts/testing.md#independent-expectations Expected Error text, nested causes, pointer /a~0~1 and root pointer are authored literals under the documented Error and JSON-pointer contracts. Scalar and inspection markers are literal protocol values, not serializer-generated snapshots.
- * @evidence contracts/testing.md#distinguishing-cases Nonenumerable Error cause/errors/text survive while ordinary nonenumerable data does not. Shared references and a root cycle contrast with distinct objects; getter count zero, finite/null scalars and empty-object controls distinguish marking from omission or fabricated data.
+ * @evidence contracts/testing.md#distinguishing-cases Nonenumerable Error cause/errors/text survive while ordinary nonenumerable data does not. Shared references and a root cycle contrast with distinct objects; literal reference/envelope shapes and escaped-body pointer paths distinguish user metadata from generated markers. Getter counts, finite/null scalars and empty-object controls distinguish marking from omission or fabricated data.
  * @evidence contracts/testing.md#execution-ownership This named API source unit invokes the export directly with in-memory Errors, descriptors and a locally revoked Proxy. It launches no child, builds no native artifact and does not exercise compiler or worker transport.
  */
 export function test_serializecompilererror_preserves_causes_references_and_exceptional_values(): void {
@@ -83,6 +83,32 @@ export function test_serializecompilererror_preserves_causes_references_and_exce
       getter: { $ttscValue: "accessor" },
     });
     assert.equal(getterCalls, 0);
+  });
+  check("literal marker objects retain distinguishable data and paths", () => {
+    const shared = { value: 3 };
+    const literal = { $ttscReference: { first: shared, again: shared } };
+    assert.deepEqual(serializeCompilerError(literal), {
+      $ttscValue: "object",
+      $ttscProperties: {
+        $ttscReference: {
+          first: { value: 3 },
+          again: { $ttscReference: "/$ttscProperties/$ttscReference/first" },
+        },
+      },
+    });
+    assert.deepEqual(serializeCompilerError({ $ttscValue: "object", $ttscProperties: { $ttscReference: "" } }), {
+      $ttscValue: "object",
+      $ttscProperties: {
+        $ttscValue: "object",
+        $ttscProperties: { $ttscValue: "object", $ttscProperties: { $ttscReference: "" } },
+      },
+    });
+    let calls = 0;
+    const accessor = Object.defineProperty({}, "$ttscReference", { enumerable: true, get: () => { calls++; return "must not execute"; } });
+    assert.deepEqual(serializeCompilerError(accessor), {
+      $ttscValue: "object", $ttscProperties: { $ttscReference: { $ttscValue: "accessor" } },
+    });
+    assert.equal(calls, 0);
   });
   check("exceptional and ordinary scalar descriptions", () => {
     assert.deepEqual(

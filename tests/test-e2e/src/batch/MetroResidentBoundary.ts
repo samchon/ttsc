@@ -6,7 +6,6 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { SidecarEnvironment } from "../../../../packages/ttsc/lib/compiler/internal/sharedHost/SidecarEnvironment";
-
 import type { BatchWorkspace } from "./BatchWorkspace";
 import type { createLoaderPoolWorker } from "./LoaderPoolWorker";
 

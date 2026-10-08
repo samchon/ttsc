@@ -57,7 +57,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
         id: build
-      - run: pnpm --filter @ttsc/benchmark-evidence charts
+      - name: Compile benchmark chart renderer
+        working-directory: benchmarks/evidence
+        run: node ../../packages/ttsc/lib/launcher/ttsc.js --project tsconfig.json --noEmit false --outDir lib
+      - name: Render benchmark charts from compiled output
+        run: node benchmarks/evidence/lib/executable/EvidenceBenchmarkChart.js
       - run: pnpm --filter @ttsc/website build
       - name: Save Built Go Modules and Objects
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.go-objects.outputs.cache-primary-key != '' && steps.go-objects.outputs.cache-hit != 'true' }}

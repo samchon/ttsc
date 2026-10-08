@@ -13,20 +13,9 @@ type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 const DEFAULT_DEPTH = 3;
 const DEFAULT_MAX_NODES = 12;
-// An open trace used to stop at two hops and eight nodes, whatever depth the
-// caller asked for. A question that spans a runtime chain — a state change
-// through tracking, scheduling, rendering, then patching — is that chain hop by
-// hop, so the model re-issued a trace per hop and paid a round trip for each: a
-// single vue question spent twenty-six calls walking a flow the graph could have
-// walked once. The cap now follows the chain instead of cutting it.
-const MAX_OPEN_DEPTH = 8;
-const MAX_OPEN_NODES = 32;
-const MAX_IMPACT_DEPTH = 4;
-const MAX_IMPACT_NODES = 16;
-// Path mode walks further than an open trace because it is looking for one
-// named end, not building a picture. The cap is the one the request contract
-// publishes for path mode.
-const MAX_PATH_DEPTH = 12;
+// Exploratory defaults are bounded; explicit budgets have no upper clamp.
+// Path searches default deeper because they seek one named target.
+const DEFAULT_PATH_DEPTH = 12;
 const MAX_HOPS_PER_NODE = 2;
 const MAX_STEPS = 12;
 const DISPATCH_KINDS = new Set<string>(["overrides", "implements"]);
@@ -36,14 +25,8 @@ const BODYLESS_KINDS = new Set<string>(["interface", "type"]);
 // `abstract` and `declare` are the two keywords that take the body away from a
 // declaration that would otherwise have to have one.
 const BODYLESS_MODIFIERS = new Set<string>(["abstract", "declare"]);
-// An interface the codebase implements everywhere — a disposable, a listener, a
-// lifecycle hook — is not a step in one flow, and naming its implementors is a
-// dump of the codebase rather than an answer. Past this many, the declaration
-// stays a leaf and `details` answers `implementedBy` for a caller that wants the
-// list. The cut is the graph's existing definition of a hub (see
-// `isSharedUtility`): across the benchmark corpus it follows 84–100% of dispatch
-// sites per project and refuses only the genuinely polymorphic ones (zod's
-// 36-way schema interface, VS Code's 533-way disposable).
+// Bounded exploratory requests leave broad polymorphic fanouts unexpanded;
+// complete mode follows every declared concrete implementation.
 const DISPATCH_HUB = 12;
 
 /**
@@ -52,13 +35,16 @@ const DISPATCH_HUB = 12;
  * reverse and impact walk callers. Impact additionally tags each reached node's
  * role so the blast radius on the public surface is legible.
  *
+ * Complete requests exhaust the finite admitted graph, or find one shortest
+ * requested path, without traversal budgets.
+ *
  * @evidence contracts/common.md#principled-implementation Breadth-first traversal preserves shortest reached depth and original edge direction; path search distinguishes found, depth-bounded, dispatch-fanout-withheld and exhausted outcomes before considering shared junctions, so neither bound is reported as an absence.
  * @evidence contracts/common.md#clear-and-simple-design Handle resolution, eligible edges, dispatch, path search and coordinate summaries have helper owners; this function assembles open or requested-path results.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguity remains candidates and dispatch follows checker implementation relations; shared references are never inserted as guessed execution edges.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains direction, structural exclusion and impact roles; request documentation states bounds and focus meanings.
- * @evidence contracts/performance.md#efficient-algorithms A visited set prevents repeated node expansion; indexed adjacency bounds work to inspected frontier edges, though dense degrees and reverse dispatch can exceed the returned node cap and path mode expands every node within its depth bound, O(V + E) in the worst case, because only open traces have a node cap.
- * @evidence contracts/performance.md#reuse-equivalent-work Forward/reverse operations share immutable generation indexes and resolution helpers; completed trace memoization is not implemented because each request currently creates a mutable result.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; node/depth caps bound selected output, not every dense frontier edge inspected, and path mode has no node cap, so its visited set and parent map grow with the nodes reachable within its 12-hop depth bound until the call returns.
+ * @evidence contracts/performance.md#efficient-algorithms A visited set expands each node once through indexed adjacency. Complete and path requests may inspect the admitted graph; ordering edges costs up to O(E log E), with additional ownership walks for declaration-body facts. Per-base dispatch and target indexes avoid rebuilding or rescanning the same fanout for each reverse arrival. Path reconstruction is linear in path length, and temporary/output space grows with inspected nodes and edges.
+ * @evidence contracts/performance.md#reuse-equivalent-work Forward/reverse operations share immutable generation indexes and resolution helpers. A request-local map reuses bodyless dispatch selection for a base across reverse arrivals; its focus and complete policy remain constant for that request. Trace results remain fresh mutable outputs.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; defaults bound selected output, not every inspected frontier edge. Complete requests retain up to the admitted graph nodes and edges until return, without a fixed response-size bound; allocation or transport failures propagate instead of yielding partial success.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation walks in-memory edges; no file, path or process.
  */
 export function runTrace(
@@ -67,20 +53,13 @@ export function runTrace(
 ): IRunnerOutput<ITtscGraphTrace> {
   const direction = props.direction ?? "forward";
   const focus = props.focus ?? "all";
-  const impact = direction === "impact";
-  const maxDepth = bound(
-    props.maxDepth,
-    DEFAULT_DEPTH,
-    1,
-    impact ? MAX_IMPACT_DEPTH : MAX_OPEN_DEPTH,
-  );
-  const maxNodes = bound(
-    props.maxNodes,
-    DEFAULT_MAX_NODES,
-    1,
-    impact ? MAX_IMPACT_NODES : MAX_OPEN_NODES,
-  );
-  const maxHops = maxNodes * MAX_HOPS_PER_NODE;
+  const complete = props.complete === true;
+  const dispatch = new Map<string, IDispatchSelection>();
+  const maxDepth = complete ? Infinity : bound(props.maxDepth, DEFAULT_DEPTH);
+  const maxNodes = complete
+    ? Infinity
+    : bound(props.maxNodes, DEFAULT_MAX_NODES);
+  const maxHops = complete ? Infinity : maxNodes * MAX_HOPS_PER_NODE;
   const reverse = direction === "reverse" || direction === "impact";
   const includeExternal = props.includeExternal === true;
   // Only an impact trace tags reached nodes with their public-surface role; for
@@ -158,7 +137,9 @@ export function runTrace(
         ),
       };
     }
-    const pathDepth = bound(props.maxDepth, MAX_PATH_DEPTH, 1, MAX_PATH_DEPTH);
+    const pathDepth = complete
+      ? Infinity
+      : bound(props.maxDepth, DEFAULT_PATH_DEPTH);
     const search = findPath(
       graph,
       start.node.id,
@@ -166,6 +147,8 @@ export function runTrace(
       pathDepth,
       focus,
       includeExternal,
+      complete,
+      dispatch,
     );
     const hasPath = search.found !== undefined;
     const path = search.found?.path ?? [];
@@ -185,7 +168,8 @@ export function runTrace(
         target: summary(graph, target.node),
         hops,
         path: path.map((node, i) => summary(graph, node, i, false, true)),
-        steps: traceSteps(graph, hops),
+        steps: traceSteps(graph, hops, complete),
+        truncated: !hasPath && (search.bounded || search.withheld),
         ...(junctions.length > 0 ? { junctions } : {}),
       },
       // A missing path is a fact, not an answer, and the old message called it
@@ -236,6 +220,8 @@ export function runTrace(
         id,
         reverse,
         focus,
+        complete,
+        dispatch,
       );
       // A hop the hub bound withheld is omitted whatever the depth budget does
       // next, so the flag is set before the boundary check consumes the step.
@@ -324,7 +310,7 @@ export function runTrace(
       direction,
       hops,
       reached: [...reached.values()],
-      steps: traceSteps(graph, hops),
+      steps: traceSteps(graph, hops, complete),
       truncated,
     },
     next: resultNext(
@@ -353,11 +339,13 @@ function traceEdges(
   id: string,
   reverse: boolean,
   focus: ITtscGraphTrace.IRequest["focus"],
+  complete: boolean,
+  dispatch: Map<string, IDispatchSelection>,
 ): { edges: readonly ITtscGraphEdge[]; omitted: readonly ITtscGraphEdge[] } {
   const edges = reverse ? graph.incoming(id) : graph.outgoing(id);
   const dispatched = reverse
-    ? reverseDispatchEdges(graph, id, focus)
-    : dispatchEdges(graph, id, focus);
+    ? reverseDispatchEdges(graph, id, focus, complete, dispatch)
+    : dispatchEdges(graph, id, focus, complete, dispatch);
   // Nothing to add is the common case, and a walk visits the nodes with the
   // largest edge lists, so hand back the stored list rather than a copy of it.
   return {
@@ -373,6 +361,9 @@ function traceEdges(
 interface IDispatchSelection {
   readonly selected: readonly ITtscGraphEdge[];
   readonly omitted: readonly ITtscGraphEdge[];
+
+  /** Reuses each fanout edge for reverse arrivals without rescanning siblings. */
+  readonly byTarget?: ReadonlyMap<string, ITtscGraphEdge>;
 }
 
 // Returned by every no-dispatch path rather than allocated per call, which is
@@ -403,8 +394,9 @@ function eligibleTraceEndpoint(
 function traceSteps(
   graph: TtscGraphMemory,
   hops: ITtscGraphTrace.IHop[],
+  complete: boolean,
 ): string[] {
-  return hops.slice(0, MAX_STEPS).map((hop) => {
+  return (complete ? hops : hops.slice(0, MAX_STEPS)).map((hop) => {
     const from = graph.node(hop.from);
     const to = graph.node(hop.to);
     const lhs = from?.qualifiedName ?? from?.name ?? hop.from;
@@ -509,26 +501,12 @@ function touchedBy(
   return touched;
 }
 
-/**
- * What to say when the depth bound, not the graph, ended a path search.
- *
- * The caller asked a bounded question and the old answer returned a claim about
- * the whole graph — "they touch nothing in common, so the graph holds no
- * connection between them" — which is the worst thing an index can say wrongly:
- * the caller stops asking and either reads files or concludes the dependency is
- * not there. So report the boundary, and make the continuation one the caller
- * can actually take. At the 12-hop ceiling there is no larger `maxDepth` to
- * retry with, and a message that only invites one would be a dead end of its
- * own; two bounded walks from opposite ends cover twice the distance and are
- * requests the tool already answers.
- */
+/** Explain an incomplete path search and its supported complete retry. */
 function boundedPathReason(depth: number): string {
   return (
     `No path was found within the requested depth of ${depth}, but the walk stopped on that bound with eligible graph still ahead of it. ` +
     `This is a boundary, not an absence: the two ends may be connected further out, and nothing here says they are not. ` +
-    (depth < MAX_PATH_DEPTH
-      ? `Re-run the same path request with a larger \`maxDepth\` (up to ${MAX_PATH_DEPTH}).`
-      : `\`maxDepth\` is already at its ${MAX_PATH_DEPTH}-hop maximum, so close the gap from both ends: trace forward from the start, trace the target with \`direction: "reverse"\`, then request the path between a symbol both results name.`)
+    `Re-run with a larger \`maxDepth\` or \`complete: true\` to search the entire admitted graph.`
   );
 }
 
@@ -545,7 +523,7 @@ function withheldPathReason(): string {
   return (
     `No path was found, but the walk did not follow a dispatch fanout of ${DISPATCH_HUB} or more implementations, so it did not exhaust the graph. ` +
     `This is a boundary of the walk, not an absence: the ends may connect through one of those implementations. ` +
-    `Ask \`details\` for the declaration's \`implementedBy\`, then request the path from the implementation that the question means.`
+    `Re-run with \`complete: true\` to follow the entire dispatch fanout, or ask \`details\` for the implementation that the question means.`
   );
 }
 
@@ -591,6 +569,8 @@ function findPath(
   maxDepth: number,
   focus: ITtscGraphTrace.IRequest["focus"],
   includeExternal: boolean,
+  complete: boolean,
+  dispatch: Map<string, IDispatchSelection>,
 ): IPathSearch {
   const startNode = graph.node(startId);
   if (startNode === undefined) return { bounded: false, withheld: false };
@@ -622,6 +602,8 @@ function findPath(
         id,
         false,
         focus,
+        complete,
+        dispatch,
       );
       // A dispatch fanout past the hub cut is not walked, but each hop in it is
       // a real, eligible continuation. Leaving it out of the search while still
@@ -671,9 +653,10 @@ function findPath(
           while (cur !== startId) {
             const p = parent.get(cur);
             if (p === undefined) break;
-            ids.unshift(p.via);
+            ids.push(p.via);
             cur = p.via;
           }
+          ids.reverse();
           const path: ITtscGraphNode[] = [];
           for (const nid of ids) {
             const n = graph.node(nid);
@@ -849,8 +832,12 @@ function dispatchEdges(
   graph: TtscGraphMemory,
   id: string,
   focus: ITtscGraphTrace.IRequest["focus"],
+  complete: boolean,
+  dispatch: Map<string, IDispatchSelection>,
 ): IDispatchSelection {
   if (focus === "types") return NO_DISPATCH;
+  const cached = dispatch.get(id);
+  if (cached !== undefined) return cached;
   // The checker relations first: almost no node has one, and reading a
   // declaration's own facts walks its ownership chain, which is work worth
   // doing only where there is something to dispatch to.
@@ -858,10 +845,15 @@ function dispatchEdges(
   for (const edge of graph.incoming(id)) {
     if (DISPATCH_KINDS.has(edge.kind)) (relations ??= []).push(edge);
   }
-  if (relations === undefined) return NO_DISPATCH;
-  const declaration = graph.node(id);
-  if (declaration === undefined || hasDeclarationBody(graph, declaration))
+  if (relations === undefined) {
+    dispatch.set(id, NO_DISPATCH);
     return NO_DISPATCH;
+  }
+  const declaration = graph.node(id);
+  if (declaration === undefined || hasDeclarationBody(graph, declaration)) {
+    dispatch.set(id, NO_DISPATCH);
+    return NO_DISPATCH;
+  }
   const out: ITtscGraphEdge[] = [];
   // Per implementation, not per relation. A class may name one base in two
   // heritage clauses — `class Impl extends Base implements Base` is legal — and
@@ -888,12 +880,15 @@ function dispatchEdges(
         : {}),
     });
   }
-  // Above the hub cut the fanout stops being a trace and starts being a
-  // listing, so the walk does not follow it — but the hops are real and their
-  // absence is an omission the caller has to be able to report.
-  return out.length >= DISPATCH_HUB
-    ? { selected: [], omitted: out }
-    : { selected: out, omitted: [] };
+  // Bounded walks withhold broad fanouts, retaining omitted edges for truthful
+  // truncation. Complete walks follow them without the exploratory hub cut.
+  const byTarget = new Map(out.map((edge) => [edge.to, edge]));
+  const result =
+    !complete && out.length >= DISPATCH_HUB
+      ? { selected: [], omitted: out, byTarget }
+      : { selected: out, omitted: [], byTarget };
+  dispatch.set(id, result);
+  return result;
 }
 
 /**
@@ -916,6 +911,8 @@ function reverseDispatchEdges(
   graph: TtscGraphMemory,
   id: string,
   focus: ITtscGraphTrace.IRequest["focus"],
+  complete: boolean,
+  dispatch: Map<string, IDispatchSelection>,
 ): IDispatchSelection {
   if (focus === "types") return NO_DISPATCH;
   const selected: ITtscGraphEdge[] = [];
@@ -924,13 +921,13 @@ function reverseDispatchEdges(
   for (const edge of graph.outgoing(id)) {
     if (!DISPATCH_KINDS.has(edge.kind) || bases.has(edge.to)) continue;
     bases.add(edge.to);
-    const fanout = dispatchEdges(graph, edge.to, focus);
-    for (const dispatch of fanout.selected)
-      if (dispatch.to === id) selected.push(dispatch);
+    const fanout = dispatchEdges(graph, edge.to, focus, complete, dispatch);
+    const match = fanout.byTarget?.get(id);
+    if (match === undefined) continue;
     // The base's fanout is bounded as a whole, so a reverse walk that lands on
     // a suppressed sibling has the same omission to report as the forward one.
-    for (const dispatch of fanout.omitted)
-      if (dispatch.to === id) omitted.push(dispatch);
+    if (fanout.omitted.length > 0) omitted.push(match);
+    else selected.push(match);
   }
   return { selected, omitted };
 }
@@ -1078,12 +1075,7 @@ function evidenceRank(edge: ITtscGraphEdge): number {
   return line * 100 + col;
 }
 
-function bound(
-  value: number | undefined,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
+function bound(value: number | undefined, fallback: number): number {
   const n = value === undefined || !Number.isFinite(value) ? fallback : value;
-  return Math.max(min, Math.min(max, Math.floor(n)));
+  return Math.max(1, Math.floor(n));
 }

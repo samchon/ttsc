@@ -16,6 +16,7 @@ import {
   denyWrites,
   runsAsRoot,
 } from "../internal/ttsc/internal/read-only-directory";
+import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
 
 /**
  * Verifies one public runtime loads the shared transformed graph. The existing
@@ -25,6 +26,25 @@ import {
  * tests own both noEmitOnError callback lanes; this one false-lane public
  * request owns the publisher connection, not two CLI executions or a
  * Program-count certificate.
+ *
+ * Source-publication preparation also copies the real selected Go executable:
+ * its first and warm environment readings must agree and remain witnessed,
+ * while changed bytes and changed/restored bytes with restored mtime must
+ * invalidate the first witness. This adds real Go metadata queries within the
+ * existing source producer, without another install or native build. A
+ * self-changing selected Go launcher must refuse every unstable version/byte
+ * observation without seeding a reusable witness; stopping its mutation then
+ * permits a fresh stable reading. Twelve real Go status commands cover help
+ * failure 2 with stderr and version success 0 before/after mutation, each with
+ * inherited ERRORLEVEL absent, 0 or 999. The selected Windows launcher must
+ * preserve actual status rather than an inherited variable's shadow value.
+ * These processes share the same source producer without another native build.
+ *
+ * The declaration preload also checks public in-memory API failure ownership:
+ * an absent descriptor and an independent TS2322 preserve caller state across
+ * relative, absolute and deep inferred incremental destinations. Its existing
+ * installed actor and native seed are reused; recovery-only checks add native
+ * compiler invocations, and a restored plugin-free capture verifies recovery.
  *
  * The actual same-file compiler rewrite emits opt-in attempt/result or original
  * error observations using its existing stat and the shared test trace runtime;
@@ -37,16 +57,38 @@ import {
  * four long components: patch-qualified directives and relative/absolute
  * replacement select first, changed external bytes select second, and an
  * incompatible local toolchain directive rejects before publication. External
- * replacements and workspace overlays are distinct epochs of that graph. Six
- * actual Go build attempts include binary-only cold rebuild, external byte
+ * replacements and workspace overlays are distinct epochs of that graph. The
+ * workspace epoch imports a second real module, preserving the deep module's
+ * required relative geometry while singleton snapshots remain compact. Six
+ * baseline Go build attempts include binary-only cold rebuild, external byte
  * change, malformed dependency refusal and compatible workspace publication.
  * Actual Go -x must show cold helper compilation, unchanged object reuse across
  * different scratch roots and recompilation after edit; mode2 independently
- * observes embedding, logical runtime source and panic provenance. Five
- * compiled executions (three combined value/object probes, one cold-rebuild
- * probe and one panic) replace the separate source-project and object-cache
+ * observes embedding, logical runtime source and panic provenance. Six
+ * compiled executions (four combined value/object probes, including the
+ * workspace helper import, one cold-rebuild probe and one panic) replace the
+ * separate source-project and object-cache
  * recipes; restored bytes reuse the original publication before the runtime
- * borrows it.
+ * borrows it. The first cold request can discard two additional toolchain
+ * transactions; independent before/after SDK metadata must explain every
+ * discarded native attempt, and the final attempt must be stable. The static
+ * comment-only main assembly input requires a real assembler command without
+ * depending on cold standard-library objects. Nine further actual Go build
+ * attempts distinguish one byte transition with exact restored mtime, three
+ * continuously changing transactions plus recovery, simultaneous source motion,
+ * native failure and failed key-lease release. Only one-shot and recovery add
+ * two literal binary executions. Private publication namespaces separate
+ * conflicting failure states while retaining the producer and Go object
+ * storage. The existing published content key also rejects nine unstable
+ * version observations with restored launcher bytes and mtime, adding no native
+ * build or cache adoption.
+ *
+ * The installed SDK also drives the platform helper's owned-command protocol
+ * with one copied static Node fixture. Independent transport/error rows and
+ * an actual parent/grandchild cancellation require joined process retirement,
+ * absent late effects and successful recovery without another installation,
+ * native build or compiler Program. Unknown descendant closure retains that
+ * separate fixture root; failures join the experiment's collected outcomes.
  *
  * 1. Capture the source/config bytes and invoke the public ttsx entry once.
  * 2. Compare its one actual JSON payload against all original literal rows.
@@ -97,10 +139,21 @@ import {
  * The existing rejection actor also consumes one upfront readonly namespace. Native permission denial is required before its default-cache success, explicit-cache excluded refusal and included success; restored writes and complete input bytes establish release and nonmutation. Root privilege supplies zero readonly coverage. The two successful dispatches launch two real entry children, while the three former CLI parent launches and separate readonly staging disappear.
  * Those same two entries carry complete standard-decorator effects, opposite optional-chain emission and configured automatic versus direct/response-preserved JSX HTML. The included CommonJS entry also carries an actual import preload, main-module identity, physical argv1 and native shared require.cache identity without another entry child. Nested response before/after visible target flags selects ESNext versus ES2019; an invalid response is a failed dispatcher call with no extra entry child. Privileged runs use an explicit external cache for these two controls while retaining zero permission coverage. The existing register actor starts in the upfront legacy owner's preserve-mode TSX graph and then loads the original declared/descendant graph, keeping its native preparations as explicit work.
  * The already retained lock-holder actor installs public registration, rejects an included number-to-string error before its marker and leaves an empty register project index. Repairing that same source permits FIRST from one excluded index; the next same-basename index fails its entry check before its marker. The final missing owned output still causes actual exit1 and dead-holder cleanup. These checked loads retain native work but introduce no extra host or private profile.
+ * The inherited live descendant additionally shares its existing runtime index
+ * with one plugin-free sibling launcher/program pair that is deliberately
+ * killed. One real installed clean launcher must remove that abandoned sibling,
+ * keep the live descendant and print its exact physical kept path. After the
+ * descendant releases, the actual compiler API must report and remove the whole
+ * nonempty runtime. This adds one runtime pair and one clean launcher, without
+ * another project, installation or native plugin producer. The descendant's
+ * controller connection owns the detached worker until release or actual EOF.
+ * Awaited close events and yielding native liveness observations join the
+ * killed pair without a fixture performance deadline. API cleanup explicitly
+ * removes ambient cache selectors while retaining the caller's Go cache.
  *
- * @evidence contracts/testing.md#execution-ownership The main graph invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant) and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
+ * @evidence contracts/testing.md#execution-ownership The main graph invokes TestProject.spawn once. Its main-thread declaration preload uses actual public API output capture, one installed CLI forced-emit dispatch on the shared nested source graph, one shared rejected-bootstrap Node actor and one retained fresh installed-register Node actor; the existing lock-holder actor supplies the negative checked load. No legacy test or profile launcher is invoked. Native emission, default preparation, orphan lowering, the four retained actor lifetimes (including the detached registered descendant), one abandoned sibling launcher/program pair, its clean launcher and two readonly entry children are explicit costs, not one-process or one-Program claims. The upfront frontdoor corpus separately restores eight actual startup/terminal launcher requests and their four CLI entry children. runtimeMapsCorpus additionally uses two root-option launcher lifetimes to combine native V8 coverage and stack consumers; real native preparations remain additional work. Independent failures collect together.
  * @evidence contracts/e2e.md#necessary-boundary Public ttsx connects native transforms, source publication and actual Node loading. Go rule units cannot establish the loaded graph's observed values or source preservation.
- * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Default/explicit clean need no separate launcher. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
+ * @evidence contracts/e2e.md#shared-execution One consumer and its runtime process carry the value graph, source-race/identity loads and installed clean dispatch. The existing lock-holder child also requires a checked module after its actual emitted file is removed: acquired-holder stdout, missing-owned stderr and exit1 establish both real negative transport and the exited holder. Exact output bytes restore before the main graph. Legacy/default/explicit dispatch controls share that consumer. Selective live/dead generation cleanup additionally reuses the inherited descendant's namespace with one plugin-free sibling launcher/program pair and one actual clean launcher; final all-dead API cleanup reuses that state. Real Go metadata/build/smoke and isolated emit children remain disclosed internal costs, not standalone source projects or one-Program certification.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Native errors are outside the positive tsconfig population. The excluded orphan changes during its actual compiler read, restores original bytes before the second require and finally, and its environment authority restores before the main graph. The private compiler copy is the actual delegate of those two required race lowerings before its identity/cache controls; the witness waits for that compiler child to close, with no additional preparation CLI or claim that kernel metadata writers are quiescent. The first identity artifact, unchanged marked reuse and same-physical same-byte rewrite remain distinct expectations. Observation-only preparation receipts stay outside the exact five-field behavior report. The authored sibling runtimeCliCache independently names the CLI-selected cache for explicit orphan placement; the shared plugin cache remains a separate environment authority, while the manifestless register still selects the project-local default cache. The main source/config remain immutable; synchronous process error/signal/null status fails and unknown closure retains the common owner.
  * @evidence contracts/e2e.md#preserved-coverage Keeps the native factory value matrix and combined utility alias/strip/runtime observations in one real loaded graph. The standard class/method warning-removal composition and original ESNext member-initialization effects run in both .mts/.cts modules in the same upfront Program; the contrary module-package .cts value is loaded alongside the .mts public entry. Source dirname, imported class root and both asset reads preserve their independent physical identities. The export population additionally observes real tslib IIFE reexports, inert throwing/template negatives, computed dynamic default exports, live default getters and bare-package versus project basename ownership, all from upfront inputs in the same host. Direct commonjs preparation/metadata and emit ownership units own their detailed portable distinctions. Dependency profile recipes are not repeated; isolated orphan lowering and other compiler-mode/lifetime transitions remain outside this population. TestFormatSortImportsPreservesBindingImportEvaluationOrder now splits its zero-findings invariant into TestFormatSortImportsPreservesSideEffectImports and its unchanged raw ESM bytes into this actual runtime; existing status, payload and markers remain asserted.
  */
@@ -273,8 +326,6 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         "-r",
         "./tools/native-source-borrower.cjs",
         "-r",
-        "./tools/runtime-owned-descendant.cjs",
-        "-r",
         "./tools/runtime-declared-flow.cjs",
         "-r",
         "./tools/runtime-clean-flow.cjs",
@@ -365,6 +416,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       );
     else if (
       result?.stderr.includes(
+        "owned runtime sibling closure remained unresolved",
+      )
+    )
+      BatchWorkspace.retain(
+        "the sibling or clean launcher has no actual closure acknowledgement; keep shared runtime inputs and refuse later consumers",
+      );
+    else if (
+      result?.stderr.includes(
         "registered descendant closure remained unresolved",
       )
     )
@@ -383,6 +442,14 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   if (!workspace.installationOnly) {
     try {
       await BatchWorkspace.open();
+      await test_owned_native_process_joins_cancelled_command_trees(
+        workspace.root,
+      );
+    } catch (error) {
+      combinedFailures.push(error);
+    }
+    try {
+      await BatchWorkspace.open();
       await runtimeFrontdoorsCorpus(workspace);
     } catch (error) {
       combinedFailures.push(error);
@@ -396,6 +463,11 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   }
   try {
     assert.ok(result);
+    // Retention may deliberately keep renamed inputs. Preserve the original
+    // process diagnostic before checking those dependent success invariants.
+    assert.equal(result.error, undefined);
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 0, result.stderr);
     if (readonlyInputs)
       assert.deepEqual(
         await FileSystemIterator.read(readonlyRoot),
@@ -417,9 +489,6 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         .sort(),
       baseline,
     );
-    assert.equal(result.error, undefined);
-    assert.equal(result.signal, null);
-    assert.equal(result.status, 0, result.stderr);
     if (!workspace.installationOnly) {
       assert.equal(
         result.stdout
@@ -562,6 +631,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
           "utf8",
         ),
       ) as {
+        apiFailures: { name: string; detail: string; stack?: string }[];
         produced: string[];
         nativeEmitBefore: number;
         nativeEmitAfter: number;
@@ -579,6 +649,15 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         registerBefore: number;
         registerAfter: number;
       };
+      try {
+        assert.deepEqual(
+          declarationObservation.apiFailures,
+          [],
+          "every installed public API ownership row must pass after all shared runtime cases execute",
+        );
+      } catch (error) {
+        combinedFailures.push(error);
+      }
       assert.equal(typeof declarationObservation.driverEmitStatus, "number");
       assert.notEqual(
         declarationObservation.driverEmitStatus,
@@ -1004,8 +1083,8 @@ export async function test_e2e_runtime_batch(): Promise<void> {
     combinedFailures.push(error);
   }
   if (!workspace.installationOnly) {
-    await BatchWorkspace.open();
     try {
+      await BatchWorkspace.open();
       runtimeMapsCorpus(workspace);
     } catch (error) {
       combinedFailures.push(error);

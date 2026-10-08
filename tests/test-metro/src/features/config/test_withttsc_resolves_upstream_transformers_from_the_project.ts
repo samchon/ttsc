@@ -14,7 +14,7 @@ import { assertWithTtscResolvesUpstreamFromTheProject } from "../../internal/met
  * 3. Assert the worker payload contains the exact resolved project module path.
  *
  * @evidence contracts/testing.md#behavioral-verification withTtsc publishes the absolute path of @react-native/metro-babel-transformer installed only under the project root as the automatic upstream, resolves an explicit upstreamTransformer package name from the project, passes an unresolvable explicit name through unchanged, and publishes no upstream when no candidate is installed.
- * @evidence contracts/testing.md#independent-expectations The fake packages exist only under each temp project's node_modules, so the exact module path each call must publish is known from the fixture layout, not computed by the resolver under test.
+ * @evidence contracts/testing.md#independent-expectations The fake packages exist only under each temp project's node_modules, so the exact module path each call must publish is known from the fixture layout, not computed by the resolver under test. Independent Node realpath observations supply the required resolved spelling while authored inputs retain lexical temporary-parent aliases.
  * @evidence contracts/testing.md#distinguishing-cases An automatic candidate and an explicit third-party package (positives) are contrasted with an unresolvable explicit name and a project with no candidate installed (pass-through and undefined).
  * @evidence contracts/testing.md#execution-ownership Unit layer: calls withTtsc in-process against temp projects with fake node_modules packages and reads TTSC_METRO_OPTIONS (restored afterwards); no native compile, consumer install or Metro host.
  */

@@ -15,21 +15,21 @@ import { createWebpackConfig } from "../../../../internal/unplugin/internal/adap
  * Unplugin maps `buildStart` onto `compiler.hooks.make`, which fires once per
  * compilation, so a watch session opens a pass per rebuild, and the per-pass
  * clear turned each of those into a whole-project transform. The rebuild is
- * triggered by rewriting the type-only input with its own bytes, which moves
- * its timestamp but not its content, exactly the shape a rebuild must cost
- * nothing. The compile count alone would prove nothing, because a compilation
- * that did not re-run the loader costs no compile either, so the scenario waits
- * for a compilation that actually re-ran it.
+ * triggered by rewriting the directly watched entry with its own bytes, which
+ * moves its timestamp but not its content, exactly the shape a rebuild must
+ * cost nothing. The compile count alone would prove nothing, because a
+ * compilation that did not re-run the loader costs no compile either, so the
+ * scenario waits for a compilation that actually re-ran it.
  *
  * 1. Start a webpack watcher with timestamp snapshots and a run log outside the
  *    project, and assert the cold build compiles once.
- * 2. Rewrite the type-only input with its own bytes.
+ * 2. Rewrite the directly watched entry with its own bytes.
  * 3. Wait for a rebuild that re-ran the loader and assert it compiled nothing.
  *
- * @evidence contracts/testing.md#behavioral-verification Cold polling build compiles once; same-byte type rewrite produces a compilation whose builtModules proves loader reran while compile count remains one.
+ * @evidence contracts/testing.md#behavioral-verification Cold polling build compiles once; same-byte entry rewrite produces a compilation whose builtModules proves loader reran while compile count remains one. Unchanged compiler-only helper bytes do not require host redelivery through an erased import-type edge.
  * @evidence contracts/testing.md#independent-expectations Native byte counter plus independent webpack builtModules prevents a no-delivery false positive.
  * @evidence contracts/testing.md#distinguishing-cases Changed timestamp with unchanged bytes and actual entry rebuild; changed content has the separate watch test.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_watch_reuses_the_generation_across_rebuilds is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership This legacy native-plugin E2E donor is not selected by the current explicit batch runner. Its callable body retains the cases above; the selected bundlerCacheCorpus owns actual API-count and loader-delivery acceptance.
  * @evidence contracts/e2e.md#necessary-boundary Actual webpack timestamp watcher/make hook and native content proof distinguish host rebuild from native recompilation.
  * @evidence contracts/e2e.md#shared-execution One real compiler/watch session serves initial and later compilations. The shared experiment additionally performs the original type-only content edit after builtModules proves same-byte redelivery; its initial ID: STRING and later AGE: NUMBER oracle borrow the same graph/source project and native reader.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Watcher closes via finish and compiler closes in finally. Persistent cache is disabled so it cannot bypass loader redelivery. The optional shared continuation runs only after successful watcher and compiler close; original type bytes are supplied for exact restoration before sequential compiler reuse. Close errors now propagate and block that continuation. Tracked roots end at process exit.
@@ -52,6 +52,7 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
   // project is named through its temporary directory, a link on macOS; the
   // rebuilt entry is therefore recognized by identity.
   const entry = fs.realpathSync.native(TestUnpluginProject.mainFile(root));
+  const originalEntry = fs.readFileSync(entry);
   const typeOnly = path.join(root, "src", "mytype.ts");
   const originalType =
     afterClose === undefined ? undefined : fs.readFileSync(typeOnly);
@@ -96,7 +97,7 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
           new Error(
             contentEdited
               ? "webpack watch did not rebuild through the type-only edge within 120s"
-              : "webpack watch did not rebuild after the type-only input was touched within 120s",
+              : "webpack watch did not rebuild after the entry was touched within 120s",
           ),
         );
       }, 120_000);
@@ -123,9 +124,9 @@ export async function test_webpack_watch_reuses_the_generation_across_rebuilds(
                 1,
                 "the cold build compiles the project once",
               );
-              // Same bytes, new timestamp: webpack's watcher sees a change, the
-              // generation's recorded input does not.
-              fs.writeFileSync(typeOnly, fs.readFileSync(typeOnly));
+              // Same bytes, new timestamp on an actual host dependency. An
+              // unchanged compiler-only helper need not redeliver this module.
+              fs.writeFileSync(entry, originalEntry);
               return;
             }
             if (contentEdited) {

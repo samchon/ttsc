@@ -3,14 +3,23 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
+
 import type { PluginBuildLockLease } from "./PluginBuildLockLease";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
 import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 
 /**
  * Retire a held v3 generation during the holder's finally. False means the
- * generation already retired or disappeared; unexpected filesystem errors
+ * generation already retired or disappeared, or native closure remains unknown
+ * and the original cleanup callback was deferred; unexpected filesystem errors
  * propagate to the caller's release reporting boundary.
+ * Ordinary synchronous contention retains its existing retries. Scoped
+ * cancellation uses the shared retirement helper's cleanup grace and reports
+ * a continuing refusal as ownership failure to the opted-in request owner.
+ *
+ * Scoped native boundaries additionally require qualified closure; unknown
+ * retirement retains the exact generation and defers this callback for recovery.
  *
  * Call only after the held payload callback has ended. Release records that
  * completion in this exact retired generation, even if a waiter retired it
@@ -24,24 +33,30 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Release renames the leased generation into retained history rather than recursively deleting a possibly replaced current directory.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain return/error behavior and the actual-task-end precondition, distinguishing completion publication from timeout or lease transfer before the tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native path construction and the shared rename adapter preserve the same retirement meaning across Windows sharing refusals and POSIX contention.
- * @evidence contracts/performance.md#efficient-algorithms Direct retirement/completion paths avoid owner-population scans; costs include native path construction, owner JSON/hostname and generation bytes plus marker publication. Eligible Windows refusals can repeat synchronous waits and sibling probes without a deadline after a sampled sibling rename succeeds; that probe does not establish the original refusal's cause.
+ * @evidence contracts/performance.md#efficient-algorithms Retirement checks guard metadata before direct completion paths, avoiding owner-population scans; costs include native path construction, owner JSON/hostname and generation bytes plus marker publication. Eligible Windows refusals repeat synchronous waits and sibling probes after a sampled sibling rename succeeds; ordinary work has no deadline, while scoped cancelled retries use the shared helper's one-second between-attempt grace. Native calls and yields are not hard bounded, and the probe does not establish the original refusal's cause.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Release is an effectful ownership transition, so a previous result cannot authorize a later call to skip its own atomic retirement attempt.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Qualified callback completion permits payload eviction; pending marker files have finally-based removal that can fail. Retirement retries can block indefinitely and best-effort probe cleanup may leave empty siblings. Cooperating collectors retain tombstones until recorded holder/observer absence; unconfirmed completion protects payloads while their owners may still act.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Qualified callback completion and certified scoped native closure permit payload eviction; unknown closure retains ownership without age expiry; pending marker files have finally-based removal that can fail. Ordinary retirement retries can block indefinitely; scoped cancelled cleanup stops retry admission after its shared grace and records actual refusal for the opted-in owner, without bounding native calls or yields. Best-effort probe cleanup may leave empty siblings. Cooperating collectors retain tombstones until recorded holder/observer absence; unconfirmed completion protects payloads while their owners may still act.
  */
 export function releasePluginBuildLock(
   lockDir: string,
   lease: PluginBuildLockLease,
 ): boolean {
   if (lease.protocol !== "v3") return false;
+  if (!SourceNativeRetirement.canRelease()) {
+    SourceNativeRetirement.release(() => releasePluginBuildLock(lockDir, lease));
+    return false;
+  }
   const protocolDir =
     PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
+  SourceNativeRetirement.assertReleasable(protocolDir, lease.generation);
   const retired = PluginBuildLockProtocol.retireV3PluginBuildLock(
     protocolDir,
     lease.generation,
   );
   recordPluginBuildLockTaskCompletion(protocolDir, lease);
+  SourceNativeRetirement.forget(protocolDir, lease.generation);
   return retired;
 }
 

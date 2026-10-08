@@ -95,6 +95,10 @@ export function computeCacheKey(inputs: {
   hash.update(JSON.stringify(["tsgo", inputs.tsgoVersion]));
   hash.update(JSON.stringify(["platform", process.platform, process.arch]));
   hash.update(JSON.stringify(["entry", inputs.entry]));
+  // Private materialization changes native package working directories. Keep
+  // binaries produced by the former absolute-ancestry layout out of this
+  // layout's cache admissions, including callers with no SDK overlays.
+  hash.update(JSON.stringify(["external-source-layout", 1]));
   // The same framed values enter the key and the environment-only digest,
   // which pluginBuildEnvironment reads for this directory.
   const environment = crypto.createHash("sha256");

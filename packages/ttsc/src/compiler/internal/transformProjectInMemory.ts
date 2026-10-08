@@ -348,7 +348,9 @@ function transformProjectWithPlugins(
         checkedHostInputRealpaths,
         unprovenCheckInputs,
       ),
-      ...(checked.graph === undefined ? { observationsComplete: false as const } : {}),
+      ...(checked.graph === undefined
+        ? { observationsComplete: false as const }
+        : {}),
       hostInputHashes: checkedHostInputHashes,
       hostInputRealpaths: checkedHostInputRealpaths,
       hostInputs: checkedHostInputs,

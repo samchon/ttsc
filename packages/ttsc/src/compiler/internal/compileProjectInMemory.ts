@@ -7,9 +7,9 @@ import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
+import { PrivateCompilerOutput } from "./PrivateCompilerOutput";
 import { runBuild } from "./build/runBuild";
 import { buildNativeCompiler } from "./buildNativeCompiler";
-import { isOutsideRelativePath } from "./isOutsideRelativePath";
 import { outputText } from "./outputText";
 import { packageRootDir } from "./packageRootDir";
 import { readProjectConfig } from "./project/readProjectConfig";
@@ -26,7 +26,10 @@ import { spawnNative } from "./spawnNative";
  * compiler host (`cmd/ttsc api-compile`) which returns a structured JSON
  * response containing diagnostics and an output file map. When plugins are
  * present the plugin path goes through `runBuild` into a temp directory and
- * reads the files back from disk.
+ * reads the files back from disk. Independent recovery checks use the same
+ * private destinations, with a separate incremental-state file that is not an
+ * emitted API artifact. Actual emission state remains in returned partial
+ * output.
  *
  * A native response must contain a string-valued output record. Plugin output
  * storage removal is attempted before returning. If removal also fails after a
@@ -37,7 +40,7 @@ import { spawnNative } from "./spawnNative";
  *
  * @returns A map of output path → file content plus a `TtscBuildResult` with
  *   diagnostics and the exit status.
- * @evidence contracts/common.md#principled-implementation The plugin-free API host supplies a required text-output record and structured diagnostics; plugin projects use the existing build owner and read its isolated emitted files with the project's output-key convention.
+ * @evidence contracts/common.md#principled-implementation The plugin-free API host supplies a required text-output record and structured diagnostics; plugin projects use the existing build owner and read its isolated emitted files with the project's output-key convention, translating private map/state coordinates back to their original artifact locations.
  * @evidence contracts/common.md#clear-and-simple-design One router separates structured native capture from plugin-backed disk emission while project discovery, native execution and build semantics remain with their owning helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin discovery failure routes through the build's real diagnostic path, and an absent or malformed native output record cannot become an empty successful compile.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe both compile lanes and output-key ownership; separated return members explain diagnostics/status versus emitted content under documentation guidance.
@@ -46,7 +49,7 @@ import { spawnNative } from "./spawnNative";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each compile observes potentially changed source and plugin effects; this API owns no proven equivalent-generation cache. The native binary builder independently reuses its valid artifact.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources Native capture cleanup is best effort in spawnNative; plugin emission owns one accepted temporary tree through finally removal, while temp acquisition has its own failure limitations. Cleanup failure propagates after success and aggregates with a thrown failure or a build outcome carrying nonzero status or error diagnostics, preserving its diagnostics and partial output rather than masking it.
- * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node resolution and argument arrays; inheritedSidecarEnv owns child environment spelling and pathToKey converts only host separators in returned protocol keys, preserving literal POSIX backslashes.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node resolution and argument arrays; inheritedSidecarEnv owns child environment spelling and the private output owner preserves native output destinations and protocol key spelling, including literal POSIX backslashes.
  */
 export function compileProjectInMemory(options: ITtscCompilerContext): {
   /** Emitted content under the project's native API output-key convention. */
@@ -142,31 +145,35 @@ function compileProjectWithPlugins(
   result: TtscBuildResult;
 } {
   const tempRoot = createCanonicalTempDirectory("ttsc-api-output-");
-  const tempOutDir = path.join(tempRoot, "out");
   let outcome: ReturnType<typeof compileProjectInMemory> | undefined;
   let failed = false;
   let failure: unknown;
   try {
+    const layout = PrivateCompilerOutput.create(project, tempRoot);
     const result = runBuild({
       ...options,
       cwd,
       emit: true,
       forceListEmittedFiles: true,
-      outDir: tempOutDir,
-      // The temp directory is an `outDir` this lane injected so the emit can be
-      // read back as strings; the project need not declare one at all. tsgo
-      // answers an inferred common source directory with TS5011 as soon as any
-      // `outDir` is in play, so pin the root it would infer. The keys
-      // `outputKeyMapper` builds are unchanged by it — that root is exactly the
-      // layout tsgo already lays the emit out against.
-      pinInferredRootDir: true,
+      outDir: layout.destinations.outDir ?? undefined,
+      privateOutputDestinations: layout.destinations,
+      // Private output adds an outDir to source-adjacent projects. Pin only
+      // their layout root; configured roots and bundle-only layouts retain
+      // the compiler's containment and option validity.
+      pinInferredRootDir: layout.pinInferredRootDir,
       quiet: true,
       resolvedProject: project,
       structuredDiagnostics: true,
       tsconfig: project.path,
     });
     outcome = {
-      output: readOutputDirectory(tempOutDir, outputKeyMapper(project)),
+      output: PrivateCompilerOutput.read(
+        project,
+        tempRoot,
+        layout.originalPath,
+        layout.destinations.tsBuildInfoFile,
+        layout.destinations.diagnosticsTsBuildInfoFile,
+      ),
       result,
     };
     return outcome;
@@ -201,74 +208,6 @@ function compileProjectWithPlugins(
       throw cleanupError;
     }
   }
-}
-
-/**
- * Build a function that maps a path relative to the temp output directory to
- * the key used in the returned `output` map.
- *
- * When `outDir` is inside the project root the key is relative to the project
- * root (preserving the `outDir` prefix). When `outDir` is outside the project
- * root the key is absolute-style (`/absolute/outDir/relative`). When `outDir`
- * is absent the key is the bare relative path.
- */
-function outputKeyMapper(
-  project: ITtscParsedProjectConfig,
-): (relativePath: string) => string {
-  const outDir = project.compilerOptions.outDir;
-  if (!outDir) {
-    return (relativePath) => relativePath;
-  }
-  const relativeOutDir = path.relative(project.root, outDir);
-  if (relativeOutDir !== "" && !isOutsideRelativePath(relativeOutDir)) {
-    const prefix = pathToKey(relativeOutDir);
-    return (relativePath) => path.posix.join(prefix, relativePath);
-  }
-  return (relativePath) => pathToKey(path.join(outDir, relativePath));
-}
-
-/** Read every file in `directory` recursively and return a `path→content` map. */
-function readOutputDirectory(
-  directory: string,
-  keyOf: (relativePath: string) => string,
-): Record<string, string> {
-  const output: Record<string, string> = {};
-  if (!fs.existsSync(directory)) {
-    return output;
-  }
-  for (const file of listFiles(directory)) {
-    output[keyOf(pathToKey(path.relative(directory, file)))] = fs.readFileSync(
-      file,
-      "utf8",
-    );
-  }
-  return output;
-}
-
-/** Recursively list all files under `directory`, sorted for stable output. */
-function listFiles(directory: string): string[] {
-  const out: string[] = [];
-  const pending = [directory];
-  while (pending.length !== 0) {
-    const current = pending.pop()!;
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const location = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        pending.push(location);
-      } else if (entry.isFile()) {
-        out.push(location);
-      }
-    }
-  }
-  return out.sort();
-}
-
-/**
- * Convert native separators, while retaining literal POSIX backslashes, for
- * output keys.
- */
-function pathToKey(file: string): string {
-  return file.replaceAll(path.sep, "/");
 }
 
 /**

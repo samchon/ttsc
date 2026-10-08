@@ -24,7 +24,9 @@ pnpm --filter @ttsc/benchmark-evidence coverage <measurement.json>
 
 It writes `benchmarks/evidence/aggregate/coverage.json` and prints the comparison table. Run it with no arguments for the input shape.
 
-The composition is not a formality. Averaging the thirteen rates ignores structure and lets a healthy near end average away a broken far end; multiplying them treats branches as a chain and collapses toward zero, because branch failures are correlated rather than independent. One subject scored 58.4% the first way and 0.003% the second. Serial hops multiply, branches average, and every edge enters exactly once (see issue #1088 for the derivation and for the two questions it leaves open, branch weighting and the independence the serial hops still assume).
+Compose serial hops by multiplication and branches by averaging, with every edge entering once. Averaging all thirteen rates hides a broken far end behind a healthy near end; multiplying all rates treats correlated branch failures as an independent chain.
+
+Report the model's remaining assumptions: branch weighting and the independence assumed by serial multiplication. A composed value does not establish those assumptions empirically.
 
 ## Close A Cohort
 

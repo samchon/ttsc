@@ -367,7 +367,7 @@ func ownerName(declaration *shimast.Node) (string, bool) {
 func bindingOf(fn *shimast.Node) *shimast.Node {
   for parent := fn.Parent; parent != nil; parent = parent.Parent {
     switch parent.Kind {
-    case shimast.KindVariableDeclaration:
+    case shimast.KindVariableDeclaration, shimast.KindPropertyAssignment:
       return parent
     case shimast.KindAsExpression,
       shimast.KindSatisfiesExpression,
@@ -477,6 +477,10 @@ func functionBody(declaration *shimast.Node) *shimast.Node {
     }
   case shimast.KindVariableDeclaration:
     if binding := declaration.AsVariableDeclaration(); binding != nil {
+      return functionBodyOfInitializer(binding.Initializer)
+    }
+  case shimast.KindPropertyAssignment:
+    if binding := declaration.AsPropertyAssignment(); binding != nil {
       return functionBodyOfInitializer(binding.Initializer)
     }
   }
@@ -697,13 +701,20 @@ func methodName(symbol *shimast.Symbol) string {
 }
 
 // simpleName is the unqualified declared name of a symbol with no owner prefix,
-// the same form qualifiedName uses for the trailing member. A constructor's
-// internal-name prefix (\xFE) is escaped to "__" so the two agree.
+// the same form qualifiedName uses for the trailing member. Only an actual
+// private declaration loses its binder counter; public literal names can contain
+// the same text. A constructor's internal-name prefix (\xFE) becomes "__".
 func simpleName(symbol *shimast.Symbol) string {
   if symbol == nil || symbol.Name == "" {
     return ""
   }
-  return stripPrivateMangling(strings.ReplaceAll(symbol.Name, "\xFE", "__"))
+  name := strings.ReplaceAll(symbol.Name, "\xFE", "__")
+  for _, declaration := range symbol.Declarations {
+    if declared := declaration.Name(); declared != nil && declared.Kind == shimast.KindPrivateIdentifier {
+      return stripPrivateMangling(name)
+    }
+  }
+  return name
 }
 
 // stripPrivateMangling removes the checker's per-run counter from the name of a
@@ -747,6 +758,11 @@ func stripPrivateMangling(name string) string {
 func qualifiedName(symbol *shimast.Symbol) string {
   if symbol == nil {
     return ""
+  }
+  for _, declaration := range symbol.Declarations {
+    if name, ok := objectDeclarationName(declaration); ok {
+      return name
+    }
   }
   name := simpleName(symbol)
   if prefix := containerPrefix(symbol); prefix != "" {

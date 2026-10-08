@@ -46,6 +46,7 @@
     "tgrid": "^1.0.3"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@monaco-editor/react": "^4.6.0",
     "@ttsc/wasm": "workspace:^",
     "@types/semver": "^7.7.1",

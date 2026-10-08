@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { createNativeProjectContextJson } from "../compiler/internal/project/createNativeProjectContextJson";
 import { resolveBinary } from "../compiler/internal/resolveBinary";
+import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "../internal/E2ETrace";
 import { javascriptRuntimeCapabilities } from "../internal/javascriptRuntimeCapabilities";
 import type {
@@ -222,11 +223,13 @@ export function resolveCapabilityPluginResolution(options: {
  * A direct hook-capable Node executable selects itself for both direct and ttsx
  * evaluation. Bun, wrappers and startup preloads introduce additional
  * authorities that this cache format does not observe, so they are not reused.
- * Private tracing reports this operation's existing decision and preserves
+ * Native environment-name lookup preserves Windows aliases on direct and
+ * worker calls; POSIX names remain case-sensitive. Private tracing reports this
+ * operation's existing decision and preserves
  * short-circuited comparisons as unobserved, without repeating native queries.
  */
 function capabilityRuntimeAuthorityComplete(cwd: string): boolean {
-  if (process.env.NODE_OPTIONS?.trim()) {
+  if (SidecarEnvironment.read(process.env, "NODE_OPTIONS")?.trim()) {
     E2ETrace.capabilityResolution("runtime-authority", {
       cwd,
       proved: false,
@@ -234,7 +237,8 @@ function capabilityRuntimeAuthorityComplete(cwd: string): boolean {
     });
     return false;
   }
-  const runtime = process.env.TTSC_NODE_BINARY ?? process.execPath;
+  const runtime =
+    SidecarEnvironment.read(process.env, "TTSC_NODE_BINARY") ?? process.execPath;
   if (!path.isAbsolute(runtime)) {
     E2ETrace.capabilityResolution("runtime-authority", {
       cwd,

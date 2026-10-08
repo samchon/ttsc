@@ -496,6 +496,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
       typescript: {},
       graph: {
         edges: {},
+        globals: [],
         configs: [original, wrapper, sibling],
         inputObservations: {
           [original]: originalObservation,
@@ -527,6 +528,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
     const cached: TtscCachedProjectTransform = {
       projectRoot: scratchRoot,
       tsconfig: original,
+      membershipPolicy: readProjectMembershipPolicy(original),
       result,
       inputHashes: {},
       scratchDirectory: scratch,
@@ -587,6 +589,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
   const persistentConflict: TtscCachedProjectTransform = {
     projectRoot: scratchRoot,
     tsconfig: original,
+    membershipPolicy: readProjectMembershipPolicy(original),
     inputHashes: {},
     scratchDirectory: scratch,
     result: {
@@ -594,6 +597,7 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
       typescript: {},
       graph: {
         edges: {},
+        globals: [],
         configs: [original],
         inputObservations: {
           [original]: originalObservation,
@@ -639,6 +643,8 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
         typescript: { "src/main.ts": "export {};\n" },
         graph: {
           edges: { "src/main.ts": [] },
+          globals: [],
+          configs: [],
           candidates: { "src/main.ts": [present, aliasedCandidate] },
           inputHashes: {
             "src/main.ts": mainHash,
@@ -662,6 +668,9 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
       const cached: TtscCachedProjectTransform = {
         projectRoot: root,
         tsconfig: path.join(root, "tsconfig.json"),
+        membershipPolicy: readProjectMembershipPolicy(
+          path.join(root, "tsconfig.json"),
+        ),
         result,
         inputHashes: {},
       };
@@ -717,14 +726,16 @@ export async function test_graph_observation_merge_preserves_predicates_and_lega
   const nativeResult: ITtscCompilerTransformation.ISuccess = {
     type: "success",
     typescript: {},
-    graph: { edges: {} },
+    graph: { edges: {}, globals: [], configs: [] },
   };
-  const nativeCached: TtscCachedProjectTransform = {
+  // These native predicate consumers need only the root/result carrier. There
+  // is deliberately no project config or membership proof in this corpus.
+  const nativeCached = {
     projectRoot: nativeRoot,
     tsconfig: path.join(nativeRoot, "tsconfig.json"),
     inputHashes: {},
     result: nativeResult,
-  };
+  } as unknown as TtscCachedProjectTransform;
   const identities = envelopeDerivation(nativeCached).identityContext;
   type Native = NonNullable<Observation["nativePredicates"]>[number];
   const authored: Array<[string, Native]> = [

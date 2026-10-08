@@ -24,6 +24,7 @@
   },
   "homepage": "https://ttsc.dev",
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "rimraf": "catalog:utils",
     "rollup": "catalog:rollup",
     "typescript": "catalog:typescript"

@@ -6,9 +6,9 @@ import (
 )
 
 /**
- * Verifies a reviewed checklist expires one item's answers and leaves the rest green.
+ * Verifies a reviewed checklist expires one sibling item's answers and leaves the other sibling green.
  *
- * Per-item expiry is the property a checklist is documented to buy, and it exists only because the aggregate citation is refused: one document-wide tag would carry one fingerprint for the whole document and every edit would expire everything. Editing one item must therefore reach that item's reviews on every host and no others.
+ * This fixture has two sibling H2 items, so editing one must expire that item's reviews on every host and leave the unrelated sibling's reviews valid. Refusing the document-wide shortcut preserves these separate answers without narrowing fingerprints: a cited ancestor would still expire when its structural subtree changes.
  *
  *  1. Answer a two-item checklist from two hosts, each review carrying the fingerprint the graph asks for.
  *  2. Assert the reviewed checklist passes.

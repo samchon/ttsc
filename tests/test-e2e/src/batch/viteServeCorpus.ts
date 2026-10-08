@@ -30,9 +30,18 @@ export async function viteServeCorpus(
   const authoredDescriptor = fs.readFileSync(descriptor, "utf8");
   if (!authoredDescriptor.includes("__VITE_NATIVE_SOURCE__"))
     throw new Error("Vite native fixture must retain its authored source slot");
-  fs.writeFileSync(descriptor, authoredDescriptor.replace("__VITE_NATIVE_SOURCE__", JSON.stringify(
-    path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/vite-serve-module/serve-probe"),
-  )));
+  fs.writeFileSync(
+    descriptor,
+    authoredDescriptor.replace(
+      "__VITE_NATIVE_SOURCE__",
+      JSON.stringify(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "packages/unplugin/test/fixtures/vite-serve-module/serve-probe",
+        ),
+      ),
+    ),
+  );
   const original = new Map(
     [
       "src/main.ts",

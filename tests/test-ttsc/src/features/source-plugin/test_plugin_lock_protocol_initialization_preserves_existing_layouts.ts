@@ -20,38 +20,78 @@ export function test_plugin_lock_protocol_initialization_preserves_existing_layo
   const lock = path.join(root, "normal.lock");
   const protocol = PluginBuildLockProtocol.pluginBuildLockProtocolDir(lock);
   for (const code of ["EPERM", "EACCES"])
-    assert.equal(PluginBuildLockProtocol.isRenameDestinationOccupied({ code }, protocol), false);
-  assert.equal(PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocol), false);
+    assert.equal(
+      PluginBuildLockProtocol.isRenameDestinationOccupied({ code }, protocol),
+      false,
+    );
+  assert.equal(
+    PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocol),
+    false,
+  );
   const original = acquirePluginBuildLock(lock);
   assert.ok(original);
   try {
-    assert.equal(fs.readFileSync(path.join(protocol, "protocol-v3"), "utf8"), "ttsc-plugin-build-lock-v3\n");
-    assert.equal(PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocol), true);
+    assert.equal(
+      fs.readFileSync(path.join(protocol, "protocol-v3"), "utf8"),
+      "ttsc-plugin-build-lock-v3\n",
+    );
+    assert.equal(
+      PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocol),
+      true,
+    );
     for (const code of ["EPERM", "EACCES", "EEXIST", "ENOTEMPTY"])
-      assert.equal(PluginBuildLockProtocol.isRenameDestinationOccupied({ code }, protocol), true);
+      assert.equal(
+        PluginBuildLockProtocol.isRenameDestinationOccupied({ code }, protocol),
+        true,
+      );
     assert.equal(acquirePluginBuildLock(lock), null);
   } finally {
     releasePluginBuildLock(lock, original);
   }
-  assert.equal(PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocol), true);
+  assert.equal(
+    PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocol),
+    true,
+  );
   const next = acquirePluginBuildLock(lock);
   assert.ok(next);
   try {
     assert.notEqual(next.generation, original.generation);
-    assert.equal(fs.readFileSync(path.join(protocol, "protocol-v3"), "utf8"), "ttsc-plugin-build-lock-v3\n");
+    assert.equal(
+      fs.readFileSync(path.join(protocol, "protocol-v3"), "utf8"),
+      "ttsc-plugin-build-lock-v3\n",
+    );
   } finally {
     releasePluginBuildLock(lock, next);
   }
   const foreignLock = path.join(root, "foreign.lock");
-  const foreign = PluginBuildLockProtocol.pluginBuildLockProtocolDir(foreignLock);
+  const foreign =
+    PluginBuildLockProtocol.pluginBuildLockProtocolDir(foreignLock);
   fs.mkdirSync(foreign);
   fs.writeFileSync(path.join(foreign, "protocol-v3"), "foreign protocol\n");
   fs.writeFileSync(path.join(foreign, "sentinel"), "must remain\n");
-  assert.equal(PluginBuildLockProtocol.isRenameDestinationOccupied({ code: "EPERM" }, foreign), true);
-  assert.equal(PluginBuildLockProtocol.isPluginBuildLockProtocolV3(foreign), false);
+  assert.equal(
+    PluginBuildLockProtocol.isRenameDestinationOccupied(
+      { code: "EPERM" },
+      foreign,
+    ),
+    true,
+  );
+  assert.equal(
+    PluginBuildLockProtocol.isPluginBuildLockProtocolV3(foreign),
+    false,
+  );
   assert.throws(() => acquirePluginBuildLock(foreignLock));
   assert.deepEqual(fs.readdirSync(foreign).sort(), ["protocol-v3", "sentinel"]);
-  assert.equal(fs.readFileSync(path.join(foreign, "protocol-v3"), "utf8"), "foreign protocol\n");
-  assert.equal(fs.readFileSync(path.join(foreign, "sentinel"), "utf8"), "must remain\n");
-  assert.deepEqual(fs.readdirSync(root).filter((name) => name.includes(".candidate-")), []);
+  assert.equal(
+    fs.readFileSync(path.join(foreign, "protocol-v3"), "utf8"),
+    "foreign protocol\n",
+  );
+  assert.equal(
+    fs.readFileSync(path.join(foreign, "sentinel"), "utf8"),
+    "must remain\n",
+  );
+  assert.deepEqual(
+    fs.readdirSync(root).filter((name) => name.includes(".candidate-")),
+    [],
+  );
 }

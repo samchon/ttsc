@@ -35,7 +35,7 @@ export interface InputEntry {
    */
   aliases: Set<string>;
 
-  /** Latest native event already associated with this registered spelling. */
+  /** Latest native event or new shared-scope admission for this spelling. */
   changedAt: number;
 
   /** Recorded states by serialized evidence, each with its owners. */

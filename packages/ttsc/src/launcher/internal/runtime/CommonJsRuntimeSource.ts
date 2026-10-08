@@ -36,18 +36,22 @@ export namespace CommonJsRuntimeSource {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Policy installation does not authorize sharing a compiled result.
    * @evidence contracts/performance.md#bound-retention-and-release-resources This helper instance retains one replaceable policy; its installation-owned global symbol slot retains the factory even if its CommonJS cache entry is removed. No per-request history or native handle is added.
    */
-  export function configure(policy: Resolver, adaptModuleApi: boolean = false): void {
+  export function configure(
+    policy: Resolver,
+    adaptModuleApi: boolean = false,
+  ): void {
     resolve = policy;
     moduleApiAdapted = adaptModuleApi;
     factories[FACTORY_KEY] = create;
-    (globalThis as unknown as Record<symbol, unknown>)[MODULE_KEY] = moduleFacade;
+    (globalThis as unknown as Record<symbol, unknown>)[MODULE_KEY] =
+      moduleFacade;
   }
 
   /**
    * A private public-hook URL serves an owned view of Node's module API on
-   * runtimes whose native createRequire.resolve does not consult hooks.
-   * The view delegates construction and every unrelated member to Node.
-   * Its createRequire returns the same source-aware callable used by served
+   * runtimes whose native createRequire.resolve does not consult hooks. The
+   * view delegates construction and every unrelated member to Node. Its
+   * createRequire returns the same source-aware callable used by served
    * CommonJS modules; Node's original exports and module cache are untouched.
    *
    * @evidence contracts/common.md#principled-implementation The load hook supplies this module body and bypasses only its own native import. A process-owned symbol supplies the shared facade without assigning a foreign property.
@@ -85,8 +89,11 @@ export namespace CommonJsRuntimeSource {
     const native = createRequire(filename);
     const owned = ((specifier: string) => {
       const loaded = native(specifier);
-      if (moduleApiAdapted && (specifier === "node:module" || specifier === "module") &&
-          (loaded === NativeModule || loaded?.default === moduleFacade))
+      if (
+        moduleApiAdapted &&
+        (specifier === "node:module" || specifier === "module") &&
+        (loaded === NativeModule || loaded?.default === moduleFacade)
+      )
         return moduleFacade;
       return loaded;
     }) as NodeJS.Require;
@@ -219,7 +226,11 @@ const MODULE_URL = `ttsc:owned-module:${encodeURIComponent(__filename)}`;
 const moduleFacade = function (this: unknown, ...args: unknown[]): unknown {
   return new.target === undefined
     ? Reflect.apply(NativeModule, this, args)
-    : Reflect.construct(NativeModule, args, Object.is(new.target, moduleFacade) ? NativeModule : new.target);
+    : Reflect.construct(
+        NativeModule,
+        args,
+        Object.is(new.target, moduleFacade) ? NativeModule : new.target,
+      );
 } as unknown as typeof NativeModule;
 Object.setPrototypeOf(moduleFacade, Object.getPrototypeOf(NativeModule));
 for (const key of Reflect.ownKeys(NativeModule)) {
@@ -232,9 +243,10 @@ Object.defineProperty(moduleFacade, "createRequire", {
   ...Object.getOwnPropertyDescriptor(NativeModule, "createRequire"),
   value: (anchor: string | URL): NodeJS.Require => {
     const native = createRequire(anchor);
-    const filename = anchor instanceof URL || anchor.startsWith("file:")
-      ? fileURLToPath(anchor)
-      : anchor;
+    const filename =
+      anchor instanceof URL || anchor.startsWith("file:")
+        ? fileURLToPath(anchor)
+        : anchor;
     return CommonJsRuntimeSource.create(native, filename);
   },
 });

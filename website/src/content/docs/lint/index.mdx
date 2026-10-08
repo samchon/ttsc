@@ -45,7 +45,7 @@ npx ttsc format         # rewrite source files with the format rules only
 
 `ttsc fix` is a one-shot project pass. It rejects `--watch`, single-file mode, and `--emit`. Fixes write to disk before the recheck runs, so source stays modified even when the command exits non-zero on remaining errors. Recommended flow: `ttsc fix` locally, commit, then CI runs `ttsc --noEmit` to gate on cleanliness.
 
-`ttsc fix` and `ttsc format` differ on defaults: `ttsc format` applies the always-on default formatter even when no `format` block is configured, while `ttsc fix` applies formatting only from a configured `format` block. With no `format` block, `ttsc fix` is a pure lint autofix pass — add a `format` block (or run `ttsc format`) to reformat as well.
+`ttsc fix` and `ttsc format` differ on defaults: `ttsc format` applies the always-on default formatter even when no `format` block is configured, while `ttsc fix` applies formatting only from a configured `format` block. With no `format` block, `ttsc fix` is a pure lint autofix pass. Add a `format` block (or run `ttsc format`) to reformat as well.
 
 ## Which files are linted
 
@@ -54,6 +54,8 @@ The lint pass reads the TypeScript the type-check pass reads: your `tsconfig.jso
 Your config decides what runs there. A `files` selector scopes an entry to the paths it names, and a path outside the config's own directory matches no selector, so a config written as `files: ["src/**/*.ts"]` reports nothing on an imported sibling. A config with no selector applies its rules everywhere it reads, including that sibling. A global `ignores` entry removes a file from the walk as well, and its patterns anchor at the config's directory the same way, so it reaches an imported file inside your project rather than a sibling above it.
 
 Declaration files and JavaScript stay selection-driven. A `.d.ts` is typings rather than authored source, and JavaScript enters the Program only through `allowJs`, so both are linted only when your own `tsconfig.json` selects them. An import never pulls either into scope.
+
+Bundled standard libraries follow the same selection rule. Loading a library for type checking does not make it project-owned. An explicitly selected bundled library keeps its compiler virtual address; native file aliases continue to resolve to their physical project ownership.
 
 Writes stay inside the project. `ttsc format` never leaves your own file list at all, so importing a sibling package cannot reformat it. `ttsc fix` reports on an imported source, because it prints diagnostics when the cascade settles, and applies edits only to the files your `tsconfig.json` selected. The package that owns the file fixes it from its own run.
 

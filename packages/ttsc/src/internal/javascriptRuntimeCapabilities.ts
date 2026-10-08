@@ -5,6 +5,7 @@ import path from "node:path";
 import { captureProcessOutput } from "../compiler/internal/captureProcessOutput";
 import { SidecarEnvironment } from "../compiler/internal/sharedHost/SidecarEnvironment";
 import { E2ETrace } from "./E2ETrace";
+import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
 import type { IJavaScriptRuntimeCapabilities } from "./IJavaScriptRuntimeCapabilities";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { runtimeExecutableIdentity } from "./runtimeExecutableIdentity";
@@ -55,7 +56,9 @@ export function javascriptRuntimeCapabilities(
     args,
     options,
     "runtime-capability-probe",
-    () => childProcess.spawnSync(runtime, args, options),
+    () =>
+      OwnedSynchronousProcess.launch<string>(runtime, args, options) ??
+      childProcess.spawnSync(runtime, args, options),
   );
   if (process.platform !== "win32" && isSpawnSyncFdExhaustion(result.error)) {
     const capture = captureProcessOutput();

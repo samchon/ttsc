@@ -505,6 +505,9 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
       continue
     }
     fn(nodeID(path, qualifiedName(symbol), NodeVariable), binding)
+    if variable := binding.AsVariableDeclaration(); variable != nil {
+      forEachObjectDeclaration(path, variable.Initializer, fn)
+    }
     forEachClosureIn(path, binding, fn)
   }
 }

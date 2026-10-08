@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 
 export interface LoaderPoolOutcome {
@@ -50,14 +52,19 @@ export interface LoaderPoolOutcome {
  * command/reply barriers add no adapter delivery. An exited seed is a
  * separately recorded real process, not a unit-only observation. timeout
  * refuses ownership resolution; it does not kill or certify release.
+ * Parent-owned command observations retain ids, authored phase labels and the
+ * actual child PID in the existing runner trace. Each resident writes at most
+ * 256 ordinary rows plus its actual close row; no source or reply payload is
+ * copied. A failed diagnostic sink reports once on stderr without replacing
+ * transport outcomes or certifying closure.
  *
  * @evidence contracts/testing.md#behavioral-verification An opt-in readiness result carries actual public preparation binaries and elapsed time before delivery; preparation error or child error/close rejects that owner. The caller submits normal/failure/replay/repair observations to one actual adapter child, collects its line replies and joins close before releasing shared inputs.
- * @evidence contracts/testing.md#independent-expectations Authored command ids route literal child outcomes; the caller compares native outputs, diagnostic markers and publication identities independently of this transport.
+ * @evidence contracts/testing.md#independent-expectations Authored command ids route literal child outcomes; the caller compares native outputs, diagnostic markers and publication identities independently of this transport. Caller-authored phase labels identify the unchanged commands in bounded parent observations; they are not native result or timing oracles.
  * @evidence contracts/testing.md#distinguishing-cases Concurrent outstanding ids, fragmented lines, delivery deadline, child error/nonzero close and unresolved close are explicit ownership states; none invents a native result.
  * @evidence contracts/testing.md#execution-ownership The loader-pool experiment initially owns Metro and Turbopack workers, then acquires one fresh Metro worker only after both actually join, to distinguish offline edits from old in-memory validation. Other request calls reuse their existing process; native preparation totals are not certified.
  * @evidence contracts/e2e.md#necessary-boundary Actual built adapter processes and their session-native producer must communicate before publication sharing can be observed.
  * @evidence contracts/e2e.md#shared-execution The initial Metro resident owns one additional public prepare call and descriptor/admission re-observation before bounded delivery; it does not acquire a Program or certify a cache hit. One command stream keeps each adapter module/cache owner resident across the same project states.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit owned cwd/cache/session and complete close receipts bound reuse; unresolved delivery/close is failure, never release proof or forced process termination. An optional runtime-inputs object-cache coordinate is command data only; worker environment, binary namespace and request deadline remain intact. It is supplied only after native-name inspection finds no nonempty inherited dedicated/external cache.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Explicit owned cwd/cache/session and complete close receipts bound reuse; unresolved delivery/close is failure, never release proof or forced process termination. A unique parent-owned JSONL file in the existing trace root bounds observations to 256 ordinary rows plus actual close, truncates phase/error text and reports a sink failure once on stderr without replacing transport errors. An optional runtime-inputs object-cache coordinate is command data only; worker environment, binary namespace and request deadline remain intact. It is supplied only after native-name inspection finds no nonempty inherited dedicated/external cache.
  * @evidence contracts/e2e.md#preserved-coverage The caller retains initial Metro forwarding/Turbopack map and dependency controls while extending actual failure sharing/replay/repair; no legacy case/profile loop is invoked.
  */
 export function createLoaderPoolWorker(props: {
@@ -97,12 +104,59 @@ export function createLoaderPoolWorker(props: {
   let buffered = "",
     stderr = "",
     next = 0;
+  const observationInstance = randomUUID();
+  const observationFile = path.join(
+    props.traceRoot,
+    `${process.pid}-loader-pool-${observationInstance}.jsonl`,
+  );
+  let observationSequence = 0;
+  let observationFailed = false;
+  let omittedObservations = 0;
+  const observe = (
+    state: string,
+    data: Record<string, string | number | boolean | null> = {},
+  ): void => {
+    if (observationFailed) return;
+    if (observationSequence >= 256 && state !== "closed") {
+      omittedObservations++;
+      return;
+    }
+    try {
+      fs.appendFileSync(
+        observationFile,
+        JSON.stringify({
+          schema: 1,
+          event: "loader-pool-command",
+          writerPid: process.pid,
+          instance: observationInstance,
+          sequence: ++observationSequence,
+          at: new Date().toISOString(),
+          data: {
+            ...data,
+            state,
+            mode: props.mode,
+            childPid: child.pid ?? null,
+            omittedObservations,
+            writerRuntime: process.version,
+          },
+        }) + "\n",
+      );
+    } catch (error) {
+      observationFailed = true;
+      console.error(
+        "Loader-pool command observation failed: " +
+          String(error).slice(0, 1024),
+      );
+    }
+  };
+  observe("spawned");
   const pending = new Map<
     number,
     {
       resolve(reply: LoaderPoolOutcome): void;
       reject(error: unknown): void;
       timer: ReturnType<typeof setTimeout>;
+      phase: string;
     }
   >();
   let resolvePreparation: (
@@ -132,7 +186,8 @@ export function createLoaderPoolWorker(props: {
   });
   void ready.catch(() => undefined);
   const rejectPending = (error: unknown) => {
-    for (const request of pending.values()) {
+    for (const [id, request] of pending) {
+      observe("rejected", { id, phase: request.phase });
       clearTimeout(request.timer);
       request.reject(error);
     }
@@ -156,6 +211,7 @@ export function createLoaderPoolWorker(props: {
           };
         };
         if (reply.readiness === true) {
+          observe("readiness", { failed: reply.error !== undefined });
           if (!preparationPending)
             throw new Error(`${props.mode}: unexpected readiness ${line}`);
           preparationPending = false;
@@ -173,6 +229,11 @@ export function createLoaderPoolWorker(props: {
           throw new Error(`${props.mode}: unexpected response ${line}`);
         pending.delete(reply.id);
         clearTimeout(request.timer);
+        observe("replied", {
+          id: reply.id,
+          phase: request.phase,
+          failed: reply.error !== undefined,
+        });
         request.resolve(reply);
       } catch (error) {
         rejectPreparation(error);
@@ -185,12 +246,14 @@ export function createLoaderPoolWorker(props: {
   });
   let processError: Error | undefined;
   child.once("error", (error) => {
+    observe("process-error", { error: String(error).slice(0, 1024) });
     processError = error;
     rejectPreparation(error);
     rejectPending(error);
   });
   const closed = new Promise<void>((resolve, reject) =>
     child.once("close", (code, signal) => {
+      observe("closed", { code, signal, pending: pending.size });
       const error =
         processError ??
         (code !== 0 || signal !== null
@@ -235,16 +298,22 @@ export function createLoaderPoolWorker(props: {
         };
       },
       graphProof?: { api: string; session: string; programRunLog: string },
+      phase = "delivery",
     ) =>
       new Promise<LoaderPoolOutcome>((resolve, reject) => {
         const id = ++next;
+        const label = phase.slice(0, 128);
+        observe("sent", { id, phase: label, deadlineMs: 120_000 });
         const timer = setTimeout(() => {
           pending.delete(id);
+          observe("deadline", { id, phase: label });
           reject(
-            new Error(`${props.mode}: delivery remains unresolved: ${stderr}`),
+            new Error(
+              `${props.mode}: delivery remains unresolved (id=${id}, phase=${label}, childPid=${child.pid}): ${stderr}`,
+            ),
           );
         }, 120_000);
-        pending.set(id, { resolve, reject, timer });
+        pending.set(id, { resolve, reject, timer, phase: label });
         child.stdin.write(
           JSON.stringify({
             id,
@@ -259,18 +328,22 @@ export function createLoaderPoolWorker(props: {
     pluginLock: (input: { root: string; api: string; action: string }) =>
       new Promise<LoaderPoolOutcome>((resolve, reject) => {
         const id = ++next;
+        const phase = ("plugin-lock:" + input.action).slice(0, 128);
+        observe("sent", { id, phase, deadlineMs: 120_000 });
         const timer = setTimeout(() => {
           pending.delete(id);
+          observe("deadline", { id, phase });
           reject(
             new Error(
-              `${props.mode}: plugin lock transition remains unresolved: ${stderr}`,
+              `${props.mode}: plugin lock transition remains unresolved (id=${id}, phase=${phase}, childPid=${child.pid}): ${stderr}`,
             ),
           );
         }, 120_000);
-        pending.set(id, { resolve, reject, timer });
+        pending.set(id, { resolve, reject, timer, phase });
         child.stdin.write(JSON.stringify({ id, pluginLock: input }) + "\n");
       }),
     close: async () => {
+      observe("close-sent", { pending: pending.size });
       child.stdin.end(JSON.stringify({ close: true }) + "\n");
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
@@ -281,7 +354,7 @@ export function createLoaderPoolWorker(props: {
               () =>
                 reject(
                   new Error(
-                    `${props.mode}: close remains unresolved: ${stderr}`,
+                    `${props.mode}: close remains unresolved (childPid=${child.pid}): ${stderr}`,
                   ),
                 ),
               120_000,

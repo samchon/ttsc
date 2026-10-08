@@ -13,12 +13,15 @@ import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCa
  * action when no owner exists.
  *
  * Server watching is disabled only by null; build watching requires a non-null
- * value. Configuration updates these modes without resetting existing
- * ownership. Poller disposal, bridge closure and delivery passes remain
+ * value. Configuration retains the resolved object and reads its settled modes
+ * again at each start, after later configResolved hooks may have mutated it.
+ * This does not reset existing ownership. Poller disposal and delivery remain
  * caller-owned.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Stable container identity prevents an old end from releasing a replacement.
+ *   Start refreshes modes from the retained resolution after host hooks settle;
+ *   watch registration, delivery admission and polling consume those same modes.
  *   The first ordinary build acquires one lease and its final end releases it;
  *   serve and watching-build resets retain their distinct actual boundaries.
  * @evidence contracts/common.md#clear-and-simple-design
@@ -43,7 +46,9 @@ import { resetTtscTransformCache } from "../transform/cache/resetTtscTransformCa
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The weak set does not retain owner objects, but owners must deliver matching
  *   ends to reduce the count. Close replaces bookkeeping. The delegated lease
- *   owns its unreferenced grace timer and cache reclamation, with no deadline
+ *   owns its unreferenced grace timer and cache reclamation. The latest resolved
+ *   configuration stays reachable through one refresh closure until replaced
+ *   or the controller is collected. There is no deadline
  *   for unresolved generations or delayed timer callbacks.
  */
 export function createViteBuildLifecycle(cache: TtscTransformCache) {
@@ -51,6 +56,8 @@ export function createViteBuildLifecycle(cache: TtscTransformCache) {
   let command: string | undefined;
   let watching = true;
   let buildWatching = false;
+  let usePolling = false;
+  let refreshModes = (): void => {};
   let owners = new WeakSet<object>();
   let lifecycles = 0;
   return {
@@ -66,18 +73,32 @@ export function createViteBuildLifecycle(cache: TtscTransformCache) {
     get buildWatching(): boolean {
       return buildWatching;
     },
-    /** Update modes in their original property-read and assignment order. */
+    /** Explicit polling declared by the latest resolved server watch options. */
+    get usePolling(): boolean {
+      return usePolling;
+    },
+    /** Retain this resolution so later host hooks can settle its modes. */
     configure(config: {
       command: string;
       server?: { watch?: unknown };
       build?: { watch?: unknown };
     }): void {
-      command = config.command;
-      watching = config.server?.watch !== null;
-      buildWatching = config.build?.watch != null;
+      refreshModes = () => {
+        command = config.command;
+        const watch = config.server?.watch;
+        watching = watch !== null;
+        buildWatching = config.build?.watch != null;
+        usePolling =
+          typeof watch === "object" &&
+          watch !== null &&
+          "usePolling" in watch &&
+          watch.usePolling === true;
+      };
+      refreshModes();
     },
     /** Register one container identity, acquiring only the first build lease. */
     start(owner: object): void {
+      refreshModes();
       if (command !== undefined && !owners.has(owner)) {
         owners.add(owner);
         lifecycles += 1;

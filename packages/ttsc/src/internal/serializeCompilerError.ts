@@ -4,7 +4,9 @@
  * Error name, message and stack are explicit because they are not enumerable.
  * Plain outcome objects and arrays retain enumerable string-keyed data.
  * Repeated objects use a JSON-pointer reference marker, making cycles in a
- * finite observed graph finite without duplicating shared outcome trees. Values
+ * finite observed graph finite without duplicating shared outcome trees. Source
+ * objects shaped like reference or literal-object envelopes are escaped under
+ * `$ttscProperties`, keeping their data distinct from generated markers. Values
  * JSON cannot express use a tagged description. Accessor descriptors are not
  * invoked to read their values. Reflection can execute Proxy traps and expose
  * changing objects, so arbitrary reflective behavior has no deadline or fixed
@@ -12,9 +14,9 @@
  * is marked rather than replacing the compiler's exception. Internal slots of
  * foreign classes are not projected into ordinary data.
  *
- * @evidence contracts/common.md#principled-implementation Explicit Error fields preserve exception meaning while recursively retaining cause, aggregate errors and ordinary outcome data; pointer markers distinguish repeated references and tagged values distinguish JSON-inexpressible primitives from lost fields.
+ * @evidence contracts/common.md#principled-implementation Explicit Error fields preserve exception meaning while recursively retaining cause, aggregate errors and ordinary outcome data. Pointer markers distinguish repeated references, literal envelopes escape colliding source shapes, and tagged values describe JSON-inexpressible primitives without dropping fields.
  * @evidence contracts/common.md#clear-and-simple-design One traversal owns API and worker failure transport, with private property and scalar helpers; compiler status classification remains separate from serialization.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Available causal data is preserved rather than replaced with only the outer message; traversal marks accessor descriptors instead of invoking their getters and does not patch Error serialization. Proxy reflection may execute traps or fail, with inspection failures explicitly marked rather than inventing outcome data.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Available causal data is preserved rather than replaced with only the outer message; literal marker-shaped metadata is escaped rather than prohibited or reinterpreted. Traversal marks accessor descriptors instead of invoking getters and does not patch Error serialization. Proxy reflection may execute traps or fail, with inspection failures explicitly marked rather than inventing outcome data.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the retained Error/outcome fields, finite reference representation, exceptional scalars and accessor policy with separate acknowledgments.
  * @evidence contracts/performance.md#efficient-algorithms For a finite observed graph, an explicit stack visits V distinct objects and E reflected owned fields once, with P prototype observations for inherited Error text, scalar/text conversion and pointer spelling costs. O(V+E+P) structural work excludes arbitrary Proxy-trap execution; shared subtrees are not expanded again and traversal does not recurse on the JavaScript call stack. Descriptor collections and pending outputs scale with the observed graph and text.
  *
@@ -52,13 +54,23 @@ export function serializeCompilerError(error: unknown): unknown {
     const { input, output, pointer } = pending.pop()!;
     let fields: Record<string, PropertyDescriptor>;
     let isError: boolean;
+    let destination = output;
+    let fieldPointer = pointer;
     try {
       fields = Object.getOwnPropertyDescriptors(input);
       isError = input instanceof Error;
+      const keys = Object.keys(fields).filter((key) => fields[key]!.enumerable);
+      if (!isError && !Array.isArray(input) &&
+          ((keys.length === 1 && keys[0] === "$ttscReference") ||
+           (keys.length === 2 && keys.includes("$ttscValue") && keys.includes("$ttscProperties")))) {
+        destination = {};
+        Object.assign(output, { $ttscValue: "object", $ttscProperties: destination });
+        fieldPointer = `${pointer}/$ttscProperties`;
+      }
       if (isError) {
         // Built-in names may be inherited; own Error data overrides them below.
         const stack = errorDataField(input as Error, "stack");
-        Object.assign(output, {
+        Object.assign(destination, {
           message: errorDataField(input as Error, "message") ?? "",
           name: errorDataField(input as Error, "name") ?? "Error",
           ...(stack === undefined ? {} : { stack }),
@@ -81,10 +93,10 @@ export function serializeCompilerError(error: unknown): unknown {
         "value" in descriptor
           ? describe(
               descriptor.value,
-              `${pointer}/${key.replaceAll("~", "~0").replaceAll("/", "~1")}`,
+              `${fieldPointer}/${key.replaceAll("~", "~0").replaceAll("/", "~1")}`,
             )
           : { $ttscValue: "accessor" };
-      Object.defineProperty(output, key, {
+      Object.defineProperty(destination, key, {
         configurable: true,
         enumerable: true,
         value,

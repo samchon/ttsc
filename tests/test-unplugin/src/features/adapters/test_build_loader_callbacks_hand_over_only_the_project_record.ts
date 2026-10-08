@@ -35,10 +35,17 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * generation from the public shared cache. No producer, compiler or loader host
  * is substituted, and the expected output is authored consumer data.
  *
- * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first and repeated delivery; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, the realized directory's graph-kind hash and physical target, and project membership. Actual compilerGraphInputProofFailures separately replays the rich empty-directory listing and checks its agreement with that legacy proof. Actual createBuildWatchFile separately routes Farm module/input pairs, webpack/Rspack input-only loader dependencies and generic fallback calls with original receivers and exact callback errors. A native configured-root link over a physical module connects hostToolDirectory/projectRecordFile, actual notifyWatchInputs record persistence and registerProjectRecord to the Farm channel without a Farm private cache. Actual resolveConfiguredHostRoot/selectBuildHostRoot fix empty, relative and absolute configured spellings at config-time while omitted roots read current cwd, composing the selected native alias into that persisted record.
+ * 1. Deliver one observed generation through both raw compiler callbacks and
+ *    capture their sole project-record dependency.
+ * 2. Close the captured session and deliver again, preserving the generation,
+ *    record bytes and dependency channels until compiler shutdown.
+ * 3. Contrast loader, Farm and fallback channels, callback errors and a linked
+ *    configured root's stable record spelling.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real webpack/Rspack raw transform callbacks serve the exact cached output, retain its promise and hand one persisted project record to addDependency on first delivery and repeated delivery after the captured watchClose callback; addMissingDependency/addContextDependency receive nothing. The record carries native config/declaration bytes, an absent candidate predicate, the realized directory's graph-kind hash and physical target, and project membership. Actual compilerGraphInputProofFailures separately replays the rich empty-directory listing and checks its agreement with that legacy proof. Actual createBuildWatchFile separately routes Farm module/input pairs, webpack/Rspack input-only loader dependencies and generic fallback calls with original receivers and exact callback errors. A native configured-root link over a physical module connects hostToolDirectory/projectRecordFile, actual notifyWatchInputs record persistence and registerProjectRecord to the Farm channel without a Farm private cache. Actual resolveConfiguredHostRoot/selectBuildHostRoot fix empty, relative and absolute configured spellings at config-time while omitted roots read current cwd, composing the selected native alias into that persisted record.
  * @evidence contracts/testing.md#independent-expectations One module-level record dependency rather than the individual source/config paths follows the build-host handoff contract. Exact literal output, promise identity, empty alternate channels and independently present native input keys distinguish wrong handoff or loss of caching. Node SHA-256 independently supplies the declaration hash and the fixed directory-kind marker hash; native stat/readdir/realpath establish the empty directory input. The absent candidate retains its exact negative predicate, while the realized directory retains its admitted graph hash/physical target rather than an unretained predicate carrier. Record bytes stay identical across repeated handoff. Authored exact module/input strings and callback ledgers independently fix channel arguments. A native-context getter counted once and distinct selected/replacement loader objects distinguish factory selection from per-call method lookup; Error identity and context identity are independent literals. Native lstat/realpath independently establish the configured-root alias; Node SHA-256 of the lexical linked config determines its expected record filename, while persisted selected-config spelling/input key and exact physical target distinguish relocation or canonicalization. Two independently existing native cwd roots separate config-time anchoring from invocation-time fallback, and exact prior cwd is restored synchronously in finally.
  * @evidence contracts/testing.md#distinguishing-cases Both raw compiler callback families use a nonwatching context with the same settled input; each is isolated by its native fixture/options key. Additional factory rows contrast present loader versus absent native/absent loader fallback, Farm two-argument association versus loader/generic input-only calls, repeated registration, retained loader selection, changed methods and error propagation. The linked configured-root row distinguishes physical module spelling from lexical config/record spelling and repeats the same persisted handoff without changing bytes. Undefined differs from an explicit empty root; relative and absolute native alias selections stay fixed when cwd moves while an omitted root follows it. Real watching streams, automatic Farm wrapper-root selection and installed host cache invalidation remain external boundaries.
- * @evidence contracts/testing.md#execution-ownership This source unit calls unplugin.raw transform and shutdown callbacks in process over public consumer cache input. It restores cwd and resets both cache owners in finally; no Go peer, binary, build, watcher or native framework process is used. The factory rows use authored native-context callback shapes with unrelated compiler fields opaque; they exercise the actual production-used channel operation, not installed webpack/Rspack/Farm/Rollup hosts. They do not certify TP/Bun loaders, registration assembly, project-record bridge lifetime or native watch receipt. The linked-root row creates and removes one native alias in finally and uses actual record creation/handoff operations with no bridge, native backend or compiler. It does not certify that a Farm transform wrapper automatically chose that configured root.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls unplugin.raw transform, captured watchClose and shutdown callbacks in process over public consumer cache input. It restores cwd and resets both cache owners in finally; no Go peer, binary, build, watcher or native framework process is used. The factory rows use authored native-context callback shapes with unrelated compiler fields opaque; they exercise the actual production-used channel operation, not installed webpack/Rspack/Farm/Rollup hosts. They do not certify TP/Bun loaders, registration assembly, project-record bridge lifetime or native watch receipt. The linked-root row creates and removes one native alias in finally and uses actual record creation/handoff operations with no bridge, native backend or compiler. It does not certify that a Farm transform wrapper automatically chose that configured root.
  */
 export async function test_build_loader_callbacks_hand_over_only_the_project_record(): Promise<void> {
   for (const framework of ["webpack", "rspack"] as const) {
@@ -152,12 +159,18 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
     const dependencies: string[] = [];
     const missing: string[] = [];
     const directories: string[] = [];
+    let watchClose: (() => void) | undefined;
     let shutdown: (() => void) | undefined;
     const compiler = {
       watchMode: false,
       options: { module: { rules: [] } },
       hooks: {
         done: { tap: () => undefined },
+        watchClose: {
+          tap: (_name: string, callback: () => void) => {
+            watchClose = callback;
+          },
+        },
         shutdown: {
           tap: (_name: string, callback: () => void) => {
             shutdown = callback;
@@ -165,7 +178,8 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
         },
       },
     };
-    const register = raw.webpack ?? raw.rspack;
+    const register = raw[framework];
+    assert.equal(typeof register, "function");
     (register as (compiler: unknown) => void)(compiler);
     const context = {
       addWatchFile: () =>
@@ -228,6 +242,8 @@ export async function test_build_loader_callbacks_hand_over_only_the_project_rec
       assert.ok(record.membership);
       assert.ok(record.membership.directories.includes(root));
       const recordBytes = fs.readFileSync(dependencies[0]!, "utf8");
+      assert.equal(typeof watchClose, "function");
+      watchClose!();
       assert.equal(
         (await transform.call(context, fixture.source, fixture.file))?.code,
         fixture.code,

@@ -21,26 +21,7 @@ Keep document links in this entry file. Checklist documents must contain no link
 
 Apply the [documentation skill](../documentation/SKILL.md) when writing contract prose and related repository documentation.
 
-Give each requirement one chapter owner. A declaration may answer several chapters about the same implementation, but each answer must address its own question without requesting the other answers again. Maintain these boundaries when revising the checklists:
-
-| Chapter | Question owned |
-| --- | --- |
-| Principled Implementation | Why does the method or value representation establish the required meaning under its stated premises? |
-| Clear and Simple Design | Why are the responsibilities and structural elements clear and necessary for current requirements? |
-| Prohibited Implementation Shortcuts | Does the implementation rely on a forbidden substitution or a compensation for a disproven assumption? |
-| Meaningful documentation | What useful information is written for users and maintainers, and does that writing follow the documentation guidance? |
-| OS-neutral implementation | How are native platform differences represented at the filesystem or process boundary? |
-| Efficient algorithms | What does one necessary computation cost as its input grows? |
-| Reuse equivalent work | Which requests can share a computation, and what establishes continued validity of its result? |
-| Bound retention and release resources | Who owns retained state and handles, how does their population grow, and when are they released? |
-| Behavioral verification | Which actual behavior and defect do the test's assertions distinguish? |
-| Independent expectations | What establishes the expected result independently of the implementation under test? |
-| Distinguishing cases | Which positive, negative and boundary distinctions does this test own? |
-| Execution ownership | Which layer and discoverable entry execute these cases? |
-| Necessary boundary | Which real connection requires E2E execution and what unique defect does it detect? |
-| Shared execution | Which expensive preparations can the surviving E2E cases share? |
-| State isolation and reuse validity | Which identities, resets and resource lifetimes make shared test execution valid? |
-| Preserved coverage | Where does every meaningful assertion execute after consolidation or transfer? |
+Give each question one chapter owner across the checklist files, and extend the owning chapter instead of adding a second one. A declaration may answer several chapters about the same implementation, but each answer addresses its own question and does not request another chapter's answer again.
 
 ## [Common Implementation Principles](common.md)
 

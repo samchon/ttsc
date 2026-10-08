@@ -56,6 +56,8 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * @param root The directory whose pinned scope observes the project.
  * @param operations Observer watch/poll/case capabilities, which do not replace
  *   native record writes or the filesystem used to recheck input conditions.
+ * @param polling The current host's polling declaration, including its active
+ *   watch-session option. Standalone callers retain the environment default.
  * @evidence contracts/common.md#principled-implementation
  *   Each record owns generation input evidence. A change remains owed until a
  *   registration replaces that evidence; replacement immediately signals again
@@ -119,6 +121,7 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
 export function openHostWatchBridge(
   root: string,
   operations: Partial<InputObserverOperations> = {},
+  polling: boolean = hostDeclaresPolling(process.env),
 ): HostWatchBridge {
   // Every map below is keyed by the record's absolute spelling, the one the
   // observer reports its owners under.
@@ -177,7 +180,7 @@ export function openHostWatchBridge(
     for (const record of reload) signal(record);
     for (const record of invalidate) signal(record);
   }, operations);
-  observer.open(root, hostDeclaresPolling(process.env));
+  observer.open(root, polling);
   return {
     begin: () => {
       pass += 1;

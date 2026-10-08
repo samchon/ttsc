@@ -16,6 +16,8 @@ Only a descriptor that declares the files it reads outside its module graph has 
 
 The environment in a descriptor answer's key is complete, because no supported Node release can report which variables an evaluation read. A `ttsc` launched from a program running under `ttsx` inherits that run's own variables, such as the path of its runtime manifest, so its answers are not shared with other runs.
 
+Capability answers are not reusable when `NODE_OPTIONS` selects additional runtime authority. This rule also applies to asynchronous discovery: Windows environment names are case-insensitive, including a lowercase `node_options`, while POSIX names remain case-sensitive. Each worker request adopts the caller's current environment and removes variables absent from that request.
+
 `ttsx` and `ttsc/register` also keep the TypeScript they lower for a package that no tsconfig owns, such as one shipping raw `.ts` under `node_modules`, under `<root>/ttsx-orphan`, keyed by the source bytes and the compiler that lowered them.
 
 These entries are generated outputs that a later build can recreate. Active ttsx processes still need their runtime output. Use `ttsc clean` so its ownership checks preserve runs that may be alive; an explicit `--cache-dir` instead selects that whole directory and requires the caller to stop any runs using it.
@@ -139,7 +141,9 @@ Keep the root, and `TTSC_GO_CACHE_DIR`, outside every plugin's Go sources as wel
 
 Relocating costs you automatic cleanup. In the default project-local cache, `ttsc` prunes plugin binaries unused for 30 days and runs LRU pruning from a 2 GiB ceiling toward 1.6 GiB. The same policy covers `descriptors`, `capabilities`, and `ttsx-orphan`, where each reuse records a use. It checks at most daily while idle and again after every cold binary publication. The binary returned by that cold build and entries with active build generations are excluded; if those exclusions keep the root above the ceiling, the marker schedules another pass.
 
-After every cold source-plugin build attempt, including a failed build, `ttsc` prunes its Go object cache from an 8 GiB ceiling toward 6 GiB. The newest target-sized cohort remains protected for the requested hour plus Go's one-hour access-mtime coalescing tolerance. Active builds and maintenance publish heartbeat records. A stopped build heartbeat receives a one-hour grace; completed maintenance is retired immediately, and an expired maintenance heartbeat receives one minute. These time limits rely on heartbeat freshness and do not prove that a suspended process has ended. A record dated implausibly far in the future is rebased and receives one ordinary grace period.
+After a cold source-plugin build attempt, including an ordinary failed build, `ttsc` prunes its Go object cache from an 8 GiB ceiling toward 6 GiB when native ownership permits it. The newest target-sized cohort remains protected for the requested hour plus Go's one-hour access-mtime coalescing tolerance. Active builds and maintenance publish heartbeat records. An unguarded stopped build heartbeat receives a one-hour grace; completed maintenance is retired immediately, and an expired maintenance heartbeat receives one minute. These time limits rely on heartbeat freshness and do not prove that a suspended process has ended. A record dated implausibly far in the future is rebased and receives one ordinary grace period.
+
+Owned native builds also protect their exact scratch inputs, plugin key and shared Go cache until process-tree closure is confirmed. An unknown outcome retains these paths and refuses same-key reuse, GC and clean regardless of PID absence or age; diagnostics identify the retained paths. Independent plugin keys can still build against the shared Go cache. Caller-selected Go caches receive lifetime guard metadata for these owned tasks without becoming subject to ttsc's size-based eviction. Normal joined or never-started commands release their guards. Recovery requires the original command owner's confirmed closure, or independent external closure confirmation before manual reclamation; losing that authority leaves the inputs quarantined. Older ttsc versions do not implement these guards and must not share quarantined roots.
 
 A root named through `TTSC_CACHE_DIR` or `--cache-dir` is not garbage-collected automatically because its caller owns its lifetime. For a `TTSC_CACHE_DIR` root, `ttsc clean` removes `plugins`, `descriptors`, `capabilities`, `ttsx-orphan`, runtime directories whose recorded owners are provably gone, and the nested `go-build` when the root's basename is `ttsc`. A runtime directory stays when its process is alive, its owner is on another host, or its owner record is absent or unreadable.
 
@@ -209,7 +213,7 @@ On GitHub Actions, `docker/build-push-action` reaches the same registry-backed c
 A cache that never hits is indistinguishable from one that works, unless you look. On a cold build `ttsc` prints:
 
 ```text
-ttsc: building source plugin ... this runs once per cache key
+ttsc: building source plugin ... (a cold Go cache can take several minutes)
 ```
 
 On the second run of an unchanged workflow, or the second build of an unchanged image, that line must be absent. If it appears every time, the cache is restoring nothing useful.

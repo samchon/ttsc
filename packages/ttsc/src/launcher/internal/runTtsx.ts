@@ -352,7 +352,8 @@ async function runPreparedEntry(
  * ended: with its exit code, or by re-raising the signal that killed it.
  * `afterClose` runs after direct child close, before the signal is re-raised.
  * Spawn errors retain their original outcome through that same close boundary.
- * An exit notification alone does not settle the child handles or output users.
+ * An exit notification alone does not settle the child handles or output
+ * users.
  */
 async function runProgram(
   args: readonly string[],
@@ -508,7 +509,14 @@ function removeRuntimeOutput(directory: string, runtimeCacheDir: string): void {
       stage = "relinquish";
       ProcessOwnedDirectory.relinquish(directory);
       stage = "ownership";
-      const ownership = ProcessOwnedDirectory.ownership(directory);
+      const ownership = ProcessOwnedDirectory.ownership(
+        directory,
+        false,
+        observe === undefined
+          ? undefined
+          : (observation) =>
+              observe("owner-observation", undefined, undefined, observation),
+      );
       observe?.("ownership", ownership);
       if (ownership === "abandoned" || ownership === "unowned") {
         stage = "remove";

@@ -5,6 +5,7 @@ const defaultOptions: ResolvedTtscUnpluginOptions = {
   compilerOptions: {},
   plugins: undefined,
   project: undefined,
+  projectRoot: undefined,
 };
 
 /**
@@ -20,7 +21,8 @@ const defaultOptions: ResolvedTtscUnpluginOptions = {
  *   detaches top-level compiler keys while nested values retain caller identity.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One returned record owns option normalization; transform code receives
- *   the same three choices without a second defaults layer.
+ *   the same four choices without a second defaults layer. The optional root
+ *   retains its spelling until delivery resolves it against process.cwd.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Empty defaults implement omission semantics, and the false branch implements
  *   the public disable request rather than a consumer-specific exception.
@@ -45,5 +47,6 @@ export function resolveOptions(
     compilerOptions: { ...(options.compilerOptions ?? {}) },
     plugins: "plugins" in options ? options.plugins : defaultOptions.plugins,
     project: options.project ?? defaultOptions.project,
+    projectRoot: options.projectRoot ?? defaultOptions.projectRoot,
   };
 }

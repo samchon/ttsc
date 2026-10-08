@@ -36,6 +36,7 @@
     "plugin/main.go"
   ],
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@types/node": "catalog:utils",
     "rimraf": "catalog:utils",
     "ttsc": "workspace:*",

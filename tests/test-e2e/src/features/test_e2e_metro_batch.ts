@@ -39,6 +39,7 @@ import {
   computeCacheKey,
   createFakeGoBinary,
   ensureExecutableGoToolchain,
+  formatGoWorkPath,
 } from "../internal/ttsc/internal/source-build";
 import { waitFor } from "../internal/unplugin/internal/adapter-vite-serve/waitFor";
 import { originalPositionFor } from "../internal/unplugin/internal/source-map/originalPositionFor";
@@ -91,7 +92,19 @@ import { positionOf } from "../internal/unplugin/internal/source-map/positionOf"
  * assertions. Missing capability instead requires fresh factory calls, explicit
  * incomplete proof and no reusable answer publication. Default maintenance
  * borrows one upfront normal package outside prior cache consumers; neither
- * runtime versions nor operating-system names select these assertions.
+ * runtime versions nor operating-system names select these assertions. The
+ * existing scripted Go protocol producer also rewrites and restores its
+ * selected launcher during every build. Its three bounded transactions must all
+ * refuse publication; restoring the stable producer then permits recovery.
+ * These repeated scripted commands share the original protocol project and are
+ * distinct from actual native Go builds and resident Program receipts. Copied
+ * overlay selection follows the actual Go workspace's module identity,
+ * independently of compact directory names. The same official Go parser also
+ * contrasts quoted and bare original comment-prefix paths at the serializer
+ * boundary; these read-only commands do not compile another native artifact.
+ * They add three official Go parser processes: copied-overlay selection and the
+ * quoted/bare serializer contrast. The existing captured-workspace parser
+ * supplies the copied module identities without another native preparation.
  *
  * @evidence contracts/testing.md#behavioral-verification Metro forwards transformed source and original arguments; Turbopack completes once with executable source, linked-host printed TypeScript, its owned authored map and dependency records. Initial native admission requires one actual ApplyProgram receipt across the two workers while that hook writes an independently authored non-input log, whose bytes must appear without joining the declared record. The nested relative banner configFile must produce its own text and exclude the discovered root decoy; later edits to that exact nested file must replace the native publication.
  * @evidence contracts/testing.md#independent-expectations Independently authored source coordinates, map provenance, marker, caller arguments and native ApplyProgram log distinguish delivery and shared compilation independently of adapter counters. The actual resident Program's case-policy receipt supplies an independent reference for two Node cache-root proxy queries; both roots are assumed to have the selected fixture's comparison policy, without certifying arbitrary volumes or executables.
@@ -2142,9 +2155,11 @@ async function runResidentLoaderPool(): Promise<void> {
           tsgoVersion: "7.0.0-dev",
         });
       const overlayOutput = [
-        'const usedOverlay = fs.readFileSync("go.work", "utf8").split(/\\r?\\n/).map((line) => line.trim().replace(/^"|"$/g, "")).find((entry) => path.basename(entry) === "overlay");',
+        'const parsedWorkspace = JSON.parse(require("node:child_process").execFileSync("go", ["work", "edit", "-json"], { encoding: "utf8", env: { ...process.env, GOWORK: path.resolve("go.work") } }));',
+        'const overlays = (parsedWorkspace.Use ?? []).map((entry) => entry.DiskPath).filter((directory) => parseGoMod(fs.readFileSync(path.join(directory, "go.mod"), "utf8")).Module?.Path === "example.com/batch-replacement");',
+        'if (overlays.length !== 1) throw new Error("expected exactly one copied replacement overlay");',
         `fs.writeFileSync(${JSON.stringify(overlayFile)}, ${JSON.stringify(overlaySecond)});`,
-        'fs.writeFileSync(out, fs.readFileSync(path.join(usedOverlay, "dep.go"), "utf8"));',
+        'fs.writeFileSync(out, fs.readFileSync(path.join(overlays[0], "dep.go"), "utf8"));',
       ].join("\n");
       let overlayBinary: string;
       try {
@@ -2205,7 +2220,18 @@ async function runResidentLoaderPool(): Promise<void> {
         toolProtocol,
         "quoted-workspace.work",
       );
-      const captureWorkspace = `fs.copyFileSync("go.work", ${JSON.stringify(capturedWorkspace)});\n`;
+      const capturedWorkspaceReceipt = path.join(
+        toolProtocol,
+        "quoted-workspace-modules.json",
+      );
+      const captureWorkspace = [
+        `fs.copyFileSync("go.work", ${JSON.stringify(capturedWorkspace)});`,
+        'const parsedWorkspace = JSON.parse(require("node:child_process").execFileSync("go", ["work", "edit", "-json"], { encoding: "utf8", env: { ...process.env, GOWORK: path.resolve("go.work") } }));',
+        'const modules = (parsedWorkspace.Use ?? []).map((entry) => ({ path: entry.DiskPath, module: parseGoMod(fs.readFileSync(path.join(entry.DiskPath, "go.mod"), "utf8")).Module?.Path }));',
+        `fs.writeFileSync(${JSON.stringify(capturedWorkspaceReceipt)}, JSON.stringify({ parsedWorkspace, modules }));`,
+        "",
+      ].join("\n");
+      const workspaceFailures: unknown[] = [];
       try {
         fs.writeFileSync(
           scriptFile,
@@ -2235,14 +2261,41 @@ async function runResidentLoaderPool(): Promise<void> {
           .split(/\r?\n/)
           .filter((line) => /^\t/.test(line))
           .map((line) => line.trim());
-        const spacedUse = uses.find((line) => line.endsWith('space dir/ttsc"'));
-        const bareUse = uses.find((line) => line.endsWith("nospace/shim"));
-        const commentUse = uses.find((line) =>
-          line.replace(/^"|"$/g, "").endsWith("comment-prefix/shim"),
+        // The scripted producer records identities before its owned source
+        // snapshot is disposed; parent assertions never reopen deleted paths.
+        const receipt = JSON.parse(
+          fs.readFileSync(capturedWorkspaceReceipt, "utf8"),
+        ) as {
+          parsedWorkspace: { Use?: { DiskPath?: string }[] };
+          modules: { path: string; module?: string }[];
+        };
+        const { parsedWorkspace, modules } = receipt;
+        assert.equal(parsedWorkspace.Use?.length, uses.length, text);
+        const moduleUse = (module: string): string => {
+          // Official Go JSON retains parsed Use order. It decodes the paths;
+          // corresponding source tokens retain their actual quoting spelling.
+          const entries = (parsedWorkspace.Use ?? [])
+            .map((entry, index) => ({ ...entry, token: uses[index] }))
+            .filter(
+              (entry) =>
+                entry.DiskPath !== undefined &&
+                modules.some(
+                  (input) =>
+                    input.path === entry.DiskPath && input.module === module,
+                ),
+            );
+          assert.equal(entries.length, 1, JSON.stringify(receipt));
+          const token = entries[0]?.token;
+          assert.ok(token, text);
+          return token;
+        };
+        const spacedUse = moduleUse("github.com/samchon/ttsc/packages/ttsc");
+        const bareUse = moduleUse(
+          "github.com/microsoft/typescript-go/shim/foo",
         );
-        assert.ok(spacedUse?.startsWith('"'), text);
-        assert.ok(bareUse && !bareUse.startsWith('"'), text);
-        assert.ok(commentUse, text);
+        moduleUse("example.com/comment-prefix");
+        assert.ok(spacedUse.startsWith('"'), text);
+        assert.equal(bareUse.startsWith('"'), false, text);
         assert.equal(
           text.includes(
             `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${spacedUse}`,
@@ -2250,26 +2303,50 @@ async function runResidentLoaderPool(): Promise<void> {
           true,
           text,
         );
-        const parsed = TestProject.spawn("go", ["work", "edit", "-json"], {
-          cwd: toolProtocol,
-          env: { GOWORK: capturedWorkspace },
-        });
-        if (parsed.error) throw parsed.error;
-        assert.equal(parsed.signal, null);
-        assert.equal(parsed.status, 0, parsed.stderr || parsed.stdout);
-        const parsedWorkspace = JSON.parse(parsed.stdout) as {
-          Use?: { DiskPath?: string }[];
-        };
-        assert.equal(
-          parsedWorkspace.Use?.some(
-            (entry) => entry.DiskPath === commentUse.replace(/^"|"$/g, ""),
-          ),
-          true,
-          parsed.stdout,
-        );
+      } catch (error) {
+        workspaceFailures.push(error);
       } finally {
         fs.writeFileSync(scriptFile, stableScript);
       }
+      // Compact copied paths need not retain the original comment prefix.
+      // Exercise the independent grammar even if copied-workspace checks fail.
+      const commentPath =
+        process.platform === "win32"
+          ? commentWorkspaceOverlay.replace(/\\/g, "/")
+          : commentWorkspaceOverlay;
+      const commentToken = formatGoWorkPath(commentWorkspaceOverlay);
+      for (const [name, token, expected] of [
+        ["quoted", commentToken, [commentPath]],
+        ["bare", commentPath, []],
+      ] as const) {
+        try {
+          if (name === "quoted") assert.ok(token.startsWith('"'));
+          const file = path.join(toolProtocol, `${name}-comment.work`);
+          fs.writeFileSync(file, `go 1.26.0\nuse (\n\t${token}\n)\n`);
+          const result = TestProject.spawn("go", ["work", "edit", "-json"], {
+            cwd: toolProtocol,
+            env: { GOWORK: file },
+          });
+          if (result.error) throw result.error;
+          assert.equal(result.signal, null);
+          assert.equal(result.status, 0, result.stderr || result.stdout);
+          const workspace = JSON.parse(result.stdout) as {
+            Use?: { DiskPath: string }[];
+          };
+          assert.deepEqual(
+            (workspace.Use ?? []).map((entry) => entry.DiskPath),
+            expected,
+            result.stdout,
+          );
+        } catch (error) {
+          workspaceFailures.push(error);
+        }
+      }
+      if (workspaceFailures.length)
+        throw new AggregateError(
+          workspaceFailures,
+          "copied workspace identities and comment-token serialization",
+        );
       const keyRaceManifest = path.join(replacementModule, "go.mod");
       const keyRaceProducer = path.join(nativeProbe.fixtureSource, "probe.go");
       const keyRaceManifestBytes = fs.readFileSync(keyRaceManifest);
@@ -3916,7 +3993,9 @@ async function runResidentLoaderPool(): Promise<void> {
       nativeProbe.raceContent = nonInputRaceContent;
       fs.writeFileSync(configPath, JSON.stringify(poolConfig));
       const outcomes = await Promise.allSettled(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "initial"),
+        ),
       );
       const assertHostObservation = (reply: LoaderPoolOutcome): void => {
         const observation = reply.hostObservation;
@@ -4359,7 +4438,9 @@ async function runResidentLoaderPool(): Promise<void> {
         "the same resident record to repeat its unacknowledged move",
       );
       const metadataDelivery = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "metadata-inputs"),
+        ),
       );
       for (const reply of metadataDelivery) assertHostObservation(reply);
       for (const reply of metadataDelivery)
@@ -4608,7 +4689,9 @@ async function runResidentLoaderPool(): Promise<void> {
         "export type PooledExternalBroken = NotARealExternalType;\n",
       );
       const failed = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "native-failure"),
+        ),
       );
       for (const [index, reply] of failed.entries()) {
         assertHostObservation(reply);
@@ -4685,7 +4768,9 @@ async function runResidentLoaderPool(): Promise<void> {
           }),
       );
       const replay = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "failure-replay"),
+        ),
       );
       for (const reply of replay) {
         assertHostObservation(reply);
@@ -4700,7 +4785,9 @@ async function runResidentLoaderPool(): Promise<void> {
       fs.writeFileSync(contractPath, originalContract);
       fs.writeFileSync(declaration, healthyDeclaration);
       const repaired = await Promise.all(
-        workers.map((worker) => worker.request()),
+        workers.map((worker) =>
+          worker.request("", undefined, undefined, undefined, "repaired"),
+        ),
       );
       for (const reply of repaired) assertHostObservation(reply);
       const repairFailure = repaired.some((reply) => reply.error !== undefined)
@@ -4769,7 +4856,13 @@ async function runResidentLoaderPool(): Promise<void> {
       const externalCursor = traceCursor();
       const external = await Promise.all(
         workers.map((worker, index) =>
-          worker.request("", originalDelivered[index]),
+          worker.request(
+            "",
+            originalDelivered[index],
+            undefined,
+            undefined,
+            "external-config-and-disk-source",
+          ),
         ),
       );
       for (const reply of external) {
@@ -4808,7 +4901,15 @@ async function runResidentLoaderPool(): Promise<void> {
       );
       const rootMembershipCursor = traceCursor();
       const externalReplay = await Promise.all(
-        workers.map((worker) => worker.request(divergentSuffix)),
+        workers.map((worker) =>
+          worker.request(
+            divergentSuffix,
+            undefined,
+            undefined,
+            undefined,
+            "root-membership",
+          ),
+        ),
       );
       for (const reply of externalReplay) assert.equal(reply.error, undefined);
       assert.equal(
@@ -4866,7 +4967,15 @@ async function runResidentLoaderPool(): Promise<void> {
       }
       const repeatedCursor = traceCursor();
       const repeatedDivergence = await Promise.all(
-        workers.map((worker) => worker.request(divergentSuffix)),
+        workers.map((worker) =>
+          worker.request(
+            divergentSuffix,
+            undefined,
+            undefined,
+            undefined,
+            "excluded-output-replay",
+          ),
+        ),
       );
       const repeatedCaptures = Object.entries(failureTrace())
         .flatMap(([name, rows]) => rows.slice(repeatedCursor[name] ?? 0))
@@ -5004,7 +5113,13 @@ async function runResidentLoaderPool(): Promise<void> {
             metro: pathToFileURL(path.join(lib, "transformer.js")).href,
             turbopack: TestUnpluginRuntime.libUrl("turbopack"),
           });
-          const reply = await restarted.request();
+          const reply = await restarted.request(
+            "",
+            undefined,
+            undefined,
+            undefined,
+            "fresh-resident-offline-edit",
+          );
           assert.equal(reply.error, undefined);
           assert.ok(reply.value !== undefined);
           assert.match(reply.value.ast.source, /offline-restart-marker/);

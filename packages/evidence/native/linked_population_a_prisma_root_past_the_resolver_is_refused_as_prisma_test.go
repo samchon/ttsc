@@ -6,25 +6,20 @@ import (
   "testing"
 )
 
-/**
- * Verifies the Prisma walker refuses an unresolved chain with its own noun.
- *
- * The refusal is one sentence for every kind, and the kind appears in it, so a
- * wrong noun or a dropped arm reads as another kind's failure. Markdown and
- * TypeScript each have a case; without this one the Prisma arm could be handed
- * either and stay green.
- *
- *  1. Build a chain longer than the resolver follows.
- *  2. Root a Prisma population at its head and collect the addresses.
- *  3. Assert the refusal names the Prisma root and the base is recorded failed.
- *
- * @evidence contracts/testing.md#behavioral-verification configuredPrismaAddressesWithHealth refuses the overlong Prisma root, selects zero addresses and records exactly one failed root.
- * @evidence contracts/testing.md#independent-expectations Original literal Prisma noun and declared-root spelling with zero addresses and one failure distinguish refusal from an empty healthy schema set.
- * @evidence contracts/testing.md#distinguishing-cases A real schema exists behind a host-readable chain but the bounded walker cannot reach it; no Prisma parser is started.
- * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
- */
+// TestAPrismaRootPastTheResolverIsRefusedAsPrisma verifies an unreachable Prisma population retains its own kind and health.
+//
+// A real schema behind an overlong native chain cannot become a healthy empty inventory, whether the native gate or the rule bound refuses first.
+//
+//  1. Place a real Prisma schema behind 35 native links.
+//  2. Collect configured Prisma addresses and root health.
+//  3. Assert the capability-appropriate Prisma refusal, zero addresses and exactly one failed root.
+//
+// @evidence contracts/testing.md#behavioral-verification configuredPrismaAddressesWithHealth reports the prisma root, selects zero addresses and records exactly one failed root.
+// @evidence contracts/testing.md#independent-expectations Authored Prisma/root literals and the zero/one health counts distinguish refusal from emptiness; native Stat independently supplies the branch and underlying error text.
+// @evidence contracts/testing.md#distinguishing-cases The endpoint is nonempty, and the assertion retains kind-specific refusal and failed-root health for both native and bounded failures.
+// @evidence contracts/testing.md#execution-ownership This named Go unit calls owning graph/resolver operations in-process. Native fixtures use the existing junction boundary on Windows and relative symbolic links elsewhere; creation failures fail preparation. No consumer installation, native build or product host is started.
 func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
-  workspace := t.TempDir()
+  workspace := linkedPopulationWorkspace(t)
   root := filepath.Join(workspace, "project")
   real := filepath.Join(workspace, "real")
   for _, directory := range []string{root, real} {
@@ -46,20 +41,14 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
   previous := real
   for hop := range 34 {
     link := filepath.Join(workspace, "hop"+decimal(hop))
-    if err := linkDirectory(t, previous, link); err != nil {
+    if err := linkPopulationDirectory(t, previous, link); err != nil {
       t.Fatalf("this platform refused to create a link: %v", err)
     }
     previous = link
   }
   head := filepath.Join(workspace, "schema")
-  if err := linkDirectory(t, previous, head); err != nil {
+  if err := linkPopulationDirectory(t, previous, head); err != nil {
     t.Fatalf("this platform refused to create a link: %v", err)
-  }
-  if _, err := os.Stat(head); err != nil {
-    t.Fatalf(
-      "this platform did not follow the chain to a directory either (%v), so the stat gate answers first",
-      err,
-    )
   }
   config := decodeInventoryConfig(t, root, `{"claims":[{
     "type":"typescript",
@@ -73,11 +62,7 @@ func TestAPrismaRootPastTheResolverIsRefusedAsPrisma(t *testing.T) {
     }
   }]}`)
   addresses, failed, problems := configuredPrismaAddressesWithHealth(config)
-  assertProblemContains(
-    t,
-    problems,
-    "found no directory at the end of the prisma root '../schema'",
-  )
+  assertLinkedPopulationRefusal(t, problems, head, "prisma", "../schema")
   // A schema sits behind the chain, so the directory the links end at is not
   // empty. The count says the refusal is what produced zero rather than an
   // empty population; it cannot tell a refusal from a walk that declined to

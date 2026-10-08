@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { isContendedCandidateRename } from "../../../internal/isContendedCandidateRename";
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
 import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 import type { PluginBuildLockObservation } from "./PluginBuildLockObservation";
 import { PluginBuildLockOwner } from "./PluginBuildLockOwner";
@@ -23,12 +24,16 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * v3 publication includes the complete owner record; old legacy builders could
  * continue after best-effort owner publication failed.
  *
+ * Unknown or malformed native guards refuse same-key observations. Pending
+ * guards preserve active ownership even when the Node holder is absent, so
+ * bounded wait cannot turn PID or age into native reclamation authority.
+ *
  * @evidence contracts/common.md#principled-implementation An observer is registered under a captured generation before owner classification; generation rechecks prevent a replacement from inheriting the captured fence, whose reserved retirement destination survives the builder's death.
  * @evidence contracts/common.md#clear-and-simple-design Protocol selection, generation observation and legacy fence capture have separate helpers; the public result distinguishes absence from active and abandoned ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A replaced generation causes re-observation or a released handoff; ambiguous process errors are not interpreted as death, and observer age cannot replace liveness proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe observer registration, token retention and inconclusive owner metadata before the tags; private comments explain generation races and legacy record compatibility.
  * @evidence contracts/portability.md#os-neutral-implementation Node filesystem and path APIs carry native access, while ESRCH-only local probing distinguishes absent processes from permission failure or remote identity.
- * @evidence contracts/performance.md#efficient-algorithms Each stable observation uses direct paths without scanning generation directories; costs include native path resolution and protocol/generation/owner/fence JSON bytes, hostname checks and optional liveness probes. Publication adds candidate writes/rename/recursive cleanup. Failed v3 registration or changing legacy capture can re-enter the synchronous loop, which has no attempt or elapsed-time bound here.
+ * @evidence contracts/performance.md#efficient-algorithms Each observation scans native guards before direct generation paths; it does not scan generation directories; costs include native path resolution and protocol/generation/owner/fence JSON bytes, hostname checks and optional liveness probes. Publication adds candidate writes/rename/recursive cleanup. Failed v3 registration or changing legacy capture can re-enter the synchronous loop, which has no attempt or elapsed-time bound here.
  * @evidence contracts/performance.md#reuse-equivalent-work A module's nonce shares one observer registration across polls of the same generation; liveness and current identity remain freshly observed because they can change between requests.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate records have finally cleanup that can fail, including after publication. Published records remain under the cooperating collector policy until observer absence is proven; distinct generations observed by live/unknown processes have no count or age bound here. Continued pathname churn may retain this synchronous observation without a deadline; it starts no asynchronous task.
  */
@@ -37,6 +42,7 @@ export function inspectPluginBuildLock(
 ): PluginBuildLockObservation {
   const protocolDir =
     PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir);
+  SourceNativeRetirement.assertAvailable(protocolDir);
   for (;;) {
     if (PluginBuildLockProtocol.isPluginBuildLockProtocolV3(protocolDir)) {
       const current = inspectV3PluginBuildLock(protocolDir);
@@ -94,6 +100,8 @@ function inspectV3PluginBuildLock(lockDir: string): PluginBuildLockObservation {
       };
     }
     if (PluginBuildLockOwner.gone(owner)) {
+      if (SourceNativeRetirement.isProtected(lockDir))
+        return { state: "active", owner: `${label} with native retirement pending`, fence };
       return {
         state: "abandoned",
         reason: `${label} is no longer running`,

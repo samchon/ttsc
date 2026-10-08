@@ -10,8 +10,9 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * Buffer child path with non-following lstat. This avoids assuming that every
  * runtime implements raw withFileTypes entries as Node Dirents. Listing or
  * classification errors still reach the proof consumer. Calling the capability
- * costs one listing and one lstat per entry; cache construction does not perform
- * those queries. Explicit overrides and unavailable capabilities stay intact.
+ * costs one listing and one lstat per entry; cache construction does not
+ * perform those queries. Explicit overrides and unavailable capabilities stay
+ * intact.
  *
  * @evidence contracts/common.md#principled-implementation Each cache receives its own filesystem operation table, so supplied capabilities govern that cache without changing defaults for other adapters. Its default raw directory operation combines native byte names with non-following lstat kinds rather than assuming a runtime-specific raw Dirent representation.
  * @evidence contracts/common.md#clear-and-simple-design A Map stores compile promises and a WeakMap stores its operation table; omitted operations independently use the native defaults. Raw directory and link reads also reach the table; explicitly supplied undefined for these optional capabilities preserves unsupported authority rather than enabling a native fallback. One private native adapter owns raw name/kind normalization; predicate encoding remains in its consumer.

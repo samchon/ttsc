@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { SourceNativeRetirement } from "../../../internal/SourceNativeRetirement";
+
 import { CachePrunePolicy } from "./CachePrunePolicy";
 import type { IPluginCachePruneOptions } from "./IPluginCachePruneOptions";
 import { PluginBinaryUse } from "./PluginBinaryUse";
@@ -35,6 +37,10 @@ import { releasePluginBuildLock } from "./releasePluginBuildLock";
  * independent process-reader reservations. Deletion inspects them under its key
  * lease and preserves live or unknown consumers, including after a producer has
  * completed and released its build lease.
+ *
+ * Pending, unknown or malformed native guards protect both payload and lock
+ * history independently of owner PID or age. Older compiler versions do not
+ * implement this protection and cannot safely share quarantined roots.
  *
  * Binary eviction preserves coordination roots. A v3 retired generation is
  * reclaimed only after its holder and every registered observer are provably
@@ -397,6 +403,9 @@ function removeCacheEntry(entry: PluginCacheEntry): boolean {
     ) {
       return false;
     }
+    SourceNativeRetirement.assertReleasable(
+      PluginBuildLockProtocol.pluginBuildLockProtocolDir(lockDir),
+    );
     fs.rmSync(entry.dir, { recursive: true, force: true });
     if (fs.existsSync(entry.dir)) return false;
     return true;
@@ -474,6 +483,7 @@ function pruneRetiredLockGenerations(root: string): void {
         allObserversGone = (error as NodeJS.ErrnoException).code === "ENOENT";
       }
       if (!allObserversGone) continue;
+      if (SourceNativeRetirement.isProtected(protocolRoot)) continue;
       try {
         fs.rmSync(location, { recursive: true, force: true });
       } catch {

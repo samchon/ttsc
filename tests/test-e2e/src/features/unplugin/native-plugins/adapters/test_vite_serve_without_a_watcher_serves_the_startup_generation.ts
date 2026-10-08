@@ -2,6 +2,7 @@ import { TestUnpluginProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import type { ITtscProjectPluginConfig } from "ttsc";
 
 const viteCreateServer =
   TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("vite").createServer;
@@ -18,29 +19,33 @@ const viteCreateServer =
  * (samchon/ttsc#1260) settles each module's first delivery against the
  * generation the session started from. The watching twin keeps the opposite
  * verdict through the actual generation selector unit and the shared native
- * pool changed-input epoch.
+ * pool changed-input epoch. The prepared scenario selects a backend config with
+ * sibling src files under an explicit common root. Its banner config stays
+ * relative to the backend, proving that source-root selection does not move
+ * plugin config discovery. Vite retains legal comments so its downstream
+ * transform keeps that proof observable in the delivered module.
  *
- * 1. Start a middleware-mode dev server with `watch: null` and request the entry
- *    module.
+ * 1. Let a later configResolved hook disable watching, then request the entry from
+ *    the middleware-mode dev server.
  * 2. Break the entry module on disk.
  * 3. Request a module not yet served and assert it comes from the starting
  *    generation.
  *
- * @evidence contracts/testing.md#behavioral-verification Real watcherless server serves lazy output from startup even after main is broken on disk.
- * @evidence contracts/testing.md#independent-expectations Authored lazy declaration remains valid; broken main would make a new compile fail.
- * @evidence contracts/testing.md#distinguishing-cases First main request then first lazy request after another input changes.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_without_a_watcher_serves_the_startup_generation is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
+ * @evidence contracts/testing.md#behavioral-verification Prepared native main output retains the backend-relative banner under an explicit common source root. Real watcherless server serves lazy output from startup even after main is broken on disk.
+ * @evidence contracts/testing.md#independent-expectations The authored banner literal identifies the backend-relative config; inline legal comments preserve it through Vite. Authored lazy declaration remains valid; the prepared main's authored type error would make a new compile fail.
+ * @evidence contracts/testing.md#distinguishing-cases A post configResolved hook changes initially enabled watching to null, as one-shot Vitest does. First main request then first lazy request after another input changes distinguish the settled pass lifecycle from the stale watching decision. Direct lifecycle units cover reverse mutation, polling and build watching.
+ * @evidence contracts/testing.md#execution-ownership The selected test_e2e_vite_batch calls viteServeCorpus, which calls this scenario on its prepared island after the watching server closes. This body owns the late hook, mutation and output assertions; it is not separately discovered.
  * @evidence contracts/e2e.md#necessary-boundary Real Vite middleware server executes watch:null lifecycle and native program reuse.
- * @evidence contracts/e2e.md#shared-execution One server and fixture serve requests and mutations, with replacement only for restart assertions; shared native artifacts do not replace the cold request.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
- * @evidence contracts/e2e.md#preserved-coverage Retained assertions: real watcherless server serves lazy output from startup even after main is broken on disk. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
+ * @evidence contracts/e2e.md#shared-execution One server and fixture serve both requests and the intervening mutation, without a restart. Shared native artifacts do not replace the cold request.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure before the corpus restores its shared island. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage The prepared native main retains its backend-relative banner under a common source root, and the real watcherless server serves lazy output from startup even after main is broken on disk. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
  */
 export async function test_vite_serve_without_a_watcher_serves_the_startup_generation(
   preparedRoot?: string,
   onServerClosed?: () => void,
 ): Promise<void> {
   const unpluginVite = await TestUnpluginRuntime.loadUnpluginAdapter("vite");
-  const plugins = [
+  const plugins: ITtscProjectPluginConfig[] = [
     {
       transform: "./plugin.cjs",
       name: "fixture",
@@ -50,6 +55,10 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
   ];
   const root = preparedRoot ?? TestUnpluginProject.createProject({ plugins });
   if (preparedRoot !== undefined) {
+    plugins.unshift({
+      transform: "@ttsc/banner",
+      configFile: "../banner.config.json",
+    });
     const config = path.join(root, "tsconfig.json");
     const document = JSON.parse(fs.readFileSync(config, "utf8"));
     document.compilerOptions.plugins = plugins;
@@ -64,14 +73,36 @@ export async function test_vite_serve_without_a_watcher_serves_the_startup_gener
     appType: "custom",
     configFile: false,
     logLevel: "silent",
+    // Vite defaults to legalComments:none. Preserve the native banner so the
+    // prepared scenario can observe its backend-relative configuration.
+    esbuild: { legalComments: "inline" },
     optimizeDeps: { include: [], noDiscovery: true },
-    plugins: [unpluginVite()],
+    plugins: [
+      unpluginVite(
+        preparedRoot === undefined
+          ? {}
+          : {
+              project: path.join(viteRoot, "backend/tsconfig.json"),
+              projectRoot: viteRoot,
+            },
+      ),
+      {
+        name: "disable-watch-after-ttsc-resolution",
+        enforce: "post",
+        configResolved(config: { server: { watch: unknown } }) {
+          assert.notEqual(config.server.watch, null);
+          config.server.watch = null;
+        },
+      },
+    ],
     root: viteRoot,
-    server: { hmr: false, middlewareMode: true, watch: null },
+    server: { hmr: false, middlewareMode: true },
   });
   try {
     const first = await server.transformRequest("/src/main.ts");
     assert.ok(first, "Vite serve must transform the entry module");
+    if (preparedRoot !== undefined)
+      assert.match(first.code, /@preserve SSR attribution banner/);
     fs.writeFileSync(
       TestUnpluginProject.mainFile(root),
       preparedRoot === undefined

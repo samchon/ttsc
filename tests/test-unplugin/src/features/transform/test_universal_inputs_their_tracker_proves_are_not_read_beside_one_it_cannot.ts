@@ -64,7 +64,10 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
     stat: count(DEFAULT_FILESYSTEM_OPERATIONS.stat),
     statBigInt: count(DEFAULT_FILESYSTEM_OPERATIONS.statBigInt),
   };
-  const result: ITtscCompilerTransformation.ISuccess = { type: "success", typescript: {} };
+  const result: ITtscCompilerTransformation.ISuccess = {
+    type: "success",
+    typescript: {},
+  };
   TRANSFORM_RESULT_FILESYSTEM.set(result as never, filesystem);
   const tracker: TtscProjectMutationTracker = {
     changes: new Set(),
@@ -81,11 +84,29 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
     hostInputMutationTracker: tracker,
     result,
   } as unknown as TtscCachedProjectTransform;
-  assert.equal(nativeInputPredicatesHold(cached), true, "no graph owns no native predicates");
-  result.graph = { edges: {}, inputObservations: { "config.json": { nativePredicates: [] } } };
-  assert.equal(nativeInputPredicatesHold(cached), true, "an empty native population requires no root derivation");
-  result.graph.inputObservations = { "config.json": { stat: "file" } };
-  assert.equal(nativeInputPredicatesHold(cached), true, "legacy observations remain with their existing proof owners");
+  assert.equal(
+    nativeInputPredicatesHold(cached),
+    true,
+    "no graph owns no native predicates",
+  );
+  const graph: ITtscCompilerTransformation.IReferenceGraph = {
+    edges: {},
+    globals: [],
+    configs: [],
+    inputObservations: { "config.json": { nativePredicates: [] } },
+  };
+  result.graph = graph;
+  assert.equal(
+    nativeInputPredicatesHold(cached),
+    true,
+    "an empty native population requires no root derivation",
+  );
+  graph.inputObservations = { "config.json": { stat: "file" } };
+  assert.equal(
+    nativeInputPredicatesHold(cached),
+    true,
+    "legacy observations remain with their existing proof owners",
+  );
   delete result.graph;
   const entry = (file: string) => {
     const signature = inputMetadataSignature(file);

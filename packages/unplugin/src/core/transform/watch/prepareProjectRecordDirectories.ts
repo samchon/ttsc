@@ -11,7 +11,8 @@ import type { TtscTransformHooks } from "./TtscTransformHooks";
  * a native directory witness that includes the host root. Both accepted storage
  * locations are acquired now, including a fallback the later writer may need.
  * This creates no record and proves no writability. Failed acquisition remains
- * subject to the existing writer's fallback, warning and watching-error policy.
+ * subject to the existing writer's fallback, warning and watching-error
+ * policy.
  *
  * @param project The current host's optional record registration owner.
  * @evidence contracts/common.md#principled-implementation Owned parent acquisition precedes generation observation; actual record writes and refusals retain their existing owner.

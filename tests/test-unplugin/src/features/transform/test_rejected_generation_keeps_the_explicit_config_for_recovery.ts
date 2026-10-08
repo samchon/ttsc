@@ -86,7 +86,7 @@ export async function test_rejected_generation_keeps_the_explicit_config_for_rec
     hash: expectedHash(selected),
   });
   assert.equal(batches[0]!.inputs[0]!.evidence?.missing, false);
-  assert.deepEqual(single, [], "batch registration owns this delivery");
+  assert.deepEqual([...single], [], "batch registration owns this delivery");
 
   notifyRejectedGenerationInputs(hooks, rejection, file, {
     ...selection,
@@ -106,7 +106,7 @@ export async function test_rejected_generation_keeps_the_explicit_config_for_rec
     });
     assert.equal(input.evidence?.missing, false);
   }
-  assert.deepEqual(single, []);
+  assert.deepEqual([...single], []);
 
   notifyRejectedGenerationInputs(
     { addWatchFile: hooks.addWatchFile },

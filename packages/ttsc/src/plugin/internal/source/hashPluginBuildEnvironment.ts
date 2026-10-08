@@ -46,7 +46,7 @@ import { spawnGoTool } from "./spawnGoTool";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/stat/process APIs resolve native tool identities; platform-specific executable suffixes and environment lookup are isolated in GoToolResolution, and Go supplies its own effective build settings.
- * @evidence contracts/performance.md#efficient-algorithms SDK traversal sorts reached entry names and selected file paths, performs native stat/realpath/link queries and serializes topology/metadata/path text. Matching manifests share aggregate hashes; changes read full selected files via the caller adapter, retaining file buffers with population/topology data. Compiler misses probe version/read bytes, Go env can run up to three times for its file witness, and command tokens can each perform executable searches/full reads. Environment sorting/framing and command substring parsing also process name/value/command bytes; E/D/F/B alone do not capture native lookup or text comparison costs.
+ * @evidence contracts/performance.md#efficient-algorithms SDK traversal sorts reached entry names and selected file paths, performs native stat/realpath/link queries and serializes topology/metadata/path text. Matching manifests share aggregate hashes; changes read full selected files via the caller adapter, retaining file buffers with population/topology data. Compiler misses capture at most three complete version/byte readings when native metadata moves during a reading; only a stable attempt enters the memo. Go env can run up to three times for its file witness, and command tokens can each perform executable searches/full reads. Environment sorting/framing and command substring parsing also process name/value/command bytes; E/D/F/B alone do not capture native lookup or text comparison costs.
  * @evidence contracts/performance.md#reuse-equivalent-work Compiler memo identity includes selected path/file metadata and invocation cwd/environment; SDK aggregate reuse requires matching complete ordered metadata/topology. Both rely on native metadata distinguishability and sequential observation premises, not independently rehashed content on each hit. Physical directories expand once per selection policy while aliases retain edges; optional caller witnesses receive reached selected dependencies.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Compiler, Go-environment-path and SDK maps retain historical distinct tool/context/root keys without eviction. SDK population/topology and full individual file reads contribute transient bytes; synchronous probes delegate process/capture lifetime to their owner and do not certify arbitrary descendants are gone. No independent entry/record/file/output byte ceiling is imposed here.
  */
@@ -183,29 +183,48 @@ function resolveGoCompilerIdentity(
     process.platform === "win32"
       ? resolveRealPath(selected)
       : resolveExecutableIdentityPath(selected, env, cwd);
-  PluginBuildEnvironmentWitness.add(witness, resolved);
   const compilerEnv = GoSourceInputs.goBuildEnv(selected, undefined, env);
-  const memoKey = goCompilerIdentityMemoKey(
+  const candidateWitness: PluginBuildEnvironmentWitness.Record = new Map();
+  PluginBuildEnvironmentWitness.add(candidateWitness, resolved);
+  const candidateKey = goCompilerIdentityMemoKey(
     goBinary,
     resolved,
     compilerEnv,
     cwd,
   );
-  if (memoKey !== null) {
-    const cached = goCompilerIdentityCache.get(memoKey);
+  if (candidateKey !== null) {
+    const cached = goCompilerIdentityCache.get(candidateKey);
     if (cached !== undefined) {
+      for (const [file, signature] of candidateWitness)
+        if (witness !== undefined && !witness.has(file))
+          witness.set(file, signature);
       return cached;
     }
   }
-  const identity = computeGoCompilerIdentity(
-    selected,
-    resolved,
-    compilerEnv,
-    cwd,
-  );
-  if (memoKey !== null) {
-    goCompilerIdentityCache.set(memoKey, identity);
+  // Executing a fresh native image can move its metadata, even across more
+  // than one execution. Discard that whole reading and start with new pre-read
+  // evidence; never bless it by overwriting the witness after execution.
+  // The bound limits active observation, not how many metadata changes are
+  // accepted: an executable that keeps moving leaves the reading refused.
+  let identity = "missing";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const observed: PluginBuildEnvironmentWitness.Record = new Map();
+    PluginBuildEnvironmentWitness.add(observed, resolved);
+    const memoKey = goCompilerIdentityMemoKey(
+      goBinary,
+      resolved,
+      compilerEnv,
+      cwd,
+    );
+    identity = computeGoCompilerIdentity(selected, resolved, compilerEnv, cwd);
+    if (!PluginBuildEnvironmentWitness.holds(observed)) continue;
+    for (const [file, signature] of observed)
+      if (witness !== undefined && !witness.has(file))
+        witness.set(file, signature);
+    if (memoKey !== null) goCompilerIdentityCache.set(memoKey, identity);
+    return identity;
   }
+  PluginBuildEnvironmentWitness.refuse(witness, resolved);
   return identity;
 }
 

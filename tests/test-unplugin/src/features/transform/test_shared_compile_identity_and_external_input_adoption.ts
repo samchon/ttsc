@@ -49,6 +49,7 @@ export function test_shared_compile_identity_and_external_input_adoption(): void
     "package.json": '{"private":true}',
     "node_modules/typescript/package.json":
       '{"name":"typescript","version":"0.0.0-other"}',
+    "child/package.json": '{"private":true}',
   });
   const id = sharedCompileIdentity(compile);
   assert.match(id, /^[0-9a-f]{32}$/);
@@ -66,6 +67,14 @@ export function test_shared_compile_identity_and_external_input_adoption(): void
       JSON.stringify(changed),
     );
   }
+  assert.notEqual(
+    sharedCompileIdentity({ ...compile, projectRoot: otherCompiler }),
+    sharedCompileIdentity({
+      ...compile,
+      projectRoot: path.join(otherCompiler, "child"),
+    }),
+    "different source roots must not share output even when they resolve the same compiler",
+  );
 
   const helper = path.resolve("/outside/helper.ts");
   const other = path.resolve("/outside/other.ts");

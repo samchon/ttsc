@@ -12,6 +12,7 @@ const batches = [
   "webpack",
   "bun",
   "metro",
+  "evidence",
   "graph",
   "lsp",
 ] as const;

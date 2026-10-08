@@ -1,5 +1,6 @@
 import { TestValidator } from "@nestia/e2e";
 import { createMemFS } from "@ttsc/wasm";
+import assert from "node:assert/strict";
 
 import { callMutation, expectFsError, openFd } from "../../internal/callbackFs";
 
@@ -7,25 +8,34 @@ import { callMutation, expectFsError, openFd } from "../../internal/callbackFs";
  * Verifies path and descriptor truncation report a length too large to allocate
  * as `EFBIG` through the callback and leave the file untouched.
  *
- * The engine refuses such a length with a `RangeError`, which carries no POSIX
- * code. The virtual filesystem treats that refusal as its maximum file size, so
- * a caller waiting on a coded error must receive `EFBIG` rather than an
- * exception, and the file must keep its bytes.
+ * Independently verify the engine refuses the last safe integer length and the
+ * following unsafe integer with RangeError before MemFS translates those same
+ * failures. Node's 64-bit typed-array limit permits 2^53 - 1 as a length; that
+ * numeric upper bound does not promise allocation succeeds. Truncation accepts
+ * both integers, unlike positioned writes' safe-integer end check.
  *
  * 1. Seed `/t.txt`="abcdef" and open it for writing.
- * 2. Truncate and ftruncate to 2^53 - 1 and 2^53, integers no buffer can hold.
+ * 2. Verify native allocation refusal, then truncate and ftruncate to those same
+ *    2^53 - 1 and 2^53 lengths.
  * 3. Read the file back, then truncate and ftruncate to a small accepted size.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls host.fs.truncate and host.fs.ftruncate with unallocatable integer lengths and observes the coded callback error, then re-reads the file to prove no resize happened.
- * @evidence contracts/testing.md#independent-expectations The expected code EFBIG and the unchanged text "abcdef" are authored literals; the lengths 2^53 - 1 and 2^53 exceed any typed-array limit regardless of the implementation.
+ * @evidence contracts/testing.md#independent-expectations Native Uint8Array RangeError assertions establish allocation refusal independently of MemFS, including the permitted numeric length 2^53 - 1 and the larger 2^53 boundary. EFBIG and unchanged "abcdef" are authored expectations; accepted sizes independently yield "abc" and its two zero bytes.
  * @evidence contracts/testing.md#distinguishing-cases Path and descriptor lanes, a safe and an unsafe integer, and the failed sizes contrast with accepted sizes 3 and 5 that succeed and change the bytes.
- * @evidence contracts/testing.md#execution-ownership Unit entry that drives only the in-process createMemFS filesystem callbacks; no Go runtime or worker is started. Negative, directory and missing-path codes are owned by test_memfs_truncate_resizes_file_and_validates.
+ * @evidence contracts/testing.md#execution-ownership Unit entry that drives native allocation refusal and in-process createMemFS callbacks; no Go runtime or worker is started. Near-eight-pebibyte native requests must fail before MemFS can initialize any accepted large buffer. Negative, directory and missing-path codes are owned by test_memfs_truncate_resizes_file_and_validates.
  */
 export const test_memfs_truncate_reports_efbig_for_an_unallocatable_length =
   async (): Promise<void> => {
     const host = createMemFS();
     host.writeFile("/t.txt", "abcdef");
     const fd = await openFd(host.fs, "/t.txt", 2);
+
+    for (const length of [Number.MAX_SAFE_INTEGER, 2 ** 53])
+      assert.throws(
+        () => new Uint8Array(length),
+        RangeError,
+        `native allocation must refuse the length ${length}`,
+      );
 
     const codes = {
       pathSafe: await expectFsError((cb) =>

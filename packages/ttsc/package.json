@@ -92,6 +92,7 @@
     "cjs-module-lexer": "2.2.1"
   },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@types/node": "catalog:utils",
     "rimraf": "catalog:utils",
     "typescript": "catalog:typescript"

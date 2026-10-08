@@ -24,7 +24,7 @@ Yes, though it's usually unnecessary. The most common case is keeping `tsc` for 
 
 ## Do I have to install `@ttsc/lint`?
 
-No, `ttsc` works without it. But the whole point of the toolchain is the pair. Without `@ttsc/lint` you keep `eslint`+`prettier` as separate tools and lose the "single compile pass" benefit. The recommended install is `npm install -D ttsc @ttsc/lint typescript`.
+No. Install `@ttsc/lint` to run lint and format rules during compilation: `npm install -D ttsc @ttsc/lint typescript`.
 
 ## How do I migrate from `eslint` + `prettier`?
 
@@ -104,7 +104,7 @@ The [Lint in VS Code](/docs/lint/editor) guide explains which features use the l
 
 Yes. Each package has its own `tsconfig.json` and its own `lint.config.ts`. `ttsc` reads from the directory it's invoked in (or `-p path/to/tsconfig.json`). `pnpm` / `npm` / `yarn` workspaces all work.
 
-What does not work is `tsc --build` / `-b` solution mode. `ttsc` resolves and pins one project per run — its plugin, cache, and emit layers are built around that single resolved project — so it refuses the flag rather than compiling the wrong thing. Drive the packages yourself instead: a workspace `run -r` script, or one `ttsc -p <package>/tsconfig.json` per package in dependency order.
+`ttsc` does not support `--build` / `-b` solution mode. Run one `ttsc -p <package>/tsconfig.json` per package in dependency order, or use a recursive workspace script.
 
 For VS Code, add packages as workspace folders when each package should keep its own `ttsc`, `typescript`, and plugin config. Save files before relying on plugin diagnostics, lint fixes, or format edits.
 
@@ -118,7 +118,7 @@ No. Everything runs in the browser. The editor is Monaco; a Web Worker boots `pl
 
 ## Can I publish my own plugin?
 
-Yes. That's the point of the protocol being public. See [Plugin Development · Publishing](/docs/development/authoring/publishing).
+Yes. See [Plugin Development: Publishing](/docs/development/authoring/publishing).
 
 ## Is `ttsc` production-ready?
 

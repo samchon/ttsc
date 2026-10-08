@@ -120,7 +120,10 @@ export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
   // served or recorded as an input of the program.
   nativeRequireResolveHooks =
     RuntimeLoaderCapabilities.requireResolveConsultsHooks();
-  CommonJsRuntimeSource.configure(resolveCommonJsRequest, !nativeRequireResolveHooks);
+  CommonJsRuntimeSource.configure(
+    resolveCommonJsRequest,
+    !nativeRequireResolveHooks,
+  );
   RuntimeLoaderCapabilities.commonJsNamespaceCarriesModuleExports();
   // Error stacks use the served source maps. This supported switch is applied
   // only after the required public loader capabilities have been established.
@@ -334,7 +337,12 @@ function resolve(
     selected = result.url;
     recordPluginDescriptorResolution(specifier, context.parentURL, result.url);
     const moduleApi = CommonJsRuntimeSource.moduleSource();
-    if (!nativeRequireResolveHooks && result.url === "node:module" && context.parentURL !== moduleApi.url && !isDescriptorEvaluatorBootstrap(context.parentURL ?? ""))
+    if (
+      !nativeRequireResolveHooks &&
+      result.url === "node:module" &&
+      context.parentURL !== moduleApi.url &&
+      !isDescriptorEvaluatorBootstrap(context.parentURL ?? "")
+    )
       return { shortCircuit: true, url: moduleApi.url };
     rememberCommonJsImportRole(result.url, context);
     return result;
@@ -1367,25 +1375,37 @@ function emitOrphanSource(
       const currentCompiler = sourceHeld ? compilerIdentity(tsgo) : undefined;
       if (sourceHeld && currentCompiler === cache.compiler)
         writeOrphanCache(cache.file, lowered);
-      E2ETrace.runtimePreparation("", filename, format, "orphan-cache-admission", {
-        moduleOptions: null,
-        emittedFile: emitted ?? undefined,
-        orphanCache: {
-          file: cache.file,
-          sourceHeld,
-          expectedCompiler: cache.compiler,
-          currentCompiler,
+      E2ETrace.runtimePreparation(
+        "",
+        filename,
+        format,
+        "orphan-cache-admission",
+        {
+          moduleOptions: null,
+          emittedFile: emitted ?? undefined,
+          orphanCache: {
+            file: cache.file,
+            sourceHeld,
+            expectedCompiler: cache.compiler,
+            currentCompiler,
+          },
         },
-      });
+      );
     } else {
-      E2ETrace.runtimePreparation("", filename, format, "orphan-cache-unavailable", {
-        moduleOptions: null,
-        emittedFile: emitted ?? undefined,
-        orphanCache: {
-          lowered: lowered !== null,
-          cacheKeyAvailable: cache !== null,
+      E2ETrace.runtimePreparation(
+        "",
+        filename,
+        format,
+        "orphan-cache-unavailable",
+        {
+          moduleOptions: null,
+          emittedFile: emitted ?? undefined,
+          orphanCache: {
+            lowered: lowered !== null,
+            cacheKeyAvailable: cache !== null,
+          },
         },
-      });
+      );
     }
     return lowered;
   } catch (error) {
@@ -1622,10 +1642,16 @@ function writeOrphanCache(cacheFile: string, lowered: string): void {
     fs.writeFileSync(tmp, lowered);
     fs.renameSync(tmp, cacheFile);
   } catch (error) {
-    E2ETrace.runtimePreparation("", cacheFile, "unconsumed", "orphan-cache-write-failed", {
-      moduleOptions: null,
-      orphanCache: { file: cacheFile, error: String(error) },
-    });
+    E2ETrace.runtimePreparation(
+      "",
+      cacheFile,
+      "unconsumed",
+      "orphan-cache-write-failed",
+      {
+        moduleOptions: null,
+        orphanCache: { file: cacheFile, error: String(error) },
+      },
+    );
     // ignore — caching is an optimization, correctness does not depend on it
   } finally {
     try {
@@ -2239,7 +2265,10 @@ function assertCompilerStillCurrent(tsconfig: string, proof?: string): void {
   const current = runtimeExecutableIdentity(binary);
   if (current !== proof) {
     E2ETrace.capabilityResolution("runtime-compiler-publication-refused", {
-      tsconfig, binary, expectedCompiler: proof, currentCompiler: current,
+      tsconfig,
+      binary,
+      expectedCompiler: proof,
+      currentCompiler: current,
     });
     throw new Error(
       `ttsx: compiler changed while building ${tsconfig}; the runtime generation was not published`,

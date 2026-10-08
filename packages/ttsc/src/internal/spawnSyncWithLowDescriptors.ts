@@ -2,6 +2,7 @@ import { type SpawnSyncOptions, spawnSync } from "node:child_process";
 import fs from "node:fs";
 
 import { E2ETrace } from "./E2ETrace";
+import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
 import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 
 /**
@@ -88,7 +89,13 @@ export function spawnSyncWithLowDescriptors(
       brokerOptions,
       "low-descriptor-broker",
     );
-    const broker = spawnSync(process.execPath, brokerArgs, brokerOptions);
+    // The target ignores stdin. An owned relay uses that same no-input mode;
+    // ordinary broker initialization retains its inherited stdin contract.
+    const broker =
+      OwnedSynchronousProcess.launch(process.execPath, brokerArgs, {
+        ...brokerOptions,
+        stdio: ["ignore", 1, 2],
+      }) ?? spawnSync(process.execPath, brokerArgs, brokerOptions);
     E2ETrace.result(trace, broker);
     if (broker.error !== undefined) return broker;
     if (broker.status !== 0) {

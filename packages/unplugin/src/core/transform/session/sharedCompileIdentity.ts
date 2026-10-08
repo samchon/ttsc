@@ -8,8 +8,8 @@ import { unpluginVersion } from "./unpluginVersion";
  * Hex digest of what a whole-project compile is, apart from the files it reads
  * (samchon/ttsc#1390).
  *
- * The ordered JSON tuple groups sharing candidates by spelled tsconfig,
- * serialized compiler-option/alias/plugin payloads, reported versions and
+ * The ordered JSON tuple groups sharing candidates by spelled config and source
+ * root, serialized compiler-option/alias/plugin payloads, reported versions and
  * binary platform. Supported option values must preserve their meaning through
  * JSON; omitted or unsupported JavaScript values are not independent key
  * dimensions. This is a truncated digest, not a complete filesystem or output
@@ -29,7 +29,7 @@ import { unpluginVersion } from "./unpluginVersion";
  *
  * @param props.projectRoot The project the compile runs for, which resolves its
  *   TypeScript-Go.
- * @evidence contracts/common.md#principled-implementation The ordered JSON tuple hashes spelled config, serialized options/aliases/plugins, reported versions and binary platform into the claim's configuration key. JSON-compatible value semantics and separately validated recorded input state are premises; a key match alone is not a filesystem or output proof, and unknown version metadata remains a limitation.
+ * @evidence contracts/common.md#principled-implementation The ordered JSON tuple hashes spelled config and source root, serialized options/aliases/plugins, reported versions and binary platform into the claim's configuration key. JSON-compatible value semantics and separately validated recorded input state are premises; a key match alone is not a filesystem or output proof, and unknown version metadata remains a limitation.
  * @evidence contracts/common.md#clear-and-simple-design One tuple hashes configuration and version identity; source-state proof remains separate rather than being duplicated in this key.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Platform identity legitimately separates compiled binaries; it is not a fixed platform assumption or an excuse to omit plugin-source validation on adoption.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains retained publications, version ownership, and why plugin-source state is proven elsewhere.
@@ -50,6 +50,7 @@ export function sharedCompileIdentity(props: {
     .update(
       JSON.stringify([
         props.tsconfig,
+        props.projectRoot,
         props.compilerOptions,
         props.aliasPaths,
         props.plugins ?? null,

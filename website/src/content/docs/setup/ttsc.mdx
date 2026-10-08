@@ -40,13 +40,13 @@ The watcher follows the compiler's resolved program inputs. New included folders
 - run: npx ttsc --noEmit
 ```
 
-Type errors and lint violations fail the same step, so there is no second lint job drifting out of sync with the build.
+Type errors and lint violations fail the same CI step.
 
 Go-source plugins compile to native binaries once, then live in a cache. Cache the directories that `ttsc cache paths --json` prints, and warm them with `ttsc prepare`, so CI stops rebuilding them every run.
 
 ## One-off scripts with ttsx
 
-`ttsx` is for the file you want to run, not ship: seeders, migrations, experiments. It type-checks the whole project first, then executes natively, so a broken script fails at the check instead of halfway through your database.
+Use `ttsx` for scripts such as seeders and migrations. It type-checks the project before executing the script.
 
 Arguments after `--` go to the script untouched, and `-r` preloads modules Node-style:
 

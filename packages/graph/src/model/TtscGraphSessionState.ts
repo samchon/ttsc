@@ -36,6 +36,17 @@ export class TtscGraphSessionState {
   private nextId = 0;
   private readonly pending = new Map<number, Pending>();
   private queue: Promise<void> = Promise.resolve();
+  private waiting:
+    | {
+        controller: AbortController;
+        started: boolean;
+        consumers: Set<{
+          settled: boolean;
+          resolve: (graph: TtscGraphMemory) => void;
+          reject: (error: Error) => void;
+        }>;
+      }
+    | undefined;
   private current: TtscGraphMemory | undefined;
   private shardStore = new TtscGraphShardStore();
   private closed = false;
@@ -61,16 +72,18 @@ export class TtscGraphSessionState {
   }
 
   /**
-   * Refresh one graph, rejecting queued cancellation without disturbing its
-   * head.
+   * Refresh one graph for callers admitted before its freshness check starts.
    *
-   * @evidence contracts/common.md#principled-implementation Promise serialization and single-settlement guards preserve one live native generation and independent queued abort ownership.
-   * @evidence contracts/common.md#clear-and-simple-design Admission owns queued cancellation while refresh owns artifact synchronization, semantic checks and atomic model replacement.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation retires active ownership or rejects before admission; it never fabricates an empty successful result.
-   * @evidence contracts/common.md#meaningful-documentation The headline distinguishes queued cancellation from active peer retirement; typed receive separately states its validation premise.
-   * @evidence contracts/performance.md#efficient-algorithms Unchanged requests admit and correlate one frame then reuse memory; changed transactions additionally validate shards and rebuild graph indexes, proportional to their facts.
-   * @evidence contracts/performance.md#reuse-equivalent-work Current memory is reusable only when the validated native envelope says unchanged; retirement clears memory/shards and a changed generation replaces them atomically.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One current peer/model/store is retained; pending and queued tasks grow with caller demand, and settlement or cancellation removes abort listeners and pending entries.
+   * Later arrivals form another group. Cancellation releases only that caller;
+   * the native request is aborted when every caller in its group has left.
+   *
+   * @evidence contracts/common.md#principled-implementation A group closes before refresh starts, so its one validation is after every member's admission; later arrivals cannot inherit a check already in progress. Each consumer settles once and owns only its cancellation.
+   * @evidence contracts/common.md#clear-and-simple-design Admission groups callers, refresh owns artifact synchronization and atomic model replacement, and the group's controller owns the shared producer independently of caller signals.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Sharing is justified by admission before validation, without a clock, cooldown or quiet-watcher assumption. The last active consumer's abort cancels shared work and retires a peer with an outstanding native request rather than returning fabricated facts.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the admission boundary and distinguish individual cancellation from producer cancellation; receive separately states its validation premise.
+   * @evidence contracts/performance.md#efficient-algorithms Set insertion/removal is expected constant time per consumer and settlement visits each live consumer once. One frame and artifact validation serve each group; changed transactions additionally validate shards and rebuild indexes.
+   * @evidence contracts/performance.md#reuse-equivalent-work Callers admitted before a refresh starts share its validation and immutable model. A later group validates again, changed responses replace memory atomically, and retirement clears reusable generation state.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Queued groups and live consumer sets grow with outstanding demand. Settlement removes consumers and abort listeners immediately; completed queue callbacks release their groups, while one current peer/model/store remains session-owned.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation queues a request and calls injected host operations; it opens no file or process itself.
    */
   public graph(
@@ -81,38 +94,62 @@ export class TtscGraphSessionState {
     }
     let resolve!: (graph: TtscGraphMemory) => void;
     let reject!: (error: Error) => void;
-    let started = false;
-    let settled = false;
+    let group = this.waiting;
+    const created = group === undefined;
+    if (group === undefined) {
+      group = {
+        controller: new AbortController(),
+        started: false,
+        consumers: new Set(),
+      };
+      this.waiting = group;
+    }
+    const consumer = {
+      settled: false,
+      resolve: undefined! as (graph: TtscGraphMemory) => void,
+      reject: undefined! as (error: Error) => void,
+    };
     const result = new Promise<TtscGraphMemory>((res, rej) => {
       resolve = (graph) => {
-        if (settled) return;
-        settled = true;
+        if (consumer.settled) return;
+        consumer.settled = true;
+        group.consumers.delete(consumer);
+        options.signal?.removeEventListener("abort", cancelQueued);
         res(graph);
       };
       reject = (error) => {
-        if (settled) return;
-        settled = true;
+        if (consumer.settled) return;
+        consumer.settled = true;
+        group.consumers.delete(consumer);
+        options.signal?.removeEventListener("abort", cancelQueued);
         rej(error);
       };
     });
     const cancelQueued = () => {
-      if (!started) reject(cancelledError(options.signal));
+      reject(cancelledError(options.signal));
+      if (group.started && group.consumers.size === 0)
+        group.controller.abort(options.signal?.reason);
     };
+    consumer.resolve = resolve;
+    consumer.reject = reject;
+    group.consumers.add(consumer);
     if (options.signal?.aborted) {
       reject(cancelledError(options.signal));
-      return result;
+    } else {
+      options.signal?.addEventListener("abort", cancelQueued, { once: true });
     }
-    options.signal?.addEventListener("abort", cancelQueued, { once: true });
+    if (!created) return result;
     this.queue = this.queue
       .catch(() => undefined)
       .then(async () => {
-        started = true;
-        options.signal?.removeEventListener("abort", cancelQueued);
-        if (settled) return;
+        group.started = true;
+        if (this.waiting === group) this.waiting = undefined;
+        if (group.consumers.size === 0) return;
         try {
-          resolve(await this.refresh(options.signal));
+          const graph = await this.refresh(group.controller.signal);
+          for (const item of group.consumers) item.resolve(graph);
         } catch (error) {
-          reject(asError(error));
+          for (const item of group.consumers) item.reject(asError(error));
         }
       });
     return result;

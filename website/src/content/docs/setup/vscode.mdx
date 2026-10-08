@@ -37,7 +37,7 @@ Point the default formatter at the extension in `.vscode/settings.json`:
 }
 ```
 
-It formats the live buffer on every save, using the `format` block from your `lint.config.ts`. Lint fixes stay off-save by default, because a lint fix can change what code means and a save should not. Opt in if you want them anyway:
+It formats the live buffer on save using the `format` block from `lint.config.ts`. To also apply lint fixes on save, enable:
 
 ```jsonc
 {

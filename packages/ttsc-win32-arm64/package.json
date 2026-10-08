@@ -5,6 +5,7 @@
   "os": ["win32"],
   "cpu": ["arm64"],
   "scripts": {
+    "evidence": "evidence",
     "build": "node ../ttsc/build/platform-package.cjs"
   },
   "repository": {
@@ -16,5 +17,8 @@
   "files": ["bin", "package.json", "README.md"],
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon"
   }
 }

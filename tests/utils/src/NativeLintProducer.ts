@@ -5,10 +5,33 @@ import path from "node:path";
 import { E2eProcessTrace } from "./E2eProcessTrace";
 import { TestProject } from "./TestProject";
 
+/**
+ * An immutable package snapshot and the manifest proving its captured bytes.
+ *
+ * The native compiler consumes packageRoot. The sibling manifest records the
+ * selected files and installation target; its digest protects that record,
+ * without certifying a loaded binary or the external dependency tree.
+ *
+ * @evidence contracts/common.md#principled-implementation Four readonly fields identify the captured package, original source and independently stored manifest digest.
+ * @evidence contracts/common.md#clear-and-simple-design The package and source locations are distinct from the proof file and its SHA-256, keeping execution input separate from its observation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The handle names a real source snapshot and proof; it does not claim loaded-binary identity or successful execution.
+ * @evidence contracts/common.md#meaningful-documentation Field comments distinguish compiled package input, original authored location and manifest integrity.
+ * @evidence contracts/portability.md#os-neutral-implementation Native absolute roots locate files; the digest is a content identity rather than a path-case or process-liveness claim.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms INativeLintProducer defines a representation; it chooses no processing algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work INativeLintProducer defines no computation-sharing or invalidation policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources INativeLintProducer carries data or signatures; acquisition and release remain with the implementing operation.
+ */
 export interface INativeLintProducer {
+  /** Absolute copied package root resolved by snapshot consumers. */
   readonly packageRoot: string;
+
+  /** Physical authored package root from which the snapshot was captured. */
   readonly sourceRoot: string;
+
+  /** Absolute sibling manifest location outside the compiled package tree. */
   readonly manifestPath: string;
+
+  /** SHA-256 of the original manifest bytes, checked on every shared reuse. */
   readonly manifestSha256: string;
 }
 
@@ -19,9 +42,36 @@ interface IFileReading {
   sha256: string;
 }
 
+/**
+ * Compiler-selected test declarations omitted from an authored package copy.
+ *
+ * Metadata retains the Go selection that justifies each omission. An optional
+ * environment snapshot allows the shared owner to refuse reuse after source
+ * selection inputs change; it is not a native artifact cache key.
+ *
+ * @evidence contracts/common.md#principled-implementation Exact omitted file names and original Go metadata preserve the source-selection proof, with optional environment observations for later admission.
+ * @evidence contracts/common.md#clear-and-simple-design One readonly selection separates compiler-reported exclusions, their metadata basis and environment validity inputs.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Selection carries original observations rather than inferring tests by suffix or declaring native build success.
+ * @evidence contracts/common.md#meaningful-documentation The native comment and fields identify compiler-selected omissions and the optional environment snapshot.
+ * @evidence contracts/portability.md#os-neutral-implementation Excluded names use slash-relative package spelling; metadata carries Go-reported native directories and environment values without OS-name case inference.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms INativeLintSourceSelection defines a representation; it chooses no processing algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work INativeLintSourceSelection defines no computation-sharing or invalidation policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources INativeLintSourceSelection carries data or signatures; acquisition and release remain with the implementing operation.
+ */
 export interface INativeLintSourceSelection {
+  /**
+   * Sorted slash-relative declarations not selected as compiled or embedded
+   * input.
+   */
   readonly excludedGoTestFiles: readonly string[];
+
+  /** Original Go package records that justify the excluded population. */
   readonly metadata: readonly unknown[];
+
+  /**
+   * Observed selection environment; absent when no environment proof was
+   * supplied.
+   */
   readonly environment?: Readonly<Record<string, string | null>>;
 }
 
@@ -41,6 +91,10 @@ let sharedProducerRetentionReason: string | undefined;
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not allocate a substitute producer, claim descendant closure or mutate an external cache selected through the environment.
  * @evidence contracts/common.md#meaningful-documentation Explains the existing-input scope, continued reuse refusal and unresolved reclamation responsibility.
  * @evidence contracts/performance.md#bound-retention-and-release-resources At most the existing snapshot and internally allocated cache transfer out of exit cleanup; unresolved readers forbid further capture/reuse in this process. Later reclamation remains blocked until its caller establishes closure.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Delegated allocation owners validate native root and ancestor identity; this operation never acquires deletion authority over an external cache.
+ * @evidence contracts/performance.md#efficient-algorithms A fixed number of existing owners are notified; each owner's ancestor/allocation checks determine the delegated cost.
+ * @evidence contracts/performance.md#reuse-equivalent-work The first reason is kept and subsequent consumers refuse the shared producer. Repeated retention cannot establish closure or create a new compatible snapshot.
  */
 export function retainNativeLintProducer(reason: string): void {
   if (!reason.trim())
@@ -85,6 +139,11 @@ export function retainNativeLintProducer(reason: string): void {
  * @evidence contracts/common.md#clear-and-simple-design One process-owned package snapshot and manifest serve explicitly opted-in consumers; cold and source-mutating callers keep the workspace package.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Consumers resolve a real copied package and installation link; no loader, capability, compiler, source digest or cache proof is replaced.
  * @evidence contracts/common.md#meaningful-documentation Documents the package-byte capture scope and leaves external installation, SDK and toolchain proof with the actual production build.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Native realpath, lstat and platform directory-link creation preserve actual installation identity; Go selects source according to the actual toolchain environment.
+ * @evidence contracts/performance.md#efficient-algorithms First capture reads selected package bytes before/copy/after; every reuse hashes manifest and snapshot bytes again. Go selection runs twice at initial capture under inherited and isolated environments.
+ * @evidence contracts/performance.md#reuse-equivalent-work One process snapshot is shared only while manifest digest, copied bytes, installation target and selection environment remain unchanged. Authored source is expected frozen for this process; native dependency/toolchain admission remains with the builder.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One snapshot allocation and handle are retained per process. TestProject owns exit removal unless unknown readers retain it; failed initial capture can leave its tracked partial root until exit.
  */
 export function getNativeLintProducer(): INativeLintProducer {
   if (sharedProducerRetentionReason !== undefined)
@@ -160,6 +219,11 @@ export function getNativeLintProducer(): INativeLintProducer {
  * @evidence contracts/common.md#clear-and-simple-design Enumeration, copying and proof comparison are sequential and call-local, with a sibling manifest outside the compiled package input tree.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Reads every selected byte instead of trusting mtimes, forbids unexplained source links and retains production dependency/toolchain/cache guards; the copier cannot bypass the proof comparisons.
  * @evidence contracts/common.md#meaningful-documentation Documents the empty destination precondition, explicit copy boundary, manifest scope, installation link and refusal behavior.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Native realpath and lstat distinguish actual roots and forbid unexplained source links; installation is linked with junction on Windows and directory symlink elsewhere.
+ * @evidence contracts/performance.md#efficient-algorithms Sorted enumeration and SHA-256 cover every selected byte in three readings. Copying is linear in total bytes and sorting scales with per-directory entry counts; no installed dependency tree is copied.
+ * @evidence contracts/performance.md#reuse-equivalent-work The captured immutable bytes and manifest may serve compatible consumers; this function does not cache invocations or authorize reuse of external installation or native artifacts.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the empty destination and partial capture on failure. Synchronous IO closes before return, and the returned manifest/package paths transfer ownership without acquiring a child process.
  */
 export function captureNativeLintProducer(props: {
   sourceRoot: string;
@@ -308,6 +372,11 @@ interface IGoPackageSelection {
  * @evidence contracts/common.md#clear-and-simple-design One deterministic metadata projection supplies both capture population and its stored selection proof.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not classify names by suffix or erase Go, Cgo or embedded inputs; package discovery failures cannot authorize a smaller source tree.
  * @evidence contracts/common.md#meaningful-documentation Describes the compile-input projection and leaves dependency/build validation with the real native builder.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Native realpath and relative compare actual package directories; selected names are validated against both separators and serialized as slash-relative paths.
+ * @evidence contracts/performance.md#efficient-algorithms Metadata traversal visits each reported package and file name; sets handle protected and excluded membership and one final sort orders excluded names. Realpath currently reobserves the source root per record.
+ * @evidence contracts/performance.md#reuse-equivalent-work The returned proof can be shared with capture only when its excluded population agrees with the same compiler metadata; the function caches no filesystem or Go selection.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Call-local sets and the deep-copied metadata grow with reported input size and transfer to the caller; no Go process or open handle is owned here.
  */
 export function selectNativeLintSourceFiles(
   sourceRoot: string,
@@ -475,6 +544,11 @@ function readSelectionEnvironment(): Record<string, string | null> {
  * @evidence contracts/common.md#clear-and-simple-design One native-link operation is shared by corpus and TestLint fixture builders, with platform link type selected at its filesystem boundary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts EEXIST does not authorize a different package, and no entry is removed or replaced to disguise a conflicting identity.
  * @evidence contracts/common.md#meaningful-documentation States the precise existing-link admission contract and the foreign occupant refusal.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Native directory symlinks or Windows junctions identify the package; EEXIST admission compares actual resolved targets rather than path casing.
+ * @evidence contracts/performance.md#efficient-algorithms One creation attempt and, on EEXIST, native link and realpath observations require no package-tree traversal.
+ * @evidence contracts/performance.md#reuse-equivalent-work An existing link is reusable only if its actual target equals the requested producer; unrelated occupants fail without replacement.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The fixture caller owns the created link and later tree cleanup. Synchronous filesystem calls leave no retained handle or task.
  */
 export function linkNativeLintPackage(packageRoot: string, link: string): void {
   try {

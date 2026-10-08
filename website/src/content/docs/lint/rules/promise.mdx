@@ -98,7 +98,7 @@ Reject direct invocation of an error-first callback inside a `then()` or `catch(
 
 Synchronously calling the callback from a promise handler can re-enter it on both the fulfilled and rejected paths.
 
-Upstream guidance: defer via `setImmediate`/`process.nextTick` if a callback bridge is genuinely required.
+Upstream guidance: defer via `setImmediate`/`process.nextTick` if a callback bridge is required.
 
 Also flags `.then(callback)` / `.catch(callback)` calls whose handler argument is a bare callback-shaped identifier (`callback`, `cb`, `next`, `done`).
 

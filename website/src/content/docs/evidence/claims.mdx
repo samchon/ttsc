@@ -275,11 +275,15 @@ The obligation set of a package belongs to whoever publishes it, so a minor rele
 
 ### Swagger documents
 
+A Swagger operation's review fingerprint includes its effective servers and security requirements and the security schemes those requirements use. Moving an equivalent effective contract between inherited and explicit declarations leaves the fingerprint unchanged. The order of security alternatives and scope names does not matter, but server order does; changing an unused security scheme does not expire an operation's review. Upgrading to 0.31.0 changes existing Swagger operation fingerprints once. Re-read those operations and update their review fingerprints.
+
 A local document is re-normalized only when its bytes change. A remote one is fetched once per process and answered from memory afterwards, so a served document that changes mid-session is not seen until the session restarts, while a one-shot `ttsc` run always fetches. A refused URL is never remembered, so a transient outage recovers on the next cycle.
 
 A remote source also makes your build depend on that host being up and reachable, which a sandboxed CI runner often is not. Vendor the document into the repository when that dependency is not one you want, and let the pull request that updates it be where the new operations arrive.
 
 A fetch failure, a non-2xx response, an invalid document, a 30-second timeout, and a document over 16 MiB all fail the build rather than quietly producing an empty population. Only operations under `paths` become units; webhooks and component schemas are outside this reference kind.
+
+Diagnostics hide remote URL usernames, passwords, queries, and fragments while preserving the host, path, and failure cause where they can be shown safely. This changes only how errors are displayed: fetching, caching, and matching a configured source still use its original URL. Local filesystem paths remain unchanged.
 
 ### Prisma schemas
 
@@ -339,7 +343,7 @@ Duplicate and conflict detection moves to the host as well. Two hosts excluding 
 
 `uniqueEvidence` and `singleEvidencePerSymbol` are refused beside `checklist`, at configuration time rather than as coverage failures. They are not redundant here, they are contradictory: a checklist requires every host to cite every unit, which the first forbids as soon as a claim has two hosts and the second forbids as soon as the population has two units.
 
-Pairing `checklist` with `requireReview` is what most checklists are actually for. Each host's answer then carries the fingerprint of that item alone, so editing one principle expires every host's answer to that principle and touches nothing else.
+Pairing `checklist` with `requireReview` gives each host's answer a review fingerprint. Positive coverage answers only the named item, but the fingerprint still covers that target's structural subtree. Editing a principle expires every host's review of it and of any cited ancestor containing it; reviews of unrelated principles remain valid.
 
 ## Rules
 
@@ -377,8 +381,6 @@ The configured graph itself. Every target a declaration writes must resolve, and
 ```ts
 "evidence/graph": ["error", graph]
 ```
-
-An artifact that cites nothing has no proof it was needed, and an artifact citing a target no configured population declares has proof of nothing. Both states are compile errors here, which is the whole product in one sentence.
 
 The rule also feeds the editor: its configured targets become completions while it is green, which [Evidence Tags](/docs/evidence/tags#editor-completions) covers with the rest of what an author sees.
 

@@ -64,7 +64,17 @@ export class TtsgraphClient {
   private nextId = 0;
   private readonly pending = new Map<number, Pending>();
 
-  static start(cwd: string, nativeSpawnReceipt?: string): TtsgraphClient {
+  /**
+   * Start the real launcher with optional caller-owned source build caches.
+   * Omitted cache paths preserve the launcher's inherited selection; explicit
+   * paths change storage only, leaving SDK discovery and build validation
+   * intact.
+   */
+  static start(
+    cwd: string,
+    nativeSpawnReceipt?: string,
+    options: { cacheDir?: string; goBuildCacheDir?: string } = {},
+  ): TtsgraphClient {
     if (nativeSpawnReceipt !== undefined)
       fs.writeFileSync(nativeSpawnReceipt, "", { flag: "wx" });
     const child = spawn(
@@ -87,6 +97,12 @@ export class TtsgraphClient {
         env: {
           ...process.env,
           TTSC_GRAPH_BINARY: resolveTtscgraphBinary(),
+          ...(options.cacheDir === undefined
+            ? {}
+            : { TTSC_CACHE_DIR: options.cacheDir }),
+          ...(options.goBuildCacheDir === undefined
+            ? {}
+            : { TTSC_GO_CACHE_DIR: options.goBuildCacheDir }),
           ...(nativeSpawnReceipt === undefined
             ? {}
             : { TTSC_E2E_GRAPH_SPAWN_RECEIPT: nativeSpawnReceipt }),

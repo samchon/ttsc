@@ -15,8 +15,10 @@ import { transformFilesystem } from "../../../../../packages/unplugin/src/core/t
 import { envelopeDerivation } from "../../../../../packages/unplugin/src/core/transform/envelope/envelopeDerivation";
 import { TtscUnstableGenerationError } from "../../../../../packages/unplugin/src/core/transform/errors/TtscUnstableGenerationError";
 import { captureFailedGenerationInputStates } from "../../../../../packages/unplugin/src/core/transform/generation/captureFailedGenerationInputStates";
+import { createGenerationProofFailures } from "../../../../../packages/unplugin/src/core/transform/generation/createGenerationProofFailures";
 import { createUnstableGenerationError } from "../../../../../packages/unplugin/src/core/transform/generation/createUnstableGenerationError";
 import { projectWalkFailureFingerprint } from "../../../../../packages/unplugin/src/core/transform/generation/projectWalkFailureFingerprint";
+import { recordGenerationProofFailure } from "../../../../../packages/unplugin/src/core/transform/generation/recordGenerationProofFailure";
 import { collectProjectInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/project/collectProjectInputSnapshot";
 import { captureExternalInputSnapshot } from "../../../../../packages/unplugin/src/core/transform/validation/captureExternalInputSnapshot";
 import { captureUniversalHostInputValidation } from "../../../../../packages/unplugin/src/core/transform/validation/captureUniversalHostInputValidation";
@@ -957,16 +959,12 @@ export async function test_terminal_generation_replay_follows_pass_and_input_fro
       failedCached.projectDirectories = failedWalk.projectDirectories;
       failedCached.projectSnapshotComplete = false;
       failedCached.deliveryEpoch = 1;
-      const failures = {
-        entries: [
-          {
-            domain: "project" as const,
-            kind: "directory-read-failed" as const,
-            path: transient,
-          },
-        ],
-        omitted: 0,
-      };
+      const failures = createGenerationProofFailures();
+      recordGenerationProofFailure(failures, {
+        domain: "project",
+        kind: "directory-read-failed",
+        path: transient,
+      });
       const rejection = createUnstableGenerationError(
         root,
         [failures, failures],

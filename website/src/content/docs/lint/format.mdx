@@ -75,13 +75,13 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 | `sortImports` (opt-in) | Sort named specifiers and erased type-only imports. Runtime declaration sorting requires `unsafeSortRuntimeImports`. |
 | `jsDoc` (on by default) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
-`sortImports` is **opt-in**: it only runs when you set it. Every other format behavior — including JSDoc normalization (set `jsDoc: false` to opt out) — runs as soon as a `format` block is present, along with the keyless layout passes (statement splitting, indentation, whitespace, clause joining, continuation-keyword placement, declaration headers, ternary and nullish parens, orphan semicolons, and parameter properties).
+`sortImports` is **opt-in**. Every other format behavior runs when a `format` block is present, including JSDoc normalization; set `jsDoc: false` to disable it. The keyless layout passes also run: statement splitting, indentation, whitespace, clause joining, continuation-keyword placement, declaration headers, ternary and nullish parens, orphan semicolons, and parameter properties.
 
 Clause joining covers every clause body Prettier keeps on its header line: the `if` consequent and alternate, the `for`, `for-in`, `for-of`, and `while` bodies, the `do` body, the `with` body, and a labeled statement's body. A braced body, a body already sharing the header line, a comment sitting between header and body, and a join that would overflow `printWidth` are all left alone. Two clauses join regardless of width or body shape because Prettier gives them no group of their own: an `else` whose alternate is another `if`, and a label, which prints `label: statement` on one line whatever the statement is. An empty-statement body (`while (x);`) keeps its source shape, since Prettier glues the `;` with no space and this pass only rewrites the gap.
 
 Continuation-keyword placement decides where `else`, `catch`, `finally`, and a do-loop's `while` sit relative to the clause before them, which is one decision read in two directions. The clause is a block, so the keyword shares its closing brace's line (`} else {`, `} catch (e) {`, `} finally {`, `} while (ready);`); the clause is not a block, so the keyword starts its own line at the statement's column (`if (a) x();` then `else y();`). A comment sitting between the clause and the keyword makes the pass abstain.
 
-`format.endOfLine` (`"lf"` by default, or `"crlf"`) sets the newline every pass synthesizes — `printWidth` reflow, statement splitting, indentation, whitespace, declaration headers, parameter properties, and import sorting all emit it — so reformatting a CRLF file never leaves mixed line endings.
+`format.endOfLine` (`"lf"` by default, or `"crlf"`) sets the newline emitted by every formatting pass, including reflow, statement splitting, indentation, whitespace, declaration headers, parameter properties, and import sorting. Reformatting a CRLF file therefore uses consistent line endings.
 
 ### `format.severity`
 
@@ -133,10 +133,10 @@ A trailing comma is never inserted after a rest element (`...rest`), where the g
 
 The `order` array drives grouping. Each entry is a regular expression matched against a module specifier, or one of these placeholders:
 
-- `<BUILTIN_MODULES>` — Node built-ins (`node:fs`, `assert`, ...).
-- `<THIRD_PARTY_MODULES>` — bare-specifier externals not matched elsewhere.
-- `<TYPES>` — `import type` declarations (optionally scoped, e.g. `<TYPES>^[.]`).
-- `""` — emit one blank line at this position.
+- `<BUILTIN_MODULES>`: Node built-ins (`node:fs`, `assert`, ...).
+- `<THIRD_PARTY_MODULES>`: bare-specifier externals not matched elsewhere.
+- `<TYPES>`: `import type` declarations (optionally scoped, e.g. `<TYPES>^[.]`).
+- `""`: emit one blank line at this position.
 
 The default `order` is `["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^[.]"]`, with **no** blank lines between groups (add `""` entries to insert them). Named specifiers always sort. A block made entirely of erased `import type` declarations is grouped, sorted, and merged according to these options.
 
@@ -242,7 +242,7 @@ For every uncovered shape the rule produces zero findings and zero edits.
 - Comments between members of a covered list make the rule abstain. Inline-comment handling is on the roadmap.
 - No Prettier magic-trailing-comma hint. Object-wrap preservation, same-kind arrays of arrays or objects, function composition, and non-empty blocks can force a break even when the flat form fits.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
-- A callback body that contains a genuinely uncovered multi-line statement makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
+- A callback body that contains an uncovered multi-line statement makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
 
 ## Key interactions

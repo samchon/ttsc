@@ -32,11 +32,15 @@ import (
 //  3. Execute an invalid-export control separately and require its error envelope.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual bannerTypeScriptConfigLoaderSource and resolutioninputs.Recorder select the authored default/outer/nested texts and evaluate selection's installed module despite root-sibling mkdir/rmdir churn. Its actual envelope retains selected-module/manifest byte hashes and physical identities, both proof keys for every input and no selection candidate beyond the selected root. The invalid export retains its supported failure requirement.
-// @evidence contracts/testing.md#independent-expectations Conflicting export literals define precedence. Authored package/module bytes independently define SHA-256, native EvalSymlinks defines physical identity and the known installed root defines the cutoff. Actual stdout is decoded without deriving expected results from loader source or recorder output.
+// @evidence contracts/testing.md#independent-expectations Conflicting export literals define precedence. Authored package/module bytes independently define SHA-256; native Stat and SameFile identify the fixture root, selected inputs and physical proof targets even when the temporary root has an alias. A candidate's parent before node_modules/selection must identify the authored root, so absent candidates cannot escape the cutoff. Actual stdout is decoded without deriving expected results from loader source or recorder output.
 // @evidence contracts/testing.md#distinguishing-cases Default/outer/nested precedence and invalid export remain; bare package selection contrasts the selected local package with irrelevant higher search roots changed during evaluation. Nil proofs for stable absent candidates are allowed but absent proof keys fail. This does not certify compiler emit, native TypeScript launcher transport or every plugin/config-format combination.
 // @evidence contracts/testing.md#execution-ownership Generated loader modules and the embedded recorder run in the existing two real Node children: one shared positive cohort now contains four loaders, and one invalid control remains. Package selection adds no child, compiler Program, host or native artifact. The positive fixture's sibling is removed by its module and testing cleanup owns any remaining empty sibling.
 func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
   root := t.TempDir()
+  rootInfo, rootErr := os.Stat(root)
+  if rootErr != nil {
+    t.Fatal(rootErr)
+  }
   shared.WriteFile(t, filepath.Join(root, "package.json"), `{"type":"module"}`)
   installed := filepath.Join(root, "node_modules", "selection")
   manifest := filepath.Join(installed, "package.json")
@@ -98,11 +102,7 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
     }
     actual[result.Value.Text]++
     if result.Value.Text == "INSTALLED SELECTION" {
-      selectedSeen := false
       for _, input := range result.Inputs {
-        if filepath.Clean(input) == filepath.Clean(selectedModule) {
-          selectedSeen = true
-        }
         if _, exists := result.Hashes[input]; !exists {
           t.Errorf("selected-package input %s lost its hash proof", input)
         }
@@ -111,28 +111,42 @@ func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
         }
         spelling := filepath.ToSlash(input)
         if strings.Contains(spelling, "/node_modules/selection/") || strings.HasSuffix(spelling, "/node_modules/selection") {
-          relative, err := filepath.Rel(root, input)
-          if err != nil || filepath.IsAbs(relative) || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+          parent := filepath.FromSlash(spelling[:strings.LastIndex(spelling, "/node_modules/selection")])
+          parentInfo, err := os.Stat(parent)
+          if err != nil || !os.SameFile(rootInfo, parentInfo) {
             t.Errorf("selection candidate lies past the selected root: %s", input)
           }
         }
       }
-      if !selectedSeen {
-        t.Error("actual selected package module is not an input")
-      }
       for file, text := range map[string]string{selectedModule: moduleText, manifest: manifestText} {
-        hash, exists := result.Hashes[file]
-        expectedHash := fmt.Sprintf("%x", sha256.Sum256([]byte(text)))
-        if !exists || hash == nil || *hash != expectedHash {
-          t.Errorf("selected file %s hash=%v, want authored byte hash %s", file, hash, expectedHash)
-        }
-        physical, err := filepath.EvalSymlinks(file)
+        authoredInfo, err := os.Stat(file)
         if err != nil {
           t.Fatal(err)
         }
-        observed, exists := result.Realpaths[file]
-        if !exists || observed == nil || filepath.Clean(*observed) != filepath.Clean(physical) {
-          t.Errorf("selected file %s physical=%v, want %s", file, observed, physical)
+        matched := false
+        expectedHash := fmt.Sprintf("%x", sha256.Sum256([]byte(text)))
+        for _, input := range result.Inputs {
+          inputInfo, err := os.Stat(input)
+          if err != nil || !os.SameFile(authoredInfo, inputInfo) {
+            continue
+          }
+          matched = true
+          hash, exists := result.Hashes[input]
+          if !exists || hash == nil || *hash != expectedHash {
+            t.Errorf("selected file %s input %s hash=%v, want authored byte hash %s", file, input, hash, expectedHash)
+          }
+          observed, exists := result.Realpaths[input]
+          if !exists || observed == nil {
+            t.Errorf("selected file %s input %s lost its physical identity", file, input)
+            continue
+          }
+          physicalInfo, err := os.Stat(*observed)
+          if err != nil || !os.SameFile(authoredInfo, physicalInfo) {
+            t.Errorf("selected file %s physical=%s does not identify authored input: %v", file, *observed, err)
+          }
+        }
+        if !matched {
+          t.Errorf("actual selected file %s is not an input", file)
         }
       }
       if _, err := os.Stat(sibling); !os.IsNotExist(err) {

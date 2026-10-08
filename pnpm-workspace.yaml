@@ -6,7 +6,7 @@ packages:
   - "tests/*"
   - "website"
 patchedDependencies:
-  typia@15.1.0: .github/workflows/patches/typia-15.1.0-emit-provenance.patch
+  "@rollup/plugin-typescript@12.3.0": patches/@rollup__plugin-typescript@12.3.0.patch
 overrides:
   # Patch releases retain each installed major's API while clearing the
   # severe advisories reported by the locked dependency graph.
@@ -30,6 +30,7 @@ catalogs:
     "@rollup/plugin-node-resolve": ^16.0.3
     rollup: ^4.56.0
   samchon:
+    "@wrtnlabs/evidence": ^0.3.1
     nestia: &nestia ^14.0.0
     "@nestia/core": *nestia
     "@nestia/fetcher": *nestia

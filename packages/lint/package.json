@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/lint",
-  "version": "0.30.4",
+  "version": "0.31.0",
   "description": "Reference ttsc plugin: ESLint-style lint rules over the TypeScript-Go Program used by the type-check pass.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -38,6 +38,7 @@
     "src"
   ],
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@types/node": "catalog:utils",
     "rimraf": "catalog:utils",
     "ttsc": "workspace:*",

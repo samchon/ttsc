@@ -1,6 +1,7 @@
 import { type SpawnSyncOptions, spawnSync } from "node:child_process";
 
 import { E2ETrace } from "./E2ETrace";
+import { OwnedSynchronousProcess } from "./OwnedSynchronousProcess";
 import type { SpawnSyncOutputFiles } from "./SpawnSyncOutputFiles";
 import { isSpawnSyncFdExhaustion } from "./isSpawnSyncFdExhaustion";
 import { spawnSyncWithLowDescriptors } from "./spawnSyncWithLowDescriptors";
@@ -46,7 +47,9 @@ export function spawnSyncResilient(
     options,
     "spawnSyncResilient",
   );
-  const result = spawnSync(command, nativeArgs, options);
+  const result =
+    OwnedSynchronousProcess.launch(command, nativeArgs, options) ??
+    spawnSync(command, nativeArgs, options);
   E2ETrace.result(trace, result);
   if (
     output === undefined ||

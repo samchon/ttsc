@@ -11,6 +11,7 @@ import util from "node:util";
 
 import { captureProcessOutput } from "../../../compiler/internal/captureProcessOutput";
 import { E2ETrace } from "../../../internal/E2ETrace";
+import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
 import { GoToolResolution } from "./GoToolResolution";
 import { windowsGoCommandArgs } from "./windowsGoCommandArgs";
@@ -94,7 +95,9 @@ function spawnGoToolProcess(
       nativeArgs,
       options,
       "windows-go-tool",
-      () => spawnSync(goBinary, nativeArgs, options),
+      () =>
+        OwnedSynchronousProcess.launch(goBinary, nativeArgs, options) ??
+        spawnSync(goBinary, nativeArgs, options),
     );
   }
   // Supply the install-guidance ENOENT result when no regular wrapper candidate
@@ -117,13 +120,16 @@ function spawnGoToolProcess(
     options,
     "windows-go-wrapper",
   );
-  const result = spawnSync(command, commandArgs, {
+  const wrapperOptions = {
     ...options,
     env: { ...inheritedEnv, ...shim.environment },
     shell: false,
     // The /c payload is already one fully quoted Windows command line.
     windowsVerbatimArguments: true,
-  });
+  };
+  const result =
+    OwnedSynchronousProcess.launch(command, commandArgs, wrapperOptions) ??
+    spawnSync(command, commandArgs, wrapperOptions);
   E2ETrace.result(trace, result);
   return result;
 }

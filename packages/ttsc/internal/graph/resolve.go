@@ -82,6 +82,21 @@ func (g *Graph) resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target
 // @evidence contracts/performance.md#bound-retention-and-release-resources The new endpoint and borrowed symbol transfer to the caller and can retain declarations/AST state. The compiler owner must keep that generation stable; this adapter owns no historical cache, generation lease or native handle release.
 // @evidence contracts/portability.md#os-neutral-implementation Returned filename spelling and declaration-file/node_modules classification come from the supplied compiler tree. Lexical classification does not resolve native aliases or establish physical workspace ownership.
 func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
+  // The external checker API resolves a literal index at its argument node,
+  // not at the enclosing element-access expression. A dynamic index is not a
+  // named property and must not be mistaken for the index variable's symbol.
+  if ref.Kind == shimast.KindElementAccessExpression {
+    argument := ref.AsElementAccessExpression().ArgumentExpression
+    if argument == nil {
+      return nil
+    }
+    switch argument.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral, shimast.KindNumericLiteral:
+      ref = argument
+    default:
+      return nil
+    }
+  }
   symbol := checker.GetSymbolAtLocation(ref)
   if symbol == nil {
     return nil

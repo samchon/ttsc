@@ -1,10 +1,10 @@
 package evidence
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"strings"
-	"sync"
+  "crypto/sha256"
+  "encoding/hex"
+  "strings"
+  "sync"
 )
 
 // swaggerCacheLimit bounds the cache so a resident host cannot grow without
@@ -68,59 +68,59 @@ var swaggerRemoteDocuments = newSwaggerCache()
 // reads exactly like an empty but passing one, which is the shape
 // `TestSwaggerReportsARejectionThatCarriesNoReason` exists to forbid.
 type swaggerDocumentOutcome struct {
-	Operations []swaggerOperation
-	Rejected   bool
-	Problem    string
+  Operations []swaggerOperation
+  Rejected   bool
+  Problem    string
 }
 
 func newSwaggerCache() *swaggerCache {
-	return &swaggerCache{entries: map[string]swaggerDocumentOutcome{}}
+  return &swaggerCache{entries: map[string]swaggerDocumentOutcome{}}
 }
 
 type swaggerCache struct {
-	mutex   sync.Mutex
-	entries map[string]swaggerDocumentOutcome
-	order   []string
+  mutex   sync.Mutex
+  entries map[string]swaggerDocumentOutcome
+  order   []string
 }
 
 func (cache *swaggerCache) lookup(digest string) (swaggerDocumentOutcome, bool) {
-	if digest == "" {
-		return swaggerDocumentOutcome{}, false
-	}
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	outcome, hit := cache.entries[digest]
-	if !hit {
-		return swaggerDocumentOutcome{}, false
-	}
-	// Copied out because the caller builds units from it while another cycle
-	// may be reading the same entry.
-	return swaggerDocumentOutcome{
-		Operations: append([]swaggerOperation(nil), outcome.Operations...),
-		Rejected:   outcome.Rejected,
-		Problem:    outcome.Problem,
-	}, true
+  if digest == "" {
+    return swaggerDocumentOutcome{}, false
+  }
+  cache.mutex.Lock()
+  defer cache.mutex.Unlock()
+  outcome, hit := cache.entries[digest]
+  if !hit {
+    return swaggerDocumentOutcome{}, false
+  }
+  // Copied out because the caller builds units from it while another cycle
+  // may be reading the same entry.
+  return swaggerDocumentOutcome{
+    Operations: append([]swaggerOperation(nil), outcome.Operations...),
+    Rejected:   outcome.Rejected,
+    Problem:    outcome.Problem,
+  }, true
 }
 
 func (cache *swaggerCache) store(digest string, outcome swaggerDocumentOutcome) {
-	if digest == "" {
-		return
-	}
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	if _, exists := cache.entries[digest]; exists {
-		return
-	}
-	if len(cache.order) >= swaggerCacheLimit {
-		delete(cache.entries, cache.order[0])
-		cache.order = cache.order[1:]
-	}
-	cache.entries[digest] = swaggerDocumentOutcome{
-		Operations: append([]swaggerOperation(nil), outcome.Operations...),
-		Rejected:   outcome.Rejected,
-		Problem:    outcome.Problem,
-	}
-	cache.order = append(cache.order, digest)
+  if digest == "" {
+    return
+  }
+  cache.mutex.Lock()
+  defer cache.mutex.Unlock()
+  if _, exists := cache.entries[digest]; exists {
+    return
+  }
+  if len(cache.order) >= swaggerCacheLimit {
+    delete(cache.entries, cache.order[0])
+    cache.order = cache.order[1:]
+  }
+  cache.entries[digest] = swaggerDocumentOutcome{
+    Operations: append([]swaggerOperation(nil), outcome.Operations...),
+    Rejected:   outcome.Rejected,
+    Problem:    outcome.Problem,
+  }
+  cache.order = append(cache.order, digest)
 }
 
 // swaggerContentDigests hashes each local source's bytes.
@@ -137,37 +137,37 @@ func (cache *swaggerCache) store(digest string, outcome swaggerDocumentOutcome) 
 // fetch, and the fetch is most of what the normalizer costs, so a remote
 // document cannot be shown unchanged without paying the price of finding out.
 func swaggerContentDigests(root string, sources []string, readers ...evidenceInputReader) map[string]string {
-	inputs := inputReader(readers)
-	digests := map[string]string{}
-	for _, source := range sources {
-		digest := swaggerContentDigest(root, source, inputs)
-		if digest != "" {
-			digests[source] = digest
-		}
-	}
-	return digests
+  inputs := inputReader(readers)
+  digests := map[string]string{}
+  for _, source := range sources {
+    digest := swaggerContentDigest(root, source, inputs)
+    if digest != "" {
+      digests[source] = digest
+    }
+  }
+  return digests
 }
 
 func swaggerContentDigest(root string, source string, readers ...evidenceInputReader) string {
-	inputs := inputReader(readers)
-	if isRemoteSwaggerSource(source) {
-		return ""
-	}
-	content, err := inputs.ReadFile(swaggerSourcePath(root, source))
-	if err != nil {
-		return ""
-	}
-	return swaggerDigestOf(content)
+  inputs := inputReader(readers)
+  if isRemoteSwaggerSource(source) {
+    return ""
+  }
+  content, err := inputs.ReadFile(swaggerSourcePath(root, source))
+  if err != nil {
+    return ""
+  }
+  return swaggerDigestOf(content)
 }
 
 func swaggerDigestOf(content []byte) string {
-	sum := sha256.Sum256(content)
-	return hex.EncodeToString(sum[:])
+  sum := sha256.Sum256(content)
+  return hex.EncodeToString(sum[:])
 }
 
 // swaggerSourcePath locates a local document, which may sit outside the project.
 func swaggerSourcePath(root string, source string) string {
-	return resolveProjectPath(root, source)
+  return resolveProjectPath(root, source)
 }
 
 // rememberSwaggerDocument records an outcome under the bytes it was produced
@@ -183,20 +183,20 @@ func swaggerSourcePath(root string, source string) string {
 // A source is skipped when the normalizer reports no digest, which is how a
 // remote document stays out of the cache no matter what it returns.
 func rememberSwaggerDocument(
-	source string,
-	digest string,
-	outcome swaggerDocumentOutcome,
+  source string,
+  digest string,
+  outcome swaggerDocumentOutcome,
 ) {
-	if isRemoteSwaggerSource(source) {
-		if !outcome.Rejected {
-			swaggerRemoteDocuments.store(source, outcome)
-		}
-		return
-	}
-	if digest == "" {
-		return
-	}
-	swaggerDocuments.store(digest, outcome)
+  if isRemoteSwaggerSource(source) {
+    if !outcome.Rejected {
+      swaggerRemoteDocuments.store(source, outcome)
+    }
+    return
+  }
+  if digest == "" {
+    return
+  }
+  swaggerDocuments.store(digest, outcome)
 }
 
 // lookupSwaggerDocument answers from whichever memory owns this source.
@@ -207,13 +207,13 @@ func rememberSwaggerDocument(
 // answered this, once", which is a decision about freshness rather than a fact
 // about content.
 func lookupSwaggerDocument(
-	source string,
-	digest string,
+  source string,
+  digest string,
 ) (swaggerDocumentOutcome, bool) {
-	if isRemoteSwaggerSource(source) {
-		return swaggerRemoteDocuments.lookup(source)
-	}
-	return swaggerDocuments.lookup(digest)
+  if isRemoteSwaggerSource(source) {
+    return swaggerRemoteDocuments.lookup(source)
+  }
+  return swaggerDocuments.lookup(digest)
 }
 
 // swaggerUnitsFromOutcome rebuilds one source's units from a remembered
@@ -224,37 +224,37 @@ func lookupSwaggerDocument(
 // lets two sources holding identical bytes share one entry: what was cached is
 // a property of the document, not of where it was found.
 func swaggerUnitsFromOutcome(
-	source string,
-	inventory *artifactInventory,
-	outcome swaggerDocumentOutcome,
+  source string,
+  inventory *artifactInventory,
+  outcome swaggerDocumentOutcome,
 ) []string {
-	if inventory == nil {
-		return nil
-	}
-	if outcome.Rejected {
-		message := swaggerNormalizationFailure(source, outcome.Problem)
-		inventory.LoadFailed = true
-		inventory.Problems = append(inventory.Problems, inventoryProblem{
-			Symbol:  "operation",
-			Message: message,
-		})
-		return []string{message}
-	}
-	problems := []string{}
-	for _, operation := range outcome.Operations {
-		unit, problem := swaggerOperationUnit(source, operation)
-		if problem != "" {
-			inventory.Problems = append(inventory.Problems, inventoryProblem{
-				Symbol:  "operation",
-				Message: problem,
-			})
-			problems = append(problems, problem)
-			continue
-		}
-		inventory.Units = append(inventory.Units, unit)
-	}
-	sortUnits(inventory.Units)
-	return problems
+  if inventory == nil {
+    return nil
+  }
+  if outcome.Rejected {
+    message := swaggerNormalizationFailure(source, outcome.Problem)
+    inventory.LoadFailed = true
+    inventory.Problems = append(inventory.Problems, inventoryProblem{
+      Symbol:  "operation",
+      Message: message,
+    })
+    return []string{message}
+  }
+  problems := []string{}
+  for _, operation := range outcome.Operations {
+    unit, problem := swaggerOperationUnit(source, operation)
+    if problem != "" {
+      inventory.Problems = append(inventory.Problems, inventoryProblem{
+        Symbol:  "operation",
+        Message: problem,
+      })
+      problems = append(problems, problem)
+      continue
+    }
+    inventory.Units = append(inventory.Units, unit)
+  }
+  sortUnits(inventory.Units)
+  return problems
 }
 
 // swaggerNormalizationFailure words a rejected source identically whether the
@@ -266,13 +266,13 @@ func swaggerUnitsFromOutcome(
 // that trails off after a colon reads like a formatting bug rather than a
 // broken document.
 func swaggerNormalizationFailure(source string, message string) string {
-	reason := causeReason(strings.TrimSpace(message))
-	if reason == "" {
-		reason = "the normalizer reported no reason"
-	}
-	return "Evidence graph could not normalize Swagger source '" +
-		displaySwaggerSource(source) +
-		"' to @typia/interface OpenApi.IDocument: " +
-		reason +
-		". Fix the file or URL so @typia/utils can upgrade it."
+  reason := causeReason(strings.TrimSpace(redactSwaggerError(source, message)))
+  if reason == "" {
+    reason = "the normalizer reported no reason"
+  }
+  return "Evidence graph could not normalize Swagger source '" +
+    displaySwaggerSource(source) +
+    "' to @typia/interface OpenApi.IDocument: " +
+    reason +
+    ". Fix the file or URL so @typia/utils can upgrade it."
 }

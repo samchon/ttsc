@@ -55,6 +55,32 @@ export type RunBuildOptions = TtscBuildOptions & {
   isolateOutputsTo?: string;
 
   /**
+   * API-owned destinations preserving separate declaration and bundle output.
+   * Every specified path belongs to the API temporary lifetime. An absent
+   * build-info override means the project has no incremental state to
+   * relocate.
+   */
+  privateOutputDestinations?: {
+    /** Private JavaScript directory, or null for a bundle-only layout. */
+    outDir: string | null;
+
+    /**
+     * Private separate declaration directory; null keeps declarations beside
+     * JS.
+     */
+    declarationDir: string | null;
+
+    /** Private bundle filename; null retains per-source emission. */
+    outFile: string | null;
+
+    /** Explicit private incremental state when this project can produce it. */
+    tsBuildInfoFile?: string;
+
+    /** Separate recovery/check state, which is not an emitted API artifact. */
+    diagnosticsTsBuildInfoFile?: string;
+  };
+
+  /**
    * Hand tsgo the `rootDir` it would otherwise infer, for a build whose
    * `outDir` this process injected rather than the project declaring it.
    *

@@ -35,13 +35,12 @@ import { watchLocationIdentity } from "./watchLocationIdentity";
  * withdraws notification authority without asserting a structural change;
  * recorded-state validation supplies the actual verdict. Content witnesses
  * preserve captured native input aliases, then reject only an observed normal
- * directory excluded in both lexical and native spellings. Unknown, missing
- * and linked ancestry remains conservative. Membership rejection still
- * withdraws notification authority even when content is outside the walk.
- * Named events also
- * compare current native identity and case policy with the retained identity
- * transaction. Retargeting withdraws notification authority without changing
- * the meaning of earlier recorded event spellings.
+ * directory excluded in both lexical and native spellings. Unknown, missing and
+ * linked ancestry remains conservative. Membership rejection still withdraws
+ * notification authority even when content is outside the walk. Named events
+ * also compare current native identity and case policy with the retained
+ * identity transaction. Retargeting withdraws notification authority without
+ * changing the meaning of earlier recorded event spellings.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The project walk and membership policy own structural relevance; content
@@ -186,7 +185,8 @@ export async function createProjectMutationTracker(
     tracker.unverified = true;
   }
   const reportsContent = (location: string, filename: string): boolean => {
-    if (!isPossibleProgramFileName(paths.basename(filename), policy)) return false;
+    if (!isPossibleProgramFileName(paths.basename(filename), policy))
+      return false;
     const changed = paths.resolve(location, filename);
     if (covered.has(changed)) return true;
     if (inputIdentityKeys === undefined) return true;
@@ -195,7 +195,8 @@ export async function createProjectMutationTracker(
       if (
         inputIdentityKeys.has(pathIdentityKey(changed, identities)) ||
         inputIdentityKeys.has(pathIdentityKey(changed, current))
-      ) return true;
+      )
+        return true;
     } catch {
       tracker.unverified = true;
       return true;
@@ -205,7 +206,8 @@ export async function createProjectMutationTracker(
       relative === ".." ||
       relative.startsWith(".." + paths.sep) ||
       paths.isAbsolute(relative)
-    ) return true;
+    )
+      return true;
     let directory = root;
     for (const component of relative.split(paths.sep).filter(Boolean)) {
       directory = paths.join(directory, component);
@@ -215,13 +217,17 @@ export async function createProjectMutationTracker(
         const physical = filesystem.realpath(directory);
         const after = filesystem.lstat(directory);
         if (
-          !after.isDirectory() || after.isSymbolicLink() ||
-          before.dev !== after.dev || before.ino !== after.ino
-        ) return true;
+          !after.isDirectory() ||
+          after.isSymbolicLink() ||
+          before.dev !== after.dev ||
+          before.ino !== after.ino
+        )
+          return true;
         if (
           !isProjectWalkDirectory(directory, policy, filesystem.platform) &&
           !isProjectWalkDirectory(physical, policy, filesystem.platform)
-        ) return false;
+        )
+          return false;
       } catch {
         // Missing/deleted ancestors and unknown native spellings remain events.
         return true;

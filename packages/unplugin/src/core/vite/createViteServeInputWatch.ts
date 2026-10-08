@@ -20,9 +20,10 @@ import { reloadImporters } from "./reloadImporters";
  * graph nodes (`invalidateImporters`, samchon/ttsc#1419), without proving that
  * the actual root set changed or requesting an HMR update.
  *
- * The observer opens on the server's root once a server attaches, and a server
- * told to poll registers inputs for the observer's per-tick bounded poll
- * (samchon/ttsc#1395).
+ * A watching server opens the observer on its root before compilation begins.
+ * A watcherless server (`server.watch: null`) registers no notification inputs
+ * and releases any preceding server's observer. A server told to poll registers
+ * inputs for the observer's per-tick bounded poll (samchon/ttsc#1395).
  *
  * @param operations Native watch seams, replaceable for tests.
  * @evidence contracts/common.md#principled-implementation
@@ -55,8 +56,10 @@ import { reloadImporters } from "./reloadImporters";
  *   their generation evidence; replace supplies the capture token so stale
  *   registration does not acknowledge a change since compilation began.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The observer retains input/evidence/owner indexes and bounded scope/history
- *   populations, without a total input-byte bound. Forget removes that owner's
+ *   Watcherless attachment clears preceding registrations and releases their
+ *   scopes and poller; it acquires none. Watching attachment retains
+ *   precompilation observation. The observer retains input/evidence/owner indexes
+ *   and bounded scope/history populations, without a total input-byte bound. Forget removes that owner's
  *   claims; dispose clears entries/timers and attempts independent handle closes,
  *   suppressing close errors. Server/root association survives for re-registration
  *   during overlap; reload tasks already handed to Vite are not cancelled here.
@@ -65,6 +68,7 @@ export function createViteServeInputWatch(
   operations: Partial<InputObserverOperations> = {},
 ): ViteServeInputWatch {
   let server: ViteDevServerLike | undefined;
+  let watching = false;
   const observer = createInputObserver(({ invalidate, reload }) => {
     if (server === undefined) return;
     if (reload.size !== 0) reloadImporters(server, reload);
@@ -73,6 +77,13 @@ export function createViteServeInputWatch(
   return {
     attach(next) {
       server = next;
+      watching = next.config?.server?.watch !== null;
+      if (!watching) {
+        // dispose clears registrations and closes handles synchronously; its
+        // Promise exposes the common observer lifecycle to asynchronous owners.
+        void observer.dispose();
+        return;
+      }
       observer.open(
         next.config?.root ?? process.cwd(),
         hostDeclaresPolling(
@@ -85,7 +96,8 @@ export function createViteServeInputWatch(
     // The attached server is kept across overlapping Vite restart containers.
     dispose: () => observer.dispose(),
     forget: (importer) => observer.forget(importer),
-    replace: (importer, inputs, failed, startedAt) =>
-      observer.replace(importer, inputs, failed, startedAt),
+    replace: (importer, inputs, failed, startedAt) => {
+      if (watching) observer.replace(importer, inputs, failed, startedAt);
+    },
   };
 }

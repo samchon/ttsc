@@ -10,6 +10,11 @@
  * @evidence contracts/common.md#clear-and-simple-design One readonly preparation input owns project-relative versus workspace-relative files, compiler membership/settings and the two producer choices without duplicating package resolution policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No input declares a successful compiler result, native capability or cache proof; snapshot selection asks the real preparation owner to resolve its verified package, not a fabricated binary.
  * @evidence contracts/common.md#meaningful-documentation Fields explain relative roots, original compiler membership and producer default semantics so callers can choose which state their boundary actually observes.
+ *
+ * @evidence contracts/portability.md#os-neutral-implementation Project-relative and ancestor-workspace-relative file maps remain distinct from native absolute module/parent locations; compiler options are passed unchanged to the actual compiler.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ICreateProjectProps defines a representation; it chooses no processing algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ICreateProjectProps defines no computation-sharing or invalidation policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ICreateProjectProps carries data or signatures; acquisition and release remain with the implementing operation.
  */
 export interface ICreateProjectProps {
   /** Distinguishes temp directories in a failure report. */

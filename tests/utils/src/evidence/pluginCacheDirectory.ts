@@ -31,6 +31,9 @@ import { suiteRoot } from "./suiteRoot";
  * @evidence contracts/common.md#meaningful-documentation Explains relative environment resolution, shared content-key validity and the distinction between admission and filesystem cleanup authority.
  * @evidence contracts/portability.md#os-neutral-implementation Native absolute paths and registry realpath/stat identity keep parent and child cwd semantics equal without assuming case policy or inferring closure from a signal.
  * @evidence contracts/performance.md#reuse-equivalent-work Actual consumers share the selected cache under product content-key validation; registered unresolved readers block every later use of that physical cache, including a different fixture or path alias.
+ *
+ * @evidence contracts/performance.md#efficient-algorithms Native resolve and mkdir perform no fixture-tree scan; registry admission and binding visit only relevant ancestor identities and keys.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This operation may create the cache directory but claims no removal authority over externally configured roots. Registry bindings persist for the process; actual cache allocation cleanup belongs to its selected owner.
  */
 export const pluginCacheDirectory = (
   directory?: string,

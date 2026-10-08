@@ -112,18 +112,15 @@ func main() {
   if err != nil {
     log.Fatalf("gen_shims: packages.Load: %v", err)
   }
+  if err := validateShimPackages(loaded, fullNames); err != nil {
+    log.Fatalf("gen_shims: packages.Load: %v", err)
+  }
 
   var shimHeaderBuilder strings.Builder
   var shimBuilder strings.Builder
   var tempBuffer bytes.Buffer
 
   for _, pkg := range loaded {
-    if len(pkg.Errors) != 0 {
-      for _, e := range pkg.Errors {
-        fmt.Fprintln(os.Stderr, "gen_shims:", e)
-      }
-      log.Fatalf("gen_shims: package %s failed to load (see errors above)", pkg.PkgPath)
-    }
     shimDirPath := path.Join("./shim/", strings.TrimPrefix(pkg.PkgPath, tsgoInternalPrefix))
 
     var extraShim ExtraShim
@@ -501,6 +498,56 @@ func main() {
     shimHeaderBuilder.Reset()
     shimBuilder.Reset()
   }
+}
+
+// validateShimPackages admits a complete, error-free package population before
+// generation opens any output file. packages.Load can report module-resolution
+// failures through an empty result with no top-level error.
+//
+// @evidence contracts/common.md#principled-implementation Every requested identity must occur exactly once and every returned package must be requested and error-free, preventing incomplete upstream observations from authorizing generated writes.
+// @evidence contracts/common.md#clear-and-simple-design One admission pass precedes all per-package writes and reports the complete returned population's problems together.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The boundary validates loader observations without suppressing Go module failures or inventing package contents.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the empty-success loader behavior and the before-write admission guarantee.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Package import identities are Go identifiers; this validator performs no native filesystem or process operation.
+// @evidence contracts/performance.md#efficient-algorithms Requested and returned identities are counted with maps; work follows their population and diagnostic text, with no package reload.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This validates one actual load result and caches no mutable compiler-source observation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Count maps and diagnostics are call-local; the caller retains loaded package ownership and receives only an error.
+func validateShimPackages(loaded []*packages.Package, requested []string) error {
+  if len(requested) == 0 {
+    return fmt.Errorf("no shim packages requested")
+  }
+  counts := make(map[string]int, len(requested))
+  for _, name := range requested {
+    counts[name] = 0
+  }
+  var problems []string
+  for _, pkg := range loaded {
+    if pkg == nil {
+      problems = append(problems, "nil package result")
+      continue
+    }
+    count, expected := counts[pkg.PkgPath]
+    if !expected {
+      problems = append(problems, "unexpected package "+pkg.PkgPath)
+    } else {
+      counts[pkg.PkgPath] = count + 1
+    }
+    for _, failure := range pkg.Errors {
+      problems = append(problems, failure.Error())
+    }
+  }
+  for _, name := range requested {
+    switch count := counts[name]; {
+    case count == 0:
+      problems = append(problems, "missing package "+name)
+    case count != 1:
+      problems = append(problems, fmt.Sprintf("package %s loaded %d times", name, count))
+    }
+  }
+  if len(problems) != 0 {
+    return fmt.Errorf("incomplete shim package load:\n%s", strings.Join(problems, "\n"))
+  }
+  return nil
 }
 
 // generatePrivateFieldSupport derives a private accessor and its complete

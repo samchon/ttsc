@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`ttsc` is a standalone TypeScript-Go compiler, runtime, plugin host, and LSP host. It ships the `ttsc`, `ttsx`, and `ttscserver` CLIs plus the Go-source plugin protocol.
+`ttsc` is a TypeScript compiler wrapper and toolchain built on unmodified TypeScript-Go, with runtime, plugin and LSP hosts. It ships the `ttsc`, `ttsx`, and `ttscserver` CLIs plus the Go-source plugin protocol.
 
 ## Commands
 
@@ -22,13 +22,32 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 - **Scope is the user's to widen.** Reinterpret the goal, weigh alternatives, or expand the task only on an explicit hand-off ("figure it out", "you decide"). Take a confident, specific ask as given, and do not edit code the change does not need.
 - **The user's instruction outranks a skill.** A skill's procedure is the default for whatever the user left open.
 - **Fidelity binds the goal, not the effort.** Within that goal, act with full initiative: do the substeps it needs, verify your work, surface what you notice. Literal scope is no excuse for passive execution.
+- **Preserve the upstream compiler.** Never develop or alter upstream compiler internals or behavior through source, binary or cache edits, patched vendors (even official patches), ignored patch recipes, or hidden supply steps.
+
+  ttsc-owned drivers, shims, plugins and LSP hosts may use APIs present in an unmodified upstream version. Selecting another unmodified upstream version remains allowed. Record defects requiring upstream changes with their owner and unresolved status; never replace that missing compiler behavior with a ttsc extension.
+
 - **Evidence precedes correction.** Treat issue reports, review proposals, and claims that something is wrong or missing as hypotheses. Verify the real code path, tests, generated artifacts, upstream ownership, and history before accepting the premise or changing behavior.
 - **Trace the consequence surface.** A named file or failing case is the starting point, not the investigation boundary. Follow the same cause, and the change that corrects it, through downstream consumers, side effects, state transitions, platforms, and boundary cases, then address the whole verified class of failure within the requested goal.
-- **Collect every symptom before correcting.** Diagnose each failure or finding as it appears, but repair nothing until the test run, CI run, reproduction, or review round that produced it has finished. Then group everything it produced by cause, trace each cause as **Trace the consequence surface** requires, and apply one correction for the whole set. Fixing the first failure and rerunning from the start is the pattern this forbids: the later symptoms stay unseen, and one round becomes many.
+- **Collect every symptom before correcting.** Diagnose each finding as it appears, but finish the test run, CI run, reproduction or review round before repairing anything. Group its findings by cause, trace each cause under **Trace the consequence surface**, and apply one correction for the whole set.
+
+  Fixing the first failure and rerunning from the start hides later symptoms and turns one round into many. This is the pattern the rule forbids.
+
 - **Choose the principled course.** Decide from evidence, correctness, product boundaries, and the durable consequence. Time, difficulty, and consequence surface are reasons to investigate and validate more carefully, never reasons to settle for a shortcut, workaround, or weaker standard.
 - **Default over ask.** On an ambiguous detail, pick the sensible default and say what you chose; reserve questions for forks only the user can settle.
 - **Unattended runs keep moving.** In an issue campaign's authorized phases or under a standing autonomous mandate, take every reversible step the authorization covers without asking. Stop only when nothing can move without the user, or before a destructive action the workflow has not authorized.
-- **Background work never stops the turn.** A CI check, a build, a test run, or any other command running in the background is never a reason to stop or to end the turn, whether or not the user is present. While its result is pending, keep working in the same turn, in the order the workflow in progress sets or, where it sets none, in this one: read the log of every check or process that has already failed and diagnose it; run a complete self-review round over the current change, starting from a risk no earlier round examined; run local tests over the affected scope; continue the next implementation; research the consequence surface. Between items, see what the pending work has produced, and read each result as it lands. Ending the turn on a scheduled wake-up, a background monitor, or a status report while a result the goal needs is still pending is the pattern this forbids, and rerunning a failed check without reading its log is not a diagnosis.
+- **Background work never stops the turn.** A background command never justifies stopping or ending the turn, whether or not the user is present. Keep working in the same turn while its result is pending. Follow the active workflow's order or, where it sets none, this order:
+  1. Read and diagnose the log of every check or process that already failed.
+  2. Run a complete self-review round over the current change, starting from a risk no earlier round examined.
+  3. Run local tests over the affected scope.
+  4. Continue the next implementation.
+  5. Research the consequence surface.
+
+  Between items, check the pending work and read each result as it lands.
+
+  Ending the turn on a scheduled wake-up, background monitor or status report while a needed result is pending is the pattern this forbids.
+
+  Rerunning a failed check without reading its log is not a diagnosis.
+
 - **Keep the user oriented.** Give brief progress updates on multi-step work.
 - **Match the user's language.** Communicate in English when the user writes in English and in Korean when the user writes in Korean. Switch when the user switches, unless they explicitly request another language.
 
@@ -36,15 +55,15 @@ Follow the literal request; it is the contract, not a hint at what the user "rea
 
 Each skill is `.agents/skills/<name>/SKILL.md`. Read it when its trigger applies.
 
-- **`project`**: the product contract, package ownership, and the graph and evidence contracts. Read when a task crosses packages or needs the owning package, and before changing `packages/graph`, graph benchmark prompts, or `@ttsc/evidence` semantics.
-- **`contracts`**: self-acknowledgments for production declarations and tests. Read when implementing or reviewing maintained source, unit tests or E2E tests, or selecting Evidence checklists.
-- **`development`**: implementation procedures, testing, validation, and change integrity. Read before changing source, tests, fixtures, workflows, or package wiring.
-- **`typescript-go-sync`**: the `packages/ttsc/shim` bridge to typescript-go. Read before adding a shim re-export, bumping typescript-go, or chasing a missing compiler API.
-- **`documentation`**: READMEs, website guides, `AGENTS.md`, skills, and prose. Read before writing or changing any of them.
-- **`review`**: the review law, Overall Self-Review, and Individual Self-Review. Read for every review request.
-- **`issue-campaign`**: repeated full-scope discovery, issue publication, and one pull request per cycle. Read for a broad audit or repeated issue-to-pull-request work, not for one defined issue.
-- **`pull-request`**: branch, commit, pull request, checks, and merge. Read only when the user asks to open, update, or merge one, or a standing autonomous mandate covers delivery.
-- **`benchmark`**: the performance, graph, and evidence benchmarks. Read before running, changing, or publishing a benchmark or its fixtures.
+- [`project`](.agents/skills/project/SKILL.md): the product contract, package ownership, and the graph and evidence contracts. Read when a task crosses packages or needs the owning package, and before changing `packages/graph`, graph benchmark prompts, or `@ttsc/evidence` semantics.
+- [`contracts`](.agents/skills/contracts/SKILL.md): self-acknowledgments for production declarations and tests. Read when implementing or reviewing maintained source, unit tests or E2E tests, or selecting Evidence checklists.
+- [`development`](.agents/skills/development/SKILL.md): implementation procedures, testing, validation, and change integrity. Read before changing source, tests, fixtures, workflows, or package wiring.
+- [`typescript-go-sync`](.agents/skills/typescript-go-sync/SKILL.md): the `packages/ttsc/shim` bridge to typescript-go. Read before adding a shim re-export, bumping typescript-go, or chasing a missing compiler API.
+- [`documentation`](.agents/skills/documentation/SKILL.md): READMEs, website guides, `AGENTS.md`, skills, and prose. Read before writing or changing any of them.
+- [`review`](.agents/skills/review/SKILL.md): the review law, Overall Self-Review, and Individual Self-Review. Read for every review request.
+- [`issue-campaign`](.agents/skills/issue-campaign/SKILL.md): repeated full-scope discovery, issue publication, and one pull request per cycle. Read for a broad audit or repeated issue-to-pull-request work, not for one defined issue.
+- [`pull-request`](.agents/skills/pull-request/SKILL.md): branch, commit, pull request, checks, and merge. Read only when the user asks to open, update, or merge one, or a standing autonomous mandate covers delivery.
+- [`benchmark`](.agents/skills/benchmark/SKILL.md): the performance, graph, and evidence benchmarks. Read before running, changing, or publishing a benchmark or its fixtures.
 
 ## Maintenance
 

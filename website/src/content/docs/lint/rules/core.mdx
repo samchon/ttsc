@@ -478,7 +478,7 @@ class SplitAccessor {
 
 ### `guard-for-in`
 
-Require the body of every `for (key in obj)` loop to begin with an `if` statement, so inherited keys walked in from the prototype chain can be filtered out. Following ESLint, the check is purely structural: it never inspects what the `if` tests, so any guard satisfies it — `Object.hasOwn(obj, key)`, `obj.hasOwnProperty(key)`, or an arbitrary predicate.
+Require the body of every `for (key in obj)` loop to begin with an `if` statement, so inherited keys walked in from the prototype chain can be filtered out. Following ESLint, the check is purely structural: it never inspects what the `if` tests, so any guard satisfies it: `Object.hasOwn(obj, key)`, `obj.hasOwnProperty(key)`, or an arbitrary predicate.
 
 The body is accepted when it is an empty statement, an `if` statement, an empty block, a block whose only statement is an `if`, or a block whose leading `if` skips inherited keys with `continue` (for example `if (!Object.hasOwn(obj, key)) continue;`). Any other body is reported.
 
@@ -1740,7 +1740,7 @@ const r = /[👍]/;
 
 ### `no-mixed-operators`
 
-Reject mixing two different operators from one precedence group without parentheses when the operators do not share a precedence. The groups mirror ESLint's defaults — arithmetic (`+ - * / % **`), bitwise (`& | ^ ~ << >> >>>`), comparison (`== != === !== > >= < <=`), logical (`&& ||`), and relational (`in instanceof`) — and the rule fires only when both operators fall in the same group.
+Reject mixing operators from the same configured group without parentheses when their precedence differs. The groups mirror ESLint's defaults: arithmetic (`+ - * / % **`), bitwise (`& | ^ ~ << >> >>>`), comparison (`== != === !== > >= < <=`), logical (`&& ||`), and relational (`in instanceof`).
 
 The famous case is `a && b || c`: readers expect left-to-right grouping but the parser sees `(a && b) || c` because `&&` binds tighter than `||`. Arithmetic mixes such as `a + b * c` are reported for the same reason. Cross-group pairs (`a | b && c`) and same-precedence pairs (`a + b - c`) are left alone.
 
@@ -2438,7 +2438,7 @@ function f() {
 
 Reject `!key in obj` and `!a instanceof B` where the `!` binds tighter than the relational operator and silently coerces the left operand to a boolean.
 
-Wrap in parens (`!(key in obj)`) when the negation is genuinely intended.
+Wrap in parens (`!(key in obj)`) when the negation is intended.
 
 Example:
 
@@ -2682,7 +2682,7 @@ Use `let` for mutable bindings and `const` for immutable ones. Autofixable to `l
 
 Every `var` declaration list reports, whether it appears as a statement or directly in a `for`, `for...in`, or `for...of` header.
 
-The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`; a loop-header `var` read after its loop likewise), a loop `var` — declared in the body or in the header itself — is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. A `for...in`/`for...of` header additionally declines when its declarator carries an Annex-B initializer (`for (var i = 0 in o)`, a SyntaxError under `let`) or when the head expression reads the loop variable (`for (var x of x)`, a TDZ ReferenceError under `let`). Anything else reports without a fix.
+The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`; a loop-header `var` read after its loop likewise), a loop `var` (declared in the body or in the header itself) is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. A `for...in`/`for...of` header additionally declines when its declarator carries an Annex-B initializer (`for (var i = 0 in o)`, a SyntaxError under `let`) or when the head expression reads the loop variable (`for (var x of x)`, a TDZ ReferenceError under `let`). Anything else reports without a fix.
 
 Example:
 
@@ -2951,7 +2951,7 @@ function sumLegacy() {
 
 Prefer spread arguments `f(...args)` over `f.apply(null, args)`.
 
-Only flags `apply` calls whose `this` argument is provably the same receiver (or `null` / `undefined`); calls that genuinely rebind `this` are left alone.
+Only flags `apply` calls whose `this` argument is provably the same receiver (or `null` / `undefined`); calls that rebind `this` are left alone.
 
 Example:
 

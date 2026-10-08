@@ -143,8 +143,8 @@ export namespace PluginBuildEnvironmentWitness {
    * Whether every native path and ambient variable still matches its
    * observation. The existing private opt-in trace retains the first actual
    * mismatch without repeating its lookup or changing the refusal. An optional
-   * observation label separates preparation and build epochs in that trace;
-   * it does not change validation or authorize publication.
+   * observation label separates preparation and build epochs in that trace; it
+   * does not change validation or authorize publication.
    *
    * @evidence contracts/common.md#principled-implementation Universal comparison requires every dependency to match its pre-read signature and immediately rejects a refused or changed path.
    * @evidence contracts/common.md#clear-and-simple-design Validation uses the same signature helper as capture, keeping identity and timestamp policy in one place.

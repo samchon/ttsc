@@ -115,7 +115,9 @@ export namespace ITtscCompilerResult {
    * The thrown value is described as finite data. Error name, message, stack,
    * causes, aggregate failures and enumerable outcome fields are retained.
    *
-   * Repeated objects use `$ttscReference` JSON-pointer markers. Exceptional
+   * Repeated objects use `$ttscReference` JSON-pointer markers. Source objects
+   * shaped like reference or literal-object envelopes are escaped as
+   * `{ $ttscValue: "object", $ttscProperties: ... }`. Exceptional
    * scalar values, accessors and failed inspection use `$ttscValue` markers.
    * Serialization does not invoke getters or copy foreign class internal
    * slots.

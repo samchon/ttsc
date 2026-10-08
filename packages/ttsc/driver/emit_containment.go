@@ -15,18 +15,39 @@
 // same way tsc treats node_modules externals (no emit, no error).
 package driver
 
-import (
-  "strings"
+import "github.com/microsoft/typescript-go/shim/tspath"
 
-  "github.com/microsoft/typescript-go/shim/tspath"
-)
+// isBuildInfoOutput identifies the metadata artifact selected by this compiler
+// generation. Its configured extension does not determine its kind, and an
+// unrelated .tsbuildinfo path must not acquire metadata privileges.
+//
+// Private Go helpers are reviewed through their emit owners rather than selected
+// as exported Evidence hosts.
+// Common: Principled implementation: The loaded command line computes the same explicit or inferred build-information destination as native emission, including incremental eligibility; compiler path comparison establishes exact lexical identity under the Program's case policy.
+// Common: Clear and simple design: One artifact predicate serves containment and source-map correction rather than independent suffix rules.
+// Common: Prohibited implementation shortcuts: The real compiler-selected path replaces the suffix exception; no API-specific filename or consumer exemption compensates for output loss.
+// Common: Meaningful documentation: Native prose distinguishes selected artifact identity from filename extension and explains why unrelated metadata-looking paths remain ordinary outputs.
+// Portability: OS-neutral implementation: Native compiler path comparison uses the loaded Program's current directory and actual case policy, without assuming case behavior from the operating system.
+// Performance: Efficient algorithms: Upstream destination inference and lexical comparison process a bounded number of path strings with costs proportional to their text; no directory traversal or file read is added.
+// Performance: Reuse equivalent work: The current compiler generation owns destination selection; this predicate introduces no result cache or independent producer.
+// Performance: Bound retention and release resources: The predicate returns a boolean and retains no compiler generation, path history or external resource.
+func (p *Program) isBuildInfoOutput(fileName string) bool {
+  if p == nil || p.TSProgram == nil {
+    return false
+  }
+  buildInfo := p.TSProgram.CommandLine().GetBuildInfoFileName()
+  return buildInfo != "" && tspath.ComparePaths(buildInfo, fileName, tspath.ComparePathsOptions{
+    UseCaseSensitiveFileNames: p.TSProgram.UseCaseSensitiveFileNames(),
+    CurrentDirectory:          p.TSProgram.GetCurrentDirectory(),
+  }) == 0
+}
 
 // outputEscapesOutDir reports whether fileName — an emit output path tsgo
 // computed for this program — would land outside the project's configured
 // `outDir` (and `declarationDir`, when set). Projects without `outDir` emit
 // next to their sources by design, so the guard only applies when `outDir`
-// gives the project an output boundary. `.tsbuildinfo` is exempt because its
-// default location is next to the tsconfig, legitimately outside `outDir`.
+// gives the project an output boundary. The compiler-selected build-information
+// artifact is exempt because its location can legitimately be outside outDir.
 func (p *Program) outputEscapesOutDir(fileName string) bool {
   if p == nil || p.TSProgram == nil {
     return false
@@ -35,7 +56,7 @@ func (p *Program) outputEscapesOutDir(fileName string) bool {
   if options.OutDir == "" {
     return false
   }
-  if strings.HasSuffix(fileName, ".tsbuildinfo") {
+  if p.isBuildInfoOutput(fileName) {
     return false
   }
   cmp := tspath.ComparePathsOptions{

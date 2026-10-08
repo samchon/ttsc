@@ -30,14 +30,14 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * 2. Release the final owner, cancel that grace through reacquisition, and then
  *    execute the final idle callback to require eviction.
  * 3. Register actual raw webpack/Rspack hooks against captured compiler inputs;
- *    equal options share a pair, one shutdown preserves it and the last drops
- *    it.
+ *    equal options share a pair, closing both watch sessions preserves it, one
+ *    compiler shutdown preserves it and the last drops it.
  * 4. Contrast Vite owner overlap, final serve reset, ordinary build grace and
  *    watch retention, including mode values and an end arriving after close.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls createEsbuildBuildLifecycle, createViteBuildLifecycle, createTransformCacheLease, beginTtscTransformBuild, sharedBuildTransformCache and actual raw webpack/Rspack registration/shutdown callbacks; exact promise and pair identity distinguish premature reclamation and stale registry retention.
+ * @evidence contracts/testing.md#behavioral-verification Calls createEsbuildBuildLifecycle, createViteBuildLifecycle, createTransformCacheLease, beginTtscTransformBuild, sharedBuildTransformCache and actual raw webpack/Rspack registration, watchClose and shutdown callbacks; exact promise and pair identity after both session closures and controlled idle distinguish premature compiler-lease reclamation and stale registry retention.
  * @evidence contracts/testing.md#independent-expectations Active owners and ordinary pass boundaries retain the same promise; final idle removes it. Literal tap names, one restoration rule, 2000ms requested grace and callback cancellation specify independent ownership expectations, not compile counts.
- * @evidence contracts/testing.md#distinguishing-cases Two overlapping owners, duplicate idle release, reacquisition before grace, final idle, equal and distinct option keys, both compiler hook families and a later fresh pair are contrasted. The actual Vite controller contrasts duplicate/unstarted owners, replacement-before-end, final serve reset, ordinary grace reacquisition, non-nullish watch values, close and late end. Esbuild distinguishes unstarted, duplicate, unknown, overlapping and late disposal identities; two actual coordinator deliveries observe different pass epochs after repeated starts while retaining the exact Promise. Last esbuild disposal resets immediately, distinct from ordinary Vite grace. No compiler output production or installed-host equivalence is inferred.
+ * @evidence contracts/testing.md#distinguishing-cases Two overlapping owners, duplicate idle release, reacquisition before grace, final idle, equal and distinct option keys, both compiler hook families and a later fresh pair are contrasted. Both compiler sessions close before either compiler shuts down; running idle must preserve their shared promise and pair until actual shutdown releases the final compiler. The actual Vite controller contrasts duplicate/unstarted owners, replacement-before-end, final serve reset, ordinary grace reacquisition, non-nullish watch values, close and late end. Esbuild distinguishes unstarted, duplicate, unknown, overlapping and late disposal identities; two actual coordinator deliveries observe different pass epochs after repeated starts while retaining the exact Promise. Last esbuild disposal resets immediately, distinct from ordinary Vite grace. No compiler output production or installed-host equivalence is inferred.
  * @evidence contracts/testing.md#execution-ownership This exported source unit calls real owners in process. It replaces only controlled testbody global timer descriptors, joins the two ready coordinator deliveries, and restores exact descriptors in finally; no Go peer, host, artifact or wall-clock wait is used.
  */
 export async function test_build_cache_leases_follow_compiler_and_session_ownership(): Promise<void> {
@@ -104,12 +104,13 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
     assert.equal(cache.size, 0);
 
     const options = { project: "ownership-only-never-compiled.tsconfig.json" };
-    const plugins = (["webpack", "rspack"] as const).map((framework) =>
-      unplugin.raw(options, {
+    const plugins = (["webpack", "rspack"] as const).map((framework) => ({
+      framework,
+      plugin: unplugin.raw(options, {
         framework,
         [framework]: { compiler: {} },
       } as never),
-    );
+    }));
     const key = JSON.stringify(resolveOptions(options));
     const shared = sharedBuildTransformCache(key);
     assert.equal(sharedBuildTransformCache(key), shared);
@@ -117,9 +118,10 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
     assert.notEqual(distinct, shared);
     runIdle();
     shared.cache.set("consumer", pending);
-    for (const plugin of plugins) {
+    for (const { framework, plugin } of plugins) {
       const rules: unknown[] = [];
       const names: string[] = [];
+      let watchClose: (() => void) | undefined;
       let shutdown: (() => void) | undefined;
       const compiler = {
         options: { module: { rules } },
@@ -127,6 +129,12 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
           done: {
             tap: (name: string) => {
               names.push(name);
+            },
+          },
+          watchClose: {
+            tap: (name: string, callback: () => void) => {
+              names.push(name);
+              watchClose = callback;
             },
           },
           shutdown: {
@@ -137,13 +145,26 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
           },
         },
       };
-      const register = plugin.webpack ?? plugin.rspack;
+      const register = plugin[framework];
       assert.equal(typeof register, "function");
       (register as (compiler: unknown) => void)(compiler);
-      assert.deepEqual(names, ["ttsc-unplugin", "ttsc-unplugin"]);
+      assert.deepEqual(names, [
+        "ttsc-unplugin",
+        "ttsc-unplugin",
+        "ttsc-unplugin",
+      ]);
       assert.equal(rules.length, 1);
+      assert.equal(typeof watchClose, "function");
       assert.equal(typeof shutdown, "function");
       shutdowns.push(shutdown!);
+      watchClose!();
+      runIdle();
+      assert.equal(
+        shared.cache.get("consumer"),
+        pending,
+        "closing a watch session must retain its compiler's lease",
+      );
+      assert.equal(sharedBuildTransformCache(key), shared);
     }
     shutdowns[0]!();
     runIdle();
@@ -220,6 +241,59 @@ export async function test_build_cache_leases_follow_compiler_and_session_owners
         0,
         "last serve end resets the ready consumer owner",
       );
+
+      const settled = {
+        command: "serve",
+        server: { watch: undefined as unknown },
+        build: { watch: undefined as unknown },
+      };
+      lifecycle.configure(settled);
+      settled.server.watch = null;
+      lifecycle.start(first);
+      assert.equal(
+        lifecycle.watching,
+        false,
+        "later config hooks disable serve watching",
+      );
+      assert.equal(lifecycle.usePolling, false);
+      lifecycle.end(first);
+      settled.server.watch = { usePolling: true };
+      lifecycle.start(first);
+      assert.equal(
+        lifecycle.watching,
+        true,
+        "the next container reads its current watch options",
+      );
+      assert.equal(lifecycle.usePolling, true);
+      lifecycle.end(first);
+      settled.server.watch = {};
+      lifecycle.start(first);
+      assert.equal(
+        lifecycle.usePolling,
+        false,
+        "native watching withdraws the previous polling declaration",
+      );
+      lifecycle.end(first);
+      settled.command = "build";
+      lifecycle.configure(settled);
+      settled.build.watch = {};
+      seed();
+      lifecycle.start(first);
+      assert.equal(lifecycle.buildWatching, true);
+      lifecycle.end(first);
+      assert.equal(scheduled.size, 0, "late build watch retains the session");
+      assert.equal(fixture.cache.get(fixture.key), ready);
+      settled.build.watch = null;
+      lifecycle.start(first);
+      assert.equal(lifecycle.buildWatching, false);
+      lifecycle.end(first);
+      assert.equal(
+        scheduled.size,
+        1,
+        "late watch removal releases ordinary build grace",
+      );
+      runIdle();
+      assert.equal(fixture.cache.size, 0);
 
       lifecycle.configure({ command: "build" });
       seed();

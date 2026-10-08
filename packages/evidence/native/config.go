@@ -663,6 +663,9 @@ func normalizeSwaggerSource(value string) (string, string) {
   }
   parsed, err := url.Parse(value)
   if err != nil {
+    if displaySwaggerSource(value) != value || strings.Contains(value, "://") {
+      return "", "invalid Swagger source '" + displaySwaggerSource(value) + "': the URL could not be parsed."
+    }
     return "", "invalid Swagger source '" + value + "': " + causeText(err) + "."
   }
   if !drive && parsed.Scheme != "" {
@@ -670,15 +673,15 @@ func normalizeSwaggerSource(value string) (string, string) {
       return "", "unsupported URL scheme '" + parsed.Scheme + "'; only http: and https: are supported."
     }
     if parsed.Host == "" {
-      return "", "Swagger URL '" + value + "' has no host."
+      return "", "Swagger URL '" + displaySwaggerSource(value) + "' has no host."
     }
     if parsed.Fragment != "" {
-      return "", "Swagger URL '" + value + "' must not contain a fragment."
+      return "", "Swagger URL '" + displaySwaggerSource(value) + "' must not contain a fragment."
     }
     return value, ""
   }
   if !drive && strings.Contains(value, "://") {
-    return "", "invalid Swagger source URL '" + value + "'."
+    return "", "invalid Swagger source URL '" + displaySwaggerSource(value) + "'."
   }
   // A trailing separator is read before cleaning, because `path.Clean` removes
   // it — after which `docs/` and `docs` are one string and the author who

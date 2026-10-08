@@ -8,7 +8,11 @@
     ".": "./src/index.ts"
   },
   "types": "src/index.ts",
+  "scripts": {
+    "evidence": "evidence"
+  },
   "devDependencies": {
+    "@wrtnlabs/evidence": "catalog:samchon",
     "@nestia/e2e": "catalog:utils",
     "@ttsc/lint": "workspace:*",
     "@types/node": "catalog:utils",

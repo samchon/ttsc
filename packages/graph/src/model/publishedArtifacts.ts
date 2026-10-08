@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  type CapabilityPluginResolver,
   type ITtscCapabilityPlugin,
   type ITtscCapabilityPluginResolution,
   resolveCapabilityPluginResolution,
@@ -12,6 +13,7 @@ import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import type { IArtifactDirectory } from "./IArtifactDirectory";
 import type { IArtifactInputs } from "./IArtifactInputs";
 import type { IPublishedArtifacts } from "./IPublishedArtifacts";
+import type { IPublishedArtifactsResident } from "./IPublishedArtifactsResident";
 import { TtscLintDaemon } from "./TtscLintDaemon";
 
 /**
@@ -75,54 +77,99 @@ export function publishArtifacts(options: {
  * would be indistinguishable from a project that publishes nothing.
  *
  * @evidence contracts/common.md#principled-implementation Both paths ask the same configured sidecar verbs; input identity is captured before publication and invalidation clears the daemon's stale Program first.
- * @evidence contracts/common.md#clear-and-simple-design The caller supplies sidecar ownership while this function owns ordered input and artifact phases and the shared result assembly.
+ * @evidence contracts/common.md#clear-and-simple-design The caller supplies daemon and asynchronous resolver ownership while this function owns ordered input and artifact phases and the shared result assembly.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed daemon falls back to the public direct verb, not an invented empty-success result or a reimplementation of its parser.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains resident reuse, direct-command fallback and the reason to invalidate the Program before input collection.
  * @evidence contracts/performance.md#efficient-algorithms Independent publishers run concurrently within each of two ordered phases; deduplication avoids repeatedly hashing the same declared file path.
  * @evidence contracts/performance.md#reuse-equivalent-work Session-owned daemons reuse process and plugin loading only while binary, manifest and project context match; changed inputs rebuild the publication.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns and closes daemons; this operation owns temporary outputs until assembly, with one exchange file per process/project and no historical-file reclamation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The session owns the resolver and daemons. Failed publication joins every selected verb and releases its proof; successful publication transfers proof release to the session. Cancellation closes and joins an active daemon or supervised direct command. One exchange file per process/project still has no historical-file reclamation.
  * @evidence contracts/portability.md#os-neutral-implementation The fallback preserves native argument-vector invocation and Node path resolution; daemon ownership uses the same cross-platform process boundary.
  */
 export async function publishArtifactsResident(
   options: { cwd: string; tsconfig: string; signal?: AbortSignal },
   daemon: (
     plugin: ITtscCapabilityPlugin,
-  ) => TtscLintDaemon | undefined | Promise<TtscLintDaemon | undefined>,
-): Promise<IPublishedArtifacts> {
-  const discovery = resolveCapabilityPluginResolution({
-    capability: "graphNodes",
-    cwd: options.cwd,
-    tsconfig: options.tsconfig,
-  });
-  const plugins = discovery.plugins;
-  if (plugins.length === 0) return unpublished(options, discovery);
-  // The first request of a republish drops the daemon's warm Program. The
-  // artifacts depend on which sources exist and what they declare — that is
-  // what activates a claim — and between two republishes the developer has
-  // been editing code as well as documents. Reusing a Program from before
-  // those edits would deactivate a claim whose files now exist, which is a
-  // stale answer of exactly the kind this whole mechanism removes. What the
-  // daemon still saves is the process, the plugin load, and the configuration
-  // evaluation, which is most of the cost.
-  const inputs = readInputs(
-    await Promise.all(
-      plugins.map(async (plugin) =>
-        askVerb(plugin, "project-inputs", options, await daemon(plugin), true),
-      ),
-    ),
-    options,
+  ) =>
+    | Pick<TtscLintDaemon, "ask" | "close">
+    | undefined
+    | Promise<Pick<TtscLintDaemon, "ask" | "close"> | undefined>,
+  resolver: Pick<CapabilityPluginResolver, "resolve" | "runCommand">,
+): Promise<IPublishedArtifactsResident> {
+  options.signal?.throwIfAborted();
+  const discovery = await resolver.resolve(
+    { capability: "graphNodes", cwd: options.cwd, tsconfig: options.tsconfig },
+    { signal: options.signal },
   );
-  const fingerprint = fingerprintInputs(inputs);
-  return assemble(
-    options,
-    inputs,
-    fingerprint,
-    await Promise.all(
-      plugins.map(async (plugin) =>
-        askVerb(plugin, "graph-nodes", options, await daemon(plugin), false),
+  try {
+    options.signal?.throwIfAborted();
+    const plugins = discovery.plugins;
+    if (plugins.length === 0) return unpublished(options, discovery);
+    // The first request of a republish drops the daemon's warm Program. The
+    // artifacts depend on which sources exist and what they declare — that is
+    // what activates a claim — and between two republishes the developer has
+    // been editing code as well as documents. Reusing a Program from before
+    // those edits would deactivate a claim whose files now exist, which is a
+    // stale answer of exactly the kind this whole mechanism removes. What the
+    // daemon still saves is the process, the plugin load, and the configuration
+    // evaluation, which is most of the cost.
+    const inputs = readInputs(
+      await joinedPublications(
+        plugins.map(async (plugin) =>
+          askVerb(
+            plugin,
+            "project-inputs",
+            options,
+            await daemon(plugin),
+            true,
+            resolver,
+          ),
+        ),
       ),
-    ),
-    discovery,
+      options,
+    );
+    const fingerprint = fingerprintInputs(inputs);
+    const outputs = await joinedPublications(
+      plugins.map(async (plugin) =>
+        askVerb(
+          plugin,
+          "graph-nodes",
+          options,
+          await daemon(plugin),
+          false,
+          resolver,
+        ),
+      ),
+    );
+    options.signal?.throwIfAborted();
+    return assemble(options, inputs, fingerprint, outputs, discovery);
+  } catch (error) {
+    try {
+      await discovery.release();
+    } catch (cleanup) {
+      throw new AggregateError(
+        [error, cleanup],
+        "@ttsc/graph: discovery release failed",
+      );
+    }
+    throw error;
+  }
+}
+
+/** Join every publisher before releasing a failed publication's proof. */
+async function joinedPublications(
+  outputs: Promise<string | null>[],
+): Promise<(string | null)[]> {
+  const results = await Promise.allSettled(outputs);
+  const failures = results.filter(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failures.length > 0)
+    throw new AggregateError(
+      failures.map((result) => result.reason),
+      "@ttsc/graph: artifact publication failed",
+    );
+  return results.map(
+    (result) => (result as PromiseFulfilledResult<string | null>).value,
   );
 }
 
@@ -171,23 +218,76 @@ async function askVerb(
   plugin: ITtscCapabilityPlugin,
   verb: string,
   options: { cwd: string; tsconfig: string; signal?: AbortSignal },
-  daemon: TtscLintDaemon | undefined,
+  daemon: Pick<TtscLintDaemon, "ask" | "close"> | undefined,
   invalidate: boolean,
+  resolver: Pick<CapabilityPluginResolver, "runCommand">,
 ): Promise<string | null> {
   options.signal?.throwIfAborted();
-  const served = await daemon?.ask(verb, invalidate);
+  let closing: Promise<void> | undefined;
+  const abort = () => {
+    closing = daemon?.close();
+    void closing?.catch(() => undefined);
+  };
+  options.signal?.addEventListener("abort", abort, { once: true });
+  if (options.signal?.aborted) abort();
+  let served: string | null | undefined;
+  let failure: unknown;
+  try {
+    served = await daemon?.ask(verb, invalidate);
+  } catch (error) {
+    failure = error;
+    throw error;
+  } finally {
+    options.signal?.removeEventListener("abort", abort);
+    try {
+      await closing;
+    } catch (cleanup) {
+      throw new AggregateError(
+        [
+          ...(failure === undefined ? [] : [failure]),
+          ...(options.signal?.aborted ? [options.signal.reason] : []),
+          cleanup,
+        ],
+        "@ttsc/graph: cancelled daemon cleanup failed",
+      );
+    }
+  }
   options.signal?.throwIfAborted();
-  return served ?? runVerb(plugin, verb, options);
+  if (served !== undefined && served !== null) return served;
+  const result = await resolver.runCommand(
+    plugin.binary,
+    [
+      verb,
+      "--cwd",
+      options.cwd,
+      "--tsconfig",
+      options.tsconfig,
+      `--plugins-json=${plugin.manifest}`,
+      ...projectContextArgs(plugin),
+    ],
+    { maxBuffer: 256 * 1024 * 1024, encoding: "utf8", windowsHide: true },
+    { signal: options.signal },
+  );
+  options.signal?.throwIfAborted();
+  return result.error ||
+    result.status !== 0 ||
+    typeof result.stdout !== "string"
+    ? null
+    : result.stdout;
 }
 
 /** The artifact answer, from each sidecar's `graph-nodes` output. */
-function assemble(
+function assemble<
+  Discovery extends
+    | ITtscCapabilityPluginResolution
+    | CapabilityPluginResolver.Resolution,
+>(
   options: { cwd: string; tsconfig: string },
   inputs: IArtifactInputs,
   fingerprint: string,
   outputs: readonly (string | null)[],
-  discovery: ITtscCapabilityPluginResolution,
-): IPublishedArtifacts {
+  discovery: Discovery,
+): Omit<IPublishedArtifacts, "discovery"> & { discovery: Discovery } {
   const published: unknown[] = [];
   for (const output of outputs) {
     if (output === null) continue;
@@ -247,6 +347,38 @@ export function artifactsAreStale(published: IPublishedArtifacts): boolean {
     !published.discovery.isCurrent()
   )
     return true;
+  return artifactInputsAreStale(published);
+}
+
+/**
+ * Check the exact resident discovery proof before reusing its overlay.
+ * Discovery runs off the request thread; declared artifact bytes remain an
+ * independent freshness premise after that authority has answered.
+ *
+ * @evidence contracts/common.md#principled-implementation The original asynchronous proof must authorize reuse before exchange existence and declared input fingerprints are compared.
+ * @evidence contracts/common.md#clear-and-simple-design Resolver proof and artifact-input validation retain their separate owners in one ordered predicate.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unavailable or invalid proof requires relookup; no partial inventory substitutes for SDK authority.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes off-thread discovery from this consumer's independent artifact inputs.
+ * @evidence contracts/performance.md#efficient-algorithms The owner validates discovery once and fingerprintInputs hashes each declared file and directory inventory, scaling with declared entries and bytes.
+ * @evidence contracts/performance.md#reuse-equivalent-work Only this exact publication's current proof plus unchanged artifact inputs authorizes reuse, including resolved absence.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This predicate borrows the session-owned publication and acquires no lasting proof or process.
+ * @evidence contracts/portability.md#os-neutral-implementation SDK process observation remains with its owner and artifact checks use Node native filesystem APIs.
+ */
+export async function artifactsAreStaleResident(
+  published: IPublishedArtifactsResident,
+  options: { signal?: AbortSignal } = {},
+): Promise<boolean> {
+  options.signal?.throwIfAborted();
+  if (published.discovery.status !== "resolved") return true;
+  const current = await published.discovery.isCurrent(options);
+  options.signal?.throwIfAborted();
+  if (!current) return true;
+  return artifactInputsAreStale(published);
+}
+
+function artifactInputsAreStale(
+  published: Omit<IPublishedArtifacts, "discovery">,
+): boolean {
   // The written set is one of its own inputs, by existence alone. It lives in
   // the system temp directory, which is swept on a schedule this session has no
   // say in, and the server is handed the path on every request — so once it is
@@ -270,10 +402,14 @@ export function artifactsAreStale(published: IPublishedArtifacts): boolean {
  * discovery proof supplies that independent authority; direct paths do not
  * stand in for it.
  */
-function unpublished(
+function unpublished<
+  Discovery extends
+    | ITtscCapabilityPluginResolution
+    | CapabilityPluginResolver.Resolution,
+>(
   options: { cwd: string; tsconfig: string },
-  discovery: ITtscCapabilityPluginResolution,
-): IPublishedArtifacts {
+  discovery: Discovery,
+): Omit<IPublishedArtifacts, "discovery"> & { discovery: Discovery } {
   const inputs: IArtifactInputs = {
     directories: [],
     files: [

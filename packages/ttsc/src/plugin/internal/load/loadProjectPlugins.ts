@@ -10,6 +10,7 @@ import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/Sideca
 import { E2ETrace } from "../../../internal/E2ETrace";
 import { createCanonicalTempDirectory } from "../../../internal/createCanonicalTempDirectory";
 import { javascriptRuntimeCapabilities } from "../../../internal/javascriptRuntimeCapabilities";
+import { OwnedSynchronousProcess } from "../../../internal/OwnedSynchronousProcess";
 import { resolveNodeBinary } from "../../../internal/resolveNodeBinary";
 import { spawnSyncResilient } from "../../../internal/spawnSyncResilient";
 import type { ITtscPlugin } from "../../../structures/ITtscPlugin";
@@ -1670,7 +1671,7 @@ function loadDescriptorViaTtsx(
       { cwd: context.projectRoot },
       "plugin-descriptor",
     );
-    const result = childProcess.spawnSync(node, [ttsx, "--no-plugins", shim], {
+    const result = spawnOwnedDescriptor(node, [ttsx, "--no-plugins", shim], {
       cwd: context.projectRoot,
       encoding: "utf8",
       env: {
@@ -2082,4 +2083,16 @@ function removeEvaluationTempDir(directory: string): void {
   } catch {
     // Best effort.
   }
+}
+
+/** Delegate an owned resolver's descriptor process without changing ordinary callers. */
+function spawnOwnedDescriptor(
+  command: string,
+  args: readonly string[],
+  options: childProcess.SpawnSyncOptionsWithStringEncoding,
+): childProcess.SpawnSyncReturns<string> {
+  return (
+    OwnedSynchronousProcess.launch<string>(command, args, options) ??
+    childProcess.spawnSync(command, args, options)
+  );
 }

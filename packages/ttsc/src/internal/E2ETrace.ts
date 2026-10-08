@@ -35,11 +35,12 @@ export namespace E2ETrace {
    * Observe one runtime cleanup without repeating ownership or filesystem work.
    *
    * The returned observer shares an invocation across actual lock, ownership,
-   * removal and failure phases. It records caller-computed values only. Disabled
-   * tracing allocates no writer; observer errors never replace cleanup results.
+   * removal and failure phases. It records caller-computed values only.
+   * Disabled tracing allocates no writer; observer errors never replace cleanup
+   * results.
    *
    * @evidence contracts/common.md#principled-implementation One token binds the caller's actual cleanup phases and computed classification; an event does not establish an unobserved owner incarnation or successful deletion.
-   * @evidence contracts/common.md#clear-and-simple-design A private optional callback reuses the existing writer, metadata schema and error absorption without changing runtime ownership APIs.
+   * @evidence contracts/common.md#clear-and-simple-design A private optional callback reuses the existing writer, metadata schema and error absorption; owner observations preserve the existing scan's values without changing its policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No ownership scan, liveness probe, file observation, policy decision or retry is performed by tracing.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes computed phases from OS ownership proof and documents disabled and failed-sink behavior.
    * @evidence contracts/portability.md#os-neutral-implementation The caller's native directory coordinates and error code are recorded without path rewriting, shell commands or OS-name inference.
@@ -51,7 +52,17 @@ export namespace E2ETrace {
     directory: string,
     runtimeCacheDir: string,
   ):
-    | ((phase: string, ownership?: string, error?: unknown) => void)
+    | ((
+        phase: string,
+        ownership?: string,
+        error?: unknown,
+        ownerObservation?: {
+        record: string;
+        owner?: { hostname: string; pid: number };
+        result: string;
+        errorCode?: string;
+        },
+      ) => void)
     | undefined {
     const selected = process.env.TTSC_E2E_TRACE;
     if (!selected) return undefined;
@@ -69,6 +80,12 @@ export namespace E2ETrace {
         phase: string,
         ownership?: string,
         error?: unknown,
+        ownerObservation?: {
+          record: string;
+          owner?: { hostname: string; pid: number };
+          result: string;
+          errorCode?: string;
+        },
       ): void => {
         try {
           const detail =
@@ -80,6 +97,7 @@ export namespace E2ETrace {
             directory,
             runtimeCacheDir,
             ownership,
+            ownerObservation,
             errorName:
               detail && typeof detail.name === "string"
                 ? detail.name

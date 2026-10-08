@@ -43,14 +43,18 @@ export function runView(argv: readonly string[]): number | void {
   ensureExecutable(binary);
 
   let prepared: Exclude<ReturnType<typeof prepareView>, number> | undefined;
-  let state: "binding" | "preparing" | "ready" | "closing" | "closed" = "binding";
+  let state: "binding" | "preparing" | "ready" | "closing" | "closed" =
+    "binding";
   let pending: NodeJS.Immediate | undefined;
   let closeRequested = false;
   let endpoint = `127.0.0.1:${opts.port}`;
   const connections = new Set<Socket>();
   const server = http.createServer((req, res) => {
     if (state !== "ready" || prepared === undefined) {
-      res.writeHead(503, { "content-type": "text/plain; charset=utf-8", connection: "close" });
+      res.writeHead(503, {
+        "content-type": "text/plain; charset=utf-8",
+        connection: "close",
+      });
       res.end("The graph viewer is not ready.\n");
       return;
     }
@@ -59,7 +63,9 @@ export function runView(argv: readonly string[]): number | void {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(prepared.graphJson);
     } else if (url === "/viewer.js") {
-      res.writeHead(200, { "content-type": "application/javascript; charset=utf-8" });
+      res.writeHead(200, {
+        "content-type": "application/javascript; charset=utf-8",
+      });
       res.end(prepared.viewerJs);
     } else {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -72,7 +78,9 @@ export function runView(argv: readonly string[]): number | void {
   };
   const reportCloseFailure = (error: Error): void => {
     process.exitCode = 1;
-    process.stderr.write(`@ttsc/graph: could not close the 3D viewer at ${endpoint} (${error.message}).\n`);
+    process.stderr.write(
+      `@ttsc/graph: could not close the 3D viewer at ${endpoint} (${error.message}).\n`,
+    );
   };
   const stop = (): void => {
     if (state === "closed") return;
@@ -91,7 +99,9 @@ export function runView(argv: readonly string[]): number | void {
         if (error) reportCloseFailure(error);
       });
     } catch (error) {
-      reportCloseFailure(error instanceof Error ? error : new Error(String(error)));
+      reportCloseFailure(
+        error instanceof Error ? error : new Error(String(error)),
+      );
     }
   };
   const interrupt = (): void => {
@@ -117,8 +127,13 @@ export function runView(argv: readonly string[]): number | void {
     releaseSignals();
   });
   server.on("error", (error: NodeJS.ErrnoException) => {
-    const detail = typeof error.code === "string" ? `${error.code}: ${error.message}` : error.message;
-    process.stderr.write(`@ttsc/graph: could not serve the 3D viewer at ${endpoint} (${detail}).\n`);
+    const detail =
+      typeof error.code === "string"
+        ? `${error.code}: ${error.message}`
+        : error.message;
+    process.stderr.write(
+      `@ttsc/graph: could not serve the 3D viewer at ${endpoint} (${detail}).\n`,
+    );
     process.exitCode = 1;
     if (!server.listening && !closeRequested) {
       state = "closed";
@@ -140,7 +155,8 @@ export function runView(argv: readonly string[]): number | void {
       }
       if (state !== "binding") return;
       const address = server.address();
-      const port = typeof address === "object" && address ? address.port : opts.port;
+      const port =
+        typeof address === "object" && address ? address.port : opts.port;
       endpoint = `127.0.0.1:${port}`;
       state = "preparing";
       pending = setImmediate(() => {
@@ -164,14 +180,18 @@ export function runView(argv: readonly string[]): number | void {
             const url = `http://${endpoint}/`;
             process.stderr.write(
               `@ttsc/graph: ${counts.nodes.toLocaleString()} nodes / ${counts.links.toLocaleString()} edges` +
-              ` (from ${counts.rawNodes.toLocaleString()} / ${counts.rawEdges.toLocaleString()})\n`,
+                ` (from ${counts.rawNodes.toLocaleString()} / ${counts.rawEdges.toLocaleString()})\n`,
             );
-            process.stderr.write(`@ttsc/graph: serving the 3D viewer at ${url}\n`);
+            process.stderr.write(
+              `@ttsc/graph: serving the 3D viewer at ${url}\n`,
+            );
             process.stderr.write("@ttsc/graph: press Ctrl+C to stop.\n");
             if (opts.open) openBrowser(url);
           });
         } catch (error) {
-          process.stderr.write(`@ttsc/graph: could not prepare the 3D viewer (${String(error)}).\n`);
+          process.stderr.write(
+            `@ttsc/graph: could not prepare the 3D viewer (${String(error)}).\n`,
+          );
           process.exitCode = 1;
           stop();
         }

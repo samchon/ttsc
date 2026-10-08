@@ -20,8 +20,8 @@ export interface ITtscLintFileTypeOrValueSpecifier {
   name: string | readonly string[];
 
   /**
-   * Restrict the declaration file by path. Relative paths are resolved from
-   * the rule's current directory; absolute paths are also accepted. Omission
+   * Restrict the declaration file by path. Relative paths are resolved from the
+   * rule's current directory; absolute paths are also accepted. Omission
    * selects non-library declarations within that directory when it is known.
    */
   path?: string;

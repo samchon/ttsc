@@ -64,8 +64,8 @@ export function test_compiler_result_adapter_preserves_outcomes_and_observation_
         return { output, result };
       });
       assert.equal(calls, 1);
-      assert.equal(actual.type, expected);
       if (actual.type === "exception") throw new Error("unexpected exception");
+      assert.equal(actual.type, expected);
       assert.equal(actual.output, output);
       assert.equal(
         Object.hasOwn(actual, "diagnostics"),
@@ -79,9 +79,9 @@ export function test_compiler_result_adapter_preserves_outcomes_and_observation_
         return { result, typescript };
       });
       assert.equal(calls, 2);
-      assert.equal(transformed.type, expected);
       if (transformed.type === "exception")
         throw new Error("unexpected transform exception");
+      assert.equal(transformed.type, expected);
       assert.equal(transformed.typescript, typescript);
       assert.equal(
         Object.hasOwn(transformed, "diagnostics"),
@@ -135,8 +135,8 @@ export function test_compiler_result_adapter_preserves_outcomes_and_observation_
         result: { status, diagnostics: [], stdout: "", stderr: "" },
       };
       const actual = toCompilerTransformation(project);
-      assert.equal(actual.type, status === 0 ? "success" : "failure");
       if (actual.type === "exception") throw new Error("unexpected exception");
+      assert.equal(actual.type, status === 0 ? "success" : "failure");
       assert.equal(actual.typescript, project.typescript);
       for (const key of [
         "dependencies",
@@ -175,8 +175,8 @@ export function test_compiler_result_adapter_preserves_outcomes_and_observation_
         stderr: "",
       },
     }));
-    assert.equal(actual.type, "success");
     if (actual.type === "exception") throw new Error("unexpected exception");
+    assert.equal(actual.type, "success");
     assert.deepEqual(actual.dependencies, {
       "src/main.ts": ["src/consulted.d.ts"],
     });
@@ -195,8 +195,8 @@ export function test_compiler_result_adapter_preserves_outcomes_and_observation_
       ...filtered,
       result: { status: 0, diagnostics: [], stdout: "", stderr: "" },
     });
-    assert.equal(adapted.type, "success");
     if (adapted.type === "exception") throw new Error("unexpected exception");
+    assert.equal(adapted.type, "success");
     assert.deepEqual(adapted.dependenciesComplete, ["src/main.ts"]);
     assert.equal(Object.hasOwn(adapted, "volatile"), false);
     assert.deepEqual(Object.keys(adapted.sourceMaps ?? {}), ["src/main.ts"]);

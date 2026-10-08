@@ -31,12 +31,12 @@ export async function test_ttscgraph_native_session_close_terminates_child_once(
     const active = session.graph().finally(() => {
       activeSettlements++;
     });
+    void active.catch(() => undefined);
+    const port = await admitted(ports);
     const queued = session.graph().finally(() => {
       queuedSettlements++;
     });
-    void active.catch(() => undefined);
     void queued.catch(() => undefined);
-    const port = await admitted(ports);
     const closing = session.close();
     assert.equal(session.close(), closing);
     await assert.rejects(active, /native session closed/);

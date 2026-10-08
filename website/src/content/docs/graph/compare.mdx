@@ -4,7 +4,7 @@ import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph
 
 Four tools give a coding agent a view of a codebase over MCP: `@ttsc/graph`, [`codegraph`](https://github.com/colbymchenry/codegraph), [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp), and [`serena`](https://github.com/oraios/serena).
 
-`@ttsc/graph` did not invent the category. `codegraph` put a code graph in front of an agent first, `codebase-memory-mcp` took it across 158 languages, and `serena` reached it from the language-server side. This one is aimed at the case they were not built for: the open-ended "how does this work?" question, answered without the token cost climbing.
+`@ttsc/graph` focuses on open-ended questions about a TypeScript project. The comparison below covers each tool's resolution backend, query results, setup, and agent instructions.
 
 Every claim about another tool below links to the source it comes from, and the full list is in [Sources](#sources). The facts are current as of mid-2026 and taken from each tool's own repository and docs. All four are moving targets, so check the linked sources before relying on a specific number.
 
@@ -32,8 +32,6 @@ The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, eve
 
 ![What each tool hands back to the agent](/blog/images/response-shapes.svg)
 
-> An index of edges stays the same size as the repository grows. A wall of source bodies does not.
-
 `@ttsc/graph` returns an index and never source bodies: names, edges, signatures, and spans. A span is a file-and-line coordinate the compiler resolved, a citation the agent can open to verify, not a copy of the code. Because the payload is relationships rather than code, its size does not grow with the repository, so a large project and a small one come back about the same.
 
 `codegraph` returns whole source bodies. Its own instructions describe the output as the same shape the Read tool gives you and tell the agent to "treat the source it returns as already Read" ([`server-instructions.ts`](https://github.com/colbymchenry/codegraph/blob/main/src/mcp/server-instructions.ts)). That is a good fit for editing a known symbol. On a broad question that touches many files it is the opposite of flat: the response grows with the code it pulls in, and past a cap it spills into a follow-up call.
@@ -54,8 +52,6 @@ The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, eve
 
 ![A hammer held in the hand next to a hammer bolted where the hand used to be](/blog/images/hammer-tool-vs-prosthesis.png)
 
-> One approach adds a tool to the agent's hand. Another replaces part of the workflow with its own.
-
 `@ttsc/graph` exposes one tool. What to do inside it is chosen by a typed request, not by picking from a menu, and a first-class `escape` lets the agent bail out when the graph is not the right source. Its instructions state a condition (use it when the answer depends on TypeScript symbols, calls, or types) and never tell the agent to call it instead of reading files. The rationale for this shape is in the [launch post](/blog/i-made-ts-compiler-graph-mcp).
 
 `codegraph` also leads with a single tool, `codegraph_explore`, with the rest enabled only through the `CODEGRAPH_MCP_TOOLS` variable, so it avoids a large surface. It leans the other way on instructions: it tells the agent to "call `codegraph_explore` before you Read," to reach for it on almost any question, and not to "re-verify them with grep" ([`server-instructions.ts`](https://github.com/colbymchenry/codegraph/blob/main/src/mcp/server-instructions.ts)). Firm guidance keeps the tool from being ignored, at the cost of firing on questions a graph cannot answer.
@@ -66,7 +62,7 @@ The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, eve
 
 Its reasoning is that Claude Code's built-in tool descriptions run about sixteen thousand tokens and bias the model so strongly toward the built-ins that it is otherwise hard to get it to reach for serena at all. The breadth is deliberate, since serena aims to handle reading and editing, not only orientation.
 
-`@ttsc/graph` reaches adoption from the other direction: by the shape of the tool, a typed chain of thought inside a single call, rather than the loudness of the prompt. That mechanism is the subject of the [launch post](/blog/i-made-ts-compiler-graph-mcp).
+The [launch post](/blog/i-made-ts-compiler-graph-mcp) explains the typed request design.
 
 ## Setup and freshness
 

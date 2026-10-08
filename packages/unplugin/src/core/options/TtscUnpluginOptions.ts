@@ -9,7 +9,7 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  *   Optional project selection, a JSON compiler overlay and the distinct
  *   undefined/false/array plugin states express the supported caller choices.
  * @evidence contracts/common.md#clear-and-simple-design
- *   The three members separate project selection from compiler settings and
+ *   Config selection and common source root stay separate from compiler settings and
  *   plugin precedence without exposing internal cache or watcher controls.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   These choices apply to every adapter; false is the documented disable
@@ -18,9 +18,9 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  *   Member JSDoc explains relative-path resolution and override precedence.
  *   Separate member paragraphs and spacing follow the documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   The project member carries a native config path: relative spelling is
- *   resolved against process.cwd by project selection, and omission requests
- *   discovery. Compiler settings retain their compiler-owned path semantics;
+ *   Project and projectRoot carry native paths: relative spelling is
+ *   resolved against process.cwd at delivery. An omitted project requests
+ *   discovery; an omitted root uses the config directory. Compiler settings retain their compiler-owned path semantics;
  *   this type imposes no separator or filesystem case policy.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscUnpluginOptions only declares a shape; it has no computation at
@@ -40,6 +40,15 @@ export interface TtscUnpluginOptions {
    * `tsconfig.json` is discovered from the transformed file.
    */
   project?: string;
+
+  /**
+   * Common source root for a config that includes sibling workspace packages.
+   *
+   * Relative paths resolve from `process.cwd()`. Omission uses the selected
+   * config's directory. Plugin config discovery remains anchored at that
+   * config.
+   */
+  projectRoot?: string;
 
   /**
    * Compiler options overlaid on top of the selected project config.
