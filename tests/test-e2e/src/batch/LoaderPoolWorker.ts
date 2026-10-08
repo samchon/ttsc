@@ -57,9 +57,11 @@ export interface LoaderPoolOutcome {
  * 256 ordinary rows plus its actual close row; no source or reply payload is
  * copied. A failed diagnostic sink reports once on stderr without replacing
  * transport outcomes or certifying closure.
- * Complete child stderr is retained beside that JSONL file at actual close,
+ * Stdout decodes continuous UTF-8 before framing JSON replies. Original child
+ * stderr bytes are retained beside that JSONL file at actual close,
  * including an error reply followed by a normal exit. Close drains the stream
- * before writing; retained diagnostics do not establish a successful delivery.
+ * before writing; diagnostic text decodes the accumulated bytes without changing
+ * the retained artifact. Retention does not establish a successful delivery.
  *
  * The final resident may receive a private project-view argument carrying
  * public Metro options. This keeps Metro's host root independent of its
@@ -119,14 +121,15 @@ export function createLoaderPoolWorker(props: {
     },
   );
   let buffered = "",
-    stderr = "",
     next = 0;
+  const stderr: Buffer[] = [];
+  const diagnostics = (): string => Buffer.concat(stderr).toString("utf8");
   const observationInstance = randomUUID();
   const observationFile = path.join(
     props.traceRoot,
     `${process.pid}-loader-pool-${observationInstance}.jsonl`,
   );
-  const diagnosticsFile = observationFile.replace(/\.jsonl$/, ".stderr");
+  const diagnosticsFile = observationFile.replace(/\.jsonl$/, "-stderr.bin");
   let observationSequence = 0;
   let observationFailed = false;
   let omittedObservations = 0;
@@ -211,7 +214,8 @@ export function createLoaderPoolWorker(props: {
     }
     pending.clear();
   };
-  child.stdout.on("data", (chunk) => {
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => {
     buffered += chunk;
     let newline: number;
     while ((newline = buffered.indexOf("\n")) >= 0) {
@@ -260,7 +264,7 @@ export function createLoaderPoolWorker(props: {
     }
   });
   child.stderr.on("data", (chunk) => {
-    stderr += chunk;
+    stderr.push(chunk);
   });
   let processError: Error | undefined;
   child.once("error", (error) => {
@@ -272,7 +276,7 @@ export function createLoaderPoolWorker(props: {
   const closed = new Promise<void>((resolve, reject) =>
     child.once("close", (code, signal) => {
       try {
-        fs.writeFileSync(diagnosticsFile, stderr, {
+        fs.writeFileSync(diagnosticsFile, Buffer.concat(stderr), {
           flag: "wx",
         });
       } catch (error) {
@@ -283,7 +287,7 @@ export function createLoaderPoolWorker(props: {
         processError ??
         (code !== 0 || signal !== null
           ? new Error(
-              `${props.mode}: status=${code} signal=${signal}\n${stderr}`,
+              `${props.mode}: status=${code} signal=${signal}\n${diagnostics()}`,
             )
           : undefined);
       if (preparationPending) {
@@ -335,7 +339,7 @@ export function createLoaderPoolWorker(props: {
           observe("deadline", { id, phase: label });
           reject(
             new Error(
-              `${props.mode}: delivery remains unresolved (id=${id}, phase=${label}, childPid=${child.pid}): ${stderr}`,
+              `${props.mode}: delivery remains unresolved (id=${id}, phase=${label}, childPid=${child.pid}): ${diagnostics()}`,
             ),
           );
         }, 120_000);
@@ -350,7 +354,7 @@ export function createLoaderPoolWorker(props: {
           }) + "\n",
         );
       }),
-    diagnostics: () => stderr,
+    diagnostics,
     pluginLock: (input: { root: string; api: string; action: string }) =>
       new Promise<LoaderPoolOutcome>((resolve, reject) => {
         const id = ++next;
@@ -361,7 +365,7 @@ export function createLoaderPoolWorker(props: {
           observe("deadline", { id, phase });
           reject(
             new Error(
-              `${props.mode}: plugin lock transition remains unresolved (id=${id}, phase=${phase}, childPid=${child.pid}): ${stderr}`,
+              `${props.mode}: plugin lock transition remains unresolved (id=${id}, phase=${phase}, childPid=${child.pid}): ${diagnostics()}`,
             ),
           );
         }, 120_000);
@@ -380,7 +384,7 @@ export function createLoaderPoolWorker(props: {
               () =>
                 reject(
                   new Error(
-                    `${props.mode}: close remains unresolved (childPid=${child.pid}): ${stderr}`,
+                    `${props.mode}: close remains unresolved (childPid=${child.pid}): ${diagnostics()}`,
                   ),
                 ),
               120_000,
