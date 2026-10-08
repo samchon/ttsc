@@ -103,6 +103,7 @@ export async function test_host_input_coverage_requires_observed_lexical_topolog
         false,
         row.name + ": actual directory watch is available",
       );
+      assert.ok(tracker.covered, row.name + ": exact coverage is reported");
       assert.equal(tracker.covered.has(row.input), row.covered, row.name);
       assert.equal(
         tracker.membershipChanged,

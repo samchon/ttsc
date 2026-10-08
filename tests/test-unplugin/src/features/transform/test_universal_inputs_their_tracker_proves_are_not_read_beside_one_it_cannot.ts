@@ -89,16 +89,19 @@ export async function test_universal_inputs_their_tracker_proves_are_not_read_be
     true,
     "no graph owns no native predicates",
   );
-  result.graph = {
+  const graph: ITtscCompilerTransformation.IReferenceGraph = {
     edges: {},
+    globals: [],
+    configs: [],
     inputObservations: { "config.json": { nativePredicates: [] } },
   };
+  result.graph = graph;
   assert.equal(
     nativeInputPredicatesHold(cached),
     true,
     "an empty native population requires no root derivation",
   );
-  result.graph.inputObservations = { "config.json": { stat: "file" } };
+  graph.inputObservations = { "config.json": { stat: "file" } };
   assert.equal(
     nativeInputPredicatesHold(cached),
     true,

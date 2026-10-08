@@ -135,7 +135,7 @@ export function test_process_clock_reference_mints_in_one_kept_directory(): void
     refreshProcessClockReference(project, deniedFilesystem);
     assert.equal(filesystemClockReferences(deniedFilesystem).size, 1);
     const original = fs.readFileSync(probe);
-    const beforeDenied = stated.length;
+    const beforeDenied: number = stated.length;
     refreshProcessClockReference(deniedRoot, deniedFilesystem);
     assert.equal(
       rootResolutions > 0,

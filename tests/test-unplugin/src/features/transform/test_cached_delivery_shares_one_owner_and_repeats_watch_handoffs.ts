@@ -739,7 +739,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
         await new Promise<void>((resolve) => {
           setImmediate(resolve);
         });
-        assert.deepEqual(registered, []);
+        assert.deepEqual([...registered], []);
         assert.equal(
           volatileCalls,
           2,
@@ -776,7 +776,7 @@ export async function test_cached_delivery_shares_one_owner_and_repeats_watch_ha
           return true;
         });
         assert.equal(fixture.cache.get(fixture.key), recordOwner);
-        assert.deepEqual(registered, []);
+        assert.deepEqual([...registered], []);
         assert.equal(
           volatileCalls,
           2,
