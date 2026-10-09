@@ -104,6 +104,8 @@ export function readRuntimeTraceWriter(root: string, pid: number): Record<string
  * Load hooks may prepare an entry more than once before its one evaluation.
  * Each captured source is checked; inline map encoding and physical source
  * coordinates may differ while statements and normalized map content agree.
+ * Maps need not embed source content. Supplied content must match the authored
+ * source; its absence does not replace physical source and byte verification.
  *
  * @evidence contracts/common.md#principled-implementation Actual launcher/program/source attribution and the same cleanup invocation bind one new generation before the shared raw-observation policy table determines deletion or protection.
  * @evidence contracts/common.md#clear-and-simple-design One operation joins writer reading, generation attribution and retained source proof for both callers; each caller keeps its own synchronous or asynchronous launcher completion authority.
@@ -200,7 +202,9 @@ export function verifyRuntimeCleanup(expected: {
     const consumed = runtimeSourceRepresentation(bytes.toString("utf16le"), emittedFile, directory);
     const index = (consumed.map.sources as string[]).indexOf(entry);
     assert.notEqual(index, -1);
-    assert.equal(consumed.map.sourcesContent[index], expected.source.toString("utf8"));
+    const content = consumed.map.sourcesContent?.[index];
+    if (content !== undefined && content !== null)
+      assert.equal(content, expected.source.toString("utf8"));
     return consumed;
   });
   for (const representation of representations)
@@ -254,7 +258,12 @@ function runtimeSourceRepresentation(javascript: string, emittedFile: string, di
   }
   const map = JSON.parse(json);
   assert.equal(map.version, 3);
-  assert.ok(Array.isArray(map.sources) && Array.isArray(map.sourcesContent));
+  assert.ok(Array.isArray(map.sources));
+  if (map.sourcesContent !== undefined) {
+    assert.ok(Array.isArray(map.sourcesContent));
+    assert.ok(map.sourcesContent.every((content: unknown) =>
+      content === null || typeof content === "string"));
+  }
   const sourceRoot = typeof map.sourceRoot === "string" && map.sourceRoot.startsWith("file:")
     ? fileURLToPath(map.sourceRoot) : map.sourceRoot ?? "";
   map.sources = map.sources.map((file: string) => fs.realpathSync.native(
