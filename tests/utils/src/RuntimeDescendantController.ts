@@ -32,16 +32,18 @@ export namespace RuntimeDescendantController {
    * direct portable tests may supply authored frames and a transport callback.
    * `listen` starts the real socket/file adapters. `close` releases those
    * adapters, checks every admitted original lifetime and reports all errors.
+   * `settle` owns failed-caller cleanup without weakening strict commands;
+   * `snapshot` keeps admission, native retirement and semantic errors separate.
    * The observer session remains the caller's responsibility.
    *
    * @evidence contracts/common.md#principled-implementation Per-role phases reject duplicate/foreign admission and completion before release; a shared promise queue serializes every acquire/retired call and kernel results alone establish departure.
-   * @evidence contracts/common.md#clear-and-simple-design The same receive/request operations serve real adapters and direct tests; no second implementation predicts transport outcomes.
+   * @evidence contracts/common.md#clear-and-simple-design The same receive/request operations serve real adapters and direct tests; cleanup settlement selects the actual admitted phase once, while snapshots preserve independent identity, kernel and protocol facts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit callback injection is the actual transport boundary; no expected process result, PID absence or socket close replaces an observer response.
    * @evidence contracts/common.md#meaningful-documentation States that construction is inert, adapters are opt-in, and close owns transport rather than the borrowed native session.
    * @evidence contracts/portability.md#os-neutral-implementation The supplied observer owns native process identity; loopback listen selects an actual ephemeral port and filesystem IO uses a caller-owned absolute directory.
    * @evidence contracts/performance.md#efficient-algorithms Maps index finite admitted roles and request IDs; frames are limited to 64KiB, and each request is removed after its atomic response publication.
    * @evidence contracts/performance.md#reuse-equivalent-work Admission promises and original targets are shared by concurrent requests for the same role, while new roles acquire their own targets.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources One timer/server belongs to listen; close stops admission, drains pending requests and checks originals before closing sockets/server. Unknown targets remain explicit failures and caller inputs must be retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources One timer/server belongs to listen; close stops admission, drains pending requests and cleanup settlements and checks originals before closing sockets/server. Unknown targets remain explicit failures and caller inputs must be retained. Optional nonce-bound lifecycle JSONL remains in the caller-owned external receipt root; diagnostics append actual phase/first-retirement observations, never new probes, and sink failure changes no authority.
    */
   export function create(
     observer: Pick<Observer, "sessionNonce" | "acquire" | "retired">,
@@ -55,6 +57,7 @@ export namespace RuntimeDescendantController {
     const failures: unknown[] = [];
     const transports = new Set<Transport>();
     const requests = new Set<Promise<void>>();
+    const settlements = new Set<Promise<Receipt>>();
     let queue: Promise<unknown> = Promise.resolve();
     let server: net.Server | undefined;
     let poll: NodeJS.Timeout | undefined;
@@ -62,6 +65,12 @@ export namespace RuntimeDescendantController {
     let closing: Promise<void> | undefined;
     let closed = false;
     let joined = false;
+    const record = (role: string, event: string, detail: Record<string, unknown> = {}): void => {
+      const row = { at: new Date().toISOString(), role, event, ...detail };
+      try {
+        if (directory) fs.appendFileSync(path.join(directory, "lifecycle.jsonl"), JSON.stringify({ nonce, ...row }) + "\n");
+      } catch { /* Diagnostic IO cannot change protocol or native authority. */ }
+    };
     const serial = <T>(operation: () => Promise<T>): Promise<T> => {
       const pending = queue.then(operation);
       queue = pending.catch(() => {});
@@ -72,8 +81,20 @@ export namespace RuntimeDescendantController {
       if (!value) throw new Error("No authenticated descendant: " + role);
       return value;
     };
-    const retired = (target: Target): Promise<boolean> =>
-      serial(() => observer.retired(target));
+    const retired = async (target: Target): Promise<boolean> => {
+      const value = await serial(() => observer.retired(target));
+      if (value) for (const [role, current] of roles) {
+        if (current.target === target && !current.childRetired) {
+          current.childRetired = true;
+          record(role, "child-retired", { target });
+        }
+        if (current.parent === target && !current.parentRetired) {
+          current.parentRetired = true;
+          record(role, "parent-retired", { target });
+        }
+      }
+      return value;
+    };
     const wait = async (target: Target): Promise<void> => {
       while (!(await retired(target))) await delay(10);
     };
@@ -97,10 +118,12 @@ export namespace RuntimeDescendantController {
           admission: Promise.resolve(),
         };
         roles.set(role, current);
+        record(role, "announced", { announcement: frame });
         current.admission = (async () => {
           current.parent = await serial(() => observer.acquire(parentPid));
           current.target = await serial(() => observer.acquire(pid));
           current.phase = "held";
+          record(role, "admitted", { parent: current.parent, target: current.target });
           transport.send({ version: 1, nonce, role, event: "acquired",
             parent: current.parent, target: current.target });
         })();
@@ -118,10 +141,48 @@ export namespace RuntimeDescendantController {
       if (typeof frame.value !== "string" && !Object.hasOwn(frame, "error"))
         throw new Error("Descendant completion lacks result or error");
       current.completion = frame;
+      record(role, "completed", { completion: frame });
+    };
+    const snapshot = (): Receipt[] => [...roles].map(([role, current]) => ({
+      role, phase: current.phase, announcement: current.announcement,
+      parent: current.parent, target: current.target,
+      parentRetired: current.parentRetired === true,
+      childRetired: current.childRetired === true,
+      completion: current.completion ?? null,
+      errors: current.failure === undefined ? [] : [String(current.failure)],
+    }));
+    // Cleanup chooses its command from the admitted phase before yielding.
+    // Strict release/abort requests below retain their wrong-phase refusal.
+    const settle = (role: string): Promise<Receipt> => {
+      if (closing) return Promise.reject(new Error("Descendant controller is closing"));
+      const pending = settleRole(role);
+      settlements.add(pending);
+      void pending.then(() => settlements.delete(pending), () => settlements.delete(pending));
+      return pending;
+    };
+    const settleRole = async (role: string): Promise<Receipt> => {
+      const current = state(role);
+      await current.admission;
+      if (current.phase === "held") {
+        current.phase = "abandoned";
+        record(role, "cleanup-abort", { target: current.target });
+        try { transportCommand(current, nonce, role, "abort"); }
+        catch (cause) { current.failure ??= cause; }
+      }
+      // A failed transport does not erase the enrolled originals. Keep its
+      // failure while independently joining both original kernel targets.
+      await wait(current.target!);
+      await current.transport.settled;
+      await wait(current.parent!);
+      current.phase = "retired";
+      if (current.completion === undefined && !current.abrupt)
+        current.failure ??= new Error("Descendant retired without lazy completion");
+      return snapshot().find((receipt) => receipt.role === role)!;
     };
     const request = async (role: string, operation: string): Promise<unknown> => {
       if (closing) throw new Error("Descendant controller is closing");
       const current = state(role);
+      record(role, "request", { operation, phase: current.phase });
       await current.admission;
       if (current.failure !== undefined && operation !== "abort" && operation !== "joined")
         throw current.failure;
@@ -129,6 +190,7 @@ export namespace RuntimeDescendantController {
       if (operation === "ready")
         return { announcement: current.announcement, target, parent: current.parent };
       if (operation === "parent-joined") {
+        record(role, "parent-join-requested", { parent: current.parent });
         await wait(current.parent!);
         return { parent: current.parent, retired: true };
       }
@@ -141,6 +203,7 @@ export namespace RuntimeDescendantController {
         if (current.phase !== "held") throw new Error("Descendant already released");
         const at = new Date().toISOString();
         current.phase = operation === "release" ? "released" : "abandoned";
+        record(role, "command", { operation, target });
         transportCommand(current, nonce, role, operation);
         return { target, operation, at };
       }
@@ -168,6 +231,7 @@ export namespace RuntimeDescendantController {
         if (current.phase === "abandoned" || current.phase === "retired" ||
             current.completion !== undefined) return;
         current.failure ??= new Error("Descendant connection ended before completion: " + role);
+        record(role, "disconnected", { phase: current.phase, error: String(current.failure) });
       }
     };
     const listen = async (root: string): Promise<{ port: number; nonce: string; directory: string }> => {
@@ -187,7 +251,11 @@ export namespace RuntimeDescendantController {
         };
         transports.add(transport);
         socket.setEncoding("utf8");
-        socket.on("error", (cause) => failures.push(cause));
+        socket.on("error", (cause) => {
+          failures.push(cause);
+          for (const [role, current] of roles)
+            if (current.transport === transport) record(role, "transport-error", { error: String(cause) });
+        });
         socket.on("data", (chunk: string) => {
           input += chunk;
           if (Buffer.byteLength(input) > 65536) {
@@ -243,6 +311,7 @@ export namespace RuntimeDescendantController {
     const close = (): Promise<void> => (closing ??= (async () => {
       if (poll) clearInterval(poll);
       for (const pending of requests) await pending.catch((cause) => failures.push(cause));
+      for (const pending of settlements) await pending.catch((cause) => failures.push(cause));
       await queue;
       joined = true;
       for (const [role, current] of roles) {
@@ -278,11 +347,45 @@ export namespace RuntimeDescendantController {
         } catch (cause) { failures.push(cause); }
       }
       closed = true;
-      if (directory) publish(path.join(directory, "closed.json"), { nonce, errors: failures.map(String) });
+      if (directory) publish(path.join(directory, "closed.json"), { nonce, joined, roles: snapshot(), errors: failures.map(String) });
       if (failures.length) throw new AggregateError(failures, "Descendant controller closure");
     })());
-    return { nonce, receive, request, disconnected, listen, close,
+    return { nonce, receive, request, settle, snapshot, disconnected, listen, close,
       joined: () => joined };
+  }
+
+  /**
+   * Independent admitted identity, kernel retirement and protocol observations.
+   * A retired original does not certify a successful lazy result or clean.
+   *
+   * @evidence contracts/common.md#principled-implementation Immutable admitted targets and monotone actual retirement facts remain available after protocol failure; errors do not replace either authority.
+   * @evidence contracts/common.md#clear-and-simple-design One role receipt exposes the existing controller state without another scan or process probe.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither connection closure nor a semantic result supplies kernel retirement.
+   * @evidence contracts/common.md#meaningful-documentation Describes the distinction between lifetime and semantic completion.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This record owns no algorithm; create owns snapshot construction and state updates.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This record owns no cache or computation reuse.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The controller owns the referenced target/announcement lifetime; callers retain returned observations.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This record transports already observed native identities without interpreting platform behavior.
+   */
+  export interface Receipt {
+    /** The authenticated scenario role. */
+    role: string;
+    /** Current protocol phase, independent of kernel retirement. */
+    phase: Role["phase"];
+    /** Original authenticated announcement. */
+    announcement: Record<string, unknown>;
+    /** Original parent target, absent when enrollment failed. */
+    parent?: Target;
+    /** Original child target, absent when enrollment failed. */
+    target?: Target;
+    /** A returned native observation proved this original parent retired. */
+    parentRetired: boolean;
+    /** A returned native observation proved this original child retired. */
+    childRetired: boolean;
+    /** Authenticated lazy completion, absent for deliberate abrupt departure. */
+    completion: Record<string, unknown> | null;
+    /** Protocol failure observations; retirement does not clear them. */
+    errors: string[];
   }
 }
 
@@ -304,11 +407,17 @@ interface Role {
   completion?: Record<string, unknown>;
   failure?: unknown;
   abrupt?: boolean;
+  childRetired?: boolean;
+  parentRetired?: boolean;
 }
 interface Controller {
   readonly nonce: string;
   receive(frame: unknown, transport: Transport): Promise<void>;
   request(role: string, operation: string): Promise<unknown>;
+  /** Abort a held role or join an already released role, preserving errors. */
+  settle(role: string): Promise<RuntimeDescendantController.Receipt>;
+  /** Read established identity and lifetime facts despite later protocol errors. */
+  snapshot(): RuntimeDescendantController.Receipt[];
   disconnected(transport: Transport): void;
   listen(root: string): Promise<{ port: number; nonce: string; directory: string }>;
   close(): Promise<void>;

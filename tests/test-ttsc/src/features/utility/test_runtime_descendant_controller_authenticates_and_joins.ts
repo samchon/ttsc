@@ -13,9 +13,9 @@ import path from "node:path";
  *    retain acquisition and cleanup failures independently. Exercise the shared
  *    async launcher with one real Node child and an absent executable.
  *
- * @evidence contracts/testing.md#behavioral-verification Public controller receive/request/close operations process actual authored frames and supplied observer responses. Assertions inspect emitted commands, result/error payloads, request order, original-target waits and unresolved-close failures.
+ * @evidence contracts/testing.md#behavioral-verification Public controller receive/request/settle/snapshot/close operations process actual authored frames and supplied observer responses. Assertions inspect emitted commands, result/error payloads, request order, original-target waits and unresolved-close failures. Concurrent held cleanup emits one abort; released cleanup emits none; protocol failure preserves admitted targets and later actual retirement without manufacturing semantic success.
  * @evidence contracts/testing.md#independent-expectations Literal protocol phases and authored kernel responses distinguish admission, release and departure. Explicit pending promises independently expose overlapping requests; a transport close is deliberately followed by a live original target.
- * @evidence contracts/testing.md#distinguishing-cases Covers normal lazy completion, structured lazy error, self-abandonment without completion, foreign nonce/role/transport, invalid PID, duplicate role/completion, premature completion, acquisition refusal, connection loss, concurrent admissions across roles and an authenticated final frame during close while new requests/enrollment and post-close frames remain refused.
+ * @evidence contracts/testing.md#distinguishing-cases Covers normal lazy completion, structured lazy error, self-abandonment without completion, foreign nonce/role/transport, invalid PID, duplicate role/completion, premature completion, acquisition refusal, connection loss, concurrent admissions across roles and an authenticated final frame during close while new requests/enrollment and post-close frames remain refused. Cleanup contrasts held with released, duplicate strict release/abort and live refusal, missing normal completion, independently retired failed transport and close during admitted cleanup.
  * @evidence contracts/testing.md#execution-ownership Existing test-ttsc utility discovery owns this export, importing public @ttsc/testing only. Controller callbacks start no socket or native observer. Launcher cases start one plain Node child and one failing executable attempt, with no compiler, Go build or installation; real descendant transport/kernel proofs remain Runtime E2E.
  */
 export async function test_runtime_descendant_controller_authenticates_and_joins(): Promise<void> {
@@ -236,6 +236,79 @@ export async function test_runtime_descendant_controller_authenticates_and_joins
     await closing;
     assert.equal(f.controller.joined(), true);
     await assert.rejects(f.controller.receive(f.complete(), transport), /Foreign/);
+  });
+  await check("cleanup atomically aborts a held role once and preserves strict requests", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    f.retired.add(11); f.retired.add(12);
+    const first = f.controller.settle("child");
+    const second = f.controller.settle("child");
+    const a = await first;
+    const b = await second;
+    assert.deepEqual(f.sent.map((row) => row.operation).filter(Boolean), ["abort"]);
+    assert.equal(a.childRetired, true);
+    assert.equal(b.parentRetired, true);
+    assert.equal(a.completion, null);
+    assert.deepEqual(a.errors, []);
+    await assert.rejects(f.controller.request("child", "abort"), /already released/);
+    await assert.rejects(f.controller.request("child", "release"), /already released/);
+    await assert.rejects(f.controller.request("child", "live"), /not held/);
+    await f.controller.close();
+  });
+  await check("cleanup joins released completion without issuing another command", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    await f.controller.request("child", "release");
+    await f.controller.receive(f.complete(), f.transport);
+    f.retired.add(11); f.retired.add(12);
+    const result = await f.controller.settle("child");
+    assert.deepEqual(f.sent.map((row) => row.operation).filter(Boolean), ["release"]);
+    assert.equal(result.completion!.value, "literal-lazy-result");
+    assert.deepEqual(result.errors, []);
+    await f.controller.close();
+  });
+  await check("admission and native retirement survive a premature connection failure", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    f.controller.disconnected(f.transport);
+    const admission = f.controller.snapshot()[0]!;
+    assert.equal(admission.target!.pid, 12);
+    assert.equal(admission.parent!.pid, 11);
+    assert.equal(admission.childRetired, false);
+    assert.match(admission.errors[0]!, /connection ended/);
+    f.retired.add(11); f.retired.add(12);
+    const result = await f.controller.settle("child");
+    assert.equal(result.childRetired, true);
+    assert.equal(result.parentRetired, true);
+    assert.match(result.errors[0]!, /connection ended/);
+    assert.equal(result.completion, null);
+    await assert.rejects(f.controller.close(), /controller closure/);
+    assert.equal(f.controller.joined(), true);
+  });
+  await check("released departure without completion remains a semantic failure", async () => {
+    const f = fixture();
+    await f.controller.receive(f.announce(), f.transport);
+    await f.controller.request("child", "release");
+    f.retired.add(11); f.retired.add(12);
+    const result = await f.controller.settle("child");
+    assert.equal(result.childRetired, true);
+    assert.equal(result.parentRetired, true);
+    assert.match(result.errors[0]!, /without lazy completion/);
+    assert.equal(f.sent.length, 2);
+    await assert.rejects(f.controller.close(), /controller closure/);
+  });
+  await check("close drains an admitted cleanup while refusing new cleanup", async () => {
+    const f = fixture();
+    let drain!: () => void;
+    const transport = { ...f.transport, settled: new Promise<void>((resolve) => { drain = resolve; }) };
+    await f.controller.receive(f.announce(), transport);
+    f.retired.add(11); f.retired.add(12);
+    const settling = f.controller.settle("child");
+    const closing = f.controller.close();
+    await assert.rejects(f.controller.settle("child"), /closing/);
+    drain();
+    assert.equal((await settling).childRetired, true);
+    await closing;
   });
   await check("async launcher captures actual input, environment, streams and status", async () => {
     const bytes = Buffer.from("prefix:literal-\u03bb-input:suffix");
