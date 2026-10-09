@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { waitFor } from "../../../../../../utils/src/internal/waitFor";
 import { createProjectWithExternalInput } from "../../../../internal/unplugin/internal/transform-external/createProjectWithExternalInput";
 
 /**
@@ -35,12 +36,16 @@ import { createProjectWithExternalInput } from "../../../../internal/unplugin/in
  * @evidence contracts/testing.md#execution-ownership The ordinary tests/test-e2e/src/index.ts run selects nine batch entries whose import graph excludes this retained module, so that suite does not execute this declaration. If explicitly invoked, test_transformttsc_certifies_no_dependency_state_first_seen_after_its_compile owns held native reads across first-seen and later dependency edits, including stable replay counts. Evidence selection does not establish runtime coverage.
  * @evidence contracts/e2e.md#necessary-boundary The built transform API loads the actual consumer descriptor and passes generated options through the native fixture host into returned output and adapter hooks. The fixture validates received paths/options or publishes deliberate effects; direct option derivation cannot prove that process connection.
  * @evidence contracts/e2e.md#shared-execution TestUnpluginProject reuses its immutable Go fixture source and shared content-addressed producer build cache while allocating this consumer independently. Its module requests reuse the supplied transform cache where present; different aliases or producer options legitimately select another transform, without reinstalling the workspace packages.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. TestProject owns its managed temporary roots through runner cleanup. This case does not explicitly reset every retained transform cache; generation disposal and runner termination bound native observer lifetime, rather than a claimed per-case cleanup. Explicit barrier/release files establish the native read-before-edit sequence; an assertion failing before release has only the existing bounded producer timeout, not an unconditional barrier cleanup.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Consumer, source edits, hook counters and transform cache belong to this case; shared producer inputs remain equivalent or their changed content selects a new build key. Actual delivery settlement supplies terminal authority while awaiting its barrier. Finally attempts release even after source-edit failure, withdraws the published barrier if release fails, and joins the original delivery before resetting the cache. Body, release, delivery and reset failures remain visible. Cache reset schedules generation disposal and does not certify native retirement; the original outer process owner must join all readers before reclaiming managed temporary roots. Unresolved filesystem/retirement failures retain inputs through that owner.
  * @evidence contracts/e2e.md#preserved-coverage Held native reads spanning first-to-second and third-to-fourth edits serve SECOND then FOURTH, with two compiles per stabilization and no extra compile on replay. These assertions remain in test_transformttsc_certifies_no_dependency_state_first_seen_after_its_compile, with their stated fixture/oracle limits; portable decisions are not claimed covered by an unnamed unit or by a synthetic envelope alone.
  */
 export async function test_transformttsc_certifies_no_dependency_state_first_seen_after_its_compile(): Promise<void> {
-  const { resolveOptions, transformTtsc, createTtscTransformCache } =
-    await TestUnpluginRuntime.loadUnpluginApi();
+  const {
+    resolveOptions,
+    transformTtsc,
+    createTtscTransformCache,
+    resetTtscTransformCache,
+  } = await TestUnpluginRuntime.loadUnpluginApi();
   const { external, relative, root } =
     createProjectWithExternalInput("first\n");
   const control = TestProject.tmpdir("ttsc-unplugin-dependency-witness-");
@@ -92,33 +97,106 @@ export async function test_transformttsc_certifies_no_dependency_state_first_see
   const deliverAcross = async (moved: string) => {
     fs.rmSync(barrier, { force: true });
     fs.rmSync(release, { force: true });
-    const delivery = deliver();
-    const deadline = Date.now() + 120_000;
-    while (!fs.existsSync(barrier)) {
-      assert.ok(Date.now() < deadline, "the compile never reached its hold");
-      await new Promise((resolve) => setTimeout(resolve, 10));
+    let completed = false;
+    let failed = false;
+    let failure: unknown;
+    const delivery = deliver().then(
+      (value: Awaited<ReturnType<typeof deliver>>) => {
+        completed = true;
+        return value;
+      },
+      (error: unknown) => {
+        completed = true;
+        failed = true;
+        failure = error;
+        throw error;
+      },
+    );
+    void delivery.catch(() => undefined);
+    const failures: unknown[] = [];
+    let result: Awaited<typeof delivery>;
+    try {
+      await waitFor(
+        () => fs.existsSync(barrier) && !completed,
+        "the compile to publish its dependency-read barrier",
+        {
+          check: () => {
+            if (completed)
+              throw new Error("compiler completed before publishing its hold", {
+                cause: failed ? failure : undefined,
+              });
+          },
+        },
+      );
+      fs.writeFileSync(external, moved, "utf8");
+    } catch (error) {
+      failures.push(error);
+    } finally {
+      try {
+        fs.writeFileSync(release, "");
+      } catch (error) {
+        failures.push(error);
+        // An unsettled delivery reached its published hold before the edit.
+        // Withdrawing that token makes the native wait return its actual error.
+        if (!completed)
+          try {
+            fs.rmSync(barrier, { force: true });
+          } catch (withdrawalError) {
+            failures.push(withdrawalError);
+            const reason = "held native dependency read could not be released";
+            for (const owned of [root, control, path.dirname(external)])
+              try {
+                TestProject.retainTemporaryDirectory(owned, reason);
+              } catch (retentionError) {
+                failures.push(retentionError);
+              }
+            try {
+              TestProject.retainSharedPluginCache(reason);
+            } catch (retentionError) {
+              failures.push(retentionError);
+            }
+          }
+      }
+      try {
+        result = await delivery;
+      } catch (error) {
+        if (!failures.includes(error)) failures.push(error);
+      }
     }
-    fs.writeFileSync(external, moved, "utf8");
-    fs.writeFileSync(release, "");
-    return delivery;
+    if (failures.length)
+      throw new AggregateError(failures, "held dependency delivery and release");
+    return result;
   };
 
-  const first = await deliverAcross("second\n");
-  assert.ok(first);
-  assert.match(first.code, /PLUGIN:SECOND/);
-  assert.equal(compiles(), 2, "the path is compiled again, witnessed");
-  const replayed = await deliver();
-  assert.ok(replayed);
-  assert.match(replayed.code, /PLUGIN:SECOND/);
-  assert.equal(compiles(), 2, "the witnessed generation is reused");
+  const failures: unknown[] = [];
+  try {
+    const first = await deliverAcross("second\n");
+    assert.ok(first);
+    assert.match(first.code, /PLUGIN:SECOND/);
+    assert.equal(compiles(), 2, "the path is compiled again, witnessed");
+    const replayed = await deliver();
+    assert.ok(replayed);
+    assert.match(replayed.code, /PLUGIN:SECOND/);
+    assert.equal(compiles(), 2, "the witnessed generation is reused");
 
-  fs.writeFileSync(external, "third\n", "utf8");
-  const moved = await deliverAcross("fourth\n");
-  assert.ok(moved);
-  assert.match(moved.code, /PLUGIN:FOURTH/);
-  assert.equal(compiles(), 4, "the moved path is compiled again");
-  const settled = await deliver();
-  assert.ok(settled);
-  assert.match(settled.code, /PLUGIN:FOURTH/);
-  assert.equal(compiles(), 4, "the settled generation is reused");
+    fs.writeFileSync(external, "third\n", "utf8");
+    const moved = await deliverAcross("fourth\n");
+    assert.ok(moved);
+    assert.match(moved.code, /PLUGIN:FOURTH/);
+    assert.equal(compiles(), 4, "the moved path is compiled again");
+    const settled = await deliver();
+    assert.ok(settled);
+    assert.match(settled.code, /PLUGIN:FOURTH/);
+    assert.equal(compiles(), 4, "the settled generation is reused");
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    try {
+      resetTtscTransformCache(cache);
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length)
+    throw new AggregateError(failures, "dependency witness and cache release");
 }

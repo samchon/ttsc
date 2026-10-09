@@ -47,7 +47,7 @@ import (
 // Portability: OS-neutral implementation: filepath.Join preserves native fixture and output paths under TempDir; the private consumer helper supplies argv separately and converts ESM paths to file URLs without shell quoting or OS branches.
 // Performance: Efficient algorithms: Nine source targets are registered once and each of two option groups is emitted once; result comparison scans each small export map without duplicate module loads.
 // Performance: Reuse equivalent work: Eight CommonJS cases use the same effective interop and immutable runtime compiler options with isolated source modules, so one Program serves them. The raw false parse distinction stays in the unit; the genuinely different ESM module format and resolution require the second Program. One Node process shares startup across all nine independent module paths.
-// Performance: Bound retention and release resources: Each Program closes immediately after its group's emission, including ordinary failure paths, with idempotent deferred cleanup guarding panic; one TempDir owns copied fixtures/output, and the helper requests timed Node cancellation and waits for the command. This is not an independent inherited-pipe drain deadline or descendant-closure guarantee.
+// Performance: Bound retention and release resources: Each Program closes immediately after its group's emission, including ordinary failure paths, with idempotent deferred cleanup guarding panic; one TempDir owns copied fixtures/output, and the helper waits for the original Node command and output readers. This is not an independent inherited-pipe drain deadline or descendant-closure guarantee.
 func TestDriverRewriteRuntimeBatch(t *testing.T) {
   cases := []struct {
     name         string

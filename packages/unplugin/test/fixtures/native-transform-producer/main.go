@@ -320,25 +320,47 @@ func genericCountRun(config map[string]any) error {
 	return file.Close()
 }
 
-// awaitRelease holds the compile at a point the caller chooses: it writes
+// genericAwaitRelease holds the compile at a point the caller chooses: it writes
 // the configured barrier file, then waits for the release file, so a
 // scenario can change the disk while a compile is known to be running.
+// The caller releases in finally and joins the original delivery. Withdrawing
+// its published barrier cancels the hold; filesystem failures remain failures.
 func genericAwaitRelease(config map[string]any) error {
 	barrier := genericStringValue(config, "barrier")
 	release := genericStringValue(config, "release")
 	if barrier == "" || release == "" {
 		return fmt.Errorf("await-release requires barrier and release paths")
 	}
-	if err := os.WriteFile(barrier, nil, 0o600); err != nil {
+	// Publish only after closing our handle: on Windows a visible open file
+	// cannot yet be withdrawn by the owner that observes it.
+	publication, err := os.CreateTemp(filepath.Dir(barrier), ".barrier-")
+	if err != nil {
 		return err
 	}
-	deadline := time.Now().Add(60 * time.Second)
+	if err := publication.Close(); err != nil {
+		return errors.Join(err, os.Remove(publication.Name()))
+	}
+	if err := os.Rename(publication.Name(), barrier); err != nil {
+		return errors.Join(err, os.Remove(publication.Name()))
+	}
 	for {
-		if _, err := os.Stat(release); err == nil {
-			return nil
+		if _, err := os.Stat(barrier); err != nil {
+			return fmt.Errorf("await-release barrier unavailable: %w", err)
 		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("await-release timed out waiting for %s", release)
+		parent, err := os.Stat(filepath.Dir(release))
+		if err != nil {
+			return err
+		}
+		if !parent.IsDir() {
+			return fmt.Errorf("await-release parent is not a directory: %s", release)
+		}
+		if info, err := os.Stat(release); err == nil {
+			if !info.Mode().IsRegular() {
+				return fmt.Errorf("await-release requires a regular release file: %s", release)
+			}
+			return nil
+		} else if !os.IsNotExist(err) {
+			return err
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
