@@ -20,6 +20,7 @@ import { WatchBuildObservation } from "../../../../utils/src/WatchBuildObservati
 export async function test_watch_build_observation_uses_actual_markers_and_terminal_events(): Promise<void> {
   const watch = new WatchBuildObservation("authored watch");
   assert.equal(watch.completed(), 0);
+  assert.doesNotThrow(() => watch.assertRunning());
   let completed = false;
   const first = watch.waitForBuilds(1).then(() => { completed = true; });
   watch.append("[ttsc] rebuilding at first\nnoise watch build complete\n[ttsc] watch bu", "stdout");
@@ -42,6 +43,7 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
   const original = new Error("original stream error");
   const missing = failed.waitForBuilds(1);
   failed.fail(original);
+  assert.throws(() => failed.assertRunning(), (error: Error) => error === original);
   await assert.rejects(missing, (error: Error) => error.cause === original);
   await assert.rejects(failed.waitForSettled(0), (error: Error) => error.cause === original);
   await assert.rejects(failed.waitForQuiet(0), (error: Error) => error === original);
@@ -72,6 +74,7 @@ export async function test_watch_build_observation_uses_actual_markers_and_termi
   const closed = new WatchBuildObservation("closed watch");
   const uncompleted = closed.waitForBuilds(1);
   closed.close();
+  assert.throws(() => closed.assertRunning(), /exited during observation/);
   await assert.rejects(uncompleted, /did not reach 1 builds/);
   await assert.rejects(closed.waitForSettled(0), /did not settle/);
   await assert.rejects(closed.waitForQuiet(0), /exited during observation/);

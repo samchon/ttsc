@@ -130,6 +130,11 @@ export class WatchSession {
     return this.observation.transcript();
   }
 
+  /** Reject an unmet consumer observation on actual session error or close. */
+  public assertRunning(): void {
+    this.observation.assertRunning();
+  }
+
   /** Actual launcher/stdio closure result; absent while the session is live. */
   public exitResult():
     | { code: number | null; signal: NodeJS.Signals | null }

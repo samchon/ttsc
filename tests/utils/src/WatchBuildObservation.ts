@@ -14,7 +14,7 @@ import { waitFor } from "./internal/waitFor";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Original stream chunks and terminal callbacks supply every result, without synthetic markers, elapsed progress failures or replaced process methods.
  * @evidence contracts/common.md#meaningful-documentation Explains stream and terminal handoff, finite quiet meaning and the separate native cancellation/join owner; public members describe their observations.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This class observes strings and callbacks; WatchSession owns native process arguments and stream connections.
- * @evidence contracts/performance.md#efficient-algorithms Each chunk rescans the accumulated transcript, with time proportional to its bytes and active quiet observers. Incremental transcript parsing is not claimed.
+ * @evidence contracts/performance.md#efficient-algorithms Each chunk rescans both accumulated output streams, with time proportional to their bytes and active quiet observers. Incremental transcript parsing is not claimed.
  * @evidence contracts/performance.md#reuse-equivalent-work All observations share one original session transcript and current counters; unrelated sessions have independent instances.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Positive observations release waitFor timers on completion or terminal failure. Quiet observers clear their timer and listener on every outcome. Transcript bytes remain unbounded for the session lifetime, and native process retirement remains the containing owner's responsibility.
  */
@@ -219,7 +219,19 @@ export class WatchBuildObservation {
     });
   }
 
-  private assertRunning(): void {
+  /**
+   * Reject an unmet observation when its original session has failed or closed.
+   *
+   * @evidence contracts/common.md#principled-implementation Only the sticky original error or actual close rejects this terminal check; running age has no authority.
+   * @evidence contracts/common.md#clear-and-simple-design The shared check serves build, quiet and actual consumer predicates without another observer loop.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Preserves the original error and checks actual closure without process lookup or synthetic progress.
+   * @evidence contracts/common.md#meaningful-documentation Names the unmet-observation scope and original session authority.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This check reads JavaScript state; the session owns native events.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This direct terminal-state check chooses no processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This check coordinates no computation or cache.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This check acquires no resource; callers retain their original observation and process owners.
+   */
+  public assertRunning(): void {
     if (this.failure !== undefined) throw this.failure;
     assert.equal(
       this.closed,
