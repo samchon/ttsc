@@ -1,3 +1,4 @@
+import type { SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -554,19 +555,12 @@ export namespace TestProject {
    * @evidence contracts/performance.md#bound-retention-and-release-resources spawnSync waits for the direct child and closes its pipes; this wrapper does not join arbitrary descendants. Caller owners retain fixture inputs when descendant closure is unknown.
    */
   export function spawn(command: string, args: string[], options: any = {}) {
-    const usesNodeLauncher = command === TTSC_BIN || command === TTSX_BIN;
+    const selected = processInputs(command, args, options);
     const result = E2eProcessTrace.spawnSync(
-      usesNodeLauncher ? process.execPath : command,
-      [...(usesNodeLauncher ? [command] : []), ...args],
+      selected.command,
+      selected.args,
       {
-        ...options,
-        env: {
-          ...process.env,
-          TTSC_BINARY: NATIVE_BINARY,
-          TTSC_TSGO_BINARY: TSGO_BINARY,
-          GOCACHE: sharedGoBuildCache(),
-          ...options.env,
-        },
+        ...selected.options,
         encoding: "utf8",
         maxBuffer: 1024 * 1024 * 64,
         windowsHide: true,
@@ -576,6 +570,93 @@ export namespace TestProject {
       result.stderr = result.error.message;
     }
     return result;
+  }
+
+  /**
+   * Capture a real command while allowing the caller's event loop to serve
+   * authenticated descendants. Launcher selection and environment precedence
+   * are shared with spawn. Each pipe is bounded to 64MiB; overflow requests the
+   * original direct child's termination and still awaits its actual close.
+   * Arbitrary descendant lifetime remains the caller's responsibility.
+   *
+   * @evidence contracts/common.md#principled-implementation The original traced spawn runs exact argv and shared environment selection; byte-bounded pipes decode once after actual close and error/status/signal remain separate.
+   * @evidence contracts/common.md#clear-and-simple-design One asynchronous sibling reuses the original process-input owner rather than copying tool defaults into consumers.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No process result or descendant certificate is synthesized; overflow/abort requests termination but cannot settle before the returned ChildProcess closes.
+   * @evidence contracts/common.md#meaningful-documentation Explains live event-loop purpose, per-pipe cap, actual direct-child join and caller-owned descendants.
+   * @evidence contracts/portability.md#os-neutral-implementation Separate executable/argv and windowsHide preserve the synchronous wrapper's native launch representation; supported ChildProcess events supply actual status and signal.
+   * @evidence contracts/performance.md#efficient-algorithms Each captured chunk is retained once up to the per-stream cap, concatenated and decoded once at close; memory scales with bounded captured bytes.
+   * @evidence contracts/performance.md#reuse-equivalent-work Shared launcher/environment selection and Go cache authority serve sync/async callers; each command executes independently.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Error/close listeners are installed immediately, streams remain owned until actual close, and overflow retains the original error while awaiting termination; no process-duration deadline or descendant proof is introduced.
+   */
+  export async function spawnAsync(
+    command: string,
+    args: string[],
+    options: any = {},
+  ): Promise<SpawnSyncReturns<string>> {
+    const selected = processInputs(command, args, options);
+    if (options.input !== undefined && typeof options.input !== "string" &&
+        !ArrayBuffer.isView(options.input))
+      throw new TypeError("Command input must be a string or byte view");
+    const input = ArrayBuffer.isView(options.input)
+      ? Buffer.from(options.input.buffer, options.input.byteOffset, options.input.byteLength)
+      : options.input;
+    return await new Promise<SpawnSyncReturns<string>>((resolve) => {
+      const chunks: Buffer[][] = [[], []];
+      const sizes = [0, 0];
+      let error: Error | undefined;
+      let overflowRequested = false;
+      const child = E2eProcessTrace.spawn(selected.command, selected.args, {
+        ...selected.options,
+        windowsHide: true,
+      });
+      const capture = (index: number, value: Buffer): void => {
+        const limit = 64 * 1024 * 1024;
+        const available = limit - sizes[index]!;
+        if (available > 0) chunks[index]!.push(value.subarray(0, available));
+        sizes[index] = sizes[index]! + Math.min(value.length, available);
+        if (value.length > available && !overflowRequested) {
+          overflowRequested = true;
+          const overflow = Object.assign(new Error("Command output exceeds 64MiB"), { code: "ENOBUFS" });
+          error = error ? new AggregateError([error, overflow], "Command output overflow") : overflow;
+          try { child.kill(options.killSignal ?? "SIGTERM"); }
+          catch (cause) {
+            error = new AggregateError([error, cause], "Output overflow termination failed");
+          }
+        }
+      };
+      child.stdout?.on("data", (value: Buffer) => capture(0, value));
+      child.stderr?.on("data", (value: Buffer) => capture(1, value));
+      child.stdout?.on("error", (cause) => { error ??= cause; });
+      child.stderr?.on("error", (cause) => { error ??= cause; });
+      child.once("error", (cause) => { error ??= cause; });
+      child.once("close", (status, signal) => {
+        const stdout = Buffer.concat(chunks[0]!).toString("utf8");
+        const stderr = Buffer.concat(chunks[1]!).toString("utf8") || error?.message || "";
+        resolve({ pid: child.pid ?? 0, status, signal, error,
+          stdout, stderr, output: [null, stdout, stderr] });
+      });
+      child.stdin?.on("error", (cause) => { error ??= cause; });
+      child.stdin?.end(input);
+    });
+  }
+
+  /** Common launcher representation and caller-over-tool environment authority. */
+  function processInputs(command: string, args: string[], options: any) {
+    const usesNodeLauncher = command === TTSC_BIN || command === TTSX_BIN;
+    return {
+      command: usesNodeLauncher ? process.execPath : command,
+      args: [...(usesNodeLauncher ? [command] : []), ...args],
+      options: {
+        ...options,
+        env: {
+          ...process.env,
+          TTSC_BINARY: NATIVE_BINARY,
+          TTSC_TSGO_BINARY: TSGO_BINARY,
+          GOCACHE: sharedGoBuildCache(),
+          ...options.env,
+        },
+      },
+    };
   }
 
   /**
