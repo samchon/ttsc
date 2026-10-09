@@ -60,6 +60,7 @@ export namespace RuntimeDescendantController {
     let poll: NodeJS.Timeout | undefined;
     let directory: string | undefined;
     let closing: Promise<void> | undefined;
+    let closed = false;
     let joined = false;
     const serial = <T>(operation: () => Promise<T>): Promise<T> => {
       const pending = queue.then(operation);
@@ -81,11 +82,12 @@ export namespace RuntimeDescendantController {
       transport: Transport,
     ): Promise<void> => {
       const frame = object(input);
-      if (closing || frame.version !== 1 || frame.nonce !== nonce ||
+      if (closed || frame.version !== 1 || frame.nonce !== nonce ||
           typeof frame.role !== "string" || !allowed.has(frame.role))
         throw new Error("Foreign descendant frame");
       const role = frame.role;
       if (frame.event === "announce") {
+        if (closing) throw new Error("Descendant controller is closing");
         if (roles.has(role)) throw new Error("Duplicate descendant role: " + role);
         const pid = positivePid(frame.pid);
         const parentPid = positivePid(frame.parentPid);
@@ -275,6 +277,7 @@ export namespace RuntimeDescendantController {
             server!.close((error) => error ? reject(error) : resolve()));
         } catch (cause) { failures.push(cause); }
       }
+      closed = true;
       if (directory) publish(path.join(directory, "closed.json"), { nonce, errors: failures.map(String) });
       if (failures.length) throw new AggregateError(failures, "Descendant controller closure");
     })());

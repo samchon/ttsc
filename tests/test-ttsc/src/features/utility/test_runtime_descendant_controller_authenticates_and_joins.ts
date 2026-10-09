@@ -15,7 +15,7 @@ import path from "node:path";
  *
  * @evidence contracts/testing.md#behavioral-verification Public controller receive/request/close operations process actual authored frames and supplied observer responses. Assertions inspect emitted commands, result/error payloads, request order, original-target waits and unresolved-close failures.
  * @evidence contracts/testing.md#independent-expectations Literal protocol phases and authored kernel responses distinguish admission, release and departure. Explicit pending promises independently expose overlapping requests; a transport close is deliberately followed by a live original target.
- * @evidence contracts/testing.md#distinguishing-cases Covers normal lazy completion, structured lazy error, self-abandonment without completion, foreign nonce/role/transport, invalid PID, duplicate role/completion, premature completion, acquisition refusal, connection loss and concurrent admissions across roles.
+ * @evidence contracts/testing.md#distinguishing-cases Covers normal lazy completion, structured lazy error, self-abandonment without completion, foreign nonce/role/transport, invalid PID, duplicate role/completion, premature completion, acquisition refusal, connection loss, concurrent admissions across roles and an authenticated final frame during close while new requests/enrollment and post-close frames remain refused.
  * @evidence contracts/testing.md#execution-ownership Existing test-ttsc utility discovery owns this export, importing public @ttsc/testing only. Controller callbacks start no socket or native observer. Launcher cases start one plain Node child and one failing executable attempt, with no compiler, Go build or installation; real descendant transport/kernel proofs remain Runtime E2E.
  */
 export async function test_runtime_descendant_controller_authenticates_and_joins(): Promise<void> {
@@ -215,6 +215,27 @@ export async function test_runtime_descendant_controller_authenticates_and_joins
     settle();
     assert.equal((await joining as any).completion.value, "literal-lazy-result");
     await f.controller.close();
+  });
+  await check("close drains owned completion while refusing new admission and requests", async () => {
+    const f = fixture(["child", "new-child"]);
+    let settle!: () => void;
+    const transport = { ...f.transport,
+      settled: new Promise<void>((resolve) => { settle = resolve; }) };
+    await f.controller.receive(f.announce(), transport);
+    await f.controller.request("child", "release");
+    f.retired.add(11); f.retired.add(12);
+    const closing = f.controller.close();
+    // Keep final transport processing held while close checks original targets.
+    // No clock or socket event stands in for independent kernel retirement.
+    try {
+      await assert.rejects(f.controller.receive(f.announce("new-child", 22, 21), transport), /closing/);
+      await assert.rejects(f.controller.request("child", "ready"), /closing/);
+      await assert.rejects(f.controller.receive(f.complete(), { ...transport }), /transport/);
+      await f.controller.receive(f.complete(), transport);
+    } finally { settle(); }
+    await closing;
+    assert.equal(f.controller.joined(), true);
+    await assert.rejects(f.controller.receive(f.complete(), transport), /Foreign/);
   });
   await check("async launcher captures actual input, environment, streams and status", async () => {
     const bytes = Buffer.from("prefix:literal-\u03bb-input:suffix");
