@@ -70,7 +70,7 @@ export async function test_plugin_corpus_check_watch_preserves_duplicate_residen
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     let transcript = session.transcript();
     let samples = residentSamples(transcript);
     assert.equal(samples.length, 2, transcript);

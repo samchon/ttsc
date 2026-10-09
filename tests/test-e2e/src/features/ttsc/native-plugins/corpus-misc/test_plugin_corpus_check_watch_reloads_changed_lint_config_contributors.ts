@@ -65,7 +65,7 @@ export async function test_plugin_corpus_check_watch_reloads_changed_lint_config
         TTSC_WATCH_DEBUG_INPUTS: "1",
       },
     });
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     const firstTranscript = session.transcript();
     const firstSamples = residentSamples(firstTranscript);
     assert.equal(firstSamples.length, 1, firstTranscript);
@@ -74,7 +74,7 @@ export async function test_plugin_corpus_check_watch_reloads_changed_lint_config
     assert.doesNotMatch(firstTranscript, /\[beta\/marker\]/);
 
     writeSelection(selection, "beta", beta);
-    await session.waitForBuilds(2, 300_000);
+    await session.waitForBuilds(2);
     const transcript = session.transcript();
     const samples = residentSamples(transcript);
     assert.equal(samples.length, 2, transcript);

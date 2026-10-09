@@ -64,7 +64,7 @@ export async function test_plugin_corpus_check_watch_rebuilds_a_plugin_binary_th
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     await session.waitForSettled();
     const binary = loadProjectPlugins({
       binary: "",

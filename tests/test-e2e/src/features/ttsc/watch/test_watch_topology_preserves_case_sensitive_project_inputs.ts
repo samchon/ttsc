@@ -7,7 +7,7 @@ import path from "node:path";
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
 import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
-import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
@@ -31,7 +31,7 @@ const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
- * @evidence contracts/e2e.md#preserved-coverage 1. Create case-distinct external roots and glob roots. 2. Assert both recursive watcher handles remain live. 3. Observe each exact and glob input, then remove one glob and keep it quiet. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Create case-distinct external roots and glob roots. 2. Assert both recursive watcher handles remain live. 3. Observe each exact and glob input, then remove one glob and keep it quiet. Every original assertion and authored layout remains in this named entry. Actual callback errors and the containing native owner bound positive observation; finite quiet windows, capability guards, inputs and expected events remain intact.
  */
 export const test_watch_topology_preserves_case_sensitive_project_inputs =
   async (): Promise<void | false> => {
@@ -69,6 +69,12 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     const upperGlob = path.join(upperApi, "**", "*.json");
     const lowerGlob = path.join(lowerApi, "**", "*.json");
     const changes: WatchInputChange[] = [];
+    let topologyFailure: Error | undefined;
+    const owner = {
+      check: () => {
+        if (topologyFailure) throw topologyFailure;
+      },
+    };
     let liveRoots: readonly string[] = [];
     const topology = new WatchTopology(
       {
@@ -79,14 +85,14 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       },
       {
         onError: (location, error) => {
-          throw new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
         },
         onInputChange: (change) => changes.push(change),
         onProjectInputWatchRoots: (roots) => {
           liveRoots = [...roots];
         },
         onTopologyChange: () => {
-          throw new Error("external inputs must not alter compiler membership");
+          topologyFailure ??= new Error("external inputs must not alter compiler membership");
         },
       },
     );
@@ -102,12 +108,12 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
         [realpath(upperRoot), realpath(lowerRoot)].sort(),
       );
 
-      await writeAndWait(changes, upperExact, "upper\n");
-      await writeAndWait(changes, lowerExact, "lower\n");
+      await writeAndWait(owner, changes, upperExact, "upper\n");
+      await writeAndWait(owner, changes, lowerExact, "lower\n");
       const upperJson = path.join(upperApi, "openapi.json");
       const lowerJson = path.join(lowerApi, "openapi.json");
-      await writeAndWait(changes, upperJson, "{}\n");
-      await writeAndWait(changes, lowerJson, "{}\n");
+      await writeAndWait(owner, changes, upperJson, "{}\n");
+      await writeAndWait(owner, changes, lowerJson, "{}\n");
 
       topology.setProjectInputs({
         root,
@@ -117,6 +123,7 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       const count = changes.length;
       fs.writeFileSync(lowerJson, '{"removed":true}\n', "utf8");
       await delay();
+      owner.check();
       assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
     } finally {
       topology.close();
@@ -124,6 +131,7 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
   };
 
 async function writeAndWait(
+  owner: { check: () => void },
   changes: readonly WatchInputChange[],
   location: string,
   content: string,
@@ -131,27 +139,18 @@ async function writeAndWait(
   const count = changes.length;
   fs.mkdirSync(path.dirname(location), { recursive: true });
   fs.writeFileSync(location, content, "utf8");
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (
-    changes
+  await waitFor(() => changes
       .slice(count)
       .some(
         (change) =>
           change.kind === "project" &&
           change.path !== undefined &&
           pathMatchesOrContains(change.path, location),
-      ) === false
-  ) {
-    if (Date.now() >= deadline) {
-      assert.fail(
-        `expected project change for ${location}: ${JSON.stringify(
-          changes.slice(count),
-        )}`,
-      );
-    }
-    await delay(25);
-  }
+      ),
+    `project change for ${location}`, owner);
+  owner.check();
   await delay();
+  owner.check();
 }
 
 function pathMatchesOrContains(changed: string, target: string): boolean {

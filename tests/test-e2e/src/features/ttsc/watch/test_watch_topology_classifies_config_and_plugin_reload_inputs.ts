@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies one native observer session classifies config and selected sources.
@@ -72,21 +72,30 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
     for (const directory of pruned)
       fs.mkdirSync(path.join(directory, "inner"), { recursive: true });
     const changes: WatchInputChange[] = [];
+    let topologyFailure: Error | undefined;
+    const owner = {
+      check: () => {
+        if (topologyFailure) throw topologyFailure;
+      },
+    };
+    const failures: unknown[] = [];
     const topology = new WatchTopology(
       { cwd: root, files: [source], projectRoot: root, tsconfig: config },
       {
         onError: (location, error) => {
-          throw new Error(`watch error on ${location}`, { cause: error });
+          const failure = new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= failure;
+          failures.push(failure);
         },
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
     );
-    const failures: unknown[] = [];
     const verify = async (
       name: string,
       run: () => Promise<void>,
     ): Promise<void> => {
+      topologyFailure = undefined;
       try {
         await run();
       } catch (error) {
@@ -108,7 +117,7 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
       topology.setExtraInputs([plugin]);
       await verify("config reload", async () => {
         const original = JSON.parse(fs.readFileSync(config, "utf8"));
-        await waitForPath(changes, config, "config", () =>
+        await waitForPath(owner, changes, config, "config", () =>
           fs.writeFileSync(
             config,
             JSON.stringify({
@@ -125,7 +134,7 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
         await verify(
           `plugin edit ${path.relative(plugin, edited)}`,
           async () => {
-            await waitForPath(changes, edited, "plugin", () => {
+            await waitForPath(owner, changes, edited, "plugin", () => {
               pollute();
               fs.appendFileSync(edited, "// edited\n");
             });
@@ -144,7 +153,7 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
           nested,
           path.join(created, "node_modules", "pkg", "ignored.go"),
         );
-        await waitForPath(changes, added, "plugin", () => undefined);
+        await waitForPath(owner, changes, added, "plugin", () => undefined);
       });
       await new Promise((resolve) => setTimeout(resolve, 1_000));
       await verify("pruned paths and lane classification", async () => {
@@ -183,25 +192,19 @@ export const test_watch_topology_classifies_config_and_plugin_reload_inputs =
   };
 
 async function waitForPath(
+  owner: { check: () => void },
   changes: readonly WatchInputChange[],
   file: string,
   kind: WatchInputChange["kind"],
   stimulus: () => void,
 ): Promise<void> {
   const before = changes.length;
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (
-    !changes
-      .slice(before)
-      .some((change) => change.kind === kind && change.path === file)
-  ) {
-    if (Date.now() >= deadline)
-      assert.fail(
-        `expected ${kind} change for ${file}: ${JSON.stringify(changes.slice(before))}`,
-      );
+  await waitFor(() => {
+    owner.check();
+    if (changes.slice(before).some((change) => change.kind === kind && change.path === file)) return true;
     stimulus();
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
+    return false;
+  }, `expected ${kind} change for ${file}`, owner);
 }
 
 function within(root: string, location: string): boolean {

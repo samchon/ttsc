@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies a referenced-project build-info output stays quiet while absolute
@@ -31,7 +31,7 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
- * @evidence contracts/e2e.md#preserved-coverage 1. Build a solution with one referenced project and one JSON build-info file. 2. Declare a referenced-project JSON glob and a missing external exact file. 3. Prove the build-info product is quiet and both legitimate inputs wake. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Build a solution with one referenced project and one JSON build-info file. 2. Declare a referenced-project JSON glob and a missing external exact file. 3. Prove the build-info product is quiet and both legitimate inputs wake. Every original assertion and authored layout remains in this named entry. Actual callback errors and the containing native owner bound positive observation; finite quiet windows, capability guards, inputs and expected events remain intact.
  */
 export const test_watch_topology_tracks_external_inputs_across_project_references =
   async (): Promise<void> => {
@@ -66,6 +66,12 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
     fs.mkdirSync(path.join(referenced, "api"), { recursive: true });
 
     const changes: WatchInputChange[] = [];
+    let topologyFailure: Error | undefined;
+    const owner = {
+      check: () => {
+        if (topologyFailure) throw topologyFailure;
+      },
+    };
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -75,7 +81,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
       },
       {
         onError: (location, error) => {
-          throw new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
         },
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => {},
@@ -90,7 +96,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
       });
 
       fs.writeFileSync(path.join(referenced, "api", "state.json"), "{}\n");
-      await quiet(changes);
+      await quiet(owner, changes);
 
       fs.mkdirSync(path.join(external, "docs"), { recursive: true });
       let previous = projectChanges(changes);
@@ -99,7 +105,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
         "# External\n",
         "utf8",
       );
-      await nextProjectChange(changes, previous);
+      await nextProjectChange(owner, changes, previous);
 
       previous = projectChanges(changes);
       fs.writeFileSync(
@@ -107,7 +113,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
         "{}\n",
         "utf8",
       );
-      await nextProjectChange(changes, previous);
+      await nextProjectChange(owner, changes, previous);
     } finally {
       topology.close();
     }
@@ -118,22 +124,24 @@ function projectChanges(changes: readonly WatchInputChange[]): number {
 }
 
 async function nextProjectChange(
+  owner: { check: () => void },
   changes: readonly WatchInputChange[],
   previous: number,
 ): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (projectChanges(changes) <= previous) {
-    if (Date.now() >= deadline) {
-      assert.fail(`expected a project change after ${previous}`);
-    }
-    await delay(25);
-  }
+  await waitFor(() => projectChanges(changes) > previous,
+    `project change after ${previous}`, owner);
+  owner.check();
   await delay();
+  owner.check();
 }
 
-async function quiet(changes: readonly WatchInputChange[]): Promise<void> {
+async function quiet(
+  owner: { check: () => void },
+  changes: readonly WatchInputChange[],
+): Promise<void> {
   const count = changes.length;
   await delay();
+  owner.check();
   assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
 }
 

@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies watchers register physical paths while reporting declared ones.
@@ -32,7 +32,7 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
- * @evidence contracts/e2e.md#preserved-coverage 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root. Every original assertion and authored layout remains in this named entry. Actual callback errors and the containing native owner bound positive observation; finite quiet windows, capability guards, inputs and expected events remain intact.
  */
 export const test_watch_topology_registers_physical_watch_paths =
   async (): Promise<void | false> => {
@@ -63,6 +63,12 @@ export const test_watch_topology_registers_physical_watch_paths =
     );
 
     const changes: WatchInputChange[] = [];
+    let topologyFailure: Error | undefined;
+    const owner = {
+      check: () => {
+        if (topologyFailure) throw topologyFailure;
+      },
+    };
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -72,7 +78,7 @@ export const test_watch_topology_registers_physical_watch_paths =
       },
       {
         onError: (location, error) => {
-          throw new Error(`watch error on ${location}`, { cause: error });
+          topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
         },
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
@@ -89,16 +95,12 @@ export const test_watch_topology_registers_physical_watch_paths =
           .map((change) => change.path)
           .filter((location): location is string => location !== undefined)
           .filter((location) => path.basename(location) === "main.ts");
-      const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-      while (sourceChanges().length === 0) {
-        if (Date.now() >= deadline) {
-          assert.fail(
-            `an aliased project root must still deliver events: ${JSON.stringify(changes)}`,
-          );
-        }
+      await waitFor(() => {
+        owner.check();
+        if (sourceChanges().length !== 0) return true;
         fs.writeFileSync(source, "export const value = 2;\n", "utf8");
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
+        return false;
+      }, "aliased project source event", owner);
       const reported = sourceChanges();
       assert.equal(
         reported.every((location) => location === source),

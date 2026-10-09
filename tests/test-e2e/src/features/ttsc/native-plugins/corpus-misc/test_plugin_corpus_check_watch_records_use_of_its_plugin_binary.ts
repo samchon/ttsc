@@ -59,7 +59,7 @@ export async function test_plugin_corpus_check_watch_records_use_of_its_plugin_b
   });
   const failures: unknown[] = [];
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     await session.waitForSettled();
     const binary = loadProjectPlugins({
       binary: "",

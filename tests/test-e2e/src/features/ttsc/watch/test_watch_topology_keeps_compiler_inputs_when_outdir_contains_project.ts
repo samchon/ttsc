@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies an output directory containing the project cannot erase its compiler
@@ -30,7 +30,7 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
- * @evidence contracts/e2e.md#preserved-coverage 1. Emit into the project root and prove source edits remain live. 2. Emit into the project's parent and prove the same boundary. 3. Put a source inside a descendant output directory and retain it. 4. Keep a product-only output subtree unchanged. 5. Keep the no-emit lane unchanged. 6. In every case, prove a predicted JavaScript product stays quiet. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Emit into the project root and prove source edits remain live. 2. Emit into the project's parent and prove the same boundary. 3. Put a source inside a descendant output directory and retain it. 4. Keep a product-only output subtree unchanged. 5. Keep the no-emit lane unchanged. 6. In every case, prove a predicted JavaScript product stays quiet. Every original assertion and authored layout remains in this named entry. Actual callback errors and the containing native owner bound positive observation; finite quiet windows, capability guards, inputs and expected events remain intact.
  */
 export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_project =
   async (): Promise<void> => {
@@ -97,6 +97,12 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         fs.writeFileSync(projectInput, '{"external":false}\n', "utf8");
 
       const changes: WatchInputChange[] = [];
+      let topologyFailure: Error | undefined;
+      const owner = {
+        check: () => {
+          if (topologyFailure) throw topologyFailure;
+        },
+      };
       const topology = new WatchTopology(
         {
           cwd: root,
@@ -107,7 +113,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         },
         {
           onError: (location, error) => {
-            throw new Error(`watch error on ${location}`, { cause: error });
+            topologyFailure ??= new Error(`watch error on ${location}`, { cause: error });
           },
           onInputChange: (change) => changes.push(change),
           onTopologyChange: () => undefined,
@@ -116,12 +122,14 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
       try {
         topology.refresh(false);
         await writeUntilCompilerChange(
+          owner,
           source,
           changes,
           changes.length,
           test.name,
         );
         const previous = await waitForStableCount(
+            owner,
           () => compilerChangeCount(changes),
           test.name,
           "compiler watch lane",
@@ -131,6 +139,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         fs.mkdirSync(path.dirname(output), { recursive: true });
         fs.writeFileSync(output, "export const value = 2;\n", "utf8");
         await delay();
+        owner.check();
         assert.equal(
           compilerChangeCount(changes),
           previous,
@@ -144,12 +153,13 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
             globs: [],
           });
           const projectChanges = await waitForStableCount(
+            owner,
             () => projectChangeCount(changes),
             test.name,
             "project watch lane",
           );
           fs.writeFileSync(projectInput, '{"external":true}\n', "utf8");
-          await waitForProjectChange(changes, projectChanges, test.name);
+          await waitForProjectChange(owner, changes, projectChanges, test.name);
         }
       } finally {
         topology.close();
@@ -158,33 +168,26 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
   };
 
 async function writeUntilCompilerChange(
+  owner: { check: () => void },
   source: string,
   changes: readonly WatchInputChange[],
   previousLength: number,
   label: string,
 ): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   const physicalSource = physicalPath(source);
   let revision = 2;
-  while (Date.now() < deadline) {
-    fs.writeFileSync(source, `export const value = ${revision++};\n`, "utf8");
-    const retryAt = Math.min(deadline, Date.now() + 250);
-    while (Date.now() < retryAt) {
-      if (
-        changes
-          .slice(previousLength)
-          .some(
-            (change) =>
-              change.kind === "compiler" &&
-              change.path !== undefined &&
-              physicalPath(change.path) === physicalSource,
-          )
-      )
-        return;
-      await delay(25);
+  let nextWrite = 0;
+  await waitFor(() => {
+    owner.check();
+    if (changes.slice(previousLength).some((change) => change.kind === "compiler" &&
+      change.path !== undefined && physicalPath(change.path) === physicalSource)) return true;
+    // This cadence changes real source bytes; it does not bound delivery age.
+    if (Date.now() >= nextWrite) {
+      fs.writeFileSync(source, `export const value = ${revision++};\n`, "utf8");
+      nextWrite = Date.now() + 250;
     }
-  }
-  assert.fail(`${label}: source edit did not reach compiler watch lane`);
+    return false;
+  }, `${label}: source edit did not reach compiler watch lane`, owner);
 }
 
 function compilerChangeCount(changes: readonly WatchInputChange[]): number {
@@ -192,19 +195,14 @@ function compilerChangeCount(changes: readonly WatchInputChange[]): number {
 }
 
 async function waitForProjectChange(
+  owner: { check: () => void },
   changes: readonly WatchInputChange[],
   previous: number,
   label: string,
 ): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (projectChangeCount(changes) <= previous) {
-    if (Date.now() >= deadline) {
-      assert.fail(
-        `${label}: project input inside source output was not observed`,
-      );
-    }
-    await delay(25);
-  }
+  await waitFor(() => projectChangeCount(changes) > previous,
+    `${label}: project input inside source output was not observed`, owner);
+  owner.check();
 }
 
 function projectChangeCount(changes: readonly WatchInputChange[]): number {
@@ -212,23 +210,22 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
 }
 
 async function waitForStableCount(
+  owner: { check: () => void },
   count: () => number,
   label: string,
   lane: string,
 ): Promise<number> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
   let current = count();
   let stableSince = Date.now();
-  while (Date.now() - stableSince < 750) {
-    if (Date.now() >= deadline)
-      assert.fail(`${label}: ${lane} did not reach a quiet boundary`);
-    await delay(25);
+  await waitFor(() => {
+    owner.check();
     const next = count();
     if (next !== current) {
       current = next;
       stableSince = Date.now();
     }
-  }
+    return Date.now() - stableSince >= 750;
+  }, `${label}: ${lane} quiet boundary`, owner);
   return current;
 }
 

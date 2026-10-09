@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { type WatchInputChange } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
 import { WatchTopology } from "../../../../../../packages/ttsc/lib/launcher/internal/watch/WatchTopology.js";
-import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
+import { waitFor } from "../../../../../utils/src/internal/waitFor";
 
 /**
  * Verifies a failed topology refresh still schedules the resident config lane.
@@ -21,7 +21,7 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
- * @evidence contracts/e2e.md#preserved-coverage 1. Delete the active config and observe a config change despite parse failure. 2. Recreate and atomically replace it, preserving the same watch session. 3. Prove an ordinary write remains observable after the replacement. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Delete the active config and observe a config change despite parse failure. 2. Recreate and atomically replace it, preserving the same watch session. 3. Prove an ordinary write remains observable after the replacement. Every original assertion and authored layout remains in this named entry. Actual callback errors and the containing native owner bound positive observation; finite quiet windows, capability guards, inputs and expected events remain intact.
  */
 export const test_watch_topology_reports_deleted_config_and_recreation =
   async (): Promise<void> => {
@@ -34,6 +34,13 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
     fs.writeFileSync(config, configText, "utf8");
 
     const changes: WatchInputChange[] = [];
+    let topologyFailure: Error | undefined;
+    let allowMissingConfig = false;
+    const owner = {
+      check: () => {
+        if (topologyFailure) throw topologyFailure;
+      },
+    };
     const errors: unknown[] = [];
     const topology = new WatchTopology(
       {
@@ -43,30 +50,46 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
         tsconfig: config,
       },
       {
-        onError: (_location, error) => errors.push(error),
+        onError: (location, error) => {
+          errors.push(error);
+          if (
+            !allowMissingConfig ||
+            !(error instanceof Error) ||
+            !error.message.includes("tsconfig.json")
+          )
+            topologyFailure ??= new Error(`watch error on ${location}`, {
+              cause: error,
+            });
+        },
         onInputChange: (change) => changes.push(change),
         onTopologyChange: () => undefined,
       },
     );
     try {
       topology.refresh(false);
+      allowMissingConfig = true;
       fs.rmSync(config);
       await waitFor(
         () => changes.some((change) => change.kind === "config"),
         "config deletion",
+        owner,
       );
+      owner.check();
       assert.ok(errors.length > 0, "the failed refresh must remain observable");
 
       const deletionCount = changes.filter(
         (change) => change.kind === "config",
       ).length;
       fs.writeFileSync(config, configText, "utf8");
+      allowMissingConfig = false;
       await waitFor(
         () =>
           changes.filter((change) => change.kind === "config").length >
           deletionCount,
         "config recreation",
+        owner,
       );
+      owner.check();
       await settle();
 
       const replacement = path.join(root, "tsconfig.next.json");
@@ -77,7 +100,9 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
       await waitFor(
         () => configChangeCount(changes) > beforeReplacement,
         "atomic config replacement",
+        owner,
       );
+      owner.check();
       await settle();
 
       const beforeOrdinaryWrite = configChangeCount(changes);
@@ -85,7 +110,9 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
       await waitFor(
         () => configChangeCount(changes) > beforeOrdinaryWrite,
         "post-replacement config edit",
+        owner,
       );
+      owner.check();
     } finally {
       topology.close();
     }
@@ -97,13 +124,4 @@ function configChangeCount(changes: readonly WatchInputChange[]): number {
 
 function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 250));
-}
-
-async function waitFor(predicate: () => boolean, label: string): Promise<void> {
-  const deadline = Date.now() + WATCH_EVENT_DEADLINE_MS;
-  while (Date.now() < deadline) {
-    if (predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  assert.fail(`timed out waiting for ${label}`);
 }

@@ -101,7 +101,7 @@ export async function nativeWatchCorpus(
     await session.waitForSettled(300);
   };
   try {
-    await session.waitForBuilds(1, 300_000);
+    await session.waitForBuilds(1);
     await session.waitForSettled(300);
     assert.match(session.transcript(), /Go package selection failed: found packages main .* and watch_metadata_conflict/);
     assert.match(session.transcript(), /\[ttsc\] watch build failed/);
@@ -110,7 +110,7 @@ export async function nativeWatchCorpus(
     // No TypeScript, descriptor or config mutation may supply this retry.
     const recoveryBoundary = session.transcript().length;
     fs.unlinkSync(conflictingGo);
-    await session.waitForBuilds(2, 300_000);
+    await session.waitForBuilds(2);
     await session.waitForSettled(300);
     assert.ok(samples(session.transcript().slice(recoveryBoundary)).length > 0,
       "repairing only the external Go package must start the real resident");
