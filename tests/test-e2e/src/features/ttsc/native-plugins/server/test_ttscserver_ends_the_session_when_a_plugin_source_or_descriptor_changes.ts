@@ -5,7 +5,6 @@ import { pathToFileURL } from "node:url";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plugin-cache";
 import {
-  PLUGIN_BUILD_TIMEOUT,
   TtscserverClient,
   assert,
   shutdownTtscserverClient,
@@ -17,8 +16,8 @@ type PublishDiagnosticsParams = { diagnostics?: Diagnostic[]; uri: string };
 
 const SOURCE = "var legacy = 1;\nexport const kept = legacy;\n";
 
-/** How long a session may take to act on one watched-file notification. */
-const SELECTION_TIMEOUT = 120_000;
+/** Deadline applies only to supported direct close and shutdown. */
+const CLOSE_TIMEOUT = 120_000;
 
 /**
  * Verifies a `ttscserver` session ends through the plugin-selection path when a
@@ -131,7 +130,6 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
         (params.diagnostics ?? []).some(
           (diagnostic) => diagnostic.code === "no-var",
         ),
-      PLUGIN_BUILD_TIMEOUT,
     );
     client.notify("textDocument/didOpen", {
       textDocument: {
@@ -154,7 +152,6 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     const selection = client.waitForNotification(
       "ttsc/pluginSelectionChanged",
       () => true,
-      SELECTION_TIMEOUT,
     );
     client.notify("workspace/didChangeWatchedFiles", {
       changes: [{ type: 2, uri: pathToFileURL(changed).href }],
@@ -162,7 +159,7 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
     await selection;
     const code = await waitForTtscserverOutcome(
       client.waitForExit(),
-      SELECTION_TIMEOUT,
+      CLOSE_TIMEOUT,
       "plugin selection notified but direct child close was not joined",
     );
     activeClient = undefined;
@@ -236,7 +233,7 @@ export async function test_ttscserver_ends_the_session_when_a_plugin_source_or_d
       try {
         await waitForTtscserverOutcome(
           shutdownTtscserverClient(activeClient),
-          SELECTION_TIMEOUT,
+          CLOSE_TIMEOUT,
           "failed plugin-selection session shutdown was not joined",
         );
         activeClient = undefined;
