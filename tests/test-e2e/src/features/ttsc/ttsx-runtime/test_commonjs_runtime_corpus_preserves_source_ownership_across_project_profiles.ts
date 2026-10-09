@@ -16,7 +16,8 @@ import {
 } from "../../../internal/ttsc/internal/runtime-native-dependency-publication";
 import {
   prepareCanonicalLinkedRuntimeIndex,
-  verifyCanonicalLinkedRuntimeIndexClosed,
+  readRuntimeTraceWriter,
+  verifyRuntimeCleanup,
 } from "../../../internal/ttsc/internal/runtime-native-root-links";
 import {
   TTSX_REGISTER,
@@ -68,6 +69,13 @@ import {
  * excluded-entry alias boundary where supported. Unresolved launch metadata
  * stops input changes and retains both the consumer root.
  *
+ * The existing configured and nested hosts also check normal cleanup from their
+ * own completed launcher writers and actual program/source attribution. Locally
+ * absent owners require removal; present or unknown owners preserve the run and
+ * its emitted/map/source evidence. Missing trace proof fails. Synchronous return
+ * is not an invented asynchronous CLOSE or arbitrary descendant-join receipt.
+ * Earlier cache generations are a real pre-call population, not this run's proof.
+ *
  * 1. Run included collisions and raw packages together; preserve suppression in
  *    the configured-output host.
  * 2. Select configured and absent output profiles and assert native source
@@ -77,13 +85,13 @@ import {
  *    entry, including the same nested star exports in both native formats.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual public ttsx executes same-name included and excluded sources, a raw installed index beside a project index, suppression flags, source-bound dirname and stale-JS rejection; public register also executes the files-only omitted-source request; NodeNext MTS resolves a real MJS specifier and imports a CommonJS dependency with constant/function/namespace exports, while a CTS main executes under contrary package type; the configured CommonJS host verifies require.extensions handler identity, typed-only extensionless resolution and JavaScript priority; a subsequent same-root profile omits module/target under an explicit CommonJS manifest and asserts derived-from-target, and both NodeNext hosts consume the same nested star graph and reject all seven type/comment/string/template ghost names. Initial and configured hosts retain rewritten, propagated, forked and concurrent descendant requests, both valid and invalid excluded preloads; composite dependency included/excluded values, unchanged authored output paths and two newly published physical roots; followed by actual linked-index cleanup; conservative/explicit clean effects execute in runtime-clean-flow.cjs.
- * @evidence contracts/testing.md#independent-expectations Distinct authored a,b,tools/package-own/entry-ran/other/fresh markers reject borrowing another source's emit. Native realpath of authored directories independently establishes dirname, unchanged STALE tool.js is a negative control, and authored mts-runner-ok/42:OK:7/cts-runner-ok literals require the actual NodeNext module connections. Authored typed-config/only-ts/from-js JSON and Node handler identity establish extension behavior independently; original named-binding output derived-from-target independently establishes the implicit-module contrary-manifest connection; literal foo-ok:bar-ok:renamed-ok:leaf-ok values and seven nonexecuting declaration/assignment decoys establish the nested-star positive and negative oracles. Authored first,second and descendant dependency literals require the real child connections; legacy and malformed records independently distinguish kept default state from explicit cache deletion, and linked-run plus physical emptiness establish actual execution and cleanup. The authored preload tag and string-to-number error distinguish real pre-main checking; inside/extra and dep-value/dep2-value literals, original sorted output paths and fresh live manifest publications distinguish dependency execution and source isolation.
+ * @evidence contracts/testing.md#independent-expectations Distinct authored a,b,tools/package-own/entry-ran/other/fresh markers reject borrowing another source's emit. Native realpath of authored directories independently establishes dirname, unchanged STALE tool.js is a negative control, and authored mts-runner-ok/42:OK:7/cts-runner-ok literals require the actual NodeNext module connections. Authored typed-config/only-ts/from-js JSON and Node handler identity establish extension behavior independently; original named-binding output derived-from-target independently establishes the implicit-module contrary-manifest connection; literal foo-ok:bar-ok:renamed-ok:leaf-ok values and seven nonexecuting declaration/assignment decoys establish the nested-star positive and negative oracles. Authored first,second and descendant dependency literals require the real child connections; legacy and malformed records independently distinguish kept default state from explicit cache deletion, and linked-run plus same-invocation raw owner observations and physical generation state establish actual execution and cleanup. The authored preload tag and string-to-number error distinguish real pre-main checking; inside/extra and dep-value/dep2-value literals, original sorted output paths and fresh live manifest publications distinguish dependency execution and source isolation.
  * @evidence contracts/testing.md#distinguishing-cases Static versus computed imports, package versus consumer ownership, excluded required versus direct entry, absent versus explicit outDir and include versus files-only configs exercise different connections; NodeNext MTS and CTS suffixes retain their original module-resolution profile and contrary package type; errors are collected across completed profiles and joined descendants; malformed or duplicate descendant receipts cannot borrow a different group's output. Typed-only versus colliding JS/TS sources and real runtime exports versus inert star-export decoys retain adjacent negative cases; both native consumers validate those decoys rather than borrowing one format's result.
- * @evidence contracts/testing.md#execution-ownership The legacy E2E export remains inactive outside the selected shared entry paths. Fixture modules supply program inputs; remaining planned public runtime and seven joined descendant requests are explicit in this parent and its named helpers. Clean no longer launches here. These recipes do not certify one compiler preparation: dependency compilation remains a separate native operation.
+ * @evidence contracts/testing.md#execution-ownership This retained exported corpus is omitted from the normal nine-batch entry and remains callable through supported TestExecutor file selection. Fixture modules supply program inputs; remaining planned public runtime and seven joined descendant requests are explicit in this parent and its named helpers. Clean no longer launches here. These recipes do not certify one compiler preparation: dependency compilation remains a separate native operation.
  * @evidence contracts/e2e.md#necessary-boundary Native emission ownership, inherited child loader admission, linked index cleanup and conservative versus explicitly selected clean effects must agree under these public launch routes; synthetic emit-index records cannot certify the runtime connection or source-only reads.
  * @evidence contracts/e2e.md#shared-execution One tracked authored corpus replaces independent roots. Included collisions and the raw package share one absent-rootDir host; forwarded suppression joins the configured rootDir/outDir dirname host to preserve its original emission profile. Explicit-root configured output, absent output, direct excluded entry and files-only register routes retain different native inputs or main-entry transports; A distinct driver cwd and relative cache option join the configured dirname and suppression host, and two nested runtime requests retain changed installation placement while their portable query/marking rules execute in source units; NodeNext changes compiler module/resolution and package type once and its MTS/CTS mains require separate entry transports; extension detection joins the configured rootDir/outDir CommonJS host, while the contrary-manifest implicit-module profile borrows the same root after its inputs are held and preserves a separate compiler/host request, and the nested-star ESM/CJS consumers join the existing NodeNext MTS/CTS hosts without adding another host. The copied nested graph keeps its original lib package identity, no-type classification and authored source bytes. The extension main and the copied CTS consumer gain export {} to keep their declarations module-scoped beside the other consumer modules; their original executable statements remain intact. Rewritten source children share the initial host; propagation, fork and three concurrent dependency children share the configured rootDir host, retaining seven actual descendants with no extra runtime parent host. That host also consumes the fresh physical run index through its real directory link. Readonly populations and their three CLI parent requests have moved to one upfront namespace in the selected Runtime rejection actor. Actual permission denial/restoration, two successful entry children and root-privileged zero coverage belong there; this corpus no longer stages or launches readonly requests. Default/explicit clean and dead-holder recovery now belong to the selected shared Runtime and launch no command child here. The excluded preload positive joins the initial noRootDir host through actual -r; its invalid-source transition retains another host and restores exact original bytes before the configured profile. Composite included/excluded requests and two physical-root dependencies then share the configured host, but preserve three actual dependency project configurations and separate excluded-source preparation. Existing descendant publications are separated using the real live manifest filename baseline, not assumed global cache counts. Denied native aliases explicitly report zero physical-root coverage while the independent composite requests still execute. Required dependency preparations remain native work. This corpus does not claim the whole runtime family is fully consolidated.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every synchronous child exits before the root config changes. Central packages and source identities stay immutable, the stale JavaScript remains present, CommonJS profiles overwrite only tsconfig.json; the final NodeNext phase also replaces package.json with an authored module package after all CommonJS hosts finish, and TestProject owns the single corpus through process cleanup. The configured children join before its synchronous launcher closes, and the linked index is observed only after that closure. Readonly permissions and restoration are owned by the selected Runtime namespace and actor. This legacy corpus retains its own unresolved-child and input-restoration refusal before reuse. Clean ownership is transferred to the selected shared Runtime and no longer operates on this legacy cache. No warm-cache equivalence is asserted.
- * @evidence contracts/e2e.md#preserved-coverage Original ordered a,b,a,b,tools, rawpkg=package-own, entry-ran, configured dirname/template/native identities, absent-output asset/identity/no-adjacent emit, both fresh-source requests and both omitted-source launch routes, mts-runner-ok, 42:OK:7 and cts-runner-ok, the exact extension-detection JSON and both nested-star literal outputs with every ghost rejection, relative-cache identity and post-exit emptiness, no nearer boundary creation and the empty nearer boundary after its real first cache publication are retained. Four redundant native cache-path CLI queries are covered by actual cache-dispatch source units and the direct cache placement/marking source unit; the actual public cache transport stays in the compiler corpus. Original first,second rewritten bytes; worker:child-loaded-dependency; child:rescued-from-source; three worker:shared-built-once descendant outputs; actual child statuses; linked-run and the post-close empty physical index; the transferred eight conservative-versus-explicit legacy/malformed clean assertions in runtime-clean-flow.cjs, valid preload status/tag and invalid preload status/root/assignability/no-tag, included/excluded composite values and unchanged output paths, plus both dependency values and two fresh physical-root publications remain. Receipt boundaries occur exactly once; only the original single separator blank is removed, and order is free only among the three identical concurrent receipts. Original readonly default status/marker, excluded failure/path/remedy/no execution and included success/marker now reside in the selected Runtime, with native denied/restored writes and complete input-byte controls. Other unmigrated runtime connections remain disclosed here; legacy baseline execution is not a prerequisite for their replacement.
+ * @evidence contracts/e2e.md#preserved-coverage Original ordered a,b,a,b,tools, rawpkg=package-own, entry-ran, configured dirname/template/native identities, absent-output asset/identity/no-adjacent emit, both fresh-source requests and both omitted-source launch routes, mts-runner-ok, 42:OK:7 and cts-runner-ok, the exact extension-detection JSON and both nested-star literal outputs with every ghost rejection, relative-cache identity and independently bound post-exit cleanup eligibility, no nearer boundary creation and the empty nearer boundary after its real first cache publication are retained. Four redundant native cache-path CLI queries are covered by actual cache-dispatch source units and the direct cache placement/marking source unit; the actual public cache transport stays in the compiler corpus. Original first,second rewritten bytes; worker:child-loaded-dependency; child:rescued-from-source; three worker:shared-built-once descendant outputs; actual child statuses; linked-run and the post-close physical index required by raw owner probes; the transferred eight conservative-versus-explicit legacy/malformed clean assertions in runtime-clean-flow.cjs, valid preload status/tag and invalid preload status/root/assignability/no-tag, included/excluded composite values and unchanged output paths, plus both dependency values and two fresh physical-root publications remain. Receipt boundaries occur exactly once; only the original single separator blank is removed, and order is free only among the three identical concurrent receipts. Original readonly default status/marker, excluded failure/path/remedy/no execution and included success/marker now reside in the selected Runtime, with native denied/restored writes and complete input-byte controls. Other unmigrated runtime connections remain disclosed here; legacy baseline execution is not a prerequisite for their replacement.
  */
 export async function test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles(
   includeLanguageProfiles = false,
@@ -94,11 +102,12 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     ),
   );
   linkTtscPackage(root);
+  const traceRoot = process.env.TTSC_E2E_TRACE || TestProject.tmpdir("ttsc-canonical-runtime-trace-");
   const failures: unknown[] = [];
   const completedHosts: ReturnType<typeof TestProject.spawn>[] = [];
   let launchInputsSettled = true;
   const retainInputs = (reason: string): void => {
-    for (const retained of [root])
+    for (const retained of [root, traceRoot])
       if (retained !== undefined)
         try {
           TestProject.retainTemporaryDirectory(retained, reason);
@@ -127,6 +136,7 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
       if (!launchInputsSettled) throw cause;
     }
   };
+  const launchProofs = new Map<ReturnType<typeof TestProject.spawn>, { writer: number; before: string[] }>();
   const launch = (
     entry: string,
     flags: string[] = [],
@@ -134,20 +144,27 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     env: NodeJS.ProcessEnv = {},
   ) => {
     let result: ReturnType<typeof TestProject.spawn>;
+    const before = readRuntimeTraceWriter(traceRoot, process.pid).map((row) => row.invocation);
+    const previousTrace = process.env.TTSC_E2E_TRACE;
+    process.env.TTSC_E2E_TRACE = traceRoot;
     try {
       result = TestProject.spawn(
         TestProject.TTSX_BIN,
         ["--cwd", root, ...flags, entry],
         {
           cwd,
-          env: { TTSC_CACHE_DIR: "", ...env },
+          env: { TTSC_CACHE_DIR: "", ...env, TTSC_E2E_TRACE: traceRoot },
         },
       );
     } catch (cause) {
       launchInputsSettled = false;
       retainInputs("canonical launcher threw before a completion receipt");
       throw cause;
+    } finally {
+      if (previousTrace === undefined) delete process.env.TTSC_E2E_TRACE;
+      else process.env.TTSC_E2E_TRACE = previousTrace;
     }
+    launchProofs.set(result, { writer: process.pid, before });
     recordHost(result);
     return result;
   };
@@ -238,6 +255,8 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
   });
   const driver = path.join(root, "driver");
   fs.mkdirSync(driver);
+  const dirnameSource = fs.readFileSync(path.join(root, "src/dirname.ts"));
+  const dirnameBefore = physicalRuns ? fs.readdirSync(physicalRuns) : undefined;
   const dirname = launch(
     "src/dirname.ts",
     [
@@ -279,7 +298,6 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
     );
     const projectCache = path.join(root, ".ttsx-cache", "project");
     assert.equal(fs.existsSync(projectCache), true);
-    assert.deepEqual(fs.readdirSync(projectCache), []);
     assert.equal(
       fs.existsSync(path.join(driver, ".ttsx-cache", "project")),
       false,
@@ -300,7 +318,18 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
   check("linked runtime index after host closure", () => {
     assert.equal(dirname.stdout.trim().split(/\r?\n/)[9], "linked-run");
     assert.ok(physicalRuns !== undefined, "linked setup must have succeeded");
-    verifyCanonicalLinkedRuntimeIndexClosed(physicalRuns);
+    assert.ok(dirnameBefore);
+    assert.equal(dirname.status, 0, dirname.stderr);
+    assert.equal(dirname.signal, null);
+    assert.equal(dirname.error, undefined);
+    const synchronous = launchProofs.get(dirname);
+    assert.ok(synchronous);
+    verifyRuntimeCleanup({ traceRoot, launcher: dirname.pid, synchronous,
+      argv: [process.execPath, TestProject.TTSX_BIN, "--cwd", root, "--cache-dir", ".ttsx-cache",
+        "--noEmit", "--emitDeclarationOnly", "--declaration", "src/dirname.ts"],
+      cwd: driver, cache: path.join(root, ".ttsx-cache"), entry: path.join(root, "src/dirname.ts"),
+      source: dirnameSource, before: dirnameBefore });
+    assert.equal(fs.realpathSync.native(path.join(root, ".ttsx-cache/project")), fs.realpathSync.native(physicalRuns));
   });
   check("native propagated child", () =>
     receipt(
@@ -472,6 +501,9 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
         expected,
       ),
     );
+    const nestedProject = path.join(expected, "ttsx", "project");
+    const nestedBefore = fs.existsSync(nestedProject) ? fs.readdirSync(nestedProject) : [];
+    const nestedSource = fs.readFileSync(path.join(root, "nested/main.ts"));
     const nestedRun = launch("nested/main.ts", [
       "--project",
       "nested/tsconfig.json",
@@ -488,10 +520,14 @@ export async function test_commonjs_runtime_corpus_preserves_source_ownership_ac
         resolveSourceBuildCachePaths(physicalNested, undefined, {}).root,
         expected,
       );
-      assert.deepEqual(
-        fs.readdirSync(path.join(expected, "ttsx", "project")),
-        [],
-      );
+      assert.equal(nestedRun.signal, null);
+      assert.equal(nestedRun.error, undefined);
+      const synchronous = launchProofs.get(nestedRun);
+      assert.ok(synchronous);
+      verifyRuntimeCleanup({ traceRoot, launcher: nestedRun.pid, synchronous,
+        argv: [process.execPath, TestProject.TTSX_BIN, "--cwd", root, "--project", "nested/tsconfig.json", "nested/main.ts"],
+        cwd: root, cache: path.join(expected, "ttsx"), entry: path.join(root, "nested/main.ts"),
+        source: nestedSource, before: nestedBefore });
       if (name === "outer installation")
         assert.equal(fs.existsSync(path.join(nested, "node_modules")), false);
     });

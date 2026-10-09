@@ -20,6 +20,7 @@ import {
   runsAsRoot,
 } from "../internal/ttsc/internal/read-only-directory";
 import { readE2eTracePayload } from "../internal/readE2eTracePayload";
+import { readRuntimeTraceWriter, verifyRuntimeCleanup } from "../internal/ttsc/internal/runtime-native-root-links";
 import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/project/test_owned_native_process_joins_cancelled_command_trees";
 
 /**
@@ -173,6 +174,12 @@ import { test_owned_native_process_joins_cancelled_command_trees } from "./ttsc/
  * only the installed store's independently expected default ttsc build cache;
  * all authored files and the remaining population still detect adjacent emit.
  *
+ *
+ * Normal CLI cleanup is checked separately from payload and API assertions.
+ * Its completed original invocation and raw owner probes require removal only
+ * after every owner is locally absent; a valid short-circuit preserves the
+ * independently attributed main generation and its actual owner/source bytes.
+ * Original EXIT/CLOSE records do not imply immediate numeric PID absence.
  *
  * @evidence contracts/testing.md#behavioral-verification Native static ESM linking must expose all six literal package-star bindings while default/require values and one-evaluation counters agree. Installed-boundary plugin effects must match the authored JSON oracle in both public runtime and retained register output; authored fixture bytes and the complete non-cache population remain unchanged; only the independently expected default plugin cache is omitted before traversal, and orphan maps identify all three authored sources by native physical paths. Opt-in compiler rewrite events retain the actual primitive attempt/return/throw with the existing identity and caller thread; these observations do not certify the OS lock owner. The real ttsx process must return status0 and exactly one full labeled payload with contract42, copied JSON42/retained and all661 native JSX string values. Configured discard.call and logger.trace("drop") would throw if the actual strip transform or custom rule were missing; the retained default-only log distinguishes the contrary root config. Both standard decorator modules additionally require their literal must-be-stripped console.warn to be absent from actual stderr while retaining the exact class/method effects. The original binding-only main.mjs and independent b/a modules also execute inside this same Node graph, requiring exactly one b,a stdout line and unchanged authored bytes.
  * @evidence contracts/testing.md#independent-expectations Authored require/import targets have distinct literal values, and consumerEffect versus ownEffect independently distinguishes isolated, consumer-owned and package-owned compilation. The static expected.json is authored before execution, never derived from emitted code or runtime results. The source's authored42/retained values and pre-print UTF-16 rows establish expectations, not the runtime's own output. Exact original input bytes establish nonmutation. Windows native environment-name identity requires the constructor's literal missing Go executable to reach one actual failed primitive, independently of its documented diagnostic envelope; POSIX distinct names require no attempt of that missing path while the three positive API operations retain their existing descriptor and output assertions.
@@ -349,6 +356,12 @@ export async function test_e2e_runtime_batch(): Promise<void> {
   let controllerRoot: string | undefined;
   let controllerAddress: Awaited<ReturnType<NonNullable<typeof controller>["listen"]>> | undefined;
   let runtimeTraceRoot: string | undefined;
+  const readWriter = (pid: number): Record<string, any>[] => {
+    assert.ok(runtimeTraceRoot);
+    return readRuntimeTraceWriter(runtimeTraceRoot, pid);
+  };
+  let mainTraceBefore = new Set<string>();
+  let mainRunsBefore: string[] = [];
   const automaticManifest = path.join(workspace.root, "packages/batch-auto-discovery/package.json");
   const automaticBytes = workspace.installationOnly ? undefined : fs.readFileSync(automaticManifest);
   const registeredLazyFile = path.join(workspace.root, "src/runtime-corpus/descendant-lazy.cts");
@@ -461,41 +474,56 @@ export async function test_e2e_runtime_batch(): Promise<void> {
         );
       }
     }
-    result = await TestProject.spawnAsync(
-      process.execPath,
-      [
-        workspace.installedTtsx,
-        ...selected,
-        workspace.installationOnly
-          ? "src/installation-runtime.ts"
-          : "src/runtime.mts",
-        ...(workspace.installationOnly
-          ? []
-          : ["--config", "x", "--port", "3", "--help"]),
-      ],
-      {
-        cwd: workspace.installationOnly ? workspace.root : callerDirectory,
-        env: {
-          TTSC_CACHE_DIR: workspace.cache,
-          TTSC_BINARY: undefined,
-          TTSC_TSGO_BINARY: undefined,
-          TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary,
-          TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY,
-          TTSC_E2E_PROCESS_TRACE_RUNTIME: E2eProcessTrace.runtimePath,
-          TTSC_E2E_RUNTIME_CLI_CACHE: runtimeCliCache,
-          TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx,
-          TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias,
-          TTSC_E2E_READONLY_ROOT: workspace.installationOnly
-            ? undefined
-            : readonlyRoot,
-          TTSC_E2E_READONLY_DENIED: readonlyActive ? "1" : undefined,
-          TTSC_E2E_TRACE: runtimeTraceRoot ?? process.env.TTSC_E2E_TRACE,
-          TTSC_E2E_DESCENDANT_ROOT: controllerAddress?.directory,
-          TTSC_E2E_DESCENDANT_NONCE: controllerAddress?.nonce,
-          TTSC_E2E_DESCENDANT_PORT: controllerAddress?.port.toString(),
+    if (!workspace.installationOnly) {
+      const mainIndex = path.join(runtimeCliCache, "project");
+      mainRunsBefore = fs.existsSync(mainIndex) ? fs.readdirSync(mainIndex) : [];
+      assert.deepEqual(mainRunsBefore, [], "the selected main cache must start without an earlier runtime generation");
+    }
+    const previousTrace = process.env.TTSC_E2E_TRACE;
+    if (runtimeTraceRoot) {
+      mainTraceBefore = new Set(readWriter(process.pid).map((row) => row.invocation));
+      process.env.TTSC_E2E_TRACE = runtimeTraceRoot;
+    }
+    try {
+      result = await TestProject.spawnAsync(
+        process.execPath,
+        [
+          workspace.installedTtsx,
+          ...selected,
+          workspace.installationOnly
+            ? "src/installation-runtime.ts"
+            : "src/runtime.mts",
+          ...(workspace.installationOnly
+            ? []
+            : ["--config", "x", "--port", "3", "--help"]),
+        ],
+        {
+          cwd: workspace.installationOnly ? workspace.root : callerDirectory,
+          env: {
+            TTSC_CACHE_DIR: workspace.cache,
+            TTSC_BINARY: undefined,
+            TTSC_TSGO_BINARY: undefined,
+            TTSC_E2E_SOURCE_PUBLICATION: workspace.sourcePublication?.binary,
+            TTSC_E2E_ORPHAN_COMPILER: TestProject.TSGO_BINARY,
+            TTSC_E2E_PROCESS_TRACE_RUNTIME: E2eProcessTrace.runtimePath,
+            TTSC_E2E_RUNTIME_CLI_CACHE: runtimeCliCache,
+            TTSC_E2E_INSTALLED_TTSX: workspace.installedTtsx,
+            TTSC_E2E_PROJECT_ALIAS: workspace.projectAlias,
+            TTSC_E2E_READONLY_ROOT: workspace.installationOnly
+              ? undefined
+              : readonlyRoot,
+            TTSC_E2E_READONLY_DENIED: readonlyActive ? "1" : undefined,
+            TTSC_E2E_TRACE: runtimeTraceRoot ?? process.env.TTSC_E2E_TRACE,
+            TTSC_E2E_DESCENDANT_ROOT: controllerAddress?.directory,
+            TTSC_E2E_DESCENDANT_NONCE: controllerAddress?.nonce,
+            TTSC_E2E_DESCENDANT_PORT: controllerAddress?.port.toString(),
+          },
         },
-      },
-    );
+      );
+    } finally {
+      if (previousTrace === undefined) delete process.env.TTSC_E2E_TRACE;
+      else process.env.TTSC_E2E_TRACE = previousTrace;
+    }
     mainJoined = result.error === undefined && (result.pid ?? 0) > 0 &&
       (result.status !== null || result.signal !== null);
     mainJoinedAt = new Date().toISOString();
@@ -657,6 +685,35 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       combinedFailures.push(error);
     }
   }
+  // Cleanup eligibility is independent of payload, API and reporting oracles.
+  if (!workspace.installationOnly) {
+    try {
+      assert.ok(result && mainJoined && runtimeTraceRoot);
+      assert.equal(result.status, 0, result.stderr);
+      const parentRows = readWriter(process.pid);
+      const starts = parentRows.filter((row) => row.event === "process-start" &&
+        row.pid === result!.pid && !mainTraceBefore.has(row.invocation));
+      assert.equal(starts.length, 1, "the original CLI must have one newly admitted launch");
+      const start = starts[0]!;
+      assert.deepEqual(start.argv, [process.execPath, workspace.installedTtsx, ...selected,
+        "src/runtime.mts", "--config", "x", "--port", "3", "--help"]);
+      assert.equal(start.cwd, callerDirectory);
+      const departures = parentRows.filter((row) =>
+        row.instance === start.instance && row.invocation === start.invocation &&
+        (row.event === "process-exit" || row.event === "process-close"));
+      assert.deepEqual(departures.map((row) => [row.event, row.pid, row.status, row.signal]),
+        [["process-exit", result.pid, 0, null], ["process-close", result.pid, 0, null]]);
+      assert.ok(start.sequence < departures[0]!.sequence && departures[0]!.sequence < departures[1]!.sequence);
+      const { mainEpochOwner } = JSON.parse(fs.readFileSync(
+        path.join(workspace.root, "tools/runtime-declared-observed.json"), "utf8"));
+      assert.ok(Number.isSafeInteger(mainEpochOwner) && mainEpochOwner > 0);
+      verifyRuntimeCleanup({
+        traceRoot: runtimeTraceRoot, launcher: result.pid, owner: mainEpochOwner,
+        argv: start.argv, cwd: callerDirectory, cache: runtimeCliCache,
+        entry: path.join(workspace.root, "src/runtime.mts"), source, before: mainRunsBefore,
+      });
+    } catch (error) { combinedFailures.push(new Error("main CLI cleanup eligibility", { cause: error })); }
+  }
   try {
     assert.ok(result);
     // Retention may deliberately keep renamed inputs. Preserve the original
@@ -702,10 +759,6 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       );
       assert.equal(fs.existsSync(path.join(runtimeCliCache, "plugins")), true);
       assert.equal(fs.existsSync(path.join(runtimeCliCache, "project")), true);
-      assert.deepEqual(
-        fs.readdirSync(path.join(runtimeCliCache, "project")),
-        [],
-      );
       fs.rmdirSync(callerDirectory);
       fs.rmdirSync(callerParent);
     }
@@ -900,35 +953,7 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       const allNativeReceipts = mainContextReceipts;
       // Original writers are joined before these bounded, identity-checked
       // reads. Only the selected writer PIDs are opened, never payload history.
-      const readWriter = (pid: number): Record<string, any>[] => {
-        assert.ok(Number.isSafeInteger(pid) && pid > 0);
-        const records: Record<string, any>[] = [];
-        for (const name of fs.readdirSync(runtimeTraceRoot!)) {
-          if (!name.startsWith(pid + "-") || !/^[0-9]+-[a-f0-9-]+\.jsonl$/.test(name)) continue;
-          const file = path.join(runtimeTraceRoot!, name);
-          const before = fs.lstatSync(file, { bigint: true });
-          assert.ok(before.isFile() && before.size <= BigInt(256 * 1024 * 1024));
-          const text = fs.readFileSync(file, "utf8");
-          const after = fs.lstatSync(file, { bigint: true });
-          assert.ok(after.isFile());
-          assert.deepEqual([after.dev, after.ino, after.size, after.mtimeNs, after.ctimeNs],
-            [before.dev, before.ino, before.size, before.mtimeNs, before.ctimeNs]);
-          assert.equal(Buffer.byteLength(text), Number(before.size));
-          assert.ok(text.endsWith("\n"), "joined writer must leave complete JSONL frames");
-          let sequence = 0;
-          for (const line of text.trimEnd().split(/\r?\n/)) {
-            const row = JSON.parse(line);
-            assert.equal(row.schema, 1);
-            assert.equal(row.writerPid, pid);
-            assert.equal(name, `${pid}-${row.instance}.jsonl`);
-            assert.ok(Number.isSafeInteger(row.sequence) && row.sequence > sequence);
-            sequence = row.sequence;
-            assert.notEqual(row.event, "integrity-failure");
-            records.push(row);
-          }
-        }
-        return records;
-      };
+
       try {
         const rows = readWriter(declarationObservation.mainEpochOwner);
         assert.ok(rows.length > 0, "the original main writer must retain its actual API observations");
@@ -1549,3 +1574,4 @@ export async function test_e2e_runtime_batch(): Promise<void> {
       "Runtime and native frontdoor boundaries failed",
     );
 }
+
